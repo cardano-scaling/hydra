@@ -1,0 +1,659 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Network.HeartbeatSpec</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Prelude</span></span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadSTM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">readTVarIO</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">modifyTVar'</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">newTVarIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IOSim</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">runSimOrThrow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Network</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Network</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">NetworkCallback</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">NetworkComponent</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">NodeId</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Network.Heartbeat</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Heartbeat</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">withHeartbeat</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Network.Message</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Connectivity</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Connected</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Disconnected</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="annot"><a href="Hydra.Network.HeartbeatSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-13"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><a href="Hydra.Network.HeartbeatSpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Spec -&gt; Spec
+forall a. SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">parallel</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679538676"><span class="annot"><span class="annottext">nodeId :: NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var hs-var">nodeId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; NodeId
+</span><span class="hs-identifier hs-var">NodeId</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;node_id-1&quot;</span></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span>      </span><span id="local-6989586621679538679"><span class="annot"><span class="annottext">otherNodeId :: NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var hs-var">otherNodeId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; NodeId
+</span><span class="hs-identifier hs-var">NodeId</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;node_id-2&quot;</span></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;sends a heartbeat message with local host after 500 ms&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679538681"><span class="annot"><span class="annottext">sentHeartbeats :: [Heartbeat ()]
+</span><a href="#local-6989586621679538681"><span class="hs-identifier hs-var hs-var">sentHeartbeats</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Heartbeat ()]) -&gt; [Heartbeat ()]
+forall a. (forall s. IOSim s a) -&gt; a
+</span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Heartbeat ()]) -&gt; [Heartbeat ()])
+-&gt; (forall s. IOSim s [Heartbeat ()]) -&gt; [Heartbeat ()]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-20"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679538695"><span class="annot"><span class="annottext">NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) ()
+</span><a href="#local-6989586621679538695"><span class="hs-identifier hs-var">capturingComponent</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679538696"><span class="annot"><span class="annottext">IOSim s [Heartbeat ()]
+</span><a href="#local-6989586621679538696"><span class="hs-identifier hs-var">getOutgoingMessages</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim
+  s
+  (NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) (),
+   IOSim s [Heartbeat ()])
+forall (m :: * -&gt; *).
+MonadSTM m =&gt;
+m (NetworkComponent m (Heartbeat ()) (Heartbeat ()) (),
+   m [Heartbeat ()])
+</span><a href="Hydra.Network.HeartbeatSpec.html#captureOutgoing"><span class="hs-identifier hs-var">captureOutgoing</span></a></span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span>          </span><span class="annot"><span class="annottext">NodeId
+-&gt; NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) ()
+-&gt; NetworkComponent (IOSim s) (Either Connectivity ()) () ()
+forall (m :: * -&gt; *) inbound outbound a.
+(MonadAsync m, MonadDelay m) =&gt;
+NodeId
+-&gt; NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a
+-&gt; NetworkComponent m (Either Connectivity inbound) outbound a
+</span><span class="hs-identifier hs-var">withHeartbeat</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) ()
+</span><a href="#local-6989586621679538695"><span class="hs-identifier hs-var">capturingComponent</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity ()) (IOSim s)
+forall (m :: * -&gt; *) b. Monad m =&gt; NetworkCallback b m
+</span><a href="Hydra.Network.HeartbeatSpec.html#noop"><span class="hs-identifier hs-var">noop</span></a></span><span> </span><span class="annot"><span class="annottext">((Network (IOSim s) () -&gt; IOSim s ()) -&gt; IOSim s ())
+-&gt; (Network (IOSim s) () -&gt; IOSim s ()) -&gt; IOSim s ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Network (IOSim s) ()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-23"></span><span>            </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">1.1</span></span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span>          </span><span class="annot"><span class="annottext">IOSim s [Heartbeat ()]
+</span><a href="#local-6989586621679538696"><span class="hs-identifier hs-var">getOutgoingMessages</span></a></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span>    </span><span class="annot"><span class="annottext">[Heartbeat ()]
+</span><a href="#local-6989586621679538681"><span class="hs-identifier hs-var">sentHeartbeats</span></a></span><span> </span><span class="annot"><span class="annottext">[Heartbeat ()] -&gt; [Heartbeat ()] -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">NodeId -&gt; Heartbeat ()
+forall msg. NodeId -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Ping</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;sends Connected when Ping received from other peer&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-30"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679538702"><span class="annot"><span class="annottext">receivedHeartbeats :: [Connectivity]
+</span><a href="#local-6989586621679538702"><span class="hs-identifier hs-var hs-var">receivedHeartbeats</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Connectivity]) -&gt; [Connectivity]
+forall a. (forall s. IOSim s a) -&gt; a
+</span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Connectivity]) -&gt; [Connectivity])
+-&gt; (forall s. IOSim s [Connectivity]) -&gt; [Connectivity]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-31"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679538711"><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity Any) (IOSim s)
+</span><a href="#local-6989586621679538711"><span class="hs-identifier hs-var">callback</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679538712"><span class="annot"><span class="annottext">IOSim s [Connectivity]
+</span><a href="#local-6989586621679538712"><span class="hs-identifier hs-var">getConnectivityEvents</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim
+  s
+  (NetworkCallback (Either Connectivity Any) (IOSim s),
+   IOSim s [Connectivity])
+forall (m :: * -&gt; *) a.
+MonadSTM m =&gt;
+m (NetworkCallback (Either Connectivity a) m, m [Connectivity])
+</span><a href="Hydra.Network.HeartbeatSpec.html#captureConnectivity"><span class="hs-identifier hs-var">captureConnectivity</span></a></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span>          </span><span class="annot"><span class="annottext">NodeId
+-&gt; NetworkComponent (IOSim s) (Heartbeat Any) (Heartbeat Any) ()
+-&gt; NetworkComponent (IOSim s) (Either Connectivity Any) Any ()
+forall (m :: * -&gt; *) inbound outbound a.
+(MonadAsync m, MonadDelay m) =&gt;
+NodeId
+-&gt; NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a
+-&gt; NetworkComponent m (Either Connectivity inbound) outbound a
+</span><span class="hs-identifier hs-var">withHeartbeat</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679538715"><span class="annot"><span class="annottext">Heartbeat Any -&gt; IOSim s ()
+deliver :: Heartbeat Any -&gt; IOSim s ()
+$sel:deliver:NetworkCallback :: forall msg (m :: * -&gt; *). NetworkCallback msg m -&gt; msg -&gt; m ()
+</span><a href="#local-6989586621679538715"><span class="hs-identifier hs-var hs-var">deliver</span></a></span></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">Network (IOSim s) (Heartbeat Any) -&gt; IOSim s ()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Heartbeat Any -&gt; IOSim s ()
+</span><a href="#local-6989586621679538715"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeId -&gt; Heartbeat Any
+forall msg. NodeId -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Ping</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity Any) (IOSim s)
+</span><a href="#local-6989586621679538711"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">((Network (IOSim s) Any -&gt; IOSim s ()) -&gt; IOSim s ())
+-&gt; (Network (IOSim s) Any -&gt; IOSim s ()) -&gt; IOSim s ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Network (IOSim s) Any
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-34"></span><span>            </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span>          </span><span class="annot"><span class="annottext">IOSim s [Connectivity]
+</span><a href="#local-6989586621679538712"><span class="hs-identifier hs-var">getConnectivityEvents</span></a></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><span class="annottext">[Connectivity]
+</span><a href="#local-6989586621679538702"><span class="hs-identifier hs-var">receivedHeartbeats</span></a></span><span> </span><span class="annot"><span class="annottext">[Connectivity] -&gt; [Connectivity] -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">NodeId -&gt; Connectivity
+</span><span class="hs-identifier hs-var">Connected</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;sends Connected when any message received from other party&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679538717"><span class="annot"><span class="annottext">receivedHeartbeats :: [Connectivity]
+</span><a href="#local-6989586621679538717"><span class="hs-identifier hs-var hs-var">receivedHeartbeats</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Connectivity]) -&gt; [Connectivity]
+forall a. (forall s. IOSim s a) -&gt; a
+</span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Connectivity]) -&gt; [Connectivity])
+-&gt; (forall s. IOSim s [Connectivity]) -&gt; [Connectivity]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-42"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679538725"><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity ()) (IOSim s)
+</span><a href="#local-6989586621679538725"><span class="hs-identifier hs-var">callback</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679538726"><span class="annot"><span class="annottext">IOSim s [Connectivity]
+</span><a href="#local-6989586621679538726"><span class="hs-identifier hs-var">getConnectivityEvents</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim
+  s
+  (NetworkCallback (Either Connectivity ()) (IOSim s),
+   IOSim s [Connectivity])
+forall (m :: * -&gt; *) a.
+MonadSTM m =&gt;
+m (NetworkCallback (Either Connectivity a) m, m [Connectivity])
+</span><a href="Hydra.Network.HeartbeatSpec.html#captureConnectivity"><span class="hs-identifier hs-var">captureConnectivity</span></a></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span>          </span><span class="annot"><span class="annottext">NodeId
+-&gt; NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat Any) ()
+-&gt; NetworkComponent (IOSim s) (Either Connectivity ()) Any ()
+forall (m :: * -&gt; *) inbound outbound a.
+(MonadAsync m, MonadDelay m) =&gt;
+NodeId
+-&gt; NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a
+-&gt; NetworkComponent m (Either Connectivity inbound) outbound a
+</span><span class="hs-identifier hs-var">withHeartbeat</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679538727"><span class="annot"><span class="annottext">Heartbeat () -&gt; IOSim s ()
+$sel:deliver:NetworkCallback :: forall msg (m :: * -&gt; *). NetworkCallback msg m -&gt; msg -&gt; m ()
+deliver :: Heartbeat () -&gt; IOSim s ()
+</span><span class="hs-identifier hs-var hs-var">deliver</span></span></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">Network (IOSim s) (Heartbeat Any) -&gt; IOSim s ()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Heartbeat () -&gt; IOSim s ()
+</span><a href="#local-6989586621679538727"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeId -&gt; () -&gt; Heartbeat ()
+forall msg. NodeId -&gt; msg -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Data</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity ()) (IOSim s)
+</span><a href="#local-6989586621679538725"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">((Network (IOSim s) Any -&gt; IOSim s ()) -&gt; IOSim s ())
+-&gt; (Network (IOSim s) Any -&gt; IOSim s ()) -&gt; IOSim s ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Network (IOSim s) Any
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-45"></span><span>            </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span>          </span><span class="annot"><span class="annottext">IOSim s [Connectivity]
+</span><a href="#local-6989586621679538726"><span class="hs-identifier hs-var">getConnectivityEvents</span></a></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span>    </span><span class="annot"><span class="annottext">[Connectivity]
+</span><a href="#local-6989586621679538717"><span class="hs-identifier hs-var">receivedHeartbeats</span></a></span><span> </span><span class="annot"><span class="annottext">[Connectivity] -&gt; [Connectivity] -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">NodeId -&gt; Connectivity
+</span><span class="hs-identifier hs-var">Connected</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;do not send Connected on subsequent messages from already Connected party&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679538729"><span class="annot"><span class="annottext">receivedHeartbeats :: [Connectivity]
+</span><a href="#local-6989586621679538729"><span class="hs-identifier hs-var hs-var">receivedHeartbeats</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Connectivity]) -&gt; [Connectivity]
+forall a. (forall s. IOSim s a) -&gt; a
+</span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Connectivity]) -&gt; [Connectivity])
+-&gt; (forall s. IOSim s [Connectivity]) -&gt; [Connectivity]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-53"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679538738"><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity ()) (IOSim s)
+</span><a href="#local-6989586621679538738"><span class="hs-identifier hs-var">callback</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679538739"><span class="annot"><span class="annottext">IOSim s [Connectivity]
+</span><a href="#local-6989586621679538739"><span class="hs-identifier hs-var">getConnectivityEvents</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim
+  s
+  (NetworkCallback (Either Connectivity ()) (IOSim s),
+   IOSim s [Connectivity])
+forall (m :: * -&gt; *) a.
+MonadSTM m =&gt;
+m (NetworkCallback (Either Connectivity a) m, m [Connectivity])
+</span><a href="Hydra.Network.HeartbeatSpec.html#captureConnectivity"><span class="hs-identifier hs-var">captureConnectivity</span></a></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span>          </span><span class="annot"><span class="annottext">NodeId
+-&gt; NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat Any) ()
+-&gt; NetworkComponent (IOSim s) (Either Connectivity ()) Any ()
+forall (m :: * -&gt; *) inbound outbound a.
+(MonadAsync m, MonadDelay m) =&gt;
+NodeId
+-&gt; NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a
+-&gt; NetworkComponent m (Either Connectivity inbound) outbound a
+</span><span class="hs-identifier hs-var">withHeartbeat</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679538740"><span class="annot"><span class="annottext">Heartbeat () -&gt; IOSim s ()
+$sel:deliver:NetworkCallback :: forall msg (m :: * -&gt; *). NetworkCallback msg m -&gt; msg -&gt; m ()
+deliver :: Heartbeat () -&gt; IOSim s ()
+</span><span class="hs-identifier hs-var hs-var">deliver</span></span></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">Network (IOSim s) (Heartbeat Any) -&gt; IOSim s ()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Heartbeat () -&gt; IOSim s ()
+</span><a href="#local-6989586621679538740"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeId -&gt; () -&gt; Heartbeat ()
+forall msg. NodeId -&gt; msg -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Data</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s () -&gt; IOSim s ()
+forall a b. IOSim s a -&gt; IOSim s b -&gt; IOSim s b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Heartbeat () -&gt; IOSim s ()
+</span><a href="#local-6989586621679538740"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeId -&gt; Heartbeat ()
+forall msg. NodeId -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Ping</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity ()) (IOSim s)
+</span><a href="#local-6989586621679538738"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">((Network (IOSim s) Any -&gt; IOSim s ()) -&gt; IOSim s ())
+-&gt; (Network (IOSim s) Any -&gt; IOSim s ()) -&gt; IOSim s ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Network (IOSim s) Any
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-56"></span><span>            </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span>          </span><span class="annot"><span class="annottext">IOSim s [Connectivity]
+</span><a href="#local-6989586621679538739"><span class="hs-identifier hs-var">getConnectivityEvents</span></a></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span>    </span><span class="annot"><span class="annottext">[Connectivity]
+</span><a href="#local-6989586621679538729"><span class="hs-identifier hs-var">receivedHeartbeats</span></a></span><span> </span><span class="annot"><span class="annottext">[Connectivity] -&gt; [Connectivity] -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">NodeId -&gt; Connectivity
+</span><span class="hs-identifier hs-var">Connected</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;sends Disconnected given no messages has been received from known party within twice heartbeat delay&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679538741"><span class="annot"><span class="annottext">receivedHeartbeats :: [Connectivity]
+</span><a href="#local-6989586621679538741"><span class="hs-identifier hs-var hs-var">receivedHeartbeats</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Connectivity]) -&gt; [Connectivity]
+forall a. (forall s. IOSim s a) -&gt; a
+</span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Connectivity]) -&gt; [Connectivity])
+-&gt; (forall s. IOSim s [Connectivity]) -&gt; [Connectivity]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-64"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679538753"><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity Any) (IOSim s)
+</span><a href="#local-6989586621679538753"><span class="hs-identifier hs-var">callback</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679538754"><span class="annot"><span class="annottext">IOSim s [Connectivity]
+</span><a href="#local-6989586621679538754"><span class="hs-identifier hs-var">getConnectivityEvents</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim
+  s
+  (NetworkCallback (Either Connectivity Any) (IOSim s),
+   IOSim s [Connectivity])
+forall (m :: * -&gt; *) a.
+MonadSTM m =&gt;
+m (NetworkCallback (Either Connectivity a) m, m [Connectivity])
+</span><a href="Hydra.Network.HeartbeatSpec.html#captureConnectivity"><span class="hs-identifier hs-var">captureConnectivity</span></a></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679538821"><span class="annot"><span class="annottext">component :: NetworkCallback (Heartbeat msg) m -&gt; (Network m msg -&gt; m a) -&gt; m ()
+</span><a href="#local-6989586621679538821"><span class="hs-identifier hs-var hs-var">component</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679538822"><span class="annot"><span class="annottext">Heartbeat msg -&gt; m ()
+$sel:deliver:NetworkCallback :: forall msg (m :: * -&gt; *). NetworkCallback msg m -&gt; msg -&gt; m ()
+deliver :: Heartbeat msg -&gt; m ()
+</span><span class="hs-identifier hs-var hs-var">deliver</span></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679538823"><span class="annot"><span class="annottext">Network m msg -&gt; m a
+</span><a href="#local-6989586621679538823"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-67"></span><span>                </span><span class="annot"><span class="annottext">m a -&gt; m () -&gt; m ()
+forall a b. m a -&gt; m b -&gt; m ()
+forall (m :: * -&gt; *) a b. MonadAsync m =&gt; m a -&gt; m b -&gt; m ()
+</span><span class="hs-identifier hs-var">race_</span></span><span>
+</span><span id="line-68"></span><span>                  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Network m msg -&gt; m a
+</span><a href="#local-6989586621679538823"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Network</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:broadcast:Network :: msg -&gt; m ()
+</span><span class="hs-identifier hs-var">broadcast</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m () -&gt; msg -&gt; m ()
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(m () -&gt; msg -&gt; m ()) -&gt; m () -&gt; msg -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">() -&gt; m ()
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">}</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>                  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Heartbeat msg -&gt; m ()
+</span><a href="#local-6989586621679538822"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeId -&gt; Heartbeat msg
+forall msg. NodeId -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Ping</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m () -&gt; m () -&gt; m ()
+forall a b. m a -&gt; m b -&gt; m b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">DiffTime -&gt; m ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">4</span></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m () -&gt; m ()
+forall a b. m a -&gt; m b -&gt; m b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Heartbeat msg -&gt; m ()
+</span><a href="#local-6989586621679538822"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeId -&gt; Heartbeat msg
+forall msg. NodeId -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Ping</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m () -&gt; m () -&gt; m ()
+forall a b. m a -&gt; m b -&gt; m b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">DiffTime -&gt; m ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">7</span></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span>          </span><span class="annot"><span class="annottext">NodeId
+-&gt; NetworkComponent (IOSim s) (Heartbeat Any) (Heartbeat Any) ()
+-&gt; NetworkComponent (IOSim s) (Either Connectivity Any) Any ()
+forall (m :: * -&gt; *) inbound outbound a.
+(MonadAsync m, MonadDelay m) =&gt;
+NodeId
+-&gt; NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a
+-&gt; NetworkComponent m (Either Connectivity inbound) outbound a
+</span><span class="hs-identifier hs-var">withHeartbeat</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkComponent (IOSim s) (Heartbeat Any) (Heartbeat Any) ()
+forall {m :: * -&gt; *} {m :: * -&gt; *} {msg} {msg} {a}.
+(MonadAsync m, MonadDelay m, Applicative m) =&gt;
+NetworkCallback (Heartbeat msg) m -&gt; (Network m msg -&gt; m a) -&gt; m ()
+</span><a href="#local-6989586621679538821"><span class="hs-identifier hs-var">component</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity Any) (IOSim s)
+</span><a href="#local-6989586621679538753"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">((Network (IOSim s) Any -&gt; IOSim s ()) -&gt; IOSim s ())
+-&gt; (Network (IOSim s) Any -&gt; IOSim s ()) -&gt; IOSim s ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Network (IOSim s) Any
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-72"></span><span>            </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">20</span></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span>          </span><span class="annot"><span class="annottext">IOSim s [Connectivity]
+</span><a href="#local-6989586621679538754"><span class="hs-identifier hs-var">getConnectivityEvents</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">[Connectivity]
+</span><a href="#local-6989586621679538741"><span class="hs-identifier hs-var">receivedHeartbeats</span></a></span><span> </span><span class="annot"><span class="annottext">[Connectivity] -&gt; [Connectivity] -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">NodeId -&gt; Connectivity
+</span><span class="hs-identifier hs-var">Disconnected</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NodeId -&gt; Connectivity
+</span><span class="hs-identifier hs-var">Connected</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538679"><span class="hs-identifier hs-var">otherNodeId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;stop sending heartbeat message given action sends a message&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679538828"><span class="annot"><span class="annottext">sentHeartbeats :: [Heartbeat ()]
+</span><a href="#local-6989586621679538828"><span class="hs-identifier hs-var hs-var">sentHeartbeats</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Heartbeat ()]) -&gt; [Heartbeat ()]
+forall a. (forall s. IOSim s a) -&gt; a
+</span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Heartbeat ()]) -&gt; [Heartbeat ()])
+-&gt; (forall s. IOSim s [Heartbeat ()]) -&gt; [Heartbeat ()]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-80"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679538841"><span class="annot"><span class="annottext">NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) ()
+</span><a href="#local-6989586621679538841"><span class="hs-identifier hs-var">capturingComponent</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679538842"><span class="annot"><span class="annottext">IOSim s [Heartbeat ()]
+</span><a href="#local-6989586621679538842"><span class="hs-identifier hs-var">getOutgoingMessages</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim
+  s
+  (NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) (),
+   IOSim s [Heartbeat ()])
+forall (m :: * -&gt; *).
+MonadSTM m =&gt;
+m (NetworkComponent m (Heartbeat ()) (Heartbeat ()) (),
+   m [Heartbeat ()])
+</span><a href="Hydra.Network.HeartbeatSpec.html#captureOutgoing"><span class="hs-identifier hs-var">captureOutgoing</span></a></span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span>          </span><span class="annot"><span class="annottext">NodeId
+-&gt; NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) ()
+-&gt; NetworkComponent (IOSim s) (Either Connectivity ()) () ()
+forall (m :: * -&gt; *) inbound outbound a.
+(MonadAsync m, MonadDelay m) =&gt;
+NodeId
+-&gt; NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a
+-&gt; NetworkComponent m (Either Connectivity inbound) outbound a
+</span><span class="hs-identifier hs-var">withHeartbeat</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) ()
+</span><a href="#local-6989586621679538841"><span class="hs-identifier hs-var">capturingComponent</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity ()) (IOSim s)
+forall (m :: * -&gt; *) b. Monad m =&gt; NetworkCallback b m
+</span><a href="Hydra.Network.HeartbeatSpec.html#noop"><span class="hs-identifier hs-var">noop</span></a></span><span> </span><span class="annot"><span class="annottext">((Network (IOSim s) () -&gt; IOSim s ()) -&gt; IOSim s ())
+-&gt; (Network (IOSim s) () -&gt; IOSim s ()) -&gt; IOSim s ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">Network</span></span><span class="hs-special">{</span><span id="local-6989586621679538843"><span class="annot"><span class="annottext">() -&gt; IOSim s ()
+$sel:broadcast:Network :: forall (m :: * -&gt; *) msg. Network m msg -&gt; msg -&gt; m ()
+broadcast :: () -&gt; IOSim s ()
+</span><span class="hs-identifier hs-var hs-var">broadcast</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-83"></span><span>            </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">0.6</span></span><span>
+</span><span id="line-84"></span><span>            </span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
+</span><a href="#local-6989586621679538843"><span class="hs-identifier hs-var">broadcast</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>            </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span>          </span><span class="annot"><span class="annottext">IOSim s [Heartbeat ()]
+</span><a href="#local-6989586621679538842"><span class="hs-identifier hs-var">getOutgoingMessages</span></a></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span>    </span><span class="annot"><span class="annottext">[Heartbeat ()]
+</span><a href="#local-6989586621679538828"><span class="hs-identifier hs-var">sentHeartbeats</span></a></span><span> </span><span class="annot"><span class="annottext">[Heartbeat ()] -&gt; [Heartbeat ()] -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">NodeId -&gt; () -&gt; Heartbeat ()
+forall msg. NodeId -&gt; msg -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Data</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NodeId -&gt; Heartbeat ()
+forall msg. NodeId -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Ping</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;restart sending heartbeat messages given last message sent is older than heartbeat delay&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679538844"><span class="annot"><span class="annottext">sentHeartbeats :: [Heartbeat ()]
+</span><a href="#local-6989586621679538844"><span class="hs-identifier hs-var hs-var">sentHeartbeats</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Heartbeat ()]) -&gt; [Heartbeat ()]
+forall a. (forall s. IOSim s a) -&gt; a
+</span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Heartbeat ()]) -&gt; [Heartbeat ()])
+-&gt; (forall s. IOSim s [Heartbeat ()]) -&gt; [Heartbeat ()]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-93"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679538857"><span class="annot"><span class="annottext">NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) ()
+</span><a href="#local-6989586621679538857"><span class="hs-identifier hs-var">capturingComponent</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679538858"><span class="annot"><span class="annottext">IOSim s [Heartbeat ()]
+</span><a href="#local-6989586621679538858"><span class="hs-identifier hs-var">getOutgoingMessages</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim
+  s
+  (NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) (),
+   IOSim s [Heartbeat ()])
+forall (m :: * -&gt; *).
+MonadSTM m =&gt;
+m (NetworkComponent m (Heartbeat ()) (Heartbeat ()) (),
+   m [Heartbeat ()])
+</span><a href="Hydra.Network.HeartbeatSpec.html#captureOutgoing"><span class="hs-identifier hs-var">captureOutgoing</span></a></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span>          </span><span class="annot"><span class="annottext">NodeId
+-&gt; NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) ()
+-&gt; NetworkComponent (IOSim s) (Either Connectivity ()) () ()
+forall (m :: * -&gt; *) inbound outbound a.
+(MonadAsync m, MonadDelay m) =&gt;
+NodeId
+-&gt; NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a
+-&gt; NetworkComponent m (Either Connectivity inbound) outbound a
+</span><span class="hs-identifier hs-var">withHeartbeat</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkComponent (IOSim s) (Heartbeat ()) (Heartbeat ()) ()
+</span><a href="#local-6989586621679538857"><span class="hs-identifier hs-var">capturingComponent</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkCallback (Either Connectivity ()) (IOSim s)
+forall (m :: * -&gt; *) b. Monad m =&gt; NetworkCallback b m
+</span><a href="Hydra.Network.HeartbeatSpec.html#noop"><span class="hs-identifier hs-var">noop</span></a></span><span> </span><span class="annot"><span class="annottext">((Network (IOSim s) () -&gt; IOSim s ()) -&gt; IOSim s ())
+-&gt; (Network (IOSim s) () -&gt; IOSim s ()) -&gt; IOSim s ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">Network</span></span><span class="hs-special">{</span><span id="local-6989586621679538859"><span class="annot"><span class="annottext">() -&gt; IOSim s ()
+$sel:broadcast:Network :: forall (m :: * -&gt; *) msg. Network m msg -&gt; msg -&gt; m ()
+broadcast :: () -&gt; IOSim s ()
+</span><span class="hs-identifier hs-var hs-var">broadcast</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-96"></span><span>            </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">0.6</span></span><span>
+</span><span id="line-97"></span><span>            </span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
+</span><a href="#local-6989586621679538859"><span class="hs-identifier hs-var">broadcast</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>            </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">3.6</span></span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span>          </span><span class="annot"><span class="annottext">IOSim s [Heartbeat ()]
+</span><a href="#local-6989586621679538858"><span class="hs-identifier hs-var">getOutgoingMessages</span></a></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span>    </span><span class="annot"><span class="annottext">[Heartbeat ()]
+</span><a href="#local-6989586621679538844"><span class="hs-identifier hs-var">sentHeartbeats</span></a></span><span> </span><span class="annot"><span class="annottext">[Heartbeat ()] -&gt; [Heartbeat ()] -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">NodeId -&gt; Heartbeat ()
+forall msg. NodeId -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Ping</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NodeId -&gt; () -&gt; Heartbeat ()
+forall msg. NodeId -&gt; msg -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Data</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NodeId -&gt; Heartbeat ()
+forall msg. NodeId -&gt; Heartbeat msg
+</span><span class="hs-identifier hs-var">Ping</span></span><span> </span><span class="annot"><span class="annottext">NodeId
+</span><a href="#local-6989586621679538676"><span class="hs-identifier hs-var">nodeId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span id="local-6989586621679538535"><span id="local-6989586621679538536"><span class="annot"><a href="Hydra.Network.HeartbeatSpec.html#noop"><span class="hs-identifier hs-type">noop</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679538535"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span> </span><span class="annot"><a href="#local-6989586621679538536"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679538535"><span class="hs-identifier hs-type">m</span></a></span></span></span><span>
+</span><span id="line-105"></span><span id="noop"><span class="annot"><span class="annottext">noop :: forall (m :: * -&gt; *) b. Monad m =&gt; NetworkCallback b m
+</span><a href="Hydra.Network.HeartbeatSpec.html#noop"><span class="hs-identifier hs-var hs-var">noop</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:deliver:NetworkCallback :: b -&gt; m ()
+</span><span class="hs-identifier hs-var">deliver</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m () -&gt; b -&gt; m ()
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(m () -&gt; b -&gt; m ()) -&gt; m () -&gt; b -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">() -&gt; m ()
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">}</span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span id="local-6989586621679538529"><span class="annot"><a href="Hydra.Network.HeartbeatSpec.html#captureOutgoing"><span class="hs-identifier hs-type">captureOutgoing</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679538529"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679538529"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">NetworkComponent</span></span><span> </span><span class="annot"><a href="#local-6989586621679538529"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Heartbeat</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Heartbeat</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679538529"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Heartbeat</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span></span><span>
+</span><span id="line-108"></span><span id="captureOutgoing"><span class="annot"><span class="annottext">captureOutgoing :: forall (m :: * -&gt; *).
+MonadSTM m =&gt;
+m (NetworkComponent m (Heartbeat ()) (Heartbeat ()) (),
+   m [Heartbeat ()])
+</span><a href="Hydra.Network.HeartbeatSpec.html#captureOutgoing"><span class="hs-identifier hs-var hs-var">captureOutgoing</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-109"></span><span>  </span><span id="local-6989586621679538871"><span class="annot"><span class="annottext">TVar m [Heartbeat ()]
+</span><a href="#local-6989586621679538871"><span class="hs-identifier hs-var">tv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Heartbeat ()] -&gt; m (TVar m [Heartbeat ()])
+forall a. a -&gt; m (TVar m a)
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; a -&gt; m (TVar m a)
+</span><span class="hs-identifier hs-var">newTVarIO</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-110"></span><span>  </span><span class="annot"><span class="annottext">(NetworkComponent m (Heartbeat ()) (Heartbeat ()) (),
+ m [Heartbeat ()])
+-&gt; m (NetworkComponent m (Heartbeat ()) (Heartbeat ()) (),
+      m [Heartbeat ()])
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">NetworkCallback (Heartbeat ()) m
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679538872"><span class="annot"><span class="annottext">Network m (Heartbeat ()) -&gt; m ()
+</span><a href="#local-6989586621679538872"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Network m (Heartbeat ()) -&gt; m ()
+</span><a href="#local-6989586621679538872"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Network</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:broadcast:Network :: Heartbeat () -&gt; m ()
+</span><span class="hs-identifier hs-var">broadcast</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TVar m [Heartbeat ()] -&gt; Heartbeat () -&gt; m ()
+forall {m :: * -&gt; *} {a}. MonadSTM m =&gt; TVar m [a] -&gt; a -&gt; m ()
+</span><a href="#local-6989586621679538873"><span class="hs-identifier hs-var">broadcast</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m [Heartbeat ()]
+</span><a href="#local-6989586621679538871"><span class="hs-identifier hs-var">tv</span></a></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TVar m [Heartbeat ()] -&gt; m [Heartbeat ()]
+forall a. TVar m a -&gt; m a
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
+</span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar m [Heartbeat ()]
+</span><a href="#local-6989586621679538871"><span class="hs-identifier hs-var">tv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-112"></span><span>  </span><span id="local-6989586621679538873"><span class="annot"><span class="annottext">broadcast :: TVar m [a] -&gt; a -&gt; m ()
+</span><a href="#local-6989586621679538873"><span class="hs-identifier hs-var hs-var">broadcast</span></a></span></span><span> </span><span id="local-6989586621679538891"><span class="annot"><span class="annottext">TVar m [a]
+</span><a href="#local-6989586621679538891"><span class="hs-identifier hs-var">tv</span></a></span></span><span> </span><span id="local-6989586621679538892"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679538892"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
+forall a. HasCallStack =&gt; STM m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM m () -&gt; m ()) -&gt; STM m () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m [a] -&gt; ([a] -&gt; [a]) -&gt; STM m ()
+forall a. TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
+forall (m :: * -&gt; *) a.
+MonadSTM m =&gt;
+TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
+</span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m [a]
+</span><a href="#local-6989586621679538891"><span class="hs-identifier hs-var">tv</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679538892"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-glyph">:</span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span id="local-6989586621679538542"><span id="local-6989586621679538543"><span class="annot"><a href="Hydra.Network.HeartbeatSpec.html#captureConnectivity"><span class="hs-identifier hs-type">captureConnectivity</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679538542"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679538542"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Connectivity</span></span><span> </span><span class="annot"><a href="#local-6989586621679538543"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679538542"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679538542"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Connectivity</span></span><span class="hs-special">]</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-116"></span><span id="captureConnectivity"><span class="annot"><span class="annottext">captureConnectivity :: forall (m :: * -&gt; *) a.
+MonadSTM m =&gt;
+m (NetworkCallback (Either Connectivity a) m, m [Connectivity])
+</span><a href="Hydra.Network.HeartbeatSpec.html#captureConnectivity"><span class="hs-identifier hs-var hs-var">captureConnectivity</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-117"></span><span>  </span><span id="local-6989586621679538902"><span class="annot"><span class="annottext">TVar m [Connectivity]
+</span><a href="#local-6989586621679538902"><span class="hs-identifier hs-var">tv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Connectivity] -&gt; m (TVar m [Connectivity])
+forall a. a -&gt; m (TVar m a)
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; a -&gt; m (TVar m a)
+</span><span class="hs-identifier hs-var">newTVarIO</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-118"></span><span>  </span><span class="annot"><span class="annottext">(NetworkCallback (Either Connectivity a) m, m [Connectivity])
+-&gt; m (NetworkCallback (Either Connectivity a) m, m [Connectivity])
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:deliver:NetworkCallback :: Either Connectivity a -&gt; m ()
+</span><span class="hs-identifier hs-var">deliver</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TVar m [Connectivity] -&gt; Either Connectivity a -&gt; m ()
+forall {m :: * -&gt; *} {a} {b}.
+MonadSTM m =&gt;
+TVar m [a] -&gt; Either a b -&gt; m ()
+</span><a href="#local-6989586621679538903"><span class="hs-identifier hs-var">record</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m [Connectivity]
+</span><a href="#local-6989586621679538902"><span class="hs-identifier hs-var">tv</span></a></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TVar m [Connectivity] -&gt; m [Connectivity]
+forall a. TVar m a -&gt; m a
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
+</span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar m [Connectivity]
+</span><a href="#local-6989586621679538902"><span class="hs-identifier hs-var">tv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-120"></span><span>  </span><span id="local-6989586621679538903"><span class="annot"><span class="annottext">record :: TVar m [a] -&gt; Either a b -&gt; m ()
+</span><a href="#local-6989586621679538903"><span class="hs-identifier hs-var hs-var">record</span></a></span></span><span> </span><span id="local-6989586621679538923"><span class="annot"><span class="annottext">TVar m [a]
+</span><a href="#local-6989586621679538923"><span class="hs-identifier hs-var">tv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679538924"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679538924"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
+forall a. HasCallStack =&gt; STM m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM m () -&gt; m ()) -&gt; STM m () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m [a] -&gt; ([a] -&gt; [a]) -&gt; STM m ()
+forall a. TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
+forall (m :: * -&gt; *) a.
+MonadSTM m =&gt;
+TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
+</span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m [a]
+</span><a href="#local-6989586621679538923"><span class="hs-identifier hs-var">tv</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679538924"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="hs-glyph">:</span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>    </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; m ()
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span></pre></body></html>

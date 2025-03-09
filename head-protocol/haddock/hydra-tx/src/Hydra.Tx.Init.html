@@ -1,0 +1,266 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.Init</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.Head</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Head</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadState</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Head</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadTokens</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HeadTokens</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.Initial</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Initial</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.MintAction</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MintAction</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html"><span class="hs-identifier">Hydra.Ledger.Cardano.Builder</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#addOutputs"><span class="hs-identifier">addOutputs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#addVkInputs"><span class="hs-identifier">addVkInputs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#emptyTxBody"><span class="hs-identifier">emptyTxBody</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#mintTokens"><span class="hs-identifier">mintTokens</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#unsafeBuildTransaction"><span class="hs-identifier">unsafeBuildTransaction</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html"><span class="hs-identifier">Hydra.Tx.ContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#toChain"><span class="hs-identifier">toChain</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html"><span class="hs-identifier">Hydra.Tx.HeadParameters</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier">HeadParameters</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.OnChainId.html"><span class="hs-identifier">Hydra.Tx.OnChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier">OnChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html"><span class="hs-identifier">Hydra.Tx.Party</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.Party.html#partyToChain"><span class="hs-identifier">partyToChain</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.Utils.html"><span class="hs-identifier">Hydra.Tx.Utils</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.Utils.html#hydraHeadV1AssetName"><span class="hs-identifier">hydraHeadV1AssetName</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.Utils.html#mkHydraHeadV1TxName"><span class="hs-identifier">mkHydraHeadV1TxName</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.Utils.html#onChainIdToAssetName"><span class="hs-identifier">onChainIdToAssetName</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- | Create the init transaction from some 'HeadParameters' and a single TxIn</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- which will be used as unique parameter for minting NFTs.</span><span>
+</span><span id="line-20"></span><span class="annot"><a href="Hydra.Tx.Init.html#initTx"><span class="hs-identifier hs-type">initTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Seed input.</span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Verification key hashes of all participants.</span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-type">OnChainId</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-28"></span><span id="initTx"><span class="annot"><span class="annottext">initTx :: NetworkId -&gt; TxIn -&gt; [OnChainId] -&gt; HeadParameters -&gt; Tx
+</span><a href="Hydra.Tx.Init.html#initTx"><span class="hs-identifier hs-var hs-var">initTx</span></a></span></span><span> </span><span id="local-6989586621679417338"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679417338"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679417339"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679417339"><span class="hs-identifier hs-var">seedTxIn</span></a></span></span><span> </span><span id="local-6989586621679417340"><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="#local-6989586621679417340"><span class="hs-identifier hs-var">participants</span></a></span></span><span> </span><span id="local-6989586621679417341"><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621679417341"><span class="hs-identifier hs-var">parameters</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="annottext">HasCallStack =&gt; TxBodyContent BuildTx -&gt; Tx
+TxBodyContent BuildTx -&gt; Tx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#unsafeBuildTransaction"><span class="hs-identifier hs-var">unsafeBuildTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">(TxBodyContent BuildTx -&gt; Tx) -&gt; TxBodyContent BuildTx -&gt; Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#emptyTxBody"><span class="hs-identifier hs-var">emptyTxBody</span></a></span><span>
+</span><span id="line-31"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addVkInputs"><span class="hs-identifier hs-var">addVkInputs</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679417339"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-32"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addOutputs"><span class="hs-identifier hs-var">addOutputs</span></a></span><span>
+</span><span id="line-33"></span><span>        </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; TxIn -&gt; HeadParameters -&gt; TxOut CtxTx
+</span><a href="Hydra.Tx.Init.html#mkHeadOutputInitial"><span class="hs-identifier hs-var">mkHeadOutputInitial</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679417338"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679417339"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621679417341"><span class="hs-identifier hs-var">parameters</span></a></span><span>
+</span><span id="line-34"></span><span>            </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; [TxOut CtxTx] -&gt; [TxOut CtxTx]
+forall a. a -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">(OnChainId -&gt; TxOut CtxTx) -&gt; [OnChainId] -&gt; [TxOut CtxTx]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NetworkId -&gt; TxIn -&gt; OnChainId -&gt; TxOut CtxTx
+</span><a href="Hydra.Tx.Init.html#mkInitialOutput"><span class="hs-identifier hs-var">mkInitialOutput</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679417338"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679417339"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="#local-6989586621679417340"><span class="hs-identifier hs-var">participants</span></a></span><span>
+</span><span id="line-35"></span><span>        </span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+-&gt; MintAction
+-&gt; [(AssetName, Quantity)]
+-&gt; TxBodyContent BuildTx
+-&gt; TxBodyContent BuildTx
+forall redeemer.
+ToScriptData redeemer =&gt;
+PlutusScript
+-&gt; redeemer
+-&gt; [(AssetName, Quantity)]
+-&gt; TxBodyContent BuildTx
+-&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#mintTokens"><span class="hs-identifier hs-var">mintTokens</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; PlutusScript
+</span><span class="hs-identifier hs-var">HeadTokens.mkHeadTokenScript</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679417339"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">MintAction
+</span><span class="hs-identifier hs-var">Mint</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">AssetName
+</span><a href="Hydra.Tx.Utils.html#hydraHeadV1AssetName"><span class="hs-identifier hs-var">hydraHeadV1AssetName</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(AssetName, Quantity)
+-&gt; [(AssetName, Quantity)] -&gt; [(AssetName, Quantity)]
+forall a. a -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[(AssetName, Quantity)]
+</span><a href="#local-6989586621679417347"><span class="hs-identifier hs-var">participationTokens</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">TxMetadataInEra Era
+-&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+forall era build.
+TxMetadataInEra era
+-&gt; TxBodyContent build era -&gt; TxBodyContent build era
+</span><span class="hs-identifier hs-var">setTxMetadata</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxMetadata -&gt; TxMetadataInEra Era
+</span><span class="hs-identifier hs-var">TxMetadataInEra</span></span><span> </span><span class="annot"><span class="annottext">(TxMetadata -&gt; TxMetadataInEra Era)
+-&gt; TxMetadata -&gt; TxMetadataInEra Era
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; TxMetadata
+</span><a href="Hydra.Tx.Utils.html#mkHydraHeadV1TxName"><span class="hs-identifier hs-var">mkHydraHeadV1TxName</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;InitTx&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-39"></span><span>  </span><span id="local-6989586621679417347"><span class="annot"><span class="annottext">participationTokens :: [(AssetName, Quantity)]
+</span><a href="#local-6989586621679417347"><span class="hs-identifier hs-var hs-var">participationTokens</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-40"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">OnChainId -&gt; AssetName
+</span><a href="Hydra.Tx.Utils.html#onChainIdToAssetName"><span class="hs-identifier hs-var">onChainIdToAssetName</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainId
+</span><a href="#local-6989586621679417350"><span class="hs-identifier hs-var">oid</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679417350"><span class="annot"><span class="annottext">OnChainId
+</span><a href="#local-6989586621679417350"><span class="hs-identifier hs-var">oid</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="#local-6989586621679417340"><span class="hs-identifier hs-var">participants</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span id="local-6989586621679417279"><span class="annot"><a href="Hydra.Tx.Init.html#mkHeadOutput"><span class="hs-identifier hs-type">mkHeadOutput</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutDatum</span></span><span> </span><span class="annot"><a href="#local-6989586621679417279"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><a href="#local-6989586621679417279"><span class="hs-identifier hs-type">ctx</span></a></span></span><span>
+</span><span id="line-43"></span><span id="mkHeadOutput"><span class="annot"><span class="annottext">mkHeadOutput :: forall ctx. NetworkId -&gt; PolicyId -&gt; TxOutDatum ctx -&gt; TxOut ctx
+</span><a href="Hydra.Tx.Init.html#mkHeadOutput"><span class="hs-identifier hs-var hs-var">mkHeadOutput</span></a></span></span><span> </span><span id="local-6989586621679417355"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679417355"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679417356"><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679417356"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span></span><span> </span><span id="local-6989586621679417357"><span class="annot"><span class="annottext">TxOutDatum ctx
+</span><a href="#local-6989586621679417357"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><span class="annottext">AddressInEra
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+forall ctx.
+AddressInEra
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+</span><span class="hs-identifier hs-var">TxOut</span></span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall lang era.
+(IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
+NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkScriptAddress</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">PlutusScriptV2</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679417355"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+forall {lang}. PlutusScript lang
+</span><a href="#local-6989586621679417360"><span class="hs-identifier hs-var">headScript</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(AssetId, Quantity)] -&gt; Value
+</span><span class="hs-identifier hs-var">valueFromList</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; AssetName -&gt; AssetId
+</span><span class="hs-identifier hs-var">AssetId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679417356"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span><span> </span><span class="annot"><span class="annottext">AssetName
+</span><a href="Hydra.Tx.Utils.html#hydraHeadV1AssetName"><span class="hs-identifier hs-var">hydraHeadV1AssetName</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>    </span><span class="annot"><span class="annottext">TxOutDatum ctx
+</span><a href="#local-6989586621679417357"><span class="hs-identifier hs-var">datum</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">ReferenceScript
+</span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
+</span><span id="line-49"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-50"></span><span>  </span><span id="local-6989586621679417360"><span class="annot"><span class="annottext">headScript :: PlutusScript lang
+</span><a href="#local-6989586621679417360"><span class="hs-identifier hs-var hs-var">headScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SerialisedScript -&gt; PlutusScript lang
+forall lang. SerialisedScript -&gt; PlutusScript lang
+</span><span class="hs-identifier hs-var">fromPlutusScript</span></span><span> </span><span class="annot"><span class="annottext">SerialisedScript
+</span><span class="hs-identifier hs-var">Head.validatorScript</span></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="annot"><a href="Hydra.Tx.Init.html#mkHeadOutputInitial"><span class="hs-identifier hs-type">mkHeadOutputInitial</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span>
+</span><span id="line-53"></span><span id="mkHeadOutputInitial"><span class="annot"><span class="annottext">mkHeadOutputInitial :: NetworkId -&gt; TxIn -&gt; HeadParameters -&gt; TxOut CtxTx
+</span><a href="Hydra.Tx.Init.html#mkHeadOutputInitial"><span class="hs-identifier hs-var hs-var">mkHeadOutputInitial</span></a></span></span><span> </span><span id="local-6989586621679417366"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679417366"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679417367"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679417367"><span class="hs-identifier hs-var">seedTxIn</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span><span class="hs-special">{</span><span id="local-6989586621679417368"><span class="annot"><span class="annottext">ContestationPeriod
+contestationPeriod :: ContestationPeriod
+$sel:contestationPeriod:HeadParameters :: HeadParameters -&gt; ContestationPeriod
+</span><a href="#local-6989586621679417368"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679417370"><span class="annot"><span class="annottext">[Party]
+parties :: [Party]
+$sel:parties:HeadParameters :: HeadParameters -&gt; [Party]
+</span><a href="#local-6989586621679417370"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-54"></span><span>  </span><span class="annot"><span class="annottext">NetworkId -&gt; PolicyId -&gt; TxOutDatum CtxTx -&gt; TxOut CtxTx
+forall ctx. NetworkId -&gt; PolicyId -&gt; TxOutDatum ctx -&gt; TxOut ctx
+</span><a href="Hydra.Tx.Init.html#mkHeadOutput"><span class="hs-identifier hs-var">mkHeadOutput</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679417366"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679417372"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
+</span><a href="#local-6989586621679417373"><span class="hs-identifier hs-var">headDatum</span></a></span><span>
+</span><span id="line-55"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-56"></span><span>  </span><span id="local-6989586621679417372"><span class="annot"><span class="annottext">tokenPolicyId :: PolicyId
+</span><a href="#local-6989586621679417372"><span class="hs-identifier hs-var hs-var">tokenPolicyId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; PolicyId
+</span><span class="hs-identifier hs-var">HeadTokens.headPolicyId</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679417367"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span>
+</span><span id="line-57"></span><span>  </span><span id="local-6989586621679417373"><span class="annot"><span class="annottext">headDatum :: TxOutDatum CtxTx
+</span><a href="#local-6989586621679417373"><span class="hs-identifier hs-var hs-var">headDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-58"></span><span>    </span><span class="annot"><span class="annottext">State -&gt; TxOutDatum CtxTx
+forall era a ctx.
+(ToScriptData a, IsBabbageBasedEra era) =&gt;
+a -&gt; TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">mkTxOutDatumInline</span></span><span> </span><span class="annot"><span class="annottext">(State -&gt; TxOutDatum CtxTx) -&gt; State -&gt; TxOutDatum CtxTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-59"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Head.Initial</span></span><span>
+</span><span id="line-60"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:contestationPeriod:Initial :: ContestationPeriod
+</span><span class="hs-identifier hs-var">contestationPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#toChain"><span class="hs-identifier hs-var">toChain</span></a></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679417368"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span>
+</span><span id="line-61"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:parties:Initial :: [Party]
+</span><span class="hs-identifier hs-var">parties</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Party -&gt; Party) -&gt; [Party] -&gt; [Party]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party
+</span><a href="Hydra.Tx.Party.html#partyToChain"><span class="hs-identifier hs-var">partyToChain</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679417370"><span class="hs-identifier hs-var">parties</span></a></span><span>
+</span><span id="line-62"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headId:Initial :: CurrencySymbol
+</span><span class="hs-identifier hs-var">headId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; CurrencySymbol
+</span><span class="hs-identifier hs-var">toPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679417372"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span><span>
+</span><span id="line-63"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:seed:Initial :: TxOutRef
+</span><span class="hs-identifier hs-var">seed</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; TxOutRef
+</span><span class="hs-identifier hs-var">toPlutusTxOutRef</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679417367"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span>
+</span><span id="line-64"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="annot"><a href="Hydra.Tx.Init.html#mkInitialOutput"><span class="hs-identifier hs-type">mkInitialOutput</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-type">OnChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span>
+</span><span id="line-67"></span><span id="mkInitialOutput"><span class="annot"><span class="annottext">mkInitialOutput :: NetworkId -&gt; TxIn -&gt; OnChainId -&gt; TxOut CtxTx
+</span><a href="Hydra.Tx.Init.html#mkInitialOutput"><span class="hs-identifier hs-var hs-var">mkInitialOutput</span></a></span></span><span> </span><span id="local-6989586621679417383"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679417383"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679417384"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679417384"><span class="hs-identifier hs-var">seedTxIn</span></a></span></span><span> </span><span id="local-6989586621679417385"><span class="annot"><span class="annottext">OnChainId
+</span><a href="#local-6989586621679417385"><span class="hs-identifier hs-var">participant</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><span class="annottext">AddressInEra
+-&gt; Value -&gt; TxOutDatum CtxTx -&gt; ReferenceScript -&gt; TxOut CtxTx
+forall ctx.
+AddressInEra
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+</span><span class="hs-identifier hs-var">TxOut</span></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679417386"><span class="hs-identifier hs-var">initialAddress</span></a></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679417387"><span class="hs-identifier hs-var">initialValue</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
+</span><a href="#local-6989586621679417388"><span class="hs-identifier hs-var">initialDatum</span></a></span><span> </span><span class="annot"><span class="annottext">ReferenceScript
+</span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
+</span><span id="line-69"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-70"></span><span>  </span><span id="local-6989586621679417389"><span class="annot"><span class="annottext">tokenPolicyId :: PolicyId
+</span><a href="#local-6989586621679417389"><span class="hs-identifier hs-var hs-var">tokenPolicyId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; PolicyId
+</span><span class="hs-identifier hs-var">HeadTokens.headPolicyId</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679417384"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span>
+</span><span id="line-71"></span><span>  </span><span id="local-6989586621679417387"><span class="annot"><span class="annottext">initialValue :: Value
+</span><a href="#local-6989586621679417387"><span class="hs-identifier hs-var hs-var">initialValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-72"></span><span>    </span><span class="annot"><span class="annottext">[(AssetId, Quantity)] -&gt; Value
+</span><span class="hs-identifier hs-var">valueFromList</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; AssetName -&gt; AssetId
+</span><span class="hs-identifier hs-var">AssetId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679417389"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">OnChainId -&gt; AssetName
+</span><a href="Hydra.Tx.Utils.html#onChainIdToAssetName"><span class="hs-identifier hs-var">onChainIdToAssetName</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainId
+</span><a href="#local-6989586621679417385"><span class="hs-identifier hs-var">participant</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679417386"><span class="annot"><span class="annottext">initialAddress :: AddressInEra
+</span><a href="#local-6989586621679417386"><span class="hs-identifier hs-var hs-var">initialAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-74"></span><span>    </span><span class="annot"><span class="annottext">forall lang era.
+(IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
+NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkScriptAddress</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">PlutusScriptV2</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679417383"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+forall {lang}. PlutusScript lang
+</span><a href="#local-6989586621679417390"><span class="hs-identifier hs-var">initialScript</span></a></span><span>
+</span><span id="line-75"></span><span>  </span><span id="local-6989586621679417390"><span class="annot"><span class="annottext">initialScript :: PlutusScript lang
+</span><a href="#local-6989586621679417390"><span class="hs-identifier hs-var hs-var">initialScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">SerialisedScript -&gt; PlutusScript lang
+forall lang. SerialisedScript -&gt; PlutusScript lang
+</span><span class="hs-identifier hs-var">fromPlutusScript</span></span><span> </span><span class="annot"><span class="annottext">SerialisedScript
+</span><span class="hs-identifier hs-var">Initial.validatorScript</span></span><span>
+</span><span id="line-77"></span><span>  </span><span id="local-6989586621679417388"><span class="annot"><span class="annottext">initialDatum :: TxOutDatum CtxTx
+</span><a href="#local-6989586621679417388"><span class="hs-identifier hs-var hs-var">initialDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><span class="annottext">Datum -&gt; TxOutDatum CtxTx
+forall era a ctx.
+(ToScriptData a, IsBabbageBasedEra era) =&gt;
+a -&gt; TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">mkTxOutDatumInline</span></span><span> </span><span class="annot"><span class="annottext">(Datum -&gt; TxOutDatum CtxTx) -&gt; Datum -&gt; TxOutDatum CtxTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; Datum
+</span><span class="hs-identifier hs-var">Initial.datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; CurrencySymbol
+</span><span class="hs-identifier hs-var">toPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679417389"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span></pre></body></html>

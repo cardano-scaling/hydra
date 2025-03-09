@@ -1,0 +1,338 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | A file-based event source and sink using JSON encoding.</span><span>
+</span><span id="line-2"></span><span class="hs-comment">--</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- This serves as an example of how to create an 'EventSource' and 'EventSink'.</span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Events.FileBased</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">newTVarIO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">writeTVar</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.ChainState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsChainState</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Events.html"><span class="hs-identifier">Hydra.Events</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.html#EventSink"><span class="hs-identifier">EventSink</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSource"><span class="hs-identifier">EventSource</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Events.html#StateEvent"><span class="hs-identifier">StateEvent</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html"><span class="hs-identifier">Hydra.HeadLogic.Outcome</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier">StateChanged</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Persistence.html"><span class="hs-identifier">Hydra.Persistence</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Persistence.html#PersistenceIncremental"><span class="hs-identifier">PersistenceIncremental</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- | A basic file based event source and sink defined using an</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- 'PersistenceIncremental' handle.</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- The complexity in this implementation mostly stems from the fact that we want</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- to be backward-compatible with the old, plain format of storing</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- 'StateChanged' items directly to disk using 'PersistenceIncremental'.</span><span>
+</span><span id="line-20"></span><span class="hs-comment">--</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- If any 'Legacy StateChanged' items are discovered, a running index is used</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- for the 'eventId', while the 'New StateEvent' values are just stored as is.</span><span>
+</span><span id="line-23"></span><span class="hs-comment">--</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- A new implementation for an 'EventSource' with a compatible 'EventSink' could</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- be defined more generically with constraints:</span><span>
+</span><span id="line-26"></span><span class="hs-comment">--</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- (ToJSON e, FromJSON e, HasEventId) e =&gt; (EventSource e m, EventSink e m)</span><span>
+</span><span id="line-28"></span><span id="local-6989586621680224226"><span id="local-6989586621680224228"><span class="annot"><a href="Hydra.Events.FileBased.html#eventPairFromPersistenceIncremental"><span class="hs-identifier hs-type">eventPairFromPersistenceIncremental</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621680224226"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621680224228"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><a href="Hydra.Persistence.html#PersistenceIncremental"><span class="hs-identifier hs-type">PersistenceIncremental</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.FileBased.html#PersistedStateChange"><span class="hs-identifier hs-type">PersistedStateChange</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680224226"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621680224228"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><a href="#local-6989586621680224228"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.html#EventSource"><span class="hs-identifier hs-type">EventSource</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.html#StateEvent"><span class="hs-identifier hs-type">StateEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680224226"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621680224228"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSink"><span class="hs-identifier hs-type">EventSink</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.html#StateEvent"><span class="hs-identifier hs-type">StateEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680224226"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621680224228"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-32"></span><span id="eventPairFromPersistenceIncremental"><span class="annot"><span class="annottext">eventPairFromPersistenceIncremental :: forall tx (m :: * -&gt; *).
+(IsChainState tx, MonadSTM m) =&gt;
+PersistenceIncremental (PersistedStateChange tx) m
+-&gt; m (EventSource (StateEvent tx) m, EventSink (StateEvent tx) m)
+</span><a href="Hydra.Events.FileBased.html#eventPairFromPersistenceIncremental"><span class="hs-identifier hs-var hs-var">eventPairFromPersistenceIncremental</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Persistence.html#PersistenceIncremental"><span class="hs-identifier hs-type">PersistenceIncremental</span></a></span><span class="hs-special">{</span><span id="local-6989586621680224376"><span class="annot"><span class="annottext">ToJSON (PersistedStateChange tx) =&gt; PersistedStateChange tx -&gt; m ()
+append :: ToJSON (PersistedStateChange tx) =&gt; PersistedStateChange tx -&gt; m ()
+$sel:append:PersistenceIncremental :: forall a (m :: * -&gt; *).
+PersistenceIncremental a m -&gt; ToJSON a =&gt; a -&gt; m ()
+</span><a href="#local-6989586621680224376"><span class="hs-identifier hs-var hs-var">append</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680224378"><span class="annot"><span class="annottext">FromJSON (PersistedStateChange tx) =&gt; m [PersistedStateChange tx]
+loadAll :: FromJSON (PersistedStateChange tx) =&gt; m [PersistedStateChange tx]
+$sel:loadAll:PersistenceIncremental :: forall a (m :: * -&gt; *).
+PersistenceIncremental a m -&gt; FromJSON a =&gt; m [a]
+</span><a href="#local-6989586621680224378"><span class="hs-identifier hs-var hs-var">loadAll</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-33"></span><span>  </span><span id="local-6989586621680224380"><span class="annot"><span class="annottext">TVar m (Maybe EventId)
+</span><a href="#local-6989586621680224380"><span class="hs-identifier hs-var">eventIdV</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Maybe EventId -&gt; m (TVar m (Maybe EventId))
+forall a. a -&gt; m (TVar m a)
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; a -&gt; m (TVar m a)
+</span><span class="hs-identifier hs-var">newTVarIO</span></span><span> </span><span class="annot"><span class="annottext">Maybe EventId
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-keyword">let</span><span>
+</span><span id="line-35"></span><span>    </span><span id="local-6989586621680224381"><span class="annot"><span class="annottext">getLastSeenEventId :: STM m (Maybe EventId)
+</span><a href="#local-6989586621680224381"><span class="hs-identifier hs-var hs-var">getLastSeenEventId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TVar m (Maybe EventId) -&gt; STM m (Maybe EventId)
+forall a. TVar m a -&gt; STM m a
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
+</span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m (Maybe EventId)
+</span><a href="#local-6989586621680224380"><span class="hs-identifier hs-var">eventIdV</span></a></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span>    </span><span id="local-6989586621680224383"><span class="annot"><span class="annottext">setLastSeenEventId :: StateEvent tx -&gt; STM m ()
+</span><a href="#local-6989586621680224383"><span class="hs-identifier hs-var hs-var">setLastSeenEventId</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Events.html#StateEvent"><span class="hs-identifier hs-type">StateEvent</span></a></span><span class="hs-special">{</span><span id="local-6989586621680224385"><span class="annot"><span class="annottext">EventId
+eventId :: forall tx. StateEvent tx -&gt; EventId
+eventId :: EventId
+</span><a href="Hydra.Events.html#eventId"><span class="hs-identifier hs-var hs-var">eventId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-38"></span><span>      </span><span class="annot"><span class="annottext">TVar m (Maybe EventId) -&gt; Maybe EventId -&gt; STM m ()
+forall a. TVar m a -&gt; a -&gt; STM m ()
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; a -&gt; STM m ()
+</span><span class="hs-identifier hs-var">writeTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m (Maybe EventId)
+</span><a href="#local-6989586621680224380"><span class="hs-identifier hs-var">eventIdV</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">EventId -&gt; Maybe EventId
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">EventId
+</span><a href="#local-6989586621680224385"><span class="hs-identifier hs-var">eventId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span>    </span><span id="local-6989586621680224386"><span class="annot"><span class="annottext">getNextEventId :: STM m EventId
+</span><a href="#local-6989586621680224386"><span class="hs-identifier hs-var hs-var">getNextEventId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-41"></span><span>      </span><span class="annot"><span class="annottext">EventId -&gt; (EventId -&gt; EventId) -&gt; Maybe EventId -&gt; EventId
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="annot"><span class="annottext">EventId
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">EventId -&gt; EventId -&gt; EventId
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">EventId
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Maybe EventId -&gt; EventId)
+-&gt; STM m (Maybe EventId) -&gt; STM m EventId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m (Maybe EventId) -&gt; STM m (Maybe EventId)
+forall a. TVar m a -&gt; STM m a
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
+</span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m (Maybe EventId)
+</span><a href="#local-6989586621680224380"><span class="hs-identifier hs-var">eventIdV</span></a></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-comment">-- Keep track of the last seen event id when loading</span><span>
+</span><span id="line-44"></span><span>    </span><span id="local-6989586621680224390"><span class="annot"><span class="annottext">getEvents :: m [StateEvent tx]
+</span><a href="#local-6989586621680224390"><span class="hs-identifier hs-var hs-var">getEvents</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-45"></span><span>      </span><span id="local-6989586621680224391"><span class="annot"><span class="annottext">[PersistedStateChange tx]
+</span><a href="#local-6989586621680224391"><span class="hs-identifier hs-var">items</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m [PersistedStateChange tx]
+FromJSON (PersistedStateChange tx) =&gt; m [PersistedStateChange tx]
+</span><a href="#local-6989586621680224378"><span class="hs-identifier hs-var">loadAll</span></a></span><span>
+</span><span id="line-46"></span><span>      </span><span class="annot"><span class="annottext">STM m [StateEvent tx] -&gt; m [StateEvent tx]
+forall a. HasCallStack =&gt; STM m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM m [StateEvent tx] -&gt; m [StateEvent tx])
+-&gt; ((PersistedStateChange tx -&gt; STM m (StateEvent tx))
+    -&gt; STM m [StateEvent tx])
+-&gt; (PersistedStateChange tx -&gt; STM m (StateEvent tx))
+-&gt; m [StateEvent tx]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">[PersistedStateChange tx]
+-&gt; (PersistedStateChange tx -&gt; STM m (StateEvent tx))
+-&gt; STM m [StateEvent tx]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Traversable.html#forM"><span class="hs-identifier hs-var">forM</span></a></span><span> </span><span class="annot"><span class="annottext">[PersistedStateChange tx]
+</span><a href="#local-6989586621680224391"><span class="hs-identifier hs-var">items</span></a></span><span> </span><span class="annot"><span class="annottext">((PersistedStateChange tx -&gt; STM m (StateEvent tx))
+ -&gt; m [StateEvent tx])
+-&gt; (PersistedStateChange tx -&gt; STM m (StateEvent tx))
+-&gt; m [StateEvent tx]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680224395"><span class="annot"><span class="annottext">PersistedStateChange tx
+</span><a href="#local-6989586621680224395"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-47"></span><span>        </span><span id="local-6989586621680224396"><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224396"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PersistedStateChange tx
+</span><a href="#local-6989586621680224395"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-48"></span><span>          </span><span class="annot"><a href="Hydra.Events.FileBased.html#New"><span class="hs-identifier hs-type">New</span></a></span><span> </span><span id="local-6989586621680224398"><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224398"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">StateEvent tx -&gt; STM m (StateEvent tx)
+forall a. a -&gt; STM m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224398"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-49"></span><span>          </span><span class="annot"><a href="Hydra.Events.FileBased.html#Legacy"><span class="hs-identifier hs-type">Legacy</span></a></span><span> </span><span id="local-6989586621680224400"><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621680224400"><span class="hs-identifier hs-var">sc</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-50"></span><span>            </span><span id="local-6989586621680224401"><span class="annot"><span class="annottext">EventId
+</span><a href="#local-6989586621680224401"><span class="hs-identifier hs-var">eventId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM m EventId
+</span><a href="#local-6989586621680224386"><span class="hs-identifier hs-var">getNextEventId</span></a></span><span>
+</span><span id="line-51"></span><span>            </span><span class="annot"><span class="annottext">StateEvent tx -&gt; STM m (StateEvent tx)
+forall a. a -&gt; STM m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(StateEvent tx -&gt; STM m (StateEvent tx))
+-&gt; StateEvent tx -&gt; STM m (StateEvent tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">EventId -&gt; StateChanged tx -&gt; StateEvent tx
+forall tx. EventId -&gt; StateChanged tx -&gt; StateEvent tx
+</span><a href="Hydra.Events.html#StateEvent"><span class="hs-identifier hs-var">StateEvent</span></a></span><span> </span><span class="annot"><span class="annottext">EventId
+</span><a href="#local-6989586621680224401"><span class="hs-identifier hs-var">eventId</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621680224400"><span class="hs-identifier hs-var">sc</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span>        </span><span class="annot"><span class="annottext">StateEvent tx -&gt; STM m ()
+</span><a href="#local-6989586621680224383"><span class="hs-identifier hs-var">setLastSeenEventId</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224396"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><span id="line-54"></span><span>        </span><span class="annot"><span class="annottext">StateEvent tx -&gt; STM m (StateEvent tx)
+forall a. a -&gt; STM m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224396"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-comment">-- Filter events that are already stored</span><span>
+</span><span id="line-57"></span><span>    </span><span id="local-6989586621680224402"><span class="annot"><span class="annottext">putEvent :: StateEvent tx -&gt; m ()
+</span><a href="#local-6989586621680224402"><span class="hs-identifier hs-var hs-var">putEvent</span></a></span></span><span> </span><span id="local-6989586621680224403"><span class="annot"><span class="annottext">e :: StateEvent tx
+</span><a href="#local-6989586621680224403"><span class="hs-identifier hs-var">e</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Events.html#StateEvent"><span class="hs-identifier hs-type">StateEvent</span></a></span><span class="hs-special">{</span><span id="local-6989586621680224404"><span class="annot"><span class="annottext">EventId
+eventId :: forall tx. StateEvent tx -&gt; EventId
+eventId :: EventId
+</span><a href="Hydra.Events.html#eventId"><span class="hs-identifier hs-var hs-var">eventId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-58"></span><span>      </span><span class="annot"><span class="annottext">STM m (Maybe EventId) -&gt; m (Maybe EventId)
+forall a. HasCallStack =&gt; STM m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">STM m (Maybe EventId)
+</span><a href="#local-6989586621680224381"><span class="hs-identifier hs-var">getLastSeenEventId</span></a></span><span> </span><span class="annot"><span class="annottext">m (Maybe EventId) -&gt; (Maybe EventId -&gt; m ()) -&gt; m ()
+forall a b. m a -&gt; (a -&gt; m b) -&gt; m b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-59"></span><span>        </span><span class="annot"><span class="annottext">Maybe EventId
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">StateEvent tx -&gt; m ()
+</span><a href="#local-6989586621680224405"><span class="hs-identifier hs-var">store</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224403"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-60"></span><span>        </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680224406"><span class="annot"><span class="annottext">EventId
+</span><a href="#local-6989586621680224406"><span class="hs-identifier hs-var">lastSeenEventId</span></a></span></span><span>
+</span><span id="line-61"></span><span>          </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">EventId
+</span><a href="#local-6989586621680224404"><span class="hs-identifier hs-var">eventId</span></a></span><span> </span><span class="annot"><span class="annottext">EventId -&gt; EventId -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">EventId
+</span><a href="#local-6989586621680224406"><span class="hs-identifier hs-var">lastSeenEventId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">StateEvent tx -&gt; m ()
+</span><a href="#local-6989586621680224405"><span class="hs-identifier hs-var">store</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224403"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-62"></span><span>          </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; m ()
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span>    </span><span id="local-6989586621680224405"><span class="annot"><span class="annottext">store :: StateEvent tx -&gt; m ()
+</span><a href="#local-6989586621680224405"><span class="hs-identifier hs-var hs-var">store</span></a></span></span><span> </span><span id="local-6989586621680224408"><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224408"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-65"></span><span>      </span><span class="annot"><span class="annottext">ToJSON (PersistedStateChange tx) =&gt; PersistedStateChange tx -&gt; m ()
+PersistedStateChange tx -&gt; m ()
+</span><a href="#local-6989586621680224376"><span class="hs-identifier hs-var">append</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">StateEvent tx -&gt; PersistedStateChange tx
+forall tx. StateEvent tx -&gt; PersistedStateChange tx
+</span><a href="Hydra.Events.FileBased.html#New"><span class="hs-identifier hs-var">New</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224408"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>      </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
+forall a. HasCallStack =&gt; STM m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM m () -&gt; m ()) -&gt; STM m () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent tx -&gt; STM m ()
+</span><a href="#local-6989586621680224383"><span class="hs-identifier hs-var">setLastSeenEventId</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224408"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><span class="annottext">(EventSource (StateEvent tx) m, EventSink (StateEvent tx) m)
+-&gt; m (EventSource (StateEvent tx) m, EventSink (StateEvent tx) m)
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.html#EventSource"><span class="hs-identifier hs-type">EventSource</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">m [StateEvent tx]
+HasEventId (StateEvent tx) =&gt; m [StateEvent tx]
+getEvents :: m [StateEvent tx]
+$sel:getEvents:EventSource :: HasEventId (StateEvent tx) =&gt; m [StateEvent tx]
+</span><a href="#local-6989586621680224390"><span class="hs-identifier hs-var hs-var">getEvents</span></a></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSink"><span class="hs-identifier hs-type">EventSink</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">StateEvent tx -&gt; m ()
+HasEventId (StateEvent tx) =&gt; StateEvent tx -&gt; m ()
+putEvent :: StateEvent tx -&gt; m ()
+$sel:putEvent:EventSink :: HasEventId (StateEvent tx) =&gt; StateEvent tx -&gt; m ()
+</span><a href="#local-6989586621680224402"><span class="hs-identifier hs-var hs-var">putEvent</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- | Internal data type used by 'createJSONFileEventSourceAndSink' to be</span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- compatible with plain usage of 'PersistenceIncrementa' using plain</span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- 'StateChanged' items to the new 'StateEvent' persisted items.</span><span>
+</span><span id="line-73"></span><span class="hs-keyword">data</span><span> </span><span id="PersistedStateChange"><span class="annot"><a href="Hydra.Events.FileBased.html#PersistedStateChange"><span class="hs-identifier hs-var">PersistedStateChange</span></a></span></span><span> </span><span id="local-6989586621680224280"><span class="annot"><a href="#local-6989586621680224280"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-74"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Legacy"><span class="annot"><a href="Hydra.Events.FileBased.html#Legacy"><span class="hs-identifier hs-var">Legacy</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680224280"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="New"><span class="annot"><a href="Hydra.Events.FileBased.html#New"><span class="hs-identifier hs-var">New</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.html#StateEvent"><span class="hs-identifier hs-type">StateEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680224280"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680224414"><span id="local-6989586621680224416"><span class="annot"><span class="annottext">(forall x.
+ PersistedStateChange tx -&gt; Rep (PersistedStateChange tx) x)
+-&gt; (forall x.
+    Rep (PersistedStateChange tx) x -&gt; PersistedStateChange tx)
+-&gt; Generic (PersistedStateChange tx)
+forall x.
+Rep (PersistedStateChange tx) x -&gt; PersistedStateChange tx
+forall x.
+PersistedStateChange tx -&gt; Rep (PersistedStateChange tx) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall tx x.
+Rep (PersistedStateChange tx) x -&gt; PersistedStateChange tx
+forall tx x.
+PersistedStateChange tx -&gt; Rep (PersistedStateChange tx) x
+$cfrom :: forall tx x.
+PersistedStateChange tx -&gt; Rep (PersistedStateChange tx) x
+from :: forall x.
+PersistedStateChange tx -&gt; Rep (PersistedStateChange tx) x
+$cto :: forall tx x.
+Rep (PersistedStateChange tx) x -&gt; PersistedStateChange tx
+to :: forall x.
+Rep (PersistedStateChange tx) x -&gt; PersistedStateChange tx
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680224421"><span id="local-6989586621680224433"><span id="local-6989586621680224437"><span class="annot"><span class="annottext">Int -&gt; PersistedStateChange tx -&gt; ShowS
+[PersistedStateChange tx] -&gt; ShowS
+PersistedStateChange tx -&gt; String
+(Int -&gt; PersistedStateChange tx -&gt; ShowS)
+-&gt; (PersistedStateChange tx -&gt; String)
+-&gt; ([PersistedStateChange tx] -&gt; ShowS)
+-&gt; Show (PersistedStateChange tx)
+forall tx.
+IsChainState tx =&gt;
+Int -&gt; PersistedStateChange tx -&gt; ShowS
+forall tx. IsChainState tx =&gt; [PersistedStateChange tx] -&gt; ShowS
+forall tx. IsChainState tx =&gt; PersistedStateChange tx -&gt; String
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: forall tx.
+IsChainState tx =&gt;
+Int -&gt; PersistedStateChange tx -&gt; ShowS
+showsPrec :: Int -&gt; PersistedStateChange tx -&gt; ShowS
+$cshow :: forall tx. IsChainState tx =&gt; PersistedStateChange tx -&gt; String
+show :: PersistedStateChange tx -&gt; String
+$cshowList :: forall tx. IsChainState tx =&gt; [PersistedStateChange tx] -&gt; ShowS
+showList :: [PersistedStateChange tx] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680224445"><span id="local-6989586621680224454"><span class="annot"><span class="annottext">PersistedStateChange tx -&gt; PersistedStateChange tx -&gt; Bool
+(PersistedStateChange tx -&gt; PersistedStateChange tx -&gt; Bool)
+-&gt; (PersistedStateChange tx -&gt; PersistedStateChange tx -&gt; Bool)
+-&gt; Eq (PersistedStateChange tx)
+forall tx.
+IsChainState tx =&gt;
+PersistedStateChange tx -&gt; PersistedStateChange tx -&gt; Bool
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: forall tx.
+IsChainState tx =&gt;
+PersistedStateChange tx -&gt; PersistedStateChange tx -&gt; Bool
+== :: PersistedStateChange tx -&gt; PersistedStateChange tx -&gt; Bool
+$c/= :: forall tx.
+IsChainState tx =&gt;
+PersistedStateChange tx -&gt; PersistedStateChange tx -&gt; Bool
+/= :: PersistedStateChange tx -&gt; PersistedStateChange tx -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680224246"><span id="local-6989586621680224463"><span id="local-6989586621680224466"><span id="local-6989586621680224469"><span id="local-6989586621680224472"><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621680224246"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.FileBased.html#PersistedStateChange"><span class="hs-identifier hs-type">PersistedStateChange</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680224246"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621680224482"><span class="annot"><span class="annottext">toJSON :: PersistedStateChange tx -&gt; Value
+</span><a href="#local-6989586621680224482"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-80"></span><span>    </span><span class="annot"><a href="Hydra.Events.FileBased.html#Legacy"><span class="hs-identifier hs-type">Legacy</span></a></span><span> </span><span id="local-6989586621680224484"><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621680224484"><span class="hs-identifier hs-var">sc</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Value
+forall a. ToJSON a =&gt; a -&gt; Value
+</span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621680224484"><span class="hs-identifier hs-var">sc</span></a></span><span>
+</span><span id="line-81"></span><span>    </span><span class="annot"><a href="Hydra.Events.FileBased.html#New"><span class="hs-identifier hs-type">New</span></a></span><span> </span><span id="local-6989586621680224485"><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224485"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">StateEvent tx -&gt; Value
+forall a. ToJSON a =&gt; a -&gt; Value
+</span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">StateEvent tx
+</span><a href="#local-6989586621680224485"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680224245"><span id="local-6989586621680224489"><span id="local-6989586621680224492"><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621680224245"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.FileBased.html#PersistedStateChange"><span class="hs-identifier hs-type">PersistedStateChange</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680224245"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-84"></span><span>  </span><span id="local-6989586621680224509"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser (PersistedStateChange tx)
+</span><a href="#local-6989586621680224509"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span id="local-6989586621680224511"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621680224511"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-85"></span><span>    </span><span class="annot"><span class="annottext">StateEvent tx -&gt; PersistedStateChange tx
+forall tx. StateEvent tx -&gt; PersistedStateChange tx
+</span><a href="Hydra.Events.FileBased.html#New"><span class="hs-identifier hs-var">New</span></a></span><span> </span><span class="annot"><span class="annottext">(StateEvent tx -&gt; PersistedStateChange tx)
+-&gt; Parser (StateEvent tx) -&gt; Parser (PersistedStateChange tx)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Parser (StateEvent tx)
+forall a. FromJSON a =&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621680224511"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-86"></span><span>      </span><span class="annot"><span class="annottext">Parser (PersistedStateChange tx)
+-&gt; Parser (PersistedStateChange tx)
+-&gt; Parser (PersistedStateChange tx)
+forall a. Parser a -&gt; Parser a -&gt; Parser a
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%7C%3E"><span class="hs-operator hs-var">&lt;|&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx -&gt; PersistedStateChange tx
+forall tx. StateChanged tx -&gt; PersistedStateChange tx
+</span><a href="Hydra.Events.FileBased.html#Legacy"><span class="hs-identifier hs-var">Legacy</span></a></span><span> </span><span class="annot"><span class="annottext">(StateChanged tx -&gt; PersistedStateChange tx)
+-&gt; Parser (StateChanged tx) -&gt; Parser (PersistedStateChange tx)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Parser (StateChanged tx)
+forall a. FromJSON a =&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621680224511"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-87"></span></pre></body></html>

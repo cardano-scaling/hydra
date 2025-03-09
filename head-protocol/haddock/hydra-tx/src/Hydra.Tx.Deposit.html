@@ -1,0 +1,148 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.Deposit</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.Commit</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Commit</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.Deposit</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Deposit</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html"><span class="hs-identifier">Hydra.Ledger.Cardano.Builder</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#addInputs"><span class="hs-identifier">addInputs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#addOutputs"><span class="hs-identifier">addOutputs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#emptyTxBody"><span class="hs-identifier">emptyTxBody</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#unsafeBuildTransaction"><span class="hs-identifier">unsafeBuildTransaction</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Plutus.Extras.Time</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">posixFromUTCTime</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.html"><span class="hs-identifier">Hydra.Tx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier">HeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#headIdToCurrencySymbol"><span class="hs-identifier">headIdToCurrencySymbol</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="annot"><span class="hs-comment">-- | Builds a deposit transaction to lock funds into the v_deposit script.</span></span><span>
+</span><span id="line-19"></span><span class="annot"><a href="Hydra.Tx.Deposit.html#depositTx"><span class="hs-identifier hs-type">depositTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-comment">-- | UTxO to deposit</span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Deposit deadline</span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-27"></span><span id="depositTx"><span class="annot"><span class="annottext">depositTx :: NetworkId -&gt; HeadId -&gt; UTxO -&gt; UTCTime -&gt; Tx
+</span><a href="Hydra.Tx.Deposit.html#depositTx"><span class="hs-identifier hs-var hs-var">depositTx</span></a></span></span><span> </span><span id="local-6989586621679416882"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679416882"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679416883"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621679416883"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621679416884"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679416884"><span class="hs-identifier hs-var">depositUTxO</span></a></span></span><span> </span><span id="local-6989586621679416885"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679416885"><span class="hs-identifier hs-var">deadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="annottext">HasCallStack =&gt; TxBodyContent BuildTx -&gt; Tx
+TxBodyContent BuildTx -&gt; Tx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#unsafeBuildTransaction"><span class="hs-identifier hs-var">unsafeBuildTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">(TxBodyContent BuildTx -&gt; Tx) -&gt; TxBodyContent BuildTx -&gt; Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-29"></span><span>    </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#emptyTxBody"><span class="hs-identifier hs-var">emptyTxBody</span></a></span><span>
+</span><span id="line-30"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">TxIns BuildTx -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addInputs"><span class="hs-identifier hs-var">addInputs</span></a></span><span> </span><span class="annot"><span class="annottext">TxIns BuildTx
+</span><a href="#local-6989586621679416887"><span class="hs-identifier hs-var">depositInputs</span></a></span><span>
+</span><span id="line-31"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addOutputs"><span class="hs-identifier hs-var">addOutputs</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621679416888"><span class="hs-identifier hs-var">depositOutput</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-32"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-33"></span><span>  </span><span id="local-6989586621679416889"><span class="annot"><span class="annottext">depositInputsList :: [TxIn]
+</span><a href="#local-6989586621679416889"><span class="hs-identifier hs-var hs-var">depositInputsList</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set TxIn -&gt; [TxIn]
+forall a. Set a -&gt; [a]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Foldable.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO -&gt; Set TxIn
+forall out. UTxO' out -&gt; Set TxIn
+</span><span class="hs-identifier hs-var">UTxO.inputSet</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679416884"><span class="hs-identifier hs-var">depositUTxO</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span>  </span><span id="local-6989586621679416887"><span class="annot"><span class="annottext">depositInputs :: TxIns BuildTx
+</span><a href="#local-6989586621679416887"><span class="hs-identifier hs-var hs-var">depositInputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-special">,</span><span class="annot"><span class="annottext">Witness WitCtxTxIn -&gt; BuildTxWith BuildTx (Witness WitCtxTxIn)
+forall a. a -&gt; BuildTxWith BuildTx a
+</span><span class="hs-identifier hs-var">BuildTxWith</span></span><span> </span><span class="annot"><span class="annottext">(Witness WitCtxTxIn -&gt; BuildTxWith BuildTx (Witness WitCtxTxIn))
+-&gt; Witness WitCtxTxIn -&gt; BuildTxWith BuildTx (Witness WitCtxTxIn)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">KeyWitnessInCtx WitCtxTxIn -&gt; Witness WitCtxTxIn
+forall ctx. KeyWitnessInCtx ctx -&gt; Witness ctx
+</span><span class="hs-identifier hs-var">KeyWitness</span></span><span> </span><span class="annot"><span class="annottext">KeyWitnessInCtx WitCtxTxIn
+</span><span class="hs-identifier hs-var">KeyWitnessForSpending</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn)))
+-&gt; [TxIn] -&gt; TxIns BuildTx
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679416889"><span class="hs-identifier hs-var">depositInputsList</span></a></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span>  </span><span id="local-6989586621679416896"><span class="annot"><span class="annottext">depositValue :: Value
+</span><a href="#local-6989586621679416896"><span class="hs-identifier hs-var hs-var">depositValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO -&gt; Value) -&gt; UTxO -&gt; Value
+forall m a. Monoid m =&gt; (a -&gt; m) -&gt; UTxO' a -&gt; m
+forall (t :: * -&gt; *) m a.
+(Foldable t, Monoid m) =&gt;
+(a -&gt; m) -&gt; t a -&gt; m
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Foldable.html#foldMap"><span class="hs-identifier hs-var">foldMap</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO -&gt; Value
+forall ctx. TxOut ctx -&gt; Value
+</span><span class="hs-identifier hs-var">txOutValue</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679416884"><span class="hs-identifier hs-var">depositUTxO</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span>  </span><span id="local-6989586621679416899"><span class="annot"><span class="annottext">depositScript :: PlutusScript PlutusScriptV2
+</span><a href="#local-6989586621679416899"><span class="hs-identifier hs-var hs-var">depositScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall lang. SerialisedScript -&gt; PlutusScript lang
+</span><span class="hs-identifier hs-var">fromPlutusScript</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">PlutusScriptV2</span></span><span> </span><span class="annot"><span class="annottext">SerialisedScript
+</span><span class="hs-identifier hs-var">Deposit.validatorScript</span></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span>  </span><span id="local-6989586621679416902"><span class="annot"><span class="annottext">deposits :: [Commit]
+</span><a href="#local-6989586621679416902"><span class="hs-identifier hs-var hs-var">deposits</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((TxIn, TxOut CtxUTxO) -&gt; Maybe Commit)
+-&gt; [(TxIn, TxOut CtxUTxO)] -&gt; [Commit]
+forall a b. (a -&gt; Maybe b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html#mapMaybe"><span class="hs-identifier hs-var">mapMaybe</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO) -&gt; Maybe Commit
+</span><span class="hs-identifier hs-var">Commit.serializeCommit</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO)] -&gt; [Commit])
+-&gt; [(TxIn, TxOut CtxUTxO)] -&gt; [Commit]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; [(TxIn, TxOut CtxUTxO)]
+forall out. UTxO' out -&gt; [(TxIn, out)]
+</span><span class="hs-identifier hs-var">UTxO.pairs</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679416884"><span class="hs-identifier hs-var">depositUTxO</span></a></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span>  </span><span id="local-6989586621679416906"><span class="annot"><span class="annottext">depositPlutusDatum :: Datum
+</span><a href="#local-6989586621679416906"><span class="hs-identifier hs-var hs-var">depositPlutusDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositDatum -&gt; Datum
+</span><span class="hs-identifier hs-var">Deposit.datum</span></span><span> </span><span class="annot"><span class="annottext">(DepositDatum -&gt; Datum) -&gt; DepositDatum -&gt; Datum
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(CurrencySymbol, POSIXTime, [Commit]) -&gt; DepositDatum
+</span><span class="hs-identifier hs-var">Deposit.DepositDatum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadId -&gt; CurrencySymbol
+</span><a href="Hydra.Tx.HeadId.html#headIdToCurrencySymbol"><span class="hs-identifier hs-var">headIdToCurrencySymbol</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621679416883"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; POSIXTime
+</span><span class="hs-identifier hs-var">posixFromUTCTime</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679416885"><span class="hs-identifier hs-var">deadline</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Commit]
+</span><a href="#local-6989586621679416902"><span class="hs-identifier hs-var">deposits</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span>  </span><span id="local-6989586621679416909"><span class="annot"><span class="annottext">depositDatum :: TxOutDatum CtxTx Era
+</span><a href="#local-6989586621679416909"><span class="hs-identifier hs-var hs-var">depositDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Datum -&gt; TxOutDatum CtxTx Era
+forall era a ctx.
+(ToScriptData a, IsBabbageBasedEra era) =&gt;
+a -&gt; TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">mkTxOutDatumInline</span></span><span> </span><span class="annot"><span class="annottext">Datum
+</span><a href="#local-6989586621679416906"><span class="hs-identifier hs-var">depositPlutusDatum</span></a></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span>  </span><span id="local-6989586621679416888"><span class="annot"><span class="annottext">depositOutput :: TxOut CtxTx
+</span><a href="#local-6989586621679416888"><span class="hs-identifier hs-var hs-var">depositOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">AddressInEra
+-&gt; Value -&gt; TxOutDatum CtxTx Era -&gt; ReferenceScript -&gt; TxOut CtxTx
+forall ctx.
+AddressInEra
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+</span><span class="hs-identifier hs-var">TxOut</span></span><span>
+</span><span id="line-49"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall lang era.
+(IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
+NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkScriptAddress</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">PlutusScriptV2</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679416882"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV2
+</span><a href="#local-6989586621679416899"><span class="hs-identifier hs-var">depositScript</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>      </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679416896"><span class="hs-identifier hs-var">depositValue</span></a></span><span>
+</span><span id="line-51"></span><span>      </span><span class="annot"><span class="annottext">TxOutDatum CtxTx Era
+</span><a href="#local-6989586621679416909"><span class="hs-identifier hs-var">depositDatum</span></a></span><span>
+</span><span id="line-52"></span><span>      </span><span class="annot"><span class="annottext">ReferenceScript
+</span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
+</span><span id="line-53"></span></pre></body></html>

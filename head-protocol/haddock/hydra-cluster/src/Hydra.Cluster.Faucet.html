@@ -1,0 +1,946 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cluster.Faucet</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Prelude</span></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="CardanoClient.html"><span class="hs-identifier">CardanoClient</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><span class="hs-identifier">QueryPoint</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">QueryTip</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier">RunningNode</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><span class="hs-identifier">SubmitTransactionException</span></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier">awaitTransaction</span></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><a href="CardanoClient.html#buildAddress"><span class="hs-identifier">buildAddress</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier">buildTransaction</span></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier">queryUTxO</span></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">queryUTxOFor</span></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><a href="CardanoClient.html#sign"><span class="hs-identifier">sign</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><span class="hs-identifier">submitTransaction</span></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Exception.html"><span class="hs-identifier">Control.Exception</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier">IOException</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadThrow</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Handler</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Handler</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">catches</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Tracer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Tracer</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">traceWith</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html"><span class="hs-identifier">GHC.IO.Exception</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#IOErrorType"><span class="hs-identifier">IOErrorType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#ResourceExhausted"><span class="hs-identifier">ResourceExhausted</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier">IOException</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#ioe_type"><span class="hs-identifier">ioe_type</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.CardanoClient</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">queryProtocolParameters</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.ScriptRegistry</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier">publishHydraScripts</span></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html"><span class="hs-identifier">Hydra.Cluster.Fixture</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cluster.Fixture.html#Actor"><span class="hs-identifier">Actor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier">Faucet</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cluster.Util.html"><span class="hs-identifier">Hydra.Cluster.Util</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cluster.Util.html#keysFor"><span class="hs-identifier">keysFor</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Ledger.Cardano</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">balance</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">data</span><span> </span><span id="FaucetException"><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetException"><span class="hs-identifier hs-var">FaucetException</span></a></span></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="FaucetHasNotEnoughFunds"><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetHasNotEnoughFunds"><span class="hs-identifier hs-var">FaucetHasNotEnoughFunds</span></a></span></span><span> </span><span class="hs-special">{</span><span id="faucetUTxO"><span class="annot"><span class="annottext">FaucetException -&gt; UTxO
+</span><a href="Hydra.Cluster.Faucet.html#faucetUTxO"><span class="hs-identifier hs-var hs-var">faucetUTxO</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">}</span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FaucetFailedToBuildTx"><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetFailedToBuildTx"><span class="hs-identifier hs-var">FaucetFailedToBuildTx</span></a></span></span><span> </span><span class="hs-special">{</span><span id="reason"><span class="annot"><span class="annottext">FaucetException -&gt; TxBodyErrorAutoBalance Era
+</span><a href="Hydra.Cluster.Faucet.html#reason"><span class="hs-identifier hs-var hs-var">reason</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyErrorAutoBalance</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span class="hs-special">}</span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679429818"><span id="local-6989586621679429828"><span id="local-6989586621679429832"><span class="annot"><span class="annottext">Int -&gt; FaucetException -&gt; ShowS
+[FaucetException] -&gt; ShowS
+FaucetException -&gt; String
+(Int -&gt; FaucetException -&gt; ShowS)
+-&gt; (FaucetException -&gt; String)
+-&gt; ([FaucetException] -&gt; ShowS)
+-&gt; Show FaucetException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; FaucetException -&gt; ShowS
+showsPrec :: Int -&gt; FaucetException -&gt; ShowS
+$cshow :: FaucetException -&gt; String
+show :: FaucetException -&gt; String
+$cshowList :: [FaucetException] -&gt; ShowS
+showList :: [FaucetException] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679429841"><span id="local-6989586621679429844"><span id="local-6989586621679429847"><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-type">Exception</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetException"><span class="hs-identifier hs-type">FaucetException</span></a></span></span></span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">data</span><span> </span><span id="FaucetLog"><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetLog"><span class="hs-identifier hs-var">FaucetLog</span></a></span></span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="TraceResourceExhaustedHandled"><span class="annot"><a href="Hydra.Cluster.Faucet.html#TraceResourceExhaustedHandled"><span class="hs-identifier hs-var">TraceResourceExhaustedHandled</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
+</span><span id="line-42"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ReturnedFunds"><span class="annot"><a href="Hydra.Cluster.Faucet.html#ReturnedFunds"><span class="hs-identifier hs-var">ReturnedFunds</span></a></span></span><span> </span><span class="hs-special">{</span><span id="actor"><span class="annot"><span class="annottext">FaucetLog -&gt; String
+</span><a href="Hydra.Cluster.Faucet.html#actor"><span class="hs-identifier hs-var hs-var">actor</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span id="returnAmount"><span class="annot"><span class="annottext">FaucetLog -&gt; Coin
+</span><a href="Hydra.Cluster.Faucet.html#returnAmount"><span class="hs-identifier hs-var hs-var">returnAmount</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span class="hs-special">}</span><span>
+</span><span id="line-43"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679429855"><span id="local-6989586621679429864"><span class="annot"><span class="annottext">FaucetLog -&gt; FaucetLog -&gt; Bool
+(FaucetLog -&gt; FaucetLog -&gt; Bool)
+-&gt; (FaucetLog -&gt; FaucetLog -&gt; Bool) -&gt; Eq FaucetLog
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: FaucetLog -&gt; FaucetLog -&gt; Bool
+== :: FaucetLog -&gt; FaucetLog -&gt; Bool
+$c/= :: FaucetLog -&gt; FaucetLog -&gt; Bool
+/= :: FaucetLog -&gt; FaucetLog -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679429870"><span id="local-6989586621679429881"><span id="local-6989586621679429885"><span class="annot"><span class="annottext">Int -&gt; FaucetLog -&gt; ShowS
+[FaucetLog] -&gt; ShowS
+FaucetLog -&gt; String
+(Int -&gt; FaucetLog -&gt; ShowS)
+-&gt; (FaucetLog -&gt; String)
+-&gt; ([FaucetLog] -&gt; ShowS)
+-&gt; Show FaucetLog
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; FaucetLog -&gt; ShowS
+showsPrec :: Int -&gt; FaucetLog -&gt; ShowS
+$cshow :: FaucetLog -&gt; String
+show :: FaucetLog -&gt; String
+$cshowList :: [FaucetLog] -&gt; ShowS
+showList :: [FaucetLog] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679429889"><span id="local-6989586621679429891"><span class="annot"><span class="annottext">(forall x. FaucetLog -&gt; Rep FaucetLog x)
+-&gt; (forall x. Rep FaucetLog x -&gt; FaucetLog) -&gt; Generic FaucetLog
+forall x. Rep FaucetLog x -&gt; FaucetLog
+forall x. FaucetLog -&gt; Rep FaucetLog x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. FaucetLog -&gt; Rep FaucetLog x
+from :: forall x. FaucetLog -&gt; Rep FaucetLog x
+$cto :: forall x. Rep FaucetLog x -&gt; FaucetLog
+to :: forall x. Rep FaucetLog x -&gt; FaucetLog
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679429895"><span id="local-6989586621679429902"><span id="local-6989586621679429905"><span id="local-6989586621679429908"><span id="local-6989586621679429911"><span class="annot"><span class="annottext">[FaucetLog] -&gt; Value
+[FaucetLog] -&gt; Encoding
+FaucetLog -&gt; Bool
+FaucetLog -&gt; Value
+FaucetLog -&gt; Encoding
+(FaucetLog -&gt; Value)
+-&gt; (FaucetLog -&gt; Encoding)
+-&gt; ([FaucetLog] -&gt; Value)
+-&gt; ([FaucetLog] -&gt; Encoding)
+-&gt; (FaucetLog -&gt; Bool)
+-&gt; ToJSON FaucetLog
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: FaucetLog -&gt; Value
+toJSON :: FaucetLog -&gt; Value
+$ctoEncoding :: FaucetLog -&gt; Encoding
+toEncoding :: FaucetLog -&gt; Encoding
+$ctoJSONList :: [FaucetLog] -&gt; Value
+toJSONList :: [FaucetLog] -&gt; Value
+$ctoEncodingList :: [FaucetLog] -&gt; Encoding
+toEncodingList :: [FaucetLog] -&gt; Encoding
+$comitField :: FaucetLog -&gt; Bool
+omitField :: FaucetLog -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430054"><span id="local-6989586621679430061"><span id="local-6989586621679430064"><span class="annot"><span class="annottext">Maybe FaucetLog
+Value -&gt; Parser [FaucetLog]
+Value -&gt; Parser FaucetLog
+(Value -&gt; Parser FaucetLog)
+-&gt; (Value -&gt; Parser [FaucetLog])
+-&gt; Maybe FaucetLog
+-&gt; FromJSON FaucetLog
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser FaucetLog
+parseJSON :: Value -&gt; Parser FaucetLog
+$cparseJSONList :: Value -&gt; Parser [FaucetLog]
+parseJSONList :: Value -&gt; Parser [FaucetLog]
+$comittedField :: Maybe FaucetLog
+omittedField :: Maybe FaucetLog
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- | Create a specially marked &quot;seed&quot; UTXO containing requested 'Lovelace' by</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- redeeming funds available to the well-known faucet.</span><span>
+</span><span id="line-48"></span><span class="annot"><a href="Hydra.Cluster.Faucet.html#seedFromFaucet"><span class="hs-identifier hs-type">seedFromFaucet</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-50"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Recipient of the funds</span></span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Amount to get from faucet</span></span><span>
+</span><span id="line-53"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-54"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetLog"><span class="hs-identifier hs-type">FaucetLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-55"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-56"></span><span id="seedFromFaucet"><span class="annot"><span class="annottext">seedFromFaucet :: RunningNode
+-&gt; VerificationKey PaymentKey
+-&gt; Coin
+-&gt; Tracer IO FaucetLog
+-&gt; IO UTxO
+</span><a href="Hydra.Cluster.Faucet.html#seedFromFaucet"><span class="hs-identifier hs-var hs-var">seedFromFaucet</span></a></span></span><span> </span><span id="local-6989586621679430164"><span class="annot"><span class="annottext">node :: RunningNode
+</span><a href="#local-6989586621679430164"><span class="hs-identifier hs-var">node</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span class="hs-special">{</span><span id="local-6989586621679430166"><span class="annot"><span class="annottext">NetworkId
+networkId :: NetworkId
+$sel:networkId:RunningNode :: RunningNode -&gt; NetworkId
+</span><a href="#local-6989586621679430166"><span class="hs-identifier hs-var hs-var">networkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430168"><span class="annot"><span class="annottext">SocketPath
+nodeSocket :: SocketPath
+$sel:nodeSocket:RunningNode :: RunningNode -&gt; SocketPath
+</span><a href="#local-6989586621679430168"><span class="hs-identifier hs-var hs-var">nodeSocket</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679430170"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430170"><span class="hs-identifier hs-var">receivingVerificationKey</span></a></span></span><span> </span><span id="local-6989586621679430171"><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430171"><span class="hs-identifier hs-var">lovelace</span></a></span></span><span> </span><span id="local-6989586621679430172"><span class="annot"><span class="annottext">Tracer IO FaucetLog
+</span><a href="#local-6989586621679430172"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-57"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679430173"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430173"><span class="hs-identifier hs-var">faucetVk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430174"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430174"><span class="hs-identifier hs-var">faucetSk</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Actor -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.Cluster.Util.html#keysFor"><span class="hs-identifier hs-var">keysFor</span></a></span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier hs-var">Faucet</span></a></span><span>
+</span><span id="line-58"></span><span>  </span><span id="local-6989586621679430175"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679430175"><span class="hs-identifier hs-var">seedTx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO FaucetLog -&gt; IO Tx -&gt; IO Tx
+forall (m :: * -&gt; *) a.
+(MonadCatch m, MonadDelay m) =&gt;
+Tracer m FaucetLog -&gt; m a -&gt; m a
+</span><a href="Hydra.Cluster.Faucet.html#retryOnExceptions"><span class="hs-identifier hs-var">retryOnExceptions</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO FaucetLog
+</span><a href="#local-6989586621679430172"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Tx -&gt; IO Tx) -&gt; IO Tx -&gt; IO Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; SigningKey PaymentKey -&gt; IO Tx
+</span><a href="#local-6989586621679430177"><span class="hs-identifier hs-var">submitSeedTx</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430173"><span class="hs-identifier hs-var">faucetVk</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430174"><span class="hs-identifier hs-var">faucetSk</span></a></span><span>
+</span><span id="line-59"></span><span>  </span><span id="local-6989586621679430178"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430178"><span class="hs-identifier hs-var">producedUTxO</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; Tx -&gt; IO UTxO
+</span><span class="hs-identifier hs-var">awaitTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430166"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430168"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679430175"><span class="hs-identifier hs-var">seedTx</span></a></span><span>
+</span><span id="line-60"></span><span>  </span><span class="annot"><span class="annottext">UTxO -&gt; IO UTxO
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(UTxO -&gt; IO UTxO) -&gt; UTxO -&gt; IO UTxO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO Era -&gt; Bool) -&gt; UTxO -&gt; UTxO
+forall out. (out -&gt; Bool) -&gt; UTxO' out -&gt; UTxO' out
+</span><span class="hs-identifier hs-var">UTxO.filter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; TxOut CtxUTxO Era
+forall era. TxOut CtxTx era -&gt; TxOut CtxUTxO era
+forall {k} (f :: * -&gt; k -&gt; *) (era :: k).
+ToUTxOContext f =&gt;
+f CtxTx era -&gt; f CtxUTxO era
+</span><span class="hs-identifier hs-var">toUTxOContext</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679430181"><span class="hs-identifier hs-var">theOutput</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430178"><span class="hs-identifier hs-var">producedUTxO</span></a></span><span>
+</span><span id="line-61"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-62"></span><span>  </span><span id="local-6989586621679430177"><span class="annot"><span class="annottext">submitSeedTx :: VerificationKey PaymentKey -&gt; SigningKey PaymentKey -&gt; IO Tx
+</span><a href="#local-6989586621679430177"><span class="hs-identifier hs-var hs-var">submitSeedTx</span></a></span></span><span> </span><span id="local-6989586621679430182"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430182"><span class="hs-identifier hs-var">faucetVk</span></a></span></span><span> </span><span id="local-6989586621679430183"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430183"><span class="hs-identifier hs-var">faucetSk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-63"></span><span>    </span><span id="local-6989586621679430184"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430184"><span class="hs-identifier hs-var">faucetUTxO</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">RunningNode -&gt; Coin -&gt; IO UTxO
+</span><a href="Hydra.Cluster.Faucet.html#findFaucetUTxO"><span class="hs-identifier hs-var">findFaucetUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">RunningNode
+</span><a href="#local-6989586621679430164"><span class="hs-identifier hs-var">node</span></a></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430171"><span class="hs-identifier hs-var">lovelace</span></a></span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430186"><span class="annot"><span class="annottext">changeAddress :: AddressInEra
+</span><a href="#local-6989586621679430186"><span class="hs-identifier hs-var hs-var">changeAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Address ShelleyAddr -&gt; AddressInEra
+</span><span class="hs-identifier hs-var">ShelleyAddressInEra</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; NetworkId -&gt; Address ShelleyAddr
+</span><a href="CardanoClient.html#buildAddress"><span class="hs-identifier hs-var">buildAddress</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430182"><span class="hs-identifier hs-var">faucetVk</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430166"><span class="hs-identifier hs-var">networkId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span>    </span><span class="annot"><span class="annottext">NetworkId
+-&gt; SocketPath
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx Era]
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+</span><span class="hs-identifier hs-var">buildTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430166"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430168"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679430186"><span class="hs-identifier hs-var">changeAddress</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430184"><span class="hs-identifier hs-var">faucetUTxO</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679430181"><span class="hs-identifier hs-var">theOutput</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+-&gt; (Either (TxBodyErrorAutoBalance Era) TxBody -&gt; IO Tx) -&gt; IO Tx
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-66"></span><span>      </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679430188"><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621679430188"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">FaucetException -&gt; IO Tx
+forall e a. Exception e =&gt; e -&gt; IO a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">(FaucetException -&gt; IO Tx) -&gt; FaucetException -&gt; IO Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetFailedToBuildTx"><span class="hs-identifier hs-type">FaucetFailedToBuildTx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">reason :: TxBodyErrorAutoBalance Era
+</span><a href="Hydra.Cluster.Faucet.html#reason"><span class="hs-identifier hs-var">reason</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621679430188"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-67"></span><span>      </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679430190"><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679430190"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-68"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430191"><span class="annot"><span class="annottext">signedTx :: Tx
+</span><a href="#local-6989586621679430191"><span class="hs-identifier hs-var hs-var">signedTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; TxBody -&gt; Tx
+</span><a href="CardanoClient.html#sign"><span class="hs-identifier hs-var">sign</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430183"><span class="hs-identifier hs-var">faucetSk</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679430190"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-69"></span><span>        </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; Tx -&gt; IO ()
+</span><span class="hs-identifier hs-var">submitTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430166"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430168"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; TxBody -&gt; Tx
+</span><a href="CardanoClient.html#sign"><span class="hs-identifier hs-var">sign</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430183"><span class="hs-identifier hs-var">faucetSk</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679430190"><span class="hs-identifier hs-var">body</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>        </span><span class="annot"><span class="annottext">Tx -&gt; IO Tx
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679430191"><span class="hs-identifier hs-var">signedTx</span></a></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span>  </span><span id="local-6989586621679430192"><span class="annot"><span class="annottext">receivingAddress :: Address ShelleyAddr
+</span><a href="#local-6989586621679430192"><span class="hs-identifier hs-var hs-var">receivingAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; NetworkId -&gt; Address ShelleyAddr
+</span><a href="CardanoClient.html#buildAddress"><span class="hs-identifier hs-var">buildAddress</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430170"><span class="hs-identifier hs-var">receivingVerificationKey</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430166"><span class="hs-identifier hs-var">networkId</span></a></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679430181"><span class="annot"><span class="annottext">theOutput :: TxOut CtxTx Era
+</span><a href="#local-6989586621679430181"><span class="hs-identifier hs-var hs-var">theOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">AddressInEra
+-&gt; Value -&gt; TxOutDatum CtxTx -&gt; ReferenceScript -&gt; TxOut CtxTx Era
+forall ctx.
+AddressInEra
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+</span><span class="hs-identifier hs-var">TxOut</span></span><span>
+</span><span id="line-76"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShelleyBasedEra Era -&gt; Address ShelleyAddr -&gt; AddressInEra
+forall era.
+ShelleyBasedEra era -&gt; Address ShelleyAddr -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">shelleyAddressInEra</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="annot"><span class="annottext">Address ShelleyAddr
+</span><a href="#local-6989586621679430192"><span class="hs-identifier hs-var">receivingAddress</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Coin -&gt; Value
+</span><span class="hs-identifier hs-var">lovelaceToValue</span></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430171"><span class="hs-identifier hs-var">lovelace</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>      </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
+forall ctx. TxOutDatum ctx
+</span><span class="hs-identifier hs-var">TxOutDatumNone</span></span><span>
+</span><span id="line-79"></span><span>      </span><span class="annot"><span class="annottext">ReferenceScript
+</span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="annot"><a href="Hydra.Cluster.Faucet.html#findFaucetUTxO"><span class="hs-identifier hs-type">findFaucetUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-82"></span><span id="findFaucetUTxO"><span class="annot"><span class="annottext">findFaucetUTxO :: RunningNode -&gt; Coin -&gt; IO UTxO
+</span><a href="Hydra.Cluster.Faucet.html#findFaucetUTxO"><span class="hs-identifier hs-var hs-var">findFaucetUTxO</span></a></span></span><span> </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span class="hs-special">{</span><span id="local-6989586621679430199"><span class="annot"><span class="annottext">NetworkId
+$sel:networkId:RunningNode :: RunningNode -&gt; NetworkId
+networkId :: NetworkId
+</span><a href="CardanoClient.html#%24sel%3AnetworkId%3ARunningNode"><span class="hs-identifier hs-var hs-var">networkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430200"><span class="annot"><span class="annottext">SocketPath
+$sel:nodeSocket:RunningNode :: RunningNode -&gt; SocketPath
+nodeSocket :: SocketPath
+</span><a href="CardanoClient.html#%24sel%3AnodeSocket%3ARunningNode"><span class="hs-identifier hs-var hs-var">nodeSocket</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679430201"><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430201"><span class="hs-identifier hs-var">lovelace</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-83"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679430202"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430202"><span class="hs-identifier hs-var">faucetVk</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Actor -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.Cluster.Util.html#keysFor"><span class="hs-identifier hs-var">keysFor</span></a></span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier hs-var">Faucet</span></a></span><span>
+</span><span id="line-84"></span><span>  </span><span id="local-6989586621679430203"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430203"><span class="hs-identifier hs-var">faucetUTxO</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId
+-&gt; SocketPath -&gt; QueryPoint -&gt; [Address ShelleyAddr] -&gt; IO UTxO
+</span><span class="hs-identifier hs-var">queryUTxO</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430199"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430200"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><span class="hs-identifier hs-var">QueryTip</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; NetworkId -&gt; Address ShelleyAddr
+</span><a href="CardanoClient.html#buildAddress"><span class="hs-identifier hs-var">buildAddress</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430202"><span class="hs-identifier hs-var">faucetVk</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430199"><span class="hs-identifier hs-var">networkId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-85"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430204"><span class="annot"><span class="annottext">foundUTxO :: UTxO
+</span><a href="#local-6989586621679430204"><span class="hs-identifier hs-var hs-var">foundUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO Era -&gt; Bool) -&gt; UTxO -&gt; UTxO
+forall out. (out -&gt; Bool) -&gt; UTxO' out -&gt; UTxO' out
+</span><span class="hs-identifier hs-var">UTxO.filter</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679430205"><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679430205"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Coin
+</span><span class="hs-identifier hs-var">selectLovelace</span></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Coin)
+-&gt; (TxOut CtxUTxO Era -&gt; Value) -&gt; TxOut CtxUTxO Era -&gt; Coin
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; Value
+forall ctx. TxOut ctx -&gt; Value
+</span><span class="hs-identifier hs-var">txOutValue</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679430205"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Coin -&gt; Coin -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E%3D"><span class="hs-operator hs-var">&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430201"><span class="hs-identifier hs-var">lovelace</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430203"><span class="hs-identifier hs-var">faucetUTxO</span></a></span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#when"><span class="hs-identifier hs-var">when</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO -&gt; Bool
+forall a. UTxO' a -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Foldable.html#null"><span class="hs-identifier hs-var">null</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430204"><span class="hs-identifier hs-var">foundUTxO</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-87"></span><span>    </span><span class="annot"><span class="annottext">FaucetException -&gt; IO ()
+forall e a. Exception e =&gt; e -&gt; IO a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">(FaucetException -&gt; IO ()) -&gt; FaucetException -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-88"></span><span>      </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetHasNotEnoughFunds"><span class="hs-identifier hs-type">FaucetHasNotEnoughFunds</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">UTxO
+faucetUTxO :: UTxO
+faucetUTxO :: UTxO
+</span><a href="Hydra.Cluster.Faucet.html#faucetUTxO"><span class="hs-identifier hs-var hs-var">faucetUTxO</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-89"></span><span>  </span><span class="annot"><span class="annottext">UTxO -&gt; IO UTxO
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430204"><span class="hs-identifier hs-var">foundUTxO</span></a></span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="annot"><span class="hs-comment">-- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.</span></span><span>
+</span><span id="line-92"></span><span class="annot"><a href="Hydra.Cluster.Faucet.html#seedFromFaucet_"><span class="hs-identifier hs-type">seedFromFaucet_</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-93"></span><span>  </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-94"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Recipient of the funds</span></span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-96"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Amount to get from faucet</span></span><span>
+</span><span id="line-97"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-98"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetLog"><span class="hs-identifier hs-type">FaucetLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-99"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span id="seedFromFaucet_"><span class="annot"><span class="annottext">seedFromFaucet_ :: RunningNode
+-&gt; VerificationKey PaymentKey
+-&gt; Coin
+-&gt; Tracer IO FaucetLog
+-&gt; IO ()
+</span><a href="Hydra.Cluster.Faucet.html#seedFromFaucet_"><span class="hs-identifier hs-var hs-var">seedFromFaucet_</span></a></span></span><span> </span><span id="local-6989586621679430213"><span class="annot"><span class="annottext">RunningNode
+</span><a href="#local-6989586621679430213"><span class="hs-identifier hs-var">node</span></a></span></span><span> </span><span id="local-6989586621679430214"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430214"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span id="local-6989586621679430215"><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430215"><span class="hs-identifier hs-var">ll</span></a></span></span><span> </span><span id="local-6989586621679430216"><span class="annot"><span class="annottext">Tracer IO FaucetLog
+</span><a href="#local-6989586621679430216"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-101"></span><span>  </span><span class="annot"><span class="annottext">IO UTxO -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(IO UTxO -&gt; IO ()) -&gt; IO UTxO -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">RunningNode
+-&gt; VerificationKey PaymentKey
+-&gt; Coin
+-&gt; Tracer IO FaucetLog
+-&gt; IO UTxO
+</span><a href="Hydra.Cluster.Faucet.html#seedFromFaucet"><span class="hs-identifier hs-var">seedFromFaucet</span></a></span><span> </span><span class="annot"><span class="annottext">RunningNode
+</span><a href="#local-6989586621679430213"><span class="hs-identifier hs-var">node</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430214"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430215"><span class="hs-identifier hs-var">ll</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO FaucetLog
+</span><a href="#local-6989586621679430216"><span class="hs-identifier hs-var">tracer</span></a></span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="annot"><span class="hs-comment">-- | Return the remaining funds to the faucet</span></span><span>
+</span><span id="line-104"></span><span class="annot"><a href="Hydra.Cluster.Faucet.html#returnFundsToFaucet"><span class="hs-identifier hs-type">returnFundsToFaucet</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-105"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetLog"><span class="hs-identifier hs-type">FaucetLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-106"></span><span>  </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-107"></span><span>  </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#Actor"><span class="hs-identifier hs-type">Actor</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-108"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span id="returnFundsToFaucet"><span class="annot"><span class="annottext">returnFundsToFaucet :: Tracer IO FaucetLog -&gt; RunningNode -&gt; Actor -&gt; IO ()
+</span><a href="Hydra.Cluster.Faucet.html#returnFundsToFaucet"><span class="hs-identifier hs-var hs-var">returnFundsToFaucet</span></a></span></span><span> </span><span id="local-6989586621679430219"><span class="annot"><span class="annottext">Tracer IO FaucetLog
+</span><a href="#local-6989586621679430219"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621679430220"><span class="annot"><span class="annottext">RunningNode
+</span><a href="#local-6989586621679430220"><span class="hs-identifier hs-var">node</span></a></span></span><span> </span><span id="local-6989586621679430221"><span class="annot"><span class="annottext">Actor
+</span><a href="#local-6989586621679430221"><span class="hs-identifier hs-var">sender</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621679430222"><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="#local-6989586621679430222"><span class="hs-identifier hs-var">senderKeys</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Actor -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.Cluster.Util.html#keysFor"><span class="hs-identifier hs-var">keysFor</span></a></span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="#local-6989586621679430221"><span class="hs-identifier hs-var">sender</span></a></span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><span class="annottext">IO Coin -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Coin -&gt; IO ()) -&gt; IO Coin -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO FaucetLog
+-&gt; RunningNode -&gt; SigningKey PaymentKey -&gt; IO Coin
+</span><a href="Hydra.Cluster.Faucet.html#returnFundsToFaucet%27"><span class="hs-identifier hs-var">returnFundsToFaucet'</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO FaucetLog
+</span><a href="#local-6989586621679430219"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">RunningNode
+</span><a href="#local-6989586621679430220"><span class="hs-identifier hs-var">node</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+-&gt; SigningKey PaymentKey
+forall a b. (a, b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Tuple.html#snd"><span class="hs-identifier hs-var">snd</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="#local-6989586621679430222"><span class="hs-identifier hs-var">senderKeys</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="annot"><a href="Hydra.Cluster.Faucet.html#returnFundsToFaucet%27"><span class="hs-identifier hs-type">returnFundsToFaucet'</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-114"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetLog"><span class="hs-identifier hs-type">FaucetLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-115"></span><span>  </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-116"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-117"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span>
+</span><span id="line-118"></span><span id="returnFundsToFaucet%27"><span class="annot"><span class="annottext">returnFundsToFaucet' :: Tracer IO FaucetLog
+-&gt; RunningNode -&gt; SigningKey PaymentKey -&gt; IO Coin
+</span><a href="Hydra.Cluster.Faucet.html#returnFundsToFaucet%27"><span class="hs-identifier hs-var hs-var">returnFundsToFaucet'</span></a></span></span><span> </span><span id="local-6989586621679430225"><span class="annot"><span class="annottext">Tracer IO FaucetLog
+</span><a href="#local-6989586621679430225"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span class="hs-special">{</span><span id="local-6989586621679430226"><span class="annot"><span class="annottext">NetworkId
+$sel:networkId:RunningNode :: RunningNode -&gt; NetworkId
+networkId :: NetworkId
+</span><a href="CardanoClient.html#%24sel%3AnetworkId%3ARunningNode"><span class="hs-identifier hs-var hs-var">networkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430227"><span class="annot"><span class="annottext">SocketPath
+$sel:nodeSocket:RunningNode :: RunningNode -&gt; SocketPath
+nodeSocket :: SocketPath
+</span><a href="CardanoClient.html#%24sel%3AnodeSocket%3ARunningNode"><span class="hs-identifier hs-var hs-var">nodeSocket</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679430228"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430228"><span class="hs-identifier hs-var">senderSk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-119"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679430229"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430229"><span class="hs-identifier hs-var">faucetVk</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Actor -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.Cluster.Util.html#keysFor"><span class="hs-identifier hs-var">keysFor</span></a></span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier hs-var">Faucet</span></a></span><span>
+</span><span id="line-120"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430230"><span class="annot"><span class="annottext">faucetAddress :: AddressInEra
+</span><a href="#local-6989586621679430230"><span class="hs-identifier hs-var hs-var">faucetAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra
+forall era.
+IsShelleyBasedEra era =&gt;
+NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430226"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430229"><span class="hs-identifier hs-var">faucetVk</span></a></span><span>
+</span><span id="line-121"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430232"><span class="annot"><span class="annottext">senderVk :: VerificationKey PaymentKey
+</span><a href="#local-6989586621679430232"><span class="hs-identifier hs-var hs-var">senderVk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; VerificationKey PaymentKey
+forall keyrole.
+(Key keyrole, HasTypeProxy keyrole) =&gt;
+SigningKey keyrole -&gt; VerificationKey keyrole
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430228"><span class="hs-identifier hs-var">senderSk</span></a></span><span>
+</span><span id="line-122"></span><span>  </span><span id="local-6989586621679430234"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430234"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId
+-&gt; SocketPath
+-&gt; QueryPoint
+-&gt; VerificationKey PaymentKey
+-&gt; IO UTxO
+</span><span class="hs-identifier hs-var">queryUTxOFor</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430226"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430227"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><span class="hs-identifier hs-var">QueryTip</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430232"><span class="hs-identifier hs-var">senderVk</span></a></span><span>
+</span><span id="line-123"></span><span>  </span><span id="local-6989586621679430235"><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430235"><span class="hs-identifier hs-var">returnAmount</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Bool
+forall a. UTxO' a -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Foldable.html#null"><span class="hs-identifier hs-var">null</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430234"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><span id="line-125"></span><span>      </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Coin -&gt; IO Coin
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-126"></span><span>      </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Tracer IO FaucetLog -&gt; IO Coin -&gt; IO Coin
+forall (m :: * -&gt; *) a.
+(MonadCatch m, MonadDelay m) =&gt;
+Tracer m FaucetLog -&gt; m a -&gt; m a
+</span><a href="Hydra.Cluster.Faucet.html#retryOnExceptions"><span class="hs-identifier hs-var">retryOnExceptions</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO FaucetLog
+</span><a href="#local-6989586621679430225"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Coin -&gt; IO Coin) -&gt; IO Coin -&gt; IO Coin
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-127"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430236"><span class="annot"><span class="annottext">utxoValue :: ValueType Tx
+</span><a href="#local-6989586621679430236"><span class="hs-identifier hs-var hs-var">utxoValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall tx. IsTx tx =&gt; UTxOType tx -&gt; ValueType tx
+</span><span class="hs-identifier hs-var">balance</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+UTxOType Tx
+</span><a href="#local-6989586621679430234"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><span id="line-128"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430237"><span class="annot"><span class="annottext">allLovelace :: Coin
+</span><a href="#local-6989586621679430237"><span class="hs-identifier hs-var hs-var">allLovelace</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Coin
+</span><span class="hs-identifier hs-var">selectLovelace</span></span><span> </span><span class="annot"><span class="annottext">Value
+ValueType Tx
+</span><a href="#local-6989586621679430236"><span class="hs-identifier hs-var">utxoValue</span></a></span><span>
+</span><span id="line-129"></span><span>        </span><span id="local-6989586621679430238"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679430238"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; TxBody -&gt; Tx
+</span><a href="CardanoClient.html#sign"><span class="hs-identifier hs-var">sign</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430228"><span class="hs-identifier hs-var">senderSk</span></a></span><span> </span><span class="annot"><span class="annottext">(TxBody -&gt; Tx) -&gt; IO TxBody -&gt; IO Tx
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; AddressInEra -&gt; IO TxBody
+</span><a href="#local-6989586621679430240"><span class="hs-identifier hs-var">buildTxBody</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430234"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679430230"><span class="hs-identifier hs-var">faucetAddress</span></a></span><span>
+</span><span id="line-130"></span><span>        </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; Tx -&gt; IO ()
+</span><span class="hs-identifier hs-var">submitTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430226"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430227"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679430238"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-131"></span><span>        </span><span class="annot"><span class="annottext">IO UTxO -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(IO UTxO -&gt; IO ()) -&gt; IO UTxO -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; Tx -&gt; IO UTxO
+</span><span class="hs-identifier hs-var">awaitTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430226"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430227"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679430238"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-132"></span><span>        </span><span class="annot"><span class="annottext">Coin -&gt; IO Coin
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430237"><span class="hs-identifier hs-var">allLovelace</span></a></span><span>
+</span><span id="line-133"></span><span>  </span><span class="annot"><span class="annottext">Tracer IO FaucetLog -&gt; FaucetLog -&gt; IO ()
+forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
+</span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO FaucetLog
+</span><a href="#local-6989586621679430225"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">(FaucetLog -&gt; IO ()) -&gt; FaucetLog -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#ReturnedFunds"><span class="hs-identifier hs-type">ReturnedFunds</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">actor :: String
+</span><a href="Hydra.Cluster.Faucet.html#actor"><span class="hs-identifier hs-var">actor</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; String
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430232"><span class="hs-identifier hs-var">senderVk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Coin
+returnAmount :: Coin
+returnAmount :: Coin
+</span><a href="Hydra.Cluster.Faucet.html#returnAmount"><span class="hs-identifier hs-var hs-var">returnAmount</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-134"></span><span>  </span><span class="annot"><span class="annottext">Coin -&gt; IO Coin
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430235"><span class="hs-identifier hs-var">returnAmount</span></a></span><span>
+</span><span id="line-135"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-136"></span><span>  </span><span id="local-6989586621679430240"><span class="annot"><span class="annottext">buildTxBody :: UTxO -&gt; AddressInEra -&gt; IO TxBody
+</span><a href="#local-6989586621679430240"><span class="hs-identifier hs-var hs-var">buildTxBody</span></a></span></span><span> </span><span id="local-6989586621679430242"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430242"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679430243"><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679430243"><span class="hs-identifier hs-var">faucetAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-comment">-- Here we specify no outputs in the transaction so that a change output with the</span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-comment">-- entire value is created and paid to the faucet address.</span><span>
+</span><span id="line-139"></span><span>    </span><span class="annot"><span class="annottext">NetworkId
+-&gt; SocketPath
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx Era]
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+</span><span class="hs-identifier hs-var">buildTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430226"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430227"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679430243"><span class="hs-identifier hs-var">faucetAddress</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430242"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+-&gt; (Either (TxBodyErrorAutoBalance Era) TxBody -&gt; IO TxBody)
+-&gt; IO TxBody
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-140"></span><span>      </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679430244"><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621679430244"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">FaucetException -&gt; IO TxBody
+forall e a. Exception e =&gt; e -&gt; IO a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">(FaucetException -&gt; IO TxBody) -&gt; FaucetException -&gt; IO TxBody
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetFailedToBuildTx"><span class="hs-identifier hs-type">FaucetFailedToBuildTx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">reason :: TxBodyErrorAutoBalance Era
+</span><a href="Hydra.Cluster.Faucet.html#reason"><span class="hs-identifier hs-var">reason</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621679430244"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-141"></span><span>      </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679430245"><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679430245"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxBody -&gt; IO TxBody
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679430245"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span class="hs-comment">-- Use the Faucet utxo to create the output at specified address</span><span>
+</span><span id="line-144"></span><span class="annot"><a href="Hydra.Cluster.Faucet.html#createOutputAtAddress"><span class="hs-identifier hs-type">createOutputAtAddress</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-145"></span><span>  </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-146"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-147"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxOutDatum</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-148"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span id="createOutputAtAddress"><span class="annot"><span class="annottext">createOutputAtAddress :: RunningNode
+-&gt; AddressInEra -&gt; TxOutDatum CtxTx -&gt; IO (TxIn, TxOut CtxUTxO Era)
+</span><a href="Hydra.Cluster.Faucet.html#createOutputAtAddress"><span class="hs-identifier hs-var hs-var">createOutputAtAddress</span></a></span></span><span> </span><span id="local-6989586621679430247"><span class="annot"><span class="annottext">node :: RunningNode
+</span><a href="#local-6989586621679430247"><span class="hs-identifier hs-var">node</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span class="hs-special">{</span><span id="local-6989586621679430248"><span class="annot"><span class="annottext">NetworkId
+$sel:networkId:RunningNode :: RunningNode -&gt; NetworkId
+networkId :: NetworkId
+</span><a href="CardanoClient.html#%24sel%3AnetworkId%3ARunningNode"><span class="hs-identifier hs-var hs-var">networkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430249"><span class="annot"><span class="annottext">SocketPath
+$sel:nodeSocket:RunningNode :: RunningNode -&gt; SocketPath
+nodeSocket :: SocketPath
+</span><a href="CardanoClient.html#%24sel%3AnodeSocket%3ARunningNode"><span class="hs-identifier hs-var hs-var">nodeSocket</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679430250"><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679430250"><span class="hs-identifier hs-var">atAddress</span></a></span></span><span> </span><span id="local-6989586621679430251"><span class="annot"><span class="annottext">TxOutDatum CtxTx
+</span><a href="#local-6989586621679430251"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-150"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679430252"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430252"><span class="hs-identifier hs-var">faucetVk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430253"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430253"><span class="hs-identifier hs-var">faucetSk</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Actor -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.Cluster.Util.html#keysFor"><span class="hs-identifier hs-var">keysFor</span></a></span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier hs-var">Faucet</span></a></span><span>
+</span><span id="line-151"></span><span>  </span><span class="hs-comment">-- we don't care which faucet utxo we use here so just pass lovelace 0 to grab</span><span>
+</span><span id="line-152"></span><span>  </span><span class="hs-comment">-- any present utxo</span><span>
+</span><span id="line-153"></span><span>  </span><span id="local-6989586621679430254"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430254"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">RunningNode -&gt; Coin -&gt; IO UTxO
+</span><a href="Hydra.Cluster.Faucet.html#findFaucetUTxO"><span class="hs-identifier hs-var">findFaucetUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">RunningNode
+</span><a href="#local-6989586621679430247"><span class="hs-identifier hs-var">node</span></a></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-154"></span><span>  </span><span id="local-6989586621679430255"><span class="annot"><span class="annottext">PParams StandardConway
+</span><a href="#local-6989586621679430255"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; QueryPoint -&gt; IO (PParams LedgerEra)
+</span><span class="hs-identifier hs-var">queryProtocolParameters</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430248"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430249"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><span class="hs-identifier hs-var">QueryTip</span></span><span>
+</span><span id="line-155"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430256"><span class="annot"><span class="annottext">output :: TxOut CtxTx Era
+</span><a href="#local-6989586621679430256"><span class="hs-identifier hs-var hs-var">output</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-156"></span><span>        </span><span class="annot"><span class="annottext">PParams LedgerEra
+-&gt; AddressInEra
+-&gt; Value
+-&gt; TxOutDatum CtxTx
+-&gt; ReferenceScript
+-&gt; TxOut CtxTx Era
+</span><span class="hs-identifier hs-var">mkTxOutAutoBalance</span></span><span>
+</span><span id="line-157"></span><span>          </span><span class="annot"><span class="annottext">PParams LedgerEra
+PParams StandardConway
+</span><a href="#local-6989586621679430255"><span class="hs-identifier hs-var">pparams</span></a></span><span>
+</span><span id="line-158"></span><span>          </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679430250"><span class="hs-identifier hs-var">atAddress</span></a></span><span>
+</span><span id="line-159"></span><span>          </span><span class="annot"><span class="annottext">Value
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-160"></span><span>          </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
+</span><a href="#local-6989586621679430251"><span class="hs-identifier hs-var">datum</span></a></span><span>
+</span><span id="line-161"></span><span>          </span><span class="annot"><span class="annottext">ReferenceScript
+</span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
+</span><span id="line-162"></span><span>  </span><span class="annot"><span class="annottext">NetworkId
+-&gt; SocketPath
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx Era]
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+</span><span class="hs-identifier hs-var">buildTransaction</span></span><span>
+</span><span id="line-163"></span><span>    </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430248"><span class="hs-identifier hs-var">networkId</span></a></span><span>
+</span><span id="line-164"></span><span>    </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430249"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span>
+</span><span id="line-165"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; AddressInEra
+</span><a href="#local-6989586621679430258"><span class="hs-identifier hs-var">changeAddress</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679430252"><span class="hs-identifier hs-var">faucetVk</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span>    </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430254"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><span id="line-167"></span><span>    </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679430259"><span class="hs-identifier hs-var">collateralTxIns</span></a></span><span>
+</span><span id="line-168"></span><span>    </span><span class="hs-special">[</span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679430256"><span class="hs-identifier hs-var">output</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-169"></span><span>    </span><span class="annot"><span class="annottext">IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+-&gt; (Either (TxBodyErrorAutoBalance Era) TxBody
+    -&gt; IO (TxIn, TxOut CtxUTxO Era))
+-&gt; IO (TxIn, TxOut CtxUTxO Era)
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-170"></span><span>      </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679430260"><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621679430260"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-171"></span><span>        </span><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era -&gt; IO (TxIn, TxOut CtxUTxO Era)
+forall e a. Error e =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwErrorAsException</span></span><span> </span><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621679430260"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-172"></span><span>      </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679430262"><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679430262"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-173"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430263"><span class="annot"><span class="annottext">tx :: Tx
+</span><a href="#local-6989586621679430263"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[KeyWitness Era] -&gt; TxBody -&gt; Tx
+forall era. [KeyWitness era] -&gt; TxBody era -&gt; Tx era
+</span><span class="hs-identifier hs-var">makeSignedTransaction</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">TxBody -&gt; ShelleyWitnessSigningKey -&gt; KeyWitness Era
+</span><span class="hs-identifier hs-var">makeShelleyKeyWitness</span></span><span> </span><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679430262"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; ShelleyWitnessSigningKey
+</span><span class="hs-identifier hs-var">WitnessPaymentKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430253"><span class="hs-identifier hs-var">faucetSk</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679430262"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-174"></span><span>        </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; Tx -&gt; IO ()
+</span><span class="hs-identifier hs-var">submitTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430248"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430249"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679430263"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-175"></span><span>        </span><span id="local-6989586621679430267"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430267"><span class="hs-identifier hs-var">newUtxo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; Tx -&gt; IO UTxO
+</span><span class="hs-identifier hs-var">awaitTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430248"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430249"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679430263"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-176"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO Era -&gt; Bool)
+-&gt; UTxO -&gt; Maybe (TxIn, TxOut CtxUTxO Era)
+forall out. (out -&gt; Bool) -&gt; UTxO' out -&gt; Maybe (TxIn, out)
+</span><span class="hs-identifier hs-var">UTxO.find</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679430269"><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679430269"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; AddressInEra
+forall ctx. TxOut ctx -&gt; AddressInEra
+</span><span class="hs-identifier hs-var">txOutAddress</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679430269"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra -&gt; AddressInEra -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679430250"><span class="hs-identifier hs-var">atAddress</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430267"><span class="hs-identifier hs-var">newUtxo</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-177"></span><span>          </span><span class="annot"><span class="annottext">Maybe (TxIn, TxOut CtxUTxO Era)
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (TxIn, TxOut CtxUTxO Era)
+forall (m :: * -&gt; *) a.
+(HasCallStack, MonadThrow m) =&gt;
+String -&gt; m a
+</span><span class="hs-identifier hs-var">failure</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; IO (TxIn, TxOut CtxUTxO Era))
+-&gt; String -&gt; IO (TxIn, TxOut CtxUTxO Era)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Could not find script output: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; String
+forall a b. ConvertUtf8 a b =&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">encodePretty</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430267"><span class="hs-identifier hs-var">newUtxo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-178"></span><span>          </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679430274"><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679430274"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era) -&gt; IO (TxIn, TxOut CtxUTxO Era)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679430274"><span class="hs-identifier hs-var">u</span></a></span><span>
+</span><span id="line-179"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-180"></span><span>  </span><span id="local-6989586621679430259"><span class="annot"><span class="annottext">collateralTxIns :: [TxIn]
+</span><a href="#local-6989586621679430259"><span class="hs-identifier hs-var hs-var">collateralTxIns</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[TxIn]
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-181"></span><span>
+</span><span id="line-182"></span><span>  </span><span id="local-6989586621679430258"><span class="annot"><span class="annottext">changeAddress :: VerificationKey PaymentKey -&gt; AddressInEra
+</span><a href="#local-6989586621679430258"><span class="hs-identifier hs-var hs-var">changeAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra
+forall era.
+IsShelleyBasedEra era =&gt;
+NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430248"><span class="hs-identifier hs-var">networkId</span></a></span><span>
+</span><span id="line-183"></span><span>
+</span><span id="line-184"></span><span class="hs-comment">-- | Build and sign tx and return the calculated fee.</span><span>
+</span><span id="line-185"></span><span class="hs-comment">-- - Signing key should be the key of a sender</span><span>
+</span><span id="line-186"></span><span class="hs-comment">-- - Address is used as a change address.</span><span>
+</span><span id="line-187"></span><span class="hs-comment">-- - Lovelace amount should be one we are trying to send.</span><span>
+</span><span id="line-188"></span><span class="annot"><a href="Hydra.Cluster.Faucet.html#calculateTxFee"><span class="hs-identifier hs-type">calculateTxFee</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-189"></span><span>  </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-190"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-191"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-192"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-193"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-194"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span>
+</span><span id="line-195"></span><span id="calculateTxFee"><span class="annot"><span class="annottext">calculateTxFee :: RunningNode
+-&gt; SigningKey PaymentKey -&gt; UTxO -&gt; AddressInEra -&gt; Coin -&gt; IO Coin
+</span><a href="Hydra.Cluster.Faucet.html#calculateTxFee"><span class="hs-identifier hs-var hs-var">calculateTxFee</span></a></span></span><span> </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span class="hs-special">{</span><span id="local-6989586621679430279"><span class="annot"><span class="annottext">NetworkId
+$sel:networkId:RunningNode :: RunningNode -&gt; NetworkId
+networkId :: NetworkId
+</span><a href="CardanoClient.html#%24sel%3AnetworkId%3ARunningNode"><span class="hs-identifier hs-var hs-var">networkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430280"><span class="annot"><span class="annottext">SocketPath
+$sel:nodeSocket:RunningNode :: RunningNode -&gt; SocketPath
+nodeSocket :: SocketPath
+</span><a href="CardanoClient.html#%24sel%3AnodeSocket%3ARunningNode"><span class="hs-identifier hs-var hs-var">nodeSocket</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679430281"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430281"><span class="hs-identifier hs-var">secretKey</span></a></span></span><span> </span><span id="local-6989586621679430282"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430282"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679430283"><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679430283"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679430284"><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430284"><span class="hs-identifier hs-var">lovelace</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-196"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430285"><span class="annot"><span class="annottext">theOutput :: TxOut CtxTx Era
+</span><a href="#local-6989586621679430285"><span class="hs-identifier hs-var hs-var">theOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AddressInEra
+-&gt; Value -&gt; TxOutDatum CtxTx -&gt; ReferenceScript -&gt; TxOut CtxTx Era
+forall ctx.
+AddressInEra
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+</span><span class="hs-identifier hs-var">TxOut</span></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679430283"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Coin -&gt; Value
+</span><span class="hs-identifier hs-var">lovelaceToValue</span></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679430284"><span class="hs-identifier hs-var">lovelace</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
+forall ctx. TxOutDatum ctx
+</span><span class="hs-identifier hs-var">TxOutDatumNone</span></span><span> </span><span class="annot"><span class="annottext">ReferenceScript
+</span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
+</span><span id="line-197"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">NetworkId
+-&gt; SocketPath
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx Era]
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+</span><span class="hs-identifier hs-var">buildTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430279"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430280"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679430283"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679430282"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679430285"><span class="hs-identifier hs-var">theOutput</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+-&gt; (Either (TxBodyErrorAutoBalance Era) TxBody -&gt; IO Coin)
+-&gt; IO Coin
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-198"></span><span>        </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679430286"><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621679430286"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">FaucetException -&gt; IO Coin
+forall e a. Exception e =&gt; e -&gt; IO a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">(FaucetException -&gt; IO Coin) -&gt; FaucetException -&gt; IO Coin
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetFailedToBuildTx"><span class="hs-identifier hs-type">FaucetFailedToBuildTx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">reason :: TxBodyErrorAutoBalance Era
+</span><a href="Hydra.Cluster.Faucet.html#reason"><span class="hs-identifier hs-var">reason</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621679430286"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-199"></span><span>        </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679430287"><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679430287"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Coin -&gt; IO Coin
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Coin -&gt; IO Coin) -&gt; Coin -&gt; IO Coin
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; Coin
+forall era. Tx era -&gt; Coin
+</span><span class="hs-identifier hs-var">txFee'</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; TxBody -&gt; Tx
+</span><a href="CardanoClient.html#sign"><span class="hs-identifier hs-var">sign</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430281"><span class="hs-identifier hs-var">secretKey</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679430287"><span class="hs-identifier hs-var">body</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-200"></span><span>
+</span><span id="line-201"></span><span class="annot"><span class="hs-comment">-- | Try to submit tx and retry when some caught exception/s take place.</span></span><span>
+</span><span id="line-202"></span><span id="local-6989586621679429598"><span id="local-6989586621679429599"><span class="annot"><a href="Hydra.Cluster.Faucet.html#retryOnExceptions"><span class="hs-identifier hs-type">retryOnExceptions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679429598"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadDelay</span></span><span> </span><span class="annot"><a href="#local-6989586621679429598"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="#local-6989586621679429598"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetLog"><span class="hs-identifier hs-type">FaucetLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679429598"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679429599"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679429598"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679429599"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-203"></span><span id="retryOnExceptions"><span class="annot"><span class="annottext">retryOnExceptions :: forall (m :: * -&gt; *) a.
+(MonadCatch m, MonadDelay m) =&gt;
+Tracer m FaucetLog -&gt; m a -&gt; m a
+</span><a href="Hydra.Cluster.Faucet.html#retryOnExceptions"><span class="hs-identifier hs-var hs-var">retryOnExceptions</span></a></span></span><span> </span><span id="local-6989586621679430325"><span class="annot"><span class="annottext">Tracer m FaucetLog
+</span><a href="#local-6989586621679430325"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621679430326"><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679430326"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-204"></span><span>  </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679430326"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-205"></span><span>    </span><span class="annot"><span class="annottext">m a -&gt; [Handler m a] -&gt; m a
+forall (m :: * -&gt; *) a. MonadCatch m =&gt; m a -&gt; [Handler m a] -&gt; m a
+</span><span class="hs-operator hs-var">`catches`</span></span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">(SubmitTransactionException -&gt; m a) -&gt; Handler m a
+forall (m :: * -&gt; *) a e. Exception e =&gt; (e -&gt; m a) -&gt; Handler m a
+</span><span class="hs-identifier hs-var">Handler</span></span><span> </span><span class="annot"><span class="annottext">((SubmitTransactionException -&gt; m a) -&gt; Handler m a)
+-&gt; (SubmitTransactionException -&gt; m a) -&gt; Handler m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="annottext">SubmitTransactionException
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SubmitTransactionException</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-206"></span><span>                  </span><span class="annot"><span class="annottext">DiffTime -&gt; m ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-207"></span><span>                  </span><span class="annot"><span class="annottext">Tracer m FaucetLog -&gt; m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadCatch m, MonadDelay m) =&gt;
+Tracer m FaucetLog -&gt; m a -&gt; m a
+</span><a href="Hydra.Cluster.Faucet.html#retryOnExceptions"><span class="hs-identifier hs-var">retryOnExceptions</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer m FaucetLog
+</span><a href="#local-6989586621679430325"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679430326"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-208"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(IOException -&gt; m a) -&gt; Handler m a
+forall (m :: * -&gt; *) a e. Exception e =&gt; (e -&gt; m a) -&gt; Handler m a
+</span><span class="hs-identifier hs-var">Handler</span></span><span> </span><span class="annot"><span class="annottext">((IOException -&gt; m a) -&gt; Handler m a)
+-&gt; (IOException -&gt; m a) -&gt; Handler m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679430328"><span class="annot"><span class="annottext">IOException
+</span><a href="#local-6989586621679430328"><span class="hs-identifier hs-var">ex</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier hs-type">IOException</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-209"></span><span>                  </span><span class="annot"><span class="annottext">Bool -&gt; m () -&gt; m ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.html#unless"><span class="hs-identifier hs-var">unless</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IOException -&gt; Bool
+</span><a href="#local-6989586621679430330"><span class="hs-identifier hs-var">isResourceExhausted</span></a></span><span> </span><span class="annot"><span class="annottext">IOException
+</span><a href="#local-6989586621679430328"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(m () -&gt; m ()) -&gt; m () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-210"></span><span>                    </span><span class="annot"><span class="annottext">IOException -&gt; m ()
+forall e a. Exception e =&gt; e -&gt; m a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">IOException
+</span><a href="#local-6989586621679430328"><span class="hs-identifier hs-var">ex</span></a></span><span>
+</span><span id="line-211"></span><span>                  </span><span class="annot"><span class="annottext">Tracer m FaucetLog -&gt; FaucetLog -&gt; m ()
+forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
+</span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer m FaucetLog
+</span><a href="#local-6989586621679430325"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">(FaucetLog -&gt; m ()) -&gt; FaucetLog -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-212"></span><span>                    </span><span class="annot"><span class="annottext">Text -&gt; FaucetLog
+</span><a href="Hydra.Cluster.Faucet.html#TraceResourceExhaustedHandled"><span class="hs-identifier hs-var">TraceResourceExhaustedHandled</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; FaucetLog) -&gt; Text -&gt; FaucetLog
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-213"></span><span>                      </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Expected exception raised from seedFromFaucet: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">IOException -&gt; Text
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">IOException
+</span><a href="#local-6989586621679430328"><span class="hs-identifier hs-var">ex</span></a></span><span>
+</span><span id="line-214"></span><span>                  </span><span class="annot"><span class="annottext">DiffTime -&gt; m ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-215"></span><span>                  </span><span class="annot"><span class="annottext">Tracer m FaucetLog -&gt; m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadCatch m, MonadDelay m) =&gt;
+Tracer m FaucetLog -&gt; m a -&gt; m a
+</span><a href="Hydra.Cluster.Faucet.html#retryOnExceptions"><span class="hs-identifier hs-var">retryOnExceptions</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer m FaucetLog
+</span><a href="#local-6989586621679430325"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679430326"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-216"></span><span>              </span><span class="hs-special">]</span><span>
+</span><span id="line-217"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-218"></span><span>  </span><span id="local-6989586621679430330"><span class="annot"><span class="annottext">isResourceExhausted :: IOException -&gt; Bool
+</span><a href="#local-6989586621679430330"><span class="hs-identifier hs-var hs-var">isResourceExhausted</span></a></span></span><span> </span><span id="local-6989586621679430331"><span class="annot"><span class="annottext">IOException
+</span><a href="#local-6989586621679430331"><span class="hs-identifier hs-var">ex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">IOException -&gt; IOErrorType
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#ioe_type"><span class="hs-identifier hs-var">ioe_type</span></a></span><span> </span><span class="annot"><span class="annottext">IOException
+</span><a href="#local-6989586621679430331"><span class="hs-identifier hs-var">ex</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-219"></span><span>    </span><span class="annot"><span class="annottext">IOErrorType
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#ResourceExhausted"><span class="hs-identifier hs-var">ResourceExhausted</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
+</span><span id="line-220"></span><span>    </span><span id="local-6989586621679430332"><span class="annot"><span class="annottext">IOErrorType
+</span><a href="#local-6989586621679430332"><span class="hs-identifier hs-var">_other</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-221"></span><span>
+</span><span id="line-222"></span><span class="hs-comment">-- | Publish current Hydra scripts as scripts outputs for later referencing them.</span><span>
+</span><span id="line-223"></span><span class="hs-comment">--</span><span>
+</span><span id="line-224"></span><span class="hs-comment">-- The key of the given Actor is used to pay for fees in required transactions,</span><span>
+</span><span id="line-225"></span><span class="hs-comment">-- it is expected to have sufficient funds.</span><span>
+</span><span id="line-226"></span><span class="annot"><a href="Hydra.Cluster.Faucet.html#publishHydraScriptsAs"><span class="hs-identifier hs-type">publishHydraScriptsAs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#Actor"><span class="hs-identifier hs-type">Actor</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span><span>
+</span><span id="line-227"></span><span id="publishHydraScriptsAs"><span class="annot"><span class="annottext">publishHydraScriptsAs :: RunningNode -&gt; Actor -&gt; IO TxId
+</span><a href="Hydra.Cluster.Faucet.html#publishHydraScriptsAs"><span class="hs-identifier hs-var hs-var">publishHydraScriptsAs</span></a></span></span><span> </span><span class="annot"><a href="CardanoClient.html#RunningNode"><span class="hs-identifier hs-type">RunningNode</span></a></span><span class="hs-special">{</span><span id="local-6989586621679430334"><span class="annot"><span class="annottext">NetworkId
+$sel:networkId:RunningNode :: RunningNode -&gt; NetworkId
+networkId :: NetworkId
+</span><a href="CardanoClient.html#%24sel%3AnetworkId%3ARunningNode"><span class="hs-identifier hs-var hs-var">networkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430335"><span class="annot"><span class="annottext">SocketPath
+$sel:nodeSocket:RunningNode :: RunningNode -&gt; SocketPath
+nodeSocket :: SocketPath
+</span><a href="CardanoClient.html#%24sel%3AnodeSocket%3ARunningNode"><span class="hs-identifier hs-var hs-var">nodeSocket</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679430336"><span class="annot"><span class="annottext">Actor
+</span><a href="#local-6989586621679430336"><span class="hs-identifier hs-var">actor</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-228"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430337"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430337"><span class="hs-identifier hs-var">sk</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Actor -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.Cluster.Util.html#keysFor"><span class="hs-identifier hs-var">keysFor</span></a></span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="#local-6989586621679430336"><span class="hs-identifier hs-var">actor</span></a></span><span>
+</span><span id="line-229"></span><span>  </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; SigningKey PaymentKey -&gt; IO TxId
+</span><span class="hs-identifier hs-var">publishHydraScripts</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679430334"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679430335"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679430337"><span class="hs-identifier hs-var">sk</span></a></span><span>
+</span><span id="line-230"></span></pre></body></html>

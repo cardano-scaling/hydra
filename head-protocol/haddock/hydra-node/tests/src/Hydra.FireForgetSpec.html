@@ -1,0 +1,207 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.FireForgetSpec</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">newTVarIO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readTVarIO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">writeTVar</span></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Tracer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">nullTracer</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Network.Ouroboros.Client</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">FireForgetClient</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fireForgetClientPeer</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Network.Ouroboros.Server</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">FireForgetServer</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fireForgetServerPeer</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Network.Ouroboros.Type</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">codecFireForget</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.TypedProtocol.Channel</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">createConnectedChannels</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.TypedProtocol.Driver.Simple</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">runPeer</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hspec.Core.Spec</span></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Test.Util.html"><span class="hs-identifier">Test.Util</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Test.Util.html#shouldBe"><span class="hs-identifier">shouldBe</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Test.Util.html#shouldRunInSim"><span class="hs-identifier">shouldRunInSim</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="annot"><a href="Hydra.FireForgetSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-16"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><a href="Hydra.FireForgetSpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;client can send 'Hail Hydra!' to server&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679545705"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679545705"><span class="hs-identifier hs-var">res</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">()
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s (Text, ())) -&gt; IO (Text, ())
+forall a. (forall s. IOSim s a) -&gt; IO a
+</span><a href="Test.Util.html#shouldRunInSim"><span class="hs-identifier hs-var">shouldRunInSim</span></a></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s (Text, ())) -&gt; IO (Text, ()))
+-&gt; (forall s. IOSim s (Text, ())) -&gt; IO (Text, ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-19"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679545735"><span class="annot"><span class="annottext">Channel (IOSim s) LByteString
+</span><a href="#local-6989586621679545735"><span class="hs-identifier hs-var">channelA</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679545736"><span class="annot"><span class="annottext">Channel (IOSim s) LByteString
+</span><a href="#local-6989586621679545736"><span class="hs-identifier hs-var">channelB</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim
+  s (Channel (IOSim s) LByteString, Channel (IOSim s) LByteString)
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; m (Channel m a, Channel m a)
+</span><span class="hs-identifier hs-var">createConnectedChannels</span></span><span>
+</span><span id="line-20"></span><span>      </span><span id="local-6989586621679545737"><span class="annot"><span class="annottext">FireForgetServer Text (IOSim s) Text
+</span><a href="#local-6989586621679545737"><span class="hs-identifier hs-var">server</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim s (FireForgetServer Text (IOSim s) Text)
+forall (m :: * -&gt; *).
+MonadSTM m =&gt;
+m (FireForgetServer Text m Text)
+</span><a href="Hydra.FireForgetSpec.html#newServer"><span class="hs-identifier hs-var">newServer</span></a></span><span>
+</span><span id="line-21"></span><span>      </span><span class="annot"><span class="annottext">IOSim s Text -&gt; IOSim s () -&gt; IOSim s (Text, ())
+forall a b. IOSim s a -&gt; IOSim s b -&gt; IOSim s (a, b)
+forall (m :: * -&gt; *) a b. MonadAsync m =&gt; m a -&gt; m b -&gt; m (a, b)
+</span><span class="hs-identifier hs-var">concurrently</span></span><span>
+</span><span id="line-22"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tracer (IOSim s) (TraceSendRecv (FireForget Text))
+-&gt; Codec (FireForget Text) DeserialiseFailure (IOSim s) LByteString
+-&gt; Channel (IOSim s) LByteString
+-&gt; Peer (FireForget Text) 'AsServer 'StIdle (IOSim s) Text
+-&gt; IOSim s Text
+forall ps (st :: ps) (pr :: PeerRole) failure bytes (m :: * -&gt; *)
+       a.
+(MonadThrow m, Exception failure) =&gt;
+Tracer m (TraceSendRecv ps)
+-&gt; Codec ps failure m bytes
+-&gt; Channel m bytes
+-&gt; Peer ps pr st m a
+-&gt; m a
+</span><span class="hs-identifier hs-var">runPeer</span></span><span> </span><span class="annot"><span class="annottext">Tracer (IOSim s) (TraceSendRecv (FireForget Text))
+forall (m :: * -&gt; *) a. Applicative m =&gt; Tracer m a
+</span><span class="hs-identifier hs-var">nullTracer</span></span><span> </span><span class="annot"><span class="annottext">Codec (FireForget Text) DeserialiseFailure (IOSim s) LByteString
+forall a (m :: * -&gt; *).
+(MonadST m, ToCBOR a, FromCBOR a) =&gt;
+Codec (FireForget a) DeserialiseFailure m LByteString
+</span><span class="hs-identifier hs-var">codecFireForget</span></span><span> </span><span class="annot"><span class="annottext">Channel (IOSim s) LByteString
+</span><a href="#local-6989586621679545735"><span class="hs-identifier hs-var">channelA</span></a></span><span> </span><span class="annot"><span class="annottext">(Peer (FireForget Text) 'AsServer 'StIdle (IOSim s) Text
+ -&gt; IOSim s Text)
+-&gt; Peer (FireForget Text) 'AsServer 'StIdle (IOSim s) Text
+-&gt; IOSim s Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">FireForgetServer Text (IOSim s) Text
+-&gt; Peer (FireForget Text) 'AsServer 'StIdle (IOSim s) Text
+forall (m :: * -&gt; *) msg a.
+Monad m =&gt;
+FireForgetServer msg m a
+-&gt; Peer (FireForget msg) 'AsServer 'StIdle m a
+</span><span class="hs-identifier hs-var">fireForgetServerPeer</span></span><span> </span><span class="annot"><span class="annottext">FireForgetServer Text (IOSim s) Text
+</span><a href="#local-6989586621679545737"><span class="hs-identifier hs-var">server</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tracer (IOSim s) (TraceSendRecv (FireForget Text))
+-&gt; Codec (FireForget Text) DeserialiseFailure (IOSim s) LByteString
+-&gt; Channel (IOSim s) LByteString
+-&gt; Peer (FireForget Text) 'AsClient 'StIdle (IOSim s) ()
+-&gt; IOSim s ()
+forall ps (st :: ps) (pr :: PeerRole) failure bytes (m :: * -&gt; *)
+       a.
+(MonadThrow m, Exception failure) =&gt;
+Tracer m (TraceSendRecv ps)
+-&gt; Codec ps failure m bytes
+-&gt; Channel m bytes
+-&gt; Peer ps pr st m a
+-&gt; m a
+</span><span class="hs-identifier hs-var">runPeer</span></span><span> </span><span class="annot"><span class="annottext">Tracer (IOSim s) (TraceSendRecv (FireForget Text))
+forall (m :: * -&gt; *) a. Applicative m =&gt; Tracer m a
+</span><span class="hs-identifier hs-var">nullTracer</span></span><span> </span><span class="annot"><span class="annottext">Codec (FireForget Text) DeserialiseFailure (IOSim s) LByteString
+forall a (m :: * -&gt; *).
+(MonadST m, ToCBOR a, FromCBOR a) =&gt;
+Codec (FireForget a) DeserialiseFailure m LByteString
+</span><span class="hs-identifier hs-var">codecFireForget</span></span><span> </span><span class="annot"><span class="annottext">Channel (IOSim s) LByteString
+</span><a href="#local-6989586621679545736"><span class="hs-identifier hs-var">channelB</span></a></span><span> </span><span class="annot"><span class="annottext">(Peer (FireForget Text) 'AsClient 'StIdle (IOSim s) ()
+ -&gt; IOSim s ())
+-&gt; Peer (FireForget Text) 'AsClient 'StIdle (IOSim s) ()
+-&gt; IOSim s ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">FireForgetClient Text (IOSim s) ()
+-&gt; Peer (FireForget Text) 'AsClient 'StIdle (IOSim s) ()
+forall (m :: * -&gt; *) msg a.
+Monad m =&gt;
+FireForgetClient msg m a
+-&gt; Peer (FireForget msg) 'AsClient 'StIdle m a
+</span><span class="hs-identifier hs-var">fireForgetClientPeer</span></span><span> </span><span class="annot"><span class="annottext">FireForgetClient Text (IOSim s) ()
+forall (m :: * -&gt; *). Applicative m =&gt; FireForgetClient Text m ()
+</span><a href="Hydra.FireForgetSpec.html#client"><span class="hs-identifier hs-var">client</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>    </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679545705"><span class="hs-identifier hs-var">res</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; IO ()
+forall (m :: * -&gt; *) a.
+(HasCallStack, MonadThrow m, Eq a, Show a) =&gt;
+a -&gt; a -&gt; m ()
+</span><a href="Test.Util.html#shouldBe"><span class="hs-operator hs-var">`shouldBe`</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Hail Hydra!&quot;</span></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span id="local-6989586621679545658"><span class="annot"><a href="Hydra.FireForgetSpec.html#client"><span class="hs-identifier hs-type">client</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-type">Applicative</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679545658"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FireForgetClient</span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679545658"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-27"></span><span id="client"><span class="annot"><span class="annottext">client :: forall (m :: * -&gt; *). Applicative m =&gt; FireForgetClient Text m ()
+</span><a href="Hydra.FireForgetSpec.html#client"><span class="hs-identifier hs-var hs-var">client</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="annottext">Text
+-&gt; m (FireForgetClient Text m ()) -&gt; FireForgetClient Text m ()
+forall msg (m :: * -&gt; *) a.
+msg -&gt; m (FireForgetClient msg m a) -&gt; FireForgetClient msg m a
+</span><span class="hs-identifier hs-var">SendMsg</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Hail Hydra!&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(m (FireForgetClient Text m ()) -&gt; FireForgetClient Text m ())
+-&gt; m (FireForgetClient Text m ()) -&gt; FireForgetClient Text m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">FireForgetClient Text m () -&gt; m (FireForgetClient Text m ())
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(FireForgetClient Text m () -&gt; m (FireForgetClient Text m ()))
+-&gt; FireForgetClient Text m () -&gt; m (FireForgetClient Text m ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; FireForgetClient Text m ()
+forall (m :: * -&gt; *) a msg. m a -&gt; FireForgetClient msg m a
+</span><span class="hs-identifier hs-var">SendDone</span></span><span> </span><span class="annot"><span class="annottext">(m () -&gt; FireForgetClient Text m ())
+-&gt; m () -&gt; FireForgetClient Text m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">() -&gt; m ()
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><a href="Hydra.FireForgetSpec.html#newServer"><span class="hs-identifier hs-type">newServer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679545627"><span class="annot"><a href="#local-6989586621679545627"><span class="hs-identifier hs-type">m</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679545627"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679545627"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FireForgetServer</span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679545627"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span id="newServer"><span class="annot"><span class="annottext">newServer :: forall (m :: * -&gt; *).
+MonadSTM m =&gt;
+m (FireForgetServer Text m Text)
+</span><a href="Hydra.FireForgetSpec.html#newServer"><span class="hs-identifier hs-var hs-var">newServer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-32"></span><span>  </span><span id="local-6989586621679545763"><span class="annot"><span class="annottext">TVar m Text
+</span><a href="#local-6989586621679545763"><span class="hs-identifier hs-var">tvar</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; m (TVar m Text)
+forall a. a -&gt; m (TVar m a)
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; a -&gt; m (TVar m a)
+</span><span class="hs-identifier hs-var">newTVarIO</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;&quot;</span></span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="annottext">FireForgetServer Text m Text -&gt; m (FireForgetServer Text m Text)
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(FireForgetServer Text m Text -&gt; m (FireForgetServer Text m Text))
+-&gt; FireForgetServer Text m Text -&gt; m (FireForgetServer Text m Text)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Text -&gt; FireForgetServer Text m Text
+</span><a href="#local-6989586621679545764"><span class="hs-identifier hs-var">server</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Text
+</span><a href="#local-6989586621679545763"><span class="hs-identifier hs-var">tvar</span></a></span><span>
+</span><span id="line-34"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><a href="#local-6989586621679545764"><span class="hs-identifier hs-type">server</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679545627"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FireForgetServer</span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679545627"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
+</span><span id="line-36"></span><span>  </span><span id="local-6989586621679545764"><span class="annot"><span class="annottext">server :: TVar m Text -&gt; FireForgetServer Text m Text
+</span><a href="#local-6989586621679545764"><span class="hs-identifier hs-var hs-var">server</span></a></span></span><span> </span><span id="local-6989586621679545765"><span class="annot"><span class="annottext">TVar m Text
+</span><a href="#local-6989586621679545765"><span class="hs-identifier hs-var">tvar</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">FireForgetServer</span></span><span>
+</span><span id="line-38"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:recvMsg:FireForgetServer :: Text -&gt; m (FireForgetServer Text m Text)
+</span><span class="hs-identifier hs-var">recvMsg</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679545768"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679545768"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-39"></span><span>          </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
+forall a. HasCallStack =&gt; STM m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TVar m Text -&gt; Text -&gt; STM m ()
+forall a. TVar m a -&gt; a -&gt; STM m ()
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; a -&gt; STM m ()
+</span><span class="hs-identifier hs-var">writeTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Text
+</span><a href="#local-6989586621679545765"><span class="hs-identifier hs-var">tvar</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679545768"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>          </span><span class="annot"><span class="annottext">FireForgetServer Text m Text -&gt; m (FireForgetServer Text m Text)
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TVar m Text -&gt; FireForgetServer Text m Text
+</span><a href="#local-6989586621679545764"><span class="hs-identifier hs-var">server</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Text
+</span><a href="#local-6989586621679545765"><span class="hs-identifier hs-var">tvar</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:recvMsgDone:FireForgetServer :: m Text
+</span><span class="hs-identifier hs-var">recvMsgDone</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-42"></span><span>          </span><span class="annot"><span class="annottext">TVar m Text -&gt; m Text
+forall a. TVar m a -&gt; m a
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
+</span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar m Text
+</span><a href="#local-6989586621679545765"><span class="hs-identifier hs-var">tvar</span></a></span><span>
+</span><span id="line-43"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-44"></span></pre></body></html>

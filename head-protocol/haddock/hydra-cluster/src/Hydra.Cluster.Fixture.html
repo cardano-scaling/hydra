@@ -1,0 +1,328 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679426606"><span id="local-6989586621679426607"></span></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="annot"><span class="hs-comment">-- | Example values and utilities used across hydra-cluster tests and benchmarks.</span></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cluster.Fixture</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NetworkId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Api</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Party</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">deriveParty</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.ContestationPeriod</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ContestationPeriod</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Crypto</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HydraKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SigningKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">VerificationKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">generateSigningKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getVerificationKey</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="annot"><a href="Hydra.Cluster.Fixture.html#alice"><span class="hs-identifier hs-type">alice</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#bob"><span class="hs-identifier hs-type">bob</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#carol"><span class="hs-identifier hs-type">carol</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span>
+</span><span id="line-15"></span><span id="alice"><span class="annot"><span class="annottext">alice :: Party
+</span><a href="Hydra.Cluster.Fixture.html#alice"><span class="hs-identifier hs-var hs-var">alice</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party
+</span><span class="hs-identifier hs-var">deriveParty</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#aliceSk"><span class="hs-identifier hs-var">aliceSk</span></a></span><span>
+</span><span id="line-16"></span><span id="bob"><span class="annot"><span class="annottext">bob :: Party
+</span><a href="Hydra.Cluster.Fixture.html#bob"><span class="hs-identifier hs-var hs-var">bob</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party
+</span><span class="hs-identifier hs-var">deriveParty</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#bobSk"><span class="hs-identifier hs-var">bobSk</span></a></span><span>
+</span><span id="line-17"></span><span id="carol"><span class="annot"><span class="annottext">carol :: Party
+</span><a href="Hydra.Cluster.Fixture.html#carol"><span class="hs-identifier hs-var hs-var">carol</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party
+</span><span class="hs-identifier hs-var">deriveParty</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#carolSk"><span class="hs-identifier hs-var">carolSk</span></a></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="annot"><a href="Hydra.Cluster.Fixture.html#aliceSk"><span class="hs-identifier hs-type">aliceSk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#bobSk"><span class="hs-identifier hs-type">bobSk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#carolSk"><span class="hs-identifier hs-type">carolSk</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HydraKey</span></span><span>
+</span><span id="line-20"></span><span id="aliceSk"><span class="annot"><span class="annottext">aliceSk :: SigningKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#aliceSk"><span class="hs-identifier hs-var hs-var">aliceSk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; SigningKey HydraKey
+</span><span class="hs-identifier hs-var">generateSigningKey</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;alice&quot;</span></span><span>
+</span><span id="line-21"></span><span id="bobSk"><span class="annot"><span class="annottext">bobSk :: SigningKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#bobSk"><span class="hs-identifier hs-var hs-var">bobSk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; SigningKey HydraKey
+</span><span class="hs-identifier hs-var">generateSigningKey</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;bob&quot;</span></span><span>
+</span><span id="line-22"></span><span id="carolSk"><span class="annot"><span class="annottext">carolSk :: SigningKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#carolSk"><span class="hs-identifier hs-var hs-var">carolSk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; SigningKey HydraKey
+</span><span class="hs-identifier hs-var">generateSigningKey</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;carol&quot;</span></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="annot"><a href="Hydra.Cluster.Fixture.html#aliceVk"><span class="hs-identifier hs-type">aliceVk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#bobVk"><span class="hs-identifier hs-type">bobVk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#carolVk"><span class="hs-identifier hs-type">carolVk</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HydraKey</span></span><span>
+</span><span id="line-25"></span><span id="aliceVk"><span class="annot"><span class="annottext">aliceVk :: VerificationKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#aliceVk"><span class="hs-identifier hs-var hs-var">aliceVk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; VerificationKey HydraKey
+forall keyrole.
+(Key keyrole, HasTypeProxy keyrole) =&gt;
+SigningKey keyrole -&gt; VerificationKey keyrole
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#aliceSk"><span class="hs-identifier hs-var">aliceSk</span></a></span><span>
+</span><span id="line-26"></span><span id="bobVk"><span class="annot"><span class="annottext">bobVk :: VerificationKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#bobVk"><span class="hs-identifier hs-var hs-var">bobVk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; VerificationKey HydraKey
+forall keyrole.
+(Key keyrole, HasTypeProxy keyrole) =&gt;
+SigningKey keyrole -&gt; VerificationKey keyrole
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#bobSk"><span class="hs-identifier hs-var">bobSk</span></a></span><span>
+</span><span id="line-27"></span><span id="carolVk"><span class="annot"><span class="annottext">carolVk :: VerificationKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#carolVk"><span class="hs-identifier hs-var hs-var">carolVk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; VerificationKey HydraKey
+forall keyrole.
+(Key keyrole, HasTypeProxy keyrole) =&gt;
+SigningKey keyrole -&gt; VerificationKey keyrole
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="Hydra.Cluster.Fixture.html#carolSk"><span class="hs-identifier hs-var">carolSk</span></a></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="annot"><a href="Hydra.Cluster.Fixture.html#cperiod"><span class="hs-identifier hs-type">cperiod</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span>
+</span><span id="line-30"></span><span id="cperiod"><span class="annot"><span class="annottext">cperiod :: ContestationPeriod
+</span><a href="Hydra.Cluster.Fixture.html#cperiod"><span class="hs-identifier hs-var hs-var">cperiod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">10</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- | TODO: This is hard-coded and must match what's in the genesis file, so</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- ideally, we want to either:</span><span>
+</span><span id="line-34"></span><span class="hs-comment">--</span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- - overwrite the genesis configuration with the `ClusterConfig`</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- - pull the network id from the genesis configuration</span><span>
+</span><span id="line-37"></span><span class="annot"><a href="Hydra.Cluster.Fixture.html#defaultNetworkId"><span class="hs-identifier hs-type">defaultNetworkId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>
+</span><span id="line-38"></span><span id="defaultNetworkId"><span class="annot"><span class="annottext">defaultNetworkId :: NetworkId
+</span><a href="Hydra.Cluster.Fixture.html#defaultNetworkId"><span class="hs-identifier hs-var hs-var">defaultNetworkId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkMagic -&gt; NetworkId
+</span><span class="hs-identifier hs-var">Api.Testnet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; NetworkMagic
+</span><span class="hs-identifier hs-var">Api.NetworkMagic</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><span class="hs-number">42</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- NOTE: This is hard-coded and needs to correspond to the initial funds set in</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- the genesis-shelley.json file.</span><span>
+</span><span id="line-42"></span><span id="local-6989586621679426432"><span class="annot"><a href="Hydra.Cluster.Fixture.html#availableInitialFunds"><span class="hs-identifier hs-type">availableInitialFunds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Num.html#Num"><span class="hs-identifier hs-type">Num</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679426432"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679426432"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-43"></span><span id="availableInitialFunds"><span class="annot"><span class="annottext">availableInitialFunds :: forall a. Num a =&gt; a
+</span><a href="Hydra.Cluster.Fixture.html#availableInitialFunds"><span class="hs-identifier hs-var hs-var">availableInitialFunds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">900_000_000_000</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="annot"><span class="hs-comment">-- | Enumeration of known actors for which we can get the 'keysFor' and 'writeKeysFor'.</span></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">data</span><span> </span><span id="Actor"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Actor"><span class="hs-identifier hs-var">Actor</span></a></span></span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Alice"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Alice"><span class="hs-identifier hs-var">Alice</span></a></span></span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="AliceFunds"><span class="annot"><a href="Hydra.Cluster.Fixture.html#AliceFunds"><span class="hs-identifier hs-var">AliceFunds</span></a></span></span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Bob"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Bob"><span class="hs-identifier hs-var">Bob</span></a></span></span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="BobFunds"><span class="annot"><a href="Hydra.Cluster.Fixture.html#BobFunds"><span class="hs-identifier hs-var">BobFunds</span></a></span></span><span>
+</span><span id="line-51"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Carol"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Carol"><span class="hs-identifier hs-var">Carol</span></a></span></span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="CarolFunds"><span class="annot"><a href="Hydra.Cluster.Fixture.html#CarolFunds"><span class="hs-identifier hs-var">CarolFunds</span></a></span></span><span>
+</span><span id="line-53"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Faucet"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier hs-var">Faucet</span></a></span></span><span>
+</span><span id="line-54"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679426655"><span id="local-6989586621679426657"><span class="annot"><span class="annottext">Actor -&gt; Actor -&gt; Bool
+(Actor -&gt; Actor -&gt; Bool) -&gt; (Actor -&gt; Actor -&gt; Bool) -&gt; Eq Actor
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: Actor -&gt; Actor -&gt; Bool
+== :: Actor -&gt; Actor -&gt; Bool
+$c/= :: Actor -&gt; Actor -&gt; Bool
+/= :: Actor -&gt; Actor -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679426662"><span id="local-6989586621679426664"><span id="local-6989586621679426668"><span class="annot"><span class="annottext">Int -&gt; Actor -&gt; ShowS
+[Actor] -&gt; ShowS
+Actor -&gt; String
+(Int -&gt; Actor -&gt; ShowS)
+-&gt; (Actor -&gt; String) -&gt; ([Actor] -&gt; ShowS) -&gt; Show Actor
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; Actor -&gt; ShowS
+showsPrec :: Int -&gt; Actor -&gt; ShowS
+$cshow :: Actor -&gt; String
+show :: Actor -&gt; String
+$cshowList :: [Actor] -&gt; ShowS
+showList :: [Actor] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="annot"><a href="Hydra.Cluster.Fixture.html#actorName"><span class="hs-identifier hs-type">actorName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#Actor"><span class="hs-identifier hs-type">Actor</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span>
+</span><span id="line-57"></span><span id="actorName"><span class="annot"><span class="annottext">actorName :: Actor -&gt; String
+</span><a href="Hydra.Cluster.Fixture.html#actorName"><span class="hs-identifier hs-var hs-var">actorName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-58"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Alice"><span class="hs-identifier hs-var">Alice</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;alice&quot;</span></span><span>
+</span><span id="line-59"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#AliceFunds"><span class="hs-identifier hs-var">AliceFunds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;alice-funds&quot;</span></span><span>
+</span><span id="line-60"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Bob"><span class="hs-identifier hs-var">Bob</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;bob&quot;</span></span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#BobFunds"><span class="hs-identifier hs-var">BobFunds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;bob-funds&quot;</span></span><span>
+</span><span id="line-62"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Carol"><span class="hs-identifier hs-var">Carol</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;carol&quot;</span></span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#CarolFunds"><span class="hs-identifier hs-var">CarolFunds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;carol-funds&quot;</span></span><span>
+</span><span id="line-64"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier hs-var">Faucet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;faucet&quot;</span></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="annot"><a href="Hydra.Cluster.Fixture.html#fundsOf"><span class="hs-identifier hs-type">fundsOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#Actor"><span class="hs-identifier hs-type">Actor</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#Actor"><span class="hs-identifier hs-type">Actor</span></a></span><span>
+</span><span id="line-67"></span><span id="fundsOf"><span class="annot"><span class="annottext">fundsOf :: Actor -&gt; Actor
+</span><a href="Hydra.Cluster.Fixture.html#fundsOf"><span class="hs-identifier hs-var hs-var">fundsOf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Alice"><span class="hs-identifier hs-var">Alice</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#AliceFunds"><span class="hs-identifier hs-var">AliceFunds</span></a></span><span>
+</span><span id="line-69"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#AliceFunds"><span class="hs-identifier hs-var">AliceFunds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#AliceFunds"><span class="hs-identifier hs-var">AliceFunds</span></a></span><span>
+</span><span id="line-70"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Bob"><span class="hs-identifier hs-var">Bob</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#BobFunds"><span class="hs-identifier hs-var">BobFunds</span></a></span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#BobFunds"><span class="hs-identifier hs-var">BobFunds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#BobFunds"><span class="hs-identifier hs-var">BobFunds</span></a></span><span>
+</span><span id="line-72"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Carol"><span class="hs-identifier hs-var">Carol</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#CarolFunds"><span class="hs-identifier hs-var">CarolFunds</span></a></span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#CarolFunds"><span class="hs-identifier hs-var">CarolFunds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#CarolFunds"><span class="hs-identifier hs-var">CarolFunds</span></a></span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier hs-var">Faucet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier hs-var">Faucet</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- | A network known to the hydra-cluster. That means we have configuration</span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- files to connect to at least these networks.</span><span>
+</span><span id="line-78"></span><span class="hs-keyword">data</span><span> </span><span id="KnownNetwork"><span class="annot"><a href="Hydra.Cluster.Fixture.html#KnownNetwork"><span class="hs-identifier hs-var">KnownNetwork</span></a></span></span><span>
+</span><span id="line-79"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Preview"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Preview"><span class="hs-identifier hs-var">Preview</span></a></span></span><span>
+</span><span id="line-80"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Preproduction"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Preproduction"><span class="hs-identifier hs-var">Preproduction</span></a></span></span><span>
+</span><span id="line-81"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Mainnet"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Mainnet"><span class="hs-identifier hs-var">Mainnet</span></a></span></span><span>
+</span><span id="line-82"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Sanchonet"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Sanchonet"><span class="hs-identifier hs-var">Sanchonet</span></a></span></span><span>
+</span><span id="line-83"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679426678"><span id="local-6989586621679426680"><span class="annot"><span class="annottext">(forall x. KnownNetwork -&gt; Rep KnownNetwork x)
+-&gt; (forall x. Rep KnownNetwork x -&gt; KnownNetwork)
+-&gt; Generic KnownNetwork
+forall x. Rep KnownNetwork x -&gt; KnownNetwork
+forall x. KnownNetwork -&gt; Rep KnownNetwork x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. KnownNetwork -&gt; Rep KnownNetwork x
+from :: forall x. KnownNetwork -&gt; Rep KnownNetwork x
+$cto :: forall x. Rep KnownNetwork x -&gt; KnownNetwork
+to :: forall x. Rep KnownNetwork x -&gt; KnownNetwork
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679426684"><span id="local-6989586621679426686"><span id="local-6989586621679426690"><span class="annot"><span class="annottext">Int -&gt; KnownNetwork -&gt; ShowS
+[KnownNetwork] -&gt; ShowS
+KnownNetwork -&gt; String
+(Int -&gt; KnownNetwork -&gt; ShowS)
+-&gt; (KnownNetwork -&gt; String)
+-&gt; ([KnownNetwork] -&gt; ShowS)
+-&gt; Show KnownNetwork
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; KnownNetwork -&gt; ShowS
+showsPrec :: Int -&gt; KnownNetwork -&gt; ShowS
+$cshow :: KnownNetwork -&gt; String
+show :: KnownNetwork -&gt; String
+$cshowList :: [KnownNetwork] -&gt; ShowS
+showList :: [KnownNetwork] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679426693"><span id="local-6989586621679426695"><span class="annot"><span class="annottext">KnownNetwork -&gt; KnownNetwork -&gt; Bool
+(KnownNetwork -&gt; KnownNetwork -&gt; Bool)
+-&gt; (KnownNetwork -&gt; KnownNetwork -&gt; Bool) -&gt; Eq KnownNetwork
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: KnownNetwork -&gt; KnownNetwork -&gt; Bool
+== :: KnownNetwork -&gt; KnownNetwork -&gt; Bool
+$c/= :: KnownNetwork -&gt; KnownNetwork -&gt; Bool
+/= :: KnownNetwork -&gt; KnownNetwork -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679426699"><span id="local-6989586621679426707"><span id="local-6989586621679426713"><span id="local-6989586621679426727"><span id="local-6989586621679426729"><span id="local-6989586621679426733"><span id="local-6989586621679426737"><span id="local-6989586621679426741"><span class="annot"><span class="annottext">Int -&gt; KnownNetwork
+KnownNetwork -&gt; Int
+KnownNetwork -&gt; [KnownNetwork]
+KnownNetwork -&gt; KnownNetwork
+KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
+KnownNetwork -&gt; KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
+(KnownNetwork -&gt; KnownNetwork)
+-&gt; (KnownNetwork -&gt; KnownNetwork)
+-&gt; (Int -&gt; KnownNetwork)
+-&gt; (KnownNetwork -&gt; Int)
+-&gt; (KnownNetwork -&gt; [KnownNetwork])
+-&gt; (KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork])
+-&gt; (KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork])
+-&gt; (KnownNetwork -&gt; KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork])
+-&gt; Enum KnownNetwork
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+$csucc :: KnownNetwork -&gt; KnownNetwork
+succ :: KnownNetwork -&gt; KnownNetwork
+$cpred :: KnownNetwork -&gt; KnownNetwork
+pred :: KnownNetwork -&gt; KnownNetwork
+$ctoEnum :: Int -&gt; KnownNetwork
+toEnum :: Int -&gt; KnownNetwork
+$cfromEnum :: KnownNetwork -&gt; Int
+fromEnum :: KnownNetwork -&gt; Int
+$cenumFrom :: KnownNetwork -&gt; [KnownNetwork]
+enumFrom :: KnownNetwork -&gt; [KnownNetwork]
+$cenumFromThen :: KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
+enumFromThen :: KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
+$cenumFromTo :: KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
+enumFromTo :: KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
+$cenumFromThenTo :: KnownNetwork -&gt; KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
+enumFromThenTo :: KnownNetwork -&gt; KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679426745"><span id="local-6989586621679426747"><span class="annot"><span class="annottext">KnownNetwork
+KnownNetwork -&gt; KnownNetwork -&gt; Bounded KnownNetwork
+forall a. a -&gt; a -&gt; Bounded a
+$cminBound :: KnownNetwork
+minBound :: KnownNetwork
+$cmaxBound :: KnownNetwork
+maxBound :: KnownNetwork
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Enum.html#Bounded"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Bounded</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679426751"><span id="local-6989586621679426758"><span id="local-6989586621679426761"><span id="local-6989586621679426764"><span id="local-6989586621679426767"><span class="annot"><span class="annottext">[KnownNetwork] -&gt; Value
+[KnownNetwork] -&gt; Encoding
+KnownNetwork -&gt; Bool
+KnownNetwork -&gt; Value
+KnownNetwork -&gt; Encoding
+(KnownNetwork -&gt; Value)
+-&gt; (KnownNetwork -&gt; Encoding)
+-&gt; ([KnownNetwork] -&gt; Value)
+-&gt; ([KnownNetwork] -&gt; Encoding)
+-&gt; (KnownNetwork -&gt; Bool)
+-&gt; ToJSON KnownNetwork
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: KnownNetwork -&gt; Value
+toJSON :: KnownNetwork -&gt; Value
+$ctoEncoding :: KnownNetwork -&gt; Encoding
+toEncoding :: KnownNetwork -&gt; Encoding
+$ctoJSONList :: [KnownNetwork] -&gt; Value
+toJSONList :: [KnownNetwork] -&gt; Value
+$ctoEncodingList :: [KnownNetwork] -&gt; Encoding
+toEncodingList :: [KnownNetwork] -&gt; Encoding
+$comitField :: KnownNetwork -&gt; Bool
+omitField :: KnownNetwork -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679426893"><span id="local-6989586621679426900"><span id="local-6989586621679426903"><span class="annot"><span class="annottext">Maybe KnownNetwork
+Value -&gt; Parser [KnownNetwork]
+Value -&gt; Parser KnownNetwork
+(Value -&gt; Parser KnownNetwork)
+-&gt; (Value -&gt; Parser [KnownNetwork])
+-&gt; Maybe KnownNetwork
+-&gt; FromJSON KnownNetwork
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser KnownNetwork
+parseJSON :: Value -&gt; Parser KnownNetwork
+$cparseJSONList :: Value -&gt; Parser [KnownNetwork]
+parseJSONList :: Value -&gt; Parser [KnownNetwork]
+$comittedField :: Maybe KnownNetwork
+omittedField :: Maybe KnownNetwork
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span class="annot"><a href="Hydra.Cluster.Fixture.html#toNetworkId"><span class="hs-identifier hs-type">toNetworkId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#KnownNetwork"><span class="hs-identifier hs-type">KnownNetwork</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>
+</span><span id="line-87"></span><span id="toNetworkId"><span class="annot"><span class="annottext">toNetworkId :: KnownNetwork -&gt; NetworkId
+</span><a href="Hydra.Cluster.Fixture.html#toNetworkId"><span class="hs-identifier hs-var hs-var">toNetworkId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-88"></span><span>  </span><span class="annot"><span class="annottext">KnownNetwork
+</span><a href="Hydra.Cluster.Fixture.html#Mainnet"><span class="hs-identifier hs-var">Mainnet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><span class="hs-identifier hs-var">Api.Mainnet</span></span><span>
+</span><span id="line-89"></span><span>  </span><span class="annot"><span class="annottext">KnownNetwork
+</span><a href="Hydra.Cluster.Fixture.html#Preproduction"><span class="hs-identifier hs-var">Preproduction</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkMagic -&gt; NetworkId
+</span><span class="hs-identifier hs-var">Api.Testnet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; NetworkMagic
+</span><span class="hs-identifier hs-var">Api.NetworkMagic</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>  </span><span class="annot"><span class="annottext">KnownNetwork
+</span><a href="Hydra.Cluster.Fixture.html#Preview"><span class="hs-identifier hs-var">Preview</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkMagic -&gt; NetworkId
+</span><span class="hs-identifier hs-var">Api.Testnet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; NetworkMagic
+</span><span class="hs-identifier hs-var">Api.NetworkMagic</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><span class="hs-number">2</span></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>  </span><span class="annot"><span class="annottext">KnownNetwork
+</span><a href="Hydra.Cluster.Fixture.html#Sanchonet"><span class="hs-identifier hs-var">Sanchonet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkMagic -&gt; NetworkId
+</span><span class="hs-identifier hs-var">Api.Testnet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; NetworkMagic
+</span><span class="hs-identifier hs-var">Api.NetworkMagic</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><span class="hs-number">4</span></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span></pre></body></html>

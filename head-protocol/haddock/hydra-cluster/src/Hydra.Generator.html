@@ -1,0 +1,894 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Generator</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">size</span></span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="CardanoClient.html"><span class="hs-identifier">CardanoClient</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">QueryPoint</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">QueryTip</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="CardanoClient.html#buildRawTransaction"><span class="hs-identifier">buildRawTransaction</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">buildTransaction</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">queryUTxOFor</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="CardanoClient.html#sign"><span class="hs-identifier">sign</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.html"><span class="hs-identifier">Control.Monad</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.html#foldM"><span class="hs-identifier">foldM</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">object</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">withObject</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.:)</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Default</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">def</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html"><span class="hs-identifier">Hydra.Cluster.Faucet</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetException"><span class="hs-identifier">FaucetException</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html"><span class="hs-identifier">Hydra.Cluster.Fixture</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cluster.Fixture.html#Actor"><span class="hs-identifier">Actor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Cluster.Fixture.html#availableInitialFunds"><span class="hs-identifier">availableInitialFunds</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cluster.Util.html"><span class="hs-identifier">Hydra.Cluster.Util</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cluster.Util.html#keysFor"><span class="hs-identifier">keysFor</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Ledger.Cardano</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier">generateOneRandomTransfer</span></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">generateOneSelfTransfer</span></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">balance</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Gen</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier">genSigningKey</span></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">choose</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">generate</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">sized</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="annot"><a href="Hydra.Generator.html#networkId"><span class="hs-identifier hs-type">networkId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>
+</span><span id="line-25"></span><span id="networkId"><span class="annot"><span class="annottext">networkId :: NetworkId
+</span><a href="Hydra.Generator.html#networkId"><span class="hs-identifier hs-var hs-var">networkId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkMagic -&gt; NetworkId
+</span><span class="hs-identifier hs-var">Testnet</span></span><span> </span><span class="annot"><span class="annottext">(NetworkMagic -&gt; NetworkId) -&gt; NetworkMagic -&gt; NetworkId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; NetworkMagic
+</span><span class="hs-identifier hs-var">NetworkMagic</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><span class="hs-number">42</span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- | A 'Dataset' that can be run for testing purpose.</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- Each `Dataset` represents a complete scenario where several `ClientDataset` are run concurrently</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- against one or more `HydraNode`s. A dataset can optionally have a `title` and `description`</span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- which will be used to report results.</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">data</span><span> </span><span id="Dataset"><span class="annot"><a href="Hydra.Generator.html#Dataset"><span class="hs-identifier hs-var">Dataset</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Dataset"><span class="annot"><a href="Hydra.Generator.html#Dataset"><span class="hs-identifier hs-var">Dataset</span></a></span></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="fundingTransaction"><span class="annot"><span class="annottext">Dataset -&gt; Tx
+</span><a href="Hydra.Generator.html#fundingTransaction"><span class="hs-identifier hs-var hs-var">fundingTransaction</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="clientDatasets"><span class="annot"><span class="annottext">Dataset -&gt; [ClientDataset]
+</span><a href="Hydra.Generator.html#clientDatasets"><span class="hs-identifier hs-var hs-var">clientDatasets</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Generator.html#ClientDataset"><span class="hs-identifier hs-type">ClientDataset</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="title"><span class="annot"><span class="annottext">Dataset -&gt; Maybe Text
+</span><a href="Hydra.Generator.html#title"><span class="hs-identifier hs-var hs-var">title</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="description"><span class="annot"><span class="annottext">Dataset -&gt; Maybe Text
+</span><a href="Hydra.Generator.html#description"><span class="hs-identifier hs-var hs-var">description</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679430820"><span id="local-6989586621679430833"><span id="local-6989586621679430837"><span class="annot"><span class="annottext">Int -&gt; Dataset -&gt; ShowS
+[Dataset] -&gt; ShowS
+Dataset -&gt; String
+(Int -&gt; Dataset -&gt; ShowS)
+-&gt; (Dataset -&gt; String) -&gt; ([Dataset] -&gt; ShowS) -&gt; Show Dataset
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; Dataset -&gt; ShowS
+showsPrec :: Int -&gt; Dataset -&gt; ShowS
+$cshow :: Dataset -&gt; String
+show :: Dataset -&gt; String
+$cshowList :: [Dataset] -&gt; ShowS
+showList :: [Dataset] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430843"><span id="local-6989586621679430845"><span class="annot"><span class="annottext">(forall x. Dataset -&gt; Rep Dataset x)
+-&gt; (forall x. Rep Dataset x -&gt; Dataset) -&gt; Generic Dataset
+forall x. Rep Dataset x -&gt; Dataset
+forall x. Dataset -&gt; Rep Dataset x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. Dataset -&gt; Rep Dataset x
+from :: forall x. Dataset -&gt; Rep Dataset x
+$cto :: forall x. Rep Dataset x -&gt; Dataset
+to :: forall x. Rep Dataset x -&gt; Dataset
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679430849"><span id="local-6989586621679430856"><span id="local-6989586621679430859"><span id="local-6989586621679430862"><span id="local-6989586621679430865"><span class="annot"><span class="annottext">[Dataset] -&gt; Value
+[Dataset] -&gt; Encoding
+Dataset -&gt; Bool
+Dataset -&gt; Value
+Dataset -&gt; Encoding
+(Dataset -&gt; Value)
+-&gt; (Dataset -&gt; Encoding)
+-&gt; ([Dataset] -&gt; Value)
+-&gt; ([Dataset] -&gt; Encoding)
+-&gt; (Dataset -&gt; Bool)
+-&gt; ToJSON Dataset
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: Dataset -&gt; Value
+toJSON :: Dataset -&gt; Value
+$ctoEncoding :: Dataset -&gt; Encoding
+toEncoding :: Dataset -&gt; Encoding
+$ctoJSONList :: [Dataset] -&gt; Value
+toJSONList :: [Dataset] -&gt; Value
+$ctoEncodingList :: [Dataset] -&gt; Encoding
+toEncodingList :: [Dataset] -&gt; Encoding
+$comitField :: Dataset -&gt; Bool
+omitField :: Dataset -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679431004"><span id="local-6989586621679431011"><span id="local-6989586621679431014"><span class="annot"><span class="annottext">Maybe Dataset
+Value -&gt; Parser [Dataset]
+Value -&gt; Parser Dataset
+(Value -&gt; Parser Dataset)
+-&gt; (Value -&gt; Parser [Dataset]) -&gt; Maybe Dataset -&gt; FromJSON Dataset
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser Dataset
+parseJSON :: Value -&gt; Parser Dataset
+$cparseJSONList :: Value -&gt; Parser [Dataset]
+parseJSONList :: Value -&gt; Parser [Dataset]
+$comittedField :: Maybe Dataset
+omittedField :: Maybe Dataset
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679431108"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Generator.html#Dataset"><span class="hs-identifier hs-type">Dataset</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-41"></span><span>  </span><span id="local-6989586621679431115"><span class="annot"><span class="annottext">arbitrary :: Gen Dataset
+</span><a href="#local-6989586621679431115"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Gen Dataset) -&gt; Gen Dataset
+forall a. (Int -&gt; Gen a) -&gt; Gen a
+</span><span class="hs-identifier hs-var">sized</span></span><span> </span><span class="annot"><span class="annottext">((Int -&gt; Gen Dataset) -&gt; Gen Dataset)
+-&gt; (Int -&gt; Gen Dataset) -&gt; Gen Dataset
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679431117"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431117"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-42"></span><span>    </span><span id="local-6989586621679431118"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431118"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (SigningKey PaymentKey)
+</span><span class="hs-identifier hs-var">genSigningKey</span></span><span>
+</span><span id="line-43"></span><span>    </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; Int -&gt; Int -&gt; Gen Dataset
+</span><a href="Hydra.Generator.html#generateConstantUTxODataset"><span class="hs-identifier hs-var">generateConstantUTxODataset</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431118"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431117"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#div"><span class="hs-operator hs-var">`div`</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431117"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">data</span><span> </span><span id="ClientKeys"><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-var">ClientKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ClientKeys"><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-var">ClientKeys</span></a></span></span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="signingKey"><span class="annot"><span class="annottext">ClientKeys -&gt; SigningKey PaymentKey
+</span><a href="Hydra.Generator.html#signingKey"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Key used by the hydra-node to authorize hydra transactions and holding fuel.</span></span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="externalSigningKey"><span class="annot"><span class="annottext">ClientKeys -&gt; SigningKey PaymentKey
+</span><a href="Hydra.Generator.html#externalSigningKey"><span class="hs-identifier hs-var hs-var">externalSigningKey</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Key holding funds to commit.</span></span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-51"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679431125"><span id="local-6989586621679431131"><span id="local-6989586621679431135"><span class="annot"><span class="annottext">Int -&gt; ClientKeys -&gt; ShowS
+[ClientKeys] -&gt; ShowS
+ClientKeys -&gt; String
+(Int -&gt; ClientKeys -&gt; ShowS)
+-&gt; (ClientKeys -&gt; String)
+-&gt; ([ClientKeys] -&gt; ShowS)
+-&gt; Show ClientKeys
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ClientKeys -&gt; ShowS
+showsPrec :: Int -&gt; ClientKeys -&gt; ShowS
+$cshow :: ClientKeys -&gt; String
+show :: ClientKeys -&gt; String
+$cshowList :: [ClientKeys] -&gt; ShowS
+showList :: [ClientKeys] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679431139"><span id="local-6989586621679431143"><span id="local-6989586621679431146"><span id="local-6989586621679431149"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-type">ClientKeys</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-54"></span><span>  </span><span id="local-6989586621679431168"><span class="annot"><span class="annottext">toJSON :: ClientKeys -&gt; Value
+</span><a href="#local-6989586621679431168"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-type">ClientKeys</span></a></span><span class="hs-special">{</span><span id="local-6989586621679431170"><span class="annot"><span class="annottext">SigningKey PaymentKey
+signingKey :: ClientKeys -&gt; SigningKey PaymentKey
+signingKey :: SigningKey PaymentKey
+</span><a href="Hydra.Generator.html#signingKey"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679431171"><span class="annot"><span class="annottext">SigningKey PaymentKey
+externalSigningKey :: ClientKeys -&gt; SigningKey PaymentKey
+externalSigningKey :: SigningKey PaymentKey
+</span><a href="Hydra.Generator.html#externalSigningKey"><span class="hs-identifier hs-var hs-var">externalSigningKey</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-56"></span><span>      </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;signingKey&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; TextEnvelope -&gt; Pair
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Maybe TextEnvelopeDescr -&gt; SigningKey PaymentKey -&gt; TextEnvelope
+forall a.
+HasTextEnvelope a =&gt;
+Maybe TextEnvelopeDescr -&gt; a -&gt; TextEnvelope
+</span><span class="hs-identifier hs-var">serialiseToTextEnvelope</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TextEnvelopeDescr -&gt; Maybe TextEnvelopeDescr
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">TextEnvelopeDescr
+</span><span class="hs-string">&quot;signingKey&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431170"><span class="hs-identifier hs-var">signingKey</span></a></span><span>
+</span><span id="line-57"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;externalSigningKey&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; TextEnvelope -&gt; Pair
+forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
+forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Maybe TextEnvelopeDescr -&gt; SigningKey PaymentKey -&gt; TextEnvelope
+forall a.
+HasTextEnvelope a =&gt;
+Maybe TextEnvelopeDescr -&gt; a -&gt; TextEnvelope
+</span><span class="hs-identifier hs-var">serialiseToTextEnvelope</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TextEnvelopeDescr -&gt; Maybe TextEnvelopeDescr
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">TextEnvelopeDescr
+</span><span class="hs-string">&quot;externalSigningKey&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431171"><span class="hs-identifier hs-var">externalSigningKey</span></a></span><span>
+</span><span id="line-58"></span><span>      </span><span class="hs-special">]</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679431175"><span id="local-6989586621679431179"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-type">ClientKeys</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-61"></span><span>  </span><span id="local-6989586621679431193"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser ClientKeys
+</span><a href="#local-6989586621679431193"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-62"></span><span>    </span><span class="annot"><span class="annottext">String
+-&gt; (Object -&gt; Parser ClientKeys) -&gt; Value -&gt; Parser ClientKeys
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;ClientKeys&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser ClientKeys) -&gt; Value -&gt; Parser ClientKeys)
+-&gt; (Object -&gt; Parser ClientKeys) -&gt; Value -&gt; Parser ClientKeys
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679431195"><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679431195"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-63"></span><span>      </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; SigningKey PaymentKey -&gt; ClientKeys
+</span><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-var">ClientKeys</span></a></span><span>
+</span><span id="line-64"></span><span>        </span><span class="annot"><span class="annottext">(SigningKey PaymentKey -&gt; SigningKey PaymentKey -&gt; ClientKeys)
+-&gt; Parser (SigningKey PaymentKey)
+-&gt; Parser (SigningKey PaymentKey -&gt; ClientKeys)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Parser (SigningKey PaymentKey)
+</span><a href="#local-6989586621679431197"><span class="hs-identifier hs-var">decodeSigningKey</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Parser (SigningKey PaymentKey))
+-&gt; Parser Value -&gt; Parser (SigningKey PaymentKey)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3D%3C%3C"><span class="hs-operator hs-var">=&lt;&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679431195"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Value
+forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;signingKey&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span>        </span><span class="annot"><span class="annottext">Parser (SigningKey PaymentKey -&gt; ClientKeys)
+-&gt; Parser (SigningKey PaymentKey) -&gt; Parser ClientKeys
+forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Parser (SigningKey PaymentKey)
+</span><a href="#local-6989586621679431197"><span class="hs-identifier hs-var">decodeSigningKey</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Parser (SigningKey PaymentKey))
+-&gt; Parser Value -&gt; Parser (SigningKey PaymentKey)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3D%3C%3C"><span class="hs-operator hs-var">=&lt;&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679431195"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Value
+forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;externalSigningKey&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>   </span><span class="hs-keyword">where</span><span>
+</span><span id="line-67"></span><span>    </span><span id="local-6989586621679431197"><span class="annot"><span class="annottext">decodeSigningKey :: Value -&gt; Parser (SigningKey PaymentKey)
+</span><a href="#local-6989586621679431197"><span class="hs-identifier hs-var hs-var">decodeSigningKey</span></a></span></span><span> </span><span id="local-6989586621679431211"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679431211"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-68"></span><span>      </span><span id="local-6989586621679431212"><span class="annot"><span class="annottext">TextEnvelope
+</span><a href="#local-6989586621679431212"><span class="hs-identifier hs-var">envelope</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Parser TextEnvelope
+forall a. FromJSON a =&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679431211"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-69"></span><span>      </span><span class="annot"><span class="annottext">AsType (SigningKey PaymentKey)
+-&gt; TextEnvelope -&gt; Either TextEnvelopeError (SigningKey PaymentKey)
+forall a.
+HasTextEnvelope a =&gt;
+AsType a -&gt; TextEnvelope -&gt; Either TextEnvelopeError a
+</span><span class="hs-identifier hs-var">deserialiseFromTextEnvelope</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsType PaymentKey -&gt; AsType (SigningKey PaymentKey)
+forall a. AsType a -&gt; AsType (SigningKey a)
+</span><span class="hs-identifier hs-var">AsSigningKey</span></span><span> </span><span class="annot"><span class="annottext">AsType PaymentKey
+</span><span class="hs-identifier hs-var">AsPaymentKey</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TextEnvelope
+</span><a href="#local-6989586621679431212"><span class="hs-identifier hs-var">envelope</span></a></span><span>
+</span><span id="line-70"></span><span>        </span><span class="annot"><span class="annottext">Either TextEnvelopeError (SigningKey PaymentKey)
+-&gt; (Either TextEnvelopeError (SigningKey PaymentKey)
+    -&gt; Parser (SigningKey PaymentKey))
+-&gt; Parser (SigningKey PaymentKey)
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(TextEnvelopeError -&gt; Parser (SigningKey PaymentKey))
+-&gt; (SigningKey PaymentKey -&gt; Parser (SigningKey PaymentKey))
+-&gt; Either TextEnvelopeError (SigningKey PaymentKey)
+-&gt; Parser (SigningKey PaymentKey)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Parser (SigningKey PaymentKey)
+forall a. String -&gt; Parser a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Parser (SigningKey PaymentKey))
+-&gt; (TextEnvelopeError -&gt; String)
+-&gt; TextEnvelopeError
+-&gt; Parser (SigningKey PaymentKey)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TextEnvelopeError -&gt; String
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; Parser (SigningKey PaymentKey)
+forall a. a -&gt; Parser a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679431222"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-type">ClientKeys</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679431226"><span class="annot"><span class="annottext">arbitrary :: Gen ClientKeys
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; SigningKey PaymentKey -&gt; ClientKeys
+</span><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-var">ClientKeys</span></a></span><span> </span><span class="annot"><span class="annottext">(SigningKey PaymentKey -&gt; SigningKey PaymentKey -&gt; ClientKeys)
+-&gt; Gen (SigningKey PaymentKey)
+-&gt; Gen (SigningKey PaymentKey -&gt; ClientKeys)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen (SigningKey PaymentKey)
+</span><span class="hs-identifier hs-var">genSigningKey</span></span><span> </span><span class="annot"><span class="annottext">Gen (SigningKey PaymentKey -&gt; ClientKeys)
+-&gt; Gen (SigningKey PaymentKey) -&gt; Gen ClientKeys
+forall a b. Gen (a -&gt; b) -&gt; Gen a -&gt; Gen b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen (SigningKey PaymentKey)
+</span><span class="hs-identifier hs-var">genSigningKey</span></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">data</span><span> </span><span id="ClientDataset"><span class="annot"><a href="Hydra.Generator.html#ClientDataset"><span class="hs-identifier hs-var">ClientDataset</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ClientDataset"><span class="annot"><a href="Hydra.Generator.html#ClientDataset"><span class="hs-identifier hs-var">ClientDataset</span></a></span></span><span>
+</span><span id="line-76"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="clientKeys"><span class="annot"><span class="annottext">ClientDataset -&gt; ClientKeys
+</span><a href="Hydra.Generator.html#clientKeys"><span class="hs-identifier hs-var hs-var">clientKeys</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-type">ClientKeys</span></a></span><span>
+</span><span id="line-77"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="initialUTxO"><span class="annot"><span class="annottext">ClientDataset -&gt; UTxO
+</span><a href="Hydra.Generator.html#initialUTxO"><span class="hs-identifier hs-var hs-var">initialUTxO</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-78"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="txSequence"><span class="annot"><span class="annottext">ClientDataset -&gt; [Tx]
+</span><a href="Hydra.Generator.html#txSequence"><span class="hs-identifier hs-var hs-var">txSequence</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">]</span><span>
+</span><span id="line-79"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-80"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679431231"><span id="local-6989586621679431240"><span id="local-6989586621679431243"><span class="annot"><span class="annottext">Int -&gt; ClientDataset -&gt; ShowS
+[ClientDataset] -&gt; ShowS
+ClientDataset -&gt; String
+(Int -&gt; ClientDataset -&gt; ShowS)
+-&gt; (ClientDataset -&gt; String)
+-&gt; ([ClientDataset] -&gt; ShowS)
+-&gt; Show ClientDataset
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ClientDataset -&gt; ShowS
+showsPrec :: Int -&gt; ClientDataset -&gt; ShowS
+$cshow :: ClientDataset -&gt; String
+show :: ClientDataset -&gt; String
+$cshowList :: [ClientDataset] -&gt; ShowS
+showList :: [ClientDataset] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679431247"><span id="local-6989586621679431249"><span class="annot"><span class="annottext">(forall x. ClientDataset -&gt; Rep ClientDataset x)
+-&gt; (forall x. Rep ClientDataset x -&gt; ClientDataset)
+-&gt; Generic ClientDataset
+forall x. Rep ClientDataset x -&gt; ClientDataset
+forall x. ClientDataset -&gt; Rep ClientDataset x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. ClientDataset -&gt; Rep ClientDataset x
+from :: forall x. ClientDataset -&gt; Rep ClientDataset x
+$cto :: forall x. Rep ClientDataset x -&gt; ClientDataset
+to :: forall x. Rep ClientDataset x -&gt; ClientDataset
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679431252"><span id="local-6989586621679431258"><span id="local-6989586621679431261"><span id="local-6989586621679431264"><span id="local-6989586621679431267"><span class="annot"><span class="annottext">[ClientDataset] -&gt; Value
+[ClientDataset] -&gt; Encoding
+ClientDataset -&gt; Bool
+ClientDataset -&gt; Value
+ClientDataset -&gt; Encoding
+(ClientDataset -&gt; Value)
+-&gt; (ClientDataset -&gt; Encoding)
+-&gt; ([ClientDataset] -&gt; Value)
+-&gt; ([ClientDataset] -&gt; Encoding)
+-&gt; (ClientDataset -&gt; Bool)
+-&gt; ToJSON ClientDataset
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: ClientDataset -&gt; Value
+toJSON :: ClientDataset -&gt; Value
+$ctoEncoding :: ClientDataset -&gt; Encoding
+toEncoding :: ClientDataset -&gt; Encoding
+$ctoJSONList :: [ClientDataset] -&gt; Value
+toJSONList :: [ClientDataset] -&gt; Value
+$ctoEncodingList :: [ClientDataset] -&gt; Encoding
+toEncodingList :: [ClientDataset] -&gt; Encoding
+$comitField :: ClientDataset -&gt; Bool
+omitField :: ClientDataset -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679431353"><span id="local-6989586621679431359"><span id="local-6989586621679431362"><span class="annot"><span class="annottext">Maybe ClientDataset
+Value -&gt; Parser [ClientDataset]
+Value -&gt; Parser ClientDataset
+(Value -&gt; Parser ClientDataset)
+-&gt; (Value -&gt; Parser [ClientDataset])
+-&gt; Maybe ClientDataset
+-&gt; FromJSON ClientDataset
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser ClientDataset
+parseJSON :: Value -&gt; Parser ClientDataset
+$cparseJSONList :: Value -&gt; Parser [ClientDataset]
+parseJSONList :: Value -&gt; Parser [ClientDataset]
+$comittedField :: Maybe ClientDataset
+omittedField :: Maybe ClientDataset
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="annot"><a href="Hydra.Generator.html#defaultProtocolParameters"><span class="hs-identifier hs-type">defaultProtocolParameters</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">LedgerEra</span></span><span>
+</span><span id="line-84"></span><span id="defaultProtocolParameters"><span class="annot"><span class="annottext">defaultProtocolParameters :: PParams LedgerEra
+</span><a href="Hydra.Generator.html#defaultProtocolParameters"><span class="hs-identifier hs-var hs-var">defaultProtocolParameters</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+PParams StandardConway
+forall a. Default a =&gt; a
+</span><span class="hs-identifier hs-var">def</span></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span class="hs-comment">-- | Generate 'Dataset' which does not grow the per-client UTXO set over time.</span><span>
+</span><span id="line-87"></span><span class="hs-comment">-- The sequence of transactions generated consist only of simple payments from</span><span>
+</span><span id="line-88"></span><span class="hs-comment">-- and to arbitrary keys controlled by the individual clients.</span><span>
+</span><span id="line-89"></span><span class="annot"><a href="Hydra.Generator.html#generateConstantUTxODataset"><span class="hs-identifier hs-type">generateConstantUTxODataset</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-90"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Faucet signing key</span></span><span>
+</span><span id="line-91"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-92"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Number of clients</span></span><span>
+</span><span id="line-93"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-94"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Number of transactions</span></span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-96"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="Hydra.Generator.html#Dataset"><span class="hs-identifier hs-type">Dataset</span></a></span><span>
+</span><span id="line-97"></span><span id="generateConstantUTxODataset"><span class="annot"><span class="annottext">generateConstantUTxODataset :: SigningKey PaymentKey -&gt; Int -&gt; Int -&gt; Gen Dataset
+</span><a href="Hydra.Generator.html#generateConstantUTxODataset"><span class="hs-identifier hs-var hs-var">generateConstantUTxODataset</span></a></span></span><span> </span><span id="local-6989586621679431424"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431424"><span class="hs-identifier hs-var">faucetSk</span></a></span></span><span> </span><span id="local-6989586621679431425"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431425"><span class="hs-identifier hs-var">nClients</span></a></span></span><span> </span><span id="local-6989586621679431426"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431426"><span class="hs-identifier hs-var">nTxs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-98"></span><span>  </span><span id="local-6989586621679431427"><span class="annot"><span class="annottext">[ClientKeys]
+</span><a href="#local-6989586621679431427"><span class="hs-identifier hs-var">allClientKeys</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Gen ClientKeys -&gt; Gen [ClientKeys]
+forall (m :: * -&gt; *) a. Applicative m =&gt; Int -&gt; m a -&gt; m [a]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.html#replicateM"><span class="hs-identifier hs-var">replicateM</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431425"><span class="hs-identifier hs-var">nClients</span></a></span><span> </span><span class="annot"><span class="annottext">Gen ClientKeys
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-99"></span><span>  </span><span class="hs-comment">-- Prepare funding transaction which will give every client's</span><span>
+</span><span id="line-100"></span><span>  </span><span class="hs-comment">-- 'externalSigningKey' &quot;some&quot; lovelace. The internal 'signingKey' will get</span><span>
+</span><span id="line-101"></span><span>  </span><span class="hs-comment">-- funded in the beginning of the benchmark run.</span><span>
+</span><span id="line-102"></span><span>  </span><span id="local-6989586621679431429"><span class="annot"><span class="annottext">[(VerificationKey PaymentKey, Coin)]
+</span><a href="#local-6989586621679431429"><span class="hs-identifier hs-var">clientFunds</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[ClientKeys] -&gt; Integer -&gt; Gen [(VerificationKey PaymentKey, Coin)]
+</span><a href="Hydra.Generator.html#genClientFunds"><span class="hs-identifier hs-var">genClientFunds</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientKeys]
+</span><a href="#local-6989586621679431427"><span class="hs-identifier hs-var">allClientKeys</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+forall a. Num a =&gt; a
+</span><a href="Hydra.Cluster.Fixture.html#availableInitialFunds"><span class="hs-identifier hs-var">availableInitialFunds</span></a></span><span>
+</span><span id="line-103"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679431431"><span class="annot"><span class="annottext">fundingTransaction :: Tx
+</span><a href="#local-6989586621679431431"><span class="hs-identifier hs-var hs-var">fundingTransaction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-104"></span><span>        </span><span class="annot"><span class="annottext">NetworkId
+-&gt; TxIn
+-&gt; SigningKey PaymentKey
+-&gt; Coin
+-&gt; [(VerificationKey PaymentKey, Coin)]
+-&gt; Tx
+</span><a href="CardanoClient.html#buildRawTransaction"><span class="hs-identifier hs-var">buildRawTransaction</span></a></span><span>
+</span><span id="line-105"></span><span>          </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="Hydra.Generator.html#networkId"><span class="hs-identifier hs-var">networkId</span></a></span><span>
+</span><span id="line-106"></span><span>          </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679431432"><span class="hs-identifier hs-var">initialInput</span></a></span><span>
+</span><span id="line-107"></span><span>          </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431424"><span class="hs-identifier hs-var">faucetSk</span></a></span><span>
+</span><span id="line-108"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Coin
+</span><span class="hs-identifier hs-var">Coin</span></span><span> </span><span class="annot"><span class="annottext">Integer
+forall a. Num a =&gt; a
+</span><a href="Hydra.Cluster.Fixture.html#availableInitialFunds"><span class="hs-identifier hs-var">availableInitialFunds</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>          </span><span class="annot"><span class="annottext">[(VerificationKey PaymentKey, Coin)]
+</span><a href="#local-6989586621679431429"><span class="hs-identifier hs-var">clientFunds</span></a></span><span>
+</span><span id="line-110"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679431434"><span class="annot"><span class="annottext">dataset :: ClientKeys -&gt; Gen ClientDataset
+</span><a href="#local-6989586621679431434"><span class="hs-identifier hs-var hs-var">dataset</span></a></span></span><span> </span><span id="local-6989586621679431435"><span class="annot"><span class="annottext">ClientKeys
+</span><a href="#local-6989586621679431435"><span class="hs-identifier hs-var">clientKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-111"></span><span>        </span><span class="annot"><span class="annottext">NetworkId
+-&gt; Tx
+-&gt; ClientKeys
+-&gt; Int
+-&gt; (NetworkId
+    -&gt; (UTxO, SigningKey PaymentKey, [Tx])
+    -&gt; Int
+    -&gt; Gen (UTxO, SigningKey PaymentKey, [Tx]))
+-&gt; Gen ClientDataset
+</span><a href="Hydra.Generator.html#generateClientDataset"><span class="hs-identifier hs-var">generateClientDataset</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="Hydra.Generator.html#networkId"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679431431"><span class="hs-identifier hs-var">fundingTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">ClientKeys
+</span><a href="#local-6989586621679431435"><span class="hs-identifier hs-var">clientKeys</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431426"><span class="hs-identifier hs-var">nTxs</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+-&gt; (UTxO, SigningKey PaymentKey, [Tx])
+-&gt; Int
+-&gt; Gen (UTxO, SigningKey PaymentKey, [Tx])
+</span><span class="hs-identifier hs-var">generateOneRandomTransfer</span></span><span>
+</span><span id="line-112"></span><span>  </span><span id="local-6989586621679431437"><span class="annot"><span class="annottext">[ClientDataset]
+</span><a href="#local-6989586621679431437"><span class="hs-identifier hs-var">clientDatasets</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[ClientKeys]
+-&gt; (ClientKeys -&gt; Gen ClientDataset) -&gt; Gen [ClientDataset]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Traversable.html#forM"><span class="hs-identifier hs-var">forM</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientKeys]
+</span><a href="#local-6989586621679431427"><span class="hs-identifier hs-var">allClientKeys</span></a></span><span> </span><span class="annot"><span class="annottext">ClientKeys -&gt; Gen ClientDataset
+</span><a href="#local-6989586621679431434"><span class="hs-identifier hs-var">dataset</span></a></span><span>
+</span><span id="line-113"></span><span>  </span><span class="annot"><span class="annottext">Dataset -&gt; Gen Dataset
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><a href="Hydra.Generator.html#Dataset"><span class="hs-identifier hs-type">Dataset</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Tx
+fundingTransaction :: Tx
+fundingTransaction :: Tx
+</span><a href="Hydra.Generator.html#fundingTransaction"><span class="hs-identifier hs-var hs-var">fundingTransaction</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[ClientDataset]
+clientDatasets :: [ClientDataset]
+clientDatasets :: [ClientDataset]
+</span><a href="Hydra.Generator.html#clientDatasets"><span class="hs-identifier hs-var hs-var">clientDatasets</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">title :: Maybe Text
+</span><a href="Hydra.Generator.html#title"><span class="hs-identifier hs-var">title</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Text
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">description :: Maybe Text
+</span><a href="Hydra.Generator.html#description"><span class="hs-identifier hs-var">description</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Text
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-114"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-115"></span><span>  </span><span id="local-6989586621679431432"><span class="annot"><span class="annottext">initialInput :: TxIn
+</span><a href="#local-6989586621679431432"><span class="hs-identifier hs-var hs-var">initialInput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-116"></span><span>    </span><span class="annot"><span class="annottext">NetworkId -&gt; Hash GenesisUTxOKey -&gt; TxIn
+</span><span class="hs-identifier hs-var">genesisUTxOPseudoTxIn</span></span><span>
+</span><span id="line-117"></span><span>      </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="Hydra.Generator.html#networkId"><span class="hs-identifier hs-var">networkId</span></a></span><span>
+</span><span id="line-118"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Hash PaymentKey -&gt; Hash GenesisUTxOKey
+forall a b.
+(SerialiseAsCBOR (Hash a), SerialiseAsCBOR (Hash b),
+ HasCallStack) =&gt;
+Hash a -&gt; Hash b
+</span><span class="hs-identifier hs-var">unsafeCastHash</span></span><span> </span><span class="annot"><span class="annottext">(Hash PaymentKey -&gt; Hash GenesisUTxOKey)
+-&gt; Hash PaymentKey -&gt; Hash GenesisUTxOKey
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Hash PaymentKey
+forall keyrole.
+Key keyrole =&gt;
+VerificationKey keyrole -&gt; Hash keyrole
+</span><span class="hs-identifier hs-var">verificationKeyHash</span></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey -&gt; Hash PaymentKey)
+-&gt; VerificationKey PaymentKey -&gt; Hash PaymentKey
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; VerificationKey PaymentKey
+forall keyrole.
+(Key keyrole, HasTypeProxy keyrole) =&gt;
+SigningKey keyrole -&gt; VerificationKey keyrole
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431424"><span class="hs-identifier hs-var">faucetSk</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- | Generate 'Dataset' which does not grow the per-client UTXO set over time.</span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- This queries the network to fetch the current funds available in the faucet</span><span>
+</span><span id="line-122"></span><span class="hs-comment">-- to be distributed among the peers.</span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- The sequence of transactions generated consist only of simple self payments.</span><span>
+</span><span id="line-124"></span><span class="annot"><a href="Hydra.Generator.html#generateDemoUTxODataset"><span class="hs-identifier hs-type">generateDemoUTxODataset</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-125"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-126"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SocketPath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-127"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Number of clients</span></span><span>
+</span><span id="line-128"></span><span>  </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-type">ClientKeys</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-129"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Number of transactions</span></span><span>
+</span><span id="line-130"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-131"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Generator.html#Dataset"><span class="hs-identifier hs-type">Dataset</span></a></span><span>
+</span><span id="line-132"></span><span id="generateDemoUTxODataset"><span class="annot"><span class="annottext">generateDemoUTxODataset :: NetworkId -&gt; SocketPath -&gt; [ClientKeys] -&gt; Int -&gt; IO Dataset
+</span><a href="Hydra.Generator.html#generateDemoUTxODataset"><span class="hs-identifier hs-var hs-var">generateDemoUTxODataset</span></a></span></span><span> </span><span id="local-6989586621679431444"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679431444"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span id="local-6989586621679431445"><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679431445"><span class="hs-identifier hs-var">nodeSocket</span></a></span></span><span> </span><span id="local-6989586621679431446"><span class="annot"><span class="annottext">[ClientKeys]
+</span><a href="#local-6989586621679431446"><span class="hs-identifier hs-var">allClientKeys</span></a></span></span><span> </span><span id="local-6989586621679431447"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431447"><span class="hs-identifier hs-var">nTxs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-133"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679431448"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679431448"><span class="hs-identifier hs-var">faucetVk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679431449"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431449"><span class="hs-identifier hs-var">faucetSk</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Actor -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.Cluster.Util.html#keysFor"><span class="hs-identifier hs-var">keysFor</span></a></span><span> </span><span class="annot"><span class="annottext">Actor
+</span><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier hs-var">Faucet</span></a></span><span>
+</span><span id="line-134"></span><span>  </span><span id="local-6989586621679431451"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679431451"><span class="hs-identifier hs-var">faucetUTxO</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId
+-&gt; SocketPath
+-&gt; QueryPoint
+-&gt; VerificationKey PaymentKey
+-&gt; IO UTxO
+</span><span class="hs-identifier hs-var">queryUTxOFor</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679431444"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679431445"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><span class="hs-identifier hs-var">QueryTip</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679431448"><span class="hs-identifier hs-var">faucetVk</span></a></span><span>
+</span><span id="line-135"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span> </span><span id="local-6989586621679431452"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679431452"><span class="hs-identifier hs-var">fundsAvailable</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Coin
+</span><span class="hs-identifier hs-var">selectLovelace</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall tx. IsTx tx =&gt; UTxOType tx -&gt; ValueType tx
+</span><span class="hs-identifier hs-var">balance</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+UTxOType Tx
+</span><a href="#local-6989586621679431451"><span class="hs-identifier hs-var">faucetUTxO</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-136"></span><span>  </span><span class="hs-comment">-- Prepare funding transaction which will give every client's</span><span>
+</span><span id="line-137"></span><span>  </span><span class="hs-comment">-- 'externalSigningKey' &quot;some&quot; lovelace. The internal 'signingKey' will get</span><span>
+</span><span id="line-138"></span><span>  </span><span class="hs-comment">-- funded in the beginning of the benchmark run.</span><span>
+</span><span id="line-139"></span><span>  </span><span id="local-6989586621679431454"><span class="annot"><span class="annottext">[(VerificationKey PaymentKey, Coin)]
+</span><a href="#local-6989586621679431454"><span class="hs-identifier hs-var">clientFunds</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [(VerificationKey PaymentKey, Coin)]
+-&gt; IO [(VerificationKey PaymentKey, Coin)]
+forall a. Gen a -&gt; IO a
+</span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">(Gen [(VerificationKey PaymentKey, Coin)]
+ -&gt; IO [(VerificationKey PaymentKey, Coin)])
+-&gt; Gen [(VerificationKey PaymentKey, Coin)]
+-&gt; IO [(VerificationKey PaymentKey, Coin)]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientKeys] -&gt; Integer -&gt; Gen [(VerificationKey PaymentKey, Coin)]
+</span><a href="Hydra.Generator.html#genClientFunds"><span class="hs-identifier hs-var">genClientFunds</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientKeys]
+</span><a href="#local-6989586621679431446"><span class="hs-identifier hs-var">allClientKeys</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679431452"><span class="hs-identifier hs-var">fundsAvailable</span></a></span><span>
+</span><span id="line-140"></span><span>  </span><span id="local-6989586621679431455"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679431455"><span class="hs-identifier hs-var">fundingTransaction</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679431456"><span class="annot"><span class="annottext">changeAddress :: AddressInEra Era
+</span><a href="#local-6989586621679431456"><span class="hs-identifier hs-var hs-var">changeAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra Era
+forall era.
+IsShelleyBasedEra era =&gt;
+NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679431444"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679431448"><span class="hs-identifier hs-var">faucetVk</span></a></span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679431458"><span class="annot"><span class="annottext">recipientOutputs :: [TxOut CtxTx]
+</span><a href="#local-6989586621679431458"><span class="hs-identifier hs-var hs-var">recipientOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-143"></span><span>          </span><span class="annot"><span class="annottext">(((VerificationKey PaymentKey, Coin) -&gt; TxOut CtxTx)
+ -&gt; [(VerificationKey PaymentKey, Coin)] -&gt; [TxOut CtxTx])
+-&gt; [(VerificationKey PaymentKey, Coin)]
+-&gt; ((VerificationKey PaymentKey, Coin) -&gt; TxOut CtxTx)
+-&gt; [TxOut CtxTx]
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">((VerificationKey PaymentKey, Coin) -&gt; TxOut CtxTx)
+-&gt; [(VerificationKey PaymentKey, Coin)] -&gt; [TxOut CtxTx]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="annot"><span class="annottext">[(VerificationKey PaymentKey, Coin)]
+</span><a href="#local-6989586621679431454"><span class="hs-identifier hs-var">clientFunds</span></a></span><span> </span><span class="annot"><span class="annottext">(((VerificationKey PaymentKey, Coin) -&gt; TxOut CtxTx)
+ -&gt; [TxOut CtxTx])
+-&gt; ((VerificationKey PaymentKey, Coin) -&gt; TxOut CtxTx)
+-&gt; [TxOut CtxTx]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679431460"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679431460"><span class="hs-identifier hs-var">vk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679431461"><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679431461"><span class="hs-identifier hs-var">ll</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-144"></span><span>            </span><span class="annot"><span class="annottext">AddressInEra Era
+-&gt; Value -&gt; TxOutDatum CtxTx -&gt; ReferenceScript -&gt; TxOut CtxTx
+forall ctx.
+AddressInEra Era
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+</span><span class="hs-identifier hs-var">TxOut</span></span><span>
+</span><span id="line-145"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra Era
+forall era.
+IsShelleyBasedEra era =&gt;
+NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679431444"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679431460"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Coin -&gt; Value
+</span><span class="hs-identifier hs-var">lovelaceToValue</span></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679431461"><span class="hs-identifier hs-var">ll</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>              </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
+forall ctx. TxOutDatum ctx
+</span><span class="hs-identifier hs-var">TxOutDatumNone</span></span><span>
+</span><span id="line-148"></span><span>              </span><span class="annot"><span class="annottext">ReferenceScript
+</span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
+</span><span id="line-149"></span><span>    </span><span class="annot"><span class="annottext">NetworkId
+-&gt; SocketPath
+-&gt; AddressInEra Era
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx]
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+</span><span class="hs-identifier hs-var">buildTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679431444"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679431445"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra Era
+</span><a href="#local-6989586621679431456"><span class="hs-identifier hs-var">changeAddress</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679431451"><span class="hs-identifier hs-var">faucetUTxO</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621679431458"><span class="hs-identifier hs-var">recipientOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+-&gt; (Either (TxBodyErrorAutoBalance Era) TxBody -&gt; IO Tx) -&gt; IO Tx
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-150"></span><span>      </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679431466"><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621679431466"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">FaucetException -&gt; IO Tx
+forall e a. Exception e =&gt; e -&gt; IO a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">(FaucetException -&gt; IO Tx) -&gt; FaucetException -&gt; IO Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetFailedToBuildTx"><span class="hs-identifier hs-type">FaucetFailedToBuildTx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">reason :: TxBodyErrorAutoBalance Era
+</span><a href="Hydra.Cluster.Faucet.html#reason"><span class="hs-identifier hs-var">reason</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621679431466"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-151"></span><span>      </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679431470"><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679431470"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-152"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679431471"><span class="annot"><span class="annottext">signedTx :: Tx
+</span><a href="#local-6989586621679431471"><span class="hs-identifier hs-var hs-var">signedTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; TxBody -&gt; Tx
+</span><a href="CardanoClient.html#sign"><span class="hs-identifier hs-var">sign</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431449"><span class="hs-identifier hs-var">faucetSk</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679431470"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-153"></span><span>        </span><span class="annot"><span class="annottext">Tx -&gt; IO Tx
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679431471"><span class="hs-identifier hs-var">signedTx</span></a></span><span>
+</span><span id="line-154"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679431472"><span class="annot"><span class="annottext">dataset :: ClientKeys -&gt; Gen ClientDataset
+</span><a href="#local-6989586621679431472"><span class="hs-identifier hs-var hs-var">dataset</span></a></span></span><span> </span><span id="local-6989586621679431473"><span class="annot"><span class="annottext">ClientKeys
+</span><a href="#local-6989586621679431473"><span class="hs-identifier hs-var">clientKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-155"></span><span>        </span><span class="annot"><span class="annottext">NetworkId
+-&gt; Tx
+-&gt; ClientKeys
+-&gt; Int
+-&gt; (NetworkId
+    -&gt; (UTxO, SigningKey PaymentKey, [Tx])
+    -&gt; Int
+    -&gt; Gen (UTxO, SigningKey PaymentKey, [Tx]))
+-&gt; Gen ClientDataset
+</span><a href="Hydra.Generator.html#generateClientDataset"><span class="hs-identifier hs-var">generateClientDataset</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679431444"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679431455"><span class="hs-identifier hs-var">fundingTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">ClientKeys
+</span><a href="#local-6989586621679431473"><span class="hs-identifier hs-var">clientKeys</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431447"><span class="hs-identifier hs-var">nTxs</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+-&gt; (UTxO, SigningKey PaymentKey, [Tx])
+-&gt; Int
+-&gt; Gen (UTxO, SigningKey PaymentKey, [Tx])
+</span><span class="hs-identifier hs-var">generateOneSelfTransfer</span></span><span>
+</span><span id="line-156"></span><span>  </span><span class="annot"><span class="annottext">Gen Dataset -&gt; IO Dataset
+forall a. Gen a -&gt; IO a
+</span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">(Gen Dataset -&gt; IO Dataset) -&gt; Gen Dataset -&gt; IO Dataset
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-157"></span><span>    </span><span id="local-6989586621679431474"><span class="annot"><span class="annottext">[ClientDataset]
+</span><a href="#local-6989586621679431474"><span class="hs-identifier hs-var">clientDatasets</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[ClientKeys]
+-&gt; (ClientKeys -&gt; Gen ClientDataset) -&gt; Gen [ClientDataset]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Traversable.html#forM"><span class="hs-identifier hs-var">forM</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientKeys]
+</span><a href="#local-6989586621679431446"><span class="hs-identifier hs-var">allClientKeys</span></a></span><span> </span><span class="annot"><span class="annottext">ClientKeys -&gt; Gen ClientDataset
+</span><a href="#local-6989586621679431472"><span class="hs-identifier hs-var">dataset</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="annot"><span class="annottext">Dataset -&gt; Gen Dataset
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><a href="Hydra.Generator.html#Dataset"><span class="hs-identifier hs-type">Dataset</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Tx
+fundingTransaction :: Tx
+fundingTransaction :: Tx
+</span><a href="Hydra.Generator.html#fundingTransaction"><span class="hs-identifier hs-var hs-var">fundingTransaction</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[ClientDataset]
+clientDatasets :: [ClientDataset]
+clientDatasets :: [ClientDataset]
+</span><a href="Hydra.Generator.html#clientDatasets"><span class="hs-identifier hs-var hs-var">clientDatasets</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">title :: Maybe Text
+</span><a href="Hydra.Generator.html#title"><span class="hs-identifier hs-var">title</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Text
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">description :: Maybe Text
+</span><a href="Hydra.Generator.html#description"><span class="hs-identifier hs-var">description</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Text
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span class="annot"><span class="hs-comment">-- * Helpers</span></span><span>
+</span><span id="line-161"></span><span id="local-6989586621679430683"><span id="local-6989586621679430684"><span id="local-6989586621679430685"><span class="annot"><a href="Hydra.Generator.html#thrd"><span class="hs-identifier hs-type">thrd</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679430683"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679430684"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679430685"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679430685"><span class="hs-identifier hs-type">c</span></a></span></span></span></span><span>
+</span><span id="line-162"></span><span id="thrd"><span class="annot"><span class="annottext">thrd :: forall a b c. (a, b, c) -&gt; c
+</span><a href="Hydra.Generator.html#thrd"><span class="hs-identifier hs-var hs-var">thrd</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">b
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679431476"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679431476"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679431476"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span class="annot"><a href="Hydra.Generator.html#withInitialUTxO"><span class="hs-identifier hs-type">withInitialUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-165"></span><span id="withInitialUTxO"><span class="annot"><span class="annottext">withInitialUTxO :: SigningKey PaymentKey -&gt; Tx -&gt; UTxO
+</span><a href="Hydra.Generator.html#withInitialUTxO"><span class="hs-identifier hs-var hs-var">withInitialUTxO</span></a></span></span><span> </span><span id="local-6989586621679431478"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431478"><span class="hs-identifier hs-var">externalSigningKey</span></a></span></span><span> </span><span id="local-6989586621679431479"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679431479"><span class="hs-identifier hs-var">fundingTransaction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-166"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679431480"><span class="annot"><span class="annottext">vk :: VerificationKey PaymentKey
+</span><a href="#local-6989586621679431480"><span class="hs-identifier hs-var hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; VerificationKey PaymentKey
+forall keyrole.
+(Key keyrole, HasTypeProxy keyrole) =&gt;
+SigningKey keyrole -&gt; VerificationKey keyrole
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431478"><span class="hs-identifier hs-var">externalSigningKey</span></a></span><span>
+</span><span id="line-167"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="hs-comment">-- NOTE: The initialUTxO must all UTXO we will later commit. We assume</span><span>
+</span><span id="line-168"></span><span>      </span><span class="hs-comment">-- that everything owned by the externalSigningKey will get committed</span><span>
+</span><span id="line-169"></span><span>      </span><span class="hs-comment">-- into the head.</span><span>
+</span><span id="line-170"></span><span>      </span><span class="annot"><span class="annottext">Tx -&gt; UTxO
+</span><span class="hs-identifier hs-var">utxoProducedByTx</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679431479"><span class="hs-identifier hs-var">fundingTransaction</span></a></span><span>
+</span><span id="line-171"></span><span>        </span><span class="annot"><span class="annottext">UTxO -&gt; (UTxO -&gt; UTxO) -&gt; UTxO
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO Era -&gt; Bool) -&gt; UTxO -&gt; UTxO
+forall out. (out -&gt; Bool) -&gt; UTxO' out -&gt; UTxO' out
+</span><span class="hs-identifier hs-var">UTxO.filter</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">AddressInEra Era -&gt; AddressInEra Era -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra Era
+forall era.
+IsShelleyBasedEra era =&gt;
+NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="Hydra.Generator.html#networkId"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679431480"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(AddressInEra Era -&gt; Bool)
+-&gt; (TxOut CtxUTxO Era -&gt; AddressInEra Era)
+-&gt; TxOut CtxUTxO Era
+-&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; AddressInEra Era
+forall ctx. TxOut ctx -&gt; AddressInEra Era
+</span><span class="hs-identifier hs-var">txOutAddress</span></span><span class="hs-special">)</span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span class="annot"><a href="Hydra.Generator.html#genClientFunds"><span class="hs-identifier hs-type">genClientFunds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-type">ClientKeys</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-174"></span><span id="genClientFunds"><span class="annot"><span class="annottext">genClientFunds :: [ClientKeys] -&gt; Integer -&gt; Gen [(VerificationKey PaymentKey, Coin)]
+</span><a href="Hydra.Generator.html#genClientFunds"><span class="hs-identifier hs-var hs-var">genClientFunds</span></a></span></span><span> </span><span id="local-6989586621679431484"><span class="annot"><span class="annottext">[ClientKeys]
+</span><a href="#local-6989586621679431484"><span class="hs-identifier hs-var">clientKeys</span></a></span></span><span> </span><span id="local-6989586621679431485"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679431485"><span class="hs-identifier hs-var">availableFunds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-175"></span><span>  </span><span class="annot"><span class="annottext">[ClientKeys]
+-&gt; (ClientKeys -&gt; Gen (VerificationKey PaymentKey, Coin))
+-&gt; Gen [(VerificationKey PaymentKey, Coin)]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Traversable.html#forM"><span class="hs-identifier hs-var">forM</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientKeys]
+</span><a href="#local-6989586621679431484"><span class="hs-identifier hs-var">clientKeys</span></a></span><span> </span><span class="annot"><span class="annottext">((ClientKeys -&gt; Gen (VerificationKey PaymentKey, Coin))
+ -&gt; Gen [(VerificationKey PaymentKey, Coin)])
+-&gt; (ClientKeys -&gt; Gen (VerificationKey PaymentKey, Coin))
+-&gt; Gen [(VerificationKey PaymentKey, Coin)]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-type">ClientKeys</span></a></span><span class="hs-special">{</span><span id="local-6989586621679431486"><span class="annot"><span class="annottext">SigningKey PaymentKey
+externalSigningKey :: ClientKeys -&gt; SigningKey PaymentKey
+externalSigningKey :: SigningKey PaymentKey
+</span><a href="Hydra.Generator.html#externalSigningKey"><span class="hs-identifier hs-var hs-var">externalSigningKey</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-176"></span><span>    </span><span id="local-6989586621679431487"><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679431487"><span class="hs-identifier hs-var">amount</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Coin
+</span><span class="hs-identifier hs-var">Coin</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; Coin) -&gt; Gen Integer -&gt; Gen Coin
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">(Integer, Integer) -&gt; Gen Integer
+forall a. Random a =&gt; (a, a) -&gt; Gen a
+</span><span class="hs-identifier hs-var">choose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679431485"><span class="hs-identifier hs-var">availableFunds</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#div"><span class="hs-operator hs-var">`div`</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Integer
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431488"><span class="hs-identifier hs-var">nClients</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-177"></span><span>    </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, Coin)
+-&gt; Gen (VerificationKey PaymentKey, Coin)
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; VerificationKey PaymentKey
+forall keyrole.
+(Key keyrole, HasTypeProxy keyrole) =&gt;
+SigningKey keyrole -&gt; VerificationKey keyrole
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431486"><span class="hs-identifier hs-var">externalSigningKey</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679431487"><span class="hs-identifier hs-var">amount</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-178"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-179"></span><span>  </span><span id="local-6989586621679431488"><span class="annot"><span class="annottext">nClients :: Int
+</span><a href="#local-6989586621679431488"><span class="hs-identifier hs-var hs-var">nClients</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[ClientKeys] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientKeys]
+</span><a href="#local-6989586621679431484"><span class="hs-identifier hs-var">clientKeys</span></a></span><span>
+</span><span id="line-180"></span><span>
+</span><span id="line-181"></span><span class="annot"><a href="Hydra.Generator.html#generateClientDataset"><span class="hs-identifier hs-type">generateClientDataset</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-182"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-183"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-184"></span><span>  </span><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-type">ClientKeys</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-185"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-186"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-187"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="Hydra.Generator.html#ClientDataset"><span class="hs-identifier hs-type">ClientDataset</span></a></span><span>
+</span><span id="line-188"></span><span id="generateClientDataset"><span class="annot"><span class="annottext">generateClientDataset :: NetworkId
+-&gt; Tx
+-&gt; ClientKeys
+-&gt; Int
+-&gt; (NetworkId
+    -&gt; (UTxO, SigningKey PaymentKey, [Tx])
+    -&gt; Int
+    -&gt; Gen (UTxO, SigningKey PaymentKey, [Tx]))
+-&gt; Gen ClientDataset
+</span><a href="Hydra.Generator.html#generateClientDataset"><span class="hs-identifier hs-var hs-var">generateClientDataset</span></a></span></span><span> </span><span id="local-6989586621679431490"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679431490"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span id="local-6989586621679431491"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679431491"><span class="hs-identifier hs-var">fundingTransaction</span></a></span></span><span> </span><span id="local-6989586621679431492"><span class="annot"><span class="annottext">clientKeys :: ClientKeys
+</span><a href="#local-6989586621679431492"><span class="hs-identifier hs-var">clientKeys</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Generator.html#ClientKeys"><span class="hs-identifier hs-type">ClientKeys</span></a></span><span class="hs-special">{</span><span id="local-6989586621679431493"><span class="annot"><span class="annottext">SigningKey PaymentKey
+externalSigningKey :: ClientKeys -&gt; SigningKey PaymentKey
+externalSigningKey :: SigningKey PaymentKey
+</span><a href="Hydra.Generator.html#externalSigningKey"><span class="hs-identifier hs-var hs-var">externalSigningKey</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679431494"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431494"><span class="hs-identifier hs-var">nTxs</span></a></span></span><span> </span><span id="local-6989586621679431495"><span class="annot"><span class="annottext">NetworkId
+-&gt; (UTxO, SigningKey PaymentKey, [Tx])
+-&gt; Int
+-&gt; Gen (UTxO, SigningKey PaymentKey, [Tx])
+</span><a href="#local-6989586621679431495"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-189"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679431496"><span class="annot"><span class="annottext">initialUTxO :: UTxO
+</span><a href="#local-6989586621679431496"><span class="hs-identifier hs-var hs-var">initialUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; Tx -&gt; UTxO
+</span><a href="Hydra.Generator.html#withInitialUTxO"><span class="hs-identifier hs-var">withInitialUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431493"><span class="hs-identifier hs-var">externalSigningKey</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679431491"><span class="hs-identifier hs-var">fundingTransaction</span></a></span><span>
+</span><span id="line-190"></span><span>  </span><span id="local-6989586621679431497"><span class="annot"><span class="annottext">[Tx]
+</span><a href="#local-6989586621679431497"><span class="hs-identifier hs-var">txSequence</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-191"></span><span>    </span><span class="annot"><span class="annottext">[Tx] -&gt; [Tx]
+forall a. [a] -&gt; [a]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.List.html#reverse"><span class="hs-identifier hs-var">reverse</span></a></span><span>
+</span><span id="line-192"></span><span>      </span><span class="annot"><span class="annottext">([Tx] -&gt; [Tx])
+-&gt; ((UTxO, SigningKey PaymentKey, [Tx]) -&gt; [Tx])
+-&gt; (UTxO, SigningKey PaymentKey, [Tx])
+-&gt; [Tx]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(UTxO, SigningKey PaymentKey, [Tx]) -&gt; [Tx]
+forall a b c. (a, b, c) -&gt; c
+</span><a href="Hydra.Generator.html#thrd"><span class="hs-identifier hs-var">thrd</span></a></span><span>
+</span><span id="line-193"></span><span>      </span><span class="annot"><span class="annottext">((UTxO, SigningKey PaymentKey, [Tx]) -&gt; [Tx])
+-&gt; Gen (UTxO, SigningKey PaymentKey, [Tx]) -&gt; Gen [Tx]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">((UTxO, SigningKey PaymentKey, [Tx])
+ -&gt; Int -&gt; Gen (UTxO, SigningKey PaymentKey, [Tx]))
+-&gt; (UTxO, SigningKey PaymentKey, [Tx])
+-&gt; [Int]
+-&gt; Gen (UTxO, SigningKey PaymentKey, [Tx])
+forall (t :: * -&gt; *) (m :: * -&gt; *) b a.
+(Foldable t, Monad m) =&gt;
+(b -&gt; a -&gt; m b) -&gt; b -&gt; t a -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.html#foldM"><span class="hs-identifier hs-var">foldM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NetworkId
+-&gt; (UTxO, SigningKey PaymentKey, [Tx])
+-&gt; Int
+-&gt; Gen (UTxO, SigningKey PaymentKey, [Tx])
+</span><a href="#local-6989586621679431495"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679431490"><span class="hs-identifier hs-var">network</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679431496"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679431493"><span class="hs-identifier hs-var">externalSigningKey</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679431494"><span class="hs-identifier hs-var">nTxs</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-194"></span><span>  </span><span class="annot"><span class="annottext">ClientDataset -&gt; Gen ClientDataset
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><a href="Hydra.Generator.html#ClientDataset"><span class="hs-identifier hs-type">ClientDataset</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">ClientKeys
+clientKeys :: ClientKeys
+clientKeys :: ClientKeys
+</span><a href="Hydra.Generator.html#clientKeys"><span class="hs-identifier hs-var hs-var">clientKeys</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO
+initialUTxO :: UTxO
+initialUTxO :: UTxO
+</span><a href="Hydra.Generator.html#initialUTxO"><span class="hs-identifier hs-var hs-var">initialUTxO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Tx]
+txSequence :: [Tx]
+txSequence :: [Tx]
+</span><a href="Hydra.Generator.html#txSequence"><span class="hs-identifier hs-var hs-var">txSequence</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-195"></span></pre></body></html>

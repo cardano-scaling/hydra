@@ -1,0 +1,160 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | Structured errors related to configuration mismatch.</span><span>
+</span><span id="line-2"></span><span class="hs-comment">--</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- When we start a `Hydra.Node` we need to do sanity checks between what's</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- provided as parameters to the node and what's persisted.</span><span>
+</span><span id="line-5"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Node.ParameterMismatch</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Party</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.ContestationPeriod</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ContestationPeriod</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- | Exception used to indicate command line options not matching the persisted</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- state.</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">newtype</span><span> </span><span id="ParameterMismatch"><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#ParameterMismatch"><span class="hs-identifier hs-var">ParameterMismatch</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ParameterMismatch"><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#ParameterMismatch"><span class="hs-identifier hs-var">ParameterMismatch</span></a></span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#ParamMismatch"><span class="hs-identifier hs-type">ParamMismatch</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680220982"><span id="local-6989586621680220987"><span class="annot"><span class="annottext">ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
+(ParameterMismatch -&gt; ParameterMismatch -&gt; Bool)
+-&gt; (ParameterMismatch -&gt; ParameterMismatch -&gt; Bool)
+-&gt; Eq ParameterMismatch
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
+== :: ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
+$c/= :: ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
+/= :: ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680220993"><span id="local-6989586621680221000"><span id="local-6989586621680221004"><span class="annot"><span class="annottext">Int -&gt; ParameterMismatch -&gt; ShowS
+[ParameterMismatch] -&gt; ShowS
+ParameterMismatch -&gt; String
+(Int -&gt; ParameterMismatch -&gt; ShowS)
+-&gt; (ParameterMismatch -&gt; String)
+-&gt; ([ParameterMismatch] -&gt; ShowS)
+-&gt; Show ParameterMismatch
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ParameterMismatch -&gt; ShowS
+showsPrec :: Int -&gt; ParameterMismatch -&gt; ShowS
+$cshow :: ParameterMismatch -&gt; String
+show :: ParameterMismatch -&gt; String
+$cshowList :: [ParameterMismatch] -&gt; ShowS
+showList :: [ParameterMismatch] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680221013"><span id="local-6989586621680221017"><span id="local-6989586621680221020"><span class="annot"><span class="annottext">Show ParameterMismatch
+Typeable ParameterMismatch
+(Typeable ParameterMismatch, Show ParameterMismatch) =&gt;
+(ParameterMismatch -&gt; SomeException)
+-&gt; (SomeException -&gt; Maybe ParameterMismatch)
+-&gt; (ParameterMismatch -&gt; String)
+-&gt; Exception ParameterMismatch
+SomeException -&gt; Maybe ParameterMismatch
+ParameterMismatch -&gt; String
+ParameterMismatch -&gt; SomeException
+forall e.
+(Typeable e, Show e) =&gt;
+(e -&gt; SomeException)
+-&gt; (SomeException -&gt; Maybe e) -&gt; (e -&gt; String) -&gt; Exception e
+$ctoException :: ParameterMismatch -&gt; SomeException
+toException :: ParameterMismatch -&gt; SomeException
+$cfromException :: SomeException -&gt; Maybe ParameterMismatch
+fromException :: SomeException -&gt; Maybe ParameterMismatch
+$cdisplayException :: ParameterMismatch -&gt; String
+displayException :: ParameterMismatch -&gt; String
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Exception</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">data</span><span> </span><span id="ParamMismatch"><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#ParamMismatch"><span class="hs-identifier hs-var">ParamMismatch</span></a></span></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="ContestationPeriodMismatch"><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#ContestationPeriodMismatch"><span class="hs-identifier hs-var">ContestationPeriodMismatch</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AloadedCp%3AContestationPeriodMismatch"><span class="annot"><span class="annottext">ParamMismatch -&gt; ContestationPeriod
+</span><a href="Hydra.Node.ParameterMismatch.html#%24sel%3AloadedCp%3AContestationPeriodMismatch"><span class="hs-identifier hs-var hs-var">loadedCp</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span class="hs-special">,</span><span> </span><span id="%24sel%3AconfiguredCp%3AContestationPeriodMismatch"><span class="annot"><span class="annottext">ParamMismatch -&gt; ContestationPeriod
+</span><a href="Hydra.Node.ParameterMismatch.html#%24sel%3AconfiguredCp%3AContestationPeriodMismatch"><span class="hs-identifier hs-var hs-var">configuredCp</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span class="hs-special">}</span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="PartiesMismatch"><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#PartiesMismatch"><span class="hs-identifier hs-var">PartiesMismatch</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AloadedParties%3AContestationPeriodMismatch"><span class="annot"><span class="annottext">ParamMismatch -&gt; [Party]
+</span><a href="Hydra.Node.ParameterMismatch.html#%24sel%3AloadedParties%3AContestationPeriodMismatch"><span class="hs-identifier hs-var hs-var">loadedParties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span id="%24sel%3AconfiguredParties%3AContestationPeriodMismatch"><span class="annot"><span class="annottext">ParamMismatch -&gt; [Party]
+</span><a href="Hydra.Node.ParameterMismatch.html#%24sel%3AconfiguredParties%3AContestationPeriodMismatch"><span class="hs-identifier hs-var hs-var">configuredParties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">]</span><span class="hs-special">}</span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="SavedNetworkPartiesInconsistent"><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#SavedNetworkPartiesInconsistent"><span class="hs-identifier hs-var">SavedNetworkPartiesInconsistent</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AnumberOfParties%3AContestationPeriodMismatch"><span class="annot"><span class="annottext">ParamMismatch -&gt; Int
+</span><a href="Hydra.Node.ParameterMismatch.html#%24sel%3AnumberOfParties%3AContestationPeriodMismatch"><span class="hs-identifier hs-var hs-var">numberOfParties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680221032"><span id="local-6989586621680221034"><span class="annot"><span class="annottext">(forall x. ParamMismatch -&gt; Rep ParamMismatch x)
+-&gt; (forall x. Rep ParamMismatch x -&gt; ParamMismatch)
+-&gt; Generic ParamMismatch
+forall x. Rep ParamMismatch x -&gt; ParamMismatch
+forall x. ParamMismatch -&gt; Rep ParamMismatch x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. ParamMismatch -&gt; Rep ParamMismatch x
+from :: forall x. ParamMismatch -&gt; Rep ParamMismatch x
+$cto :: forall x. Rep ParamMismatch x -&gt; ParamMismatch
+to :: forall x. Rep ParamMismatch x -&gt; ParamMismatch
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680221038"><span id="local-6989586621680221048"><span class="annot"><span class="annottext">ParamMismatch -&gt; ParamMismatch -&gt; Bool
+(ParamMismatch -&gt; ParamMismatch -&gt; Bool)
+-&gt; (ParamMismatch -&gt; ParamMismatch -&gt; Bool) -&gt; Eq ParamMismatch
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: ParamMismatch -&gt; ParamMismatch -&gt; Bool
+== :: ParamMismatch -&gt; ParamMismatch -&gt; Bool
+$c/= :: ParamMismatch -&gt; ParamMismatch -&gt; Bool
+/= :: ParamMismatch -&gt; ParamMismatch -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680221052"><span id="local-6989586621680221065"><span id="local-6989586621680221068"><span class="annot"><span class="annottext">Int -&gt; ParamMismatch -&gt; ShowS
+[ParamMismatch] -&gt; ShowS
+ParamMismatch -&gt; String
+(Int -&gt; ParamMismatch -&gt; ShowS)
+-&gt; (ParamMismatch -&gt; String)
+-&gt; ([ParamMismatch] -&gt; ShowS)
+-&gt; Show ParamMismatch
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ParamMismatch -&gt; ShowS
+showsPrec :: Int -&gt; ParamMismatch -&gt; ShowS
+$cshow :: ParamMismatch -&gt; String
+show :: ParamMismatch -&gt; String
+$cshowList :: [ParamMismatch] -&gt; ShowS
+showList :: [ParamMismatch] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680221072"><span id="local-6989586621680221079"><span id="local-6989586621680221082"><span id="local-6989586621680221085"><span id="local-6989586621680221088"><span class="annot"><span class="annottext">[ParamMismatch] -&gt; Value
+[ParamMismatch] -&gt; Encoding
+ParamMismatch -&gt; Bool
+ParamMismatch -&gt; Value
+ParamMismatch -&gt; Encoding
+(ParamMismatch -&gt; Value)
+-&gt; (ParamMismatch -&gt; Encoding)
+-&gt; ([ParamMismatch] -&gt; Value)
+-&gt; ([ParamMismatch] -&gt; Encoding)
+-&gt; (ParamMismatch -&gt; Bool)
+-&gt; ToJSON ParamMismatch
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: ParamMismatch -&gt; Value
+toJSON :: ParamMismatch -&gt; Value
+$ctoEncoding :: ParamMismatch -&gt; Encoding
+toEncoding :: ParamMismatch -&gt; Encoding
+$ctoJSONList :: [ParamMismatch] -&gt; Value
+toJSONList :: [ParamMismatch] -&gt; Value
+$ctoEncodingList :: [ParamMismatch] -&gt; Encoding
+toEncodingList :: [ParamMismatch] -&gt; Encoding
+$comitField :: ParamMismatch -&gt; Bool
+omitField :: ParamMismatch -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680221291"><span id="local-6989586621680221298"><span id="local-6989586621680221301"><span class="annot"><span class="annottext">Maybe ParamMismatch
+Value -&gt; Parser [ParamMismatch]
+Value -&gt; Parser ParamMismatch
+(Value -&gt; Parser ParamMismatch)
+-&gt; (Value -&gt; Parser [ParamMismatch])
+-&gt; Maybe ParamMismatch
+-&gt; FromJSON ParamMismatch
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser ParamMismatch
+parseJSON :: Value -&gt; Parser ParamMismatch
+$cparseJSONList :: Value -&gt; Parser [ParamMismatch]
+parseJSONList :: Value -&gt; Parser [ParamMismatch]
+$comittedField :: Maybe ParamMismatch
+omittedField :: Maybe ParamMismatch
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680221449"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#ParamMismatch"><span class="hs-identifier hs-type">ParamMismatch</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-26"></span><span>  </span><span id="local-6989586621680221532"><span class="annot"><span class="annottext">arbitrary :: Gen ParamMismatch
+</span><a href="#local-6989586621680221532"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen ParamMismatch
+forall a.
+(Generic a, GA UnsizedOpts (Rep a),
+ UniformWeight (Weights_ (Rep a))) =&gt;
+Gen a
+</span><span class="hs-identifier hs-var">genericArbitrary</span></span><span>
+</span><span id="line-27"></span></pre></body></html>

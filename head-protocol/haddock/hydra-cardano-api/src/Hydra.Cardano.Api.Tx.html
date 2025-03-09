@@ -1,0 +1,1666 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cardano.Api.Tx</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-2"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Extras</span></span><span>
+</span><span id="line-3"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Tx.html"><span class="hs-identifier">Hydra.Cardano.Api.Tx</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Re-export normal Tx (any era)</span></span><span>
+</span><span id="line-6"></span><span>  </span><span class="annot"><span class="hs-identifier">Tx</span></span><span class="hs-special">,</span><span>
+</span><span id="line-7"></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Cardano.Api.UTxO.html"><span class="hs-identifier">Cardano.Api.UTxO</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Allegra.Scripts</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">translateTimelock</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Alonzo</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Alonzo.Scripts</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Alonzo.TxAuxData</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">translateAlonzoTxAuxData</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Alonzo.TxWits</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Api</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><span class="hs-identifier">AlonzoPlutusPurpose</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier">AsIx</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="hs-identifier">Babbage</span></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-identifier">Conway</span></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier">ConwayPlutusPurpose</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><span class="hs-identifier">EraTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mkBasicTx</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><span class="hs-identifier">addrTxOutL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier">addrTxWitsL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-identifier">auxDataHashTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-identifier">auxDataTxL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-identifier">bodyTxL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="hs-identifier">bootAddrTxWitsL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><span class="hs-identifier">collateralInputsTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-identifier">collateralReturnTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier">dataTxOutL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier">datsTxWitsL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><span class="hs-identifier">feeTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-identifier">getLanguageView</span></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><span class="hs-identifier">inputsTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><span class="hs-identifier">isValidTxL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-39"></span><span>  </span><span class="annot"><span class="hs-identifier">mintTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><span class="hs-identifier">mkBasicTxBody</span></span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><span class="hs-identifier">mkBasicTxOut</span></span><span class="hs-special">,</span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><span class="hs-identifier">mkBasicTxWits</span></span><span class="hs-special">,</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><span class="hs-identifier">networkIdTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><span class="hs-identifier">outputsTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><span class="hs-identifier">rdmrsTxWitsL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-46"></span><span>  </span><span class="annot"><span class="hs-identifier">referenceInputsTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><span class="hs-identifier">referenceScriptTxOutL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><span class="hs-identifier">reqSignerHashesTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><span class="hs-identifier">scriptIntegrityHashTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-50"></span><span>  </span><span class="annot"><span class="hs-identifier">scriptTxWitsL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><span class="hs-identifier">totalCollateralTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><span class="hs-identifier">valueTxOutL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-53"></span><span>  </span><span class="annot"><span class="hs-identifier">vldtTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-54"></span><span>  </span><span class="annot"><span class="hs-identifier">withdrawalsTxBodyL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-55"></span><span>  </span><span class="annot"><span class="hs-identifier">witsTxL</span></span><span class="hs-special">,</span><span>
+</span><span id="line-56"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Api</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Babbage</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Babbage.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">hashScriptIntegrity</span></span><span class="hs-special">)</span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Babbage.TxWits</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">upgradeTxDats</span></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.BaseTypes</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">maybeToStrictMaybe</span></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Coin</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Coin</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Conway.Scripts</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">PlutusScript</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Conway.Scripts</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Conway</span></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Conway.TxBody</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Plutus.Data</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">upgradeData</span></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Plutus.Language</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-68"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator">(&amp;)</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.~)</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(^.)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Bifunctor.html"><span class="hs-identifier">Data.Bifunctor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Bifunctor.html#bimap"><span class="hs-identifier">bimap</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html"><span class="hs-identifier">Data.Functor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%26%3E"><span class="hs-operator">(&lt;&amp;&gt;)</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/containers-0.6.7/src/Data.Map.html"><span class="hs-identifier">Data.Map</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-72"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html"><span class="hs-identifier">Data.Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html#mapMaybe"><span class="hs-identifier">mapMaybe</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/containers-0.6.7/src/Data.Set.html"><span class="hs-identifier">Data.Set</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Set</span></span><span>
+</span><span id="line-74"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.TxIn.html"><span class="hs-identifier">Hydra.Cardano.Api.TxIn</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.TxIn.html#mkTxIn"><span class="hs-identifier">mkTxIn</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.TxIn.html#toLedgerTxIn"><span class="hs-identifier">toLedgerTxIn</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="annot"><span class="hs-comment">-- * Extras</span></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | Sign transaction using the provided secret key</span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- It only works for tx not containing scripts.</span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- You can't sign a script utxo with this.</span><span>
+</span><span id="line-81"></span><span id="local-6989586621679322091"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#signTx"><span class="hs-identifier hs-type">signTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-82"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679322091"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-83"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-84"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679322091"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-85"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679322091"><span class="hs-identifier hs-type">era</span></a></span></span><span>
+</span><span id="line-86"></span><span id="signTx"><span class="annot"><span class="annottext">signTx :: forall era.
+IsShelleyBasedEra era =&gt;
+SigningKey PaymentKey -&gt; Tx era -&gt; Tx era
+</span><a href="Hydra.Cardano.Api.Tx.html#signTx"><span class="hs-identifier hs-var hs-var">signTx</span></a></span></span><span> </span><span id="local-6989586621679322481"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679322481"><span class="hs-identifier hs-var">signingKey</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679322483"><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679322483"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span id="local-6989586621679322484"><span class="annot"><span class="annottext">[KeyWitness era]
+</span><a href="#local-6989586621679322484"><span class="hs-identifier hs-var">wits</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-87"></span><span>  </span><span class="annot"><span class="annottext">[KeyWitness era] -&gt; TxBody era -&gt; Tx era
+forall era. [KeyWitness era] -&gt; TxBody era -&gt; Tx era
+</span><span class="hs-identifier hs-var">makeSignedTransaction</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KeyWitness era
+</span><a href="#local-6989586621679322486"><span class="hs-identifier hs-var">witness</span></a></span><span> </span><span class="annot"><span class="annottext">KeyWitness era -&gt; [KeyWitness era] -&gt; [KeyWitness era]
+forall a. a -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[KeyWitness era]
+</span><a href="#local-6989586621679322484"><span class="hs-identifier hs-var">wits</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679322483"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-88"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-89"></span><span>  </span><span id="local-6989586621679322486"><span class="annot"><span class="annottext">witness :: KeyWitness era
+</span><a href="#local-6989586621679322486"><span class="hs-identifier hs-var hs-var">witness</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+-&gt; TxBody era -&gt; ShelleyWitnessSigningKey -&gt; KeyWitness era
+forall era.
+ShelleyBasedEra era
+-&gt; TxBody era -&gt; ShelleyWitnessSigningKey -&gt; KeyWitness era
+</span><span class="hs-identifier hs-var">makeShelleyKeyWitness</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679322483"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; ShelleyWitnessSigningKey
+</span><span class="hs-identifier hs-var">WitnessPaymentKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679322481"><span class="hs-identifier hs-var">signingKey</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="annot"><span class="hs-comment">-- | Create a transaction spending all given `UTxO`.</span></span><span>
+</span><span id="line-92"></span><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#txSpendingUTxO"><span class="hs-identifier hs-type">txSpendingUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Cardano.Api.UTxO.html#UTxO"><span class="hs-identifier hs-type">UTxO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span>
+</span><span id="line-93"></span><span id="txSpendingUTxO"><span class="annot"><span class="annottext">txSpendingUTxO :: UTxO -&gt; Tx Era
+</span><a href="Hydra.Cardano.Api.Tx.html#txSpendingUTxO"><span class="hs-identifier hs-var hs-var">txSpendingUTxO</span></a></span></span><span> </span><span id="local-6989586621679322492"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679322492"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-94"></span><span>  </span><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra Era) -&gt; Tx Era
+forall era.
+IsShelleyBasedEra era =&gt;
+Tx (ShelleyLedgerEra era) -&gt; Tx era
+</span><a href="Hydra.Cardano.Api.Tx.html#fromLedgerTx"><span class="hs-identifier hs-var">fromLedgerTx</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx (ShelleyLedgerEra Era) -&gt; Tx Era)
+-&gt; Tx (ShelleyLedgerEra Era) -&gt; Tx Era
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-95"></span><span>    </span><span class="annot"><span class="annottext">TxBody Conway -&gt; Tx Conway
+forall era. EraTx era =&gt; TxBody era -&gt; Tx era
+</span><span class="hs-identifier hs-var">mkBasicTx</span></span><span>
+</span><span id="line-96"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">TxBody Conway
+forall era. EraTxBody era =&gt; TxBody era
+</span><span class="hs-identifier hs-var">mkBasicTxBody</span></span><span>
+</span><span id="line-97"></span><span>          </span><span class="annot"><span class="annottext">TxBody Conway
+-&gt; (TxBody Conway -&gt; ConwayTxBody Conway) -&gt; ConwayTxBody Conway
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Set (TxIn (EraCrypto Conway))
+ -&gt; Identity (Set (TxIn (EraCrypto Conway))))
+-&gt; TxBody Conway -&gt; Identity (TxBody Conway)
+(Set (TxIn (EraCrypto Conway))
+ -&gt; Identity (Set (TxIn StandardCrypto)))
+-&gt; TxBody Conway -&gt; Identity (ConwayTxBody Conway)
+forall era.
+EraTxBody era =&gt;
+Lens' (TxBody era) (Set (TxIn (EraCrypto era)))
+Lens' (TxBody Conway) (Set (TxIn (EraCrypto Conway)))
+</span><span class="hs-identifier hs-var">inputsTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((Set (TxIn (EraCrypto Conway))
+  -&gt; Identity (Set (TxIn StandardCrypto)))
+ -&gt; TxBody Conway -&gt; Identity (ConwayTxBody Conway))
+-&gt; Set (TxIn StandardCrypto)
+-&gt; TxBody Conway
+-&gt; ConwayTxBody Conway
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; TxIn StandardCrypto
+</span><a href="Hydra.Cardano.Api.TxIn.html#toLedgerTxIn"><span class="hs-identifier hs-var">toLedgerTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; TxIn StandardCrypto)
+-&gt; Set TxIn -&gt; Set (TxIn StandardCrypto)
+forall b a. Ord b =&gt; (a -&gt; b) -&gt; Set a -&gt; Set b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#map"><span class="hs-operator hs-var">`Set.map`</span></a></span><span> </span><span class="annot"><span class="annottext">Set TxIn
+</span><a href="#local-6989586621679322495"><span class="hs-identifier hs-var">inputs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>      </span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-100"></span><span>  </span><span id="local-6989586621679322495"><span class="annot"><span class="annottext">inputs :: Set TxIn
+</span><a href="#local-6989586621679322495"><span class="hs-identifier hs-var hs-var">inputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Set TxIn
+forall out. UTxO' out -&gt; Set TxIn
+</span><a href="Cardano.Api.UTxO.html#inputSet"><span class="hs-identifier hs-var">UTxO.inputSet</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679322492"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- | Get the UTxO that are produced by some transaction.</span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- XXX: Defined here to avoid cyclic module dependency</span><span>
+</span><span id="line-104"></span><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#utxoProducedByTx"><span class="hs-identifier hs-type">utxoProducedByTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Cardano.Api.UTxO.html#UTxO"><span class="hs-identifier hs-type">UTxO</span></a></span><span>
+</span><span id="line-105"></span><span id="utxoProducedByTx"><span class="annot"><span class="annottext">utxoProducedByTx :: Tx Era -&gt; UTxO
+</span><a href="Hydra.Cardano.Api.Tx.html#utxoProducedByTx"><span class="hs-identifier hs-var hs-var">utxoProducedByTx</span></a></span></span><span> </span><span id="local-6989586621679322498"><span class="annot"><span class="annottext">Tx Era
+</span><a href="#local-6989586621679322498"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-106"></span><span>  </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO
+forall out. [(TxIn, out)] -&gt; UTxO' out
+</span><a href="Cardano.Api.UTxO.html#fromPairs"><span class="hs-identifier hs-var">UTxO.fromPairs</span></a></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO)
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-107"></span><span>    </span><span class="annot"><span class="annottext">[Word] -&gt; [TxOut CtxTx Era] -&gt; [(Word, TxOut CtxTx Era)]
+forall a b. [a] -&gt; [b] -&gt; [(a, b)]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxBodyContent ViewTx Era -&gt; [TxOut CtxTx Era]
+forall build era. TxBodyContent build era -&gt; [TxOut CtxTx era]
+</span><span class="hs-identifier hs-var">txOuts</span></span><span> </span><span class="annot"><span class="annottext">TxBodyContent ViewTx Era
+</span><a href="#local-6989586621679322501"><span class="hs-identifier hs-var">body</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>      </span><span class="annot"><span class="annottext">[(Word, TxOut CtxTx Era)]
+-&gt; ((Word, TxOut CtxTx Era) -&gt; (TxIn, TxOut CtxUTxO Era))
+-&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall (f :: * -&gt; *) a b. Functor f =&gt; f a -&gt; (a -&gt; b) -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%26%3E"><span class="hs-operator hs-var">&lt;&amp;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">(Word -&gt; TxIn)
+-&gt; (TxOut CtxTx Era -&gt; TxOut CtxUTxO Era)
+-&gt; (Word, TxOut CtxTx Era)
+-&gt; (TxIn, TxOut CtxUTxO Era)
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; (a, c) -&gt; (b, d)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Bifunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p a c -&gt; p b d
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Bifunctor.html#bimap"><span class="hs-identifier hs-var">bimap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx Era -&gt; Word -&gt; TxIn
+forall era. Tx era -&gt; Word -&gt; TxIn
+</span><a href="Hydra.Cardano.Api.TxIn.html#mkTxIn"><span class="hs-identifier hs-var">mkTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era
+</span><a href="#local-6989586621679322498"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; TxOut CtxUTxO Era
+forall era. TxOut CtxTx era -&gt; TxOut CtxUTxO era
+</span><span class="hs-identifier hs-var">toCtxUTxOTxOut</span></span><span>
+</span><span id="line-109"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-110"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxBody</span></span><span> </span><span id="local-6989586621679322501"><span class="annot"><span class="annottext">TxBodyContent ViewTx Era
+</span><a href="#local-6989586621679322501"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; TxBody Era
+forall era. Tx era -&gt; TxBody era
+</span><span class="hs-identifier hs-var">getTxBody</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
+</span><a href="#local-6989586621679322498"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="annot"><span class="hs-comment">-- | Get explicit fees allocated to a transaction.</span></span><span>
+</span><span id="line-113"></span><span id="local-6989586621679322147"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#txFee%27"><span class="hs-identifier hs-type">txFee'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679322147"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span></span><span>
+</span><span id="line-114"></span><span id="txFee%27"><span class="annot"><span class="annottext">txFee' :: forall era. Tx era -&gt; Coin
+</span><a href="Hydra.Cardano.Api.Tx.html#txFee%27"><span class="hs-identifier hs-var hs-var">txFee'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx era -&gt; TxBody era
+forall era. Tx era -&gt; TxBody era
+</span><span class="hs-identifier hs-var">getTxBody</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBody</span></span><span> </span><span id="local-6989586621679322506"><span class="annot"><span class="annottext">TxBodyContent ViewTx era
+</span><a href="#local-6989586621679322506"><span class="hs-identifier hs-var">body</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-115"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TxBodyContent ViewTx era -&gt; TxFee era
+forall build era. TxBodyContent build era -&gt; TxFee era
+</span><span class="hs-identifier hs-var">txFee</span></span><span> </span><span class="annot"><span class="annottext">TxBodyContent ViewTx era
+</span><a href="#local-6989586621679322506"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-116"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">TxFeeExplicit</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679322509"><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679322509"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621679322509"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span class="annot"><span class="hs-comment">-- * Type Conversions</span></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="annot"><span class="hs-comment">-- | Convert a cardano-api 'Tx' into a matching cardano-ledger 'Tx'.</span></span><span>
+</span><span id="line-121"></span><span id="local-6989586621679322152"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#toLedgerTx"><span class="hs-identifier hs-type">toLedgerTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-122"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679322152"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-123"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyLedgerEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679322152"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-124"></span><span id="toLedgerTx"><span class="annot"><span class="annottext">toLedgerTx :: forall era. Tx era -&gt; Tx (ShelleyLedgerEra era)
+</span><a href="Hydra.Cardano.Api.Tx.html#toLedgerTx"><span class="hs-identifier hs-var hs-var">toLedgerTx</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyTx</span></span><span> </span><span id="local-6989586621679322512"><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><a href="#local-6989586621679322512"><span class="hs-identifier hs-var">_era</span></a></span></span><span> </span><span id="local-6989586621679322513"><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra era)
+</span><a href="#local-6989586621679322513"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra era)
+</span><a href="#local-6989586621679322513"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span class="annot"><span class="hs-comment">-- | Convert a cardano-ledger's 'Tx' in the Babbage era into a cardano-api 'Tx'.</span></span><span>
+</span><span id="line-127"></span><span id="local-6989586621679322106"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#fromLedgerTx"><span class="hs-identifier hs-type">fromLedgerTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-128"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679322106"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-129"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyLedgerEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679322106"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-130"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679322106"><span class="hs-identifier hs-type">era</span></a></span></span><span>
+</span><span id="line-131"></span><span id="fromLedgerTx"><span class="annot"><span class="annottext">fromLedgerTx :: forall era.
+IsShelleyBasedEra era =&gt;
+Tx (ShelleyLedgerEra era) -&gt; Tx era
+</span><a href="Hydra.Cardano.Api.Tx.html#fromLedgerTx"><span class="hs-identifier hs-var hs-var">fromLedgerTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-132"></span><span>  </span><span class="annot"><span class="annottext">ShelleyBasedEra era -&gt; Tx (ShelleyLedgerEra era) -&gt; Tx era
+forall era.
+ShelleyBasedEra era -&gt; Tx (ShelleyLedgerEra era) -&gt; Tx era
+</span><span class="hs-identifier hs-var">ShelleyTx</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="annot"><span class="hs-comment">-- | Compute the integrity hash of a transaction using a list of plutus languages.</span></span><span>
+</span><span id="line-135"></span><span id="local-6989586621679322156"><span id="local-6989586621679322158"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#recomputeIntegrityHash"><span class="hs-identifier hs-type">recomputeIntegrityHash</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-136"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ledger.AlonzoEraPParams</span></span><span> </span><span class="annot"><a href="#local-6989586621679322156"><span class="hs-identifier hs-type">ppera</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.AlonzoEraTxWits</span></span><span> </span><span class="annot"><a href="#local-6989586621679322158"><span class="hs-identifier hs-type">txera</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.AlonzoEraTxBody</span></span><span> </span><span class="annot"><a href="#local-6989586621679322158"><span class="hs-identifier hs-type">txera</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EraTx</span></span><span> </span><span class="annot"><a href="#local-6989586621679322158"><span class="hs-identifier hs-type">txera</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-137"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.PParams</span></span><span> </span><span class="annot"><a href="#local-6989586621679322156"><span class="hs-identifier hs-type">ppera</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-138"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Ledger.Language</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-139"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679322158"><span class="hs-identifier hs-type">txera</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-140"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679322158"><span class="hs-identifier hs-type">txera</span></a></span></span></span><span>
+</span><span id="line-141"></span><span id="recomputeIntegrityHash"><span class="annot"><span class="annottext">recomputeIntegrityHash :: forall ppera txera.
+(AlonzoEraPParams ppera, AlonzoEraTxWits txera,
+ AlonzoEraTxBody txera, EraTx txera) =&gt;
+PParams ppera -&gt; [Language] -&gt; Tx txera -&gt; Tx txera
+</span><a href="Hydra.Cardano.Api.Tx.html#recomputeIntegrityHash"><span class="hs-identifier hs-var hs-var">recomputeIntegrityHash</span></a></span></span><span> </span><span id="local-6989586621679322540"><span class="annot"><span class="annottext">PParams ppera
+</span><a href="#local-6989586621679322540"><span class="hs-identifier hs-var">pp</span></a></span></span><span> </span><span id="local-6989586621679322541"><span class="annot"><span class="annottext">[Language]
+</span><a href="#local-6989586621679322541"><span class="hs-identifier hs-var">languages</span></a></span></span><span> </span><span id="local-6989586621679322542"><span class="annot"><span class="annottext">Tx txera
+</span><a href="#local-6989586621679322542"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-142"></span><span>  </span><span class="annot"><span class="annottext">Tx txera
+</span><a href="#local-6989586621679322542"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx txera -&gt; (Tx txera -&gt; Tx txera) -&gt; Tx txera
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(TxBody txera -&gt; Identity (TxBody txera))
+-&gt; Tx txera -&gt; Identity (Tx txera)
+forall era. EraTx era =&gt; Lens' (Tx era) (TxBody era)
+Lens' (Tx txera) (TxBody txera)
+</span><span class="hs-identifier hs-var">bodyTxL</span></span><span> </span><span class="annot"><span class="annottext">((TxBody txera -&gt; Identity (TxBody txera))
+ -&gt; Tx txera -&gt; Identity (Tx txera))
+-&gt; ((StrictMaybe (ScriptIntegrityHash (EraCrypto txera))
+     -&gt; Identity (StrictMaybe (ScriptIntegrityHash (EraCrypto txera))))
+    -&gt; TxBody txera -&gt; Identity (TxBody txera))
+-&gt; (StrictMaybe (ScriptIntegrityHash (EraCrypto txera))
+    -&gt; Identity (StrictMaybe (ScriptIntegrityHash (EraCrypto txera))))
+-&gt; Tx txera
+-&gt; Identity (Tx txera)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe (ScriptIntegrityHash (EraCrypto txera))
+ -&gt; Identity (StrictMaybe (ScriptIntegrityHash (EraCrypto txera))))
+-&gt; TxBody txera -&gt; Identity (TxBody txera)
+forall era.
+AlonzoEraTxBody era =&gt;
+Lens'
+  (TxBody era) (StrictMaybe (ScriptIntegrityHash (EraCrypto era)))
+Lens'
+  (TxBody txera)
+  (StrictMaybe (ScriptIntegrityHash (EraCrypto txera)))
+</span><span class="hs-identifier hs-var">scriptIntegrityHashTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((StrictMaybe (ScriptIntegrityHash (EraCrypto txera))
+  -&gt; Identity (StrictMaybe (ScriptIntegrityHash (EraCrypto txera))))
+ -&gt; Tx txera -&gt; Identity (Tx txera))
+-&gt; StrictMaybe (ScriptIntegrityHash (EraCrypto txera))
+-&gt; Tx txera
+-&gt; Tx txera
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">StrictMaybe (ScriptIntegrityHash (EraCrypto txera))
+</span><a href="#local-6989586621679322544"><span class="hs-identifier hs-var">integrityHash</span></a></span><span>
+</span><span id="line-143"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-144"></span><span>  </span><span id="local-6989586621679322544"><span class="annot"><span class="annottext">integrityHash :: StrictMaybe (ScriptIntegrityHash (EraCrypto txera))
+</span><a href="#local-6989586621679322544"><span class="hs-identifier hs-var hs-var">integrityHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-145"></span><span>    </span><span class="annot"><span class="annottext">Set LangDepView
+-&gt; Redeemers txera
+-&gt; TxDats txera
+-&gt; StrictMaybe (ScriptIntegrityHash (EraCrypto txera))
+forall era.
+AlonzoEraScript era =&gt;
+Set LangDepView
+-&gt; Redeemers era
+-&gt; TxDats era
+-&gt; StrictMaybe (ScriptIntegrityHash (EraCrypto era))
+</span><span class="hs-identifier hs-var">hashScriptIntegrity</span></span><span>
+</span><span id="line-146"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[LangDepView] -&gt; Set LangDepView
+forall a. Ord a =&gt; [a] -&gt; Set a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#fromList"><span class="hs-identifier hs-var">Set.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">([LangDepView] -&gt; Set LangDepView)
+-&gt; [LangDepView] -&gt; Set LangDepView
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ppera -&gt; Language -&gt; LangDepView
+forall era.
+AlonzoEraPParams era =&gt;
+PParams era -&gt; Language -&gt; LangDepView
+</span><span class="hs-identifier hs-var">getLanguageView</span></span><span> </span><span class="annot"><span class="annottext">PParams ppera
+</span><a href="#local-6989586621679322540"><span class="hs-identifier hs-var">pp</span></a></span><span> </span><span class="annot"><span class="annottext">(Language -&gt; LangDepView) -&gt; [Language] -&gt; [LangDepView]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Language]
+</span><a href="#local-6989586621679322541"><span class="hs-identifier hs-var">languages</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx txera
+</span><a href="#local-6989586621679322542"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx txera
+-&gt; Getting (Redeemers txera) (Tx txera) (Redeemers txera)
+-&gt; Redeemers txera
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(TxWits txera -&gt; Const (Redeemers txera) (TxWits txera))
+-&gt; Tx txera -&gt; Const (Redeemers txera) (Tx txera)
+forall era. EraTx era =&gt; Lens' (Tx era) (TxWits era)
+Lens' (Tx txera) (TxWits txera)
+</span><span class="hs-identifier hs-var">witsTxL</span></span><span> </span><span class="annot"><span class="annottext">((TxWits txera -&gt; Const (Redeemers txera) (TxWits txera))
+ -&gt; Tx txera -&gt; Const (Redeemers txera) (Tx txera))
+-&gt; ((Redeemers txera -&gt; Const (Redeemers txera) (Redeemers txera))
+    -&gt; TxWits txera -&gt; Const (Redeemers txera) (TxWits txera))
+-&gt; Getting (Redeemers txera) (Tx txera) (Redeemers txera)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(Redeemers txera -&gt; Const (Redeemers txera) (Redeemers txera))
+-&gt; TxWits txera -&gt; Const (Redeemers txera) (TxWits txera)
+forall era.
+AlonzoEraTxWits era =&gt;
+Lens' (TxWits era) (Redeemers era)
+Lens' (TxWits txera) (Redeemers txera)
+</span><span class="hs-identifier hs-var">rdmrsTxWitsL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx txera
+</span><a href="#local-6989586621679322542"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx txera
+-&gt; Getting (TxDats txera) (Tx txera) (TxDats txera) -&gt; TxDats txera
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(TxWits txera -&gt; Const (TxDats txera) (TxWits txera))
+-&gt; Tx txera -&gt; Const (TxDats txera) (Tx txera)
+forall era. EraTx era =&gt; Lens' (Tx era) (TxWits era)
+Lens' (Tx txera) (TxWits txera)
+</span><span class="hs-identifier hs-var">witsTxL</span></span><span> </span><span class="annot"><span class="annottext">((TxWits txera -&gt; Const (TxDats txera) (TxWits txera))
+ -&gt; Tx txera -&gt; Const (TxDats txera) (Tx txera))
+-&gt; ((TxDats txera -&gt; Const (TxDats txera) (TxDats txera))
+    -&gt; TxWits txera -&gt; Const (TxDats txera) (TxWits txera))
+-&gt; Getting (TxDats txera) (Tx txera) (TxDats txera)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(TxDats txera -&gt; Const (TxDats txera) (TxDats txera))
+-&gt; TxWits txera -&gt; Const (TxDats txera) (TxWits txera)
+forall era. AlonzoEraTxWits era =&gt; Lens' (TxWits era) (TxDats era)
+Lens' (TxWits txera) (TxDats txera)
+</span><span class="hs-identifier hs-var">datsTxWitsL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- | Explicit downgrade from Conway to Babbage era.</span><span>
+</span><span id="line-151"></span><span class="hs-comment">--</span><span>
+</span><span id="line-152"></span><span class="hs-comment">-- XXX: This will invalidate the script integrity hash as datums and redeemers</span><span>
+</span><span id="line-153"></span><span class="hs-comment">-- are serialized differently.</span><span>
+</span><span id="line-154"></span><span class="hs-comment">--</span><span>
+</span><span id="line-155"></span><span class="hs-comment">-- XXX: This is not a complete mapping and does silently drop things like</span><span>
+</span><span id="line-156"></span><span class="hs-comment">-- protocol updates, certificates and voting procedures.</span><span>
+</span><span id="line-157"></span><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#convertConwayTx"><span class="hs-identifier hs-type">convertConwayTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Conway</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Babbage</span></span><span>
+</span><span id="line-158"></span><span id="convertConwayTx"><span class="annot"><span class="annottext">convertConwayTx :: Tx Conway -&gt; Tx Babbage
+</span><a href="Hydra.Cardano.Api.Tx.html#convertConwayTx"><span class="hs-identifier hs-var hs-var">convertConwayTx</span></a></span></span><span> </span><span id="local-6989586621679322548"><span class="annot"><span class="annottext">Tx Conway
+</span><a href="#local-6989586621679322548"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-159"></span><span>  </span><span class="annot"><span class="annottext">TxBody Babbage -&gt; Tx Babbage
+forall era. EraTx era =&gt; TxBody era -&gt; Tx era
+</span><span class="hs-identifier hs-var">mkBasicTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConwayTxBody Conway -&gt; BabbageTxBody Babbage
+</span><a href="#local-6989586621679322549"><span class="hs-identifier hs-var">translateBody</span></a></span><span> </span><span class="annot"><span class="annottext">(ConwayTxBody Conway -&gt; BabbageTxBody Babbage)
+-&gt; ConwayTxBody Conway -&gt; BabbageTxBody Babbage
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx Conway
+Tx Conway
+</span><a href="#local-6989586621679322548"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx Conway
+-&gt; Getting
+     (ConwayTxBody Conway) (AlonzoTx Conway) (ConwayTxBody Conway)
+-&gt; ConwayTxBody Conway
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(TxBody Conway -&gt; Const (ConwayTxBody Conway) (TxBody Conway))
+-&gt; Tx Conway -&gt; Const (ConwayTxBody Conway) (Tx Conway)
+Getting
+  (ConwayTxBody Conway) (AlonzoTx Conway) (ConwayTxBody Conway)
+forall era. EraTx era =&gt; Lens' (Tx era) (TxBody era)
+Lens' (Tx Conway) (TxBody Conway)
+</span><span class="hs-identifier hs-var">bodyTxL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-160"></span><span>    </span><span class="annot"><span class="annottext">Tx Babbage -&gt; (Tx Babbage -&gt; AlonzoTx Babbage) -&gt; AlonzoTx Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(TxWits Babbage -&gt; Identity (AlonzoTxWits Babbage))
+-&gt; Tx Babbage -&gt; Identity (AlonzoTx Babbage)
+(TxWits Babbage -&gt; Identity (TxWits Babbage))
+-&gt; Tx Babbage -&gt; Identity (Tx Babbage)
+forall era. EraTx era =&gt; Lens' (Tx era) (TxWits era)
+Lens' (Tx Babbage) (TxWits Babbage)
+</span><span class="hs-identifier hs-var">witsTxL</span></span><span> </span><span class="annot"><span class="annottext">((TxWits Babbage -&gt; Identity (AlonzoTxWits Babbage))
+ -&gt; Tx Babbage -&gt; Identity (AlonzoTx Babbage))
+-&gt; AlonzoTxWits Babbage -&gt; Tx Babbage -&gt; AlonzoTx Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">AlonzoTxWits Conway -&gt; AlonzoTxWits Babbage
+</span><a href="#local-6989586621679322550"><span class="hs-identifier hs-var">translateWits</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AlonzoTx Conway
+Tx Conway
+</span><a href="#local-6989586621679322548"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx Conway
+-&gt; Getting
+     (AlonzoTxWits Conway) (AlonzoTx Conway) (AlonzoTxWits Conway)
+-&gt; AlonzoTxWits Conway
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (AlonzoTxWits Conway) (AlonzoTx Conway) (AlonzoTxWits Conway)
+(TxWits Conway -&gt; Const (AlonzoTxWits Conway) (TxWits Conway))
+-&gt; Tx Conway -&gt; Const (AlonzoTxWits Conway) (Tx Conway)
+forall era. EraTx era =&gt; Lens' (Tx era) (TxWits era)
+Lens' (Tx Conway) (TxWits Conway)
+</span><span class="hs-identifier hs-var">witsTxL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-161"></span><span>    </span><span class="annot"><span class="annottext">AlonzoTx Babbage
+-&gt; (AlonzoTx Babbage -&gt; AlonzoTx Babbage) -&gt; AlonzoTx Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(IsValid -&gt; Identity IsValid)
+-&gt; AlonzoTx Babbage -&gt; Identity (AlonzoTx Babbage)
+(IsValid -&gt; Identity IsValid)
+-&gt; Tx Babbage -&gt; Identity (Tx Babbage)
+forall era. AlonzoEraTx era =&gt; Lens' (Tx era) IsValid
+Lens' (Tx Babbage) IsValid
+</span><span class="hs-identifier hs-var">isValidTxL</span></span><span> </span><span class="annot"><span class="annottext">((IsValid -&gt; Identity IsValid)
+ -&gt; AlonzoTx Babbage -&gt; Identity (AlonzoTx Babbage))
+-&gt; IsValid -&gt; AlonzoTx Babbage -&gt; AlonzoTx Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">AlonzoTx Conway
+Tx Conway
+</span><a href="#local-6989586621679322548"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx Conway
+-&gt; Getting IsValid (AlonzoTx Conway) IsValid -&gt; IsValid
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting IsValid (AlonzoTx Conway) IsValid
+(IsValid -&gt; Const IsValid IsValid)
+-&gt; Tx Conway -&gt; Const IsValid (Tx Conway)
+forall era. AlonzoEraTx era =&gt; Lens' (Tx era) IsValid
+Lens' (Tx Conway) IsValid
+</span><span class="hs-identifier hs-var">isValidTxL</span></span><span>
+</span><span id="line-162"></span><span>    </span><span class="annot"><span class="annottext">AlonzoTx Babbage
+-&gt; (AlonzoTx Babbage -&gt; AlonzoTx Babbage) -&gt; AlonzoTx Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe (TxAuxData Babbage)
+ -&gt; Identity (StrictMaybe (AlonzoTxAuxData Babbage)))
+-&gt; AlonzoTx Babbage -&gt; Identity (AlonzoTx Babbage)
+(StrictMaybe (TxAuxData Babbage)
+ -&gt; Identity (StrictMaybe (TxAuxData Babbage)))
+-&gt; Tx Babbage -&gt; Identity (Tx Babbage)
+forall era.
+EraTx era =&gt;
+Lens' (Tx era) (StrictMaybe (AuxiliaryData era))
+Lens' (Tx Babbage) (StrictMaybe (TxAuxData Babbage))
+</span><span class="hs-identifier hs-var">auxDataTxL</span></span><span> </span><span class="annot"><span class="annottext">((StrictMaybe (TxAuxData Babbage)
+  -&gt; Identity (StrictMaybe (AlonzoTxAuxData Babbage)))
+ -&gt; AlonzoTx Babbage -&gt; Identity (AlonzoTx Babbage))
+-&gt; StrictMaybe (AlonzoTxAuxData Babbage)
+-&gt; AlonzoTx Babbage
+-&gt; AlonzoTx Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AlonzoTxAuxData Conway -&gt; AlonzoTxAuxData Babbage
+forall era1 era2.
+(AlonzoEraScript era1, AlonzoEraScript era2,
+ EraCrypto era1 ~ EraCrypto era2) =&gt;
+AlonzoTxAuxData era1 -&gt; AlonzoTxAuxData era2
+</span><span class="hs-identifier hs-var">translateAlonzoTxAuxData</span></span><span> </span><span class="annot"><span class="annottext">(AlonzoTxAuxData Conway -&gt; AlonzoTxAuxData Babbage)
+-&gt; StrictMaybe (AlonzoTxAuxData Conway)
+-&gt; StrictMaybe (AlonzoTxAuxData Babbage)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx Conway
+Tx Conway
+</span><a href="#local-6989586621679322548"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx Conway
+-&gt; Getting
+     (StrictMaybe (AlonzoTxAuxData Conway))
+     (AlonzoTx Conway)
+     (StrictMaybe (AlonzoTxAuxData Conway))
+-&gt; StrictMaybe (AlonzoTxAuxData Conway)
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (StrictMaybe (AlonzoTxAuxData Conway))
+  (AlonzoTx Conway)
+  (StrictMaybe (AlonzoTxAuxData Conway))
+(StrictMaybe (AuxiliaryData Conway)
+ -&gt; Const
+      (StrictMaybe (AlonzoTxAuxData Conway))
+      (StrictMaybe (AuxiliaryData Conway)))
+-&gt; Tx Conway
+-&gt; Const (StrictMaybe (AlonzoTxAuxData Conway)) (Tx Conway)
+forall era.
+EraTx era =&gt;
+Lens' (Tx era) (StrictMaybe (AuxiliaryData era))
+Lens' (Tx Conway) (StrictMaybe (AuxiliaryData Conway))
+</span><span class="hs-identifier hs-var">auxDataTxL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-163"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-164"></span><span>  </span><span class="annot"><a href="#local-6989586621679322549"><span class="hs-identifier hs-type">translateBody</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-165"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.ConwayTxBody</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Conway</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-166"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.BabbageTxBody</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Babbage</span></span><span>
+</span><span id="line-167"></span><span>  </span><span id="local-6989586621679322549"><span class="annot"><span class="annottext">translateBody :: ConwayTxBody Conway -&gt; BabbageTxBody Babbage
+</span><a href="#local-6989586621679322549"><span class="hs-identifier hs-var hs-var">translateBody</span></a></span></span><span> </span><span id="local-6989586621679322551"><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-168"></span><span>    </span><span class="annot"><span class="annottext">TxBody Babbage
+forall era. EraTxBody era =&gt; TxBody era
+</span><span class="hs-identifier hs-var">mkBasicTxBody</span></span><span>
+</span><span id="line-169"></span><span>      </span><span class="annot"><span class="annottext">TxBody Babbage
+-&gt; (TxBody Babbage -&gt; TxBody Babbage) -&gt; TxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Set (TxIn (EraCrypto Babbage))
+ -&gt; Identity (Set (TxIn (EraCrypto Babbage))))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+EraTxBody era =&gt;
+Lens' (TxBody era) (Set (TxIn (EraCrypto era)))
+Lens' (TxBody Babbage) (Set (TxIn (EraCrypto Babbage)))
+</span><span class="hs-identifier hs-var">inputsTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((Set (TxIn (EraCrypto Babbage))
+  -&gt; Identity (Set (TxIn (EraCrypto Babbage))))
+ -&gt; TxBody Babbage -&gt; Identity (TxBody Babbage))
+-&gt; Set (TxIn (EraCrypto Babbage))
+-&gt; TxBody Babbage
+-&gt; TxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (Set (TxIn (EraCrypto Babbage)))
+     (ConwayTxBody Conway)
+     (Set (TxIn (EraCrypto Babbage)))
+-&gt; Set (TxIn (EraCrypto Babbage))
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (Set (TxIn (EraCrypto Babbage)))
+  (ConwayTxBody Conway)
+  (Set (TxIn (EraCrypto Babbage)))
+(Set (TxIn (EraCrypto Conway))
+ -&gt; Const
+      (Set (TxIn (EraCrypto Babbage))) (Set (TxIn (EraCrypto Conway))))
+-&gt; TxBody Conway
+-&gt; Const (Set (TxIn (EraCrypto Babbage))) (TxBody Conway)
+forall era.
+EraTxBody era =&gt;
+Lens' (TxBody era) (Set (TxIn (EraCrypto era)))
+Lens' (TxBody Conway) (Set (TxIn (EraCrypto Conway)))
+</span><span class="hs-identifier hs-var">inputsTxBodyL</span></span><span>
+</span><span id="line-170"></span><span>      </span><span class="annot"><span class="annottext">TxBody Babbage
+-&gt; (TxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictSeq (TxOut Babbage)
+ -&gt; Identity (StrictSeq (BabbageTxOut Babbage)))
+-&gt; TxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(StrictSeq (TxOut Babbage) -&gt; Identity (StrictSeq (TxOut Babbage)))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+EraTxBody era =&gt;
+Lens' (TxBody era) (StrictSeq (TxOut era))
+Lens' (TxBody Babbage) (StrictSeq (TxOut Babbage))
+</span><span class="hs-identifier hs-var">outputsTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((StrictSeq (TxOut Babbage)
+  -&gt; Identity (StrictSeq (BabbageTxOut Babbage)))
+ -&gt; TxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; StrictSeq (BabbageTxOut Babbage)
+-&gt; TxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BabbageTxOut Conway -&gt; BabbageTxOut Babbage
+</span><a href="#local-6989586621679322552"><span class="hs-identifier hs-var">translateTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">(BabbageTxOut Conway -&gt; BabbageTxOut Babbage)
+-&gt; StrictSeq (BabbageTxOut Conway)
+-&gt; StrictSeq (BabbageTxOut Babbage)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (StrictSeq (BabbageTxOut Conway))
+     (ConwayTxBody Conway)
+     (StrictSeq (BabbageTxOut Conway))
+-&gt; StrictSeq (BabbageTxOut Conway)
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (StrictSeq (BabbageTxOut Conway))
+  (ConwayTxBody Conway)
+  (StrictSeq (BabbageTxOut Conway))
+(StrictSeq (TxOut Conway)
+ -&gt; Const
+      (StrictSeq (BabbageTxOut Conway)) (StrictSeq (TxOut Conway)))
+-&gt; TxBody Conway
+-&gt; Const (StrictSeq (BabbageTxOut Conway)) (TxBody Conway)
+forall era.
+EraTxBody era =&gt;
+Lens' (TxBody era) (StrictSeq (TxOut era))
+Lens' (TxBody Conway) (StrictSeq (TxOut Conway))
+</span><span class="hs-identifier hs-var">outputsTxBodyL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-171"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Coin -&gt; Identity Coin)
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(Coin -&gt; Identity Coin)
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era. EraTxBody era =&gt; Lens' (TxBody era) Coin
+Lens' (TxBody Babbage) Coin
+</span><span class="hs-identifier hs-var">feeTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((Coin -&gt; Identity Coin)
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; Coin -&gt; BabbageTxBody Babbage -&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting Coin (ConwayTxBody Conway) Coin -&gt; Coin
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(Coin -&gt; Const Coin Coin)
+-&gt; TxBody Conway -&gt; Const Coin (TxBody Conway)
+Getting Coin (ConwayTxBody Conway) Coin
+forall era. EraTxBody era =&gt; Lens' (TxBody era) Coin
+Lens' (TxBody Conway) Coin
+</span><span class="hs-identifier hs-var">feeTxBodyL</span></span><span>
+</span><span id="line-172"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Withdrawals (EraCrypto Babbage)
+ -&gt; Identity (Withdrawals (EraCrypto Babbage)))
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(Withdrawals (EraCrypto Babbage)
+ -&gt; Identity (Withdrawals (EraCrypto Babbage)))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+EraTxBody era =&gt;
+Lens' (TxBody era) (Withdrawals (EraCrypto era))
+Lens' (TxBody Babbage) (Withdrawals (EraCrypto Babbage))
+</span><span class="hs-identifier hs-var">withdrawalsTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((Withdrawals (EraCrypto Babbage)
+  -&gt; Identity (Withdrawals (EraCrypto Babbage)))
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; Withdrawals (EraCrypto Babbage)
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (Withdrawals (EraCrypto Babbage))
+     (ConwayTxBody Conway)
+     (Withdrawals (EraCrypto Babbage))
+-&gt; Withdrawals (EraCrypto Babbage)
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (Withdrawals (EraCrypto Babbage))
+  (ConwayTxBody Conway)
+  (Withdrawals (EraCrypto Babbage))
+(Withdrawals (EraCrypto Conway)
+ -&gt; Const
+      (Withdrawals (EraCrypto Babbage)) (Withdrawals (EraCrypto Conway)))
+-&gt; TxBody Conway
+-&gt; Const (Withdrawals (EraCrypto Babbage)) (TxBody Conway)
+forall era.
+EraTxBody era =&gt;
+Lens' (TxBody era) (Withdrawals (EraCrypto era))
+Lens' (TxBody Conway) (Withdrawals (EraCrypto Conway))
+</span><span class="hs-identifier hs-var">withdrawalsTxBodyL</span></span><span>
+</span><span id="line-173"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage))
+ -&gt; Identity (StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage))))
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage))
+ -&gt; Identity (StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage))))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+EraTxBody era =&gt;
+Lens'
+  (TxBody era) (StrictMaybe (AuxiliaryDataHash (EraCrypto era)))
+Lens'
+  (TxBody Babbage)
+  (StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage)))
+</span><span class="hs-identifier hs-var">auxDataHashTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage))
+  -&gt; Identity (StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage))))
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage))
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage)))
+     (ConwayTxBody Conway)
+     (StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage)))
+-&gt; StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage))
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage)))
+  (ConwayTxBody Conway)
+  (StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage)))
+(StrictMaybe (AuxiliaryDataHash (EraCrypto Conway))
+ -&gt; Const
+      (StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage)))
+      (StrictMaybe (AuxiliaryDataHash (EraCrypto Conway))))
+-&gt; TxBody Conway
+-&gt; Const
+     (StrictMaybe (AuxiliaryDataHash (EraCrypto Babbage)))
+     (TxBody Conway)
+forall era.
+EraTxBody era =&gt;
+Lens'
+  (TxBody era) (StrictMaybe (AuxiliaryDataHash (EraCrypto era)))
+Lens'
+  (TxBody Conway)
+  (StrictMaybe (AuxiliaryDataHash (EraCrypto Conway)))
+</span><span class="hs-identifier hs-var">auxDataHashTxBodyL</span></span><span>
+</span><span id="line-174"></span><span>      </span><span class="hs-comment">-- NOTE: not considering 'updateTxBodyL' as upstream also does not upgrade it</span><span>
+</span><span id="line-175"></span><span>      </span><span class="hs-comment">-- NOTE: not considering 'certsTxBodyL' as we are not interested in it</span><span>
+</span><span id="line-176"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(ValidityInterval -&gt; Identity ValidityInterval)
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(ValidityInterval -&gt; Identity ValidityInterval)
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+AllegraEraTxBody era =&gt;
+Lens' (TxBody era) ValidityInterval
+Lens' (TxBody Babbage) ValidityInterval
+</span><span class="hs-identifier hs-var">vldtTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((ValidityInterval -&gt; Identity ValidityInterval)
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; ValidityInterval
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting ValidityInterval (ConwayTxBody Conway) ValidityInterval
+-&gt; ValidityInterval
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(ValidityInterval -&gt; Const ValidityInterval ValidityInterval)
+-&gt; TxBody Conway -&gt; Const ValidityInterval (TxBody Conway)
+Getting ValidityInterval (ConwayTxBody Conway) ValidityInterval
+forall era.
+AllegraEraTxBody era =&gt;
+Lens' (TxBody era) ValidityInterval
+Lens' (TxBody Conway) ValidityInterval
+</span><span class="hs-identifier hs-var">vldtTxBodyL</span></span><span>
+</span><span id="line-177"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(MultiAsset (EraCrypto Babbage)
+ -&gt; Identity (MultiAsset (EraCrypto Babbage)))
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(MultiAsset (EraCrypto Babbage)
+ -&gt; Identity (MultiAsset (EraCrypto Babbage)))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+MaryEraTxBody era =&gt;
+Lens' (TxBody era) (MultiAsset (EraCrypto era))
+Lens' (TxBody Babbage) (MultiAsset (EraCrypto Babbage))
+</span><span class="hs-identifier hs-var">mintTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((MultiAsset (EraCrypto Babbage)
+  -&gt; Identity (MultiAsset (EraCrypto Babbage)))
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; MultiAsset (EraCrypto Babbage)
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (MultiAsset (EraCrypto Babbage))
+     (ConwayTxBody Conway)
+     (MultiAsset (EraCrypto Babbage))
+-&gt; MultiAsset (EraCrypto Babbage)
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (MultiAsset (EraCrypto Babbage))
+  (ConwayTxBody Conway)
+  (MultiAsset (EraCrypto Babbage))
+(MultiAsset (EraCrypto Conway)
+ -&gt; Const
+      (MultiAsset (EraCrypto Babbage)) (MultiAsset (EraCrypto Conway)))
+-&gt; TxBody Conway
+-&gt; Const (MultiAsset (EraCrypto Babbage)) (TxBody Conway)
+forall era.
+MaryEraTxBody era =&gt;
+Lens' (TxBody era) (MultiAsset (EraCrypto era))
+Lens' (TxBody Conway) (MultiAsset (EraCrypto Conway))
+</span><span class="hs-identifier hs-var">mintTxBodyL</span></span><span>
+</span><span id="line-178"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Set (TxIn (EraCrypto Babbage))
+ -&gt; Identity (Set (TxIn (EraCrypto Babbage))))
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(Set (TxIn (EraCrypto Babbage))
+ -&gt; Identity (Set (TxIn (EraCrypto Babbage))))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+AlonzoEraTxBody era =&gt;
+Lens' (TxBody era) (Set (TxIn (EraCrypto era)))
+Lens' (TxBody Babbage) (Set (TxIn (EraCrypto Babbage)))
+</span><span class="hs-identifier hs-var">collateralInputsTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((Set (TxIn (EraCrypto Babbage))
+  -&gt; Identity (Set (TxIn (EraCrypto Babbage))))
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; Set (TxIn (EraCrypto Babbage))
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (Set (TxIn (EraCrypto Babbage)))
+     (ConwayTxBody Conway)
+     (Set (TxIn (EraCrypto Babbage)))
+-&gt; Set (TxIn (EraCrypto Babbage))
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (Set (TxIn (EraCrypto Babbage)))
+  (ConwayTxBody Conway)
+  (Set (TxIn (EraCrypto Babbage)))
+(Set (TxIn (EraCrypto Conway))
+ -&gt; Const
+      (Set (TxIn (EraCrypto Babbage))) (Set (TxIn (EraCrypto Conway))))
+-&gt; TxBody Conway
+-&gt; Const (Set (TxIn (EraCrypto Babbage))) (TxBody Conway)
+forall era.
+AlonzoEraTxBody era =&gt;
+Lens' (TxBody era) (Set (TxIn (EraCrypto era)))
+Lens' (TxBody Conway) (Set (TxIn (EraCrypto Conway)))
+</span><span class="hs-identifier hs-var">collateralInputsTxBodyL</span></span><span>
+</span><span id="line-179"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Set (KeyHash 'Witness (EraCrypto Babbage))
+ -&gt; Identity (Set (KeyHash 'Witness (EraCrypto Babbage))))
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(Set (KeyHash 'Witness (EraCrypto Babbage))
+ -&gt; Identity (Set (KeyHash 'Witness (EraCrypto Babbage))))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+AlonzoEraTxBody era =&gt;
+Lens' (TxBody era) (Set (KeyHash 'Witness (EraCrypto era)))
+Lens' (TxBody Babbage) (Set (KeyHash 'Witness (EraCrypto Babbage)))
+</span><span class="hs-identifier hs-var">reqSignerHashesTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((Set (KeyHash 'Witness (EraCrypto Babbage))
+  -&gt; Identity (Set (KeyHash 'Witness (EraCrypto Babbage))))
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; Set (KeyHash 'Witness (EraCrypto Babbage))
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (Set (KeyHash 'Witness (EraCrypto Babbage)))
+     (ConwayTxBody Conway)
+     (Set (KeyHash 'Witness (EraCrypto Babbage)))
+-&gt; Set (KeyHash 'Witness (EraCrypto Babbage))
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (Set (KeyHash 'Witness (EraCrypto Babbage)))
+  (ConwayTxBody Conway)
+  (Set (KeyHash 'Witness (EraCrypto Babbage)))
+(Set (KeyHash 'Witness (EraCrypto Conway))
+ -&gt; Const
+      (Set (KeyHash 'Witness (EraCrypto Babbage)))
+      (Set (KeyHash 'Witness (EraCrypto Conway))))
+-&gt; TxBody Conway
+-&gt; Const
+     (Set (KeyHash 'Witness (EraCrypto Babbage))) (TxBody Conway)
+forall era.
+AlonzoEraTxBody era =&gt;
+Lens' (TxBody era) (Set (KeyHash 'Witness (EraCrypto era)))
+Lens' (TxBody Conway) (Set (KeyHash 'Witness (EraCrypto Conway)))
+</span><span class="hs-identifier hs-var">reqSignerHashesTxBodyL</span></span><span>
+</span><span id="line-180"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage))
+ -&gt; Identity
+      (StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage))))
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage))
+ -&gt; Identity
+      (StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage))))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+AlonzoEraTxBody era =&gt;
+Lens'
+  (TxBody era) (StrictMaybe (ScriptIntegrityHash (EraCrypto era)))
+Lens'
+  (TxBody Babbage)
+  (StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage)))
+</span><span class="hs-identifier hs-var">scriptIntegrityHashTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage))
+  -&gt; Identity
+       (StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage))))
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage))
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage)))
+     (ConwayTxBody Conway)
+     (StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage)))
+-&gt; StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage))
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage)))
+  (ConwayTxBody Conway)
+  (StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage)))
+(StrictMaybe (ScriptIntegrityHash (EraCrypto Conway))
+ -&gt; Const
+      (StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage)))
+      (StrictMaybe (ScriptIntegrityHash (EraCrypto Conway))))
+-&gt; TxBody Conway
+-&gt; Const
+     (StrictMaybe (ScriptIntegrityHash (EraCrypto Babbage)))
+     (TxBody Conway)
+forall era.
+AlonzoEraTxBody era =&gt;
+Lens'
+  (TxBody era) (StrictMaybe (ScriptIntegrityHash (EraCrypto era)))
+Lens'
+  (TxBody Conway)
+  (StrictMaybe (ScriptIntegrityHash (EraCrypto Conway)))
+</span><span class="hs-identifier hs-var">scriptIntegrityHashTxBodyL</span></span><span>
+</span><span id="line-181"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe Network -&gt; Identity (StrictMaybe Network))
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(StrictMaybe Network -&gt; Identity (StrictMaybe Network))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+AlonzoEraTxBody era =&gt;
+Lens' (TxBody era) (StrictMaybe Network)
+Lens' (TxBody Babbage) (StrictMaybe Network)
+</span><span class="hs-identifier hs-var">networkIdTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((StrictMaybe Network -&gt; Identity (StrictMaybe Network))
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; StrictMaybe Network
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (StrictMaybe Network) (ConwayTxBody Conway) (StrictMaybe Network)
+-&gt; StrictMaybe Network
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe Network
+ -&gt; Const (StrictMaybe Network) (StrictMaybe Network))
+-&gt; TxBody Conway -&gt; Const (StrictMaybe Network) (TxBody Conway)
+Getting
+  (StrictMaybe Network) (ConwayTxBody Conway) (StrictMaybe Network)
+forall era.
+AlonzoEraTxBody era =&gt;
+Lens' (TxBody era) (StrictMaybe Network)
+Lens' (TxBody Conway) (StrictMaybe Network)
+</span><span class="hs-identifier hs-var">networkIdTxBodyL</span></span><span>
+</span><span id="line-182"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Set (TxIn (EraCrypto Babbage))
+ -&gt; Identity (Set (TxIn (EraCrypto Babbage))))
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(Set (TxIn (EraCrypto Babbage))
+ -&gt; Identity (Set (TxIn (EraCrypto Babbage))))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+BabbageEraTxBody era =&gt;
+Lens' (TxBody era) (Set (TxIn (EraCrypto era)))
+Lens' (TxBody Babbage) (Set (TxIn (EraCrypto Babbage)))
+</span><span class="hs-identifier hs-var">referenceInputsTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((Set (TxIn (EraCrypto Babbage))
+  -&gt; Identity (Set (TxIn (EraCrypto Babbage))))
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; Set (TxIn (EraCrypto Babbage))
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (Set (TxIn (EraCrypto Babbage)))
+     (ConwayTxBody Conway)
+     (Set (TxIn (EraCrypto Babbage)))
+-&gt; Set (TxIn (EraCrypto Babbage))
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (Set (TxIn (EraCrypto Babbage)))
+  (ConwayTxBody Conway)
+  (Set (TxIn (EraCrypto Babbage)))
+(Set (TxIn (EraCrypto Conway))
+ -&gt; Const
+      (Set (TxIn (EraCrypto Babbage))) (Set (TxIn (EraCrypto Conway))))
+-&gt; TxBody Conway
+-&gt; Const (Set (TxIn (EraCrypto Babbage))) (TxBody Conway)
+forall era.
+BabbageEraTxBody era =&gt;
+Lens' (TxBody era) (Set (TxIn (EraCrypto era)))
+Lens' (TxBody Conway) (Set (TxIn (EraCrypto Conway)))
+</span><span class="hs-identifier hs-var">referenceInputsTxBodyL</span></span><span>
+</span><span id="line-183"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe Coin -&gt; Identity (StrictMaybe Coin))
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(StrictMaybe Coin -&gt; Identity (StrictMaybe Coin))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+BabbageEraTxBody era =&gt;
+Lens' (TxBody era) (StrictMaybe Coin)
+Lens' (TxBody Babbage) (StrictMaybe Coin)
+</span><span class="hs-identifier hs-var">totalCollateralTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((StrictMaybe Coin -&gt; Identity (StrictMaybe Coin))
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; StrictMaybe Coin
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (StrictMaybe Coin) (ConwayTxBody Conway) (StrictMaybe Coin)
+-&gt; StrictMaybe Coin
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe Coin -&gt; Const (StrictMaybe Coin) (StrictMaybe Coin))
+-&gt; TxBody Conway -&gt; Const (StrictMaybe Coin) (TxBody Conway)
+Getting (StrictMaybe Coin) (ConwayTxBody Conway) (StrictMaybe Coin)
+forall era.
+BabbageEraTxBody era =&gt;
+Lens' (TxBody era) (StrictMaybe Coin)
+Lens' (TxBody Conway) (StrictMaybe Coin)
+</span><span class="hs-identifier hs-var">totalCollateralTxBodyL</span></span><span>
+</span><span id="line-184"></span><span>      </span><span class="annot"><span class="annottext">BabbageTxBody Babbage
+-&gt; (BabbageTxBody Babbage -&gt; BabbageTxBody Babbage)
+-&gt; BabbageTxBody Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe (TxOut Babbage)
+ -&gt; Identity (StrictMaybe (BabbageTxOut Babbage)))
+-&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage)
+(StrictMaybe (TxOut Babbage)
+ -&gt; Identity (StrictMaybe (TxOut Babbage)))
+-&gt; TxBody Babbage -&gt; Identity (TxBody Babbage)
+forall era.
+BabbageEraTxBody era =&gt;
+Lens' (TxBody era) (StrictMaybe (TxOut era))
+Lens' (TxBody Babbage) (StrictMaybe (TxOut Babbage))
+</span><span class="hs-identifier hs-var">collateralReturnTxBodyL</span></span><span> </span><span class="annot"><span class="annottext">((StrictMaybe (TxOut Babbage)
+  -&gt; Identity (StrictMaybe (BabbageTxOut Babbage)))
+ -&gt; BabbageTxBody Babbage -&gt; Identity (BabbageTxBody Babbage))
+-&gt; StrictMaybe (BabbageTxOut Babbage)
+-&gt; BabbageTxBody Babbage
+-&gt; BabbageTxBody Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BabbageTxOut Conway -&gt; BabbageTxOut Babbage
+</span><a href="#local-6989586621679322552"><span class="hs-identifier hs-var">translateTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">(BabbageTxOut Conway -&gt; BabbageTxOut Babbage)
+-&gt; StrictMaybe (BabbageTxOut Conway)
+-&gt; StrictMaybe (BabbageTxOut Babbage)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+</span><a href="#local-6989586621679322551"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody Conway
+-&gt; Getting
+     (StrictMaybe (BabbageTxOut Conway))
+     (ConwayTxBody Conway)
+     (StrictMaybe (BabbageTxOut Conway))
+-&gt; StrictMaybe (BabbageTxOut Conway)
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (StrictMaybe (BabbageTxOut Conway))
+  (ConwayTxBody Conway)
+  (StrictMaybe (BabbageTxOut Conway))
+(StrictMaybe (TxOut Conway)
+ -&gt; Const
+      (StrictMaybe (BabbageTxOut Conway)) (StrictMaybe (TxOut Conway)))
+-&gt; TxBody Conway
+-&gt; Const (StrictMaybe (BabbageTxOut Conway)) (TxBody Conway)
+forall era.
+BabbageEraTxBody era =&gt;
+Lens' (TxBody era) (StrictMaybe (TxOut era))
+Lens' (TxBody Conway) (StrictMaybe (TxOut Conway))
+</span><span class="hs-identifier hs-var">collateralReturnTxBodyL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span>  </span><span class="annot"><a href="#local-6989586621679322552"><span class="hs-identifier hs-type">translateTxOut</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-187"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.BabbageTxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Conway</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-188"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.BabbageTxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Babbage</span></span><span>
+</span><span id="line-189"></span><span>  </span><span id="local-6989586621679322552"><span class="annot"><span class="annottext">translateTxOut :: BabbageTxOut Conway -&gt; BabbageTxOut Babbage
+</span><a href="#local-6989586621679322552"><span class="hs-identifier hs-var hs-var">translateTxOut</span></a></span></span><span> </span><span id="local-6989586621679322553"><span class="annot"><span class="annottext">BabbageTxOut Conway
+</span><a href="#local-6989586621679322553"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-190"></span><span>    </span><span class="annot"><span class="annottext">Addr (EraCrypto Babbage) -&gt; Value Babbage -&gt; TxOut Babbage
+forall era.
+(EraTxOut era, HasCallStack) =&gt;
+Addr (EraCrypto era) -&gt; Value era -&gt; TxOut era
+</span><span class="hs-identifier hs-var">mkBasicTxOut</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BabbageTxOut Conway
+</span><a href="#local-6989586621679322553"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">BabbageTxOut Conway
+-&gt; Getting
+     (Addr (EraCrypto Babbage))
+     (BabbageTxOut Conway)
+     (Addr (EraCrypto Babbage))
+-&gt; Addr (EraCrypto Babbage)
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (Addr (EraCrypto Babbage))
+  (BabbageTxOut Conway)
+  (Addr (EraCrypto Babbage))
+(Addr (EraCrypto Conway)
+ -&gt; Const (Addr (EraCrypto Babbage)) (Addr (EraCrypto Conway)))
+-&gt; TxOut Conway -&gt; Const (Addr (EraCrypto Babbage)) (TxOut Conway)
+forall era.
+EraTxOut era =&gt;
+Lens' (TxOut era) (Addr (EraCrypto era))
+Lens' (TxOut Conway) (Addr (EraCrypto Conway))
+</span><span class="hs-identifier hs-var">addrTxOutL</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BabbageTxOut Conway
+</span><a href="#local-6989586621679322553"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">BabbageTxOut Conway
+-&gt; Getting (Value Babbage) (BabbageTxOut Conway) (Value Babbage)
+-&gt; Value Babbage
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting (Value Babbage) (BabbageTxOut Conway) (Value Babbage)
+(Value Conway -&gt; Const (Value Babbage) (Value Conway))
+-&gt; TxOut Conway -&gt; Const (Value Babbage) (TxOut Conway)
+forall era. EraTxOut era =&gt; Lens' (TxOut era) (Value era)
+Lens' (TxOut Conway) (Value Conway)
+</span><span class="hs-identifier hs-var">valueTxOutL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-191"></span><span>      </span><span class="annot"><span class="annottext">TxOut Babbage -&gt; (TxOut Babbage -&gt; TxOut Babbage) -&gt; TxOut Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe (Data Babbage)
+ -&gt; Identity (StrictMaybe (Data Babbage)))
+-&gt; TxOut Babbage -&gt; Identity (TxOut Babbage)
+forall era.
+BabbageEraTxOut era =&gt;
+Lens' (TxOut era) (StrictMaybe (Data era))
+Lens' (TxOut Babbage) (StrictMaybe (Data Babbage))
+</span><span class="hs-identifier hs-var">dataTxOutL</span></span><span> </span><span class="annot"><span class="annottext">((StrictMaybe (Data Babbage)
+  -&gt; Identity (StrictMaybe (Data Babbage)))
+ -&gt; TxOut Babbage -&gt; Identity (TxOut Babbage))
+-&gt; StrictMaybe (Data Babbage) -&gt; TxOut Babbage -&gt; TxOut Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data Conway -&gt; Data Babbage
+forall era1 era2. (Era era1, Era era2) =&gt; Data era1 -&gt; Data era2
+</span><span class="hs-identifier hs-var">upgradeData</span></span><span> </span><span class="annot"><span class="annottext">(Data Conway -&gt; Data Babbage)
+-&gt; StrictMaybe (Data Conway) -&gt; StrictMaybe (Data Babbage)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">BabbageTxOut Conway
+</span><a href="#local-6989586621679322553"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">BabbageTxOut Conway
+-&gt; Getting
+     (StrictMaybe (Data Conway))
+     (BabbageTxOut Conway)
+     (StrictMaybe (Data Conway))
+-&gt; StrictMaybe (Data Conway)
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (StrictMaybe (Data Conway))
+  (BabbageTxOut Conway)
+  (StrictMaybe (Data Conway))
+(StrictMaybe (Data Conway)
+ -&gt; Const (StrictMaybe (Data Conway)) (StrictMaybe (Data Conway)))
+-&gt; TxOut Conway -&gt; Const (StrictMaybe (Data Conway)) (TxOut Conway)
+forall era.
+BabbageEraTxOut era =&gt;
+Lens' (TxOut era) (StrictMaybe (Data era))
+Lens' (TxOut Conway) (StrictMaybe (Data Conway))
+</span><span class="hs-identifier hs-var">dataTxOutL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-192"></span><span>      </span><span class="annot"><span class="annottext">TxOut Babbage
+-&gt; (TxOut Babbage -&gt; BabbageTxOut Babbage) -&gt; BabbageTxOut Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictMaybe (Script Babbage)
+ -&gt; Identity (StrictMaybe (AlonzoScript Babbage)))
+-&gt; TxOut Babbage -&gt; Identity (BabbageTxOut Babbage)
+(StrictMaybe (Script Babbage)
+ -&gt; Identity (StrictMaybe (Script Babbage)))
+-&gt; TxOut Babbage -&gt; Identity (TxOut Babbage)
+forall era.
+BabbageEraTxOut era =&gt;
+Lens' (TxOut era) (StrictMaybe (Script era))
+Lens' (TxOut Babbage) (StrictMaybe (Script Babbage))
+</span><span class="hs-identifier hs-var">referenceScriptTxOutL</span></span><span> </span><span class="annot"><span class="annottext">((StrictMaybe (Script Babbage)
+  -&gt; Identity (StrictMaybe (AlonzoScript Babbage)))
+ -&gt; TxOut Babbage -&gt; Identity (BabbageTxOut Babbage))
+-&gt; StrictMaybe (AlonzoScript Babbage)
+-&gt; TxOut Babbage
+-&gt; BabbageTxOut Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BabbageTxOut Conway
+</span><a href="#local-6989586621679322553"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">BabbageTxOut Conway
+-&gt; Getting
+     (StrictMaybe (AlonzoScript Conway))
+     (BabbageTxOut Conway)
+     (StrictMaybe (AlonzoScript Conway))
+-&gt; StrictMaybe (AlonzoScript Conway)
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (StrictMaybe (AlonzoScript Conway))
+  (BabbageTxOut Conway)
+  (StrictMaybe (AlonzoScript Conway))
+(StrictMaybe (Script Conway)
+ -&gt; Const
+      (StrictMaybe (AlonzoScript Conway)) (StrictMaybe (Script Conway)))
+-&gt; TxOut Conway
+-&gt; Const (StrictMaybe (AlonzoScript Conway)) (TxOut Conway)
+forall era.
+BabbageEraTxOut era =&gt;
+Lens' (TxOut era) (StrictMaybe (Script era))
+Lens' (TxOut Conway) (StrictMaybe (Script Conway))
+</span><span class="hs-identifier hs-var">referenceScriptTxOutL</span></span><span> </span><span class="annot"><span class="annottext">StrictMaybe (AlonzoScript Conway)
+-&gt; (AlonzoScript Conway -&gt; StrictMaybe (AlonzoScript Babbage))
+-&gt; StrictMaybe (AlonzoScript Babbage)
+forall a b. StrictMaybe a -&gt; (a -&gt; StrictMaybe b) -&gt; StrictMaybe b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (AlonzoScript Babbage) -&gt; StrictMaybe (AlonzoScript Babbage)
+forall a. Maybe a -&gt; StrictMaybe a
+</span><span class="hs-identifier hs-var">maybeToStrictMaybe</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (AlonzoScript Babbage)
+ -&gt; StrictMaybe (AlonzoScript Babbage))
+-&gt; (AlonzoScript Conway -&gt; Maybe (AlonzoScript Babbage))
+-&gt; AlonzoScript Conway
+-&gt; StrictMaybe (AlonzoScript Babbage)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoScript Conway -&gt; Maybe (AlonzoScript Babbage)
+</span><a href="#local-6989586621679322554"><span class="hs-identifier hs-var">translateScript</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-193"></span><span>
+</span><span id="line-194"></span><span>  </span><span class="annot"><a href="#local-6989586621679322550"><span class="hs-identifier hs-type">translateWits</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-195"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.AlonzoTxWits</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Conway</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-196"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.AlonzoTxWits</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Babbage</span></span><span>
+</span><span id="line-197"></span><span>  </span><span id="local-6989586621679322550"><span class="annot"><span class="annottext">translateWits :: AlonzoTxWits Conway -&gt; AlonzoTxWits Babbage
+</span><a href="#local-6989586621679322550"><span class="hs-identifier hs-var hs-var">translateWits</span></a></span></span><span> </span><span id="local-6989586621679322555"><span class="annot"><span class="annottext">AlonzoTxWits Conway
+</span><a href="#local-6989586621679322555"><span class="hs-identifier hs-var">wits</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-198"></span><span>    </span><span class="annot"><span class="annottext">TxWits Babbage
+forall era. EraTxWits era =&gt; TxWits era
+</span><span class="hs-identifier hs-var">mkBasicTxWits</span></span><span>
+</span><span id="line-199"></span><span>      </span><span class="annot"><span class="annottext">TxWits Babbage
+-&gt; (TxWits Babbage -&gt; TxWits Babbage) -&gt; TxWits Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Set (WitVKey 'Witness (EraCrypto Babbage))
+ -&gt; Identity (Set (WitVKey 'Witness (EraCrypto Babbage))))
+-&gt; TxWits Babbage -&gt; Identity (TxWits Babbage)
+forall era.
+EraTxWits era =&gt;
+Lens' (TxWits era) (Set (WitVKey 'Witness (EraCrypto era)))
+Lens' (TxWits Babbage) (Set (WitVKey 'Witness (EraCrypto Babbage)))
+</span><span class="hs-identifier hs-var">addrTxWitsL</span></span><span> </span><span class="annot"><span class="annottext">((Set (WitVKey 'Witness (EraCrypto Babbage))
+  -&gt; Identity (Set (WitVKey 'Witness (EraCrypto Babbage))))
+ -&gt; TxWits Babbage -&gt; Identity (TxWits Babbage))
+-&gt; Set (WitVKey 'Witness (EraCrypto Babbage))
+-&gt; TxWits Babbage
+-&gt; TxWits Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">AlonzoTxWits Conway
+</span><a href="#local-6989586621679322555"><span class="hs-identifier hs-var">wits</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTxWits Conway
+-&gt; Getting
+     (Set (WitVKey 'Witness (EraCrypto Babbage)))
+     (AlonzoTxWits Conway)
+     (Set (WitVKey 'Witness (EraCrypto Babbage)))
+-&gt; Set (WitVKey 'Witness (EraCrypto Babbage))
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (Set (WitVKey 'Witness (EraCrypto Babbage)))
+  (AlonzoTxWits Conway)
+  (Set (WitVKey 'Witness (EraCrypto Babbage)))
+(Set (WitVKey 'Witness (EraCrypto Conway))
+ -&gt; Const
+      (Set (WitVKey 'Witness (EraCrypto Babbage)))
+      (Set (WitVKey 'Witness (EraCrypto Conway))))
+-&gt; TxWits Conway
+-&gt; Const
+     (Set (WitVKey 'Witness (EraCrypto Babbage))) (TxWits Conway)
+forall era.
+EraTxWits era =&gt;
+Lens' (TxWits era) (Set (WitVKey 'Witness (EraCrypto era)))
+Lens' (TxWits Conway) (Set (WitVKey 'Witness (EraCrypto Conway)))
+</span><span class="hs-identifier hs-var">addrTxWitsL</span></span><span>
+</span><span id="line-200"></span><span>      </span><span class="annot"><span class="annottext">TxWits Babbage
+-&gt; (TxWits Babbage -&gt; TxWits Babbage) -&gt; TxWits Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Set (BootstrapWitness (EraCrypto Babbage))
+ -&gt; Identity (Set (BootstrapWitness (EraCrypto Babbage))))
+-&gt; TxWits Babbage -&gt; Identity (TxWits Babbage)
+forall era.
+EraTxWits era =&gt;
+Lens' (TxWits era) (Set (BootstrapWitness (EraCrypto era)))
+Lens' (TxWits Babbage) (Set (BootstrapWitness (EraCrypto Babbage)))
+</span><span class="hs-identifier hs-var">bootAddrTxWitsL</span></span><span> </span><span class="annot"><span class="annottext">((Set (BootstrapWitness (EraCrypto Babbage))
+  -&gt; Identity (Set (BootstrapWitness (EraCrypto Babbage))))
+ -&gt; TxWits Babbage -&gt; Identity (TxWits Babbage))
+-&gt; Set (BootstrapWitness (EraCrypto Babbage))
+-&gt; TxWits Babbage
+-&gt; TxWits Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">AlonzoTxWits Conway
+</span><a href="#local-6989586621679322555"><span class="hs-identifier hs-var">wits</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTxWits Conway
+-&gt; Getting
+     (Set (BootstrapWitness (EraCrypto Babbage)))
+     (AlonzoTxWits Conway)
+     (Set (BootstrapWitness (EraCrypto Babbage)))
+-&gt; Set (BootstrapWitness (EraCrypto Babbage))
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (Set (BootstrapWitness (EraCrypto Babbage)))
+  (AlonzoTxWits Conway)
+  (Set (BootstrapWitness (EraCrypto Babbage)))
+(Set (BootstrapWitness (EraCrypto Conway))
+ -&gt; Const
+      (Set (BootstrapWitness (EraCrypto Babbage)))
+      (Set (BootstrapWitness (EraCrypto Conway))))
+-&gt; TxWits Conway
+-&gt; Const
+     (Set (BootstrapWitness (EraCrypto Babbage))) (TxWits Conway)
+forall era.
+EraTxWits era =&gt;
+Lens' (TxWits era) (Set (BootstrapWitness (EraCrypto era)))
+Lens' (TxWits Conway) (Set (BootstrapWitness (EraCrypto Conway)))
+</span><span class="hs-identifier hs-var">bootAddrTxWitsL</span></span><span>
+</span><span id="line-201"></span><span>      </span><span class="annot"><span class="annottext">TxWits Babbage
+-&gt; (TxWits Babbage -&gt; AlonzoTxWits Babbage) -&gt; AlonzoTxWits Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Map (ScriptHash (EraCrypto Babbage)) (Script Babbage)
+ -&gt; Identity
+      (Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Babbage)))
+-&gt; TxWits Babbage -&gt; Identity (AlonzoTxWits Babbage)
+(Map (ScriptHash (EraCrypto Babbage)) (Script Babbage)
+ -&gt; Identity
+      (Map (ScriptHash (EraCrypto Babbage)) (Script Babbage)))
+-&gt; TxWits Babbage -&gt; Identity (TxWits Babbage)
+forall era.
+EraTxWits era =&gt;
+Lens' (TxWits era) (Map (ScriptHash (EraCrypto era)) (Script era))
+Lens'
+  (TxWits Babbage)
+  (Map (ScriptHash (EraCrypto Babbage)) (Script Babbage))
+</span><span class="hs-identifier hs-var">scriptTxWitsL</span></span><span> </span><span class="annot"><span class="annottext">((Map (ScriptHash (EraCrypto Babbage)) (Script Babbage)
+  -&gt; Identity
+       (Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Babbage)))
+ -&gt; TxWits Babbage -&gt; Identity (AlonzoTxWits Babbage))
+-&gt; Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Babbage)
+-&gt; TxWits Babbage
+-&gt; AlonzoTxWits Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">(AlonzoScript Conway -&gt; Maybe (AlonzoScript Babbage))
+-&gt; Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Conway)
+-&gt; Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Babbage)
+forall a b k. (a -&gt; Maybe b) -&gt; Map k a -&gt; Map k b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#mapMaybe"><span class="hs-identifier hs-var">Map.mapMaybe</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoScript Conway -&gt; Maybe (AlonzoScript Babbage)
+</span><a href="#local-6989586621679322554"><span class="hs-identifier hs-var">translateScript</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AlonzoTxWits Conway
+</span><a href="#local-6989586621679322555"><span class="hs-identifier hs-var">wits</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTxWits Conway
+-&gt; Getting
+     (Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Conway))
+     (AlonzoTxWits Conway)
+     (Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Conway))
+-&gt; Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Conway)
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Conway))
+  (AlonzoTxWits Conway)
+  (Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Conway))
+(Map (ScriptHash (EraCrypto Conway)) (Script Conway)
+ -&gt; Const
+      (Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Conway))
+      (Map (ScriptHash (EraCrypto Conway)) (Script Conway)))
+-&gt; TxWits Conway
+-&gt; Const
+     (Map (ScriptHash (EraCrypto Babbage)) (AlonzoScript Conway))
+     (TxWits Conway)
+forall era.
+EraTxWits era =&gt;
+Lens' (TxWits era) (Map (ScriptHash (EraCrypto era)) (Script era))
+Lens'
+  (TxWits Conway)
+  (Map (ScriptHash (EraCrypto Conway)) (Script Conway))
+</span><span class="hs-identifier hs-var">scriptTxWitsL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-202"></span><span>      </span><span class="annot"><span class="annottext">AlonzoTxWits Babbage
+-&gt; (AlonzoTxWits Babbage -&gt; AlonzoTxWits Babbage)
+-&gt; AlonzoTxWits Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(TxDats Babbage -&gt; Identity (TxDats Babbage))
+-&gt; AlonzoTxWits Babbage -&gt; Identity (AlonzoTxWits Babbage)
+(TxDats Babbage -&gt; Identity (TxDats Babbage))
+-&gt; TxWits Babbage -&gt; Identity (TxWits Babbage)
+forall era. AlonzoEraTxWits era =&gt; Lens' (TxWits era) (TxDats era)
+Lens' (TxWits Babbage) (TxDats Babbage)
+</span><span class="hs-identifier hs-var">datsTxWitsL</span></span><span> </span><span class="annot"><span class="annottext">((TxDats Babbage -&gt; Identity (TxDats Babbage))
+ -&gt; AlonzoTxWits Babbage -&gt; Identity (AlonzoTxWits Babbage))
+-&gt; TxDats Babbage -&gt; AlonzoTxWits Babbage -&gt; AlonzoTxWits Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">TxDats Conway -&gt; TxDats Babbage
+forall era1 era2.
+(Era era1, Era era2, EraCrypto era1 ~ EraCrypto era2) =&gt;
+TxDats era1 -&gt; TxDats era2
+</span><span class="hs-identifier hs-var">upgradeTxDats</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AlonzoTxWits Conway
+</span><a href="#local-6989586621679322555"><span class="hs-identifier hs-var">wits</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTxWits Conway
+-&gt; Getting (TxDats Conway) (AlonzoTxWits Conway) (TxDats Conway)
+-&gt; TxDats Conway
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting (TxDats Conway) (AlonzoTxWits Conway) (TxDats Conway)
+(TxDats Conway -&gt; Const (TxDats Conway) (TxDats Conway))
+-&gt; TxWits Conway -&gt; Const (TxDats Conway) (TxWits Conway)
+forall era. AlonzoEraTxWits era =&gt; Lens' (TxWits era) (TxDats era)
+Lens' (TxWits Conway) (TxDats Conway)
+</span><span class="hs-identifier hs-var">datsTxWitsL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-203"></span><span>      </span><span class="annot"><span class="annottext">AlonzoTxWits Babbage
+-&gt; (AlonzoTxWits Babbage -&gt; AlonzoTxWits Babbage)
+-&gt; AlonzoTxWits Babbage
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Redeemers Babbage -&gt; Identity (Redeemers Babbage))
+-&gt; AlonzoTxWits Babbage -&gt; Identity (AlonzoTxWits Babbage)
+(Redeemers Babbage -&gt; Identity (Redeemers Babbage))
+-&gt; TxWits Babbage -&gt; Identity (TxWits Babbage)
+forall era.
+AlonzoEraTxWits era =&gt;
+Lens' (TxWits era) (Redeemers era)
+Lens' (TxWits Babbage) (Redeemers Babbage)
+</span><span class="hs-identifier hs-var">rdmrsTxWitsL</span></span><span> </span><span class="annot"><span class="annottext">((Redeemers Babbage -&gt; Identity (Redeemers Babbage))
+ -&gt; AlonzoTxWits Babbage -&gt; Identity (AlonzoTxWits Babbage))
+-&gt; Redeemers Babbage
+-&gt; AlonzoTxWits Babbage
+-&gt; AlonzoTxWits Babbage
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">Redeemers Conway -&gt; Redeemers Babbage
+</span><a href="#local-6989586621679322557"><span class="hs-identifier hs-var">translateRdmrs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AlonzoTxWits Conway
+</span><a href="#local-6989586621679322555"><span class="hs-identifier hs-var">wits</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTxWits Conway
+-&gt; Getting
+     (Redeemers Conway) (AlonzoTxWits Conway) (Redeemers Conway)
+-&gt; Redeemers Conway
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting (Redeemers Conway) (AlonzoTxWits Conway) (Redeemers Conway)
+(Redeemers Conway -&gt; Const (Redeemers Conway) (Redeemers Conway))
+-&gt; TxWits Conway -&gt; Const (Redeemers Conway) (TxWits Conway)
+forall era.
+AlonzoEraTxWits era =&gt;
+Lens' (TxWits era) (Redeemers era)
+Lens' (TxWits Conway) (Redeemers Conway)
+</span><span class="hs-identifier hs-var">rdmrsTxWitsL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-204"></span><span>
+</span><span id="line-205"></span><span>  </span><span class="annot"><a href="#local-6989586621679322554"><span class="hs-identifier hs-type">translateScript</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-206"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.AlonzoScript</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Conway</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-207"></span><span>    </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ledger.AlonzoScript</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Babbage</span></span><span class="hs-special">)</span><span>
+</span><span id="line-208"></span><span>  </span><span id="local-6989586621679322554"><span class="annot"><span class="annottext">translateScript :: AlonzoScript Conway -&gt; Maybe (AlonzoScript Babbage)
+</span><a href="#local-6989586621679322554"><span class="hs-identifier hs-var hs-var">translateScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-209"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.TimelockScript</span></span><span> </span><span id="local-6989586621679322559"><span class="annot"><span class="annottext">Timelock Conway
+</span><a href="#local-6989586621679322559"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AlonzoScript Babbage -&gt; Maybe (AlonzoScript Babbage)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(AlonzoScript Babbage -&gt; Maybe (AlonzoScript Babbage))
+-&gt; (Timelock Babbage -&gt; AlonzoScript Babbage)
+-&gt; Timelock Babbage
+-&gt; Maybe (AlonzoScript Babbage)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Timelock Babbage -&gt; AlonzoScript Babbage
+forall era. Timelock era -&gt; AlonzoScript era
+</span><span class="hs-identifier hs-var">Ledger.TimelockScript</span></span><span> </span><span class="annot"><span class="annottext">(Timelock Babbage -&gt; Maybe (AlonzoScript Babbage))
+-&gt; Timelock Babbage -&gt; Maybe (AlonzoScript Babbage)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Timelock Conway -&gt; Timelock Babbage
+forall era1 era2.
+(Era era1, Era era2, EraCrypto era1 ~ EraCrypto era2) =&gt;
+Timelock era1 -&gt; Timelock era2
+</span><span class="hs-identifier hs-var">translateTimelock</span></span><span> </span><span class="annot"><span class="annottext">Timelock Conway
+</span><a href="#local-6989586621679322559"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-210"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.PlutusScript</span></span><span> </span><span id="local-6989586621679322561"><span class="annot"><span class="annottext">PlutusScript Conway
+</span><a href="#local-6989586621679322561"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PlutusScript Conway
+</span><a href="#local-6989586621679322561"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-211"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusV1</span></span><span> </span><span id="local-6989586621679322563"><span class="annot"><span class="annottext">Plutus 'PlutusV1
+</span><a href="#local-6989586621679322563"><span class="hs-identifier hs-var">p1</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AlonzoScript Babbage -&gt; Maybe (AlonzoScript Babbage)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(AlonzoScript Babbage -&gt; Maybe (AlonzoScript Babbage))
+-&gt; (PlutusScript Babbage -&gt; AlonzoScript Babbage)
+-&gt; PlutusScript Babbage
+-&gt; Maybe (AlonzoScript Babbage)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript Babbage -&gt; AlonzoScript Babbage
+forall era. PlutusScript era -&gt; AlonzoScript era
+</span><span class="hs-identifier hs-var">Ledger.PlutusScript</span></span><span> </span><span class="annot"><span class="annottext">(PlutusScript Babbage -&gt; Maybe (AlonzoScript Babbage))
+-&gt; PlutusScript Babbage -&gt; Maybe (AlonzoScript Babbage)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Plutus 'PlutusV1 -&gt; PlutusScript Babbage
+forall c. Plutus 'PlutusV1 -&gt; PlutusScript (BabbageEra c)
+</span><span class="hs-identifier hs-var">BabbagePlutusV1</span></span><span> </span><span class="annot"><span class="annottext">Plutus 'PlutusV1
+</span><a href="#local-6989586621679322563"><span class="hs-identifier hs-var">p1</span></a></span><span>
+</span><span id="line-212"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusV2</span></span><span> </span><span id="local-6989586621679322566"><span class="annot"><span class="annottext">Plutus 'PlutusV2
+</span><a href="#local-6989586621679322566"><span class="hs-identifier hs-var">p2</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AlonzoScript Babbage -&gt; Maybe (AlonzoScript Babbage)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(AlonzoScript Babbage -&gt; Maybe (AlonzoScript Babbage))
+-&gt; (PlutusScript Babbage -&gt; AlonzoScript Babbage)
+-&gt; PlutusScript Babbage
+-&gt; Maybe (AlonzoScript Babbage)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript Babbage -&gt; AlonzoScript Babbage
+forall era. PlutusScript era -&gt; AlonzoScript era
+</span><span class="hs-identifier hs-var">Ledger.PlutusScript</span></span><span> </span><span class="annot"><span class="annottext">(PlutusScript Babbage -&gt; Maybe (AlonzoScript Babbage))
+-&gt; PlutusScript Babbage -&gt; Maybe (AlonzoScript Babbage)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Plutus 'PlutusV2 -&gt; PlutusScript Babbage
+forall c. Plutus 'PlutusV2 -&gt; PlutusScript (BabbageEra c)
+</span><span class="hs-identifier hs-var">BabbagePlutusV2</span></span><span> </span><span class="annot"><span class="annottext">Plutus 'PlutusV2
+</span><a href="#local-6989586621679322566"><span class="hs-identifier hs-var">p2</span></a></span><span>
+</span><span id="line-213"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusV3</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (AlonzoScript Babbage)
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-214"></span><span>
+</span><span id="line-215"></span><span>  </span><span class="annot"><a href="#local-6989586621679322557"><span class="hs-identifier hs-type">translateRdmrs</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-216"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Redeemers</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Conway</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-217"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Redeemers</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Babbage</span></span><span>
+</span><span id="line-218"></span><span>  </span><span id="local-6989586621679322557"><span class="annot"><span class="annottext">translateRdmrs :: Redeemers Conway -&gt; Redeemers Babbage
+</span><a href="#local-6989586621679322557"><span class="hs-identifier hs-var hs-var">translateRdmrs</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ledger.Redeemers</span></span><span> </span><span id="local-6989586621679322570"><span class="annot"><span class="annottext">Map (PlutusPurpose AsIx Conway) (Data Conway, ExUnits)
+</span><a href="#local-6989586621679322570"><span class="hs-identifier hs-var">redeemerMap</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-219"></span><span>    </span><span class="annot"><span class="annottext">Map (PlutusPurpose AsIx Babbage) (Data Babbage, ExUnits)
+-&gt; Redeemers Babbage
+Map (AlonzoPlutusPurpose AsIx Babbage) (Data Babbage, ExUnits)
+-&gt; Redeemers Babbage
+forall era.
+AlonzoEraScript era =&gt;
+Map (PlutusPurpose AsIx era) (Data era, ExUnits) -&gt; Redeemers era
+</span><span class="hs-identifier hs-var">Ledger.Redeemers</span></span><span>
+</span><span id="line-220"></span><span>      </span><span class="annot"><span class="annottext">(Map (AlonzoPlutusPurpose AsIx Babbage) (Data Babbage, ExUnits)
+ -&gt; Redeemers Babbage)
+-&gt; ([(AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits))]
+    -&gt; Map (AlonzoPlutusPurpose AsIx Babbage) (Data Babbage, ExUnits))
+-&gt; [(AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits))]
+-&gt; Redeemers Babbage
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">[(AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits))]
+-&gt; Map (AlonzoPlutusPurpose AsIx Babbage) (Data Babbage, ExUnits)
+forall k a. Ord k =&gt; [(k, a)] -&gt; Map k a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#fromList"><span class="hs-identifier hs-var">Map.fromList</span></a></span><span>
+</span><span id="line-221"></span><span>      </span><span class="annot"><span class="annottext">([(AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits))]
+ -&gt; Redeemers Babbage)
+-&gt; [(AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits))]
+-&gt; Redeemers Babbage
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">((ConwayPlutusPurpose AsIx Conway, (Data Conway, ExUnits))
+ -&gt; Maybe
+      (AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits)))
+-&gt; [(ConwayPlutusPurpose AsIx Conway, (Data Conway, ExUnits))]
+-&gt; [(AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits))]
+forall a b. (a -&gt; Maybe b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html#mapMaybe"><span class="hs-identifier hs-var">mapMaybe</span></a></span><span>
+</span><span id="line-222"></span><span>        </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679322572"><span class="annot"><span class="annottext">ConwayPlutusPurpose AsIx Conway
+</span><a href="#local-6989586621679322572"><span class="hs-identifier hs-var">purpose</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679322573"><span class="annot"><span class="annottext">Data Conway
+</span><a href="#local-6989586621679322573"><span class="hs-identifier hs-var">dat</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679322574"><span class="annot"><span class="annottext">ExUnits
+</span><a href="#local-6989586621679322574"><span class="hs-identifier hs-var">units</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-223"></span><span>            </span><span id="local-6989586621679322575"><span class="annot"><span class="annottext">AlonzoPlutusPurpose AsIx Babbage
+</span><a href="#local-6989586621679322575"><span class="hs-identifier hs-var">p'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ConwayPlutusPurpose AsIx Conway
+-&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage)
+</span><a href="#local-6989586621679322576"><span class="hs-identifier hs-var">translatePlutusPurpose</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayPlutusPurpose AsIx Conway
+</span><a href="#local-6989586621679322572"><span class="hs-identifier hs-var">purpose</span></a></span><span>
+</span><span id="line-224"></span><span>            </span><span class="annot"><span class="annottext">(AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits))
+-&gt; Maybe
+     (AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits))
+forall a. a -&gt; Maybe a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AlonzoPlutusPurpose AsIx Babbage
+</span><a href="#local-6989586621679322575"><span class="hs-identifier hs-var">p'</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data Conway -&gt; Data Babbage
+forall era1 era2. (Era era1, Era era2) =&gt; Data era1 -&gt; Data era2
+</span><span class="hs-identifier hs-var">upgradeData</span></span><span> </span><span class="annot"><span class="annottext">Data Conway
+</span><a href="#local-6989586621679322573"><span class="hs-identifier hs-var">dat</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
+</span><a href="#local-6989586621679322574"><span class="hs-identifier hs-var">units</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-225"></span><span>        </span><span class="hs-special">)</span><span>
+</span><span id="line-226"></span><span>      </span><span class="annot"><span class="annottext">([(ConwayPlutusPurpose AsIx Conway, (Data Conway, ExUnits))]
+ -&gt; [(AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits))])
+-&gt; [(ConwayPlutusPurpose AsIx Conway, (Data Conway, ExUnits))]
+-&gt; [(AlonzoPlutusPurpose AsIx Babbage, (Data Babbage, ExUnits))]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Map (ConwayPlutusPurpose AsIx Conway) (Data Conway, ExUnits)
+-&gt; [(ConwayPlutusPurpose AsIx Conway, (Data Conway, ExUnits))]
+forall k a. Map k a -&gt; [(k, a)]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#toList"><span class="hs-identifier hs-var">Map.toList</span></a></span><span> </span><span class="annot"><span class="annottext">Map (PlutusPurpose AsIx Conway) (Data Conway, ExUnits)
+Map (ConwayPlutusPurpose AsIx Conway) (Data Conway, ExUnits)
+</span><a href="#local-6989586621679322570"><span class="hs-identifier hs-var">redeemerMap</span></a></span><span>
+</span><span id="line-227"></span><span>
+</span><span id="line-228"></span><span>  </span><span class="annot"><a href="#local-6989586621679322576"><span class="hs-identifier hs-type">translatePlutusPurpose</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-229"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Conway.ConwayPlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.AsIx</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Conway</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-230"></span><span>    </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ledger.AlonzoPlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.AsIx</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Babbage</span></span><span class="hs-special">)</span><span>
+</span><span id="line-231"></span><span>  </span><span id="local-6989586621679322576"><span class="annot"><span class="annottext">translatePlutusPurpose :: ConwayPlutusPurpose AsIx Conway
+-&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage)
+</span><a href="#local-6989586621679322576"><span class="hs-identifier hs-var hs-var">translatePlutusPurpose</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-232"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ConwaySpending</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIx</span></span><span> </span><span id="local-6989586621679322580"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679322580"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AlonzoPlutusPurpose AsIx Babbage
+-&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(AlonzoPlutusPurpose AsIx Babbage
+ -&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage))
+-&gt; AlonzoPlutusPurpose AsIx Babbage
+-&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">AsIx Word32 (TxIn (EraCrypto Babbage))
+-&gt; AlonzoPlutusPurpose AsIx Babbage
+forall (f :: * -&gt; * -&gt; *) era.
+f Word32 (TxIn (EraCrypto era)) -&gt; AlonzoPlutusPurpose f era
+</span><span class="hs-identifier hs-var">AlonzoSpending</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; AsIx Word32 (TxIn StandardCrypto)
+forall ix it. ix -&gt; AsIx ix it
+</span><span class="hs-identifier hs-var">AsIx</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679322580"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-233"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ConwayMinting</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIx</span></span><span> </span><span id="local-6989586621679322583"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679322583"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AlonzoPlutusPurpose AsIx Babbage
+-&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(AlonzoPlutusPurpose AsIx Babbage
+ -&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage))
+-&gt; AlonzoPlutusPurpose AsIx Babbage
+-&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">AsIx Word32 (PolicyID (EraCrypto Babbage))
+-&gt; AlonzoPlutusPurpose AsIx Babbage
+forall (f :: * -&gt; * -&gt; *) era.
+f Word32 (PolicyID (EraCrypto era)) -&gt; AlonzoPlutusPurpose f era
+</span><span class="hs-identifier hs-var">AlonzoMinting</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; AsIx Word32 (PolicyID StandardCrypto)
+forall ix it. ix -&gt; AsIx ix it
+</span><span class="hs-identifier hs-var">AsIx</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679322583"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-234"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ConwayCertifying</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIx</span></span><span> </span><span id="local-6989586621679322586"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679322586"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AlonzoPlutusPurpose AsIx Babbage
+-&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(AlonzoPlutusPurpose AsIx Babbage
+ -&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage))
+-&gt; AlonzoPlutusPurpose AsIx Babbage
+-&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">AsIx Word32 (TxCert Babbage) -&gt; AlonzoPlutusPurpose AsIx Babbage
+forall (f :: * -&gt; * -&gt; *) era.
+f Word32 (TxCert era) -&gt; AlonzoPlutusPurpose f era
+</span><span class="hs-identifier hs-var">AlonzoCertifying</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; AsIx Word32 (ShelleyTxCert Babbage)
+forall ix it. ix -&gt; AsIx ix it
+</span><span class="hs-identifier hs-var">AsIx</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679322586"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-235"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ConwayRewarding</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIx</span></span><span> </span><span id="local-6989586621679322589"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679322589"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AlonzoPlutusPurpose AsIx Babbage
+-&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(AlonzoPlutusPurpose AsIx Babbage
+ -&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage))
+-&gt; AlonzoPlutusPurpose AsIx Babbage
+-&gt; Maybe (AlonzoPlutusPurpose AsIx Babbage)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">AsIx Word32 (RewardAccount (EraCrypto Babbage))
+-&gt; AlonzoPlutusPurpose AsIx Babbage
+forall (f :: * -&gt; * -&gt; *) era.
+f Word32 (RewardAccount (EraCrypto era))
+-&gt; AlonzoPlutusPurpose f era
+</span><span class="hs-identifier hs-var">AlonzoRewarding</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; AsIx Word32 (RewardAccount StandardCrypto)
+forall ix it. ix -&gt; AsIx ix it
+</span><span class="hs-identifier hs-var">AsIx</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679322589"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-236"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ConwayVoting</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (AlonzoPlutusPurpose AsIx Babbage)
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-237"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ConwayProposing</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (AlonzoPlutusPurpose AsIx Babbage)
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-238"></span></pre></body></html>

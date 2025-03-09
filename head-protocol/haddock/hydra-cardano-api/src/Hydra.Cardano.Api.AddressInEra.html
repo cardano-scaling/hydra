@@ -1,0 +1,358 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cardano.Api.AddressInEra</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.Byron</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Address</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Address</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.BaseTypes</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Credential</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Hashes</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Keys</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Network.html"><span class="hs-identifier">Hydra.Cardano.Api.Network</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Network</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V2</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-identifier">Address</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier">Credential</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier">StakingCredential</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">StakingHash</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">StakingPtr</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">fromBuiltin</span></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V2</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Plutus</span></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="annot"><span class="hs-comment">-- * Extras</span></span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- | Construct a Shelley-style address from a verification key. This address has</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- no stake rights.</span><span>
+</span><span id="line-24"></span><span class="hs-comment">--</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- TODO: 'NetworkId' here is an annoying API because it requires a network magic</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- for testnet addresses. Nevertheless, the network magic is only needed for</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- Byron addresses; Shelley addresses use a different kind of network</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- discriminant which is currently fully captured as 'Mainnet | Testnet'.</span><span>
+</span><span id="line-29"></span><span class="hs-comment">--</span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- So, it would be a slightly better DX to use Mainnet | Testnet as an interface</span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- here since we are only constructing Shelley addresses.</span><span>
+</span><span id="line-32"></span><span id="local-6989586621679320664"><span class="annot"><a href="Hydra.Cardano.Api.AddressInEra.html#mkVkAddress"><span class="hs-identifier hs-type">mkVkAddress</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679320664"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679320664"><span class="hs-identifier hs-type">era</span></a></span></span><span>
+</span><span id="line-37"></span><span id="mkVkAddress"><span class="annot"><span class="annottext">mkVkAddress :: forall era.
+IsShelleyBasedEra era =&gt;
+NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
+</span><a href="Hydra.Cardano.Api.AddressInEra.html#mkVkAddress"><span class="hs-identifier hs-var hs-var">mkVkAddress</span></a></span></span><span> </span><span id="local-6989586621679320765"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679320765"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679320766"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679320766"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+-&gt; NetworkId
+-&gt; PaymentCredential
+-&gt; StakeAddressReference
+-&gt; AddressInEra era
+forall era.
+ShelleyBasedEra era
+-&gt; NetworkId
+-&gt; PaymentCredential
+-&gt; StakeAddressReference
+-&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">makeShelleyAddressInEra</span></span><span>
+</span><span id="line-39"></span><span>    </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span>
+</span><span id="line-40"></span><span>    </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679320765"><span class="hs-identifier hs-var">networkId</span></a></span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Hash PaymentKey -&gt; PaymentCredential
+</span><span class="hs-identifier hs-var">PaymentCredentialByKey</span></span><span> </span><span class="annot"><span class="annottext">(Hash PaymentKey -&gt; PaymentCredential)
+-&gt; Hash PaymentKey -&gt; PaymentCredential
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Hash PaymentKey
+forall keyrole.
+Key keyrole =&gt;
+VerificationKey keyrole -&gt; Hash keyrole
+</span><span class="hs-identifier hs-var">verificationKeyHash</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679320766"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>    </span><span class="annot"><span class="annottext">StakeAddressReference
+</span><span class="hs-identifier hs-var">NoStakeAddress</span></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- | Construct a Shelley-style address from a Plutus script. This address has</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- no stake rights.</span><span>
+</span><span id="line-46"></span><span class="annot"><a href="Hydra.Cardano.Api.AddressInEra.html#mkScriptAddress"><span class="hs-identifier hs-type">mkScriptAddress</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679320683"><span class="annot"><a href="#local-6989586621679320683"><span class="hs-identifier hs-type">lang</span></a></span></span><span> </span><span id="local-6989586621679320682"><span class="annot"><a href="#local-6989586621679320682"><span class="hs-identifier hs-type">era</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679320682"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679320683"><span class="hs-identifier hs-type">lang</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-50"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679320683"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679320682"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-52"></span><span id="mkScriptAddress"><span class="annot"><span class="annottext">mkScriptAddress :: forall lang era.
+(IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
+NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
+</span><a href="Hydra.Cardano.Api.AddressInEra.html#mkScriptAddress"><span class="hs-identifier hs-var hs-var">mkScriptAddress</span></a></span></span><span> </span><span id="local-6989586621679320777"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679320777"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679320778"><span class="annot"><span class="annottext">PlutusScript lang
+</span><a href="#local-6989586621679320778"><span class="hs-identifier hs-var">script</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-53"></span><span>  </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+-&gt; NetworkId
+-&gt; PaymentCredential
+-&gt; StakeAddressReference
+-&gt; AddressInEra era
+forall era.
+ShelleyBasedEra era
+-&gt; NetworkId
+-&gt; PaymentCredential
+-&gt; StakeAddressReference
+-&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">makeShelleyAddressInEra</span></span><span>
+</span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span>
+</span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679320777"><span class="hs-identifier hs-var">networkId</span></a></span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ScriptHash -&gt; PaymentCredential
+</span><span class="hs-identifier hs-var">PaymentCredentialByScript</span></span><span> </span><span class="annot"><span class="annottext">(ScriptHash -&gt; PaymentCredential)
+-&gt; ScriptHash -&gt; PaymentCredential
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Script lang -&gt; ScriptHash
+forall lang. Script lang -&gt; ScriptHash
+</span><span class="hs-identifier hs-var">hashScript</span></span><span> </span><span class="annot"><span class="annottext">(Script lang -&gt; ScriptHash) -&gt; Script lang -&gt; ScriptHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
+forall lang.
+PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
+</span><span class="hs-identifier hs-var">PlutusScript</span></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion lang
+</span><a href="#local-6989586621679320782"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript lang
+</span><a href="#local-6989586621679320778"><span class="hs-identifier hs-var">script</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><span class="annottext">StakeAddressReference
+</span><span class="hs-identifier hs-var">NoStakeAddress</span></span><span>
+</span><span id="line-58"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-59"></span><span>  </span><span id="local-6989586621679320782"><span class="annot"><span class="annottext">version :: PlutusScriptVersion lang
+</span><a href="#local-6989586621679320782"><span class="hs-identifier hs-var hs-var">version</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall lang.
+IsPlutusScriptLanguage lang =&gt;
+PlutusScriptVersion lang
+</span><span class="hs-identifier hs-var">plutusScriptVersion</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679320683"><span class="hs-identifier hs-type">lang</span></a></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="annot"><span class="hs-comment">-- * Type Conversions</span></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="annot"><span class="hs-comment">-- | From a ledger 'Addr' to an api 'AddressInEra'</span></span><span>
+</span><span id="line-64"></span><span id="local-6989586621679320694"><span class="annot"><a href="Hydra.Cardano.Api.AddressInEra.html#fromLedgerAddr"><span class="hs-identifier hs-type">fromLedgerAddr</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679320694"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Addr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">StandardCrypto</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679320694"><span class="hs-identifier hs-type">era</span></a></span></span><span>
+</span><span id="line-65"></span><span id="fromLedgerAddr"><span class="annot"><span class="annottext">fromLedgerAddr :: forall era.
+IsShelleyBasedEra era =&gt;
+Addr StandardCrypto -&gt; AddressInEra era
+</span><a href="Hydra.Cardano.Api.AddressInEra.html#fromLedgerAddr"><span class="hs-identifier hs-var hs-var">fromLedgerAddr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era -&gt; Addr StandardCrypto -&gt; AddressInEra era
+forall era.
+ShelleyBasedEra era -&gt; Addr StandardCrypto -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">fromShelleyAddrIsSbe</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="annot"><span class="hs-comment">-- | From an api 'AddressInEra' to a ledger 'Addr'</span></span><span>
+</span><span id="line-68"></span><span id="local-6989586621679320699"><span class="annot"><a href="Hydra.Cardano.Api.AddressInEra.html#toLedgerAddr"><span class="hs-identifier hs-type">toLedgerAddr</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679320699"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Addr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">StandardCrypto</span></span></span><span>
+</span><span id="line-69"></span><span id="toLedgerAddr"><span class="annot"><span class="annottext">toLedgerAddr :: forall era. AddressInEra era -&gt; Addr StandardCrypto
+</span><a href="Hydra.Cardano.Api.AddressInEra.html#toLedgerAddr"><span class="hs-identifier hs-var hs-var">toLedgerAddr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-70"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="annot"><span class="annottext">AddressTypeInEra addrtype era
+</span><span class="hs-identifier hs-var">ByronAddressInAnyEra</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ByronAddress</span></span><span> </span><span id="local-6989586621679320794"><span class="annot"><span class="annottext">Address
+</span><a href="#local-6989586621679320794"><span class="hs-identifier hs-var">addr</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">BootstrapAddress StandardCrypto -&gt; Addr StandardCrypto
+forall c. BootstrapAddress c -&gt; Addr c
+</span><span class="hs-identifier hs-var">Ledger.AddrBootstrap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Address -&gt; BootstrapAddress StandardCrypto
+forall c. Address -&gt; BootstrapAddress c
+</span><span class="hs-identifier hs-var">Ledger.BootstrapAddress</span></span><span> </span><span class="annot"><span class="annottext">Address
+</span><a href="#local-6989586621679320794"><span class="hs-identifier hs-var">addr</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyAddressInEra</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyAddress</span></span><span> </span><span id="local-6989586621679320801"><span class="annot"><span class="annottext">Network
+</span><a href="#local-6989586621679320801"><span class="hs-identifier hs-var">ntwrk</span></a></span></span><span> </span><span id="local-6989586621679320802"><span class="annot"><span class="annottext">PaymentCredential StandardCrypto
+</span><a href="#local-6989586621679320802"><span class="hs-identifier hs-var">creds</span></a></span></span><span> </span><span id="local-6989586621679320803"><span class="annot"><span class="annottext">StakeReference StandardCrypto
+</span><a href="#local-6989586621679320803"><span class="hs-identifier hs-var">stake</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">Network
+-&gt; PaymentCredential StandardCrypto
+-&gt; StakeReference StandardCrypto
+-&gt; Addr StandardCrypto
+forall c.
+Network -&gt; PaymentCredential c -&gt; StakeReference c -&gt; Addr c
+</span><span class="hs-identifier hs-var">Ledger.Addr</span></span><span> </span><span class="annot"><span class="annottext">Network
+</span><a href="#local-6989586621679320801"><span class="hs-identifier hs-var">ntwrk</span></a></span><span> </span><span class="annot"><span class="annottext">PaymentCredential StandardCrypto
+</span><a href="#local-6989586621679320802"><span class="hs-identifier hs-var">creds</span></a></span><span> </span><span class="annot"><span class="annottext">StakeReference StandardCrypto
+</span><a href="#local-6989586621679320803"><span class="hs-identifier hs-var">stake</span></a></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- | Convert a plutus 'Address' to an api 'AddressInEra'.</span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- NOTE: Requires the 'Network' discriminator (Testnet or Mainnet) because</span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- Plutus addresses are stripped off it.</span><span>
+</span><span id="line-78"></span><span id="local-6989586621679320714"><span class="annot"><a href="Hydra.Cardano.Api.AddressInEra.html#fromPlutusAddress"><span class="hs-identifier hs-type">fromPlutusAddress</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679320714"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Network</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.Address</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679320714"><span class="hs-identifier hs-type">era</span></a></span></span><span>
+</span><span id="line-79"></span><span id="fromPlutusAddress"><span class="annot"><span class="annottext">fromPlutusAddress :: forall era.
+IsShelleyBasedEra era =&gt;
+Network -&gt; Address -&gt; AddressInEra era
+</span><a href="Hydra.Cardano.Api.AddressInEra.html#fromPlutusAddress"><span class="hs-identifier hs-var hs-var">fromPlutusAddress</span></a></span></span><span> </span><span id="local-6989586621679320814"><span class="annot"><span class="annottext">Network
+</span><a href="#local-6989586621679320814"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span id="local-6989586621679320815"><span class="annot"><span class="annottext">Address
+</span><a href="#local-6989586621679320815"><span class="hs-identifier hs-var">plutusAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><span class="annottext">Addr StandardCrypto -&gt; AddressInEra era
+forall era.
+IsShelleyBasedEra era =&gt;
+Addr StandardCrypto -&gt; AddressInEra era
+</span><a href="Hydra.Cardano.Api.AddressInEra.html#fromLedgerAddr"><span class="hs-identifier hs-var">fromLedgerAddr</span></a></span><span> </span><span class="annot"><span class="annottext">(Addr StandardCrypto -&gt; AddressInEra era)
+-&gt; Addr StandardCrypto -&gt; AddressInEra era
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Credential
+</span><a href="#local-6989586621679320816"><span class="hs-identifier hs-var">addressCredential</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe StakingCredential
+</span><a href="#local-6989586621679320817"><span class="hs-identifier hs-var">addressStakingCredential</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-82"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679320818"><span class="annot"><span class="annottext">Credential
+</span><a href="#local-6989586621679320818"><span class="hs-identifier hs-var">cred</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StakingHash</span></span><span> </span><span id="local-6989586621679320819"><span class="annot"><span class="annottext">Credential
+</span><a href="#local-6989586621679320819"><span class="hs-identifier hs-var">stakeCred</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-83"></span><span>        </span><span class="annot"><span class="annottext">Network
+-&gt; PaymentCredential StandardCrypto
+-&gt; StakeReference StandardCrypto
+-&gt; Addr StandardCrypto
+forall c.
+Network -&gt; PaymentCredential c -&gt; StakeReference c -&gt; Addr c
+</span><span class="hs-identifier hs-var">Ledger.Addr</span></span><span> </span><span class="annot"><span class="annottext">Network
+</span><a href="#local-6989586621679320814"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Credential -&gt; PaymentCredential StandardCrypto
+forall {kr :: KeyRole}. Credential -&gt; Credential kr StandardCrypto
+</span><a href="#local-6989586621679320820"><span class="hs-identifier hs-var">unsafeCredential</span></a></span><span> </span><span class="annot"><span class="annottext">Credential
+</span><a href="#local-6989586621679320818"><span class="hs-identifier hs-var">cred</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(StakeReference StandardCrypto -&gt; Addr StandardCrypto)
+-&gt; (StakeCredential StandardCrypto
+    -&gt; StakeReference StandardCrypto)
+-&gt; StakeCredential StandardCrypto
+-&gt; Addr StandardCrypto
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">StakeCredential StandardCrypto -&gt; StakeReference StandardCrypto
+forall c. StakeCredential c -&gt; StakeReference c
+</span><span class="hs-identifier hs-var">Ledger.StakeRefBase</span></span><span> </span><span class="annot"><span class="annottext">(StakeCredential StandardCrypto -&gt; Addr StandardCrypto)
+-&gt; StakeCredential StandardCrypto -&gt; Addr StandardCrypto
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Credential -&gt; StakeCredential StandardCrypto
+forall {kr :: KeyRole}. Credential -&gt; Credential kr StandardCrypto
+</span><a href="#local-6989586621679320820"><span class="hs-identifier hs-var">unsafeCredential</span></a></span><span> </span><span class="annot"><span class="annottext">Credential
+</span><a href="#local-6989586621679320819"><span class="hs-identifier hs-var">stakeCred</span></a></span><span>
+</span><span id="line-84"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679320823"><span class="annot"><span class="annottext">Credential
+</span><a href="#local-6989586621679320823"><span class="hs-identifier hs-var">cred</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StakingPtr</span></span><span> </span><span id="local-6989586621679320824"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679320824"><span class="hs-identifier hs-var">slot</span></a></span></span><span> </span><span id="local-6989586621679320825"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679320825"><span class="hs-identifier hs-var">txix</span></a></span></span><span> </span><span id="local-6989586621679320826"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679320826"><span class="hs-identifier hs-var">certix</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-85"></span><span>        </span><span class="annot"><span class="annottext">Network
+-&gt; PaymentCredential StandardCrypto
+-&gt; StakeReference StandardCrypto
+-&gt; Addr StandardCrypto
+forall c.
+Network -&gt; PaymentCredential c -&gt; StakeReference c -&gt; Addr c
+</span><span class="hs-identifier hs-var">Ledger.Addr</span></span><span> </span><span class="annot"><span class="annottext">Network
+</span><a href="#local-6989586621679320814"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Credential -&gt; PaymentCredential StandardCrypto
+forall {kr :: KeyRole}. Credential -&gt; Credential kr StandardCrypto
+</span><a href="#local-6989586621679320820"><span class="hs-identifier hs-var">unsafeCredential</span></a></span><span> </span><span class="annot"><span class="annottext">Credential
+</span><a href="#local-6989586621679320823"><span class="hs-identifier hs-var">cred</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(StakeReference StandardCrypto -&gt; Addr StandardCrypto)
+-&gt; (Ptr -&gt; StakeReference StandardCrypto)
+-&gt; Ptr
+-&gt; Addr StandardCrypto
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr -&gt; StakeReference StandardCrypto
+forall c. Ptr -&gt; StakeReference c
+</span><span class="hs-identifier hs-var">Ledger.StakeRefPtr</span></span><span> </span><span class="annot"><span class="annottext">(Ptr -&gt; Addr StandardCrypto) -&gt; Ptr -&gt; Addr StandardCrypto
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-86"></span><span>          </span><span class="annot"><span class="annottext">SlotNo -&gt; TxIx -&gt; CertIx -&gt; Ptr
+</span><span class="hs-identifier hs-var">Ledger.Ptr</span></span><span>
+</span><span id="line-87"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; SlotNo
+forall a. Num a =&gt; Integer -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679320824"><span class="hs-identifier hs-var">slot</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64 -&gt; TxIx
+</span><span class="hs-identifier hs-var">Ledger.TxIx</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; TxIx) -&gt; Word64 -&gt; TxIx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Word64
+forall a. Num a =&gt; Integer -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679320825"><span class="hs-identifier hs-var">txix</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64 -&gt; CertIx
+</span><span class="hs-identifier hs-var">Ledger.CertIx</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; CertIx) -&gt; Word64 -&gt; CertIx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Word64
+forall a. Num a =&gt; Integer -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679320826"><span class="hs-identifier hs-var">certix</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679320831"><span class="annot"><span class="annottext">Credential
+</span><a href="#local-6989586621679320831"><span class="hs-identifier hs-var">cred</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe StakingCredential
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-91"></span><span>        </span><span class="annot"><span class="annottext">Network
+-&gt; PaymentCredential StandardCrypto
+-&gt; StakeReference StandardCrypto
+-&gt; Addr StandardCrypto
+forall c.
+Network -&gt; PaymentCredential c -&gt; StakeReference c -&gt; Addr c
+</span><span class="hs-identifier hs-var">Ledger.Addr</span></span><span> </span><span class="annot"><span class="annottext">Network
+</span><a href="#local-6989586621679320814"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Credential -&gt; PaymentCredential StandardCrypto
+forall {kr :: KeyRole}. Credential -&gt; Credential kr StandardCrypto
+</span><a href="#local-6989586621679320820"><span class="hs-identifier hs-var">unsafeCredential</span></a></span><span> </span><span class="annot"><span class="annottext">Credential
+</span><a href="#local-6989586621679320831"><span class="hs-identifier hs-var">cred</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">StakeReference StandardCrypto
+forall c. StakeReference c
+</span><span class="hs-identifier hs-var">Ledger.StakeRefNull</span></span><span>
+</span><span id="line-92"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-93"></span><span>  </span><span id="local-6989586621679320820"><span class="annot"><span class="annottext">unsafeCredential :: Credential -&gt; Credential kr StandardCrypto
+</span><a href="#local-6989586621679320820"><span class="hs-identifier hs-var hs-var">unsafeCredential</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-94"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">PubKeyCredential</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plutus.PubKeyHash</span></span><span> </span><span id="local-6989586621679320850"><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679320850"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-95"></span><span>      </span><span class="annot"><span class="annottext">KeyHash kr StandardCrypto -&gt; Credential kr StandardCrypto
+forall (kr :: KeyRole) c. KeyHash kr c -&gt; Credential kr c
+</span><span class="hs-identifier hs-var">Ledger.KeyHashObj</span></span><span> </span><span class="annot"><span class="annottext">(KeyHash kr StandardCrypto -&gt; Credential kr StandardCrypto)
+-&gt; (ByteString -&gt; KeyHash kr StandardCrypto)
+-&gt; ByteString
+-&gt; Credential kr StandardCrypto
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Hash (ADDRHASH StandardCrypto) (VerKeyDSIGN (DSIGN StandardCrypto))
+-&gt; KeyHash kr StandardCrypto
+forall (discriminator :: KeyRole) c.
+Hash (ADDRHASH c) (VerKeyDSIGN (DSIGN c))
+-&gt; KeyHash discriminator c
+</span><span class="hs-identifier hs-var">Ledger.KeyHash</span></span><span> </span><span class="annot"><span class="annottext">(Hash
+   (ADDRHASH StandardCrypto) (VerKeyDSIGN (DSIGN StandardCrypto))
+ -&gt; KeyHash kr StandardCrypto)
+-&gt; (ByteString
+    -&gt; Hash
+         (ADDRHASH StandardCrypto) (VerKeyDSIGN (DSIGN StandardCrypto)))
+-&gt; ByteString
+-&gt; KeyHash kr StandardCrypto
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+-&gt; Hash
+     (ADDRHASH StandardCrypto) (VerKeyDSIGN (DSIGN StandardCrypto))
+forall hash a.
+(HasCallStack, HashAlgorithm hash) =&gt;
+ByteString -&gt; Hash hash a
+</span><a href="Hydra.Cardano.Api.Prelude.html#unsafeHashFromBytes"><span class="hs-identifier hs-var">unsafeHashFromBytes</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Credential kr StandardCrypto)
+-&gt; ByteString -&gt; Credential kr StandardCrypto
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; FromBuiltin BuiltinByteString
+forall arep. HasFromBuiltin arep =&gt; arep -&gt; FromBuiltin arep
+</span><span class="hs-identifier hs-var">fromBuiltin</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679320850"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-96"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ScriptCredential</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plutus.ScriptHash</span></span><span> </span><span id="local-6989586621679320856"><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679320856"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-97"></span><span>      </span><span class="annot"><span class="annottext">ScriptHash StandardCrypto -&gt; Credential kr StandardCrypto
+forall (kr :: KeyRole) c. ScriptHash c -&gt; Credential kr c
+</span><span class="hs-identifier hs-var">Ledger.ScriptHashObj</span></span><span> </span><span class="annot"><span class="annottext">(ScriptHash StandardCrypto -&gt; Credential kr StandardCrypto)
+-&gt; (ByteString -&gt; ScriptHash StandardCrypto)
+-&gt; ByteString
+-&gt; Credential kr StandardCrypto
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Hash (ADDRHASH StandardCrypto) EraIndependentScript
+-&gt; ScriptHash StandardCrypto
+forall c. Hash (ADDRHASH c) EraIndependentScript -&gt; ScriptHash c
+</span><span class="hs-identifier hs-var">Ledger.ScriptHash</span></span><span> </span><span class="annot"><span class="annottext">(Hash (ADDRHASH StandardCrypto) EraIndependentScript
+ -&gt; ScriptHash StandardCrypto)
+-&gt; (ByteString
+    -&gt; Hash (ADDRHASH StandardCrypto) EraIndependentScript)
+-&gt; ByteString
+-&gt; ScriptHash StandardCrypto
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Hash (ADDRHASH StandardCrypto) EraIndependentScript
+forall hash a.
+(HasCallStack, HashAlgorithm hash) =&gt;
+ByteString -&gt; Hash hash a
+</span><a href="Hydra.Cardano.Api.Prelude.html#unsafeHashFromBytes"><span class="hs-identifier hs-var">unsafeHashFromBytes</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Credential kr StandardCrypto)
+-&gt; ByteString -&gt; Credential kr StandardCrypto
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; FromBuiltin BuiltinByteString
+forall arep. HasFromBuiltin arep =&gt; arep -&gt; FromBuiltin arep
+</span><span class="hs-identifier hs-var">fromBuiltin</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679320856"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Plutus.Address</span></span><span class="hs-special">{</span><span id="local-6989586621679320816"><span class="annot"><span class="annottext">Credential
+addressCredential :: Credential
+addressCredential :: Address -&gt; Credential
+</span><a href="#local-6989586621679320816"><span class="hs-identifier hs-var hs-var">addressCredential</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679320817"><span class="annot"><span class="annottext">Maybe StakingCredential
+addressStakingCredential :: Maybe StakingCredential
+addressStakingCredential :: Address -&gt; Maybe StakingCredential
+</span><a href="#local-6989586621679320817"><span class="hs-identifier hs-var hs-var">addressStakingCredential</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Address
+</span><a href="#local-6989586621679320815"><span class="hs-identifier hs-var">plutusAddress</span></a></span><span>
+</span><span id="line-100"></span></pre></body></html>

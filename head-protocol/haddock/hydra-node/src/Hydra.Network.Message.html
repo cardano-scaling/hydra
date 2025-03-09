@@ -1,0 +1,821 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Network.Message</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Binary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">serialize'</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Crypto.Util</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">SignableRepresentation</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getSignableRepresentation</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.html"><span class="hs-identifier">Hydra.Network</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier">Host</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Network.html#NodeId"><span class="hs-identifier">NodeId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><span class="hs-identifier">IsTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TxIdType</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier">Party</span></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-identifier">Snapshot</span></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier">SnapshotNumber</span></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier">SnapshotVersion</span></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">UTxOType</span></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Crypto</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Signature</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.IsTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ArbitraryIsTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">data</span><span> </span><span id="NetworkEvent"><span class="annot"><a href="Hydra.Network.Message.html#NetworkEvent"><span class="hs-identifier hs-var">NetworkEvent</span></a></span></span><span> </span><span id="local-6989586621680205508"><span class="annot"><a href="#local-6989586621680205508"><span class="hs-identifier hs-type">msg</span></a></span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="ConnectivityEvent"><span class="annot"><a href="Hydra.Network.Message.html#ConnectivityEvent"><span class="hs-identifier hs-var">ConnectivityEvent</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#Connectivity"><span class="hs-identifier hs-type">Connectivity</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ReceivedMessage"><span class="annot"><a href="Hydra.Network.Message.html#ReceivedMessage"><span class="hs-identifier hs-var">ReceivedMessage</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3Asender%3AConnectivityEvent"><span class="annot"><span class="annottext">forall msg. NetworkEvent msg -&gt; Party
+</span><a href="Hydra.Network.Message.html#%24sel%3Asender%3AConnectivityEvent"><span class="hs-identifier hs-var hs-var">sender</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">,</span><span> </span><span id="%24sel%3Amsg%3AConnectivityEvent"><span class="annot"><span class="annottext">forall msg. NetworkEvent msg -&gt; msg
+</span><a href="Hydra.Network.Message.html#%24sel%3Amsg%3AConnectivityEvent"><span class="hs-identifier hs-var hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680205508"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680205996"><span id="local-6989586621680206003"><span class="annot"><span class="annottext">NetworkEvent msg -&gt; NetworkEvent msg -&gt; Bool
+(NetworkEvent msg -&gt; NetworkEvent msg -&gt; Bool)
+-&gt; (NetworkEvent msg -&gt; NetworkEvent msg -&gt; Bool)
+-&gt; Eq (NetworkEvent msg)
+forall msg. Eq msg =&gt; NetworkEvent msg -&gt; NetworkEvent msg -&gt; Bool
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: forall msg. Eq msg =&gt; NetworkEvent msg -&gt; NetworkEvent msg -&gt; Bool
+== :: NetworkEvent msg -&gt; NetworkEvent msg -&gt; Bool
+$c/= :: forall msg. Eq msg =&gt; NetworkEvent msg -&gt; NetworkEvent msg -&gt; Bool
+/= :: NetworkEvent msg -&gt; NetworkEvent msg -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206009"><span id="local-6989586621680206019"><span id="local-6989586621680206023"><span class="annot"><span class="annottext">Int -&gt; NetworkEvent msg -&gt; ShowS
+[NetworkEvent msg] -&gt; ShowS
+NetworkEvent msg -&gt; String
+(Int -&gt; NetworkEvent msg -&gt; ShowS)
+-&gt; (NetworkEvent msg -&gt; String)
+-&gt; ([NetworkEvent msg] -&gt; ShowS)
+-&gt; Show (NetworkEvent msg)
+forall msg. Show msg =&gt; Int -&gt; NetworkEvent msg -&gt; ShowS
+forall msg. Show msg =&gt; [NetworkEvent msg] -&gt; ShowS
+forall msg. Show msg =&gt; NetworkEvent msg -&gt; String
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: forall msg. Show msg =&gt; Int -&gt; NetworkEvent msg -&gt; ShowS
+showsPrec :: Int -&gt; NetworkEvent msg -&gt; ShowS
+$cshow :: forall msg. Show msg =&gt; NetworkEvent msg -&gt; String
+show :: NetworkEvent msg -&gt; String
+$cshowList :: forall msg. Show msg =&gt; [NetworkEvent msg] -&gt; ShowS
+showList :: [NetworkEvent msg] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206027"><span id="local-6989586621680206029"><span class="annot"><span class="annottext">(forall x. NetworkEvent msg -&gt; Rep (NetworkEvent msg) x)
+-&gt; (forall x. Rep (NetworkEvent msg) x -&gt; NetworkEvent msg)
+-&gt; Generic (NetworkEvent msg)
+forall x. Rep (NetworkEvent msg) x -&gt; NetworkEvent msg
+forall x. NetworkEvent msg -&gt; Rep (NetworkEvent msg) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall msg x. Rep (NetworkEvent msg) x -&gt; NetworkEvent msg
+forall msg x. NetworkEvent msg -&gt; Rep (NetworkEvent msg) x
+$cfrom :: forall msg x. NetworkEvent msg -&gt; Rep (NetworkEvent msg) x
+from :: forall x. NetworkEvent msg -&gt; Rep (NetworkEvent msg) x
+$cto :: forall msg x. Rep (NetworkEvent msg) x -&gt; NetworkEvent msg
+to :: forall x. Rep (NetworkEvent msg) x -&gt; NetworkEvent msg
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680206034"><span id="local-6989586621680206041"><span id="local-6989586621680206044"><span id="local-6989586621680206047"><span id="local-6989586621680206050"><span class="annot"><span class="annottext">[NetworkEvent msg] -&gt; Value
+[NetworkEvent msg] -&gt; Encoding
+NetworkEvent msg -&gt; Bool
+NetworkEvent msg -&gt; Value
+NetworkEvent msg -&gt; Encoding
+(NetworkEvent msg -&gt; Value)
+-&gt; (NetworkEvent msg -&gt; Encoding)
+-&gt; ([NetworkEvent msg] -&gt; Value)
+-&gt; ([NetworkEvent msg] -&gt; Encoding)
+-&gt; (NetworkEvent msg -&gt; Bool)
+-&gt; ToJSON (NetworkEvent msg)
+forall msg. ToJSON msg =&gt; [NetworkEvent msg] -&gt; Value
+forall msg. ToJSON msg =&gt; [NetworkEvent msg] -&gt; Encoding
+forall msg. ToJSON msg =&gt; NetworkEvent msg -&gt; Bool
+forall msg. ToJSON msg =&gt; NetworkEvent msg -&gt; Value
+forall msg. ToJSON msg =&gt; NetworkEvent msg -&gt; Encoding
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: forall msg. ToJSON msg =&gt; NetworkEvent msg -&gt; Value
+toJSON :: NetworkEvent msg -&gt; Value
+$ctoEncoding :: forall msg. ToJSON msg =&gt; NetworkEvent msg -&gt; Encoding
+toEncoding :: NetworkEvent msg -&gt; Encoding
+$ctoJSONList :: forall msg. ToJSON msg =&gt; [NetworkEvent msg] -&gt; Value
+toJSONList :: [NetworkEvent msg] -&gt; Value
+$ctoEncodingList :: forall msg. ToJSON msg =&gt; [NetworkEvent msg] -&gt; Encoding
+toEncodingList :: [NetworkEvent msg] -&gt; Encoding
+$comitField :: forall msg. ToJSON msg =&gt; NetworkEvent msg -&gt; Bool
+omitField :: NetworkEvent msg -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206189"><span id="local-6989586621680206196"><span id="local-6989586621680206199"><span class="annot"><span class="annottext">Maybe (NetworkEvent msg)
+Value -&gt; Parser [NetworkEvent msg]
+Value -&gt; Parser (NetworkEvent msg)
+(Value -&gt; Parser (NetworkEvent msg))
+-&gt; (Value -&gt; Parser [NetworkEvent msg])
+-&gt; Maybe (NetworkEvent msg)
+-&gt; FromJSON (NetworkEvent msg)
+forall msg. FromJSON msg =&gt; Maybe (NetworkEvent msg)
+forall msg. FromJSON msg =&gt; Value -&gt; Parser [NetworkEvent msg]
+forall msg. FromJSON msg =&gt; Value -&gt; Parser (NetworkEvent msg)
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: forall msg. FromJSON msg =&gt; Value -&gt; Parser (NetworkEvent msg)
+parseJSON :: Value -&gt; Parser (NetworkEvent msg)
+$cparseJSONList :: forall msg. FromJSON msg =&gt; Value -&gt; Parser [NetworkEvent msg]
+parseJSONList :: Value -&gt; Parser [NetworkEvent msg]
+$comittedField :: forall msg. FromJSON msg =&gt; Maybe (NetworkEvent msg)
+omittedField :: Maybe (NetworkEvent msg)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680205769"><span id="local-6989586621680206297"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="#local-6989586621680205769"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#NetworkEvent"><span class="hs-identifier hs-type">NetworkEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680205769"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-28"></span><span>  </span><span id="local-6989586621680206353"><span class="annot"><span class="annottext">arbitrary :: Gen (NetworkEvent msg)
+</span><a href="#local-6989586621680206353"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (NetworkEvent msg)
+forall a.
+(Generic a, GA UnsizedOpts (Rep a),
+ UniformWeight (Weights_ (Rep a))) =&gt;
+Gen a
+</span><span class="hs-identifier hs-var">genericArbitrary</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#HydraVersionedProtocolNumber"><span class="hs-identifier hs-type">HydraVersionedProtocolNumber</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">newtype</span><span> </span><span id="HydraVersionedProtocolNumber"><span class="annot"><a href="Hydra.Network.Message.html#HydraVersionedProtocolNumber"><span class="hs-identifier hs-var">HydraVersionedProtocolNumber</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MkHydraVersionedProtocolNumber"><span class="annot"><a href="Hydra.Network.Message.html#MkHydraVersionedProtocolNumber"><span class="hs-identifier hs-var">MkHydraVersionedProtocolNumber</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AhydraVersionedProtocolNumber%3AMkHydraVersionedProtocolNumber"><span class="annot"><span class="annottext">HydraVersionedProtocolNumber -&gt; Nat
+</span><a href="Hydra.Network.Message.html#%24sel%3AhydraVersionedProtocolNumber%3AMkHydraVersionedProtocolNumber"><span class="hs-identifier hs-var hs-var">hydraVersionedProtocolNumber</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680206359"><span id="local-6989586621680206363"><span class="annot"><span class="annottext">HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+(HydraVersionedProtocolNumber
+ -&gt; HydraVersionedProtocolNumber -&gt; Bool)
+-&gt; (HydraVersionedProtocolNumber
+    -&gt; HydraVersionedProtocolNumber -&gt; Bool)
+-&gt; Eq HydraVersionedProtocolNumber
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+== :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+$c/= :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+/= :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206367"><span id="local-6989586621680206372"><span id="local-6989586621680206376"><span class="annot"><span class="annottext">Int -&gt; HydraVersionedProtocolNumber -&gt; ShowS
+[HydraVersionedProtocolNumber] -&gt; ShowS
+HydraVersionedProtocolNumber -&gt; String
+(Int -&gt; HydraVersionedProtocolNumber -&gt; ShowS)
+-&gt; (HydraVersionedProtocolNumber -&gt; String)
+-&gt; ([HydraVersionedProtocolNumber] -&gt; ShowS)
+-&gt; Show HydraVersionedProtocolNumber
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; HydraVersionedProtocolNumber -&gt; ShowS
+showsPrec :: Int -&gt; HydraVersionedProtocolNumber -&gt; ShowS
+$cshow :: HydraVersionedProtocolNumber -&gt; String
+show :: HydraVersionedProtocolNumber -&gt; String
+$cshowList :: [HydraVersionedProtocolNumber] -&gt; ShowS
+showList :: [HydraVersionedProtocolNumber] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206379"><span id="local-6989586621680206381"><span class="annot"><span class="annottext">(forall x.
+ HydraVersionedProtocolNumber -&gt; Rep HydraVersionedProtocolNumber x)
+-&gt; (forall x.
+    Rep HydraVersionedProtocolNumber x -&gt; HydraVersionedProtocolNumber)
+-&gt; Generic HydraVersionedProtocolNumber
+forall x.
+Rep HydraVersionedProtocolNumber x -&gt; HydraVersionedProtocolNumber
+forall x.
+HydraVersionedProtocolNumber -&gt; Rep HydraVersionedProtocolNumber x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x.
+HydraVersionedProtocolNumber -&gt; Rep HydraVersionedProtocolNumber x
+from :: forall x.
+HydraVersionedProtocolNumber -&gt; Rep HydraVersionedProtocolNumber x
+$cto :: forall x.
+Rep HydraVersionedProtocolNumber x -&gt; HydraVersionedProtocolNumber
+to :: forall x.
+Rep HydraVersionedProtocolNumber x -&gt; HydraVersionedProtocolNumber
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206386"><span id="local-6989586621680206390"><span id="local-6989586621680206393"><span id="local-6989586621680206397"><span id="local-6989586621680206400"><span id="local-6989586621680206403"><span id="local-6989586621680206406"><span class="annot"><span class="annottext">Eq HydraVersionedProtocolNumber
+Eq HydraVersionedProtocolNumber =&gt;
+(HydraVersionedProtocolNumber
+ -&gt; HydraVersionedProtocolNumber -&gt; Ordering)
+-&gt; (HydraVersionedProtocolNumber
+    -&gt; HydraVersionedProtocolNumber -&gt; Bool)
+-&gt; (HydraVersionedProtocolNumber
+    -&gt; HydraVersionedProtocolNumber -&gt; Bool)
+-&gt; (HydraVersionedProtocolNumber
+    -&gt; HydraVersionedProtocolNumber -&gt; Bool)
+-&gt; (HydraVersionedProtocolNumber
+    -&gt; HydraVersionedProtocolNumber -&gt; Bool)
+-&gt; (HydraVersionedProtocolNumber
+    -&gt; HydraVersionedProtocolNumber -&gt; HydraVersionedProtocolNumber)
+-&gt; (HydraVersionedProtocolNumber
+    -&gt; HydraVersionedProtocolNumber -&gt; HydraVersionedProtocolNumber)
+-&gt; Ord HydraVersionedProtocolNumber
+HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Ordering
+HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; HydraVersionedProtocolNumber
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+$ccompare :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Ordering
+compare :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Ordering
+$c&lt; :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+&lt; :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+$c&lt;= :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+&lt;= :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+$c&gt; :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+&gt; :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+$c&gt;= :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+&gt;= :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; Bool
+$cmax :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; HydraVersionedProtocolNumber
+max :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; HydraVersionedProtocolNumber
+$cmin :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; HydraVersionedProtocolNumber
+min :: HydraVersionedProtocolNumber
+-&gt; HydraVersionedProtocolNumber -&gt; HydraVersionedProtocolNumber
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680206410"><span id="local-6989586621680206417"><span id="local-6989586621680206420"><span id="local-6989586621680206423"><span id="local-6989586621680206426"><span class="annot"><span class="annottext">[HydraVersionedProtocolNumber] -&gt; Value
+[HydraVersionedProtocolNumber] -&gt; Encoding
+HydraVersionedProtocolNumber -&gt; Bool
+HydraVersionedProtocolNumber -&gt; Value
+HydraVersionedProtocolNumber -&gt; Encoding
+(HydraVersionedProtocolNumber -&gt; Value)
+-&gt; (HydraVersionedProtocolNumber -&gt; Encoding)
+-&gt; ([HydraVersionedProtocolNumber] -&gt; Value)
+-&gt; ([HydraVersionedProtocolNumber] -&gt; Encoding)
+-&gt; (HydraVersionedProtocolNumber -&gt; Bool)
+-&gt; ToJSON HydraVersionedProtocolNumber
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: HydraVersionedProtocolNumber -&gt; Value
+toJSON :: HydraVersionedProtocolNumber -&gt; Value
+$ctoEncoding :: HydraVersionedProtocolNumber -&gt; Encoding
+toEncoding :: HydraVersionedProtocolNumber -&gt; Encoding
+$ctoJSONList :: [HydraVersionedProtocolNumber] -&gt; Value
+toJSONList :: [HydraVersionedProtocolNumber] -&gt; Value
+$ctoEncodingList :: [HydraVersionedProtocolNumber] -&gt; Encoding
+toEncodingList :: [HydraVersionedProtocolNumber] -&gt; Encoding
+$comitField :: HydraVersionedProtocolNumber -&gt; Bool
+omitField :: HydraVersionedProtocolNumber -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206474"><span id="local-6989586621680206481"><span id="local-6989586621680206484"><span class="annot"><span class="annottext">Maybe HydraVersionedProtocolNumber
+Value -&gt; Parser [HydraVersionedProtocolNumber]
+Value -&gt; Parser HydraVersionedProtocolNumber
+(Value -&gt; Parser HydraVersionedProtocolNumber)
+-&gt; (Value -&gt; Parser [HydraVersionedProtocolNumber])
+-&gt; Maybe HydraVersionedProtocolNumber
+-&gt; FromJSON HydraVersionedProtocolNumber
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser HydraVersionedProtocolNumber
+parseJSON :: Value -&gt; Parser HydraVersionedProtocolNumber
+$cparseJSONList :: Value -&gt; Parser [HydraVersionedProtocolNumber]
+parseJSONList :: Value -&gt; Parser [HydraVersionedProtocolNumber]
+$comittedField :: Maybe HydraVersionedProtocolNumber
+omittedField :: Maybe HydraVersionedProtocolNumber
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680206528"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#HydraVersionedProtocolNumber"><span class="hs-identifier hs-type">HydraVersionedProtocolNumber</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-36"></span><span>  </span><span id="local-6989586621680206550"><span class="annot"><span class="annottext">arbitrary :: Gen HydraVersionedProtocolNumber
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen HydraVersionedProtocolNumber
+forall a.
+(Generic a, GA UnsizedOpts (Rep a),
+ UniformWeight (Weights_ (Rep a))) =&gt;
+Gen a
+</span><span class="hs-identifier hs-var">genericArbitrary</span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#KnownHydraVersions"><span class="hs-identifier hs-type">KnownHydraVersions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">data</span><span> </span><span id="KnownHydraVersions"><span class="annot"><a href="Hydra.Network.Message.html#KnownHydraVersions"><span class="hs-identifier hs-var">KnownHydraVersions</span></a></span></span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="KnownHydraVersions"><span class="annot"><a href="Hydra.Network.Message.html#KnownHydraVersions"><span class="hs-identifier hs-var">KnownHydraVersions</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AfromKnownHydraVersions%3AKnownHydraVersions"><span class="annot"><span class="annottext">KnownHydraVersions -&gt; [HydraVersionedProtocolNumber]
+</span><a href="Hydra.Network.Message.html#%24sel%3AfromKnownHydraVersions%3AKnownHydraVersions"><span class="hs-identifier hs-var hs-var">fromKnownHydraVersions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Network.Message.html#HydraVersionedProtocolNumber"><span class="hs-identifier hs-type">HydraVersionedProtocolNumber</span></a></span><span class="hs-special">]</span><span class="hs-special">}</span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="NoKnownHydraVersions"><span class="annot"><a href="Hydra.Network.Message.html#NoKnownHydraVersions"><span class="hs-identifier hs-var">NoKnownHydraVersions</span></a></span></span><span>
+</span><span id="line-42"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680206555"><span id="local-6989586621680206560"><span class="annot"><span class="annottext">KnownHydraVersions -&gt; KnownHydraVersions -&gt; Bool
+(KnownHydraVersions -&gt; KnownHydraVersions -&gt; Bool)
+-&gt; (KnownHydraVersions -&gt; KnownHydraVersions -&gt; Bool)
+-&gt; Eq KnownHydraVersions
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: KnownHydraVersions -&gt; KnownHydraVersions -&gt; Bool
+== :: KnownHydraVersions -&gt; KnownHydraVersions -&gt; Bool
+$c/= :: KnownHydraVersions -&gt; KnownHydraVersions -&gt; Bool
+/= :: KnownHydraVersions -&gt; KnownHydraVersions -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206564"><span id="local-6989586621680206570"><span id="local-6989586621680206574"><span class="annot"><span class="annottext">Int -&gt; KnownHydraVersions -&gt; ShowS
+[KnownHydraVersions] -&gt; ShowS
+KnownHydraVersions -&gt; String
+(Int -&gt; KnownHydraVersions -&gt; ShowS)
+-&gt; (KnownHydraVersions -&gt; String)
+-&gt; ([KnownHydraVersions] -&gt; ShowS)
+-&gt; Show KnownHydraVersions
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; KnownHydraVersions -&gt; ShowS
+showsPrec :: Int -&gt; KnownHydraVersions -&gt; ShowS
+$cshow :: KnownHydraVersions -&gt; String
+show :: KnownHydraVersions -&gt; String
+$cshowList :: [KnownHydraVersions] -&gt; ShowS
+showList :: [KnownHydraVersions] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206577"><span id="local-6989586621680206579"><span class="annot"><span class="annottext">(forall x. KnownHydraVersions -&gt; Rep KnownHydraVersions x)
+-&gt; (forall x. Rep KnownHydraVersions x -&gt; KnownHydraVersions)
+-&gt; Generic KnownHydraVersions
+forall x. Rep KnownHydraVersions x -&gt; KnownHydraVersions
+forall x. KnownHydraVersions -&gt; Rep KnownHydraVersions x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. KnownHydraVersions -&gt; Rep KnownHydraVersions x
+from :: forall x. KnownHydraVersions -&gt; Rep KnownHydraVersions x
+$cto :: forall x. Rep KnownHydraVersions x -&gt; KnownHydraVersions
+to :: forall x. Rep KnownHydraVersions x -&gt; KnownHydraVersions
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680206582"><span id="local-6989586621680206589"><span id="local-6989586621680206592"><span id="local-6989586621680206595"><span id="local-6989586621680206598"><span class="annot"><span class="annottext">[KnownHydraVersions] -&gt; Value
+[KnownHydraVersions] -&gt; Encoding
+KnownHydraVersions -&gt; Bool
+KnownHydraVersions -&gt; Value
+KnownHydraVersions -&gt; Encoding
+(KnownHydraVersions -&gt; Value)
+-&gt; (KnownHydraVersions -&gt; Encoding)
+-&gt; ([KnownHydraVersions] -&gt; Value)
+-&gt; ([KnownHydraVersions] -&gt; Encoding)
+-&gt; (KnownHydraVersions -&gt; Bool)
+-&gt; ToJSON KnownHydraVersions
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: KnownHydraVersions -&gt; Value
+toJSON :: KnownHydraVersions -&gt; Value
+$ctoEncoding :: KnownHydraVersions -&gt; Encoding
+toEncoding :: KnownHydraVersions -&gt; Encoding
+$ctoJSONList :: [KnownHydraVersions] -&gt; Value
+toJSONList :: [KnownHydraVersions] -&gt; Value
+$ctoEncodingList :: [KnownHydraVersions] -&gt; Encoding
+toEncodingList :: [KnownHydraVersions] -&gt; Encoding
+$comitField :: KnownHydraVersions -&gt; Bool
+omitField :: KnownHydraVersions -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206677"><span id="local-6989586621680206684"><span id="local-6989586621680206687"><span class="annot"><span class="annottext">Maybe KnownHydraVersions
+Value -&gt; Parser [KnownHydraVersions]
+Value -&gt; Parser KnownHydraVersions
+(Value -&gt; Parser KnownHydraVersions)
+-&gt; (Value -&gt; Parser [KnownHydraVersions])
+-&gt; Maybe KnownHydraVersions
+-&gt; FromJSON KnownHydraVersions
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser KnownHydraVersions
+parseJSON :: Value -&gt; Parser KnownHydraVersions
+$cparseJSONList :: Value -&gt; Parser [KnownHydraVersions]
+parseJSONList :: Value -&gt; Parser [KnownHydraVersions]
+$comittedField :: Maybe KnownHydraVersions
+omittedField :: Maybe KnownHydraVersions
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680206751"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#KnownHydraVersions"><span class="hs-identifier hs-type">KnownHydraVersions</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-46"></span><span>  </span><span id="local-6989586621680206781"><span class="annot"><span class="annottext">arbitrary :: Gen KnownHydraVersions
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen KnownHydraVersions
+forall a.
+(Generic a, GA UnsizedOpts (Rep a),
+ UniformWeight (Weights_ (Rep a))) =&gt;
+Gen a
+</span><span class="hs-identifier hs-var">genericArbitrary</span></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#HydraHandshakeRefused"><span class="hs-identifier hs-type">HydraHandshakeRefused</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">data</span><span> </span><span id="HydraHandshakeRefused"><span class="annot"><a href="Hydra.Network.Message.html#HydraHandshakeRefused"><span class="hs-identifier hs-var">HydraHandshakeRefused</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="HydraHandshakeRefused"><span class="annot"><a href="Hydra.Network.Message.html#HydraHandshakeRefused"><span class="hs-identifier hs-var">HydraHandshakeRefused</span></a></span></span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AremoteHost%3AHydraHandshakeRefused"><span class="annot"><span class="annottext">HydraHandshakeRefused -&gt; Host
+</span><a href="Hydra.Network.Message.html#%24sel%3AremoteHost%3AHydraHandshakeRefused"><span class="hs-identifier hs-var hs-var">remoteHost</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span><span>
+</span><span id="line-51"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AourVersion%3AHydraHandshakeRefused"><span class="annot"><span class="annottext">HydraHandshakeRefused -&gt; HydraVersionedProtocolNumber
+</span><a href="Hydra.Network.Message.html#%24sel%3AourVersion%3AHydraHandshakeRefused"><span class="hs-identifier hs-var hs-var">ourVersion</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#HydraVersionedProtocolNumber"><span class="hs-identifier hs-type">HydraVersionedProtocolNumber</span></a></span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AtheirVersions%3AHydraHandshakeRefused"><span class="annot"><span class="annottext">HydraHandshakeRefused -&gt; KnownHydraVersions
+</span><a href="Hydra.Network.Message.html#%24sel%3AtheirVersions%3AHydraHandshakeRefused"><span class="hs-identifier hs-var hs-var">theirVersions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#KnownHydraVersions"><span class="hs-identifier hs-type">KnownHydraVersions</span></a></span><span>
+</span><span id="line-53"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-54"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680206787"><span id="local-6989586621680206793"><span class="annot"><span class="annottext">HydraHandshakeRefused -&gt; HydraHandshakeRefused -&gt; Bool
+(HydraHandshakeRefused -&gt; HydraHandshakeRefused -&gt; Bool)
+-&gt; (HydraHandshakeRefused -&gt; HydraHandshakeRefused -&gt; Bool)
+-&gt; Eq HydraHandshakeRefused
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: HydraHandshakeRefused -&gt; HydraHandshakeRefused -&gt; Bool
+== :: HydraHandshakeRefused -&gt; HydraHandshakeRefused -&gt; Bool
+$c/= :: HydraHandshakeRefused -&gt; HydraHandshakeRefused -&gt; Bool
+/= :: HydraHandshakeRefused -&gt; HydraHandshakeRefused -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206797"><span id="local-6989586621680206804"><span id="local-6989586621680206808"><span class="annot"><span class="annottext">Int -&gt; HydraHandshakeRefused -&gt; ShowS
+[HydraHandshakeRefused] -&gt; ShowS
+HydraHandshakeRefused -&gt; String
+(Int -&gt; HydraHandshakeRefused -&gt; ShowS)
+-&gt; (HydraHandshakeRefused -&gt; String)
+-&gt; ([HydraHandshakeRefused] -&gt; ShowS)
+-&gt; Show HydraHandshakeRefused
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; HydraHandshakeRefused -&gt; ShowS
+showsPrec :: Int -&gt; HydraHandshakeRefused -&gt; ShowS
+$cshow :: HydraHandshakeRefused -&gt; String
+show :: HydraHandshakeRefused -&gt; String
+$cshowList :: [HydraHandshakeRefused] -&gt; ShowS
+showList :: [HydraHandshakeRefused] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206811"><span id="local-6989586621680206813"><span class="annot"><span class="annottext">(forall x. HydraHandshakeRefused -&gt; Rep HydraHandshakeRefused x)
+-&gt; (forall x. Rep HydraHandshakeRefused x -&gt; HydraHandshakeRefused)
+-&gt; Generic HydraHandshakeRefused
+forall x. Rep HydraHandshakeRefused x -&gt; HydraHandshakeRefused
+forall x. HydraHandshakeRefused -&gt; Rep HydraHandshakeRefused x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. HydraHandshakeRefused -&gt; Rep HydraHandshakeRefused x
+from :: forall x. HydraHandshakeRefused -&gt; Rep HydraHandshakeRefused x
+$cto :: forall x. Rep HydraHandshakeRefused x -&gt; HydraHandshakeRefused
+to :: forall x. Rep HydraHandshakeRefused x -&gt; HydraHandshakeRefused
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680206816"><span id="local-6989586621680206823"><span id="local-6989586621680206826"><span id="local-6989586621680206829"><span id="local-6989586621680206832"><span class="annot"><span class="annottext">[HydraHandshakeRefused] -&gt; Value
+[HydraHandshakeRefused] -&gt; Encoding
+HydraHandshakeRefused -&gt; Bool
+HydraHandshakeRefused -&gt; Value
+HydraHandshakeRefused -&gt; Encoding
+(HydraHandshakeRefused -&gt; Value)
+-&gt; (HydraHandshakeRefused -&gt; Encoding)
+-&gt; ([HydraHandshakeRefused] -&gt; Value)
+-&gt; ([HydraHandshakeRefused] -&gt; Encoding)
+-&gt; (HydraHandshakeRefused -&gt; Bool)
+-&gt; ToJSON HydraHandshakeRefused
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: HydraHandshakeRefused -&gt; Value
+toJSON :: HydraHandshakeRefused -&gt; Value
+$ctoEncoding :: HydraHandshakeRefused -&gt; Encoding
+toEncoding :: HydraHandshakeRefused -&gt; Encoding
+$ctoJSONList :: [HydraHandshakeRefused] -&gt; Value
+toJSONList :: [HydraHandshakeRefused] -&gt; Value
+$ctoEncodingList :: [HydraHandshakeRefused] -&gt; Encoding
+toEncodingList :: [HydraHandshakeRefused] -&gt; Encoding
+$comitField :: HydraHandshakeRefused -&gt; Bool
+omitField :: HydraHandshakeRefused -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680206915"><span id="local-6989586621680206922"><span id="local-6989586621680206925"><span class="annot"><span class="annottext">Maybe HydraHandshakeRefused
+Value -&gt; Parser [HydraHandshakeRefused]
+Value -&gt; Parser HydraHandshakeRefused
+(Value -&gt; Parser HydraHandshakeRefused)
+-&gt; (Value -&gt; Parser [HydraHandshakeRefused])
+-&gt; Maybe HydraHandshakeRefused
+-&gt; FromJSON HydraHandshakeRefused
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser HydraHandshakeRefused
+parseJSON :: Value -&gt; Parser HydraHandshakeRefused
+$cparseJSONList :: Value -&gt; Parser [HydraHandshakeRefused]
+parseJSONList :: Value -&gt; Parser [HydraHandshakeRefused]
+$comittedField :: Maybe HydraHandshakeRefused
+omittedField :: Maybe HydraHandshakeRefused
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680206985"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#HydraHandshakeRefused"><span class="hs-identifier hs-type">HydraHandshakeRefused</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-58"></span><span>  </span><span id="local-6989586621680207026"><span class="annot"><span class="annottext">arbitrary :: Gen HydraHandshakeRefused
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen HydraHandshakeRefused
+forall a.
+(Generic a, GA UnsizedOpts (Rep a),
+ UniformWeight (Weights_ (Rep a))) =&gt;
+Gen a
+</span><span class="hs-identifier hs-var">genericArbitrary</span></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">data</span><span> </span><span id="Connectivity"><span class="annot"><a href="Hydra.Network.Message.html#Connectivity"><span class="hs-identifier hs-var">Connectivity</span></a></span></span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Connected"><span class="annot"><a href="Hydra.Network.Message.html#Connected"><span class="hs-identifier hs-var">Connected</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AnodeId%3AConnected"><span class="annot"><span class="annottext">Connectivity -&gt; NodeId
+</span><a href="Hydra.Network.Message.html#%24sel%3AnodeId%3AConnected"><span class="hs-identifier hs-var hs-var">nodeId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.html#NodeId"><span class="hs-identifier hs-type">NodeId</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Disconnected"><span class="annot"><a href="Hydra.Network.Message.html#Disconnected"><span class="hs-identifier hs-var">Disconnected</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AnodeId%3AConnected"><span class="annot"><a href="Hydra.Network.Message.html#%24sel%3AnodeId%3AConnected"><span class="hs-identifier hs-var">nodeId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.html#NodeId"><span class="hs-identifier hs-type">NodeId</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-63"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HandshakeFailure"><span class="annot"><a href="Hydra.Network.Message.html#HandshakeFailure"><span class="hs-identifier hs-var">HandshakeFailure</span></a></span></span><span>
+</span><span id="line-64"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AremoteHost%3AConnected"><span class="annot"><span class="annottext">Connectivity -&gt; Host
+</span><a href="Hydra.Network.Message.html#%24sel%3AremoteHost%3AConnected"><span class="hs-identifier hs-var hs-var">remoteHost</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span><span>
+</span><span id="line-65"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AourVersion%3AConnected"><span class="annot"><span class="annottext">Connectivity -&gt; HydraVersionedProtocolNumber
+</span><a href="Hydra.Network.Message.html#%24sel%3AourVersion%3AConnected"><span class="hs-identifier hs-var hs-var">ourVersion</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#HydraVersionedProtocolNumber"><span class="hs-identifier hs-type">HydraVersionedProtocolNumber</span></a></span><span>
+</span><span id="line-66"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AtheirVersions%3AConnected"><span class="annot"><span class="annottext">Connectivity -&gt; KnownHydraVersions
+</span><a href="Hydra.Network.Message.html#%24sel%3AtheirVersions%3AConnected"><span class="hs-identifier hs-var hs-var">theirVersions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#KnownHydraVersions"><span class="hs-identifier hs-type">KnownHydraVersions</span></a></span><span>
+</span><span id="line-67"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-68"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680207035"><span id="local-6989586621680207037"><span class="annot"><span class="annottext">(forall x. Connectivity -&gt; Rep Connectivity x)
+-&gt; (forall x. Rep Connectivity x -&gt; Connectivity)
+-&gt; Generic Connectivity
+forall x. Rep Connectivity x -&gt; Connectivity
+forall x. Connectivity -&gt; Rep Connectivity x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. Connectivity -&gt; Rep Connectivity x
+from :: forall x. Connectivity -&gt; Rep Connectivity x
+$cto :: forall x. Rep Connectivity x -&gt; Connectivity
+to :: forall x. Rep Connectivity x -&gt; Connectivity
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680207040"><span id="local-6989586621680207048"><span class="annot"><span class="annottext">Connectivity -&gt; Connectivity -&gt; Bool
+(Connectivity -&gt; Connectivity -&gt; Bool)
+-&gt; (Connectivity -&gt; Connectivity -&gt; Bool) -&gt; Eq Connectivity
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: Connectivity -&gt; Connectivity -&gt; Bool
+== :: Connectivity -&gt; Connectivity -&gt; Bool
+$c/= :: Connectivity -&gt; Connectivity -&gt; Bool
+/= :: Connectivity -&gt; Connectivity -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680207051"><span id="local-6989586621680207062"><span id="local-6989586621680207065"><span class="annot"><span class="annottext">Int -&gt; Connectivity -&gt; ShowS
+[Connectivity] -&gt; ShowS
+Connectivity -&gt; String
+(Int -&gt; Connectivity -&gt; ShowS)
+-&gt; (Connectivity -&gt; String)
+-&gt; ([Connectivity] -&gt; ShowS)
+-&gt; Show Connectivity
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; Connectivity -&gt; ShowS
+showsPrec :: Int -&gt; Connectivity -&gt; ShowS
+$cshow :: Connectivity -&gt; String
+show :: Connectivity -&gt; String
+$cshowList :: [Connectivity] -&gt; ShowS
+showList :: [Connectivity] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680207068"><span id="local-6989586621680207074"><span id="local-6989586621680207077"><span id="local-6989586621680207080"><span id="local-6989586621680207083"><span class="annot"><span class="annottext">[Connectivity] -&gt; Value
+[Connectivity] -&gt; Encoding
+Connectivity -&gt; Bool
+Connectivity -&gt; Value
+Connectivity -&gt; Encoding
+(Connectivity -&gt; Value)
+-&gt; (Connectivity -&gt; Encoding)
+-&gt; ([Connectivity] -&gt; Value)
+-&gt; ([Connectivity] -&gt; Encoding)
+-&gt; (Connectivity -&gt; Bool)
+-&gt; ToJSON Connectivity
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: Connectivity -&gt; Value
+toJSON :: Connectivity -&gt; Value
+$ctoEncoding :: Connectivity -&gt; Encoding
+toEncoding :: Connectivity -&gt; Encoding
+$ctoJSONList :: [Connectivity] -&gt; Value
+toJSONList :: [Connectivity] -&gt; Value
+$ctoEncodingList :: [Connectivity] -&gt; Encoding
+toEncodingList :: [Connectivity] -&gt; Encoding
+$comitField :: Connectivity -&gt; Bool
+omitField :: Connectivity -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680207228"><span id="local-6989586621680207234"><span id="local-6989586621680207237"><span class="annot"><span class="annottext">Maybe Connectivity
+Value -&gt; Parser [Connectivity]
+Value -&gt; Parser Connectivity
+(Value -&gt; Parser Connectivity)
+-&gt; (Value -&gt; Parser [Connectivity])
+-&gt; Maybe Connectivity
+-&gt; FromJSON Connectivity
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser Connectivity
+parseJSON :: Value -&gt; Parser Connectivity
+$cparseJSONList :: Value -&gt; Parser [Connectivity]
+parseJSONList :: Value -&gt; Parser [Connectivity]
+$comittedField :: Maybe Connectivity
+omittedField :: Maybe Connectivity
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680207346"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#Connectivity"><span class="hs-identifier hs-type">Connectivity</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-72"></span><span>  </span><span id="local-6989586621680207414"><span class="annot"><span class="annottext">arbitrary :: Gen Connectivity
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen Connectivity
+forall a.
+(Generic a, GA UnsizedOpts (Rep a),
+ UniformWeight (Weights_ (Rep a))) =&gt;
+Gen a
+</span><span class="hs-identifier hs-var">genericArbitrary</span></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-keyword">data</span><span> </span><span id="Message"><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-var">Message</span></a></span></span><span> </span><span id="local-6989586621680205887"><span class="annot"><a href="#local-6989586621680205887"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-75"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="ReqTx"><span class="annot"><a href="Hydra.Network.Message.html#ReqTx"><span class="hs-identifier hs-var">ReqTx</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3Atransaction%3AReqTx"><span class="annot"><span class="annottext">forall tx. Message tx -&gt; tx
+</span><a href="Hydra.Network.Message.html#%24sel%3Atransaction%3AReqTx"><span class="hs-identifier hs-var hs-var">transaction</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680205887"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-76"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ReqSn"><span class="annot"><a href="Hydra.Network.Message.html#ReqSn"><span class="hs-identifier hs-var">ReqSn</span></a></span></span><span>
+</span><span id="line-77"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AsnapshotVersion%3AReqTx"><span class="annot"><span class="annottext">forall tx. Message tx -&gt; SnapshotVersion
+</span><a href="Hydra.Network.Message.html#%24sel%3AsnapshotVersion%3AReqTx"><span class="hs-identifier hs-var hs-var">snapshotVersion</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotVersion</span></span><span>
+</span><span id="line-78"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsnapshotNumber%3AReqTx"><span class="annot"><span class="annottext">forall tx. Message tx -&gt; SnapshotNumber
+</span><a href="Hydra.Network.Message.html#%24sel%3AsnapshotNumber%3AReqTx"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotNumber</span></span><span>
+</span><span id="line-79"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AtransactionIds%3AReqTx"><span class="annot"><span class="annottext">forall tx. Message tx -&gt; [TxIdType tx]
+</span><a href="Hydra.Network.Message.html#%24sel%3AtransactionIds%3AReqTx"><span class="hs-identifier hs-var hs-var">transactionIds</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxIdType</span></span><span> </span><span class="annot"><a href="#local-6989586621680205887"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-80"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AdecommitTx%3AReqTx"><span class="annot"><span class="annottext">forall tx. Message tx -&gt; Maybe tx
+</span><a href="Hydra.Network.Message.html#%24sel%3AdecommitTx%3AReqTx"><span class="hs-identifier hs-var hs-var">decommitTx</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680205887"><span class="hs-identifier hs-type">tx</span></a></span><span>
+</span><span id="line-81"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-82"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="AckSn"><span class="annot"><a href="Hydra.Network.Message.html#AckSn"><span class="hs-identifier hs-var">AckSn</span></a></span></span><span>
+</span><span id="line-83"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asigned%3AReqTx"><span class="annot"><span class="annottext">forall tx. Message tx -&gt; Signature (Snapshot tx)
+</span><a href="Hydra.Network.Message.html#%24sel%3Asigned%3AReqTx"><span class="hs-identifier hs-var hs-var">signed</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Signature</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621680205887"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsnapshotNumber%3AReqTx"><span class="annot"><a href="Hydra.Network.Message.html#%24sel%3AsnapshotNumber%3AReqTx"><span class="hs-identifier hs-var">snapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotNumber</span></span><span>
+</span><span id="line-85"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-86"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ReqDec"><span class="annot"><a href="Hydra.Network.Message.html#ReqDec"><span class="hs-identifier hs-var">ReqDec</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3Atransaction%3AReqTx"><span class="annot"><a href="Hydra.Network.Message.html#%24sel%3Atransaction%3AReqTx"><span class="hs-identifier hs-var">transaction</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680205887"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-87"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680207426"><span id="local-6989586621680207428"><span class="annot"><span class="annottext">(forall x. Message tx -&gt; Rep (Message tx) x)
+-&gt; (forall x. Rep (Message tx) x -&gt; Message tx)
+-&gt; Generic (Message tx)
+forall x. Rep (Message tx) x -&gt; Message tx
+forall x. Message tx -&gt; Rep (Message tx) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall tx x. Rep (Message tx) x -&gt; Message tx
+forall tx x. Message tx -&gt; Rep (Message tx) x
+$cfrom :: forall tx x. Message tx -&gt; Rep (Message tx) x
+from :: forall x. Message tx -&gt; Rep (Message tx) x
+$cto :: forall tx x. Rep (Message tx) x -&gt; Message tx
+to :: forall x. Rep (Message tx) x -&gt; Message tx
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span id="local-6989586621680207432"><span id="local-6989586621680207448"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621680205908"><span class="annot"><a href="#local-6989586621680205908"><span class="hs-keyword hs-type">stock</span></a></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680205908"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-type">Message</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680205908"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-90"></span><span id="local-6989586621680207455"><span id="local-6989586621680207475"><span id="local-6989586621680207479"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621680205913"><span class="annot"><a href="#local-6989586621680205913"><span class="hs-keyword hs-type">stock</span></a></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680205913"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-type">Message</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680205913"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-91"></span><span id="local-6989586621680207485"><span id="local-6989586621680207492"><span id="local-6989586621680207495"><span id="local-6989586621680207498"><span id="local-6989586621680207501"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621680205918"><span class="annot"><a href="#local-6989586621680205918"><span class="hs-keyword hs-type">anyclass</span></a></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680205918"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-type">Message</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680205918"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-92"></span><span id="local-6989586621680207721"><span id="local-6989586621680207728"><span id="local-6989586621680207731"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621680205923"><span class="annot"><a href="#local-6989586621680205923"><span class="hs-keyword hs-type">anyclass</span></a></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680205923"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-type">Message</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680205923"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680205930"><span id="local-6989586621680207893"><span class="annot"><span class="hs-identifier hs-type">ArbitraryIsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680205930"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-type">Message</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680205930"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-95"></span><span>  </span><span id="local-6989586621680208004"><span class="annot"><span class="annottext">arbitrary :: Gen (Message tx)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (Message tx)
+forall a.
+(Generic a, GA UnsizedOpts (Rep a),
+ UniformWeight (Weights_ (Rep a))) =&gt;
+Gen a
+</span><span class="hs-identifier hs-var">genericArbitrary</span></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680205943"><span id="local-6989586621680208014"><span id="local-6989586621680208018"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="#local-6989586621680205943"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680205943"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIdType</span></span><span> </span><span class="annot"><a href="#local-6989586621680205943"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-type">Message</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680205943"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-98"></span><span>  </span><span id="local-6989586621680208061"><span class="annot"><span class="annottext">toCBOR :: Message tx -&gt; Encoding
+</span><a href="#local-6989586621680208061"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-99"></span><span>    </span><span class="annot"><a href="Hydra.Network.Message.html#ReqTx"><span class="hs-identifier hs-type">ReqTx</span></a></span><span> </span><span id="local-6989586621680208063"><span class="annot"><span class="annottext">tx
+</span><a href="#local-6989586621680208063"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;ReqTx&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">tx -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">tx
+</span><a href="#local-6989586621680208063"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span class="annot"><a href="Hydra.Network.Message.html#ReqSn"><span class="hs-identifier hs-type">ReqSn</span></a></span><span> </span><span id="local-6989586621680208064"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621680208064"><span class="hs-identifier hs-var">sv</span></a></span></span><span> </span><span id="local-6989586621680208065"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621680208065"><span class="hs-identifier hs-var">sn</span></a></span></span><span> </span><span id="local-6989586621680208066"><span class="annot"><span class="annottext">[TxIdType tx]
+</span><a href="#local-6989586621680208066"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span id="local-6989586621680208067"><span class="annot"><span class="annottext">Maybe tx
+</span><a href="#local-6989586621680208067"><span class="hs-identifier hs-var">decommitTx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;ReqSn&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621680208064"><span class="hs-identifier hs-var">sv</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621680208065"><span class="hs-identifier hs-var">sn</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIdType tx] -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">[TxIdType tx]
+</span><a href="#local-6989586621680208066"><span class="hs-identifier hs-var">txs</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe tx -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Maybe tx
+</span><a href="#local-6989586621680208067"><span class="hs-identifier hs-var">decommitTx</span></a></span><span>
+</span><span id="line-101"></span><span>    </span><span class="annot"><a href="Hydra.Network.Message.html#AckSn"><span class="hs-identifier hs-type">AckSn</span></a></span><span> </span><span id="local-6989586621680208068"><span class="annot"><span class="annottext">Signature (Snapshot tx)
+</span><a href="#local-6989586621680208068"><span class="hs-identifier hs-var">sig</span></a></span></span><span> </span><span id="local-6989586621680208069"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621680208069"><span class="hs-identifier hs-var">sn</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;AckSn&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Signature (Snapshot tx) -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Signature (Snapshot tx)
+</span><a href="#local-6989586621680208068"><span class="hs-identifier hs-var">sig</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621680208069"><span class="hs-identifier hs-var">sn</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="annot"><a href="Hydra.Network.Message.html#ReqDec"><span class="hs-identifier hs-type">ReqDec</span></a></span><span> </span><span id="local-6989586621680208070"><span class="annot"><span class="annottext">tx
+</span><a href="#local-6989586621680208070"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;ReqDec&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">tx -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">tx
+</span><a href="#local-6989586621680208070"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680205955"><span id="local-6989586621680208080"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="#local-6989586621680205955"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680205955"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIdType</span></span><span> </span><span class="annot"><a href="#local-6989586621680205955"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-type">Message</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680205955"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-105"></span><span>  </span><span id="local-6989586621680208138"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s (Message tx)
+</span><a href="#local-6989586621680208138"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="annottext">Decoder s Text
+forall s. Decoder s Text
+forall a s. FromCBOR a =&gt; Decoder s a
+</span><span class="hs-identifier hs-var">fromCBOR</span></span><span> </span><span class="annot"><span class="annottext">Decoder s Text
+-&gt; (Text -&gt; Decoder s (Message tx)) -&gt; Decoder s (Message tx)
+forall a b. Decoder s a -&gt; (a -&gt; Decoder s b) -&gt; Decoder s b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-107"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;ReqTx&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">tx -&gt; Message tx
+forall tx. tx -&gt; Message tx
+</span><a href="Hydra.Network.Message.html#ReqTx"><span class="hs-identifier hs-var">ReqTx</span></a></span><span> </span><span class="annot"><span class="annottext">(tx -&gt; Message tx) -&gt; Decoder s tx -&gt; Decoder s (Message tx)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s tx
+forall s. Decoder s tx
+forall a s. FromCBOR a =&gt; Decoder s a
+</span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
+</span><span id="line-108"></span><span>      </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;ReqSn&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+-&gt; SnapshotNumber -&gt; [TxIdType tx] -&gt; Maybe tx -&gt; Message tx
+forall tx.
+SnapshotVersion
+-&gt; SnapshotNumber -&gt; [TxIdType tx] -&gt; Maybe tx -&gt; Message tx
+</span><a href="Hydra.Network.Message.html#ReqSn"><span class="hs-identifier hs-var">ReqSn</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotVersion
+ -&gt; SnapshotNumber -&gt; [TxIdType tx] -&gt; Maybe tx -&gt; Message tx)
+-&gt; Decoder s SnapshotVersion
+-&gt; Decoder
+     s (SnapshotNumber -&gt; [TxIdType tx] -&gt; Maybe tx -&gt; Message tx)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s SnapshotVersion
+forall s. Decoder s SnapshotVersion
+forall a s. FromCBOR a =&gt; Decoder s a
+</span><span class="hs-identifier hs-var">fromCBOR</span></span><span> </span><span class="annot"><span class="annottext">Decoder
+  s (SnapshotNumber -&gt; [TxIdType tx] -&gt; Maybe tx -&gt; Message tx)
+-&gt; Decoder s SnapshotNumber
+-&gt; Decoder s ([TxIdType tx] -&gt; Maybe tx -&gt; Message tx)
+forall a b. Decoder s (a -&gt; b) -&gt; Decoder s a -&gt; Decoder s b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s SnapshotNumber
+forall s. Decoder s SnapshotNumber
+forall a s. FromCBOR a =&gt; Decoder s a
+</span><span class="hs-identifier hs-var">fromCBOR</span></span><span> </span><span class="annot"><span class="annottext">Decoder s ([TxIdType tx] -&gt; Maybe tx -&gt; Message tx)
+-&gt; Decoder s [TxIdType tx] -&gt; Decoder s (Maybe tx -&gt; Message tx)
+forall a b. Decoder s (a -&gt; b) -&gt; Decoder s a -&gt; Decoder s b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s [TxIdType tx]
+forall s. Decoder s [TxIdType tx]
+forall a s. FromCBOR a =&gt; Decoder s a
+</span><span class="hs-identifier hs-var">fromCBOR</span></span><span> </span><span class="annot"><span class="annottext">Decoder s (Maybe tx -&gt; Message tx)
+-&gt; Decoder s (Maybe tx) -&gt; Decoder s (Message tx)
+forall a b. Decoder s (a -&gt; b) -&gt; Decoder s a -&gt; Decoder s b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s (Maybe tx)
+forall s. Decoder s (Maybe tx)
+forall a s. FromCBOR a =&gt; Decoder s a
+</span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
+</span><span id="line-109"></span><span>      </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;AckSn&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Signature (Snapshot tx) -&gt; SnapshotNumber -&gt; Message tx
+forall tx. Signature (Snapshot tx) -&gt; SnapshotNumber -&gt; Message tx
+</span><a href="Hydra.Network.Message.html#AckSn"><span class="hs-identifier hs-var">AckSn</span></a></span><span> </span><span class="annot"><span class="annottext">(Signature (Snapshot tx) -&gt; SnapshotNumber -&gt; Message tx)
+-&gt; Decoder s (Signature (Snapshot tx))
+-&gt; Decoder s (SnapshotNumber -&gt; Message tx)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s (Signature (Snapshot tx))
+forall s. Decoder s (Signature (Snapshot tx))
+forall a s. FromCBOR a =&gt; Decoder s a
+</span><span class="hs-identifier hs-var">fromCBOR</span></span><span> </span><span class="annot"><span class="annottext">Decoder s (SnapshotNumber -&gt; Message tx)
+-&gt; Decoder s SnapshotNumber -&gt; Decoder s (Message tx)
+forall a b. Decoder s (a -&gt; b) -&gt; Decoder s a -&gt; Decoder s b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s SnapshotNumber
+forall s. Decoder s SnapshotNumber
+forall a s. FromCBOR a =&gt; Decoder s a
+</span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
+</span><span id="line-110"></span><span>      </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;ReqDec&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">tx -&gt; Message tx
+forall tx. tx -&gt; Message tx
+</span><a href="Hydra.Network.Message.html#ReqDec"><span class="hs-identifier hs-var">ReqDec</span></a></span><span> </span><span class="annot"><span class="annottext">(tx -&gt; Message tx) -&gt; Decoder s tx -&gt; Decoder s (Message tx)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s tx
+forall s. Decoder s tx
+forall a s. FromCBOR a =&gt; Decoder s a
+</span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
+</span><span id="line-111"></span><span>      </span><span id="local-6989586621680208141"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680208141"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Decoder s (Message tx)
+forall a. String -&gt; Decoder s a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Decoder s (Message tx))
+-&gt; String -&gt; Decoder s (Message tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680208141"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot; is not a proper CBOR-encoded Message&quot;</span></span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680205986"><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680205986"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SignableRepresentation</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-type">Message</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680205986"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-114"></span><span>  </span><span id="local-6989586621680208154"><span class="annot"><span class="annottext">getSignableRepresentation :: Message tx -&gt; ByteString
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">getSignableRepresentation</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Message tx -&gt; ByteString
+forall a. ToCBOR a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">serialize'</span></span><span>
+</span><span id="line-115"></span></pre></body></html>

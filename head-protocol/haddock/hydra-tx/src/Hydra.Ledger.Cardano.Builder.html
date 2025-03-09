@@ -1,0 +1,520 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">-- | Utilities to building transactions on top of the cardano-api.</span></span><span>
+</span><span id="line-2"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Ledger.Cardano.Builder</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Default</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">def</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/containers-0.6.7/src/Data.Map.html"><span class="hs-identifier">Data.Map</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="annot"><span class="hs-comment">-- * Executing</span></span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- | Construct a transction from a builder. It is said 'unsafe' because the</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- underlying implementation will perform some sanity check on a transaction;</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- for example, check that it has at least one input, that no outputs are</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- negatives and whatnot.</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- We use the builder only internally for on-chain transaction crafted in the</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- context of Hydra.</span><span>
+</span><span id="line-19"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#unsafeBuildTransaction"><span class="hs-identifier hs-type">unsafeBuildTransaction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Stack.Types.html#HasCallStack"><span class="hs-identifier hs-type">HasCallStack</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-20"></span><span id="unsafeBuildTransaction"><span class="annot"><span class="annottext">unsafeBuildTransaction :: HasCallStack =&gt; TxBodyContent BuildTx -&gt; Tx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#unsafeBuildTransaction"><span class="hs-identifier hs-var hs-var">unsafeBuildTransaction</span></a></span></span><span> </span><span id="local-6989586621679408567"><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408567"><span class="hs-identifier hs-var">builder</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="annottext">(TxBodyError -&gt; Tx)
+-&gt; (TxBody -&gt; Tx) -&gt; Either TxBodyError TxBody -&gt; Tx
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679408569"><span class="annot"><span class="annottext">TxBodyError
+</span><a href="#local-6989586621679408569"><span class="hs-identifier hs-var">txBodyError</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">InvalidTransactionException -&gt; Tx
+forall e a. (HasCallStack, Exception e) =&gt; e -&gt; a
+</span><span class="hs-identifier hs-var">bug</span></span><span> </span><span class="annot"><span class="annottext">(InvalidTransactionException -&gt; Tx)
+-&gt; InvalidTransactionException -&gt; Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#InvalidTransactionException"><span class="hs-identifier hs-type">InvalidTransactionException</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">TxBodyError
+txBodyError :: TxBodyError
+$sel:txBodyError:InvalidTransactionException :: TxBodyError
+</span><a href="#local-6989586621679408569"><span class="hs-identifier hs-var hs-var">txBodyError</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+builder :: TxBodyContent BuildTx
+$sel:builder:InvalidTransactionException :: TxBodyContent BuildTx
+</span><a href="#local-6989586621679408567"><span class="hs-identifier hs-var hs-var">builder</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxBody -&gt; [KeyWitness] -&gt; Tx
+</span><span class="hs-operator hs-var">`Tx`</span></span><span> </span><span class="annot"><span class="annottext">[KeyWitness]
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>    </span><span class="annot"><span class="annottext">(Either TxBodyError TxBody -&gt; Tx)
+-&gt; (TxBodyContent BuildTx -&gt; Either TxBodyError TxBody)
+-&gt; TxBodyContent BuildTx
+-&gt; Tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxBodyContent BuildTx -&gt; Either TxBodyError TxBody
+</span><span class="hs-identifier hs-var">createAndValidateTransactionBody</span></span><span>
+</span><span id="line-25"></span><span>    </span><span class="annot"><span class="annottext">(TxBodyContent BuildTx -&gt; Tx) -&gt; TxBodyContent BuildTx -&gt; Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408567"><span class="hs-identifier hs-var">builder</span></a></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- | A runtime exception to capture (programmer) failures when building</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- transactions. This should never happened in practice (famous last words...)!</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">data</span><span> </span><span id="InvalidTransactionException"><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#InvalidTransactionException"><span class="hs-identifier hs-var">InvalidTransactionException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="InvalidTransactionException"><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#InvalidTransactionException"><span class="hs-identifier hs-var">InvalidTransactionException</span></a></span></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AtxBodyError%3AInvalidTransactionException"><span class="annot"><span class="annottext">InvalidTransactionException -&gt; TxBodyError
+</span><a href="Hydra.Ledger.Cardano.Builder.html#%24sel%3AtxBodyError%3AInvalidTransactionException"><span class="hs-identifier hs-var hs-var">txBodyError</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyError</span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Abuilder%3AInvalidTransactionException"><span class="annot"><span class="annottext">InvalidTransactionException -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#%24sel%3Abuilder%3AInvalidTransactionException"><span class="hs-identifier hs-var hs-var">builder</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679408578"><span id="local-6989586621679408587"><span id="local-6989586621679408591"><span class="annot"><span class="annottext">Int -&gt; InvalidTransactionException -&gt; ShowS
+[InvalidTransactionException] -&gt; ShowS
+InvalidTransactionException -&gt; String
+(Int -&gt; InvalidTransactionException -&gt; ShowS)
+-&gt; (InvalidTransactionException -&gt; String)
+-&gt; ([InvalidTransactionException] -&gt; ShowS)
+-&gt; Show InvalidTransactionException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; InvalidTransactionException -&gt; ShowS
+showsPrec :: Int -&gt; InvalidTransactionException -&gt; ShowS
+$cshow :: InvalidTransactionException -&gt; String
+show :: InvalidTransactionException -&gt; String
+$cshowList :: [InvalidTransactionException] -&gt; ShowS
+showList :: [InvalidTransactionException] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679408600"><span id="local-6989586621679408603"><span id="local-6989586621679408606"><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-type">Exception</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#InvalidTransactionException"><span class="hs-identifier hs-type">InvalidTransactionException</span></a></span></span></span></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="annot"><span class="hs-comment">-- * Constructing</span></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- | An empty 'TxBodyContent' with all empty/zero values to be extended using</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- record updates.</span><span>
+</span><span id="line-41"></span><span class="hs-comment">--</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- NOTE: 'makeTransactionBody' throws when one tries to build a transaction</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- with scripts but no collaterals. This is unfortunate because collaterals are</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- currently added after by our integrated wallet.</span><span>
+</span><span id="line-45"></span><span class="hs-comment">--</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- Similarly, 'makeTransactionBody' throws when building a transaction with</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- scripts and no protocol parameters (needed to compute the script integrity</span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- hash). This is also added by our wallet at the moment and this ugly</span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- work-around will be removed eventually (related item</span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- [215](https://github.com/cardano-scaling/hydra/issues/215).</span><span>
+</span><span id="line-51"></span><span class="hs-comment">--</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- So we currently bypass this by having default but seemingly innofensive</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- values for collaterals and protocol params in the 'empty' value</span><span>
+</span><span id="line-54"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#emptyTxBody"><span class="hs-identifier hs-type">emptyTxBody</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span>
+</span><span id="line-55"></span><span id="emptyTxBody"><span class="annot"><span class="annottext">emptyTxBody :: TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#emptyTxBody"><span class="hs-identifier hs-var hs-var">emptyTxBody</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><span class="annottext">TxIns BuildTx
+-&gt; TxInsCollateral
+-&gt; TxInsReference BuildTx
+-&gt; [TxOut CtxTx]
+-&gt; TxTotalCollateral ConwayEra
+-&gt; TxReturnCollateral CtxTx ConwayEra
+-&gt; TxFee
+-&gt; TxValidityLowerBound
+-&gt; TxValidityUpperBound
+-&gt; TxMetadataInEra
+-&gt; TxAuxScripts
+-&gt; TxExtraKeyWitnesses
+-&gt; BuildTxWith BuildTx (Maybe (LedgerProtocolParameters ConwayEra))
+-&gt; TxWithdrawals BuildTx ConwayEra
+-&gt; TxCertificates BuildTx ConwayEra
+-&gt; TxUpdateProposal ConwayEra
+-&gt; TxMintValue BuildTx
+-&gt; TxScriptValidity
+-&gt; Maybe
+     (Featured
+        ConwayEraOnwards
+        ConwayEra
+        (TxProposalProcedures BuildTx ConwayEra))
+-&gt; Maybe
+     (Featured
+        ConwayEraOnwards ConwayEra (TxVotingProcedures BuildTx ConwayEra))
+-&gt; Maybe (Featured ConwayEraOnwards ConwayEra Coin)
+-&gt; Maybe (Featured ConwayEraOnwards ConwayEra Coin)
+-&gt; TxBodyContent BuildTx
+forall buidl.
+TxIns buidl
+-&gt; TxInsCollateral
+-&gt; TxInsReference buidl
+-&gt; [TxOut CtxTx]
+-&gt; TxTotalCollateral ConwayEra
+-&gt; TxReturnCollateral CtxTx ConwayEra
+-&gt; TxFee
+-&gt; TxValidityLowerBound
+-&gt; TxValidityUpperBound
+-&gt; TxMetadataInEra
+-&gt; TxAuxScripts
+-&gt; TxExtraKeyWitnesses
+-&gt; BuildTxWith buidl (Maybe (LedgerProtocolParameters ConwayEra))
+-&gt; TxWithdrawals buidl ConwayEra
+-&gt; TxCertificates buidl ConwayEra
+-&gt; TxUpdateProposal ConwayEra
+-&gt; TxMintValue buidl
+-&gt; TxScriptValidity
+-&gt; Maybe
+     (Featured
+        ConwayEraOnwards ConwayEra (TxProposalProcedures buidl ConwayEra))
+-&gt; Maybe
+     (Featured
+        ConwayEraOnwards ConwayEra (TxVotingProcedures buidl ConwayEra))
+-&gt; Maybe (Featured ConwayEraOnwards ConwayEra Coin)
+-&gt; Maybe (Featured ConwayEraOnwards ConwayEra Coin)
+-&gt; TxBodyContent buidl
+</span><span class="hs-identifier hs-var">TxBodyContent</span></span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><span class="annottext">TxIns BuildTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="hs-comment">-- inputs</span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[TxIn] -&gt; TxInsCollateral
+</span><span class="hs-identifier hs-var">TxInsCollateral</span></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>    </span><span class="annot"><span class="annottext">TxInsReference BuildTx
+forall buidl. TxInsReference buidl
+</span><span class="hs-identifier hs-var">TxInsReferenceNone</span></span><span>
+</span><span id="line-60"></span><span>    </span><span class="annot"><span class="annottext">[TxOut CtxTx]
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="hs-comment">-- outputs</span><span>
+</span><span id="line-61"></span><span>    </span><span class="annot"><span class="annottext">TxTotalCollateral ConwayEra
+forall era. TxTotalCollateral era
+</span><span class="hs-identifier hs-var">TxTotalCollateralNone</span></span><span>
+</span><span id="line-62"></span><span>    </span><span class="annot"><span class="annottext">TxReturnCollateral CtxTx ConwayEra
+forall ctx era. TxReturnCollateral ctx era
+</span><span class="hs-identifier hs-var">TxReturnCollateralNone</span></span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Coin -&gt; TxFee
+</span><span class="hs-identifier hs-var">TxFeeExplicit</span></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span>    </span><span class="annot"><span class="annottext">TxValidityLowerBound
+</span><span class="hs-identifier hs-var">TxValidityNoLowerBound</span></span><span>
+</span><span id="line-65"></span><span>    </span><span class="annot"><span class="annottext">TxValidityUpperBound
+</span><span class="hs-identifier hs-var">TxValidityNoUpperBound</span></span><span>
+</span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">TxMetadataInEra
+</span><span class="hs-identifier hs-var">TxMetadataNone</span></span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">TxAuxScripts
+</span><span class="hs-identifier hs-var">TxAuxScriptsNone</span></span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">TxExtraKeyWitnesses
+</span><span class="hs-identifier hs-var">TxExtraKeyWitnessesNone</span></span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (LedgerProtocolParameters ConwayEra)
+-&gt; BuildTxWith BuildTx (Maybe (LedgerProtocolParameters ConwayEra))
+forall a. a -&gt; BuildTxWith BuildTx a
+</span><span class="hs-identifier hs-var">BuildTxWith</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (LedgerProtocolParameters ConwayEra)
+ -&gt; BuildTxWith
+      BuildTx (Maybe (LedgerProtocolParameters ConwayEra)))
+-&gt; Maybe (LedgerProtocolParameters ConwayEra)
+-&gt; BuildTxWith BuildTx (Maybe (LedgerProtocolParameters ConwayEra))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">LedgerProtocolParameters ConwayEra
+-&gt; Maybe (LedgerProtocolParameters ConwayEra)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(LedgerProtocolParameters ConwayEra
+ -&gt; Maybe (LedgerProtocolParameters ConwayEra))
+-&gt; LedgerProtocolParameters ConwayEra
+-&gt; Maybe (LedgerProtocolParameters ConwayEra)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PParams (ShelleyLedgerEra ConwayEra)
+-&gt; LedgerProtocolParameters ConwayEra
+forall era.
+PParams (ShelleyLedgerEra era) -&gt; LedgerProtocolParameters era
+</span><span class="hs-identifier hs-var">LedgerProtocolParameters</span></span><span> </span><span class="annot"><span class="annottext">PParams (ShelleyLedgerEra ConwayEra)
+PParams StandardConway
+forall a. Default a =&gt; a
+</span><span class="hs-identifier hs-var">def</span></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>    </span><span class="annot"><span class="annottext">TxWithdrawals BuildTx ConwayEra
+forall build era. TxWithdrawals build era
+</span><span class="hs-identifier hs-var">TxWithdrawalsNone</span></span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">TxCertificates BuildTx ConwayEra
+forall build era. TxCertificates build era
+</span><span class="hs-identifier hs-var">TxCertificatesNone</span></span><span>
+</span><span id="line-72"></span><span>    </span><span class="annot"><span class="annottext">TxUpdateProposal ConwayEra
+forall era. TxUpdateProposal era
+</span><span class="hs-identifier hs-var">TxUpdateProposalNone</span></span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">TxMintValue BuildTx
+forall buidl. TxMintValue buidl
+</span><span class="hs-identifier hs-var">TxMintValueNone</span></span><span>
+</span><span id="line-74"></span><span>    </span><span class="annot"><span class="annottext">TxScriptValidity
+</span><span class="hs-identifier hs-var">TxScriptValidityNone</span></span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">Maybe
+  (Featured
+     ConwayEraOnwards
+     ConwayEra
+     (TxProposalProcedures BuildTx ConwayEra))
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">Maybe
+  (Featured
+     ConwayEraOnwards ConwayEra (TxVotingProcedures BuildTx ConwayEra))
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">Maybe (Featured ConwayEraOnwards ConwayEra Coin)
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><span class="annottext">Maybe (Featured ConwayEraOnwards ConwayEra Coin)
+forall a. Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="annot"><span class="hs-comment">-- | Add new inputs to an ongoing builder.</span></span><span>
+</span><span id="line-81"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#addInputs"><span class="hs-identifier hs-type">addInputs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIns</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span>
+</span><span id="line-82"></span><span id="addInputs"><span class="annot"><span class="annottext">addInputs :: TxIns BuildTx -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addInputs"><span class="hs-identifier hs-var hs-var">addInputs</span></a></span></span><span> </span><span id="local-6989586621679408630"><span class="annot"><span class="annottext">TxIns BuildTx
+</span><a href="#local-6989586621679408630"><span class="hs-identifier hs-var">ins</span></a></span></span><span> </span><span id="local-6989586621679408631"><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408631"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-83"></span><span>  </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408631"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">txIns</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-var">txIns</span></span><span> </span><span class="annot"><a href="#local-6989586621679408631"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-type">&lt;&gt;</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679408630"><span class="hs-identifier hs-type">ins</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#addReferenceInputs"><span class="hs-identifier hs-type">addReferenceInputs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span>
+</span><span id="line-86"></span><span id="addReferenceInputs"><span class="annot"><span class="annottext">addReferenceInputs :: [TxIn] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addReferenceInputs"><span class="hs-identifier hs-var hs-var">addReferenceInputs</span></a></span></span><span> </span><span id="local-6989586621679408634"><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679408634"><span class="hs-identifier hs-var">refs'</span></a></span></span><span> </span><span id="local-6989586621679408635"><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408635"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-87"></span><span>  </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408635"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">txInsReference</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="hs-identifier hs-var">txInsReference</span></span><span> </span><span class="annot"><a href="#local-6989586621679408635"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-89"></span><span>        </span><span class="annot"><span class="annottext">TxInsReference BuildTx
+</span><span class="hs-identifier hs-var">TxInsReferenceNone</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-90"></span><span>          </span><span class="annot"><span class="annottext">[TxIn] -&gt; TxInsReference BuildTx
+forall buidl. [TxIn] -&gt; TxInsReference buidl
+</span><span class="hs-identifier hs-var">TxInsReference</span></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679408634"><span class="hs-identifier hs-var">refs'</span></a></span><span>
+</span><span id="line-91"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">TxInsReference</span></span><span> </span><span id="local-6989586621679408638"><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679408638"><span class="hs-identifier hs-var">refs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-92"></span><span>          </span><span class="annot"><span class="annottext">[TxIn] -&gt; TxInsReference BuildTx
+forall buidl. [TxIn] -&gt; TxInsReference buidl
+</span><span class="hs-identifier hs-var">TxInsReference</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679408638"><span class="hs-identifier hs-var">refs</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn] -&gt; [TxIn] -&gt; [TxIn]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679408634"><span class="hs-identifier hs-var">refs'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="annot"><span class="hs-comment">-- | Like 'addInputs' but only for vk inputs which requires no additional data.</span></span><span>
+</span><span id="line-96"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#addVkInputs"><span class="hs-identifier hs-type">addVkInputs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span>
+</span><span id="line-97"></span><span id="addVkInputs"><span class="annot"><span class="annottext">addVkInputs :: [TxIn] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addVkInputs"><span class="hs-identifier hs-var hs-var">addVkInputs</span></a></span></span><span> </span><span id="local-6989586621679408640"><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679408640"><span class="hs-identifier hs-var">ins</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-98"></span><span>  </span><span class="annot"><span class="annottext">TxIns BuildTx -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addInputs"><span class="hs-identifier hs-var">addInputs</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">,</span><span class="annot"><span class="annottext">Witness WitCtxTxIn -&gt; BuildTxWith BuildTx (Witness WitCtxTxIn)
+forall a. a -&gt; BuildTxWith BuildTx a
+</span><span class="hs-identifier hs-var">BuildTxWith</span></span><span> </span><span class="annot"><span class="annottext">(Witness WitCtxTxIn -&gt; BuildTxWith BuildTx (Witness WitCtxTxIn))
+-&gt; Witness WitCtxTxIn -&gt; BuildTxWith BuildTx (Witness WitCtxTxIn)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">KeyWitnessInCtx WitCtxTxIn -&gt; Witness WitCtxTxIn
+forall ctx. KeyWitnessInCtx ctx -&gt; Witness ctx
+</span><span class="hs-identifier hs-var">KeyWitness</span></span><span> </span><span class="annot"><span class="annottext">KeyWitnessInCtx WitCtxTxIn
+</span><span class="hs-identifier hs-var">KeyWitnessForSpending</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn)))
+-&gt; [TxIn] -&gt; TxIns BuildTx
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679408640"><span class="hs-identifier hs-var">ins</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="annot"><span class="hs-comment">-- | Append new outputs to an ongoing builder.</span></span><span>
+</span><span id="line-101"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#addOutputs"><span class="hs-identifier hs-type">addOutputs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span>
+</span><span id="line-102"></span><span id="addOutputs"><span class="annot"><span class="annottext">addOutputs :: [TxOut CtxTx] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addOutputs"><span class="hs-identifier hs-var hs-var">addOutputs</span></a></span></span><span> </span><span id="local-6989586621679408645"><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621679408645"><span class="hs-identifier hs-var">outputs</span></a></span></span><span> </span><span id="local-6989586621679408646"><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408646"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-103"></span><span>  </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408646"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">txOuts</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-var">txOuts</span></span><span> </span><span class="annot"><a href="#local-6989586621679408646"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-type">&lt;&gt;</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679408645"><span class="hs-identifier hs-type">outputs</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="annot"><span class="hs-comment">-- | Add extra required key witnesses to a transaction.</span></span><span>
+</span><span id="line-106"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#addExtraRequiredSigners"><span class="hs-identifier hs-type">addExtraRequiredSigners</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span>
+</span><span id="line-107"></span><span id="addExtraRequiredSigners"><span class="annot"><span class="annottext">addExtraRequiredSigners :: [Hash PaymentKey] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addExtraRequiredSigners"><span class="hs-identifier hs-var hs-var">addExtraRequiredSigners</span></a></span></span><span> </span><span id="local-6989586621679408649"><span class="annot"><span class="annottext">[Hash PaymentKey]
+</span><a href="#local-6989586621679408649"><span class="hs-identifier hs-var">vks</span></a></span></span><span> </span><span id="local-6989586621679408650"><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408650"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-108"></span><span>  </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408650"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">txExtraKeyWits</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679408652"><span class="hs-identifier hs-type">txExtraKeyWits'</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-109"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621679408652"><span class="annot"><span class="annottext">txExtraKeyWits' :: TxExtraKeyWitnesses
+</span><a href="#local-6989586621679408652"><span class="hs-identifier hs-var hs-var">txExtraKeyWits'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TxBodyContent BuildTx -&gt; TxExtraKeyWitnesses
+forall buidl. TxBodyContent buidl -&gt; TxExtraKeyWitnesses
+</span><span class="hs-identifier hs-var">txExtraKeyWits</span></span><span> </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408650"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-112"></span><span>      </span><span class="annot"><span class="annottext">TxExtraKeyWitnesses
+</span><span class="hs-identifier hs-var">TxExtraKeyWitnessesNone</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-113"></span><span>        </span><span class="annot"><span class="annottext">[Hash PaymentKey] -&gt; TxExtraKeyWitnesses
+</span><span class="hs-identifier hs-var">TxExtraKeyWitnesses</span></span><span> </span><span class="annot"><span class="annottext">[Hash PaymentKey]
+</span><a href="#local-6989586621679408649"><span class="hs-identifier hs-var">vks</span></a></span><span>
+</span><span id="line-114"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">TxExtraKeyWitnesses</span></span><span> </span><span id="local-6989586621679408654"><span class="annot"><span class="annottext">[Hash PaymentKey]
+</span><a href="#local-6989586621679408654"><span class="hs-identifier hs-var">vks'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-115"></span><span>        </span><span class="annot"><span class="annottext">[Hash PaymentKey] -&gt; TxExtraKeyWitnesses
+</span><span class="hs-identifier hs-var">TxExtraKeyWitnesses</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Hash PaymentKey]
+</span><a href="#local-6989586621679408654"><span class="hs-identifier hs-var">vks'</span></a></span><span> </span><span class="annot"><span class="annottext">[Hash PaymentKey] -&gt; [Hash PaymentKey] -&gt; [Hash PaymentKey]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Hash PaymentKey]
+</span><a href="#local-6989586621679408649"><span class="hs-identifier hs-var">vks</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="annot"><span class="hs-comment">-- | Mint tokens with given plutus minting script and redeemer.</span></span><span>
+</span><span id="line-118"></span><span id="local-6989586621679408493"><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#mintTokens"><span class="hs-identifier hs-type">mintTokens</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToScriptData</span></span><span> </span><span class="annot"><a href="#local-6989586621679408493"><span class="hs-identifier hs-type">redeemer</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679408493"><span class="hs-identifier hs-type">redeemer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetName</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Quantity</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span></span><span>
+</span><span id="line-119"></span><span id="mintTokens"><span class="annot"><span class="annottext">mintTokens :: forall redeemer.
+ToScriptData redeemer =&gt;
+PlutusScript
+-&gt; redeemer
+-&gt; [(AssetName, Quantity)]
+-&gt; TxBodyContent BuildTx
+-&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#mintTokens"><span class="hs-identifier hs-var hs-var">mintTokens</span></a></span></span><span> </span><span id="local-6989586621679408675"><span class="annot"><span class="annottext">PlutusScript
+</span><a href="#local-6989586621679408675"><span class="hs-identifier hs-var">script</span></a></span></span><span> </span><span id="local-6989586621679408676"><span class="annot"><span class="annottext">redeemer
+</span><a href="#local-6989586621679408676"><span class="hs-identifier hs-var">redeemer</span></a></span></span><span> </span><span id="local-6989586621679408677"><span class="annot"><span class="annottext">[(AssetName, Quantity)]
+</span><a href="#local-6989586621679408677"><span class="hs-identifier hs-var">assets</span></a></span></span><span> </span><span id="local-6989586621679408678"><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408678"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-120"></span><span>  </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408678"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">txMintValue</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxMintValue</span></span><span> </span><span class="annot"><a href="#local-6989586621679408681"><span class="hs-identifier hs-type">mintedTokens'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679408682"><span class="hs-identifier hs-type">mintedWitnesses'</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-121"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-122"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679408683"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679408683"><span class="hs-identifier hs-var">mintedTokens</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679408684"><span class="annot"><span class="annottext">Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+</span><a href="#local-6989586621679408684"><span class="hs-identifier hs-var">mintedWitnesses</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TxBodyContent BuildTx -&gt; TxMintValue BuildTx
+forall buidl. TxBodyContent buidl -&gt; TxMintValue buidl
+</span><span class="hs-identifier hs-var">txMintValue</span></span><span> </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408678"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-124"></span><span>      </span><span class="annot"><span class="annottext">TxMintValue BuildTx
+</span><span class="hs-identifier hs-var">TxMintValueNone</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-125"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-126"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">TxMintValue</span></span><span> </span><span id="local-6989586621679408685"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679408685"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BuildTxWith</span></span><span> </span><span id="local-6989586621679408687"><span class="annot"><span class="annottext">Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+</span><a href="#local-6989586621679408687"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-127"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679408685"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+</span><a href="#local-6989586621679408687"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span>  </span><span id="local-6989586621679408681"><span class="annot"><span class="annottext">mintedTokens' :: Value
+</span><a href="#local-6989586621679408681"><span class="hs-identifier hs-var hs-var">mintedTokens'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-130"></span><span>    </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679408683"><span class="hs-identifier hs-var">mintedTokens</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(AssetId, Quantity)] -&gt; Value
+</span><span class="hs-identifier hs-var">valueFromList</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((AssetName, Quantity) -&gt; (AssetId, Quantity))
+-&gt; [(AssetName, Quantity)] -&gt; [(AssetId, Quantity)]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(AssetName -&gt; AssetId)
+-&gt; (AssetName, Quantity) -&gt; (AssetId, Quantity)
+forall a b c. (a -&gt; b) -&gt; (a, c) -&gt; (b, c)
+forall (p :: * -&gt; * -&gt; *) a b c.
+Bifunctor p =&gt;
+(a -&gt; b) -&gt; p a c -&gt; p b c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Bifunctor.html#first"><span class="hs-identifier hs-var">first</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; AssetName -&gt; AssetId
+</span><span class="hs-identifier hs-var">AssetId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679408691"><span class="hs-identifier hs-var">policyId</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(AssetName, Quantity)]
+</span><a href="#local-6989586621679408677"><span class="hs-identifier hs-var">assets</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span>  </span><span id="local-6989586621679408682"><span class="annot"><span class="annottext">mintedWitnesses' :: BuildTxWith
+  BuildTx (Map PolicyId (ScriptWitness WitCtxMint ConwayEra))
+</span><a href="#local-6989586621679408682"><span class="hs-identifier hs-var hs-var">mintedWitnesses'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-133"></span><span>    </span><span class="annot"><span class="annottext">Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+-&gt; BuildTxWith
+     BuildTx (Map PolicyId (ScriptWitness WitCtxMint ConwayEra))
+forall a. a -&gt; BuildTxWith BuildTx a
+</span><span class="hs-identifier hs-var">BuildTxWith</span></span><span> </span><span class="annot"><span class="annottext">(Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+ -&gt; BuildTxWith
+      BuildTx (Map PolicyId (ScriptWitness WitCtxMint ConwayEra)))
+-&gt; Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+-&gt; BuildTxWith
+     BuildTx (Map PolicyId (ScriptWitness WitCtxMint ConwayEra))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+</span><a href="#local-6989586621679408684"><span class="hs-identifier hs-var">mintedWitnesses</span></a></span><span> </span><span class="annot"><span class="annottext">Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+-&gt; Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+-&gt; Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId
+-&gt; ScriptWitness WitCtxMint ConwayEra
+-&gt; Map PolicyId (ScriptWitness WitCtxMint ConwayEra)
+forall k a. k -&gt; a -&gt; Map k a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#singleton"><span class="hs-identifier hs-var">Map.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679408691"><span class="hs-identifier hs-var">policyId</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptWitness WitCtxMint ConwayEra
+</span><a href="#local-6989586621679408693"><span class="hs-identifier hs-var">mintingWitness</span></a></span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span>  </span><span id="local-6989586621679408693"><span class="annot"><span class="annottext">mintingWitness :: ScriptWitness WitCtxMint ConwayEra
+</span><a href="#local-6989586621679408693"><span class="hs-identifier hs-var hs-var">mintingWitness</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-136"></span><span>    </span><span class="annot"><span class="annottext">PlutusScript
+-&gt; ScriptDatum WitCtxMint
+-&gt; ScriptRedeemer
+-&gt; ScriptWitness WitCtxMint ConwayEra
+forall ctx era lang.
+(IsPlutusScriptLanguage lang, HasScriptLanguageInEra lang era) =&gt;
+PlutusScript lang
+-&gt; ScriptDatum ctx -&gt; ScriptRedeemer -&gt; ScriptWitness ctx era
+</span><span class="hs-identifier hs-var">mkScriptWitness</span></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="#local-6989586621679408675"><span class="hs-identifier hs-var">script</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptDatum WitCtxMint
+</span><span class="hs-identifier hs-var">NoScriptDatumForMint</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">redeemer -&gt; ScriptRedeemer
+forall a. ToScriptData a =&gt; a -&gt; ScriptRedeemer
+</span><span class="hs-identifier hs-var">toScriptData</span></span><span> </span><span class="annot"><span class="annottext">redeemer
+</span><a href="#local-6989586621679408676"><span class="hs-identifier hs-var">redeemer</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-137"></span><span>
+</span><span id="line-138"></span><span>  </span><span id="local-6989586621679408691"><span class="annot"><span class="annottext">policyId :: PolicyId
+</span><a href="#local-6989586621679408691"><span class="hs-identifier hs-var hs-var">policyId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-139"></span><span>    </span><span class="annot"><span class="annottext">ScriptHash -&gt; PolicyId
+</span><span class="hs-identifier hs-var">PolicyId</span></span><span> </span><span class="annot"><span class="annottext">(ScriptHash -&gt; PolicyId) -&gt; ScriptHash -&gt; PolicyId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Script PlutusScriptV2 -&gt; ScriptHash
+forall lang. Script lang -&gt; ScriptHash
+</span><span class="hs-identifier hs-var">hashScript</span></span><span> </span><span class="annot"><span class="annottext">(Script PlutusScriptV2 -&gt; ScriptHash)
+-&gt; Script PlutusScriptV2 -&gt; ScriptHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; Script PlutusScriptV2
+</span><span class="hs-identifier hs-var">PlutusScript</span></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="#local-6989586621679408675"><span class="hs-identifier hs-var">script</span></a></span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span class="hs-comment">-- | Burn tokens with given plutus minting script and redeemer.</span><span>
+</span><span id="line-142"></span><span class="hs-comment">-- This is really just `mintTokens` with negated 'Quantity'.</span><span>
+</span><span id="line-143"></span><span id="local-6989586621679408701"><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#burnTokens"><span class="hs-identifier hs-type">burnTokens</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToScriptData</span></span><span> </span><span class="annot"><a href="#local-6989586621679408701"><span class="hs-identifier hs-type">redeemer</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679408701"><span class="hs-identifier hs-type">redeemer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetName</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Quantity</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span></span><span>
+</span><span id="line-144"></span><span id="burnTokens"><span class="annot"><span class="annottext">burnTokens :: forall redeemer.
+ToScriptData redeemer =&gt;
+PlutusScript
+-&gt; redeemer
+-&gt; [(AssetName, Quantity)]
+-&gt; TxBodyContent BuildTx
+-&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#burnTokens"><span class="hs-identifier hs-var hs-var">burnTokens</span></a></span></span><span> </span><span id="local-6989586621679408709"><span class="annot"><span class="annottext">PlutusScript
+</span><a href="#local-6989586621679408709"><span class="hs-identifier hs-var">script</span></a></span></span><span> </span><span id="local-6989586621679408710"><span class="annot"><span class="annottext">redeemer
+</span><a href="#local-6989586621679408710"><span class="hs-identifier hs-var">redeemer</span></a></span></span><span> </span><span id="local-6989586621679408711"><span class="annot"><span class="annottext">[(AssetName, Quantity)]
+</span><a href="#local-6989586621679408711"><span class="hs-identifier hs-var">assets</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-145"></span><span>  </span><span class="annot"><span class="annottext">PlutusScript
+-&gt; redeemer
+-&gt; [(AssetName, Quantity)]
+-&gt; TxBodyContent BuildTx
+-&gt; TxBodyContent BuildTx
+forall redeemer.
+ToScriptData redeemer =&gt;
+PlutusScript
+-&gt; redeemer
+-&gt; [(AssetName, Quantity)]
+-&gt; TxBodyContent BuildTx
+-&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#mintTokens"><span class="hs-identifier hs-var">mintTokens</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="#local-6989586621679408709"><span class="hs-identifier hs-var">script</span></a></span><span> </span><span class="annot"><span class="annottext">redeemer
+</span><a href="#local-6989586621679408710"><span class="hs-identifier hs-var">redeemer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((AssetName, Quantity) -&gt; (AssetName, Quantity))
+-&gt; [(AssetName, Quantity)] -&gt; [(AssetName, Quantity)]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Quantity -&gt; Quantity)
+-&gt; (AssetName, Quantity) -&gt; (AssetName, Quantity)
+forall b c a. (b -&gt; c) -&gt; (a, b) -&gt; (a, c)
+forall (p :: * -&gt; * -&gt; *) b c a.
+Bifunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Bifunctor.html#second"><span class="hs-identifier hs-var">second</span></a></span><span> </span><span class="annot"><span class="annottext">Quantity -&gt; Quantity
+forall a. Num a =&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Num.html#negate"><span class="hs-identifier hs-var">negate</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(AssetName, Quantity)]
+</span><a href="#local-6989586621679408711"><span class="hs-identifier hs-var">assets</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="annot"><span class="hs-comment">-- | Set the upper validity bound for this transaction to some 'SlotNo'.</span></span><span>
+</span><span id="line-148"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#setValidityUpperBound"><span class="hs-identifier hs-type">setValidityUpperBound</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span>
+</span><span id="line-149"></span><span id="setValidityUpperBound"><span class="annot"><span class="annottext">setValidityUpperBound :: SlotNo -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#setValidityUpperBound"><span class="hs-identifier hs-var hs-var">setValidityUpperBound</span></a></span></span><span> </span><span id="local-6989586621679408715"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679408715"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span> </span><span id="local-6989586621679408716"><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408716"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-150"></span><span>  </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408716"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">txValidityUpperBound</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxValidityUpperBound</span></span><span> </span><span class="annot"><a href="#local-6989586621679408715"><span class="hs-identifier hs-type">slotNo</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span class="annot"><span class="hs-comment">-- | Set the lower validity bound for this transaction to some 'SlotNo'.</span></span><span>
+</span><span id="line-153"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#setValidityLowerBound"><span class="hs-identifier hs-type">setValidityLowerBound</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span>
+</span><span id="line-154"></span><span id="setValidityLowerBound"><span class="annot"><span class="annottext">setValidityLowerBound :: SlotNo -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#setValidityLowerBound"><span class="hs-identifier hs-var hs-var">setValidityLowerBound</span></a></span></span><span> </span><span id="local-6989586621679408720"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679408720"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span> </span><span id="local-6989586621679408721"><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408721"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-155"></span><span>  </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621679408721"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">txValidityLowerBound</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxValidityLowerBound</span></span><span> </span><span class="annot"><a href="#local-6989586621679408720"><span class="hs-identifier hs-type">slotNo</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-156"></span></pre></body></html>

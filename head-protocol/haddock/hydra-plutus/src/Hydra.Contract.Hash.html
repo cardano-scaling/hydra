@@ -1,0 +1,220 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679468114"><span id="local-6989586621679468115"></span></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-specialize #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Plutus core version to compile to. In babbage era, that is Cardano protocol</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- version 7 and 8, only plutus-core version 1.0.0 is available.</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- | An experimental validator which simply hashes a bytestring stored in the</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- datum using one of three supported algorithms.</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.Hash</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Prelude</span></span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Haskell</span></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">PlutusScriptVersion</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">PlutusScriptV2</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Plutus.Extras</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ValidatorType</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">scriptValidatorHash</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">wrapValidator</span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.Common</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">SerialisedScript</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">serialiseCompiledCode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V2</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier">Datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Datum</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="hs-identifier">Redeemer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Redeemer</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-identifier">ScriptContext</span></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier">ScriptHash</span></span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CompiledCode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx</span></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Builtins</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">equalsByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.IsData.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ToData</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">data</span><span> </span><span id="HashAlgorithm"><span class="annot"><a href="Hydra.Contract.Hash.html#HashAlgorithm"><span class="hs-identifier hs-var">HashAlgorithm</span></a></span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Base"><span class="annot"><a href="Hydra.Contract.Hash.html#Base"><span class="hs-identifier hs-var">Base</span></a></span></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="SHA2"><span class="annot"><a href="Hydra.Contract.Hash.html#SHA2"><span class="hs-identifier hs-var">SHA2</span></a></span></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="SHA3"><span class="annot"><a href="Hydra.Contract.Hash.html#SHA3"><span class="hs-identifier hs-var">SHA3</span></a></span></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Blake2b"><span class="annot"><a href="Hydra.Contract.Hash.html#Blake2b"><span class="hs-identifier hs-var">Blake2b</span></a></span></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679468132"><span id="local-6989586621679468134"><span id="local-6989586621679468138"><span class="annot"><span class="annottext">Int -&gt; HashAlgorithm -&gt; ShowS
+[HashAlgorithm] -&gt; ShowS
+HashAlgorithm -&gt; String
+(Int -&gt; HashAlgorithm -&gt; ShowS)
+-&gt; (HashAlgorithm -&gt; String)
+-&gt; ([HashAlgorithm] -&gt; ShowS)
+-&gt; Show HashAlgorithm
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; HashAlgorithm -&gt; ShowS
+showsPrec :: Int -&gt; HashAlgorithm -&gt; ShowS
+$cshow :: HashAlgorithm -&gt; String
+show :: HashAlgorithm -&gt; String
+$cshowList :: [HashAlgorithm] -&gt; ShowS
+showList :: [HashAlgorithm] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Haskell.Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679468142"><span id="local-6989586621679468144"><span class="annot"><span class="annottext">(forall x. HashAlgorithm -&gt; Rep HashAlgorithm x)
+-&gt; (forall x. Rep HashAlgorithm x -&gt; HashAlgorithm)
+-&gt; Generic HashAlgorithm
+forall x. Rep HashAlgorithm x -&gt; HashAlgorithm
+forall x. HashAlgorithm -&gt; Rep HashAlgorithm x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. HashAlgorithm -&gt; Rep HashAlgorithm x
+from :: forall x. HashAlgorithm -&gt; Rep HashAlgorithm x
+$cto :: forall x. Rep HashAlgorithm x -&gt; HashAlgorithm
+to :: forall x. Rep HashAlgorithm x -&gt; HashAlgorithm
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Haskell.Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679468148"><span id="local-6989586621679468156"><span id="local-6989586621679468162"><span id="local-6989586621679468176"><span id="local-6989586621679468178"><span id="local-6989586621679468182"><span id="local-6989586621679468186"><span id="local-6989586621679468190"><span class="annot"><span class="annottext">Int -&gt; HashAlgorithm
+HashAlgorithm -&gt; Int
+HashAlgorithm -&gt; [HashAlgorithm]
+HashAlgorithm -&gt; HashAlgorithm
+HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm]
+HashAlgorithm -&gt; HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm]
+(HashAlgorithm -&gt; HashAlgorithm)
+-&gt; (HashAlgorithm -&gt; HashAlgorithm)
+-&gt; (Int -&gt; HashAlgorithm)
+-&gt; (HashAlgorithm -&gt; Int)
+-&gt; (HashAlgorithm -&gt; [HashAlgorithm])
+-&gt; (HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm])
+-&gt; (HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm])
+-&gt; (HashAlgorithm
+    -&gt; HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm])
+-&gt; Enum HashAlgorithm
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+$csucc :: HashAlgorithm -&gt; HashAlgorithm
+succ :: HashAlgorithm -&gt; HashAlgorithm
+$cpred :: HashAlgorithm -&gt; HashAlgorithm
+pred :: HashAlgorithm -&gt; HashAlgorithm
+$ctoEnum :: Int -&gt; HashAlgorithm
+toEnum :: Int -&gt; HashAlgorithm
+$cfromEnum :: HashAlgorithm -&gt; Int
+fromEnum :: HashAlgorithm -&gt; Int
+$cenumFrom :: HashAlgorithm -&gt; [HashAlgorithm]
+enumFrom :: HashAlgorithm -&gt; [HashAlgorithm]
+$cenumFromThen :: HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm]
+enumFromThen :: HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm]
+$cenumFromTo :: HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm]
+enumFromTo :: HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm]
+$cenumFromThenTo :: HashAlgorithm -&gt; HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm]
+enumFromThenTo :: HashAlgorithm -&gt; HashAlgorithm -&gt; HashAlgorithm -&gt; [HashAlgorithm]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Haskell.Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679468194"><span id="local-6989586621679468196"><span class="annot"><span class="annottext">HashAlgorithm
+HashAlgorithm -&gt; HashAlgorithm -&gt; Bounded HashAlgorithm
+forall a. a -&gt; a -&gt; Bounded a
+$cminBound :: HashAlgorithm
+minBound :: HashAlgorithm
+$cmaxBound :: HashAlgorithm
+maxBound :: HashAlgorithm
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Enum.html#Bounded"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Haskell.Bounded</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span id="local-6989586621679468200"><span id="local-6989586621679468207"><span id="local-6989586621679468209"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">HashAlgorithm</span></span></span></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679468243"><span class="annot"><span class="hs-identifier hs-type">Haskell.Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Contract.Hash.html#HashAlgorithm"><span class="hs-identifier hs-type">HashAlgorithm</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-40"></span><span>  </span><span id="local-6989586621679468285"><span class="annot"><span class="annottext">arbitrary :: Gen HashAlgorithm
+</span><a href="#local-6989586621679468285"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen HashAlgorithm
+forall a.
+(Generic a, GA UnsizedOpts (Rep a),
+ UniformWeight (Weights_ (Rep a))) =&gt;
+Gen a
+</span><span class="hs-identifier hs-var">Haskell.genericArbitrary</span></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">type</span><span> </span><span id="DatumType"><span class="annot"><a href="Hydra.Contract.Hash.html#DatumType"><span class="hs-identifier hs-var">DatumType</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">type</span><span> </span><span id="RedeemerType"><span class="annot"><a href="Hydra.Contract.Hash.html#RedeemerType"><span class="hs-identifier hs-var">RedeemerType</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Contract.Hash.html#HashAlgorithm"><span class="hs-identifier hs-type">HashAlgorithm</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="annot"><a href="Hydra.Contract.Hash.html#validator"><span class="hs-identifier hs-type">validator</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Hash.html#DatumType"><span class="hs-identifier hs-type">DatumType</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Contract.Hash.html#RedeemerType"><span class="hs-identifier hs-type">RedeemerType</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptContext</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-46"></span><span id="validator"><span class="annot"><span class="annottext">validator :: DatumType -&gt; HashAlgorithm -&gt; ScriptContext -&gt; Bool
+</span><a href="Hydra.Contract.Hash.html#validator"><span class="hs-identifier hs-var hs-var">validator</span></a></span></span><span> </span><span id="local-6989586621679468291"><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468291"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span id="local-6989586621679468292"><span class="annot"><span class="annottext">HashAlgorithm
+</span><a href="#local-6989586621679468292"><span class="hs-identifier hs-var">algorithm</span></a></span></span><span> </span><span id="local-6989586621679468293"><span class="annot"><span class="annottext">ScriptContext
+</span><a href="#local-6989586621679468293"><span class="hs-identifier hs-var">_ctx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">HashAlgorithm
+</span><a href="#local-6989586621679468292"><span class="hs-identifier hs-var">algorithm</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">HashAlgorithm
+</span><a href="Hydra.Contract.Hash.html#Base"><span class="hs-identifier hs-var">Base</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">DatumType -&gt; DatumType -&gt; Bool
+</span><span class="hs-identifier hs-var">equalsByteString</span></span><span> </span><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468291"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468291"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-49"></span><span>    </span><span class="annot"><span class="annottext">HashAlgorithm
+</span><a href="Hydra.Contract.Hash.html#SHA2"><span class="hs-identifier hs-var">SHA2</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; (DatumType -&gt; Bool) -&gt; DatumType -&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">DatumType -&gt; DatumType -&gt; Bool
+</span><span class="hs-identifier hs-var">equalsByteString</span></span><span> </span><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468291"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">(DatumType -&gt; Bool) -&gt; DatumType -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">DatumType -&gt; DatumType
+</span><span class="hs-identifier hs-var">sha2_256</span></span><span> </span><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468291"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">HashAlgorithm
+</span><a href="Hydra.Contract.Hash.html#SHA3"><span class="hs-identifier hs-var">SHA3</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; (DatumType -&gt; Bool) -&gt; DatumType -&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">DatumType -&gt; DatumType -&gt; Bool
+</span><span class="hs-identifier hs-var">equalsByteString</span></span><span> </span><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468291"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">(DatumType -&gt; Bool) -&gt; DatumType -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">DatumType -&gt; DatumType
+</span><span class="hs-identifier hs-var">sha3_256</span></span><span> </span><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468291"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="annot"><span class="annottext">HashAlgorithm
+</span><a href="Hydra.Contract.Hash.html#Blake2b"><span class="hs-identifier hs-var">Blake2b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; (DatumType -&gt; Bool) -&gt; DatumType -&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">DatumType -&gt; DatumType -&gt; Bool
+</span><span class="hs-identifier hs-var">equalsByteString</span></span><span> </span><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468291"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">(DatumType -&gt; Bool) -&gt; DatumType -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">DatumType -&gt; DatumType
+</span><span class="hs-identifier hs-var">blake2b_256</span></span><span> </span><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468291"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="annot"><a href="Hydra.Contract.Hash.html#compiledValidator"><span class="hs-identifier hs-type">compiledValidator</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CompiledCode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ValidatorType</span></span><span>
+</span><span id="line-54"></span><span id="compiledValidator"><span class="annot"><span class="annottext">compiledValidator :: CompiledCode ValidatorType
+</span><a href="Hydra.Contract.Hash.html#compiledValidator"><span class="hs-identifier hs-var hs-var">compiledValidator</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-55"></span><span>  </span><span class="hs-special">$$</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PlutusTx.compile</span></span><span> </span><span class="hs-special">[||</span><span class="annot"><a href="#local-6989586621679468301"><span class="hs-identifier hs-type">wrap</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.Hash.html#validator"><span class="hs-identifier hs-type">validator</span></a></span><span class="hs-special">||]</span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-57"></span><span>  </span><span id="local-6989586621679468301"><span class="annot"><span class="annottext">wrap :: (DatumType -&gt; HashAlgorithm -&gt; ScriptContext -&gt; Bool)
+-&gt; ValidatorType
+</span><a href="#local-6989586621679468301"><span class="hs-identifier hs-var hs-var">wrap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall datum redeemer context.
+(UnsafeFromData datum, UnsafeFromData redeemer,
+ UnsafeFromData context) =&gt;
+(datum -&gt; redeemer -&gt; context -&gt; Bool) -&gt; ValidatorType
+</span><span class="hs-identifier hs-var">wrapValidator</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Contract.Hash.html#DatumType"><span class="hs-identifier hs-type">DatumType</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Contract.Hash.html#RedeemerType"><span class="hs-identifier hs-type">RedeemerType</span></a></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="annot"><a href="Hydra.Contract.Hash.html#validatorScript"><span class="hs-identifier hs-type">validatorScript</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SerialisedScript</span></span><span>
+</span><span id="line-60"></span><span id="validatorScript"><span class="annot"><span class="annottext">validatorScript :: SerialisedScript
+</span><a href="Hydra.Contract.Hash.html#validatorScript"><span class="hs-identifier hs-var hs-var">validatorScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CompiledCode ValidatorType -&gt; SerialisedScript
+forall a. CompiledCode a -&gt; SerialisedScript
+</span><span class="hs-identifier hs-var">serialiseCompiledCode</span></span><span> </span><span class="annot"><span class="annottext">CompiledCode ValidatorType
+</span><a href="Hydra.Contract.Hash.html#compiledValidator"><span class="hs-identifier hs-var">compiledValidator</span></a></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="annot"><a href="Hydra.Contract.Hash.html#validatorHash"><span class="hs-identifier hs-type">validatorHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span>
+</span><span id="line-63"></span><span id="validatorHash"><span class="annot"><span class="annottext">validatorHash :: ScriptHash
+</span><a href="Hydra.Contract.Hash.html#validatorHash"><span class="hs-identifier hs-var hs-var">validatorHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion PlutusScriptV2
+-&gt; SerialisedScript -&gt; ScriptHash
+forall lang.
+PlutusScriptVersion lang -&gt; SerialisedScript -&gt; ScriptHash
+</span><span class="hs-identifier hs-var">scriptValidatorHash</span></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion PlutusScriptV2
+</span><span class="hs-identifier hs-var">PlutusScriptV2</span></span><span> </span><span class="annot"><span class="annottext">SerialisedScript
+</span><a href="Hydra.Contract.Hash.html#validatorScript"><span class="hs-identifier hs-var">validatorScript</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="annot"><a href="Hydra.Contract.Hash.html#datum"><span class="hs-identifier hs-type">datum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Hash.html#DatumType"><span class="hs-identifier hs-type">DatumType</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Datum</span></span><span>
+</span><span id="line-66"></span><span id="datum"><span class="annot"><span class="annottext">datum :: DatumType -&gt; Datum
+</span><a href="Hydra.Contract.Hash.html#datum"><span class="hs-identifier hs-var hs-var">datum</span></a></span></span><span> </span><span id="local-6989586621679468313"><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468313"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinData -&gt; Datum
+</span><span class="hs-identifier hs-var">Datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DatumType -&gt; BuiltinData
+forall a. ToData a =&gt; a -&gt; BuiltinData
+</span><span class="hs-identifier hs-var">toBuiltinData</span></span><span> </span><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679468313"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="annot"><a href="Hydra.Contract.Hash.html#redeemer"><span class="hs-identifier hs-type">redeemer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Hash.html#RedeemerType"><span class="hs-identifier hs-type">RedeemerType</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Redeemer</span></span><span>
+</span><span id="line-69"></span><span id="redeemer"><span class="annot"><span class="annottext">redeemer :: HashAlgorithm -&gt; Redeemer
+</span><a href="Hydra.Contract.Hash.html#redeemer"><span class="hs-identifier hs-var hs-var">redeemer</span></a></span></span><span> </span><span id="local-6989586621679468315"><span class="annot"><span class="annottext">HashAlgorithm
+</span><a href="#local-6989586621679468315"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinData -&gt; Redeemer
+</span><span class="hs-identifier hs-var">Redeemer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashAlgorithm -&gt; BuiltinData
+forall a. ToData a =&gt; a -&gt; BuiltinData
+</span><span class="hs-identifier hs-var">toBuiltinData</span></span><span> </span><span class="annot"><span class="annottext">HashAlgorithm
+</span><a href="#local-6989586621679468315"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span></pre></body></html>

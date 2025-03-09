@@ -1,0 +1,50 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cardano.Api.CtxTx</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.TxOut.html"><span class="hs-identifier">Hydra.Cardano.Api.TxOut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.TxOut.html#modifyTxOutDatum"><span class="hs-identifier">modifyTxOutDatum</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- | A convenient type-class for transforming types in 'CtxUTxO' to 'CtxTx'.</span><span>
+</span><span id="line-7"></span><span class="hs-comment">--</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- See also 'ToUtxoContext' for the reverse.</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">class</span><span> </span><span id="ToTxContext"><span class="annot"><a href="Hydra.Cardano.Api.CtxTx.html#ToTxContext"><span class="hs-identifier hs-var">ToTxContext</span></a></span></span><span> </span><span id="local-6989586621679323665"><span class="annot"><a href="#local-6989586621679323665"><span class="hs-identifier hs-type">f</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-10"></span><span>  </span><span id="toTxContext"><span class="annot"><a href="Hydra.Cardano.Api.CtxTx.html#toTxContext"><span class="hs-identifier hs-type">toTxContext</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679323660"><span class="annot"><a href="#local-6989586621679323665"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span> </span><span class="annot"><a href="#local-6989586621679323660"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679323665"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="annot"><a href="#local-6989586621679323660"><span class="hs-identifier hs-type">era</span></a></span></span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.CtxTx.html#ToTxContext"><span class="hs-identifier hs-type">ToTxContext</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutDatum</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-13"></span><span>  </span><span id="local-6989586621679323684"><span class="annot"><span class="annottext">toTxContext :: forall era. TxOutDatum CtxUTxO era -&gt; TxOutDatum CtxTx era
+</span><a href="Hydra.Cardano.Api.CtxTx.html#toTxContext"><span class="hs-identifier hs-var hs-var hs-var hs-var">toTxContext</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-14"></span><span>    </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO era
+</span><span class="hs-identifier hs-var">TxOutDatumNone</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx era
+forall ctx era. TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">TxOutDatumNone</span></span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">TxOutDatumHash</span></span><span> </span><span id="local-6989586621679323687"><span class="annot"><span class="annottext">AlonzoEraOnwards era
+</span><a href="#local-6989586621679323687"><span class="hs-identifier hs-var">era</span></a></span></span><span> </span><span id="local-6989586621679323688"><span class="annot"><span class="annottext">Hash ScriptData
+</span><a href="#local-6989586621679323688"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AlonzoEraOnwards era -&gt; Hash ScriptData -&gt; TxOutDatum CtxTx era
+forall era ctx.
+AlonzoEraOnwards era -&gt; Hash ScriptData -&gt; TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">TxOutDatumHash</span></span><span> </span><span class="annot"><span class="annottext">AlonzoEraOnwards era
+</span><a href="#local-6989586621679323687"><span class="hs-identifier hs-var">era</span></a></span><span> </span><span class="annot"><span class="annottext">Hash ScriptData
+</span><a href="#local-6989586621679323688"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">TxOutDatumInline</span></span><span> </span><span id="local-6989586621679323690"><span class="annot"><span class="annottext">BabbageEraOnwards era
+</span><a href="#local-6989586621679323690"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679323691"><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679323691"><span class="hs-identifier hs-var">sd</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">BabbageEraOnwards era -&gt; HashableScriptData -&gt; TxOutDatum CtxTx era
+forall era ctx.
+BabbageEraOnwards era -&gt; HashableScriptData -&gt; TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">TxOutDatumInline</span></span><span> </span><span class="annot"><span class="annottext">BabbageEraOnwards era
+</span><a href="#local-6989586621679323690"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679323691"><span class="hs-identifier hs-var">sd</span></a></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.CtxTx.html#ToTxContext"><span class="hs-identifier hs-type">ToTxContext</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-19"></span><span>  </span><span id="local-6989586621679323695"><span class="annot"><span class="annottext">toTxContext :: forall era. TxOut CtxUTxO era -&gt; TxOut CtxTx era
+</span><a href="Hydra.Cardano.Api.CtxTx.html#toTxContext"><span class="hs-identifier hs-var hs-var hs-var hs-var">toTxContext</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><span class="annottext">(TxOutDatum CtxUTxO era -&gt; TxOutDatum CtxTx era)
+-&gt; TxOut CtxUTxO era -&gt; TxOut CtxTx era
+forall ctx0 era ctx1.
+(TxOutDatum ctx0 era -&gt; TxOutDatum ctx1 era)
+-&gt; TxOut ctx0 era -&gt; TxOut ctx1 era
+</span><a href="Hydra.Cardano.Api.TxOut.html#modifyTxOutDatum"><span class="hs-identifier hs-var">modifyTxOutDatum</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO era -&gt; TxOutDatum CtxTx era
+forall era. TxOutDatum CtxUTxO era -&gt; TxOutDatum CtxTx era
+forall {k} (f :: * -&gt; k -&gt; *) (era :: k).
+ToTxContext f =&gt;
+f CtxUTxO era -&gt; f CtxTx era
+</span><a href="Hydra.Cardano.Api.CtxTx.html#toTxContext"><span class="hs-identifier hs-var">toTxContext</span></a></span><span>
+</span><span id="line-21"></span></pre></body></html>
