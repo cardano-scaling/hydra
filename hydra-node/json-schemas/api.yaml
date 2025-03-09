@@ -115,6 +115,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Close"
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
+          - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
 
   /commit:
     servers:
@@ -468,6 +469,34 @@ components:
             type: string
             enum: ["Fanout"]
 
+    SideLoadSnapshot:
+      title: SideLoadSnapshot
+      description: |
+        Request to adopt the provided confirmed snapshot, which must be enforceable and valid against the current protocol state on L1.
+        The snapshot number and version must be equal to or greater than the previously known values and must be signed by all participants.
+        Adopting a side-loaded snapshot is particularly useful when the head becomes stuck. It clears pending transactions in the local state, resets the local UTxO, and restarts the snapshot signing round by pruning the latest seen snapshot, which also resets the current leader.
+      payload:
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["SideLoadSnapshot"]
+
+    GetUTxO:
+      title: GetUTxO
+      description: |
+        DEPRECATED: Use the `GET /snapshot/utxo http endpoint` to query the confirmed UTxO set.
+        Asynchronously access the current UTxO set of the Hydra node. This eventually triggers a UTxO event from the server.
+      payload:
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["GetUTxO"]
 
     ########
     #
@@ -1147,6 +1176,7 @@ components:
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
 
     IgnoredHeadInitializing:
       type: object
