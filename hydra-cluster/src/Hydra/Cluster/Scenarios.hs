@@ -1387,8 +1387,17 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
         -- \| Up to this point the head became stuck and no further SnapshotConfirmed
         -- including above tx will be seen signed by everyone.
 
+        -- The party side-loads latest confirmed snapshot (which is the initial)
+        -- This also prunes local txs, and discards any signing round inflight
         snapshotConfirmed <- getSnapshotConfirmed n1
-        print snapshotConfirmed
+        flip mapConcurrently_ [n1, n2, n3] $ \n -> do
+          send n $ input "SideLoadSnapshot" ["snapshot" .= snapshotConfirmed]
+          waitMatch (200 * blockTime) n $ \v -> do
+            guard $ v ^? key "tag" == Just "SnapshotSideLoaded"
+            guard $ v ^? key "confirmedSnapshot" == Just (toJSON snapshotConfirmed)
+
+        -- Carol re-submits the same transaction (but anyone can at this point)
+        send n3 $ input "NewTx" ["transaction" .= tx]
 
         -- Everyone confirms it
         -- Note: We can't use `waitForAlMatch` here as it expects them to
