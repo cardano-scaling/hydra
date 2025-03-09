@@ -466,7 +466,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     guard $ v ^? key "tag" == Just "HeadIsContested"
                     guard $ v ^? key "headId" == Just (toJSON headId)
 
-      fit "can side load snapshot" $ \tracer -> do
+      it "can side load snapshot" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
