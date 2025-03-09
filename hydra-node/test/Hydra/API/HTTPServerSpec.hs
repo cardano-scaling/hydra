@@ -9,7 +9,14 @@ import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
 import Data.Text qualified as Text
-import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), SubmitTxRequest (..), TransactionSubmitted, httpApp)
+import Hydra.API.HTTPServer (
+  DraftCommitTxRequest (..),
+  DraftCommitTxResponse (..),
+  SideLoadSnapshotRequest (..),
+  SubmitTxRequest (..),
+  TransactionSubmitted,
+  httpApp,
+ )
 import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit))
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
@@ -51,6 +58,7 @@ spec = do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (DraftCommitTxRequest Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SubmitTxRequest Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized TransactionSubmitted))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SideLoadSnapshotRequest Tx)))
 
     prop "Validate /commit publish api schema" $
       prop_validateJSONSchema @(DraftCommitTxRequest Tx) "api.json" $
@@ -133,6 +141,14 @@ spec = do
           . key "/commits/tx-id"
           . key "subscribe"
           . key "message"
+
+    prop "Validate /snapshot publish api schema" $
+      prop_validateJSONSchema @(SideLoadSnapshotRequest Tx) "api.json" $
+        key "components" . key "messages" . key "SideLoadSnapshotRequest" . key "payload"
+
+    prop "Validate /snapshot subscribe api schema" $
+      prop_validateJSONSchema @(ConfirmedSnapshot Tx) "api.json" $
+        key "components" . key "schemas" . key "ConfirmedSnapshot"
 
     apiServerSpec
     describe "SubmitTxRequest accepted tx formats" $ do
@@ -230,6 +246,13 @@ apiServerSpec = do
                         (schemaDir </> "api.json")
                         (key "channels" . key "/snapshot" . key "subscribe" . key "message" . key "payload")
                   }
+
+    describe "POST /snapshot" $ do
+      prop "responds on valid requests" $ \(request :: SideLoadSnapshotRequest Tx) ->
+        withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getNothing getPendingDeposits putClientInput) $
+          do
+            post "/snapshot" (Aeson.encode request)
+            `shouldRespondWith` 200
 
     describe "GET /snapshot/utxo" $ do
       prop "responds correctly" $ \utxo -> do

@@ -249,9 +249,44 @@ channels:
           method: GET
           bindingVersion: '0.1.0'
 
+  /snapshot/latest:
+    servers:
+      - localhost-http
+    publish:
+      description: |
+        Request to adopt latest confirmed snapshot.
+
+        Possible responses of this endpoint are:
+          * 200: OK
+          * 404: when head was never open
+      operationId: sideLoadLatestConfirmedSnapshotRequest
+      message:
+        payload:
+          type: "null"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+
   /snapshot:
     servers:
       - localhost-http
+    publish:
+      description: |
+        Request to adopt given confirmed snapshot.
+
+        Possible responses of this endpoint are:
+          * 200: OK
+          * 404: when head was never open
+      operationId: sideLoadSnapshotRequest
+      message:
+        $ref: "api.yaml#/components/messages/SideLoadSnapshotRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
     subscribe:
       operationId: getConfirmedSnapshot
       description: |
@@ -772,6 +807,14 @@ components:
       title: ProtocolParameters
       payload:
         $ref: "api.yaml#/components/schemas/ProtocolParameters"
+
+    SideLoadSnapshotRequest:
+      title: SideLoadSnapshotRequest
+      description: |
+        Submit a confirmed snapshot to update the local node's state, reset pending transactions, and restart any snapshot signing round in flight. The provided snapshot must be enforceable and valid according to the current protocol state on L1, meaning it must be signed by all required participants.
+        The snapshot number and version must be equal to or greater than the previously known values.
+      payload:
+        $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
 
   ########
   #
