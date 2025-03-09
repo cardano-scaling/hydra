@@ -23,6 +23,7 @@ import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, 
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
+import Hydra.Tx (ConfirmedSnapshot (..))
 import Hydra.Tx.IsTx (UTxOType)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
@@ -156,7 +157,7 @@ apiServerSpec = do
         putClientInput = const (pure ())
 
     describe "GET /protocol-parameters" $ do
-      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getPendingDeposits putClientInput) $ do
+      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getNothing getPendingDeposits putClientInput) $ do
         it "matches schema" $
           withJsonSpecifications $ \schemaDir -> do
             get "/protocol-parameters"
@@ -172,10 +173,33 @@ apiServerSpec = do
               { matchBody = matchJSON defaultPParams
               }
 
+    describe "GET /snapshot" $ do
+      prop "responds correctly" $ \confirmedSnapshot -> do
+        let getConfirmedSnapshot = pure confirmedSnapshot
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getConfirmedSnapshot getPendingDeposits putClientInput) $ do
+          get "/snapshot"
+            `shouldRespondWith` case confirmedSnapshot of
+              Nothing -> 404
+              Just s -> 200{matchBody = matchJSON s}
+
+      prop "ok response matches schema" $ \(confirmedSnapshot :: ConfirmedSnapshot Tx) ->
+        withMaxSuccess 4
+          . withJsonSpecifications
+          $ \schemaDir -> do
+            let getConfirmedSnapshot = pure $ Just confirmedSnapshot
+            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getConfirmedSnapshot getPendingDeposits putClientInput) $ do
+              get "/snapshot"
+                `shouldRespondWith` 200
+                  { matchBody =
+                      matchValidJSON
+                        (schemaDir </> "api.json")
+                        (key "channels" . key "/snapshot" . key "subscribe" . key "message" . key "payload")
+                  }
+
     describe "GET /snapshot/utxo" $ do
       prop "responds correctly" $ \utxo -> do
         let getUTxO = pure utxo
-        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getNothing getPendingDeposits putClientInput) $ do
           get "/snapshot/utxo"
             `shouldRespondWith` case utxo of
               Nothing -> 404
@@ -188,7 +212,7 @@ apiServerSpec = do
           . withJsonSpecifications
           $ \schemaDir -> do
             let getUTxO = pure $ Just utxo
-            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
+            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getNothing getPendingDeposits putClientInput) $ do
               get "/snapshot/utxo"
                 `shouldRespondWith` 200
                   { matchBody =
@@ -201,7 +225,7 @@ apiServerSpec = do
         forAll genTxOut $ \o -> do
           let o' = modifyTxOutDatum (const $ mkTxOutDatumInline (123 :: Integer)) o
           let getUTxO = pure $ Just $ UTxO.fromPairs [(i, o')]
-          withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
+          withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getNothing getPendingDeposits putClientInput) $ do
             get "/snapshot/utxo"
               `shouldRespondWith` 200
                 { matchBody = MatchBody $ \_ body ->
@@ -219,7 +243,7 @@ apiServerSpec = do
                   pure $ Right tx
               }
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
-        withApplication (httpApp nullTracer workingChainHandle testEnvironment defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
+        withApplication (httpApp nullTracer workingChainHandle testEnvironment defaultPParams getHeadId getNothing getNothing getPendingDeposits putClientInput) $ do
           post "/commit" (Aeson.encode request)
             `shouldRespondWith` 200
 
@@ -243,7 +267,7 @@ apiServerSpec = do
               _ -> property
         checkCoverage $
           coverage $
-            withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) testEnvironment defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
+            withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) testEnvironment defaultPParams getHeadId getNothing getNothing getPendingDeposits putClientInput) $ do
               post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
                 `shouldRespondWith` expectedResponse
 

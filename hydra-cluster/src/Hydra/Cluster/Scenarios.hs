@@ -104,6 +104,7 @@ import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
+  getSnapshotConfirmed,
   getSnapshotUTxO,
   input,
   output,
@@ -1385,6 +1386,9 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
 
         -- \| Up to this point the head became stuck and no further SnapshotConfirmed
         -- including above tx will be seen signed by everyone.
+
+        snapshotConfirmed <- getSnapshotConfirmed n1
+        print snapshotConfirmed
 
         -- Everyone confirms it
         -- Note: We can't use `waitForAlMatch` here as it expects them to

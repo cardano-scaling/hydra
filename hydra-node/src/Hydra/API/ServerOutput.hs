@@ -16,6 +16,7 @@ import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (
+  ConfirmedSnapshot (..),
   HeadId,
   Party,
   Snapshot,

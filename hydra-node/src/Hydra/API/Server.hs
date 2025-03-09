@@ -90,6 +90,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     -- NOTE: we do not keep the stored events around in memory
     headStatusP <- mkProjection Idle projectHeadStatus
     snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
+    snapshotConfirmedP <- mkProjection Nothing projectSnapshotConfirmed
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
@@ -102,6 +103,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                 lift $ atomically $ do
                   update headStatusP stateChanged
                   update snapshotUtxoP stateChanged
+                  update snapshotConfirmedP stateChanged
                   update commitInfoP stateChanged
                   update headIdP stateChanged
                   update pendingDepositsP stateChanged
@@ -123,7 +125,17 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             $ websocketsOr
               defaultConnectionOptions
               (wsApp party tracer historyTimedOutputs callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
-              (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
+              ( httpApp
+                  tracer
+                  chain
+                  env
+                  pparams
+                  (atomically $ getLatest commitInfoP)
+                  (atomically $ getLatest snapshotUtxoP)
+                  (atomically $ getLatest snapshotConfirmedP)
+                  (atomically $ getLatest pendingDepositsP)
+                  callback
+              )
       )
       ( do
           waitForServerRunning
@@ -137,6 +149,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                           update headStatusP stateChanged
                           update commitInfoP stateChanged
                           update snapshotUtxoP stateChanged
+                          update snapshotConfirmedP stateChanged
                           update headIdP stateChanged
                           update pendingDepositsP stateChanged
                         atomically $ writeTChan responseChannel (Left timedOutput)
