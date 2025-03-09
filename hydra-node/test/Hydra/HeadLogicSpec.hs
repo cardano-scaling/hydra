@@ -16,8 +16,10 @@ import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
 import Control.Lens ((.~))
 import Data.List qualified as List
 import Data.Map (notMember)
+import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Hydra.API.ServerOutput (DecommitInvalidReason (..))
+import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
+import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
@@ -55,7 +57,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Prelude qualified as Prelude
-import Hydra.Tx.Crypto (generateSigningKey, sign)
+import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -721,6 +723,117 @@ spec =
         let collectOtherHead = observeTx $ OnFanoutTx{headId = otherHeadId}
         update bobEnv ledger (inClosedState threeParties) collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      describe "SideLoad InitialSnapshot" $ do
+        it "accept side load initial snapshot with idempotence" $ do
+          let s0 = inOpenState threeParties
+              initialSn = InitialSnapshot testHeadId mempty
+              snapshot0 = getSnapshot initialSn
+          getConfirmedSnapshot s0 `shouldBe` Just snapshot0
+          sideLoadedState <- runHeadLogic bobEnv ledger s0 $ do
+            step $ ClientInput (SideLoadSnapshot initialSn)
+            getState
+          getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot0
+
+        it "reject side load wrong initial snapshot" $ do
+          let s0 = inOpenState threeParties
+              initialSn = InitialSnapshot testHeadId mempty
+              snapshot0 = getSnapshot initialSn
+          getConfirmedSnapshot s0 `shouldBe` Just snapshot0
+          let wrongInitialSnapshot = InitialSnapshot testHeadId (utxoRef 2)
+          update bobEnv ledger s0 (ClientInput (SideLoadSnapshot wrongInitialSnapshot))
+            `shouldBe` Error (AssertionFailed "InitalSnapshot side loaded does not match last known.")
+          getConfirmedSnapshot s0 `shouldBe` Just snapshot0
+
+        prop "ignores side load initial snapshot of another head" $ \otherHeadId -> do
+          let s0 = inOpenState threeParties
+              initialSn = InitialSnapshot testHeadId mempty
+              snapshot0 = getSnapshot initialSn
+          getConfirmedSnapshot s0 `shouldBe` Just snapshot0
+          let initialSnapshotOtherHead = InitialSnapshot otherHeadId mempty
+          update bobEnv ledger s0 (ClientInput (SideLoadSnapshot initialSnapshotOtherHead))
+            `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+          getConfirmedSnapshot s0 `shouldBe` Just snapshot0
+
+      describe "SideLoad ConfirmedSnapshot" $ do
+        -- Given a list of transactions each depending on the previous.
+        let tx1 = SimpleTx 1 mempty (utxoRef 2) -- No inputs, requires no specific starting state
+            tx2 = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+            tx3 = SimpleTx 3 (utxoRef 3) (utxoRef 4)
+            snapshot1 = Snapshot testHeadId 0 1 [tx1] (utxoRef 2) Nothing Nothing
+            multisig1 = aggregate [sign aliceSk snapshot1, sign bobSk snapshot1, sign carolSk snapshot1]
+        -- Given a starting state with:
+        -- \* All txs were submitted and locally applied.
+        -- \* Snapshot 1 containing tx1 got confirmed.
+        -- \* tx2 and tx2 are pending confirmation.
+        -- \* Snapshot 2 is inflight.
+        let startingState =
+              inOpenState'
+                threeParties
+                coordinatedHeadState
+                  { localUTxO = utxoRef 4
+                  , allTxs = Map.fromList [(txId tx2, tx2), (txId tx3, tx3)]
+                  , localTxs = [tx2, tx3]
+                  , confirmedSnapshot = ConfirmedSnapshot snapshot1 multisig1
+                  , seenSnapshot = RequestedSnapshot{lastSeen = 1, requested = 2}
+                  }
+
+        it "accept new side load confirmed snapshot" $ do
+          getConfirmedSnapshot startingState `shouldBe` Just snapshot1
+
+          let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing Nothing
+              multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2, sign carolSk snapshot2]
+
+          sideLoadedState <- runHeadLogic bobEnv ledger startingState $ do
+            step $ ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2)
+            getState
+
+          getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot2
+
+        it "reject side load confirmed snapshot because old snapshot number" $ do
+          getConfirmedSnapshot startingState `shouldBe` Just snapshot1
+
+          let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing Nothing
+              multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2, sign carolSk snapshot2]
+
+          sideLoadedState <- runHeadLogic bobEnv ledger startingState $ do
+            step $ ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2)
+            getState
+
+          getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot2
+
+          update bobEnv ledger sideLoadedState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot1 multisig1))
+            `shouldBe` Error (RequireFailed{requirementFailure = ReqSnNumberInvalid 1 2})
+
+        it "reject side load confirmed snapshot because missing signature" $ do
+          getConfirmedSnapshot startingState `shouldBe` Just snapshot1
+
+          let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing Nothing
+              multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
+
+          update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
+            `shouldSatisfy` \case
+              Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey alice, vkey bob, vkey carol]
+              _ -> False
+
+        it "accept side load confirmed snapshot with idempotence" $ do
+          getConfirmedSnapshot startingState `shouldBe` Just snapshot1
+
+          sideLoadedState <- runHeadLogic bobEnv ledger startingState $ do
+            step $ ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot1 multisig1)
+            getState
+
+          getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot1
+
+        prop "ignores side load confirmed snapshot of another head" $ \otherHeadId -> do
+          getConfirmedSnapshot startingState `shouldBe` Just snapshot1
+
+          let snapshot1OtherHead = Snapshot otherHeadId 0 1 [tx1] (utxoRef 2) Nothing Nothing
+              multisig1OtherHead = aggregate [sign aliceSk snapshot1OtherHead, sign bobSk snapshot1OtherHead, sign carolSk snapshot1OtherHead]
+              confirmedSnapshotOtherHead = ConfirmedSnapshot snapshot1OtherHead multisig1OtherHead
+
+          update bobEnv ledger startingState (ClientInput (SideLoadSnapshot confirmedSnapshotOtherHead))
+            `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
     describe "Coordinated Head Protocol using real Tx" $
       prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> monadicIO $ do
