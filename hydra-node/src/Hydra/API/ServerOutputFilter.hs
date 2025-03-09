@@ -12,6 +12,7 @@ import Hydra.Prelude hiding (seq)
 import Hydra.Tx (
   Snapshot (..),
  )
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 
 newtype ServerOutputFilter tx = ServerOutputFilter
   { txContainsAddr :: TimedServerOutput tx -> Text -> Bool
@@ -25,6 +26,12 @@ serverOutputFilter :: ServerOutputFilter Tx =
           TxValid{transaction} -> matchingAddr address transaction
           TxInvalid{transaction} -> matchingAddr address transaction
           SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> any (matchingAddr address) confirmed
+          SnapshotSideLoaded{confirmedSnapshot} ->
+            case confirmedSnapshot of
+              InitialSnapshot{} ->
+                True
+              ConfirmedSnapshot{snapshot = Snapshot{confirmed}} ->
+                any (matchingAddr address) confirmed
           _ -> True
     }
 

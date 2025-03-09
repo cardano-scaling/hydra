@@ -102,6 +102,7 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitFinalized"
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/CommitIgnored"
+          - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -711,6 +712,12 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/CommitIgnored"
 
+    SnapshotSideLoaded:
+      title: SnapshotSideLoaded
+      description: |
+        The given confirmed snapshot has been side-loaded. Pending transactions have been pruned, the local UTxO has been reset, any pending seen snapshots have been cleared, and the snapshot leader has been reassigned accordingly.
+      payload:
+        $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
 
     # END OF SERVER OUTPUT MESSAGES
 
@@ -1464,6 +1471,28 @@ components:
           oneOf:
            - $ref: "api.yaml#/components/schemas/UTxO"
            - type: "null"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    SnapshotSideLoaded:
+      title: SnapshotSideLoaded
+      description: |
+        The given confirmed snapshot has been side-loaded. Pending transactions have been pruned, the local UTxO has been reset, any pending seen snapshots have been cleared, and the snapshot leader has been reassigned accordingly.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - confirmedSnapshot
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["SnapshotSideLoaded"]
+        confirmedSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

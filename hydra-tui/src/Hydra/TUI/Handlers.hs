@@ -34,7 +34,7 @@ import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
-import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
+import Hydra.Tx (ConfirmedSnapshot (..), IsTx (..), Party, Snapshot (..), balance)
 import Lens.Micro.Mtl (use, (%=), (.=))
 
 handleEvent ::
@@ -113,6 +113,12 @@ handleHydraEventsActiveLink e = do
       activeHeadStateL .= Open OpenHome
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{utxo}}}) ->
       utxoL .= utxo
+    Update TimedServerOutput{time, output = API.SnapshotSideLoaded{confirmedSnapshot}} ->
+      case confirmedSnapshot of
+        InitialSnapshot{initialUTxO} ->
+          utxoL .= initialUTxO
+        ConfirmedSnapshot{snapshot = Snapshot{utxo}} ->
+          utxoL .= utxo
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsClosed{headId, snapshotNumber, contestationDeadline}}) -> do
       activeHeadStateL .= Closed{closedState = ClosedState{contestationDeadline}}
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.ReadyToFanout{}}) ->
@@ -177,6 +183,12 @@ handleHydraEventsInfo = \case
     info time "Head aborted, back to square one."
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{number}}}) ->
     info time ("Snapshot #" <> show number <> " confirmed.")
+  Update TimedServerOutput{time, output = API.SnapshotSideLoaded{confirmedSnapshot}} ->
+    case confirmedSnapshot of
+      InitialSnapshot{} ->
+        info time "InitialSnapshot side loaded."
+      ConfirmedSnapshot{snapshot = Snapshot{number}} ->
+        info time ("ConfirmedSnapshot #" <> show number <> " side loaded.")
   Update (ApiClientMessage API.CommandFailed{clientInput}) -> do
     time <- liftIO getCurrentTime
     warn time $ "Invalid command: " <> show clientInput
