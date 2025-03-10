@@ -11,7 +11,7 @@ import Control.Exception (Handler (Handler), IOException, catches)
 import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
-import Hydra.API.ServerOutput (ServerOutput, TimedServerOutput)
+import Hydra.API.ServerOutput (AllPosibleAPIMessages (..))
 import Hydra.Cardano.Api (TxId)
 import Hydra.Cardano.Api.Prelude (
   AsType (AsPaymentKey, AsSigningKey),
@@ -32,8 +32,7 @@ import Network.WebSockets (ConnectionException, receiveData, runClient, sendBina
 data HydraEvent tx
   = ClientConnected
   | ClientDisconnected
-  | Update (TimedServerOutput tx)
-  | UpdateDirect (ServerOutput tx)
+  | Update (AllPosibleAPIMessages tx)
   | Tick UTCTime
   deriving stock (Generic)
 
@@ -57,7 +56,8 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 
 -- | Provide a component to interact with Hydra node.
 withClient ::
-  (ToJSON (ClientInput tx), FromJSON (TimedServerOutput tx), IsChainState tx) =>
+  forall tx a.
+  IsChainState tx =>
   Options ->
   ClientComponent tx IO a
 withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, cardanoNetworkId, cardanoNodeSocket} callback action = do
@@ -84,13 +84,9 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
 
   receiveOutputs con = forever $ do
     msg <- receiveData con
-    case eitherDecodeStrict msg of
+    case eitherDecodeStrict msg :: Either String (AllPosibleAPIMessages tx) of
+      Left err -> throwIO $ ClientJSONDecodeError err msg
       Right output -> callback $ Update output
-      Left _ ->
-        -- TODO: same double decoding problem here
-        case eitherDecodeStrict msg of
-          Right output -> callback $ UpdateDirect output
-          Left err -> throwIO $ ClientJSONDecodeError err msg
 
   sendInputs q con = forever $ do
     input <- atomically $ readTBQueue q
