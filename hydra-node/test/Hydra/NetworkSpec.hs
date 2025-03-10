@@ -139,7 +139,7 @@ spec = do
 
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 5 $ do
+          failAfter 10 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = MkHydraVersionedProtocolNumber 2
             withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 -> do
@@ -147,9 +147,9 @@ spec = do
               withEtcdNetwork @Int tracer v2 bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
 
-                waitEq waitConnectivity 10 $
+                waitEq waitConnectivity 5 $
                   HandshakeFailure
-                    { remoteHost = Host "???" aliceConfig.advertise.port
+                    { remoteHost = aliceConfig.advertise
                     , ourVersion = v2
                     , theirVersions = KnownHydraVersions [v1]
                     }
