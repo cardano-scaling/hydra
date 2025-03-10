@@ -8,7 +8,9 @@ import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
+import Control.Lens ((.~))
 import Data.Aeson qualified as Aeson
+import Data.Aeson.Lens (atKey)
 import Data.Conduit.Combinators (filter)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog (..))
@@ -23,9 +25,11 @@ import Hydra.API.ServerOutput (
   TimedServerOutput (..),
   WithAddressedTx (..),
   WithUTxO (..),
+  handleUtxoInclusion,
   headStatus,
   me,
   prepareServerOutput,
+  removeSnapshotUTxO,
   snapshotUtxo,
  )
 import Hydra.API.ServerOutputFilter (
@@ -81,7 +85,7 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   when (shouldServeHistory queryParams) $
     forwardHistory con outConfig
 
-  forwardGreetingOnly con
+  forwardGreetingOnly outConfig con
 
   withPingThread con 30 (pure ()) $
     race_ (receiveInputs con) (sendOutputs chan con outConfig)
@@ -89,20 +93,20 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
-  forwardGreetingOnly con = do
+  forwardGreetingOnly config con = do
     headStatus <- atomically getLatestHeadStatus
     hydraHeadId <- atomically getLatestHeadId
     snapshotUtxo <- atomically getLatestSnapshotUtxo
-
     sendTextData con $
-      Aeson.encode
-        Greetings
-          { me = party
-          , headStatus
-          , hydraHeadId
-          , snapshotUtxo
-          , hydraNodeVersion = showVersion Options.hydraNodeVersion
-          }
+      handleUtxoInclusion config (atKey "snapshotUtxo" .~ Nothing) $
+        Aeson.encode
+          Greetings
+            { me = party
+            , headStatus
+            , hydraHeadId
+            , snapshotUtxo
+            , hydraNodeVersion = showVersion Options.hydraNodeVersion
+            }
 
   Projection{getLatest = getLatestHeadStatus} = headStatusP
   Projection{getLatest = getLatestHeadId} = headIdP
@@ -146,7 +150,7 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         sendTextData con sentResponse
         traceWith tracer (APIOutputSent $ toJSON response)
       Right response -> do
-        sendTextData con (Aeson.encode response)
+        sendTextData con (handleUtxoInclusion outConfig removeSnapshotUTxO $ Aeson.encode response)
         traceWith tracer (APIOutputSent $ toJSON response)
 
   receiveInputs con = forever $ do
@@ -162,8 +166,8 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         sendTextData con $ Aeson.encode $ InvalidInput e clientInput
         traceWith tracer (APIInvalidInput e clientInput)
 
-  forwardHistory con ServerOutputConfig{addressInTx} = do
-    runConduitRes $ history .| filter (isAddressInTx addressInTx . Left) .| mapM_C (liftIO . sendTextData con . Aeson.encode)
+  forwardHistory con config@ServerOutputConfig{addressInTx} = do
+    runConduitRes $ history .| filter (isAddressInTx addressInTx . Left) .| mapM_C (liftIO . sendTextData con . prepareServerOutput config)
 
   isAddressInTx addressInTx = \case
     Left tx -> checkAddress tx

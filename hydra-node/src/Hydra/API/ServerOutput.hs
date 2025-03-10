@@ -13,6 +13,7 @@ import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
+import Hydra.Network (Host)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (
   HeadId,
@@ -25,7 +26,6 @@ import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
-import Hydra.Network (Host)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -103,8 +103,22 @@ data Greetings tx = Greetings
   }
   deriving (Generic)
 
-deriving instance IsChainState tx => ToJSON (Greetings tx)
-deriving instance IsChainState tx => FromJSON (Greetings tx)
+deriving instance IsChainState tx => Eq (Greetings tx)
+deriving instance IsChainState tx => Show (Greetings tx)
+
+instance IsChainState tx => ToJSON (Greetings tx) where
+  toJSON =
+    genericToJSON
+      defaultOptions
+        { omitNothingFields = True
+        }
+
+instance IsChainState tx => FromJSON (Greetings tx) where
+  parseJSON =
+    genericParseJSON
+      defaultOptions
+        { omitNothingFields = True
+        }
 
 data InvalidInput = InvalidInput
   { reason :: String
@@ -117,6 +131,22 @@ deriving instance FromJSON InvalidInput
 
 instance Arbitrary InvalidInput where
   arbitrary = genericArbitrary
+
+data AllPosibleAPIMessages tx
+  = ApiServerOutput (ServerOutput tx)
+  | ApiTimedServerOutput (TimedServerOutput tx)
+  | ApiClientMessage (ClientMessage tx)
+  | ApiGreetings (Greetings tx)
+  | ApiInvalidInput InvalidInput
+  deriving (Eq, Show)
+
+instance IsChainState tx => FromJSON (AllPosibleAPIMessages tx) where
+  parseJSON v =
+    (ApiServerOutput <$> parseJSON v)
+      <|> (ApiTimedServerOutput <$> parseJSON v)
+      <|> (ApiClientMessage <$> parseJSON v)
+      <|> (ApiGreetings <$> parseJSON v)
+      <|> (ApiInvalidInput <$> parseJSON v)
 
 data ServerOutput tx
   = NetworkConnected
@@ -220,6 +250,11 @@ instance ArbitraryIsTx tx => Arbitrary (ServerOutput tx) where
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
     CommitFinalized headId depositTxId -> CommitFinalized headId <$> shrink depositTxId
     CommitIgnored headId depositUTxO snapshotUTxO -> CommitIgnored headId <$> shrink depositUTxO <*> shrink snapshotUTxO
+    NetworkConnected -> []
+    NetworkDisconnected -> []
+    PeerConnected peer -> PeerConnected <$> shrink peer
+    PeerDisconnected peer -> PeerDisconnected <$> shrink peer
+    PeerHandshakeFailure host our theirs -> PeerHandshakeFailure <$> shrink host <*> shrink our <*> shrink theirs
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
@@ -250,7 +285,7 @@ prepareServerOutput ::
   TimedServerOutput tx ->
   -- | Final output
   LBS.ByteString
-prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
+prepareServerOutput config response =
   case output response of
     Committed{} -> encodedResponse
     HeadIsInitializing{} -> encodedResponse
@@ -263,7 +298,7 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->
-      handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
+      handleUtxoInclusion config removeSnapshotUTxO encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
@@ -274,13 +309,22 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     CommitFinalized{} -> encodedResponse
     CommitRecovered{} -> encodedResponse
     CommitIgnored{} -> encodedResponse
+    NetworkConnected -> encodedResponse
+    NetworkDisconnected -> encodedResponse
+    PeerConnected{} -> encodedResponse
+    PeerDisconnected{} -> encodedResponse
+    PeerHandshakeFailure{} -> encodedResponse
  where
-  handleUtxoInclusion f bs =
-    case utxoInSnapshot of
-      WithUTxO -> bs
-      WithoutUTxO -> bs & f
-
   encodedResponse = encode response
+
+removeSnapshotUTxO :: LBS.ByteString -> LBS.ByteString
+removeSnapshotUTxO = key "snapshot" . atKey "utxo" .~ Nothing
+
+handleUtxoInclusion :: ServerOutputConfig -> (a -> a) -> a -> a
+handleUtxoInclusion config f bs =
+  case utxoInSnapshot config of
+    WithUTxO -> bs
+    WithoutUTxO -> bs & f
 
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
