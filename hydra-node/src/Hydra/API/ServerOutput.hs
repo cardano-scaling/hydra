@@ -132,6 +132,8 @@ deriving instance FromJSON InvalidInput
 instance Arbitrary InvalidInput where
   arbitrary = genericArbitrary
 
+-- | All possible messages that can be sent to clients by the 'Hydra.API.Server'.
+-- Used in the hydra-node tests for easier json decoding and hydra-tui.
 data AllPosibleAPIMessages tx
   = ApiServerOutput (ServerOutput tx)
   | ApiTimedServerOutput (TimedServerOutput tx)
