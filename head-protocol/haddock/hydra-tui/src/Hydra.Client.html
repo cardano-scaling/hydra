@@ -1,0 +1,461 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Client</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Async</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">link</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">newTBQueueIO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readTBQueue</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">writeTBQueue</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Exception.html"><span class="hs-identifier">Control.Exception</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Exception.html#Handler"><span class="hs-identifier">Handler</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Exception.html#Handler"><span class="hs-identifier">Handler</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier">IOException</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Exception.html#catches"><span class="hs-identifier">catches</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">eitherDecodeStrict</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">encode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.API.ClientInput</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ClientInput</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.API.HTTPServer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">DraftCommitTxRequest</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">DraftCommitTxResponse</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.API.ServerOutput</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TimedServerOutput</span></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">AsType</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">AsPaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">AsSigningKey</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="hs-identifier">PaymentKey</span></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><span class="hs-identifier">SigningKey</span></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">signTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.CardanoClient</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">submitTransaction</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.Direct.Util</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">readFileTextEnvelopeThrow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Ledger.Cardano</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Tx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Network</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Host</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Host</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">hostname</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">port</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.TUI.Options.html"><span class="hs-identifier">Hydra.TUI.Options</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier">Options</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Req</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">defaultHttpConfig</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">responseBody</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">runReq</span></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Req</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Req</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.WebSockets</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ConnectionException</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">receiveData</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">runClient</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">sendBinaryData</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">data</span><span> </span><span id="HydraEvent"><span class="annot"><a href="Hydra.Client.html#HydraEvent"><span class="hs-identifier hs-var">HydraEvent</span></a></span></span><span> </span><span id="local-6989586621679420300"><span class="annot"><a href="#local-6989586621679420300"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="ClientConnected"><span class="annot"><a href="Hydra.Client.html#ClientConnected"><span class="hs-identifier hs-var">ClientConnected</span></a></span></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ClientDisconnected"><span class="annot"><a href="Hydra.Client.html#ClientDisconnected"><span class="hs-identifier hs-var">ClientDisconnected</span></a></span></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Update"><span class="annot"><a href="Hydra.Client.html#Update"><span class="hs-identifier hs-var">Update</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TimedServerOutput</span></span><span> </span><span class="annot"><a href="#local-6989586621679420300"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Tick"><span class="annot"><a href="Hydra.Client.html#Tick"><span class="hs-identifier hs-var">Tick</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679420383"><span id="local-6989586621679420385"><span class="annot"><span class="annottext">(forall x. HydraEvent tx -&gt; Rep (HydraEvent tx) x)
+-&gt; (forall x. Rep (HydraEvent tx) x -&gt; HydraEvent tx)
+-&gt; Generic (HydraEvent tx)
+forall x. Rep (HydraEvent tx) x -&gt; HydraEvent tx
+forall x. HydraEvent tx -&gt; Rep (HydraEvent tx) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall tx x. Rep (HydraEvent tx) x -&gt; HydraEvent tx
+forall tx x. HydraEvent tx -&gt; Rep (HydraEvent tx) x
+$cfrom :: forall tx x. HydraEvent tx -&gt; Rep (HydraEvent tx) x
+from :: forall x. HydraEvent tx -&gt; Rep (HydraEvent tx) x
+$cto :: forall tx x. Rep (HydraEvent tx) x -&gt; HydraEvent tx
+to :: forall x. Rep (HydraEvent tx) x -&gt; HydraEvent tx
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span id="local-6989586621679420390"><span id="local-6989586621679420395"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679420193"><span class="annot"><a href="#local-6989586621679420193"><span class="hs-keyword hs-type">stock</span></a></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TimedServerOutput</span></span><span> </span><span class="annot"><a href="#local-6989586621679420193"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Client.html#HydraEvent"><span class="hs-identifier hs-type">HydraEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420193"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-38"></span><span id="local-6989586621679420401"><span id="local-6989586621679420409"><span id="local-6989586621679420413"><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679420197"><span class="annot"><a href="#local-6989586621679420197"><span class="hs-keyword hs-type">stock</span></a></span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TimedServerOutput</span></span><span> </span><span class="annot"><a href="#local-6989586621679420197"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Client.html#HydraEvent"><span class="hs-identifier hs-type">HydraEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420197"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="annot"><span class="hs-comment">-- | Handle to interact with Hydra node</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">data</span><span> </span><span id="Client"><span class="annot"><a href="Hydra.Client.html#Client"><span class="hs-identifier hs-var">Client</span></a></span></span><span> </span><span id="local-6989586621679420198"><span class="annot"><a href="#local-6989586621679420198"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span id="local-6989586621679420199"><span class="annot"><a href="#local-6989586621679420199"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Client"><span class="annot"><a href="Hydra.Client.html#Client"><span class="hs-identifier hs-var">Client</span></a></span></span><span>
+</span><span id="line-42"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="sendInput"><span class="annot"><span class="annottext">forall tx (m :: * -&gt; *). Client tx m -&gt; ClientInput tx -&gt; m ()
+</span><a href="Hydra.Client.html#sendInput"><span class="hs-identifier hs-var hs-var">sendInput</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientInput</span></span><span> </span><span class="annot"><a href="#local-6989586621679420198"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679420199"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Send some input to the server.</span></span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="sk"><span class="annot"><span class="annottext">forall tx (m :: * -&gt; *). Client tx m -&gt; SigningKey PaymentKey
+</span><a href="Hydra.Client.html#sk"><span class="hs-identifier hs-var hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="externalCommit"><span class="annot"><span class="annottext">forall tx (m :: * -&gt; *). Client tx m -&gt; UTxO -&gt; m ()
+</span><a href="Hydra.Client.html#externalCommit"><span class="hs-identifier hs-var hs-var">externalCommit</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO.UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679420199"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="annot"><span class="hs-comment">-- | Callback for receiving server outputs.</span></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">type</span><span> </span><span id="ClientCallback"><span class="annot"><a href="Hydra.Client.html#ClientCallback"><span class="hs-identifier hs-var">ClientCallback</span></a></span></span><span> </span><span id="local-6989586621679420420"><span class="annot"><a href="#local-6989586621679420420"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span id="local-6989586621679420421"><span class="annot"><a href="#local-6989586621679420421"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Client.html#HydraEvent"><span class="hs-identifier hs-type">HydraEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420420"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679420421"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="annot"><span class="hs-comment">-- | A type tying both receiving output and sending input into a /Component/.</span></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">type</span><span> </span><span id="ClientComponent"><span class="annot"><a href="Hydra.Client.html#ClientComponent"><span class="hs-identifier hs-var">ClientComponent</span></a></span></span><span> </span><span id="local-6989586621679420422"><span class="annot"><a href="#local-6989586621679420422"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span id="local-6989586621679420423"><span class="annot"><a href="#local-6989586621679420423"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679420424"><span class="annot"><a href="#local-6989586621679420424"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Client.html#ClientCallback"><span class="hs-identifier hs-type">ClientCallback</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420422"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420423"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Client.html#Client"><span class="hs-identifier hs-type">Client</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420422"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420423"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679420423"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420424"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679420423"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420424"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="annot"><span class="hs-comment">-- | Provide a component to interact with Hydra node.</span></span><span>
+</span><span id="line-55"></span><span id="local-6989586621679420211"><span id="local-6989586621679420215"><span class="annot"><a href="Hydra.Client.html#withClient"><span class="hs-identifier hs-type">withClient</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ClientInput</span></span><span> </span><span class="annot"><a href="#local-6989586621679420211"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TimedServerOutput</span></span><span> </span><span class="annot"><a href="#local-6989586621679420211"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-57"></span><span>  </span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-58"></span><span>  </span><span class="annot"><a href="Hydra.Client.html#ClientComponent"><span class="hs-identifier hs-type">ClientComponent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420211"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679420215"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-59"></span><span id="withClient"><span class="annot"><span class="annottext">withClient :: forall tx a.
+(ToJSON (ClientInput tx), FromJSON (TimedServerOutput tx)) =&gt;
+Options -&gt; ClientComponent tx IO a
+</span><a href="Hydra.Client.html#withClient"><span class="hs-identifier hs-var hs-var">withClient</span></a></span></span><span> </span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">hydraNodeHost :: Options -&gt; Host
+</span><a href="Hydra.TUI.Options.html#hydraNodeHost"><span class="hs-identifier hs-var">hydraNodeHost</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Host</span></span><span class="hs-special">{</span><span id="local-6989586621679420513"><span class="annot"><span class="annottext">Text
+$sel:hostname:Host :: Host -&gt; Text
+hostname :: Text
+</span><span class="hs-identifier hs-var hs-var">hostname</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679420514"><span class="annot"><span class="annottext">PortNumber
+$sel:port:Host :: Host -&gt; PortNumber
+port :: PortNumber
+</span><span class="hs-identifier hs-var hs-var">port</span></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679420515"><span class="annot"><span class="annottext">String
+cardanoSigningKey :: String
+cardanoSigningKey :: Options -&gt; String
+</span><a href="#local-6989586621679420515"><span class="hs-identifier hs-var hs-var">cardanoSigningKey</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679420517"><span class="annot"><span class="annottext">NetworkId
+cardanoNetworkId :: NetworkId
+cardanoNetworkId :: Options -&gt; NetworkId
+</span><a href="#local-6989586621679420517"><span class="hs-identifier hs-var hs-var">cardanoNetworkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679420519"><span class="annot"><span class="annottext">SocketPath
+cardanoNodeSocket :: SocketPath
+cardanoNodeSocket :: Options -&gt; SocketPath
+</span><a href="#local-6989586621679420519"><span class="hs-identifier hs-var hs-var">cardanoNodeSocket</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679420521"><span class="annot"><span class="annottext">ClientCallback tx IO
+</span><a href="#local-6989586621679420521"><span class="hs-identifier hs-var">callback</span></a></span></span><span> </span><span id="local-6989586621679420522"><span class="annot"><span class="annottext">Client tx IO -&gt; IO a
+</span><a href="#local-6989586621679420522"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-60"></span><span>  </span><span id="local-6989586621679420523"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679420523"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (SigningKey PaymentKey)
+</span><a href="#local-6989586621679420524"><span class="hs-identifier hs-var">readExternalSk</span></a></span><span>
+</span><span id="line-61"></span><span>  </span><span id="local-6989586621679420525"><span class="annot"><span class="annottext">TBQueue (ClientInput tx)
+</span><a href="#local-6989586621679420525"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; IO (TBQueue IO (ClientInput tx))
+forall a. Natural -&gt; IO (TBQueue IO a)
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; Natural -&gt; m (TBQueue m a)
+</span><span class="hs-identifier hs-var">newTBQueueIO</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">10</span></span><span>
+</span><span id="line-62"></span><span>  </span><span class="annot"><span class="annottext">IO () -&gt; (Async IO () -&gt; IO a) -&gt; IO a
+forall a b. IO a -&gt; (Async IO a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b.
+MonadAsync m =&gt;
+m a -&gt; (Async m a -&gt; m b) -&gt; m b
+</span><span class="hs-identifier hs-var">withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+</span><a href="#local-6989586621679420527"><span class="hs-identifier hs-var">reconnect</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue (ClientInput tx) -&gt; IO ()
+</span><a href="#local-6989586621679420528"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue (ClientInput tx)
+</span><a href="#local-6989586621679420525"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async IO () -&gt; IO a) -&gt; IO a) -&gt; (Async IO () -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679420529"><span class="annot"><span class="annottext">Async IO ()
+</span><a href="#local-6989586621679420529"><span class="hs-identifier hs-var">thread</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-comment">-- NOTE(SN): if message formats are not compatible, this will terminate the TUI</span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-comment">-- with a quite cryptic message (to users)</span><span>
+</span><span id="line-65"></span><span>    </span><span class="annot"><span class="annottext">Async () -&gt; IO ()
+forall a. Async a -&gt; IO ()
+</span><span class="hs-identifier hs-var">link</span></span><span> </span><span class="annot"><span class="annottext">Async ()
+Async IO ()
+</span><a href="#local-6989586621679420529"><span class="hs-identifier hs-var">thread</span></a></span><span> </span><span class="hs-comment">-- Make sure it does not silently die</span><span>
+</span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">Client tx IO -&gt; IO a
+</span><a href="#local-6989586621679420522"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">(Client tx IO -&gt; IO a) -&gt; Client tx IO -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-67"></span><span>      </span><span class="annot"><a href="Hydra.Client.html#Client"><span class="hs-identifier hs-type">Client</span></a></span><span>
+</span><span id="line-68"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">sendInput :: ClientInput tx -&gt; IO ()
+</span><a href="Hydra.Client.html#sendInput"><span class="hs-identifier hs-var">sendInput</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">STM () -&gt; IO ()
+STM IO () -&gt; IO ()
+forall a. HasCallStack =&gt; STM IO a -&gt; IO a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM () -&gt; IO ())
+-&gt; (ClientInput tx -&gt; STM ()) -&gt; ClientInput tx -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue IO (ClientInput tx) -&gt; ClientInput tx -&gt; STM IO ()
+forall a. TBQueue IO a -&gt; a -&gt; STM IO ()
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; TBQueue m a -&gt; a -&gt; STM m ()
+</span><span class="hs-identifier hs-var">writeTBQueue</span></span><span> </span><span class="annot"><span class="annottext">TBQueue (ClientInput tx)
+TBQueue IO (ClientInput tx)
+</span><a href="#local-6989586621679420525"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-69"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+sk :: SigningKey PaymentKey
+sk :: SigningKey PaymentKey
+</span><a href="Hydra.Client.html#sk"><span class="hs-identifier hs-var hs-var">sk</span></a></span><span>
+</span><span id="line-70"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">externalCommit :: UTxO -&gt; IO ()
+</span><a href="Hydra.Client.html#externalCommit"><span class="hs-identifier hs-var">externalCommit</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; UTxO -&gt; IO ()
+</span><a href="#local-6989586621679420532"><span class="hs-identifier hs-var">externalCommit'</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679420523"><span class="hs-identifier hs-var">sk</span></a></span><span>
+</span><span id="line-71"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-72"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679420524"><span class="annot"><span class="annottext">readExternalSk :: IO (SigningKey PaymentKey)
+</span><a href="#local-6989586621679420524"><span class="hs-identifier hs-var hs-var">readExternalSk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AsType (SigningKey PaymentKey)
+-&gt; String -&gt; IO (SigningKey PaymentKey)
+forall a. HasTextEnvelope a =&gt; AsType a -&gt; String -&gt; IO a
+</span><span class="hs-identifier hs-var">readFileTextEnvelopeThrow</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsType PaymentKey -&gt; AsType (SigningKey PaymentKey)
+forall a. AsType a -&gt; AsType (SigningKey a)
+</span><span class="hs-identifier hs-var">AsSigningKey</span></span><span> </span><span class="annot"><span class="annottext">AsType PaymentKey
+</span><span class="hs-identifier hs-var">AsPaymentKey</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679420515"><span class="hs-identifier hs-var">cardanoSigningKey</span></a></span><span>
+</span><span id="line-74"></span><span>  </span><span class="hs-comment">-- TODO(SN): ping thread?</span><span>
+</span><span id="line-75"></span><span>  </span><span id="local-6989586621679420528"><span class="annot"><span class="annottext">client :: TBQueue (ClientInput tx) -&gt; IO ()
+</span><a href="#local-6989586621679420528"><span class="hs-identifier hs-var hs-var">client</span></a></span></span><span> </span><span id="local-6989586621679420533"><span class="annot"><span class="annottext">TBQueue (ClientInput tx)
+</span><a href="#local-6989586621679420533"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Int -&gt; String -&gt; ClientApp () -&gt; IO ()
+forall a. String -&gt; Int -&gt; String -&gt; ClientApp a -&gt; IO a
+</span><span class="hs-identifier hs-var">runClient</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; String
+forall a. ToString a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679420513"><span class="hs-identifier hs-var">hostname</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PortNumber -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679420514"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;/&quot;</span></span><span> </span><span class="annot"><span class="annottext">(ClientApp () -&gt; IO ()) -&gt; ClientApp () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679420535"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679420535"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-comment">-- REVIEW(SN): is sharing the 'con' fine?</span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">ClientCallback tx IO
+</span><a href="#local-6989586621679420521"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">HydraEvent tx
+forall tx. HydraEvent tx
+</span><a href="Hydra.Client.html#ClientConnected"><span class="hs-identifier hs-var">ClientConnected</span></a></span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><span class="annottext">IO Any -&gt; IO Any -&gt; IO ()
+forall a b. IO a -&gt; IO b -&gt; IO ()
+forall (m :: * -&gt; *) a b. MonadAsync m =&gt; m a -&gt; m b -&gt; m ()
+</span><span class="hs-identifier hs-var">race_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Connection -&gt; IO Any
+</span><a href="#local-6989586621679420537"><span class="hs-identifier hs-var">receiveOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679420535"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TBQueue (ClientInput tx) -&gt; Connection -&gt; IO Any
+forall {a} {b}. ToJSON a =&gt; TBQueue a -&gt; Connection -&gt; IO b
+</span><a href="#local-6989586621679420538"><span class="hs-identifier hs-var">sendInputs</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue (ClientInput tx)
+</span><a href="#local-6989586621679420533"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679420535"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span>  </span><span id="local-6989586621679420537"><span class="annot"><span class="annottext">receiveOutputs :: Connection -&gt; IO Any
+</span><a href="#local-6989586621679420537"><span class="hs-identifier hs-var hs-var">receiveOutputs</span></a></span></span><span> </span><span id="local-6989586621679420539"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679420539"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO Any
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.html#forever"><span class="hs-identifier hs-var">forever</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO Any) -&gt; IO () -&gt; IO Any
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-81"></span><span>    </span><span id="local-6989586621679420541"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679420541"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO ByteString
+forall a. WebSocketsData a =&gt; Connection -&gt; IO a
+</span><span class="hs-identifier hs-var">receiveData</span></span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679420539"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String (TimedServerOutput tx)
+forall a. FromJSON a =&gt; ByteString -&gt; Either String a
+</span><span class="hs-identifier hs-var">eitherDecodeStrict</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679420541"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-83"></span><span>      </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679420542"><span class="annot"><span class="annottext">TimedServerOutput tx
+</span><a href="#local-6989586621679420542"><span class="hs-identifier hs-var">output</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ClientCallback tx IO
+</span><a href="#local-6989586621679420521"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ClientCallback tx IO -&gt; ClientCallback tx IO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx -&gt; HydraEvent tx
+forall tx. TimedServerOutput tx -&gt; HydraEvent tx
+</span><a href="Hydra.Client.html#Update"><span class="hs-identifier hs-var">Update</span></a></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx
+</span><a href="#local-6989586621679420542"><span class="hs-identifier hs-var">output</span></a></span><span>
+</span><span id="line-84"></span><span>      </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679420543"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679420543"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ClientError -&gt; IO ()
+forall e a. Exception e =&gt; e -&gt; IO a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">(ClientError -&gt; IO ()) -&gt; ClientError -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ByteString -&gt; ClientError
+</span><a href="Hydra.Client.html#ClientJSONDecodeError"><span class="hs-identifier hs-var">ClientJSONDecodeError</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679420543"><span class="hs-identifier hs-var">err</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679420541"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span>  </span><span id="local-6989586621679420538"><span class="annot"><span class="annottext">sendInputs :: TBQueue a -&gt; Connection -&gt; IO b
+</span><a href="#local-6989586621679420538"><span class="hs-identifier hs-var hs-var">sendInputs</span></a></span></span><span> </span><span id="local-6989586621679420556"><span class="annot"><span class="annottext">TBQueue a
+</span><a href="#local-6989586621679420556"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span id="local-6989586621679420557"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679420557"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.html#forever"><span class="hs-identifier hs-var">forever</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO b) -&gt; IO () -&gt; IO b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-87"></span><span>    </span><span id="local-6989586621679420558"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679420558"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM IO a -&gt; IO a
+forall a. HasCallStack =&gt; STM IO a -&gt; IO a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM IO a -&gt; IO a) -&gt; STM IO a -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue IO a -&gt; STM IO a
+forall a. TBQueue IO a -&gt; STM IO a
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; TBQueue m a -&gt; STM m a
+</span><span class="hs-identifier hs-var">readTBQueue</span></span><span> </span><span class="annot"><span class="annottext">TBQueue a
+TBQueue IO a
+</span><a href="#local-6989586621679420556"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span class="annot"><span class="annottext">Connection -&gt; ByteString -&gt; IO ()
+forall a. WebSocketsData a =&gt; Connection -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">sendBinaryData</span></span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679420557"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; IO ()) -&gt; ByteString -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">encode</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679420558"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span>  </span><span id="local-6989586621679420527"><span class="annot"><span class="annottext">reconnect :: IO () -&gt; IO ()
+</span><a href="#local-6989586621679420527"><span class="hs-identifier hs-var hs-var">reconnect</span></a></span></span><span> </span><span id="local-6989586621679420559"><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679420559"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-91"></span><span>    </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679420559"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-92"></span><span>      </span><span class="annot"><span class="annottext">IO () -&gt; [Handler ()] -&gt; IO ()
+forall a. IO a -&gt; [Handler a] -&gt; IO a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Exception.html#catches"><span class="hs-operator hs-var">`catches`</span></a></span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">(IOException -&gt; IO ()) -&gt; Handler ()
+forall a e. Exception e =&gt; (e -&gt; IO a) -&gt; Handler a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Exception.html#Handler"><span class="hs-identifier hs-var">Handler</span></a></span><span> </span><span class="annot"><span class="annottext">((IOException -&gt; IO ()) -&gt; Handler ())
+-&gt; (IOException -&gt; IO ()) -&gt; Handler ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="annottext">IOException
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier hs-type">IOException</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+</span><a href="#local-6989586621679420560"><span class="hs-identifier hs-var">handleDisconnect</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679420559"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-comment">-- Initially</span><span>
+</span><span id="line-93"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(ConnectionException -&gt; IO ()) -&gt; Handler ()
+forall a e. Exception e =&gt; (e -&gt; IO a) -&gt; Handler a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Exception.html#Handler"><span class="hs-identifier hs-var">Handler</span></a></span><span> </span><span class="annot"><span class="annottext">((ConnectionException -&gt; IO ()) -&gt; Handler ())
+-&gt; (ConnectionException -&gt; IO ()) -&gt; Handler ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConnectionException
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConnectionException</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+</span><a href="#local-6989586621679420560"><span class="hs-identifier hs-var">handleDisconnect</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679420559"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-comment">-- Later</span><span>
+</span><span id="line-94"></span><span>                </span><span class="hs-special">]</span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span>  </span><span id="local-6989586621679420560"><span class="annot"><span class="annottext">handleDisconnect :: IO () -&gt; IO ()
+</span><a href="#local-6989586621679420560"><span class="hs-identifier hs-var hs-var">handleDisconnect</span></a></span></span><span> </span><span id="local-6989586621679420561"><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679420561"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-97"></span><span>    </span><span class="annot"><span class="annottext">ClientCallback tx IO
+</span><a href="#local-6989586621679420521"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">HydraEvent tx
+forall tx. HydraEvent tx
+</span><a href="Hydra.Client.html#ClientDisconnected"><span class="hs-identifier hs-var">ClientDisconnected</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall a b. IO a -&gt; IO b -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">DiffTime -&gt; IO ()
+forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall a b. IO a -&gt; IO b -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+</span><a href="#local-6989586621679420527"><span class="hs-identifier hs-var">reconnect</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679420561"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span>  </span><span id="local-6989586621679420532"><span class="annot"><span class="annottext">externalCommit' :: SigningKey PaymentKey -&gt; UTxO -&gt; IO ()
+</span><a href="#local-6989586621679420532"><span class="hs-identifier hs-var hs-var">externalCommit'</span></a></span></span><span> </span><span id="local-6989586621679420563"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679420563"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span id="local-6989586621679420564"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679420564"><span class="hs-identifier hs-var">payload</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-100"></span><span>    </span><span class="annot"><span class="annottext">HttpConfig
+-&gt; Req (JsonResponse (DraftCommitTxResponse Tx))
+-&gt; IO (JsonResponse (DraftCommitTxResponse Tx))
+forall (m :: * -&gt; *) a. MonadIO m =&gt; HttpConfig -&gt; Req a -&gt; m a
+</span><span class="hs-identifier hs-var">runReq</span></span><span> </span><span class="annot"><span class="annottext">HttpConfig
+</span><span class="hs-identifier hs-var">defaultHttpConfig</span></span><span> </span><span class="annot"><span class="annottext">Req (JsonResponse (DraftCommitTxResponse Tx))
+</span><a href="#local-6989586621679420565"><span class="hs-identifier hs-var">request</span></a></span><span>
+</span><span id="line-101"></span><span>      </span><span class="annot"><span class="annottext">IO (JsonResponse (DraftCommitTxResponse Tx))
+-&gt; (JsonResponse (DraftCommitTxResponse Tx)
+    -&gt; DraftCommitTxResponse Tx)
+-&gt; IO (DraftCommitTxResponse Tx)
+forall (f :: * -&gt; *) a b. Functor f =&gt; f a -&gt; (a -&gt; b) -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%26%3E"><span class="hs-operator hs-var">&lt;&amp;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">JsonResponse (DraftCommitTxResponse Tx) -&gt; DraftCommitTxResponse Tx
+JsonResponse (DraftCommitTxResponse Tx)
+-&gt; HttpResponseBody (JsonResponse (DraftCommitTxResponse Tx))
+forall response.
+HttpResponse response =&gt;
+response -&gt; HttpResponseBody response
+</span><span class="hs-identifier hs-var">responseBody</span></span><span>
+</span><span id="line-102"></span><span>        </span><span class="annot"><span class="annottext">IO (DraftCommitTxResponse Tx)
+-&gt; (DraftCommitTxResponse Tx -&gt; IO ()) -&gt; IO ()
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">DraftCommitTxResponse</span></span><span class="hs-special">{</span><span id="local-6989586621679420568"><span class="annot"><span class="annottext">Tx
+commitTx :: Tx
+$sel:commitTx:DraftCommitTxResponse :: forall tx. DraftCommitTxResponse tx -&gt; tx
+</span><a href="#local-6989586621679420568"><span class="hs-identifier hs-var hs-var">commitTx</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-103"></span><span>          </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; Tx -&gt; IO ()
+</span><span class="hs-identifier hs-var">submitTransaction</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679420517"><span class="hs-identifier hs-var">cardanoNetworkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679420519"><span class="hs-identifier hs-var">cardanoNodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx -&gt; IO ()) -&gt; Tx -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; Tx -&gt; Tx
+forall era.
+IsShelleyBasedEra era =&gt;
+SigningKey PaymentKey -&gt; Tx era -&gt; Tx era
+</span><span class="hs-identifier hs-var">signTx</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679420563"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679420568"><span class="hs-identifier hs-var">commitTx</span></a></span><span>
+</span><span id="line-104"></span><span>   </span><span class="hs-keyword">where</span><span>
+</span><span id="line-105"></span><span>    </span><span id="local-6989586621679420565"><span class="annot"><span class="annottext">request :: Req (JsonResponse (DraftCommitTxResponse Tx))
+</span><a href="#local-6989586621679420565"><span class="hs-identifier hs-var hs-var">request</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-106"></span><span>      </span><span class="annot"><span class="annottext">POST
+-&gt; Url 'Http
+-&gt; ReqBodyJson (DraftCommitTxRequest Tx)
+-&gt; Proxy (JsonResponse (DraftCommitTxResponse Tx))
+-&gt; Option 'Http
+-&gt; Req (JsonResponse (DraftCommitTxResponse Tx))
+forall (m :: * -&gt; *) method body response (scheme :: Scheme).
+(MonadHttp m, HttpMethod method, HttpBody body,
+ HttpResponse response,
+ HttpBodyAllowed (AllowsBody method) (ProvidesBody body)) =&gt;
+method
+-&gt; Url scheme
+-&gt; body
+-&gt; Proxy response
+-&gt; Option scheme
+-&gt; m response
+</span><span class="hs-identifier hs-var">Req.req</span></span><span>
+</span><span id="line-107"></span><span>        </span><span class="annot"><span class="annottext">POST
+</span><span class="hs-identifier hs-var">Req.POST</span></span><span>
+</span><span id="line-108"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Url 'Http
+</span><span class="hs-identifier hs-var">Req.http</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679420513"><span class="hs-identifier hs-var">hostname</span></a></span><span> </span><span class="annot"><span class="annottext">Url 'Http -&gt; Text -&gt; Url 'Http
+forall (scheme :: Scheme). Url scheme -&gt; Text -&gt; Url scheme
+</span><span class="hs-operator hs-var">Req./:</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;commit&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DraftCommitTxRequest Tx -&gt; ReqBodyJson (DraftCommitTxRequest Tx)
+forall a. a -&gt; ReqBodyJson a
+</span><span class="hs-identifier hs-var">Req.ReqBodyJson</span></span><span> </span><span class="annot"><span class="annottext">(DraftCommitTxRequest Tx -&gt; ReqBodyJson (DraftCommitTxRequest Tx))
+-&gt; DraftCommitTxRequest Tx -&gt; ReqBodyJson (DraftCommitTxRequest Tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">forall tx. UTxOType tx -&gt; DraftCommitTxRequest tx
+</span><span class="hs-identifier hs-var">SimpleCommitRequest</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+UTxOType Tx
+</span><a href="#local-6989586621679420564"><span class="hs-identifier hs-var">payload</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>        </span><span class="annot"><span class="annottext">Proxy (JsonResponse (DraftCommitTxResponse Tx))
+forall a. Proxy (JsonResponse a)
+</span><span class="hs-identifier hs-var">Req.jsonResponse</span></span><span>
+</span><span id="line-111"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Option 'Http
+forall (scheme :: Scheme). Int -&gt; Option scheme
+</span><span class="hs-identifier hs-var">Req.port</span></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Option 'Http) -&gt; Int -&gt; Option 'Http
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621679420514"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="hs-keyword">data</span><span> </span><span id="ClientError"><span class="annot"><a href="Hydra.Client.html#ClientError"><span class="hs-identifier hs-var">ClientError</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ClientJSONDecodeError"><span class="annot"><a href="Hydra.Client.html#ClientJSONDecodeError"><span class="hs-identifier hs-var">ClientJSONDecodeError</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/bytestring-0.11.5.3/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span>
+</span><span id="line-114"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679420579"><span id="local-6989586621679420586"><span class="annot"><span class="annottext">ClientError -&gt; ClientError -&gt; Bool
+(ClientError -&gt; ClientError -&gt; Bool)
+-&gt; (ClientError -&gt; ClientError -&gt; Bool) -&gt; Eq ClientError
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: ClientError -&gt; ClientError -&gt; Bool
+== :: ClientError -&gt; ClientError -&gt; Bool
+$c/= :: ClientError -&gt; ClientError -&gt; Bool
+/= :: ClientError -&gt; ClientError -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679420591"><span id="local-6989586621679420599"><span id="local-6989586621679420603"><span class="annot"><span class="annottext">Int -&gt; ClientError -&gt; ShowS
+[ClientError] -&gt; ShowS
+ClientError -&gt; String
+(Int -&gt; ClientError -&gt; ShowS)
+-&gt; (ClientError -&gt; String)
+-&gt; ([ClientError] -&gt; ShowS)
+-&gt; Show ClientError
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ClientError -&gt; ShowS
+showsPrec :: Int -&gt; ClientError -&gt; ShowS
+$cshow :: ClientError -&gt; String
+show :: ClientError -&gt; String
+$cshowList :: [ClientError] -&gt; ShowS
+showList :: [ClientError] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679420607"><span id="local-6989586621679420609"><span class="annot"><span class="annottext">(forall x. ClientError -&gt; Rep ClientError x)
+-&gt; (forall x. Rep ClientError x -&gt; ClientError)
+-&gt; Generic ClientError
+forall x. Rep ClientError x -&gt; ClientError
+forall x. ClientError -&gt; Rep ClientError x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. ClientError -&gt; Rep ClientError x
+from :: forall x. ClientError -&gt; Rep ClientError x
+$cto :: forall x. Rep ClientError x -&gt; ClientError
+to :: forall x. Rep ClientError x -&gt; ClientError
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679420616"><span id="local-6989586621679420619"><span id="local-6989586621679420622"><span class="annot"><span class="annottext">Show ClientError
+Typeable ClientError
+(Typeable ClientError, Show ClientError) =&gt;
+(ClientError -&gt; SomeException)
+-&gt; (SomeException -&gt; Maybe ClientError)
+-&gt; (ClientError -&gt; String)
+-&gt; Exception ClientError
+SomeException -&gt; Maybe ClientError
+ClientError -&gt; String
+ClientError -&gt; SomeException
+forall e.
+(Typeable e, Show e) =&gt;
+(e -&gt; SomeException)
+-&gt; (SomeException -&gt; Maybe e) -&gt; (e -&gt; String) -&gt; Exception e
+$ctoException :: ClientError -&gt; SomeException
+toException :: ClientError -&gt; SomeException
+$cfromException :: SomeException -&gt; Maybe ClientError
+fromException :: SomeException -&gt; Maybe ClientError
+$cdisplayException :: ClientError -&gt; String
+displayException :: ClientError -&gt; String
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Exception</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span></pre></body></html>
