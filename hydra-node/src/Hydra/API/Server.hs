@@ -128,7 +128,17 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             $ websocketsOr
               defaultConnectionOptions
               (wsApp party tracer historyTimedOutputs callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
-              (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest seenSnapshotP) (atomically $ getLatest pendingDepositsP) callback)
+              ( httpApp
+                  tracer
+                  chain
+                  env
+                  pparams
+                  (atomically $ getLatest commitInfoP)
+                  (atomically $ getLatest snapshotUtxoP)
+                  (atomically $ getLatest seenSnapshotP)
+                  (atomically $ getLatest pendingDepositsP)
+                  callback
+              )
       )
       ( do
           waitForServerRunning
@@ -142,6 +152,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                           update headStatusP stateChanged
                           update commitInfoP stateChanged
                           update snapshotUtxoP stateChanged
+                          update seenSnapshotP stateChanged
                           update headIdP stateChanged
                           update pendingDepositsP stateChanged
                         atomically $ writeTChan responseChannel (Left timedOutput)
