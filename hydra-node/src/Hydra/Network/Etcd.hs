@@ -386,20 +386,23 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
       onConnectivity NetworkConnected
       -- Write our alive key using lease
       writeAlive leaseId
+      traceWith tracer CreatedLease{leaseId}
       withKeepAlive leaseId $ \keepAlive ->
         forever $ do
           -- Keep our lease alive
-          keepAlive
+          ttlRemaining <- keepAlive
+          when (ttlRemaining < 1) $
+            traceWith tracer LowLeaseTTL{ttlRemaining}
           -- Determine alive peers
           alive <- getAlive
+          traceWith tracer CurrentlyAlive{alive}
           let othersAlive = alive \\ [advertise]
           seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
           forM_ (othersAlive \\ seenAlive) $ onConnectivity . PeerConnected
           forM_ (seenAlive \\ othersAlive) $ onConnectivity . PeerDisconnected
-          threadDelay 1
+          -- Wait roughly ttl / 2
+          threadDelay (ttlRemaining / 2)
  where
-  ttl = 3
-
   onGrpcException seenAliveVar GrpcException{grpcError}
     | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded = do
         onConnectivity NetworkDisconnected
@@ -407,12 +410,19 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
         threadDelay 1
   onGrpcException _ e = throwIO e
 
-  -- REVIEW: server can decide ttl?
   createLease = withGrpcContext "createLease" $ do
     leaseResponse <-
       nonStreaming conn (rpc @(Protobuf Lease "leaseGrant")) $
-        defMessage & #ttl .~ ttl
+        defMessage & #ttl .~ 3
     pure $ leaseResponse ^. #id
+
+  withKeepAlive leaseId action = do
+    biDiStreaming conn (rpc @(Protobuf Lease "leaseKeepAlive")) $ \send recv -> do
+      void . action $ do
+        send $ NextElem $ defMessage & #id .~ leaseId
+        recv >>= \case
+          NextElem res -> pure . fromIntegral $ res ^. #ttl
+          NoNextElem -> fail "leaseKeepAlive: no response"
 
   writeAlive leaseId = withGrpcContext "writeAlive" $ do
     void . nonStreaming conn (rpc @(Protobuf KV "put")) $
@@ -420,10 +430,6 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
         & #key .~ "alive-" <> show advertise
         & #value .~ serialize' advertise
         & #lease .~ leaseId
-
-  withKeepAlive leaseId action = do
-    biDiStreaming conn (rpc @(Protobuf Lease "leaseKeepAlive")) $ \send _recv ->
-      void . action $ send $ NextElem (defMessage & #id .~ leaseId)
 
   getAlive = withGrpcContext "getAlive" $ do
     res <-
@@ -550,6 +556,9 @@ data EtcdLog
   | BroadcastFailed {reason :: Text}
   | FailedToDecodeLog {log :: Text, reason :: Text}
   | FailedToDecodeValue {key :: Text, value :: Text, reason :: Text}
+  | CreatedLease {leaseId :: Int64}
+  | LowLeaseTTL {ttlRemaining :: DiffTime}
+  | CurrentlyAlive {alive :: [Host]}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
