@@ -1,0 +1,40 @@
+{
+    "samples": [
+        {
+            "peer": {
+                "hostname": "0.0.10.157",
+                "port": 13587
+            },
+            "tag": "PeerConnected"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.76.143",
+                "port": 13808
+            },
+            "tag": "PeerConnected"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.61.73",
+                "port": 25433
+            },
+            "tag": "PeerConnected"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.28.91",
+                "port": 6497
+            },
+            "tag": "PeerConnected"
+        },
+        {
+            "peer": {
+                "hostname": "0.0.112.161",
+                "port": 31670
+            },
+            "tag": "PeerConnected"
+        }
+    ],
+    "seed": 1036714239
+}

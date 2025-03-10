@@ -62,12 +62,6 @@ newtype Server tx m = Server
   -- ^ Send some output to all connected clients.
   }
 
--- | Callback for receiving client inputs.
-type ServerCallback tx m = ClientInput tx -> m ()
-
--- | A type tying both receiving input and sending output into a /Component/.
-type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
-
 data APIServerConfig = APIServerConfig
   { host :: IP
   , port :: PortNumber
@@ -86,7 +80,7 @@ withAPIServer ::
   Chain tx IO ->
   PParams LedgerEra ->
   ServerOutputFilter tx ->
-  ServerCallback tx IO ->
+  (ClientInput tx -> IO ()) ->
   ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
   IO ()
 withAPIServer config env party eventSource tracer chain pparams serverOutputFilter callback action =
