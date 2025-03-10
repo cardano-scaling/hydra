@@ -205,6 +205,22 @@ channels:
           method: DELETE
           bindingVersion: '0.1.0'
 
+  /snapshot/seen:
+    servers:
+      - localhost-http
+    subscribe:
+      operationId: getSeenSnapshot
+      description: |
+        Get latest seen snapshot.
+      message:
+        payload:
+          $ref: "api.yaml#/components/schemas/SeenSnapshot"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+
   /snapshot/utxo:
     servers:
       - localhost-http
@@ -1445,6 +1461,65 @@ components:
       contentEncoding: base16
       example:
         "820082582089ff4f3ff4a6052ec9d073b3be68b5e7596bd74a04e7b74504a8302fb2278cd95840f66eb3cd160372d617411408792c0ebd9791968e9948112894e2706697a55c10296b04019ed2f146f4d81e8ab17b9d14cf99569a2f85cbfa32320127831db202"
+
+    SeenSnapshot:
+      oneOf:
+        - title: NoSeenSnapshot
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["NoSeenSnapshot"]
+        - title: LastSeenSnapshot
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - lastSeen
+          properties:
+            tag:
+              type: string
+              enum: ["LastSeenSnapshot"]
+            lastSeen:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        - title: RequestedSnapshot
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - lastSeen
+            - requested
+          properties:
+            tag:
+              type: string
+              enum: ["RequestedSnapshot"]
+            lastSeen:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+            requested:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        - title: SeenSnapshot
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - snapshot
+            - signatories
+          properties:
+            tag:
+              type: string
+              enum: ["SeenSnapshot"]
+            snapshot:
+              $ref: "api.yaml#/components/schemas/Snapshot"
+            signatories:
+              type: object
+              propertyNames:
+                type: string
+                contentEncoding: base16
+              items:
+                $ref: "api.yaml#/components/schemas/Signature"
 
     ConfirmedSnapshot:
       oneOf:
