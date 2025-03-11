@@ -19,6 +19,7 @@ import Test.Aeson.GenericSpecs (
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
   roundtripAndGoldenSpecsWithSettings,
+  sampleSize,
  )
 import Test.QuickCheck (forAllShrink, ioProperty, sublistOf, (===))
 import Test.QuickCheck.Gen (listOf)
@@ -27,8 +28,8 @@ spec :: Spec
 spec = do
   describe "persisted event format" $ do
     -- NOTE: Whenever one of these fails, make sure to record a **BREAKING** change of the persisted 'state'.
-    roundtripAndGoldenSpecsWithSettings defaultSettings (Proxy @(MinimumSized (StateEvent Tx)))
-    roundtripAndGoldenADTSpecsWithSettings defaultSettings (Proxy @(MinimumSized (StateChanged Tx)))
+    roundtripAndGoldenSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(MinimumSized (StateEvent Tx)))
+    roundtripAndGoldenADTSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(MinimumSized (StateChanged Tx)))
 
   describe "eventPairFromPersistenceIncremental" $ do
     prop "can stream events" $

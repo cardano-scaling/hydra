@@ -1,75 +1,18 @@
 {
     "samples": [
         {
-            "contestationPeriod": 86400,
-            "headId": "5e2e85c13f3fe448cf0ef24b54e64a49",
+            "contestationPeriod": 35428,
+            "headId": "00000000000101000101010101010101",
             "participants": [
-                "45b034deb71ca11f0dff35eebcb5c72385c0671e0c3e1482215621d6",
-                "161b7efc74de4a0ef16c81740143965bf3db04b0764cea1080a69579",
-                "9309b09e399bbea5942b1e8ce3c97487cbd7391227e52b975979a827",
-                "2b8089a0b419264e5696c83712243fd65fe2aaeaef96811e636e3f2b",
-                "43faa858b0bab94946b57ab90fc4c1c1e12aab69fa0f12dd5e41c15a",
-                "a7abc27dcd65aee0f50e515e17f4f7889a1faf3ce81ffd2db472a969",
-                "a8d3ad70b76aaa185a20524d55eff5886753d77601e38ea2fbbb390f",
-                "81cc0d74735f3266fedb51b1cff6cdf6a5b0761910e95c22dd6428ae",
-                "c70f177995f73ba3670ba6bc18cc5b88c3d4520405994a82140fd185",
-                "b0482ed88c50c295eaa904d8ab8e58bab7f807b580f3274606168a04",
-                "094a13604d1eea275cb74ce1c876996f6f1ca9150d8c0a809c47f59f",
-                "49cd6c2224d467c252aab458cbad23e207601cb802c4874a14c474c1",
-                "aea3c76ef042d83ed17f282eba177f00a12b5488cc0f8207b6b771f7",
-                "939552de68963c912f6be3edf1656f69482c91ecc5ee7ccaaed50db7",
-                "d2033e8b0e66a652d7dd85a3e1902aaeba337730be9fd78f972ea013",
-                "ccccccb6837b7c1d42863257f9d3c8d66a7ac8f49ac49aca57ed2f75",
-                "4ea5be1680e56980ccbb12f151933afbf91bff0e10f310b3bac3e414",
-                "b019063f393932f04b9e50f5ba3d10bc7dc9ce349480ed465651c5ac",
-                "ed9e12f9c00c4401f3b0682328b48bdd2d018a2360182237041f0d31",
-                "765d3fe06acaabd9f3562ab2cd7972d041462c6404c64161496e9f81",
-                "e593bcf7911f52ef17d3a593d789b728dba28747033294ad92b12cf8",
-                "2896f0e4cb61b9d6e1b03649aff936c3ed2a80ad0bcfdf3a72f00293",
-                "19a76e412b2080049eefa86b9ccfeac3b0c63daaaa00251c177db80a",
-                "d46e10d7862de30740f3112ddff5e7a8fef44bccbe4504f1b86c2f1b",
-                "cd3889885d98aadee9da663d89a6e6efdfc8779c43a8410781386b1f",
-                "4522625b8123d03be62472e82a3308076c6403008a4ab913c6bf38ca",
-                "fedd5eb79da5cb7dc1405fe987c4c241d1dd98d399cc5768ca34ff65",
-                "c8fb51a6f960033b6ea960485a9b38f466e8e6b831bfde9937c887a1"
+                "00010001010001000100010100010000010101010100010000010101"
             ],
             "parties": [
                 {
-                    "vkey": "026932b5f8a11debb00702bb586d2c10d2d2213c6b2829056dfdcd8fb231c25c"
-                },
-                {
-                    "vkey": "7c0d357a9e340b40388a9ccf4f5ad68e990107dbc41f713459dfe13e59028908"
-                },
-                {
-                    "vkey": "0c8f41dd14f2595d9b2c9a5238b84b3d5cf73ce3a20ef300e304df2b776c9beb"
-                },
-                {
-                    "vkey": "7cd73438c9f8e223c7347ebe04a83c743ad5d1b717afe091656852a62d8ae09f"
-                },
-                {
-                    "vkey": "f4660a374cb267bb191a1fb694f2576c383b614c5967f5b421fc8c056927f24c"
-                },
-                {
-                    "vkey": "55671c16b12511715044f293a9bd8fde7d73cb24452104d5b5319306bb45b78d"
-                },
-                {
-                    "vkey": "7558eaf4c3b18a8a4083f942f1f190f9707aaaa867703cc949d2d999930b24e2"
-                },
-                {
-                    "vkey": "1f9fb3c4f0232003d9658c0cc4f7912ca05995fec445e708aa6ad86d4110b4b0"
-                },
-                {
-                    "vkey": "0b1a83649784614a66a0bbd3a80ef1f5bd76587ac2539c4f8a27cd214449dbba"
-                },
-                {
-                    "vkey": "399fcb2703fca9c14e9acd755116f00badbaf35371d3c2024d6d54c048bb5bfb"
-                },
-                {
-                    "vkey": "5ed4fa32890d919b0c8cd2721b91dc4f8cc11bf80488d7218b28bf69db9c30c7"
+                    "vkey": "9aabcfd282e65ece1bad37b7c6b033600a36e1d1ff54b8a5514dca741a3d4300"
                 }
             ],
             "tag": "IgnoredHeadInitializing"
         }
     ],
-    "seed": -1923880967
+    "seed": 42935644
 }

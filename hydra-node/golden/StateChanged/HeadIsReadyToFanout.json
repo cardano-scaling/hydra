@@ -1,9 +1,9 @@
 {
     "samples": [
         {
-            "headId": "3791f3a9d167b2c119c61bb9fa8eb86b",
+            "headId": "00010100010001000001000000010101",
             "tag": "HeadIsReadyToFanout"
         }
     ],
-    "seed": 1451184457
+    "seed": 649780225
 }

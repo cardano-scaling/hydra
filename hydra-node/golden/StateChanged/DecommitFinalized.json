@@ -1,11 +1,11 @@
 {
     "samples": [
         {
-            "decommitTxId": "df270074ec2884525a03afe1471d00803077063021e7f68d9171725e2496f470",
-            "headId": "0e2491e6b77cf38eda034e20c9985834",
-            "newVersion": 21,
+            "decommitTxId": "0001000000000000000000000001000000000000010001010000010000010100",
+            "headId": "00000001010101000001000101000000",
+            "newVersion": 0,
             "tag": "DecommitFinalized"
         }
     ],
-    "seed": 1929343895
+    "seed": -2022187077
 }

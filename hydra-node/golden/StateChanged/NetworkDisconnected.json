@@ -2,19 +2,7 @@
     "samples": [
         {
             "tag": "NetworkDisconnected"
-        },
-        {
-            "tag": "NetworkDisconnected"
-        },
-        {
-            "tag": "NetworkDisconnected"
-        },
-        {
-            "tag": "NetworkDisconnected"
-        },
-        {
-            "tag": "NetworkDisconnected"
         }
     ],
-    "seed": 291929723
+    "seed": -1343187540
 }

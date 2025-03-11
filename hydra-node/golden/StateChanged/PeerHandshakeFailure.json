@@ -1,115 +1,16 @@
 {
     "samples": [
         {
-            "ourVersion": 7,
+            "ourVersion": 1,
             "remoteHost": {
-                "hostname": "0.0.7.235",
-                "port": 17810
+                "hostname": "0.0.0.0",
+                "port": 0
             },
             "tag": "PeerHandshakeFailure",
             "theirVersions": [
-                22,
-                6,
-                18,
-                6,
-                13,
-                15,
-                3,
-                26,
-                20,
-                14,
-                9,
-                2,
-                24,
-                17,
-                23
-            ]
-        },
-        {
-            "ourVersion": 17,
-            "remoteHost": {
-                "hostname": "0.0.10.119",
-                "port": 21130
-            },
-            "tag": "PeerHandshakeFailure",
-            "theirVersions": [
-                28,
-                21,
-                17,
-                18,
-                2
-            ]
-        },
-        {
-            "ourVersion": 26,
-            "remoteHost": {
-                "hostname": "0.0.59.227",
-                "port": 7521
-            },
-            "tag": "PeerHandshakeFailure",
-            "theirVersions": [
-                24,
-                27,
-                22
-            ]
-        },
-        {
-            "ourVersion": 29,
-            "remoteHost": {
-                "hostname": "0.0.0.78",
-                "port": 24072
-            },
-            "tag": "PeerHandshakeFailure",
-            "theirVersions": [
-                18,
-                13,
-                16,
-                10,
-                18,
-                14,
-                28,
-                27,
-                25,
-                11,
-                30,
-                9,
-                9,
-                18,
-                25,
-                4,
-                7,
-                11,
-                10,
-                25,
-                30,
-                21,
-                23,
-                20,
-                3,
-                17,
-                15,
-                8
-            ]
-        },
-        {
-            "ourVersion": 14,
-            "remoteHost": {
-                "hostname": "0.0.57.121",
-                "port": 23591
-            },
-            "tag": "PeerHandshakeFailure",
-            "theirVersions": [
-                26,
-                25,
-                13,
-                0,
-                6,
-                5,
-                2,
-                26,
-                14
+                0
             ]
         }
     ],
-    "seed": -505668939
+    "seed": 353083614
 }
