@@ -72,36 +72,10 @@ channels:
       operationId: serverOutput
       message:
         oneOf:
-          - $ref: "api.yaml#/components/messages/Greetings"
+          - $ref: "api.yaml#/components/schemas/Greetings"
           - $ref: "api.yaml#/components/messages/CommandFailed"
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
-          - $ref: "api.yaml#/components/messages/PeerConnected"
-          - $ref: "api.yaml#/components/messages/PeerDisconnected"
-          - $ref: "api.yaml#/components/messages/NetworkConnected"
-          - $ref: "api.yaml#/components/messages/NetworkDisconnected"
-          - $ref: "api.yaml#/components/messages/PeerHandshakeFailure"
-          - $ref: "api.yaml#/components/messages/HeadIsInitializing"
-          - $ref: "api.yaml#/components/messages/Committed"
-          - $ref: "api.yaml#/components/messages/HeadIsOpen"
-          - $ref: "api.yaml#/components/messages/HeadIsClosed"
-          - $ref: "api.yaml#/components/messages/HeadIsContested"
-          - $ref: "api.yaml#/components/messages/ReadyToFanout"
-          - $ref: "api.yaml#/components/messages/HeadIsAborted"
-          - $ref: "api.yaml#/components/messages/HeadIsFinalized"
-          - $ref: "api.yaml#/components/messages/TxValid"
-          - $ref: "api.yaml#/components/messages/TxInvalid"
-          - $ref: "api.yaml#/components/messages/SnapshotConfirmed"
-          - $ref: "api.yaml#/components/messages/InvalidInput"
-          - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
-          - $ref: "api.yaml#/components/messages/DecommitInvalid"
-          - $ref: "api.yaml#/components/messages/DecommitRequested"
-          - $ref: "api.yaml#/components/messages/DecommitApproved"
-          - $ref: "api.yaml#/components/messages/DecommitFinalized"
-          - $ref: "api.yaml#/components/messages/CommitRecorded"
-          - $ref: "api.yaml#/components/messages/CommitApproved"
-          - $ref: "api.yaml#/components/messages/CommitFinalized"
-          - $ref: "api.yaml#/components/messages/CommitRecovered"
-          - $ref: "api.yaml#/components/messages/CommitIgnored"
+          - $ref: "api.yaml#/components/schemas/ServerOutput"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -699,6 +673,36 @@ components:
   #######
 
   schemas:
+    ServerOutput:
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/NetworkConnected"
+        - $ref: "api.yaml#/components/schemas/NetworkDisconnected"
+        - $ref: "api.yaml#/components/schemas/PeerConnected"
+        - $ref: "api.yaml#/components/schemas/PeerDisconnected"
+        - $ref: "api.yaml#/components/schemas/PeerHandshakeFailure"
+        - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
+        - $ref: "api.yaml#/components/schemas/Committed"
+        - $ref: "api.yaml#/components/schemas/HeadIsOpen"
+        - $ref: "api.yaml#/components/schemas/HeadIsClosed"
+        - $ref: "api.yaml#/components/schemas/HeadIsContested"
+        - $ref: "api.yaml#/components/schemas/ReadyToFanout"
+        - $ref: "api.yaml#/components/schemas/HeadIsAborted"
+        - $ref: "api.yaml#/components/schemas/HeadIsFinalized"
+        - $ref: "api.yaml#/components/schemas/TxValid"
+        - $ref: "api.yaml#/components/schemas/TxInvalid"
+        - $ref: "api.yaml#/components/schemas/SnapshotConfirmed"
+        - $ref: "api.yaml#/components/schemas/InvalidInput"
+        - $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
+        - $ref: "api.yaml#/components/schemas/DecommitInvalid"
+        - $ref: "api.yaml#/components/schemas/DecommitRequested"
+        - $ref: "api.yaml#/components/schemas/DecommitApproved"
+        - $ref: "api.yaml#/components/schemas/DecommitFinalized"
+        - $ref: "api.yaml#/components/schemas/CommitRecorded"
+        - $ref: "api.yaml#/components/schemas/CommitApproved"
+        - $ref: "api.yaml#/components/schemas/CommitFinalized"
+        - $ref: "api.yaml#/components/schemas/CommitRecovered"
+        - $ref: "api.yaml#/components/schemas/CommitIgnored"
+
     Greetings:
       type: object
       required:
