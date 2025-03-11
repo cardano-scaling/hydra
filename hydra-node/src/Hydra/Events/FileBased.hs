@@ -7,28 +7,22 @@ import Hydra.Prelude
 
 import Conduit (mapMC, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
-import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
+import Hydra.Events ( EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Persistence (PersistenceIncremental (..))
 
 -- | A basic file based event source and sink defined using an
 -- 'PersistenceIncremental' handle.
---
--- A new implementation for an 'EventSource' with a compatible 'EventSink' could
--- be defined more generically with constraints:
---
--- (ToJSON e, FromJSON e, HasEventId) e => (EventSource e m, EventSink e m)
 eventPairFromPersistenceIncremental ::
-  (IsChainState tx, MonadSTM m) =>
-  PersistenceIncremental (StateEvent tx) m ->
-  m (EventSource (StateEvent tx) m, EventSink (StateEvent tx) m)
+  (ToJSON e, FromJSON e, HasEventId e, MonadSTM m) =>
+  PersistenceIncremental e m ->
+  m (EventSource e m, EventSink e m)
 eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
   eventIdV <- newTVarIO Nothing
   let
     getLastSeenEventId = readTVar eventIdV
 
-    setLastSeenEventId StateEvent{eventId} = do
-      writeTVar eventIdV (Just eventId)
+    setLastSeenEventId evt = do
+      writeTVar eventIdV (Just $ getEventId evt)
 
     -- Keep track of the last seen event id when loading
     sourceEvents =
@@ -40,11 +34,11 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
           )
 
     -- Filter events that are already stored
-    putEvent e@StateEvent{eventId} = do
+    putEvent evt = do
       atomically getLastSeenEventId >>= \case
-        Nothing -> store e
+        Nothing -> store evt
         Just lastSeenEventId
-          | eventId > lastSeenEventId -> store e
+          | getEventId evt > lastSeenEventId -> store evt
           | otherwise -> pure ()
 
     store e = do
