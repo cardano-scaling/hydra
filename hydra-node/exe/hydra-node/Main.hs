@@ -4,7 +4,7 @@ module Main where
 
 import Hydra.Prelude hiding (fromList, intercalate)
 
-import Control.Concurrent (killThread, mkWeakThreadId, myThreadId)
+import Control.Concurrent (mkWeakThreadId, myThreadId)
 import Data.ByteString (intercalate)
 import GHC.Weak (deRefWeak)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
@@ -20,6 +20,7 @@ import Hydra.Options (
  )
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
+import Control.Exception (AsyncException (UserInterrupt), throwTo)
 
 main :: IO ()
 main = do
@@ -53,7 +54,7 @@ installSigTermHandler = do
       Signals.sigTERM
       ( Signals.CatchOnce $ do
           runThreadIdMay <- deRefWeak runThreadIdWk
-          forM_ runThreadIdMay killThread
+          forM_ runThreadIdMay (`throwTo` UserInterrupt)
       )
       Nothing
   pure ()
