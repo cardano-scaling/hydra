@@ -1144,9 +1144,9 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
                     }
               }
     | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
+        -- TODO: A more recent snapshot number was succesfully contested, we will
+        -- not be able to fanout! We might want to communicate that to the client!
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
-    -- TODO: A more recent snapshot number was succesfully contested, we will
-    -- not be able to fanout! We might want to communicate that to the client!
     | otherwise ->
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
  where
