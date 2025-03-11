@@ -17,8 +17,9 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Lens ((^?))
+import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key)
+import Data.Aeson.Lens (key, _Number)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
@@ -26,7 +27,7 @@ import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mapStateChangedToServerOutput, mkTimedServerOutputFromStateEvent, withAPIServer)
-import Hydra.API.ServerOutput (AllPosibleAPIMessages (..), ClientMessage, InvalidInput (..), ServerOutput (..), TimedServerOutput (..), input)
+import Hydra.API.ServerOutput (InvalidInput (..), TimedServerOutput (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.Chain (
   Chain (Chain),
@@ -50,7 +51,7 @@ import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.Tx.Fixture (alice, defaultPParams, testEnvironment, testHeadId)
 import Test.Hydra.Tx.Gen ()
 import Test.Network.Ports (withFreePort)
-import Test.QuickCheck (checkCoverage, cover, generate, listOf, suchThat)
+import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 import Test.Util (isContinuous)
 
@@ -102,15 +103,21 @@ spec =
                 waitForClients semaphore
 
                 arbitraryMsg <- generate genStateEventForApi
-                let arbitraryServerOutput = fromMaybe (error "failed to convert in mapStateChangedToServerOutput") (mapStateChangedToServerOutput $ stateChanged arbitraryMsg)
+                let expectedMessage =
+                      toJSON $
+                        fromMaybe (error "failed to convert in mapStateChangedToServerOutput") (mapStateChangedToServerOutput $ stateChanged arbitraryMsg)
                 putEvent arbitraryMsg
-                failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [Left arbitraryServerOutput, Left arbitraryServerOutput]
+                failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [expectedMessage, expectedMessage]
                 failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
 
     it "sends all sendOutput history to all connected clients after a restart" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
         stateEvent <- generate genStateEventForApi
-        let arbitraryServerOutput = fromMaybe (error "failed to convert in mapStateChangedToServerOutput") (mapStateChangedToServerOutput $ stateChanged stateEvent)
+        let expectedMessage =
+              toJSON $
+                fromMaybe (error "failed to convert in mapStateChangedToServerOutput") $
+                  mapStateChangedToServerOutput $
+                    stateChanged stateEvent
         let eventSource = mockSource []
 
         withFreePort $ \port -> do
@@ -132,32 +139,33 @@ spec =
                 putEvent stateEvent
                 failAfter 1 $
                   atomically (replicateM 1 (readTQueue queue1))
-                    `shouldReturn` [Left arbitraryServerOutput]
+                    `shouldReturn` [expectedMessage]
                 failAfter 1 $
                   atomically (replicateM 1 (readTQueue queue2))
-                    `shouldReturn` [Left arbitraryServerOutput]
+                    `shouldReturn` [expectedMessage]
                 failAfter 1 $
                   atomically (tryReadTQueue queue1)
                     `shouldReturn` Nothing
 
     it "echoes history (past outputs) to client upon reconnection" $
-      checkCoverage . monadicIO $ do
-        outputs <- pick $ listOf genStateEventForApi
-        monitor $ cover 0.1 (null outputs) "no message when reconnecting"
-        monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
-        monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
-        run $
-          showLogsOnFailure "ServerSpec" $ \tracer ->
-            withFreePort $ \port ->
-              withTestAPIServer port alice (mockSource outputs) tracer $ \(EventSink{putEvent}, _) -> do
-                mapM_ putEvent outputs
-                withClient port "/?history=yes" $ \conn -> do
-                  received <- failAfter 20 $ replicateM (length outputs + 1) (receiveData conn)
-                  case traverse Aeson.eitherDecode received :: Either String [AllPosibleAPIMessages SimpleTx] of
-                    Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                    Right actualOutputs -> do
-                      List.init actualOutputs `shouldBe` mapMaybe (fmap ApiServerOutput . mapStateChangedToServerOutput . stateChanged) outputs
-                      List.last actualOutputs `shouldSatisfy` matchGreetings
+      forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
+        let expectedMessages = map toJSON $ mapMaybe mkTimedServerOutputFromStateEvent events
+        checkCoverage . monadicIO $ do
+          monitor $ cover 0.1 (null events) "no message when reconnecting"
+          monitor $ cover 0.1 (length events == 1) "only one message when reconnecting"
+          monitor $ cover 1 (length events > 1) "more than one message when reconnecting"
+          run $
+            showLogsOnFailure "ServerSpec" $ \tracer ->
+              withFreePort $ \port ->
+                withTestAPIServer port alice (mockSource events) tracer $ \(EventSink{putEvent}, _) -> do
+                  mapM_ putEvent events
+                  withClient port "/?history=yes" $ \conn -> do
+                    received <- failAfter 20 $ replicateM (length events + 1) (receiveData conn)
+                    case traverse Aeson.eitherDecode received of
+                      Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                      Right actualMessages -> do
+                        List.init actualMessages `shouldBe` expectedMessages
+                        List.last actualMessages `shouldSatisfy` matchGreetings
 
     it "does not echo history if client says no" $
       checkCoverage . monadicIO $ do
@@ -209,22 +217,18 @@ spec =
                 guard $ isNothing $ v ^? key "utxo"
 
     it "sequence numbers are continuous" $
-      monadicIO $ do
-        outputs <- pick $ listOf genStateEventForApi
-        run $
-          showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
-            withFreePort $ \port ->
-              withTestAPIServer port alice (mockSource outputs) tracer $ \(EventSink{putEvent}, _) -> do
-                mapM_ putEvent outputs
-                withClient port "/?history=yes" $ \conn -> do
-                  received <- replicateM (length outputs + 1) (receiveData conn)
-                  case traverse Aeson.eitherDecode received :: Either String [AllPosibleAPIMessages SimpleTx] of
-                    Left{} -> failure $ "Failed to decode message:\n" <> show received
-                    Right apiOutputs -> do
-                      let timedOutputs = flip concatMap apiOutputs $ \case
-                            ApiTimedServerOutput output -> [output]
-                            _ -> []
-                      seq <$> timedOutputs `shouldSatisfy` isContinuous
+      forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
+        monadicIO $ do
+          run $
+            showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
+              withFreePort $ \port ->
+                withTestAPIServer port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) -> do
+                  mapM_ putEvent events
+                  withClient port "/?history=yes" $ \conn -> do
+                    -- NOTE: Expect all history + greetings
+                    received :: [ByteString] <- replicateM (length events + 1) (receiveData conn)
+                    let seqs :: [Word64] = mapMaybe (\v -> v ^? key "seq" . _Number <&> truncate) received
+                    seqs `shouldSatisfy` isContinuous
 
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
@@ -339,33 +343,20 @@ matchGreetings v =
     && isJust (v ^? key "hydraNodeVersion")
     && isJust (v ^? key "me")
 
-isGreetings :: AllPosibleAPIMessages tx -> Bool
-isGreetings = \case
-  ApiGreetings{} -> True
-  _ -> False
-
 waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
 waitForClients semaphore = atomically $ readTVar semaphore >>= \n -> check (n >= 2)
 
 -- NOTE: this client runs indefinitely so it should be run within a context that won't
 -- leak runaway threads
-testClient :: TQueue IO (Either (ServerOutput SimpleTx) (ClientMessage SimpleTx)) -> TVar IO Int -> Connection -> IO ()
+testClient :: TQueue IO Value -> TVar IO Int -> Connection -> IO ()
 testClient queue semaphore cnx = do
   atomically $ modifyTVar' semaphore (+ 1)
   msg <- receiveData cnx
-  result <- parseAsServerOutputOrClientMessage msg
-  atomically $
-    case result of
-      ApiClientMessage clientMessage -> writeTQueue queue $ Right clientMessage
-      ApiTimedServerOutput _ -> writeTQueue queue $ Left serverOutput
-      ApiGreetings _ -> pure ()
-      ApiInvalidInput _ -> pure ()
-  testClient queue semaphore cnx
- where
-  parseAsServerOutputOrClientMessage msg =
-    case Aeson.eitherDecode msg :: Either String (AllPosibleAPIMessages SimpleTx) of
-      Left{} -> failure $ "Failed to decode message " <> show msg
-      Right outcome -> pure outcome
+  case Aeson.eitherDecode msg of
+    Left{} -> failure $ "Failed to decode message " <> show msg
+    Right value -> do
+      atomically (writeTQueue queue value)
+      testClient queue semaphore cnx
 
 dummyChainHandle :: Chain tx IO
 dummyChainHandle =
