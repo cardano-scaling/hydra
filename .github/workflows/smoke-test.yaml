@@ -35,7 +35,7 @@ jobs:
         submodules: true
 
     - name: ❄ Setup Nix/Cachix
-      uses: cachix/install-nix-action@v30
+      uses: cachix/install-nix-action@v31
       with:
         extra_nix_config: |
           accept-flake-config = true
