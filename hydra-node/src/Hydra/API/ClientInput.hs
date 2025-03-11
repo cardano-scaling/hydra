@@ -5,6 +5,7 @@ module Hydra.API.ClientInput where
 import Hydra.Prelude
 
 import Hydra.Tx (IsTx, TxIdType)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 data ClientInput tx
   = Init
@@ -37,3 +38,5 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx)) => Arbitrary (ClientInput tx) w
     Close -> []
     Contest -> []
     Fanout -> []
+
+instance (Arbitrary tx, Arbitrary (TxIdType tx)) => ToADTArbitrary (ClientInput tx)

@@ -21,7 +21,7 @@ spec = parallel $ do
   roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (ServerOutput Tx))
 
   -- XXX: Should move these to websocket server tests
-  prop "schema covers all defined server outputs " $
+  prop "schema covers all defined server outputs" $
     conjoin
       [ prop_specIsComplete @(TimedServerOutput Tx) "api.json" $
           key "channels" . key "/" . key "subscribe" . key "message"
