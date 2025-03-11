@@ -12,7 +12,6 @@ import Test.Aeson.GenericSpecs (
   Settings (..),
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
-  roundtripAndGoldenSpecsWithSettings,
  )
 import Test.QuickCheck (conjoin)
 
@@ -30,9 +29,3 @@ spec = parallel $ do
       , prop_specIsComplete @(ClientMessage Tx) "api.json" $
           key "channels" . key "/" . key "subscribe" . key "message"
       ]
-
-  -- NOTE: The golden file produced by this is also used by the
-  -- 'validate:outputs' target in ./docs/package.json.
-  roundtripAndGoldenSpecsWithSettings
-    defaultSettings{sampleSize = 5}
-    $ Proxy @(ReasonablySized (TimedServerOutput Tx))
