@@ -158,6 +158,7 @@ import Test.QuickCheck (
   genericShrink,
   scale,
  )
+import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ADTArbitrarySingleton (..), ConstructorArbitraryPair (..), ToADTArbitrary (..))
 import Test.QuickCheck.Gen (Gen (..))
 import Test.QuickCheck.Random (mkQCGen)
 import Text.Pretty.Simple (pShow)
@@ -216,15 +217,27 @@ newtype ReasonablySized a = ReasonablySized a
 instance Arbitrary a => Arbitrary (ReasonablySized a) where
   arbitrary = ReasonablySized <$> reasonablySized arbitrary
 
+-- | Reszie gneratator to size = 1.
 minimumSized :: Gen a -> Gen a
 minimumSized = scale (const 1)
 
--- | A QuickCheck modifier that allows scaled down values.
+-- | A QuickCheck modifier that only generates values with size = 1.
 newtype MinimumSized a = MinimumSized a
   deriving newtype (Show, Eq, ToJSON, FromJSON, Generic)
 
 instance Arbitrary a => Arbitrary (MinimumSized a) where
   arbitrary = MinimumSized <$> minimumSized arbitrary
+
+instance ToADTArbitrary a => ToADTArbitrary (MinimumSized a) where
+  toADTArbitrarySingleton _ = do
+    adt <- minimumSized $ toADTArbitrarySingleton (Proxy @a)
+    let mappedCAP = adtasCAP adt & \cap -> cap{capArbitrary = MinimumSized $ capArbitrary cap}
+    pure adt{adtasCAP = mappedCAP}
+
+  toADTArbitrary _ = do
+    adt <- minimumSized $ toADTArbitrary (Proxy @a)
+    let mappedCAPs = adtCAPs adt <&> \adtPair -> adtPair{capArbitrary = MinimumSized $ capArbitrary adtPair}
+    pure adt{adtCAPs = mappedCAPs}
 
 -- | Pad a text-string to right with the given character until it reaches the given
 -- length.
