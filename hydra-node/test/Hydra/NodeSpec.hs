@@ -163,8 +163,8 @@ spec = parallel $ do
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
 
-          let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-              reqTx = receiveMessage ReqTx{transaction = tx1}
+          let reqTx = receiveMessage ReqTx{transaction = tx1}
+              tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
 
           (recordingSink, getRecordedEvents) <- createRecordingSink
 
@@ -456,7 +456,7 @@ recordServerOutputs node = do
                 Just output -> record $ Left output
           }
   pure
-    ( node{eventSinks = [apiSink], server = Server{sendMessage = record . Right}}
+    ( node{eventSinks = apiSink : eventSinks node, server = Server{sendMessage = record . Right}}
     , query
     )
 
