@@ -653,7 +653,21 @@ spec =
         \(ttl, connectivityMessage, headState) -> do
           let input = connectivityChanged ttl connectivityMessage
           let outcome = update bobEnv ledger headState input
-          stateChanges outcome `shouldBe` []
+          outcome `shouldSatisfy` \case
+            Continue as bs ->
+              null bs
+                && all
+                  ( \case
+                      -- NOTE: match only network related outcomes
+                      PeerConnected{} -> True
+                      PeerDisconnected{} -> True
+                      PeerHandshakeFailure{} -> True
+                      NetworkConnected{} -> True
+                      NetworkDisconnected{} -> True
+                      _ -> False
+                  )
+                  as
+            _ -> False
 
       prop "ignores abortTx of another head" $ \otherHeadId -> do
         let abortOtherHead = observeTx $ OnAbortTx{headId = otherHeadId}
