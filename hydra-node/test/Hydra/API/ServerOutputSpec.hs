@@ -18,9 +18,7 @@ import Test.QuickCheck (conjoin)
 
 spec :: Spec
 spec = parallel $ do
-  roundtripAndGoldenADTSpecsWithSettings
-    defaultSettings{sampleSize = 1}
-    $ Proxy @(ServerOutput Tx)
+  roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (ServerOutput Tx))
 
   -- XXX: Should move these to websocket server tests
   prop "schema covers all defined server outputs " $
