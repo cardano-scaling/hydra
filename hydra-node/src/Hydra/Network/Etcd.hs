@@ -422,7 +422,9 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
         send $ NextElem $ defMessage & #id .~ leaseId
         recv >>= \case
           NextElem res -> pure . fromIntegral $ res ^. #ttl
-          NoNextElem -> fail "leaseKeepAlive: no response"
+          NoNextElem -> do
+            traceWith tracer NoKeepAliveResponse
+            pure 0
 
   writeAlive leaseId = withGrpcContext "writeAlive" $ do
     void . nonStreaming conn (rpc @(Protobuf KV "put")) $
@@ -559,6 +561,7 @@ data EtcdLog
   | CreatedLease {leaseId :: Int64}
   | LowLeaseTTL {ttlRemaining :: DiffTime}
   | CurrentlyAlive {alive :: [Host]}
+  | NoKeepAliveResponse
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
