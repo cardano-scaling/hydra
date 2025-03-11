@@ -73,6 +73,8 @@ channels:
       message:
         oneOf:
           - $ref: "api.yaml#/components/messages/Greetings"
+          - $ref: "api.yaml#/components/messages/CommandFailed"
+          - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
           - $ref: "api.yaml#/components/messages/NetworkConnected"
@@ -90,8 +92,6 @@ channels:
           - $ref: "api.yaml#/components/messages/TxInvalid"
           - $ref: "api.yaml#/components/messages/SnapshotConfirmed"
           - $ref: "api.yaml#/components/messages/InvalidInput"
-          - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
-          - $ref: "api.yaml#/components/messages/CommandFailed"
           - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
           - $ref: "api.yaml#/components/messages/DecommitInvalid"
           - $ref: "api.yaml#/components/messages/DecommitRequested"
@@ -433,7 +433,7 @@ components:
 
     ########
     #
-    # Server Outputs
+    # Messages received on websocket
     #
     #######
 
@@ -568,7 +568,6 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/SnapshotConfirmed"
 
-
     InvalidInput:
       title: InvalidInput
       description: |
@@ -700,39 +699,6 @@ components:
   #######
 
   schemas:
-    ServerOutput:
-      oneOf:
-        - $ref: "api.yaml#/components/schemas/Greetings"
-        - $ref: "api.yaml#/components/schemas/NetworkConnected"
-        - $ref: "api.yaml#/components/schemas/NetworkDisconnected"
-        - $ref: "api.yaml#/components/schemas/PeerConnected"
-        - $ref: "api.yaml#/components/schemas/PeerDisconnected"
-        - $ref: "api.yaml#/components/schemas/PeerHandshakeFailure"
-        - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
-        - $ref: "api.yaml#/components/schemas/Committed"
-        - $ref: "api.yaml#/components/schemas/HeadIsOpen"
-        - $ref: "api.yaml#/components/schemas/HeadIsClosed"
-        - $ref: "api.yaml#/components/schemas/HeadIsContested"
-        - $ref: "api.yaml#/components/schemas/ReadyToFanout"
-        - $ref: "api.yaml#/components/schemas/HeadIsAborted"
-        - $ref: "api.yaml#/components/schemas/HeadIsFinalized"
-        - $ref: "api.yaml#/components/schemas/TxValid"
-        - $ref: "api.yaml#/components/schemas/TxInvalid"
-        - $ref: "api.yaml#/components/schemas/SnapshotConfirmed"
-        - $ref: "api.yaml#/components/schemas/InvalidInput"
-        - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
-        - $ref: "api.yaml#/components/schemas/CommandFailed"
-        - $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
-        - $ref: "api.yaml#/components/schemas/DecommitInvalid"
-        - $ref: "api.yaml#/components/schemas/DecommitRequested"
-        - $ref: "api.yaml#/components/schemas/DecommitApproved"
-        - $ref: "api.yaml#/components/schemas/DecommitFinalized"
-        - $ref: "api.yaml#/components/schemas/CommitRecorded"
-        - $ref: "api.yaml#/components/schemas/CommitApproved"
-        - $ref: "api.yaml#/components/schemas/CommitFinalized"
-        - $ref: "api.yaml#/components/schemas/CommitRecovered"
-        - $ref: "api.yaml#/components/schemas/CommitIgnored"
-
     Greetings:
       type: object
       required:
@@ -1136,8 +1102,6 @@ components:
       required:
       - tag
       - clientInput
-      - seq
-      - timestamp
       properties:
         tag:
           type: string
@@ -1152,10 +1116,6 @@ components:
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
 
     IgnoredHeadInitializing:
       type: object

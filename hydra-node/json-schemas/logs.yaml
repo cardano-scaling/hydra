@@ -650,11 +650,10 @@ definitions:
           numberOfParties:
             type: number
 
-  # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so
-  # we opted to not detail this section here. The outputs documented in api.yaml
-  # are based on internal type 'TimeServerOutput', so basically just contain an
-  # adtitional 'timestamp' and 'seq'.
-  ServerOutput: {}
+  ClientMessage:
+    oneOf:
+      - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
+      - $ref: "api.yaml#/components/schemas/CommandFailed"
 
   ParamMismatch:
     oneOf:
@@ -2054,15 +2053,15 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - serverOutput
+          - clientMessage
         description: >-
-          An effect representing some output to send to the client.
+          An effect representing some message sent to the client.
         properties:
           tag:
             type: string
             enum: ["ClientEffect"]
-          serverOutput:
-            $ref: "logs.yaml#/definitions/ServerOutput"
+          clientMessage:
+            $ref: "logs.yaml#/definitions/ClientMessage"
 
       - title: NetworkEffect
         type: object
