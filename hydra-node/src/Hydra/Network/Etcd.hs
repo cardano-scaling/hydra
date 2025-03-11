@@ -61,6 +61,7 @@ import Data.Aeson.Types (Value)
 import Data.ByteString qualified as BS
 import Data.List ((\\))
 import Data.List qualified as List
+import Data.List.Extra (split)
 import Data.Text (splitOn)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
@@ -122,7 +123,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- TODO: fail if cluster config / members do not match --peer
   -- configuration? That would be similar to the 'acks' persistence
   -- bailing out on loading.
-  withProcessInterrupt etcdCmd $ \p -> do
+  additionalArguments <- maybe [] (split (== ' ')) <$> lookupEnv "HYDRA_ETCD_ADDITIONAL_ARGUMENTS"
+  withProcessInterrupt (etcdCmd additionalArguments) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
         -- XXX: cleanup reconnecting through policy if other threads fail
@@ -182,7 +184,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
-  etcdCmd =
+  etcdCmd additionalArguments =
     setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
       . setStderr createPipe
       . proc "etcd"
@@ -203,6 +205,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         , -- Keep up to 1000 revisions. See also:
           -- https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction
           ["--auto-compaction-mode=revision", "--auto-compaction-retention=1000"]
+        , -- Any of the above arguments can be overridden here.
+          additionalArguments
         ]
 
   -- NOTE: Building a canonical list of labels from the advertised addresses

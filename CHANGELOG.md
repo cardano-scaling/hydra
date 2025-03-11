@@ -40,6 +40,21 @@ changes.
   - We now store the `time` in `StateEvent` which is a breaking change to our
   persistence loading
 
+- New environment variable, `HYDRA_ETCD_ADDITIONAL_ARGUMENTS`, when can be
+set before running the hydra node, to control additional etcd features.
+
+You may like to use this to control auto-compaction; for example switching to
+periodic retention for 7 days:
+
+```
+HYDRA_ETCD_ADDITIONAL_ARGUMENTS="--auto-compaction-mode=periodic --auto-compaction-retention=168h" hydra-node
+```
+
+> [!NOTE]
+> Note that spaces in the list of additional arguments is not supported; we
+> split on spaces to get the argument list correct.
+
+
 ## [0.20.0] - 2025-02-04
 
 - **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature
