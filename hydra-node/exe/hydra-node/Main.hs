@@ -4,9 +4,9 @@ module Main where
 
 import Hydra.Prelude hiding (fromList, intercalate)
 
-import Control.Concurrent (myThreadId)
-import Control.Exception (AsyncException (UserInterrupt), throwTo)
+import Control.Concurrent (killThread, mkWeakThreadId, myThreadId)
 import Data.ByteString (intercalate)
+import GHC.Weak (deRefWeak)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
@@ -19,16 +19,14 @@ import Hydra.Options (
   parseHydraCommand,
  )
 import Hydra.Utils (genHydraKeys)
-import System.Posix (Handler (..), installHandler, sigTERM)
+import System.Posix.Signals qualified as Signals
 
 main :: IO ()
 main = do
+  installSigTermHandler
   command <- parseHydraCommand
   case command of
-    Run options -> do
-      -- Handle SIGTERM like SIGINT
-      tid <- myThreadId
-      _ <- installHandler sigTERM (Catch $ throwTo tid UserInterrupt) Nothing
+    Run options ->
       run (identifyNode options)
         `catch` \(SomeException e) -> die $ displayException e
     Publish options ->
@@ -41,6 +39,24 @@ main = do
     let PublishOptions{publishNetworkId = networkId, publishNodeSocket} = opts
     txIds <- publishHydraScripts networkId publishNodeSocket sk
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
+
+-- | Handle SIGTERM like SIGINT
+--
+-- Taken from: <https://github.com/IntersectMBO/cardano-node/commit/ce26b8e6e5b2ccda123f04c224036be44529b97e>
+installSigTermHandler :: IO ()
+installSigTermHandler = do
+  -- Similar implementation to the RTS's handling of SIGINT (see GHC's
+  -- https://gitlab.haskell.org/ghc/ghc/-/blob/master/libraries/base/GHC/TopHandler.hs).
+  runThreadIdWk <- mkWeakThreadId =<< myThreadId
+  _ <-
+    Signals.installHandler
+      Signals.sigTERM
+      ( Signals.CatchOnce $ do
+          runThreadIdMay <- deRefWeak runThreadIdWk
+          forM_ runThreadIdMay killThread
+      )
+      Nothing
+  pure ()
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
