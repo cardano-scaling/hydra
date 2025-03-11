@@ -4,15 +4,15 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.Text qualified as Text
-import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed))
-import Hydra.HeadLogic (Effect (ClientEffect))
+
+import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
 import Hydra.HeadLogicSpec (receiveMessage, testSnapshot)
 import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network.Message (Message (ReqTx))
-import Hydra.Node (HydraNodeLog (BeginEffect, BeginInput))
+import Hydra.Node (HydraNodeLog (..))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
 import Test.Hydra.Tx.Fixture (alice, testHeadId)
 import Test.Network.Ports (randomUnusedTCPPorts)
@@ -28,7 +28,7 @@ spec =
         traceWith tracer (Node $ BeginInput alice 0 (receiveMessage (ReqTx tx1)))
         traceWith tracer (Node $ BeginInput alice 1 (receiveMessage (ReqTx tx2)))
         threadDelay 0.1
-        traceWith tracer (Node $ BeginEffect alice 0 0 (ClientEffect (SnapshotConfirmed testHeadId (testSnapshot 1 1 [tx2, tx1] (utxoRefs [1])) mempty)))
+        traceWith tracer (Node $ LogicOutcome alice (Continue [SnapshotConfirmed testHeadId (testSnapshot 1 1 [tx2, tx1] (utxoRefs [1])) mempty] mempty))
 
         metrics <-
           Text.lines

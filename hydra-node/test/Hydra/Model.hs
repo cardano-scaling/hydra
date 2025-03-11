@@ -47,15 +47,7 @@ import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.BehaviorSpec (
-  SimulatedChainNetwork (..),
-  TestHydraClient (..),
-  createHydraNode,
-  createTestHydraClient,
-  shortLabel,
-  waitMatch,
-  waitUntilMatch,
- )
+import Hydra.BehaviorSpec (SimulatedChainNetwork (..), TestHydraClient (..), createHydraNode, createTestHydraClient, getHeadUTxO, shortLabel, waitMatch, waitUntilMatch)
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
@@ -532,6 +524,7 @@ instance
   , MonadThrow (STM m)
   , MonadLabelledSTM m
   , MonadDelay m
+  , MonadTime m
   ) =>
   RunModel WorldState (RunMonad m)
   where
@@ -612,6 +605,7 @@ seedWorld ::
   , MonadFork m
   , MonadMask m
   , MonadDelay m
+  , MonadTime m
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->
@@ -632,10 +626,12 @@ seedWorld seedKeys seedCP depositDeadline futureCommits = do
     (testClient, nodeThread) <- lift $ do
       outputs <- atomically newTQueue
       labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
+      messages <- atomically newTQueue
+      labelTQueueIO messages ("messages-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
       labelTVarIO outputHistory ("history-" <> shortLabel hsk)
-      node <- createHydraNode (contramap Node tr) ledger initialChainState hsk otherParties outputs outputHistory mockChain seedCP depositDeadline
-      let testClient = createTestHydraClient outputs outputHistory node
+      node <- createHydraNode (contramap Node tr) ledger initialChainState hsk otherParties outputs messages outputHistory mockChain seedCP depositDeadline
+      let testClient = createTestHydraClient outputs messages outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode node
       link nodeThread
       pure (testClient, nodeThread)
@@ -672,7 +668,6 @@ performCommit parties party paymentUTxO = do
             waitMatch n $ \case
               Committed{party = cp, utxo = committedUTxO}
                 | cp == party, committedUTxO == realUTxO -> Just committedUTxO
-              err@CommandFailed{} -> error $ show err
               _ -> Nothing
       pure $ fromUtxo $ List.head $ Data.Foldable.toList observedUTxO
  where
@@ -718,7 +713,6 @@ performDecommit party tx = do
   lift $ do
     waitUntilMatch [thisNode] $ \case
       DecommitFinalized{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performNewTx ::
@@ -748,7 +742,7 @@ performNewTx party tx = do
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       SnapshotConfirmed{snapshot = snapshot} ->
         realTx `elem` Snapshot.confirmed snapshot
-      err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
+      err@(TxInvalid{}) -> error ("expected tx to be valid: " <> show err)
       _ -> False
     pure tx
 
@@ -784,7 +778,6 @@ performInit party = do
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsInitializing{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performAbort :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
@@ -795,7 +788,6 @@ performAbort party = do
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsAborted{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m ()
@@ -808,7 +800,6 @@ performClose party = do
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsClosed{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
@@ -824,7 +815,7 @@ performFanout party = do
     | otherwise = do
         outputs <- lift $ serverOutputs node
         case find headIsFinalized outputs of
-          Just HeadIsFinalized{utxo} -> pure utxo
+          Just (HeadIsFinalized{utxo}) -> pure utxo
           _ -> lift (threadDelay 1) >> findInOutput node (n - 1)
   headIsFinalized = \case
     HeadIsFinalized{} -> True
@@ -845,7 +836,6 @@ performCloseWithInitialSnapshot st party = do
             -- we deliberately wait to see close with the initial snapshot
             -- here to mimic one node not seeing the confirmed tx
             snapshotNumber == Snapshot.UnsafeSnapshotNumber 0
-          err@CommandFailed{} -> error $ show err
           _ -> False
     _ -> error "Not in open state"
 
@@ -925,7 +915,7 @@ x === y = do
 
 waitForUTxOToSpend ::
   forall m.
-  (MonadTimer m, MonadDelay m) =>
+  MonadDelay m =>
   UTxO ->
   CardanoSigningKey ->
   Value ->
@@ -938,19 +928,25 @@ waitForUTxOToSpend utxo key value node = go 100
     0 ->
       pure $ Left utxo
     n -> do
-      node `send` Input.GetUTxO
       threadDelay 5
-      timeout 10 (waitForNext node) >>= \case
-        Just (GetUTxOResponse _ u)
-          | u /= mempty ->
-              maybe
-                (go (n - 1))
-                (pure . Right)
-                (find matchPayment (UTxO.pairs u))
-        _ -> go (n - 1)
+      u <- headUTxO node
+      threadDelay 5
+      if u /= mempty
+        then case find matchPayment (UTxO.pairs u) of
+          Nothing -> go (n - 1)
+          Just (txIn, txOut) -> pure $ Right (txIn, txOut)
+        else go (n - 1)
 
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut
+
+headUTxO ::
+  (IsTx tx, MonadDelay m) =>
+  TestHydraClient tx m ->
+  m (UTxOType tx)
+headUTxO node = do
+  threadDelay 1
+  fromMaybe mempty . getHeadUTxO <$> queryState node
 
 isOwned :: CardanoSigningKey -> (TxIn, TxOut ctx) -> Bool
 isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (ShelleyAddress _ cre _)}) =

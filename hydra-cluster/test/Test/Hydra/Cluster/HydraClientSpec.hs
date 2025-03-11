@@ -45,7 +45,7 @@ import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Tx (HeadId, IsTx (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
-import HydraNode (HydraClient (..), HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, waitNoMatch, withConnectionToNodeHost, withHydraCluster)
+import HydraNode (HydraClient (..), HydraNodeLog, getSnapshotUTxO, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, waitNoMatch, withConnectionToNodeHost, withHydraCluster)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
@@ -118,13 +118,7 @@ filterTxValidByAddressScenario tracer tmpDir = do
     (newTxId, newExpectedSnapshotNumber) <-
       runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
         -- XXX: perform a new tx while the connection query by address is open.
-        send n1 $ input "GetUTxO" []
-        utxo <- waitMatch 3 n1 $ \v -> do
-          guard $ v ^? key "tag" == Just "GetUTxOResponse"
-          headId' :: HeadId <- v ^? key "headId" >>= parseMaybe parseJSON
-          guard $ headId == headId'
-          v ^? key "utxo" >>= parseMaybe parseJSON
-
+        utxo <- getSnapshotUTxO n1
         newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
         waitFor hydraTracer 10 (toList nodes) $
           output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId, "transaction" .= newTx]
@@ -177,13 +171,7 @@ filterTxValidByAddressScenario tracer tmpDir = do
     -- 6/ query bob address from alice node -> Does see new bob-self tx
     runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
       -- XXX: perform a new tx while the connection query by address is open.
-      send n1 $ input "GetUTxO" []
-      utxo <- waitMatch 3 n1 $ \v -> do
-        guard $ v ^? key "tag" == Just "GetUTxOResponse"
-        headId' :: HeadId <- v ^? key "headId" >>= parseMaybe parseJSON
-        guard $ headId == headId'
-        v ^? key "utxo" >>= parseMaybe parseJSON
-
+      utxo <- getSnapshotUTxO n1
       newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
       waitFor hydraTracer 10 (toList nodes) $
         output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId, "transaction" .= newTx]

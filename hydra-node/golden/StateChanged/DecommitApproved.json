@@ -1,0 +1,32 @@
+{
+    "samples": [
+        {
+            "decommitTxId": "0001000001000101010000000100000100010101000100010101010101000100",
+            "headId": "01010101000101000100010101010001",
+            "tag": "DecommitApproved",
+            "utxoToDecommit": {
+                "0100010101000001000100010001010000000100000001010000000000000000#36": {
+                    "address": "addr_test1xrssr4hev5zhapgg4amvzmf3a3jhwg23gsag5vuqs4ajhsnnr6nac9gxsxkhgy2sd7cvwdm0dtz86uyftwa4d28ttzts9gqxuj",
+                    "datum": null,
+                    "datumhash": "e96905df7a4856602639b374460df4dbcef3957a1ecb5f7178a29639596826e9",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "8202828201848200581cd09523a8d8d387de4c99dc82a683a6c31edd9563c2bde71fb96b220a8202848200581c20631f15c30643e5fa42fc5ca16957b4a4162cc87f21f7b65ba444568200581c318978b54ad14e9a1fc910d20af8e7eadd74df232f2f74896befa2ed8200581c119a615722aaf5f4bad7a1a498320012e1ca584394bcda86a1ac5c9a8200581c2f7d282107d7b9bb336ded9446bb791e77b91a2c31e9b8c34b022ee58200581c222af734a138f537c0694a6a4bd27655711799ff47618d6bd953b48e8200581c3ff52f637fbc01605dc0d4c7a5eca05ab546691c3056320714577c1f8201838201808202808202828200581c837c55575fc2d1f38d560b6f364db26def15cb7a917268b9728291508200581c3ae240e9e57c53534f84cfa7411eac9da47815630e8b26707f861703",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
+                            "37": 2480181849911850287
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "seed": 1803122927
+}

@@ -1,0 +1,16 @@
+{
+    "samples": [
+        {
+            "ourVersion": 1,
+            "remoteHost": {
+                "hostname": "0.0.0.0",
+                "port": 0
+            },
+            "tag": "PeerHandshakeFailure",
+            "theirVersions": [
+                0
+            ]
+        }
+    ],
+    "seed": 353083614
+}

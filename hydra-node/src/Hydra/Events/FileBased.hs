@@ -7,82 +7,42 @@ import Hydra.Prelude
 
 import Conduit (mapMC, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
-import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
-import Hydra.HeadLogic.Outcome (StateChanged)
+import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Persistence (PersistenceIncremental (..))
 
 -- | A basic file based event source and sink defined using an
 -- 'PersistenceIncremental' handle.
---
--- The complexity in this implementation mostly stems from the fact that we want
--- to be backward-compatible with the old, plain format of storing
--- 'StateChanged' items directly to disk using 'PersistenceIncremental'.
---
--- If any 'Legacy StateChanged' items are discovered, a running index is used
--- for the 'eventId', while the 'New StateEvent' values are just stored as is.
---
--- A new implementation for an 'EventSource' with a compatible 'EventSink' could
--- be defined more generically with constraints:
---
--- (ToJSON e, FromJSON e, HasEventId) e => (EventSource e m, EventSink e m)
 eventPairFromPersistenceIncremental ::
-  (IsChainState tx, MonadSTM m) =>
-  PersistenceIncremental (PersistedStateChange tx) m ->
-  m (EventSource (StateEvent tx) m, EventSink (StateEvent tx) m)
+  (ToJSON e, FromJSON e, HasEventId e, MonadSTM m) =>
+  PersistenceIncremental e m ->
+  m (EventSource e m, EventSink e m)
 eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
   eventIdV <- newTVarIO Nothing
   let
     getLastSeenEventId = readTVar eventIdV
 
-    setLastSeenEventId StateEvent{eventId} = do
-      writeTVar eventIdV (Just eventId)
-
-    getNextEventId =
-      maybe 0 (+ 1) <$> readTVar eventIdV
+    setLastSeenEventId evt = do
+      writeTVar eventIdV (Just $ getEventId evt)
 
     -- Keep track of the last seen event id when loading
     sourceEvents =
       source
         .| mapMC
-          ( \i -> lift . atomically $ do
-              event <- case i of
-                New e -> pure e
-                Legacy sc -> do
-                  eventId <- getNextEventId
-                  pure $ StateEvent eventId sc
+          ( \event -> lift . atomically $ do
               setLastSeenEventId event
               pure event
           )
 
     -- Filter events that are already stored
-    putEvent e@StateEvent{eventId} = do
+    putEvent evt = do
       atomically getLastSeenEventId >>= \case
-        Nothing -> store e
+        Nothing -> store evt
         Just lastSeenEventId
-          | eventId > lastSeenEventId -> store e
+          | getEventId evt > lastSeenEventId -> store evt
           | otherwise -> pure ()
 
     store e = do
-      append (New e)
+      append e
       atomically $ setLastSeenEventId e
 
   pure (EventSource{sourceEvents}, EventSink{putEvent})
-
--- | Internal data type used by 'createJSONFileEventSourceAndSink' to be
--- compatible with plain usage of 'PersistenceIncrementa' using plain
--- 'StateChanged' items to the new 'StateEvent' persisted items.
-data PersistedStateChange tx
-  = Legacy (StateChanged tx)
-  | New (StateEvent tx)
-  deriving stock (Generic, Show, Eq)
-
-instance IsChainState tx => ToJSON (PersistedStateChange tx) where
-  toJSON = \case
-    Legacy sc -> toJSON sc
-    New e -> toJSON e
-
-instance IsChainState tx => FromJSON (PersistedStateChange tx) where
-  parseJSON v =
-    New <$> parseJSON v
-      <|> Legacy <$> parseJSON v

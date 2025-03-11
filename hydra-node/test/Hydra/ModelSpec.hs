@@ -122,8 +122,6 @@ import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import GHC.IO (unsafePerformIO)
-import Hydra.API.ClientInput (ClientInput (GetUTxO))
-import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse))
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
@@ -137,6 +135,7 @@ import Hydra.Model (
   genInit,
   genPayment,
   genSeed,
+  headUTxO,
   runMonad,
   toRealUTxO,
   toTxOuts,
@@ -205,6 +204,7 @@ prop_checkModel =
         nodes <- run $ gets nodes
         assert (parties == Map.keysSet nodes)
         forM_ parties $ \p -> do
+          run $ lift $ threadDelay 1
           assertBalancesInOpenHeadAreConsistent hydraState nodes p
  where
   waitForAMinute :: MonadDelay m => m ()
@@ -216,10 +216,12 @@ assertBalancesInOpenHeadAreConsistent ::
   Party ->
   PropertyM (RunMonad (IOSim s)) ()
 assertBalancesInOpenHeadAreConsistent world nodes p = do
+  assert (p `member` nodes)
   let node = nodes ! p
   case world of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
-      utxo <- run $ getUTxO node
+      utxo <- run $ lift $ headUTxO node
+      run $ lift $ threadDelay 1
       let expectedBalance =
             Map.fromListWith
               (<>)
@@ -245,14 +247,6 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
       assert (expectedBalance == actualBalance)
     _ -> do
       pure ()
- where
-  getUTxO node = lift $ do
-    node `send` GetUTxO
-    let loop =
-          waitForNext node >>= \case
-            GetUTxOResponse _ u -> pure u
-            _ -> loop
-    loop
 
 propIsDistributive :: (Show b, Eq b, Semigroup a, Semigroup b) => (a -> b) -> a -> a -> Property
 propIsDistributive f x y =

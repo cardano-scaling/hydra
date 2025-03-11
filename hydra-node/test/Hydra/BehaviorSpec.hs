@@ -21,8 +21,8 @@ import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
 import Hydra.API.ClientInput
-import Hydra.API.Server (Server (..))
-import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
+import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
+import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
@@ -33,7 +33,8 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.HeadLogic (Effect (..), HeadState (..), IdleState (..), Input (..), defaultTTL)
+import Hydra.Events (EventSink (..))
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), OpenState (..), defaultTTL)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -59,7 +60,7 @@ import Test.Hydra.Tx.Fixture (
   testHeadId,
   testHeadSeed,
  )
-import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
+import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, shouldSatisfy, traceInIOSim)
 
 spec :: Spec
 spec = parallel $ do
@@ -173,9 +174,10 @@ spec = parallel $ do
 
               send n1 Abort
 
-              waitMatch n1 $ \case
-                CommandFailed{} -> guard True
-                _ -> Nothing
+              m <- waitForNextMessage n1
+              m `shouldSatisfy` \case
+                CommandFailed{} -> True
+                _ -> False
 
     it "ignores head initialization of other head" $
       shouldRunInSim $
@@ -202,9 +204,8 @@ spec = parallel $ do
               simulateCommit chain (alice, utxoRef 1)
 
               waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
-              send n2 GetUTxO
-
-              waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
+              headUTxO <- getHeadUTxO <$> queryState n1
+              fromMaybe mempty headUTxO `shouldBe` utxoRefs [1]
 
     describe "in an open head" $ do
       it "sees the head closed by other nodes" $
@@ -372,9 +373,8 @@ spec = parallel $ do
 
                 waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
 
-                send n1 GetUTxO
-
-                waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
+                headUTxO <- getHeadUTxO <$> queryState n1
+                fromMaybe mempty headUTxO `shouldBe` utxoRefs [2, 42]
 
       describe "Commit" $ do
         it "requested commits get approved" $
@@ -395,13 +395,11 @@ spec = parallel $ do
                       _ -> False
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
 
-                  send n1 GetUTxO
-                  waitUntilMatch [n1] $
-                    \case
-                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && member 11 utxo
-                      _ -> False
+                  headUTxO <- getHeadUTxO <$> queryState n1
+                  fromMaybe mempty headUTxO `shouldSatisfy` member 11
+
         it "can process multiple commits" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
@@ -426,7 +424,7 @@ spec = parallel $ do
                       _ -> False
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
                   let normalTx = SimpleTx 3 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
                   waitUntil [n1, n2] $ TxValid testHeadId 3 normalTx
@@ -436,7 +434,7 @@ spec = parallel $ do
                         maybe False (22 `member`) utxoToCommit
                       _ -> False
                   waitUntil [n2] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
-                  waitUntil [n2] $ CommitFinalized{headId = testHeadId, theDeposit = 2}
+                  waitUntil [n2] $ CommitFinalized{headId = testHeadId, depositTxId = 2}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
@@ -461,7 +459,7 @@ spec = parallel $ do
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
                     _ -> False
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
@@ -527,7 +525,7 @@ spec = parallel $ do
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = utxoRefs [11]}
-                  waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
                   injectChainEvent
                     n2
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline2, newChainState = SimpleChainState{slot = ChainSlot 1}}
@@ -560,7 +558,7 @@ spec = parallel $ do
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                         maybe False (11 `member`) utxoToCommit
                       _ -> False
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
 
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
                   send n2 (Decommit decommitTx)
@@ -596,13 +594,10 @@ spec = parallel $ do
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                         maybe False (11 `member`) utxoToCommit
                       _ -> False
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
 
-                  send n1 GetUTxO
-                  waitUntilMatch [n1] $
-                    \case
-                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && member 11 utxo
-                      _ -> False
+                  headUTxO <- getHeadUTxO <$> queryState n1
+                  fromMaybe mempty headUTxO `shouldBe` utxoRefs [1, 2, 11]
 
                   let decommitTx = SimpleTx 1 (utxoRef 11) (utxoRef 88)
                   send n2 (Decommit decommitTx)
@@ -616,11 +611,9 @@ spec = parallel $ do
 
                   waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [88])
                   waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
-                  send n1 GetUTxO
-                  waitUntilMatch [n1] $
-                    \case
-                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 11 utxo)
-                      _ -> False
+
+                  headUTxO2 <- getHeadUTxO <$> queryState n1
+                  fromMaybe mempty headUTxO2 `shouldSatisfy` (not . member 11)
 
       describe "Decommit" $ do
         it "can request decommit" $
@@ -655,11 +648,8 @@ spec = parallel $ do
                   waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
                   waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
 
-                  send n1 GetUTxO
-                  waitUntilMatch [n1] $
-                    \case
-                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 42 utxo)
-                      _ -> False
+                  headUTxO <- getHeadUTxO <$> queryState n1
+                  fromMaybe mempty headUTxO `shouldSatisfy` (not . member 42)
 
         it "can only process one decommit at once" $
           shouldRunInSim $ do
@@ -841,13 +831,21 @@ spec = parallel $ do
       let result = runSimTrace $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
-                send n1 Init
-                waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+                send n1 Abort
+                msg <- waitForNextMessage n1
+                msg `shouldSatisfy` \case
+                  CommandFailed{} -> True
+                  _ -> False
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-      logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
-      logs `shouldContain` [EndEffect alice 2 0]
+      logs
+        `shouldSatisfy` any
+          ( \case
+              (BeginEffect _ _ _ (ClientEffect CommandFailed{})) -> True
+              _ -> False
+          )
+      logs `shouldContain` [EndEffect alice 0 0]
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
@@ -889,19 +887,20 @@ waitUntil ::
 waitUntil nodes expected =
   waitUntilMatch nodes (== expected)
 
--- | Wait for some output to match some predicate /eventually/. This will not
--- wait forever, but for a long time (1 month) to get a nice error location.
--- Should not be an issue when used within `shouldRunInSim`, this was even 1000
--- years before - but we since we are having the protocol produce 'Tick' events
--- constantly this would be fully simulated to the end.
+-- | Wait for a server output to match some predicate /eventually/. If a client
+-- message is received instead, this fails. This will not wait forever, but for
+-- a long time (1 month) to get a nice error location. Should not be an issue
+-- when used within `shouldRunInSim`, this was even 1000 years before - but we
+-- since we are having the protocol produce 'Tick' events constantly this would
+-- be fully simulated to the end.
 waitUntilMatch ::
-  (Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
+  (Show (ClientMessage tx), Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
   [TestHydraClient tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
 waitUntilMatch nodes predicate = do
   seenMsgs <- newTVarIO []
-  timeout oneMonth (forConcurrently_ nodes $ match seenMsgs) >>= \case
+  timeout oneMonth (forConcurrently_ nodes $ go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs
@@ -912,6 +911,11 @@ waitUntilMatch nodes predicate = do
             , unlines (show <$> msgs)
             ]
  where
+  go seenMsgs n =
+    race_
+      (waitForNextMessage n >>= \msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg)
+      (match seenMsgs n)
+
   match seenMsgs n = do
     msg <- waitForNext n
     atomically (modifyTVar' seenMsgs (msg :))
@@ -942,6 +946,7 @@ waitMatch node predicate =
 data TestHydraClient tx m = TestHydraClient
   { send :: ClientInput tx -> m ()
   , waitForNext :: m (ServerOutput tx)
+  , waitForNextMessage :: m (ClientMessage tx)
   , injectChainEvent :: ChainEvent tx -> m ()
   , serverOutputs :: m [ServerOutput tx]
   , queryState :: m (HeadState tx)
@@ -1019,7 +1024,7 @@ simulatedChainAndNetwork initialChainState = do
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   }
               mockNetwork = createMockNetwork draftNode nodes
-              mockServer = Server{sendOutput = const $ pure ()}
+              mockServer = Server{sendMessage = const $ pure ()}
           node <- connect mockChain mockNetwork mockServer draftNode
           atomically $ modifyTVar nodes (node :)
           pure node
@@ -1167,42 +1172,55 @@ withHydraNode ::
   IOSim s a
 withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
+  messages <- atomically newTQueue
   outputHistory <- newTVarIO mempty
   let initialChainState = SimpleChainState{slot = ChainSlot 0}
-  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs outputHistory chain testContestationPeriod testDepositDeadline
+  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs messages outputHistory chain testContestationPeriod testDepositDeadline
   withAsync (runHydraNode node) $ \_ ->
-    action (createTestHydraClient outputs outputHistory node)
+    action (createTestHydraClient outputs messages outputHistory node)
 
 createTestHydraClient ::
   MonadSTM m =>
   TQueue m (ServerOutput tx) ->
+  TQueue m (ClientMessage tx) ->
   TVar m [ServerOutput tx] ->
   HydraNode tx m ->
   TestHydraClient tx m
-createTestHydraClient outputs outputHistory HydraNode{inputQueue, nodeState} =
+createTestHydraClient outputs messages outputHistory HydraNode{inputQueue, nodeState} =
   TestHydraClient
     { send = enqueue inputQueue . ClientInput
     , waitForNext = atomically (readTQueue outputs)
+    , waitForNextMessage = atomically (readTQueue messages)
     , injectChainEvent = enqueue inputQueue . ChainInput
     , serverOutputs = reverse <$> readTVarIO outputHistory
     , queryState = atomically (queryHeadState nodeState)
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
+  (IsTx tx, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
   Tracer m (HydraNodeLog tx) ->
   Ledger tx ->
   ChainStateType tx ->
   SigningKey HydraKey ->
   [Party] ->
   TQueue m (ServerOutput tx) ->
+  TQueue m (ClientMessage tx) ->
   TVar m [ServerOutput tx] ->
   SimulatedChainNetwork tx m ->
   ContestationPeriod ->
   DepositDeadline ->
   m (HydraNode tx m)
-createHydraNode tracer ledger chainState signingKey otherParties outputs outputHistory chain cp depositDeadline = do
+createHydraNode tracer ledger chainState signingKey otherParties outputs messages outputHistory chain cp depositDeadline = do
   (eventSource, eventSink) <- createMockSourceSink
+  let apiSink =
+        EventSink
+          { putEvent = \event ->
+              case mkTimedServerOutputFromStateEvent event of
+                Nothing -> pure ()
+                Just TimedServerOutput{output} -> atomically $ do
+                  writeTQueue outputs output
+                  modifyTVar' outputHistory (output :)
+          }
   -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
   let headState = Idle IdleState{chainState}
   let chainStateHistory = initHistory chainState
@@ -1218,16 +1236,14 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs outputH
         , nodeState
         , inputQueue
         , eventSource
-        , eventSinks = [eventSink]
+        , eventSinks = [apiSink, eventSink]
         , chainStateHistory
         }
   pure $
     node
       { server =
           Server
-            { sendOutput = \out -> atomically $ do
-                writeTQueue outputs out
-                modifyTVar' outputHistory (out :)
+            { sendMessage = atomically . writeTQueue messages
             }
       }
  where
@@ -1275,3 +1291,10 @@ assertHeadIsClosedWith expectedSnapshotNumber = \case
 shortLabel :: SigningKey HydraKey -> String
 shortLabel s =
   take 8 $ drop 1 $ List.words (show s) !! 2
+
+-- | Get the head 'UTxO' from open 'HeadState'.
+getHeadUTxO :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
+getHeadUTxO = \case
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO}} -> Just localUTxO
+  Initial InitialState{committed} -> Just $ fold committed
+  _ -> Nothing

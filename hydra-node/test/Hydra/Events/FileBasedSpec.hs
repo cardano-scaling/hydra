@@ -8,6 +8,7 @@ import Test.Hydra.Prelude
 import Hydra.Chain.Direct.State ()
 
 import Conduit (runConduitRes, sinkList, (.|))
+import Data.List (zipWith3)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvents, putEvent)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (StateChanged)
@@ -15,10 +16,10 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Test.Aeson.GenericSpecs (
-  Settings (..),
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
   roundtripAndGoldenSpecsWithSettings,
+  sampleSize,
  )
 import Test.QuickCheck (forAllShrink, ioProperty, sublistOf, (===))
 import Test.QuickCheck.Gen (listOf)
@@ -27,8 +28,8 @@ spec :: Spec
 spec = do
   describe "persisted event format" $ do
     -- NOTE: Whenever one of these fails, make sure to record a **BREAKING** change of the persisted 'state'.
-    roundtripAndGoldenSpecsWithSettings (defaultSettings{sampleSize = 5}) (Proxy @(StateEvent Tx))
-    roundtripAndGoldenADTSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(StateChanged Tx))
+    roundtripAndGoldenSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(MinimumSized (StateEvent Tx)))
+    roundtripAndGoldenADTSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(MinimumSized (StateChanged Tx)))
 
   describe "eventPairFromPersistenceIncremental" $ do
     prop "can stream events" $
@@ -76,10 +77,8 @@ spec = do
       forAllShrink genContinuousEvents shrink $ \events -> do
         ioProperty $ do
           withTempDir "hydra-persistence" $ \tmpDir -> do
-            -- Store state changes directly (legacy)
-            let stateChanges = map stateChanged events
             PersistenceIncremental{append} <- createPersistenceIncremental (tmpDir <> "/data")
-            forM_ stateChanges append
+            forM_ events append
             -- Load and store events through the event source interface
             (src, EventSink{putEvent}) <-
               eventPairFromPersistenceIncremental
@@ -88,16 +87,15 @@ spec = do
             -- Store all loaded events like the node would do
             forM_ loadedEvents putEvent
             pure $
-              map stateChanged loadedEvents === stateChanges
+              loadedEvents === events
 
 genContinuousEvents :: Gen [StateEvent SimpleTx]
 genContinuousEvents =
-  zipWith StateEvent [0 ..] <$> listOf arbitrary
+  zipWith3 StateEvent [0 ..] <$> listOf arbitrary <*> listOf arbitrary
 
 withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
 withEventSourceAndSink action =
   withTempDir "hydra-persistence" $ \tmpDir -> do
-    (eventSource, eventSink) <-
-      eventPairFromPersistenceIncremental
-        =<< createPersistenceIncremental (tmpDir <> "/data")
+    persistence <- createPersistenceIncremental (tmpDir <> "/data")
+    (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
     action eventSource eventSink

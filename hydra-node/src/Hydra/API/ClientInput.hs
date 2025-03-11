@@ -5,12 +5,12 @@ module Hydra.API.ClientInput where
 import Hydra.Prelude
 
 import Hydra.Tx (IsTx, TxIdType)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 data ClientInput tx
   = Init
   | Abort
   | NewTx {transaction :: tx}
-  | GetUTxO
   | Recover {recoverTxId :: TxIdType tx}
   | Decommit {decommitTx :: tx}
   | Close
@@ -33,9 +33,10 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx)) => Arbitrary (ClientInput tx) w
     Init -> []
     Abort -> []
     NewTx tx -> NewTx <$> shrink tx
-    GetUTxO -> []
     Recover tx -> Recover <$> shrink tx
     Decommit tx -> Decommit <$> shrink tx
     Close -> []
     Contest -> []
     Fanout -> []
+
+instance (Arbitrary tx, Arbitrary (TxIdType tx)) => ToADTArbitrary (ClientInput tx)

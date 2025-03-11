@@ -73,6 +73,8 @@ channels:
       message:
         oneOf:
           - $ref: "api.yaml#/components/messages/Greetings"
+          - $ref: "api.yaml#/components/messages/CommandFailed"
+          - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
           - $ref: "api.yaml#/components/messages/NetworkConnected"
@@ -89,10 +91,7 @@ channels:
           - $ref: "api.yaml#/components/messages/TxValid"
           - $ref: "api.yaml#/components/messages/TxInvalid"
           - $ref: "api.yaml#/components/messages/SnapshotConfirmed"
-          - $ref: "api.yaml#/components/messages/GetUTxOResponse"
           - $ref: "api.yaml#/components/messages/InvalidInput"
-          - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
-          - $ref: "api.yaml#/components/messages/CommandFailed"
           - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
           - $ref: "api.yaml#/components/messages/DecommitInvalid"
           - $ref: "api.yaml#/components/messages/DecommitRequested"
@@ -112,7 +111,6 @@ channels:
           - $ref: "api.yaml#/components/messages/Init"
           - $ref: "api.yaml#/components/messages/Abort"
           - $ref: "api.yaml#/components/messages/NewTx"
-          - $ref: "api.yaml#/components/messages/GetUTxO"
           - $ref: "api.yaml#/components/messages/Recover"
           - $ref: "api.yaml#/components/messages/Decommit"
           - $ref: "api.yaml#/components/messages/Close"
@@ -432,23 +430,10 @@ components:
             type: string
             enum: ["Fanout"]
 
-    GetUTxO:
-      title: GetUTxO
-      description: |
-        DEPRECATED: Use the `GET /snapshot/utxo http endpoint` to query the confirmed UTxO set.
-        Asynchronously access the current UTxO set of the Hydra node. This eventually triggers a UTxO event from the server.
-      payload:
-        type: object
-        required:
-          - tag
-        properties:
-          tag:
-            type: string
-            enum: ["GetUTxO"]
 
     ########
     #
-    # Server Outputs
+    # Messages received on websocket
     #
     #######
 
@@ -583,14 +568,6 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/SnapshotConfirmed"
 
-    GetUTxOResponse:
-      title: GetUTxOResponse
-      description: |
-        DEPRECATED: Use the `GET /snapshot/utxo http endpoint` to query the confirmed UTxO set.
-        Emitted as a result of a `GetUTxO` to reflect the current UTxO of the underlying node.
-      payload:
-        $ref: "api.yaml#/components/schemas/GetUTxOResponse"
-
     InvalidInput:
       title: InvalidInput
       description: |
@@ -722,48 +699,12 @@ components:
   #######
 
   schemas:
-    ServerOutput:
-      oneOf:
-        - $ref: "api.yaml#/components/schemas/Greetings"
-        - $ref: "api.yaml#/components/schemas/NetworkConnected"
-        - $ref: "api.yaml#/components/schemas/NetworkDisconnected"
-        - $ref: "api.yaml#/components/schemas/PeerConnected"
-        - $ref: "api.yaml#/components/schemas/PeerDisconnected"
-        - $ref: "api.yaml#/components/schemas/PeerHandshakeFailure"
-        - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
-        - $ref: "api.yaml#/components/schemas/Committed"
-        - $ref: "api.yaml#/components/schemas/HeadIsOpen"
-        - $ref: "api.yaml#/components/schemas/HeadIsClosed"
-        - $ref: "api.yaml#/components/schemas/HeadIsContested"
-        - $ref: "api.yaml#/components/schemas/ReadyToFanout"
-        - $ref: "api.yaml#/components/schemas/HeadIsAborted"
-        - $ref: "api.yaml#/components/schemas/HeadIsFinalized"
-        - $ref: "api.yaml#/components/schemas/TxValid"
-        - $ref: "api.yaml#/components/schemas/TxInvalid"
-        - $ref: "api.yaml#/components/schemas/SnapshotConfirmed"
-        - $ref: "api.yaml#/components/schemas/GetUTxOResponse"
-        - $ref: "api.yaml#/components/schemas/InvalidInput"
-        - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
-        - $ref: "api.yaml#/components/schemas/CommandFailed"
-        - $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
-        - $ref: "api.yaml#/components/schemas/DecommitInvalid"
-        - $ref: "api.yaml#/components/schemas/DecommitRequested"
-        - $ref: "api.yaml#/components/schemas/DecommitApproved"
-        - $ref: "api.yaml#/components/schemas/DecommitFinalized"
-        - $ref: "api.yaml#/components/schemas/CommitRecorded"
-        - $ref: "api.yaml#/components/schemas/CommitApproved"
-        - $ref: "api.yaml#/components/schemas/CommitFinalized"
-        - $ref: "api.yaml#/components/schemas/CommitRecovered"
-        - $ref: "api.yaml#/components/schemas/CommitIgnored"
-
     Greetings:
       type: object
       required:
         - tag
         - me
         - headStatus
-        - seq
-        - timestamp
         - hydraNodeVersion
       properties:
         tag:
@@ -1125,26 +1066,6 @@ components:
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
-    GetUTxOResponse:
-      type: object
-      required:
-      - tag
-      - headId
-      - utxo
-      - seq
-      - timestamp
-      properties:
-        tag:
-          type: string
-          enum: ["GetUTxOResponse"]
-        headId:
-          $ref: "api.yaml#/components/schemas/HeadId"
-        utxo:
-          $ref: "api.yaml#/components/schemas/UTxO"
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
 
     InvalidInput:
       type: object
@@ -1152,8 +1073,6 @@ components:
       - tag
       - reason
       - input
-      - seq
-      - timestamp
       properties:
         tag:
           type: string
@@ -1162,20 +1081,13 @@ components:
           type: string
         input:
           type: string
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
 
     PostTxOnChainFailed:
       type: object
-      additionalProperties: false
       required:
       - tag
       - postChainTx
       - postTxError
-      - seq
-      - timestamp
       properties:
         tag:
           type: string
@@ -1184,18 +1096,12 @@ components:
           $ref: "api.yaml#/components/schemas/PostChainTx"
         postTxError:
           $ref: "api.yaml#/components/schemas/PostTxError"
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
 
     CommandFailed:
       type: object
       required:
       - tag
       - clientInput
-      - seq
-      - timestamp
       properties:
         tag:
           type: string
@@ -1205,16 +1111,11 @@ components:
             - $ref: "api.yaml#/components/messages/Init/payload"
             - $ref: "api.yaml#/components/messages/Abort/payload"
             - $ref: "api.yaml#/components/messages/NewTx/payload"
-            - $ref: "api.yaml#/components/messages/GetUTxO/payload"
             - $ref: "api.yaml#/components/messages/Decommit/payload"
             - $ref: "api.yaml#/components/messages/Recover/payload"
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
 
     IgnoredHeadInitializing:
       type: object
@@ -1445,7 +1346,7 @@ components:
       required:
         - tag
         - headId
-        - theDeposit
+        - depositTxId
         - seq
         - timestamp
       properties:
@@ -1454,7 +1355,7 @@ components:
           enum: ["CommitFinalized"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
-        theDeposit:
+        depositTxId:
           type: string
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"

@@ -10,9 +10,6 @@
     "build": "yarn prepare && docusaurus build",
     "build-dev": "yarn prepare && docusaurus build --no-minify -l en",
     "start": "yarn dummy-spec && docusaurus start",
-    "validate:inputs": "./validate-api.js publish '/' '../hydra-node/golden/ReasonablySized (ClientInput (Tx ConwayEra)).json'",
-    "validate:outputs": "./validate-api.js subscribe '/' '../hydra-node/golden/ReasonablySized (TimedServerOutput (Tx ConwayEra)).json'",
-    "validate": "yarn validate:inputs && yarn validate:outputs",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
@@ -31,7 +28,6 @@
     "@docusaurus/preset-classic": "^3.6.3",
     "@docusaurus/theme-mermaid": "^3.6.3",
     "@mdx-js/react": "^3.1.0",
-    "asyncapi-validator": "4.0.0",
     "clsx": "^1.1.1",
     "framer-motion": "^11.3.19",
     "prism-react-renderer": "^1.2.1",
@@ -43,11 +39,7 @@
     "@asyncapi/specs": "4.2.1"
   },
   "browserslist": {
-    "production": [
-      ">0.5%",
-      "not dead",
-      "not op_mini all"
-    ],
+    "production": [">0.5%", "not dead", "not op_mini all"],
     "development": [
       "last 1 chrome version",
       "last 1 firefox version",

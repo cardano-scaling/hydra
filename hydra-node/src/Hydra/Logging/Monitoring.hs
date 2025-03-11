@@ -6,8 +6,7 @@
 --    relevant constructor for the 'Metric' value and a registration function,
 --  * Update the 'monitor' function to Handle relevant 'HydraLog' entries and update
 --    underlying Prometheus metrics store. Nested helpers are provided to increase a
---    'Counter' by one (@tick@), by some integral value (@tickN@), and to 'observe'
---    some value in an 'Histogram'.
+--    'Counter' by one (@tick@) and to 'observe' some value in an 'Histogram'.
 module Hydra.Logging.Monitoring (
   withMonitoring,
 ) where
@@ -17,15 +16,14 @@ import Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
-import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.HeadLogic (
-  Effect (ClientEffect),
   Input (NetworkInput),
  )
+import Hydra.HeadLogic.Outcome (Outcome (Continue), StateChanged (..))
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
-import Hydra.Node (HydraNodeLog (BeginEffect, BeginInput, EndInput, input))
+import Hydra.Node (HydraNodeLog (..))
 import Hydra.Tx (IsTx (TxIdType), Snapshot (confirmed), txId)
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, HistogramMetric))
@@ -96,7 +94,7 @@ monitor transactionsMap metricsMap = \case
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
     tick "hydra_head_requested_tx"
-  (Node (BeginEffect _ _ _ (ClientEffect (SnapshotConfirmed _ snapshot _)))) -> do
+  (Node (LogicOutcome _ (Continue [SnapshotConfirmed _ snapshot _] _))) -> do
     t <- getMonotonicTime
     forM_ (confirmed snapshot) $ \tx -> do
       txsStartTime <- readTVarIO transactionsMap

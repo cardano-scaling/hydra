@@ -31,7 +31,7 @@ import Hydra.Tx.DepositDeadline (DepositDeadline)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
-import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
+import Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJSON)
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
@@ -211,15 +211,9 @@ postDecommit HydraClient{apiHost = Host{hostname, port}} decommitTx = do
 -- this parses the response as a 'UTxO' type as we often need to pick it apart.
 getSnapshotUTxO :: HydraClient -> IO UTxO
 getSnapshotUTxO HydraClient{apiHost = Host{hostname, port}} =
-  runReq defaultHttpConfig request <&> responseBody
- where
-  request =
-    Req.req
-      GET
-      (Req.http hostname /: "snapshot" /: "utxo")
-      NoReqBody
-      (Proxy :: Proxy (JsonResponse UTxO))
-      (Req.port (fromInteger . toInteger $ port))
+  parseUrlThrow ("GET http://" <> T.unpack hostname <> ":" <> show port <> "/snapshot/utxo")
+    >>= httpJSON
+    <&> getResponseBody
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
@@ -414,7 +408,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =
-  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port} Nothing
+  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port} (Just "/?history=yes")
  where
   hostname = "127.0.0.1"
   port = fromInteger $ 4_000 + toInteger hydraNodeId

@@ -1,43 +1,42 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.Server where
 
-import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq)
+import Hydra.Prelude hiding (catMaybes, map, mapM_, seq, state)
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (runConduitRes, sinkList, (.|))
+import Conduit (mapM_C, runConduitRes, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
 import Control.Exception (IOException)
-import Data.Conduit.Combinators (iterM)
+import Data.Conduit.Combinators (map)
+import Data.Conduit.List (catMaybes)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
-  CommitInfo (CannotCommit),
-  HeadStatus (Idle),
-  ServerOutput,
+  ClientMessage,
+  CommitInfo (..),
+  HeadStatus (..),
+  ServerOutput (..),
   TimedServerOutput (..),
-  projectCommitInfo,
-  projectHeadStatus,
-  projectInitializingHeadId,
-  projectPendingDeposits,
-  projectSnapshotUtxo,
  )
 import Hydra.API.ServerOutputFilter (
   ServerOutputFilter,
  )
-import Hydra.API.WSServer (nextSequenceNumber, wsApp)
+import Hydra.API.WSServer (wsApp)
 import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
+import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
+import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import Hydra.Persistence (PersistenceIncremental (..))
-import Hydra.Tx (Party)
+import Hydra.Tx (HeadId, IsTx (..), Party, txId)
+import Hydra.Tx qualified as Tx
 import Hydra.Tx.Environment (Environment)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
@@ -59,15 +58,9 @@ import Network.WebSockets (
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
-  { sendOutput :: ServerOutput tx -> m ()
+  { sendMessage :: ClientMessage tx -> m ()
   -- ^ Send some output to all connected clients.
   }
-
--- | Callback for receiving client inputs.
-type ServerCallback tx m = ClientInput tx -> m ()
-
--- | A type tying both receiving input and sending output into a /Component/.
-type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
 data APIServerConfig = APIServerConfig
   { host :: IP
@@ -82,74 +75,79 @@ withAPIServer ::
   APIServerConfig ->
   Environment ->
   Party ->
-  PersistenceIncremental (TimedServerOutput tx) IO ->
+  EventSource (StateEvent tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
   ServerOutputFilter tx ->
-  ServerComponent tx IO ()
-withAPIServer config env party persistence tracer chain pparams serverOutputFilter callback action = do
-  responseChannel <- newBroadcastTChanIO
-  -- Intialize our read models from stored events
-  -- NOTE: we do not keep the stored events around in memory
-  headStatusP <- mkProjection Idle projectHeadStatus
-  snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
-  commitInfoP <- mkProjection CannotCommit projectCommitInfo
-  headIdP <- mkProjection Nothing projectInitializingHeadId
-  pendingDepositsP <- mkProjection [] projectPendingDeposits
-  loadedHistory <-
-    runConduitRes $
-      source
-        -- .| mapC output
-        .| iterM (lift . atomically . update headStatusP . output)
-        .| iterM (lift . atomically . update snapshotUtxoP . output)
-        .| iterM (lift . atomically . update commitInfoP . output)
-        .| iterM (lift . atomically . update headIdP . output)
-        .| iterM (lift . atomically . update pendingDepositsP . output)
-        -- FIXME: don't load whole history into memory
-        .| sinkList
+  (ClientInput tx -> IO ()) ->
+  ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
+  IO ()
+withAPIServer config env party eventSource tracer chain pparams serverOutputFilter callback action =
+  handle onIOException $ do
+    responseChannel <- newBroadcastTChanIO
+    -- Intialize our read models from stored events
+    -- NOTE: we do not keep the stored events around in memory
+    headStatusP <- mkProjection Idle projectHeadStatus
+    snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
+    commitInfoP <- mkProjection CannotCommit projectCommitInfo
+    headIdP <- mkProjection Nothing projectInitializingHeadId
+    pendingDepositsP <- mkProjection [] projectPendingDeposits
+    let historyTimedOutputs = sourceEvents .| map mkTimedServerOutputFromStateEvent .| catMaybes
+    _ <-
+      runConduitRes $
+        sourceEvents
+          .| mapM_C
+            ( \StateEvent{stateChanged} ->
+                lift $ atomically $ do
+                  update headStatusP stateChanged
+                  update snapshotUtxoP stateChanged
+                  update commitInfoP stateChanged
+                  update headIdP stateChanged
+                  update pendingDepositsP stateChanged
+            )
+    (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
-  -- NOTE: we need to reverse the list because we store history in a reversed
-  -- list in memory but in order on disk
-  history <- newTVarIO $ reverse loadedHistory
-  (notifyServerRunning, waitForServerRunning) <- setupServerNotification
-
-  let serverSettings =
-        defaultSettings
-          & setHost (fromString $ show host)
-          & setPort (fromIntegral port)
-          & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
-          & setOnExceptionResponse (responseLBS status500 [] . show)
-          & setBeforeMainLoop notifyServerRunning
-  race_
-    ( handle onIOException $ do
-        traceWith tracer (APIServerStarted port)
-        startServer serverSettings
-          . simpleCors
-          $ websocketsOr
-            defaultConnectionOptions
-            (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
-            (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
-    )
-    ( do
-        waitForServerRunning
-        action $
-          Server
-            { sendOutput = \output -> do
-                timedOutput <- appendToHistory history output
-                atomically $ do
-                  update headStatusP output
-                  update commitInfoP output
-                  update snapshotUtxoP output
-                  update headIdP output
-                  update pendingDepositsP output
-                  writeTChan responseChannel timedOutput
-            }
-    )
+    let serverSettings =
+          defaultSettings
+            & setHost (fromString $ show host)
+            & setPort (fromIntegral port)
+            & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
+            & setOnExceptionResponse (responseLBS status500 [] . show)
+            & setBeforeMainLoop notifyServerRunning
+    race_
+      ( do
+          traceWith tracer (APIServerStarted port)
+          startServer serverSettings
+            . simpleCors
+            $ websocketsOr
+              defaultConnectionOptions
+              (wsApp party tracer historyTimedOutputs callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
+              (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
+      )
+      ( do
+          waitForServerRunning
+          action
+            ( EventSink
+                { putEvent = \event@StateEvent{stateChanged} -> do
+                    case mkTimedServerOutputFromStateEvent event of
+                      Nothing -> pure ()
+                      Just timedOutput -> do
+                        atomically $ do
+                          update headStatusP stateChanged
+                          update commitInfoP stateChanged
+                          update snapshotUtxoP stateChanged
+                          update headIdP stateChanged
+                          update pendingDepositsP stateChanged
+                        atomically $ writeTChan responseChannel (Left timedOutput)
+                }
+            , Server{sendMessage = atomically . writeTChan responseChannel . Right}
+            )
+      )
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
-  PersistenceIncremental{source, append} = persistence
+  EventSource{sourceEvents} = eventSource
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of
@@ -162,16 +160,6 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
         die "TLS key provided without certificate"
       _ ->
         runSettings settings app
-
-  appendToHistory history output = do
-    time <- getCurrentTime
-    timedOutput <- atomically $ do
-      seq <- nextSequenceNumber history
-      let timedOutput = TimedServerOutput{output, time, seq}
-      modifyTVar' history (timedOutput :)
-      pure timedOutput
-    append timedOutput
-    pure timedOutput
 
   onIOException ioException =
     throwIO
@@ -201,3 +189,95 @@ setupServerNotification :: IO (NotifyServerRunning, WaitForServer)
 setupServerNotification = do
   mv <- newEmptyMVar
   pure (putMVar mv (), takeMVar mv)
+
+-- | Defines the subset of 'StateEvent' that should be sent as 'TimedServerOutput' to clients.
+mkTimedServerOutputFromStateEvent :: IsTx tx => StateEvent tx -> Maybe (TimedServerOutput tx)
+mkTimedServerOutputFromStateEvent event =
+  case mapStateChangedToServerOutput stateChanged of
+    Nothing -> Nothing
+    Just output ->
+      Just $ TimedServerOutput{output, time, seq = fromIntegral eventId}
+ where
+  StateEvent{eventId, time, stateChanged} = event
+
+  mapStateChangedToServerOutput = \case
+    StateChanged.HeadInitialized{headId, parties} -> Just HeadIsInitializing{headId, parties}
+    StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
+    StateChanged.HeadOpened{headId, initialUTxO} -> Just HeadIsOpen{headId, utxo = initialUTxO}
+    StateChanged.HeadClosed{..} -> Just HeadIsClosed{..}
+    StateChanged.HeadContested{..} -> Just HeadIsContested{..}
+    StateChanged.HeadIsReadyToFanout{..} -> Just ReadyToFanout{..}
+    StateChanged.HeadAborted{headId, utxo} -> Just HeadIsAborted{headId, utxo}
+    StateChanged.HeadFannedOut{..} -> Just HeadIsFinalized{..}
+    StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx, transaction = tx}
+    StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
+    StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}
+    StateChanged.IgnoredHeadInitializing{..} -> Just IgnoredHeadInitializing{..}
+    StateChanged.DecommitRecorded{..} -> Just DecommitRequested{..}
+    StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
+    StateChanged.DecommitApproved{..} -> Just DecommitApproved{..}
+    StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
+    StateChanged.CommitRecorded{..} -> Just CommitRecorded{..}
+    StateChanged.CommitApproved{..} -> Just CommitApproved{..}
+    StateChanged.CommitFinalized{..} -> Just CommitFinalized{..}
+    StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}
+    StateChanged.CommitIgnored{..} -> Just CommitIgnored{..}
+    StateChanged.NetworkConnected -> Just NetworkConnected
+    StateChanged.NetworkDisconnected -> Just NetworkDisconnected
+    StateChanged.PeerConnected{..} -> Just PeerConnected{..}
+    StateChanged.PeerDisconnected{..} -> Just PeerDisconnected{..}
+    StateChanged.PeerHandshakeFailure{..} -> Just PeerHandshakeFailure{..}
+    StateChanged.TransactionReceived{} -> Nothing
+    StateChanged.SnapshotRequested{} -> Nothing
+    StateChanged.SnapshotRequestDecided{} -> Nothing
+    StateChanged.PartySignedSnapshot{} -> Nothing
+    StateChanged.ChainRolledBack{} -> Nothing
+    StateChanged.TickObserved{} -> Nothing
+
+--
+
+-- | Projection to obtain the list of pending deposits.
+projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
+projectPendingDeposits txIds = \case
+  StateChanged.CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
+  StateChanged.CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
+  StateChanged.CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
+  _other -> txIds
+
+-- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
+-- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
+-- state since this is when Head parties need to commit some funds.
+projectCommitInfo :: CommitInfo -> StateChanged.StateChanged tx -> CommitInfo
+projectCommitInfo commitInfo = \case
+  StateChanged.HeadInitialized{headId} -> NormalCommit headId
+  StateChanged.HeadOpened{headId} -> IncrementalCommit headId
+  StateChanged.HeadAborted{} -> CannotCommit
+  StateChanged.HeadClosed{} -> CannotCommit
+  _other -> commitInfo
+
+-- | Projection to obtain the 'HeadId' needed to draft a commit transaction.
+-- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
+-- state since this is when Head parties need to commit some funds.
+projectInitializingHeadId :: Maybe HeadId -> StateChanged.StateChanged tx -> Maybe HeadId
+projectInitializingHeadId mHeadId = \case
+  StateChanged.HeadInitialized{headId} -> Just headId
+  StateChanged.HeadOpened{} -> Nothing
+  StateChanged.HeadAborted{} -> Nothing
+  _other -> mHeadId
+
+-- | Projection function related to 'headStatus' field in 'Greetings' message.
+projectHeadStatus :: HeadStatus -> StateChanged.StateChanged tx -> HeadStatus
+projectHeadStatus headStatus = \case
+  StateChanged.HeadInitialized{} -> Initializing
+  StateChanged.HeadOpened{} -> Open
+  StateChanged.HeadClosed{} -> Closed
+  StateChanged.HeadIsReadyToFanout{} -> FanoutPossible
+  StateChanged.HeadFannedOut{} -> Final
+  _other -> headStatus
+
+-- | Projection of latest confirmed snapshot UTxO.
+projectSnapshotUtxo :: Monoid (UTxOType tx) => Maybe (UTxOType tx) -> StateChanged.StateChanged tx -> Maybe (UTxOType tx)
+projectSnapshotUtxo snapshotUtxo = \case
+  StateChanged.SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
+  StateChanged.HeadOpened _ _ utxos -> Just utxos
+  _other -> snapshotUtxo

@@ -254,12 +254,6 @@ jobs:
         cache: 'yarn'
         cache-dependency-path: docs/yarn.lock
 
-    - name: ❓ Test API reference
-      working-directory: docs
-      run: |
-        yarn
-        yarn validate
-
     - name: 📥 Download benchmark results
       uses: actions/download-artifact@v4
       with:

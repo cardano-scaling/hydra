@@ -17,16 +17,17 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Lens ((^?))
+import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key)
+import Data.Aeson.Lens (key, _Number)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
-import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
+import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
+import Hydra.API.ServerOutput (InvalidInput (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.Chain (
   Chain (Chain),
@@ -35,13 +36,14 @@ import Hydra.Chain (
   postTx,
   submitTx,
  )
+import Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId), StateEvent (..), genStateEvent)
+import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
-import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo))
+import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
 import Network.Simple.WSS qualified as WSS
 import Network.TLS (ClientHooks (onServerCertificate), ClientParams (clientHooks), defaultParamsClient)
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
@@ -49,16 +51,15 @@ import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.Tx.Fixture (alice, defaultPParams, testEnvironment, testHeadId)
 import Test.Hydra.Tx.Gen ()
 import Test.Network.Ports (withFreePort)
-import Test.QuickCheck (checkCoverage, cover, generate)
+import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
-import Test.Util (isContinuous)
 
 spec :: Spec
 spec =
   parallel $ do
     it "should fail on port in use" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
-        let withServerOnPort p = withTestAPIServer p alice mockPersistence tracer
+        let withServerOnPort p = withTestAPIServer p alice (mockSource []) tracer
         withFreePort $ \port -> do
           -- We should not be able to start the server on the same port twice
           withServerOnPort port $ \_ ->
@@ -71,7 +72,7 @@ spec =
       failAfter 5 $
         showLogsOnFailure "ServerSpec" $ \tracer ->
           withFreePort $ \port ->
-            withTestAPIServer port alice mockPersistence tracer $ \_ -> do
+            withTestAPIServer port alice (mockSource []) tracer $ \_ -> do
               withClient port "/" $ \conn -> do
                 waitMatch 5 conn $ guard . matchGreetings
 
@@ -79,18 +80,18 @@ spec =
       failAfter 5 $
         showLogsOnFailure "ServerSpec" $ \tracer ->
           withFreePort $ \port ->
-            withTestAPIServer port alice mockPersistence tracer $ \_ -> do
+            withTestAPIServer port alice (mockSource []) tracer $ \_ -> do
               withClient port "/" $ \conn -> do
                 version <- waitMatch 5 conn $ \v -> do
                   guard $ matchGreetings v
                   v ^? key "hydraNodeVersion"
                 version `shouldBe` toJSON (showVersion Options.hydraNodeVersion)
 
-    it "sends sendOutput to all connected clients" $ do
+    it "sends server outputs to all connected clients" $ do
       queue <- atomically newTQueue
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withFreePort $ \port -> do
-          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
+          withTestAPIServer port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) -> do
             semaphore <- newTVarIO 0
             withAsync
               ( concurrently_
@@ -101,94 +102,83 @@ spec =
                 waitForClients semaphore
                 failAfter 1 $
                   atomically (replicateM 2 (readTQueue queue))
-                    >>= (`shouldSatisfyAll` [isGreetings, isGreetings])
+                    >>= (`shouldSatisfyAll` [matchGreetings, matchGreetings])
 
-                arbitraryMsg <- generate arbitrary
-                sendOutput arbitraryMsg
-                failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
+                arbitraryEvent <- generate genStateEventForApi
+                let expectedMessage =
+                      toJSON $
+                        fromMaybe (error "failed to convert stateEvent") $
+                          mkTimedServerOutputFromStateEvent arbitraryEvent
+                putEvent arbitraryEvent
+                failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [expectedMessage, expectedMessage]
                 failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
 
-    it "sends all sendOutput history to all connected clients after a restart" $ do
-      showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
-        withTempDir "ServerSpec" $ \tmpDir -> do
-          let persistentFile = tmpDir <> "/history"
-          arbitraryMsg <- generate arbitrary
+    it "sends server output history to all connected clients (using given event source)" $ do
+      showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
+        stateEvent <- generate genStateEventForApi
+        let expectedMessage =
+              toJSON $
+                fromMaybe (error "failed to convert stateEvent") $
+                  mkTimedServerOutputFromStateEvent stateEvent
+        let eventSource = mockSource [stateEvent]
 
-          persistence <- createPersistenceIncremental persistentFile
-          withFreePort $ \port -> do
-            withTestAPIServer port alice persistence tracer $ \Server{sendOutput} -> do
-              sendOutput arbitraryMsg
-
-          queue1 <- atomically newTQueue
-          queue2 <- atomically newTQueue
-          persistence' <- createPersistenceIncremental persistentFile
-          withFreePort $ \port -> do
-            withTestAPIServer port alice persistence' tracer $ \Server{sendOutput} -> do
-              semaphore <- newTVarIO 0
-              withAsync
-                ( concurrently_
-                    (withClient port "/" $ testClient queue1 semaphore)
-                    (withClient port "/" $ testClient queue2 semaphore)
-                )
-                $ \_ -> do
-                  waitForClients semaphore
-                  failAfter 1 $
-                    atomically (replicateM 2 (readTQueue queue1))
-                      >>= flip shouldSatisfyAll [(==) arbitraryMsg, isGreetings]
-                  failAfter 1 $
-                    atomically (replicateM 2 (readTQueue queue2))
-                      >>= flip shouldSatisfyAll [(==) arbitraryMsg, isGreetings]
-
-                  sendOutput arbitraryMsg
-                  failAfter 1 $
-                    atomically (replicateM 1 (readTQueue queue1))
-                      `shouldReturn` [arbitraryMsg]
-                  failAfter 1 $
-                    atomically (replicateM 1 (readTQueue queue2))
-                      `shouldReturn` [arbitraryMsg]
-                  failAfter 1 $
-                    atomically (tryReadTQueue queue1)
-                      `shouldReturn` Nothing
+        queue1 <- atomically newTQueue
+        queue2 <- atomically newTQueue
+        withFreePort $ \port -> do
+          withTestAPIServer port alice eventSource tracer $ \_ -> do
+            semaphore <- newTVarIO 0
+            withAsync
+              ( concurrently_
+                  (withClient port "/?history=yes" $ testClient queue1 semaphore)
+                  (withClient port "/?history=yes" $ testClient queue2 semaphore)
+              )
+              $ \_ -> do
+                waitForClients semaphore
+                failAfter 1 $ do
+                  atomically (readTQueue queue1) `shouldReturn` expectedMessage
+                  atomically (readTQueue queue1) >>= (`shouldSatisfy` matchGreetings)
+                failAfter 1 $ do
+                  atomically (readTQueue queue2) `shouldReturn` expectedMessage
+                  atomically (readTQueue queue2) >>= (`shouldSatisfy` matchGreetings)
 
     it "echoes history (past outputs) to client upon reconnection" $
-      checkCoverage . monadicIO $ do
-        outputs <- pick arbitrary
-        monitor $ cover 0.1 (null outputs) "no message when reconnecting"
-        monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
-        monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
-        run $
-          showLogsOnFailure "ServerSpec" $ \tracer ->
-            withFreePort $ \port ->
-              withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
-                mapM_ sendOutput outputs
-                withClient port "/" $ \conn -> do
-                  received <- failAfter 10 $ replicateM (length outputs + 1) (receiveData conn)
-                  case traverse Aeson.eitherDecode received of
-                    Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                    Right timedOutputs -> do
-                      let actualOutputs = output <$> timedOutputs
-                      List.init actualOutputs `shouldBe` outputs
-                      List.last actualOutputs `shouldSatisfy` isGreetings
+      forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
+        let expectedMessages = map toJSON $ mapMaybe mkTimedServerOutputFromStateEvent events
+        checkCoverage . monadicIO $ do
+          monitor $ cover 0.1 (null events) "no message when reconnecting"
+          monitor $ cover 0.1 (length events == 1) "only one message when reconnecting"
+          monitor $ cover 1 (length events > 1) "more than one message when reconnecting"
+          run $
+            showLogsOnFailure "ServerSpec" $ \tracer ->
+              withFreePort $ \port ->
+                withTestAPIServer port alice (mockSource events) tracer $ \(EventSink{putEvent}, _) -> do
+                  mapM_ putEvent events
+                  withClient port "/?history=yes" $ \conn -> do
+                    received <- failAfter 20 $ replicateM (length events + 1) (receiveData conn)
+                    case traverse Aeson.eitherDecode received of
+                      Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                      Right actualMessages -> do
+                        List.init actualMessages `shouldBe` expectedMessages
+                        List.last actualMessages `shouldSatisfy` matchGreetings
 
     it "does not echo history if client says no" $
       checkCoverage . monadicIO $ do
-        history :: [ServerOutput SimpleTx] <- pick arbitrary
+        history <- pick $ listOf genStateEventForApi
         monitor $ cover 0.1 (null history) "no message when reconnecting"
         monitor $ cover 0.1 (length history == 1) "only one message when reconnecting"
         monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
         run $
           showLogsOnFailure "ServerSpec" $ \tracer ->
             withFreePort $ \port ->
-              withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
-                let sendFromApiServer = sendOutput
-                mapM_ sendFromApiServer history
+              withTestAPIServer port alice (mockSource history) tracer $ \(EventSink{putEvent}, _) -> do
+                mapM_ putEvent history
                 -- start client that doesn't want to see the history
-                withClient port "/?history=no" $ \conn -> do
+                withClient port "/?history=yes" $ \conn -> do
                   -- wait on the greeting message
                   waitMatch 5 conn $ guard . matchGreetings
 
-                  notHistoryMessage :: ServerOutput SimpleTx <- generate arbitrary
-                  sendFromApiServer notHistoryMessage
+                  notHistoryMessage :: StateEvent SimpleTx <- generate genStateEventForApi
+                  putEvent notHistoryMessage
 
                   -- Receive one more message. The messages we sent
                   -- before client connected are ignored as expected and client can
@@ -197,62 +187,60 @@ spec =
 
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                    Right timedOutputs' -> do
-                      (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
+                    Right timedOutputs -> do
+                      timedOutputs `shouldBe` [fromMaybe (error "failed to convert stateEvent") $ mkTimedServerOutputFromStateEvent notHistoryMessage]
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withFreePort $ \port ->
-          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
+          withTestAPIServer port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) -> do
             snapshot <- generate arbitrary
-            let snapshotConfirmedMessage =
-                  SnapshotConfirmed
+            snapshotConfirmedMessage <-
+              generate $
+                genStateEvent $
+                  Outcome.SnapshotConfirmed
                     { headId = testHeadId
-                    , Hydra.API.ServerOutput.snapshot
-                    , Hydra.API.ServerOutput.signatures = mempty
+                    , snapshot
+                    , signatures = mempty
                     }
 
             withClient port "/?snapshot-utxo=no" $ \conn -> do
-              sendOutput snapshotConfirmedMessage
+              putEvent snapshotConfirmedMessage
 
               waitMatch 5 conn $ \v ->
                 guard $ isNothing $ v ^? key "utxo"
 
-    it "sequence numbers are continuous" $
-      monadicIO $ do
-        outputs :: [ServerOutput SimpleTx] <- pick arbitrary
-        run $
-          showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
-            withFreePort $ \port ->
-              withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
-                mapM_ sendOutput outputs
-                withClient port "/" $ \conn -> do
-                  received <- replicateM (length outputs + 1) (receiveData conn)
-
-                  case traverse Aeson.eitherDecode received of
-                    Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                    Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
-                      seq <$> timedOutputs `shouldSatisfy` isContinuous
+    it "sequence numbers on history are based on the event id" $
+      forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
+        monadicIO $ do
+          run $
+            showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
+              withFreePort $ \port ->
+                withTestAPIServer port alice (mockSource events) tracer $ \_ -> do
+                  withClient port "/?history=yes" $ \conn -> do
+                    -- NOTE: Expect all history + greetings
+                    received :: [ByteString] <- replicateM (length events + 1) (receiveData conn)
+                    let seqs :: [Word64] = mapMaybe (\v -> v ^? key "seq" . _Number <&> truncate) received
+                    seqs `shouldBe` getEventId <$> events
 
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port -> do
-          -- Prime some relevant server outputs already into persistence to
+          -- Prime some relevant server outputs already into event source to
           -- check whether the latest headStatus is loaded correctly.
-          existingServerOutputs <-
+          existingStateChanges <-
             generate $
               mapM
-                (>>= genTimedServerOutput)
-                [ HeadIsInitializing <$> arbitrary <*> arbitrary
-                , HeadIsAborted <$> arbitrary <*> arbitrary
-                , HeadIsFinalized <$> arbitrary <*> arbitrary
+                (>>= genStateEvent)
+                [ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+                , Outcome.HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
+                , Outcome.HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
                 ]
-          let persistence = mockPersistence' existingServerOutputs
+          let eventSource = mockSource existingStateChanges
 
-          withTestAPIServer port alice persistence tracer $ \Server{sendOutput} -> do
+          withTestAPIServer port alice eventSource tracer $ \(EventSink{putEvent}, _) -> do
             let generateSnapshot =
-                  generate $
-                    SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+                  Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
 
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Final")
@@ -261,50 +249,47 @@ spec =
 
             (headId, headIsOpenMsg) <- generate $ do
               headId <- arbitrary
-              output <- HeadIsOpen headId <$> arbitrary
+              output <- genStateEvent =<< (Outcome.HeadOpened headId <$> arbitrary <*> arbitrary)
               pure (headId, output)
-            snapShotConfirmedMsg@SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
-              generateSnapshot
+            snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}}} <-
+              generate $ genStateEvent =<< generateSnapshot
 
-            mapM_ sendOutput [headIsOpenMsg, snapShotConfirmedMsg]
+            mapM_ putEvent [headIsOpenMsg, snapShotConfirmedMsg]
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
-              guard $ v ^? key "snapshotUtxo" == Just (toJSON utxo)
+              guard $ v ^? key "snapshotUtxo" == Just (toJSON $ utxo <> fromMaybe mempty utxoToCommit)
 
-            snapShotConfirmedMsg'@SnapshotConfirmed{snapshot = Snapshot{utxo = utxo'}} <-
-              generateSnapshot
-            let readyToFanoutMsg = ReadyToFanout{headId}
+            snapShotConfirmedMsg'@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo = utxo', utxoToCommit = utxoToCommit'}}} <-
+              generate $ genStateEvent =<< generateSnapshot
+            readyToFanoutMsg <- generate $ genStateEvent Outcome.HeadIsReadyToFanout{headId}
 
-            mapM_ sendOutput [readyToFanoutMsg, snapShotConfirmedMsg']
+            mapM_ putEvent [readyToFanoutMsg, snapShotConfirmedMsg']
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "FanoutPossible")
-              guard $ v ^? key "snapshotUtxo" == Just (toJSON utxo')
+              guard $ v ^? key "snapshotUtxo" == Just (toJSON $ utxo' <> fromMaybe mempty utxoToCommit')
 
     it "greets with correct head status and snapshot utxo after restart" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
-        withTempDir "api-server-head-status" $ \persistenceDir ->
-          withFreePort $ \port -> do
-            let generateSnapshot =
-                  generate $
-                    SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-            apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-            snapShotConfirmedMsg@SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
-              generateSnapshot
-            let expectedUtxos = toJSON utxo
+        withFreePort $ \port -> do
+          let generateSnapshot =
+                generate $
+                  Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+          snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}} <-
+            generateSnapshot
+          headIsInitializing :: Outcome.StateChanged SimpleTx <- generate $ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+          let expectedUtxos = toJSON $ utxo <> fromMaybe mempty utxoToCommit
+          stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [snapShotConfirmedMsg, headIsInitializing]
+          let eventSource = mockSource stateEvents
 
-            withTestAPIServer port alice apiPersistence tracer $ \Server{sendOutput} -> do
-              headIsInitializing <- generate $ HeadIsInitializing <$> arbitrary <*> arbitrary
+          withTestAPIServer port alice eventSource tracer $ \_ -> do
+            waitForValue port $ \v -> do
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
+              guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
-              mapM_ sendOutput [headIsInitializing, snapShotConfirmedMsg]
-              waitForValue port $ \v -> do
-                guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
-                guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
-
-            newApiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-            withTestAPIServer port alice newApiPersistence tracer $ \_ -> do
-              waitForValue port $ \v -> do
-                guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
-                guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
+          withTestAPIServer port alice eventSource tracer $ \_ -> do
+            waitForValue port $ \v -> do
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
+              guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
     it "sends an error when input cannot be decoded" $
       failAfter 5 $
@@ -322,7 +307,7 @@ spec =
                     , tlsCertPath = Just "test/tls/certificate.pem"
                     , tlsKeyPath = Just "test/tls/key.pem"
                     }
-            withAPIServer @SimpleTx config testEnvironment alice mockPersistence tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+            withAPIServer @SimpleTx config testEnvironment alice (mockSource []) tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -332,42 +317,38 @@ spec =
 sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   showLogsOnFailure "ServerSpec" $ \tracer ->
-    withTestAPIServer port alice mockPersistence tracer $ \_server -> do
+    withTestAPIServer port alice (mockSource []) tracer $ \_ -> do
       withClient port "/" $ \con -> do
         _greeting :: ByteString <- receiveData con
         sendBinaryData con invalidInput
         msg <- receiveData con
-        case Aeson.eitherDecode @(TimedServerOutput SimpleTx) msg of
+        case Aeson.eitherDecode @InvalidInput msg of
           Left{} -> failure $ "Failed to decode output " <> show msg
-          Right TimedServerOutput{output = resp} -> resp `shouldSatisfy` isInvalidInput
+          Right resp ->
+            resp `shouldSatisfy` \case
+              InvalidInput{input} -> input == invalidInput
  where
   invalidInput = "not a valid message"
-  isInvalidInput = \case
-    InvalidInput{input} -> input == invalidInput
-    _ -> False
 
 matchGreetings :: Aeson.Value -> Bool
 matchGreetings v =
-  v ^? key "tag" == Just (Aeson.String "Greetings")
-
-isGreetings :: ServerOutput tx -> Bool
-isGreetings = \case
-  Greetings{} -> True
-  _ -> False
+  isJust (v ^? key "headStatus")
+    && isJust (v ^? key "hydraNodeVersion")
+    && isJust (v ^? key "me")
 
 waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
 waitForClients semaphore = atomically $ readTVar semaphore >>= \n -> check (n >= 2)
 
 -- NOTE: this client runs indefinitely so it should be run within a context that won't
 -- leak runaway threads
-testClient :: TQueue IO (ServerOutput SimpleTx) -> TVar IO Int -> Connection -> IO ()
+testClient :: TQueue IO Value -> TVar IO Int -> Connection -> IO ()
 testClient queue semaphore cnx = do
   atomically $ modifyTVar' semaphore (+ 1)
   msg <- receiveData cnx
   case Aeson.eitherDecode msg of
     Left{} -> failure $ "Failed to decode message " <> show msg
-    Right TimedServerOutput{output = resp} -> do
-      atomically (writeTQueue queue resp)
+    Right value -> do
+      atomically (writeTQueue queue value)
       testClient queue semaphore cnx
 
 dummyChainHandle :: Chain tx IO
@@ -391,12 +372,12 @@ noop = const $ pure ()
 withTestAPIServer ::
   PortNumber ->
   Party ->
-  PersistenceIncremental (TimedServerOutput SimpleTx) IO ->
+  EventSource (StateEvent SimpleTx) IO ->
   Tracer IO APIServerLog ->
-  (Server SimpleTx IO -> IO ()) ->
+  ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
-withTestAPIServer port actor persistence tracer action = do
-  withAPIServer @SimpleTx config testEnvironment actor persistence tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
+withTestAPIServer port actor eventSource tracer action = do
+  withAPIServer @SimpleTx config testEnvironment actor eventSource tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing}
 
@@ -415,17 +396,10 @@ withClient port path action =
             threadDelay 0.1
             connect (n - 1)
 
--- | Mocked persistence handle which just does nothing.
-mockPersistence :: Monad m => PersistenceIncremental a m
-mockPersistence =
-  mockPersistence' []
-
--- | Mocked persistence which does not contain some constant elements.
-mockPersistence' :: Monad m => [a] -> PersistenceIncremental a m
-mockPersistence' xs =
-  PersistenceIncremental
-    { append = \_ -> pure ()
-    , source = yieldMany xs
+mockSource :: Monad m => [a] -> EventSource a m
+mockSource events =
+  EventSource
+    { sourceEvents = yieldMany events
     }
 
 waitForValue :: HasCallStack => PortNumber -> (Aeson.Value -> Maybe ()) -> IO ()
@@ -463,7 +437,7 @@ waitMatch delay con match = do
       Left err -> failure $ "WaitNext failed to decode msg: " <> err
       Right value -> pure value
 
-shouldSatisfyAll :: Show a => [a] -> [a -> Bool] -> Expectation
+shouldSatisfyAll :: HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
 shouldSatisfyAll = go
  where
   go [] [] = pure ()
@@ -472,3 +446,7 @@ shouldSatisfyAll = go
   go (v : vs) (p : ps) = do
     v `shouldSatisfy` p
     go vs ps
+
+genStateEventForApi :: Gen (StateEvent SimpleTx)
+genStateEventForApi =
+  arbitrary `suchThat` (isJust . mkTimedServerOutputFromStateEvent)

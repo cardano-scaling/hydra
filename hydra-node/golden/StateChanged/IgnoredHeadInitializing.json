@@ -1,0 +1,18 @@
+{
+    "samples": [
+        {
+            "contestationPeriod": 35428,
+            "headId": "00000000000101000101010101010101",
+            "participants": [
+                "00010001010001000100010100010000010101010100010000010101"
+            ],
+            "parties": [
+                {
+                    "vkey": "9aabcfd282e65ece1bad37b7c6b033600a36e1d1ff54b8a5514dca741a3d4300"
+                }
+            ],
+            "tag": "IgnoredHeadInitializing"
+        }
+    ],
+    "seed": 42935644
+}

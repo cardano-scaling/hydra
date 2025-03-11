@@ -1,0 +1,10 @@
+{
+    "samples": [
+        {
+            "headId": "00010100000101010001000100010000",
+            "tag": "CommitApproved",
+            "utxoToCommit": {}
+        }
+    ],
+    "seed": 1989075894
+}

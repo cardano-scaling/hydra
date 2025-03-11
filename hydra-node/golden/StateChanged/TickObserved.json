@@ -1,9 +1,9 @@
 {
     "samples": [
         {
-            "chainSlot": 25,
+            "chainSlot": 1,
             "tag": "TickObserved"
         }
     ],
-    "seed": 1181146882
+    "seed": 515754012
 }

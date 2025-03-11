@@ -26,6 +26,7 @@ import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Node (
+  HydraNode (eventSinks),
   chainStateHistory,
   connect,
   hydrate,
@@ -75,10 +76,9 @@ run opts = do
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
+        incPersistence <- createPersistenceIncremental (persistenceDir <> "/state")
         -- Hydrate with event source and sinks
-        (eventSource, filePersistenceSink) <-
-          eventPairFromPersistenceIncremental
-            =<< createPersistenceIncremental (persistenceDir <> "/state")
+        (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incPersistence
         -- NOTE: Add any custom sink setup code here
         -- customSink <- createCustomSink
         let eventSinks =
@@ -91,9 +91,8 @@ run opts = do
         withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
           -- API
-          apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
-          withAPIServer apiServerConfig env party apiPersistence (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \server -> do
+          withAPIServer apiServerConfig env party eventSource (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
             -- Network
             let networkConfiguration =
                   NetworkConfiguration
@@ -111,10 +110,12 @@ run opts = do
               (wireNetworkInput wetHydraNode)
               $ \network -> do
                 -- Main loop
-                traceWith tracer EnteringMainloop
                 connect chain network server wetHydraNode
-                  >>= runHydraNode
+                  <&> addEventSink apiSink
+                    >>= runHydraNode
  where
+  addEventSink sink node = node{eventSinks = sink : eventSinks node}
+
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
      in action (cardanoLedger globals ledgerEnv)

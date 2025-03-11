@@ -71,6 +71,11 @@ shouldNotBe actual expected
   | actual /= expected = pure ()
   | otherwise = failure $ "not expected: " <> show actual
 
+-- | Lifted variant of Hspec's 'shouldSatisfy'.
+shouldSatisfy :: (HasCallStack, MonadThrow m, Show a) => a -> (a -> Bool) -> m ()
+v `shouldSatisfy` p =
+  unless (p v) . failure $ "predicate failed on: " ++ show v
+
 -- | A 'Tracer' that works in 'IOSim' monad.
 -- This tracer uses the 'Output' event which uses converts value traced to 'Dynamic'
 -- which requires 'Typeable' constraint. To retrieve the trace use 'selectTraceEventsDynamic'
