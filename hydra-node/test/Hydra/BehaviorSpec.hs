@@ -34,8 +34,8 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
-import Hydra.HeadLogic (Effect (..), HeadState (..), IdleState (..), Input (..), defaultTTL)
-import Hydra.HeadLogicSpec (getHeadUTxO, testSnapshot)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), OpenState (..), defaultTTL)
+import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
@@ -1291,3 +1291,10 @@ assertHeadIsClosedWith expectedSnapshotNumber = \case
 shortLabel :: SigningKey HydraKey -> String
 shortLabel s =
   take 8 $ drop 1 $ List.words (show s) !! 2
+
+-- | Get the head 'UTxO' from open 'HeadState'.
+getHeadUTxO :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
+getHeadUTxO = \case
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO}} -> Just localUTxO
+  Initial InitialState{committed} -> Just $ fold committed
+  _ -> Nothing

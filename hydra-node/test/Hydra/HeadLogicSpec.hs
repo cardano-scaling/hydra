@@ -599,12 +599,11 @@ spec =
                   , snapshotNumber
                   , contestationDeadline
                   }
-            headIsClosed = HeadClosed{headId = testHeadId, snapshotNumber, chainState = SimpleChainState 0, contestationDeadline}
         runHeadLogic bobEnv ledger s0 $ do
           outcome1 <- step observeCloseTx
           lift $ do
-            outcome1 `shouldSatisfy` \case
-              Continue as _ -> headIsClosed `elem` as
+            outcome1 `hasStateChangedSatisfying` \case
+              HeadClosed{} -> True
               _ -> False
             outcome1
               `hasNoStateChangedSatisfying` \case
@@ -654,21 +653,7 @@ spec =
         \(ttl, connectivityMessage, headState) -> do
           let input = connectivityChanged ttl connectivityMessage
           let outcome = update bobEnv ledger headState input
-          outcome `shouldSatisfy` \case
-            Continue as bs ->
-              null bs
-                && all
-                  ( \case
-                      -- NOTE: match only network related outcomes
-                      PeerConnected{} -> True
-                      PeerDisconnected{} -> True
-                      PeerHandshakeFailure{} -> True
-                      NetworkConnected{} -> True
-                      NetworkDisconnected{} -> True
-                      _ -> False
-                  )
-                  as
-            _ -> False
+          stateChanges outcome `shouldBe` []
 
       prop "ignores abortTx of another head" $ \otherHeadId -> do
         let abortOtherHead = observeTx $ OnAbortTx{headId = otherHeadId}
@@ -1093,10 +1078,3 @@ testSnapshot number version confirmed utxo =
     , utxoToCommit = mempty
     , utxoToDecommit = mempty
     }
-
--- | Get the head 'UTxO' from open 'HeadState'.
-getHeadUTxO :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
-getHeadUTxO = \case
-  Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO}} -> Just localUTxO
-  Initial InitialState{committed} -> Just $ foldl' (<>) mempty $ toList committed
-  _ -> Nothing

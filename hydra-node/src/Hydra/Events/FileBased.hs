@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Conduit (mapMC, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
-import Hydra.Events ( EventSink (..), EventSource (..), HasEventId (..))
+import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Persistence (PersistenceIncremental (..))
 
 -- | A basic file based event source and sink defined using an
