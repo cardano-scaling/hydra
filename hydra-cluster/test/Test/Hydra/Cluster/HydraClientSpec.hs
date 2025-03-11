@@ -42,13 +42,10 @@ import Hydra.Cluster.Scenarios (
  )
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Network (Host (..))
 import Hydra.Tx (HeadId, IsTx (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
-import HydraNode (HydraClient (..), HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, waitNoMatch, withConnectionToNodeHost, withHydraCluster)
-import Network.HTTP.Conduit (parseUrlThrow)
-import Network.HTTP.Simple (getResponseBody, httpJSON)
+import HydraNode (HydraClient (..), HydraNodeLog, getSnapshotUTxO, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, waitNoMatch, withConnectionToNodeHost, withHydraCluster)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
@@ -121,7 +118,7 @@ filterTxValidByAddressScenario tracer tmpDir = do
     (newTxId, newExpectedSnapshotNumber) <-
       runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
         -- XXX: perform a new tx while the connection query by address is open.
-        utxo <- fromMaybe mempty <$> requestHeadUTxO n1
+        utxo <- getSnapshotUTxO n1
         newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
         waitFor hydraTracer 10 (toList nodes) $
           output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId, "transaction" .= newTx]
@@ -174,7 +171,7 @@ filterTxValidByAddressScenario tracer tmpDir = do
     -- 6/ query bob address from alice node -> Does see new bob-self tx
     runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
       -- XXX: perform a new tx while the connection query by address is open.
-      utxo <- fromMaybe mempty <$> requestHeadUTxO n1
+      utxo <- getSnapshotUTxO n1
       newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
       waitFor hydraTracer 10 (toList nodes) $
         output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId, "transaction" .= newTx]
@@ -246,15 +243,6 @@ textAddrOf vk = unwrapAddress (mkVkAddress @Era testNetworkId vk)
 
 queryAddress :: Text -> Text
 queryAddress addr = "/?history=yes&address=" <> addr
-
-requestHeadUTxO :: HydraClient -> IO (Maybe UTxO)
-requestHeadUTxO HydraClient{apiHost} = do
-  resp <-
-    parseUrlThrow ("GET http://" <> Text.unpack (hydraNodeBaseUrl apiHost) <> "/snapshot/utxo")
-      >>= httpJSON
-  pure $ getResponseBody resp
- where
-  hydraNodeBaseUrl Host{hostname, port} = hostname <> ":" <> show port
 
 runScenario ::
   Tracer IO HydraNodeLog ->

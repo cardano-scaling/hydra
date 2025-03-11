@@ -109,7 +109,6 @@ import HydraNode (
   output,
   postDecommit,
   requestCommitTx,
-  requestHeadUTxO,
   send,
   waitFor,
   waitForAllMatch,
@@ -642,8 +641,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
-      expectedHeadUTxO <- requestHeadUTxO n1
-      fromMaybe mempty expectedHeadUTxO `shouldBe` scriptUTxO <> scriptUTxO'
+      getSnapshotUTxO n1 `shouldReturn` scriptUTxO <> scriptUTxO'
  where
   prepareScriptPayload lovelaceAmt = do
     let scriptAddress = mkScriptAddress networkId dummyValidatorScript
@@ -702,8 +700,7 @@ persistenceCanLoadWithEmptyCommit tracer workDir node hydraScriptsTxId =
           waitFor hydraTracer (10 * blockTime) [n1] $
             output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
 
-          expectedHeadUTxO <- requestHeadUTxO n1
-          fromMaybe mempty expectedHeadUTxO `shouldBe` mempty
+          getSnapshotUTxO n1 `shouldReturn` mempty
  where
   RunningNode{nodeSocket, blockTime} = node
 
@@ -988,8 +985,7 @@ canCommit tracer workDir node hydraScriptsTxId =
           waitFor hydraTracer 20 [n1, n2] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
-          expectedHeadUTxO <- requestHeadUTxO n2
-          fromMaybe mempty expectedHeadUTxO `shouldBe` commitUTxO
+          getSnapshotUTxO n1 `shouldReturn` commitUTxO
 
           resp2 <-
             parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
@@ -1006,8 +1002,7 @@ canCommit tracer workDir node hydraScriptsTxId =
           waitFor hydraTracer 20 [n1, n2] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx')]
 
-          expectedHeadUTxO' <- requestHeadUTxO n1
-          fromMaybe mempty expectedHeadUTxO' `shouldBe` commitUTxO <> commitUTxO2
+          getSnapshotUTxO n1 `shouldReturn` commitUTxO <> commitUTxO2
 
           send n2 $ input "Close" []
 

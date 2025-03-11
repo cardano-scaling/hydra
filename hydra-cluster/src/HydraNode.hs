@@ -31,7 +31,7 @@ import Hydra.Tx.DepositDeadline (DepositDeadline)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
-import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
+import Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJSON)
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
@@ -184,18 +184,6 @@ waitForAll tracer delay nodes expected = do
         _ ->
           tryNext c msgs stillExpected
 
-requestHeadUTxO :: HydraClient -> IO (Maybe UTxO)
-requestHeadUTxO HydraClient{apiHost = Host{hostname, port}} =
-  runReq defaultHttpConfig request <&> responseBody
- where
-  request =
-    Req.req
-      GET
-      (Req.http hostname /: "snapshot" /: "utxo")
-      NoReqBody
-      (Proxy :: Proxy (JsonResponse (Maybe UTxO)))
-      (Req.port (fromInteger . toInteger $ port))
-
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo.
 -- Create a commit tx using the hydra-node for later submission.
 requestCommitTx :: HydraClient -> UTxO -> IO Tx
@@ -223,15 +211,9 @@ postDecommit HydraClient{apiHost = Host{hostname, port}} decommitTx = do
 -- this parses the response as a 'UTxO' type as we often need to pick it apart.
 getSnapshotUTxO :: HydraClient -> IO UTxO
 getSnapshotUTxO HydraClient{apiHost = Host{hostname, port}} =
-  runReq defaultHttpConfig request <&> responseBody
- where
-  request =
-    Req.req
-      GET
-      (Req.http hostname /: "snapshot" /: "utxo")
-      NoReqBody
-      (Proxy :: Proxy (JsonResponse UTxO))
-      (Req.port (fromInteger . toInteger $ port))
+  parseUrlThrow ("GET http://" <> T.unpack hostname <> ":" <> show port <> "/snapshot/utxo")
+    >>= httpJSON
+    <&> getResponseBody
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do

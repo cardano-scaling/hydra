@@ -167,7 +167,6 @@ test-suite tests
     , filepath
     , hspec
     , hspec-golden-aeson
-    , http-conduit
     , hydra-cardano-api
     , hydra-cluster
     , hydra-node
