@@ -451,7 +451,9 @@ recordServerOutputs node = do
   let apiSink =
         EventSink
           { putEvent = \StateEvent{stateChanged} ->
-              for_ (Left $ mapStateChangedToServerOutput stateChanged) record
+              case mapStateChangedToServerOutput stateChanged of
+                Nothing -> pure ()
+                Just output -> record $ Left output
           }
   pure
     ( node{eventSinks = [apiSink], server = Server{sendMessage = record . Right}}
