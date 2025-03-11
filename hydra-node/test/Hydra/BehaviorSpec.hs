@@ -832,7 +832,10 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Abort
-                threadDelay 1
+                msg <- waitForNextMessage n1
+                msg `shouldSatisfy` \case
+                  CommandFailed{} -> True
+                  _ -> False
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
