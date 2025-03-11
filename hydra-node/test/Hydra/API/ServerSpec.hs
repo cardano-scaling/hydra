@@ -26,8 +26,8 @@ import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
-import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mapStateChangedToServerOutput, mkTimedServerOutputFromStateEvent, withAPIServer)
-import Hydra.API.ServerOutput (InvalidInput (..), TimedServerOutput (..), input)
+import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
+import Hydra.API.ServerOutput (InvalidInput (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.Chain (
   Chain (Chain),
@@ -187,8 +187,8 @@ spec =
 
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                    Right timedOutputs' -> do
-                      (output <$> timedOutputs') `shouldBe` [fromMaybe (error "failed to convert stateEvent") (mapStateChangedToServerOutput $ stateChanged notHistoryMessage)]
+                    Right timedOutputs -> do
+                      timedOutputs `shouldBe` [fromMaybe (error "failed to convert stateEvent") $ mkTimedServerOutputFromStateEvent notHistoryMessage]
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $

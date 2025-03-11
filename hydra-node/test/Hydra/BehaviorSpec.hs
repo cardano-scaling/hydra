@@ -21,8 +21,8 @@ import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
 import Hydra.API.ClientInput
-import Hydra.API.Server (Server (..), mapStateChangedToServerOutput)
-import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..))
+import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
+import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
@@ -33,7 +33,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.Events (EventSink (..), StateEvent (..))
+import Hydra.Events (EventSink (..))
 import Hydra.HeadLogic (Effect (..), HeadState (..), IdleState (..), Input (..), defaultTTL)
 import Hydra.HeadLogicSpec (getHeadUTxO, testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
@@ -1214,12 +1214,12 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
   (eventSource, eventSink) <- createMockSourceSink
   let apiSink =
         EventSink
-          { putEvent = \StateEvent{stateChanged} ->
-              case mapStateChangedToServerOutput stateChanged of
+          { putEvent = \event ->
+              case mkTimedServerOutputFromStateEvent event of
                 Nothing -> pure ()
-                Just a -> atomically $ do
-                  writeTQueue outputs a
-                  modifyTVar' outputHistory (a :)
+                Just TimedServerOutput{output} -> atomically $ do
+                  writeTQueue outputs output
+                  modifyTVar' outputHistory (output :)
           }
   -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
   let headState = Idle IdleState{chainState}

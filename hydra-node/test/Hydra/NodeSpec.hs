@@ -8,8 +8,8 @@ import Test.Hydra.Prelude
 import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..), mapStateChangedToServerOutput)
-import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..))
+import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
+import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
@@ -450,10 +450,10 @@ recordServerOutputs node = do
   (record, query) <- messageRecorder
   let apiSink =
         EventSink
-          { putEvent = \StateEvent{stateChanged} ->
-              case mapStateChangedToServerOutput stateChanged of
+          { putEvent = \event ->
+              case mkTimedServerOutputFromStateEvent event of
                 Nothing -> pure ()
-                Just output -> record $ Left output
+                Just TimedServerOutput{output} -> record $ Left output
           }
   pure
     ( node{eventSinks = apiSink : eventSinks node, server = Server{sendMessage = record . Right}}

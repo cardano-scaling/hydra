@@ -129,17 +129,16 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
           waitForServerRunning
           action
             ( EventSink
-                { putEvent = \StateEvent{stateChanged, time, eventId} -> do
-                    atomically $ do
-                      update headStatusP stateChanged
-                      update commitInfoP stateChanged
-                      update snapshotUtxoP stateChanged
-                      update headIdP stateChanged
-                      update pendingDepositsP stateChanged
-                    case mapStateChangedToServerOutput stateChanged of
+                { putEvent = \event@StateEvent{stateChanged} -> do
+                    case mkTimedServerOutputFromStateEvent event of
                       Nothing -> pure ()
-                      Just output -> do
-                        let timedOutput = TimedServerOutput{output, time, seq = fromIntegral eventId}
+                      Just timedOutput -> do
+                        atomically $ do
+                          update headStatusP stateChanged
+                          update commitInfoP stateChanged
+                          update snapshotUtxoP stateChanged
+                          update headIdP stateChanged
+                          update pendingDepositsP stateChanged
                         atomically $ writeTChan responseChannel (Left timedOutput)
                 }
             , Server{sendMessage = atomically . writeTChan responseChannel . Right}
@@ -191,7 +190,8 @@ setupServerNotification = do
   mv <- newEmptyMVar
   pure (putMVar mv (), takeMVar mv)
 
-mkTimedServerOutputFromStateEvent :: IsChainState tx => StateEvent tx -> Maybe (TimedServerOutput tx)
+-- | Defines the subset of 'StateEvent' that should be sent as 'TimedServerOutput' to clients.
+mkTimedServerOutputFromStateEvent :: IsTx tx => StateEvent tx -> Maybe (TimedServerOutput tx)
 mkTimedServerOutputFromStateEvent event =
   case mapStateChangedToServerOutput stateChanged of
     Nothing -> Nothing
@@ -200,40 +200,39 @@ mkTimedServerOutputFromStateEvent event =
  where
   StateEvent{eventId, time, stateChanged} = event
 
-mapStateChangedToServerOutput :: IsTx tx => StateChanged.StateChanged tx -> Maybe (ServerOutput tx)
-mapStateChangedToServerOutput = \case
-  StateChanged.HeadInitialized{headId, parties} -> Just HeadIsInitializing{headId, parties}
-  StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
-  StateChanged.HeadOpened{headId, initialUTxO} -> Just HeadIsOpen{headId, utxo = initialUTxO}
-  StateChanged.HeadClosed{..} -> Just HeadIsClosed{..}
-  StateChanged.HeadContested{..} -> Just HeadIsContested{..}
-  StateChanged.HeadIsReadyToFanout{..} -> Just ReadyToFanout{..}
-  StateChanged.HeadAborted{headId, utxo} -> Just HeadIsAborted{headId, utxo}
-  StateChanged.HeadFannedOut{..} -> Just HeadIsFinalized{..}
-  StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx, transaction = tx}
-  StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
-  StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}
-  StateChanged.IgnoredHeadInitializing{..} -> Just IgnoredHeadInitializing{..}
-  StateChanged.DecommitRecorded{..} -> Just DecommitRequested{..}
-  StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
-  StateChanged.DecommitApproved{..} -> Just DecommitApproved{..}
-  StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
-  StateChanged.CommitRecorded{..} -> Just CommitRecorded{..}
-  StateChanged.CommitApproved{..} -> Just CommitApproved{..}
-  StateChanged.CommitFinalized{..} -> Just CommitFinalized{..}
-  StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}
-  StateChanged.CommitIgnored{..} -> Just CommitIgnored{..}
-  StateChanged.NetworkConnected -> Just NetworkConnected
-  StateChanged.NetworkDisconnected -> Just NetworkDisconnected
-  StateChanged.PeerConnected{..} -> Just PeerConnected{..}
-  StateChanged.PeerDisconnected{..} -> Just PeerDisconnected{..}
-  StateChanged.PeerHandshakeFailure{..} -> Just PeerHandshakeFailure{..}
-  StateChanged.TransactionReceived{} -> Nothing
-  StateChanged.SnapshotRequested{} -> Nothing
-  StateChanged.SnapshotRequestDecided{} -> Nothing
-  StateChanged.PartySignedSnapshot{} -> Nothing
-  StateChanged.ChainRolledBack{} -> Nothing
-  StateChanged.TickObserved{} -> Nothing
+  mapStateChangedToServerOutput = \case
+    StateChanged.HeadInitialized{headId, parties} -> Just HeadIsInitializing{headId, parties}
+    StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
+    StateChanged.HeadOpened{headId, initialUTxO} -> Just HeadIsOpen{headId, utxo = initialUTxO}
+    StateChanged.HeadClosed{..} -> Just HeadIsClosed{..}
+    StateChanged.HeadContested{..} -> Just HeadIsContested{..}
+    StateChanged.HeadIsReadyToFanout{..} -> Just ReadyToFanout{..}
+    StateChanged.HeadAborted{headId, utxo} -> Just HeadIsAborted{headId, utxo}
+    StateChanged.HeadFannedOut{..} -> Just HeadIsFinalized{..}
+    StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx, transaction = tx}
+    StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
+    StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}
+    StateChanged.IgnoredHeadInitializing{..} -> Just IgnoredHeadInitializing{..}
+    StateChanged.DecommitRecorded{..} -> Just DecommitRequested{..}
+    StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
+    StateChanged.DecommitApproved{..} -> Just DecommitApproved{..}
+    StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
+    StateChanged.CommitRecorded{..} -> Just CommitRecorded{..}
+    StateChanged.CommitApproved{..} -> Just CommitApproved{..}
+    StateChanged.CommitFinalized{..} -> Just CommitFinalized{..}
+    StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}
+    StateChanged.CommitIgnored{..} -> Just CommitIgnored{..}
+    StateChanged.NetworkConnected -> Just NetworkConnected
+    StateChanged.NetworkDisconnected -> Just NetworkDisconnected
+    StateChanged.PeerConnected{..} -> Just PeerConnected{..}
+    StateChanged.PeerDisconnected{..} -> Just PeerDisconnected{..}
+    StateChanged.PeerHandshakeFailure{..} -> Just PeerHandshakeFailure{..}
+    StateChanged.TransactionReceived{} -> Nothing
+    StateChanged.SnapshotRequested{} -> Nothing
+    StateChanged.SnapshotRequestDecided{} -> Nothing
+    StateChanged.PartySignedSnapshot{} -> Nothing
+    StateChanged.ChainRolledBack{} -> Nothing
+    StateChanged.TickObserved{} -> Nothing
 
 --
 
