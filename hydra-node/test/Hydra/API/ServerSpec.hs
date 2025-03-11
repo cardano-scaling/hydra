@@ -36,7 +36,7 @@ import Hydra.Chain (
   postTx,
   submitTx,
  )
-import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent)
+import Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId), StateEvent (..), genStateEvent)
 import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -53,7 +53,6 @@ import Test.Hydra.Tx.Gen ()
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
-import Test.Util (isContinuous)
 
 spec :: Spec
 spec =
@@ -88,7 +87,7 @@ spec =
                   v ^? key "hydraNodeVersion"
                 version `shouldBe` toJSON (showVersion Options.hydraNodeVersion)
 
-    it "sends sendOutput to all connected clients" $ do
+    it "sends server outputs to all connected clients" $ do
       queue <- atomically newTQueue
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withFreePort $ \port -> do
@@ -101,33 +100,32 @@ spec =
               )
               $ \_ -> do
                 waitForClients semaphore
+                failAfter 1 $
+                  atomically (replicateM 2 (readTQueue queue))
+                    >>= (`shouldSatisfyAll` [matchGreetings, matchGreetings])
 
-                arbitraryMsg <- generate genStateEventForApi
+                arbitraryEvent <- generate genStateEventForApi
                 let expectedMessage =
                       toJSON $
-                        fromMaybe (error "failed to convert in mapStateChangedToServerOutput") (mapStateChangedToServerOutput $ stateChanged arbitraryMsg)
-                putEvent arbitraryMsg
+                        fromMaybe (error "failed to convert stateEvent") $
+                          mkTimedServerOutputFromStateEvent arbitraryEvent
+                putEvent arbitraryEvent
                 failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [expectedMessage, expectedMessage]
                 failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
 
-    it "sends all sendOutput history to all connected clients after a restart" $ do
+    it "sends server output history to all connected clients (using given event source)" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
         stateEvent <- generate genStateEventForApi
         let expectedMessage =
               toJSON $
-                fromMaybe (error "failed to convert in mapStateChangedToServerOutput") $
-                  mapStateChangedToServerOutput $
-                    stateChanged stateEvent
-        let eventSource = mockSource []
-
-        withFreePort $ \port -> do
-          withTestAPIServer port alice eventSource tracer $ \_ ->
-            pure ()
+                fromMaybe (error "failed to convert stateEvent") $
+                  mkTimedServerOutputFromStateEvent stateEvent
+        let eventSource = mockSource [stateEvent]
 
         queue1 <- atomically newTQueue
         queue2 <- atomically newTQueue
         withFreePort $ \port -> do
-          withTestAPIServer port alice eventSource tracer $ \(EventSink{putEvent}, _) -> do
+          withTestAPIServer port alice eventSource tracer $ \_ -> do
             semaphore <- newTVarIO 0
             withAsync
               ( concurrently_
@@ -136,16 +134,12 @@ spec =
               )
               $ \_ -> do
                 waitForClients semaphore
-                putEvent stateEvent
-                failAfter 1 $
-                  atomically (replicateM 1 (readTQueue queue1))
-                    `shouldReturn` [expectedMessage]
-                failAfter 1 $
-                  atomically (replicateM 1 (readTQueue queue2))
-                    `shouldReturn` [expectedMessage]
-                failAfter 1 $
-                  atomically (tryReadTQueue queue1)
-                    `shouldReturn` Nothing
+                failAfter 1 $ do
+                  atomically (readTQueue queue1) `shouldReturn` expectedMessage
+                  atomically (readTQueue queue1) >>= (`shouldSatisfy` matchGreetings)
+                failAfter 1 $ do
+                  atomically (readTQueue queue2) `shouldReturn` expectedMessage
+                  atomically (readTQueue queue2) >>= (`shouldSatisfy` matchGreetings)
 
     it "echoes history (past outputs) to client upon reconnection" $
       forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
@@ -194,7 +188,7 @@ spec =
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs' -> do
-                      (output <$> timedOutputs') `shouldBe` [fromMaybe (error "failed to convert in mapStateChangedToServerOutput") (mapStateChangedToServerOutput $ stateChanged notHistoryMessage)]
+                      (output <$> timedOutputs') `shouldBe` [fromMaybe (error "failed to convert stateEvent") (mapStateChangedToServerOutput $ stateChanged notHistoryMessage)]
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
@@ -216,19 +210,18 @@ spec =
               waitMatch 5 conn $ \v ->
                 guard $ isNothing $ v ^? key "utxo"
 
-    it "sequence numbers are continuous" $
+    it "sequence numbers on history are based on the event id" $
       forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
         monadicIO $ do
           run $
             showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
               withFreePort $ \port ->
-                withTestAPIServer port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) -> do
-                  mapM_ putEvent events
+                withTestAPIServer port alice (mockSource events) tracer $ \_ -> do
                   withClient port "/?history=yes" $ \conn -> do
                     -- NOTE: Expect all history + greetings
                     received :: [ByteString] <- replicateM (length events + 1) (receiveData conn)
                     let seqs :: [Word64] = mapMaybe (\v -> v ^? key "seq" . _Number <&> truncate) received
-                    seqs `shouldSatisfy` isContinuous
+                    seqs `shouldBe` getEventId <$> events
 
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
@@ -444,7 +437,7 @@ waitMatch delay con match = do
       Left err -> failure $ "WaitNext failed to decode msg: " <> err
       Right value -> pure value
 
-shouldSatisfyAll :: Show a => [a] -> [a -> Bool] -> Expectation
+shouldSatisfyAll :: HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
 shouldSatisfyAll = go
  where
   go [] [] = pure ()
