@@ -20,13 +20,13 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.Events.ApiSink (addEventSink)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Node (
+  HydraNode (eventSinks),
   chainStateHistory,
   connect,
   hydrate,
@@ -114,6 +114,8 @@ run opts = do
                   <&> addEventSink apiSink
                     >>= runHydraNode
  where
+  addEventSink sink node = node{eventSinks = sink : eventSinks node}
+
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
      in action (cardanoLedger globals ledgerEnv)
