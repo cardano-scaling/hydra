@@ -443,7 +443,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               -- not clearing the whole persistence dir as we would not be able
               -- to re-connect to the L2 network.
               removeFile $ tmp </> "state-" <> show bobNodeId </> "state"
-              removeFile $ tmp </> "state-" <> show bobNodeId </> "server-output"
 
               withBobNode $ \n2 -> do
                 waitMatch 10 n2 $ \v -> do
