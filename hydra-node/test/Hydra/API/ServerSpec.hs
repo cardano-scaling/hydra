@@ -43,7 +43,7 @@ import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo))
+import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
 import Network.Simple.WSS qualified as WSS
 import Network.TLS (ClientHooks (onServerCertificate), ClientParams (clientHooks), defaultParamsClient)
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
@@ -251,22 +251,22 @@ spec =
               headId <- arbitrary
               output <- genStateEvent =<< (Outcome.HeadOpened headId <$> arbitrary <*> arbitrary)
               pure (headId, output)
-            snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo}}} <-
+            snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}}} <-
               generate $ genStateEvent =<< generateSnapshot
 
             mapM_ putEvent [headIsOpenMsg, snapShotConfirmedMsg]
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
-              guard $ v ^? key "snapshotUtxo" == Just (toJSON utxo)
+              guard $ v ^? key "snapshotUtxo" == Just (toJSON $ utxo <> fromMaybe mempty utxoToCommit)
 
-            snapShotConfirmedMsg'@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo = utxo'}}} <-
+            snapShotConfirmedMsg'@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo = utxo', utxoToCommit = utxoToCommit'}}} <-
               generate $ genStateEvent =<< generateSnapshot
             readyToFanoutMsg <- generate $ genStateEvent Outcome.HeadIsReadyToFanout{headId}
 
             mapM_ putEvent [readyToFanoutMsg, snapShotConfirmedMsg']
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "FanoutPossible")
-              guard $ v ^? key "snapshotUtxo" == Just (toJSON utxo')
+              guard $ v ^? key "snapshotUtxo" == Just (toJSON $ utxo' <> fromMaybe mempty utxoToCommit')
 
     it "greets with correct head status and snapshot utxo after restart" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
@@ -274,10 +274,10 @@ spec =
           let generateSnapshot =
                 generate $
                   Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-          snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
+          snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}} <-
             generateSnapshot
           headIsInitializing :: Outcome.StateChanged SimpleTx <- generate $ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-          let expectedUtxos = toJSON utxo
+          let expectedUtxos = toJSON $ utxo <> fromMaybe mempty utxoToCommit
           stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [snapShotConfirmedMsg, headIsInitializing]
           let eventSource = mockSource stateEvents
 
