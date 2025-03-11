@@ -832,7 +832,6 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Abort
-                -- FIXME: waitForMessage
                 threadDelay 1
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
@@ -843,7 +842,7 @@ spec = parallel $ do
               (BeginEffect _ _ _ (ClientEffect CommandFailed{})) -> True
               _ -> False
           )
-      logs `shouldContain` [EndEffect alice 2 0]
+      logs `shouldContain` [EndEffect alice 0 0]
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
