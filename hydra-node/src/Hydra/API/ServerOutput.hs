@@ -129,9 +129,6 @@ data InvalidInput = InvalidInput
 deriving instance ToJSON InvalidInput
 deriving instance FromJSON InvalidInput
 
-instance Arbitrary InvalidInput where
-  arbitrary = genericArbitrary
-
 data ServerOutput tx
   = NetworkConnected
   | NetworkDisconnected
@@ -320,9 +317,6 @@ data HeadStatus
   | Final
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary HeadStatus where
-  arbitrary = genericArbitrary
 
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
