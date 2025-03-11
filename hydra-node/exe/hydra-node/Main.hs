@@ -5,6 +5,7 @@ module Main where
 import Hydra.Prelude hiding (fromList, intercalate)
 
 import Control.Concurrent (mkWeakThreadId, myThreadId)
+import Control.Exception (AsyncException (UserInterrupt), throwTo)
 import Data.ByteString (intercalate)
 import GHC.Weak (deRefWeak)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
@@ -20,7 +21,6 @@ import Hydra.Options (
  )
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
-import Control.Exception (AsyncException (UserInterrupt), throwTo)
 
 main :: IO ()
 main = do
