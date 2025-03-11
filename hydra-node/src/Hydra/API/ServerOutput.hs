@@ -120,6 +120,9 @@ instance IsChainState tx => FromJSON (Greetings tx) where
         { omitNothingFields = True
         }
 
+instance ArbitraryIsTx tx => Arbitrary (Greetings tx) where
+  arbitrary = genericArbitrary
+
 data InvalidInput = InvalidInput
   { reason :: String
   , input :: Text
@@ -317,6 +320,9 @@ data HeadStatus
   | Final
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary HeadStatus where
+  arbitrary = genericArbitrary
 
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
