@@ -46,7 +46,7 @@ import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
-import Hydra.API.ServerOutput (AllPosibleAPIMessages (..), ClientMessage (..), ServerOutput (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..), TestHydraClient (..), createHydraNode, createTestHydraClient, shortLabel, waitMatch, waitUntilMatch)
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (maximumNumberOfParties)
@@ -627,10 +627,12 @@ seedWorld seedKeys seedCP depositDeadline futureCommits = do
     (testClient, nodeThread) <- lift $ do
       outputs <- atomically newTQueue
       labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
+      messages <- atomically newTQueue
+      labelTQueueIO messages ("messages-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
       labelTVarIO outputHistory ("history-" <> shortLabel hsk)
-      node <- createHydraNode (contramap Node tr) ledger initialChainState hsk otherParties outputs outputHistory mockChain seedCP depositDeadline
-      let testClient = createTestHydraClient outputs outputHistory node
+      node <- createHydraNode (contramap Node tr) ledger initialChainState hsk otherParties outputs messages outputHistory mockChain seedCP depositDeadline
+      let testClient = createTestHydraClient outputs messages outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode node
       link nodeThread
       pure (testClient, nodeThread)
@@ -665,9 +667,8 @@ performCommit parties party paymentUTxO = do
         lift $
           forM nodes $ \n ->
             waitMatch n $ \case
-              ApiServerOutput Committed{party = cp, utxo = committedUTxO}
+              Committed{party = cp, utxo = committedUTxO}
                 | cp == party, committedUTxO == realUTxO -> Just committedUTxO
-              err@(ApiClientMessage CommandFailed{}) -> error $ show err
               _ -> Nothing
       pure $ fromUtxo $ List.head $ Data.Foldable.toList observedUTxO
  where
@@ -712,8 +713,7 @@ performDecommit party tx = do
 
   lift $ do
     waitUntilMatch [thisNode] $ \case
-      ApiServerOutput DecommitFinalized{} -> True
-      err@(ApiClientMessage CommandFailed{}) -> error $ show err
+      DecommitFinalized{} -> True
       _ -> False
 
 performNewTx ::
@@ -741,9 +741,9 @@ performNewTx party tx = do
   party `sendsInput` Input.NewTx realTx
   lift $ do
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      ApiServerOutput SnapshotConfirmed{snapshot = snapshot} ->
+      SnapshotConfirmed{snapshot = snapshot} ->
         realTx `elem` Snapshot.confirmed snapshot
-      err@(ApiServerOutput TxInvalid{}) -> error ("expected tx to be valid: " <> show err)
+      err@(TxInvalid{}) -> error ("expected tx to be valid: " <> show err)
       _ -> False
     pure tx
 
@@ -778,8 +778,7 @@ performInit party = do
   nodes <- gets nodes
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      ApiServerOutput HeadIsInitializing{} -> True
-      err@(ApiClientMessage CommandFailed{}) -> error $ show err
+      HeadIsInitializing{} -> True
       _ -> False
 
 performAbort :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
@@ -789,8 +788,7 @@ performAbort party = do
   nodes <- gets nodes
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      ApiServerOutput HeadIsAborted{} -> True
-      err@(ApiClientMessage CommandFailed{}) -> error $ show err
+      HeadIsAborted{} -> True
       _ -> False
 
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m ()
@@ -802,8 +800,7 @@ performClose party = do
 
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      ApiServerOutput HeadIsClosed{} -> True
-      err@(ApiClientMessage CommandFailed{}) -> error $ show err
+      HeadIsClosed{} -> True
       _ -> False
 
 performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
@@ -819,11 +816,10 @@ performFanout party = do
     | otherwise = do
         outputs <- lift $ serverOutputs node
         case find headIsFinalized outputs of
-          Just (ApiServerOutput HeadIsFinalized{utxo}) -> pure utxo
+          Just (HeadIsFinalized{utxo}) -> pure utxo
           _ -> lift (threadDelay 1) >> findInOutput node (n - 1)
   headIsFinalized = \case
-    ApiServerOutput HeadIsFinalized{} -> True
-    err@(ApiClientMessage CommandFailed{}) -> error $ show err
+    HeadIsFinalized{} -> True
     _otherwise -> False
 
 performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m) => WorldState -> Party -> RunMonad m ()
@@ -837,11 +833,10 @@ performCloseWithInitialSnapshot st party = do
       _ <- lift $ closeWithInitialSnapshot (party, toRealUTxO $ foldMap snd $ Map.toList committed)
       lift $
         waitUntilMatch (Data.Foldable.toList nodes) $ \case
-          ApiServerOutput HeadIsClosed{snapshotNumber} ->
+          HeadIsClosed{snapshotNumber} ->
             -- we deliberately wait to see close with the initial snapshot
             -- here to mimic one node not seeing the confirmed tx
             snapshotNumber == Snapshot.UnsafeSnapshotNumber 0
-          err@(ApiClientMessage CommandFailed{}) -> error $ show err
           _ -> False
     _ -> error "Not in open state"
 
@@ -961,12 +956,12 @@ isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (She
     _ -> False
 isOwned _ _ = False
 
-headIsOpen :: AllPosibleAPIMessages tx -> Bool
+headIsOpen :: ServerOutput tx -> Bool
 headIsOpen = \case
-  ApiServerOutput HeadIsOpen{} -> True
+  HeadIsOpen{} -> True
   _otherwise -> False
 
-headIsReadyToFanout :: AllPosibleAPIMessages tx -> Bool
+headIsReadyToFanout :: ServerOutput tx -> Bool
 headIsReadyToFanout = \case
-  ApiServerOutput ReadyToFanout{} -> True
+  ReadyToFanout{} -> True
   _otherwise -> False

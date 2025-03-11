@@ -11,7 +11,7 @@ import Control.Exception (Handler (Handler), IOException, catches)
 import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
-import Hydra.API.ServerOutput (AllPosibleAPIMessages (..))
+import Hydra.API.ServerOutput (ClientMessage, Greetings, InvalidInput, TimedServerOutput)
 import Hydra.Cardano.Api (TxId)
 import Hydra.Cardano.Api.Prelude (
   AsType (AsPaymentKey, AsSigningKey),
@@ -32,12 +32,27 @@ import Network.WebSockets (ConnectionException, receiveData, runClient, sendBina
 data HydraEvent tx
   = ClientConnected
   | ClientDisconnected
-  | Update (AllPosibleAPIMessages tx)
+  | Update (AllPossibleAPIMessages tx)
   | Tick UTCTime
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (HydraEvent tx)
 deriving stock instance IsChainState tx => Show (HydraEvent tx)
+
+-- | All possible messages that expect to receive from the hydra-node.
+data AllPossibleAPIMessages tx
+  = ApiTimedServerOutput (TimedServerOutput tx)
+  | ApiClientMessage (ClientMessage tx)
+  | ApiGreetings (Greetings tx)
+  | ApiInvalidInput InvalidInput
+  deriving (Eq, Show)
+
+instance IsChainState tx => FromJSON (AllPossibleAPIMessages tx) where
+  parseJSON v =
+    (ApiTimedServerOutput <$> parseJSON v)
+      <|> (ApiClientMessage <$> parseJSON v)
+      <|> (ApiGreetings <$> parseJSON v)
+      <|> (ApiInvalidInput <$> parseJSON v)
 
 -- | Handle to interact with Hydra node
 data Client tx m = Client
@@ -84,7 +99,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
 
   receiveOutputs con = forever $ do
     msg <- receiveData con
-    case eitherDecodeStrict msg :: Either String (AllPosibleAPIMessages tx) of
+    case eitherDecodeStrict msg :: Either String (AllPossibleAPIMessages tx) of
       Left err -> throwIO $ ClientJSONDecodeError err msg
       Right output -> callback $ Update output
 

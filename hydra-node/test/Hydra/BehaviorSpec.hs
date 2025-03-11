@@ -885,19 +885,20 @@ waitUntil ::
 waitUntil nodes expected =
   waitUntilMatch nodes (== expected)
 
--- | Wait for some output to match some predicate /eventually/. This will not
--- wait forever, but for a long time (1 month) to get a nice error location.
--- Should not be an issue when used within `shouldRunInSim`, this was even 1000
--- years before - but we since we are having the protocol produce 'Tick' events
--- constantly this would be fully simulated to the end.
+-- | Wait for a server output to match some predicate /eventually/. If a client
+-- message is received instead, this fails. This will not wait forever, but for
+-- a long time (1 month) to get a nice error location. Should not be an issue
+-- when used within `shouldRunInSim`, this was even 1000 years before - but we
+-- since we are having the protocol produce 'Tick' events constantly this would
+-- be fully simulated to the end.
 waitUntilMatch ::
-  (Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
+  (Show (ClientMessage tx), Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
   [TestHydraClient tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
 waitUntilMatch nodes predicate = do
   seenMsgs <- newTVarIO []
-  timeout oneMonth (forConcurrently_ nodes $ match seenMsgs) >>= \case
+  timeout oneMonth (forConcurrently_ nodes $ go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs
@@ -908,6 +909,11 @@ waitUntilMatch nodes predicate = do
             , unlines (show <$> msgs)
             ]
  where
+  go seenMsgs n =
+    race_
+      (waitForNextMessage n >>= \msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg)
+      (match seenMsgs n)
+
   match seenMsgs n = do
     msg <- waitForNext n
     atomically (modifyTVar' seenMsgs (msg :))

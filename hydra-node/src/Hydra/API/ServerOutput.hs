@@ -132,22 +132,6 @@ deriving instance FromJSON InvalidInput
 instance Arbitrary InvalidInput where
   arbitrary = genericArbitrary
 
--- | All possible messages that can be sent to clients by the 'Hydra.API.Server'.
--- Used in the hydra-node tests for easier json decoding and hydra-tui.
-data AllPosibleAPIMessages tx
-  = ApiTimedServerOutput (TimedServerOutput tx)
-  | ApiClientMessage (ClientMessage tx)
-  | ApiGreetings (Greetings tx)
-  | ApiInvalidInput InvalidInput
-  deriving (Eq, Show)
-
-instance IsChainState tx => FromJSON (AllPosibleAPIMessages tx) where
-  parseJSON v =
-    (ApiTimedServerOutput <$> parseJSON v)
-      <|> (ApiClientMessage <$> parseJSON v)
-      <|> (ApiGreetings <$> parseJSON v)
-      <|> (ApiInvalidInput <$> parseJSON v)
-
 data ServerOutput tx
   = NetworkConnected
   | NetworkDisconnected
