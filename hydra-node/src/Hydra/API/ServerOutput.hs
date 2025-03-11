@@ -135,8 +135,7 @@ instance Arbitrary InvalidInput where
 -- | All possible messages that can be sent to clients by the 'Hydra.API.Server'.
 -- Used in the hydra-node tests for easier json decoding and hydra-tui.
 data AllPosibleAPIMessages tx
-  = ApiServerOutput (ServerOutput tx)
-  | ApiTimedServerOutput (TimedServerOutput tx)
+  = ApiTimedServerOutput (TimedServerOutput tx)
   | ApiClientMessage (ClientMessage tx)
   | ApiGreetings (Greetings tx)
   | ApiInvalidInput InvalidInput
@@ -144,8 +143,7 @@ data AllPosibleAPIMessages tx
 
 instance IsChainState tx => FromJSON (AllPosibleAPIMessages tx) where
   parseJSON v =
-    (ApiServerOutput <$> parseJSON v)
-      <|> (ApiTimedServerOutput <$> parseJSON v)
+    (ApiTimedServerOutput <$> parseJSON v)
       <|> (ApiClientMessage <$> parseJSON v)
       <|> (ApiGreetings <$> parseJSON v)
       <|> (ApiInvalidInput <$> parseJSON v)

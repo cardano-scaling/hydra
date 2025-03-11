@@ -157,7 +157,7 @@ spec =
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right actualOutputs -> do
                       List.init actualOutputs `shouldBe` mapMaybe (fmap ApiServerOutput . mapStateChangedToServerOutput . stateChanged) outputs
-                      List.last actualOutputs `shouldSatisfy` isGreetings
+                      List.last actualOutputs `shouldSatisfy` matchGreetings
 
     it "does not echo history if client says no" $
       checkCoverage . monadicIO $ do
@@ -356,9 +356,8 @@ testClient queue semaphore cnx = do
   result <- parseAsServerOutputOrClientMessage msg
   atomically $
     case result of
-      ApiServerOutput serverOutput -> writeTQueue queue $ Left serverOutput
       ApiClientMessage clientMessage -> writeTQueue queue $ Right clientMessage
-      ApiTimedServerOutput _ -> pure ()
+      ApiTimedServerOutput _ -> writeTQueue queue $ Left serverOutput
       ApiGreetings _ -> pure ()
       ApiInvalidInput _ -> pure ()
   testClient queue semaphore cnx
