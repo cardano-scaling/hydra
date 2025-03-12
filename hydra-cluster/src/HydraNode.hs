@@ -35,11 +35,11 @@ import Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJS
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
-import System.IO (hClose)
 import System.Info (os)
-import System.Process qualified as P
 import System.Process.Typed (
   ExitCode (..),
+  createPipe,
+  getStderr,
   proc,
   setStderr,
   setStdout,
@@ -339,8 +339,6 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
       let filepath = stateDir </> ("other-" <> show i <> ".vk")
       filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
 
-    -- XXX: using a dedicated pipe as 'createPipe' from typed-process closes too early
-    (readErr, writeErr) <- P.createPipe
     let cmd =
           ( proc "hydra-node" . toArgs $
               -- NOTE: Using 0.0.0.0 over 127.0.0.1 will make the hydra-node
@@ -368,29 +366,28 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                 }
           )
             & setStdout (useHandleOpen logFileHandle)
-            & setStderr (useHandleOpen writeErr)
+            & setStderr createPipe
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
     withProcessTerm cmd $ \p -> do
-      hClose writeErr
       -- NOTE: exit code thread gets cancelled if 'action' terminates first
       race
-        (collectAndCheckExitCode p readErr)
+        (collectAndCheckExitCode p)
         (withConnectionToNode tracer hydraNodeId action)
         <&> either absurd id
  where
-  collectAndCheckExitCode p h =
-    (`finally` hClose h) $
-      waitExitCode p >>= \case
-        ExitSuccess -> failure "hydra-node stopped early"
-        ExitFailure ec -> do
-          err <- hGetContents h
-          failure . toString $
-            unlines
-              [ "hydra-node (nodeId = " <> show hydraNodeId <> ") exited with failure code: " <> show ec
-              , decodeUtf8 err
-              ]
+  collectAndCheckExitCode p = do
+    let h = getStderr p
+    waitExitCode p >>= \case
+      ExitSuccess -> failure "hydra-node stopped early"
+      ExitFailure ec -> do
+        err <- hGetContents h
+        failure . toString $
+          unlines
+            [ "hydra-node (nodeId = " <> show hydraNodeId <> ") exited with failure code: " <> show ec
+            , decodeUtf8 err
+            ]
 
   port = fromIntegral $ 5_000 + hydraNodeId
 
