@@ -1462,12 +1462,15 @@ definitions:
         additionalProperties: false
         required:
           - tag
+          - headId
           - confirmedSnapshot
           - signatures
         properties:
           tag:
             type: string
             enum: ["SnapshotSideLoaded"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
           confirmedSnapshot:
             $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       - title: "HeadClosed"

@@ -98,8 +98,8 @@ data StateChanged tx
       , newLocalTxs :: [tx]
       }
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
-<<<<<<< HEAD
   | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
+  | SnapshotSideLoaded {headId :: HeadId, confirmedSnapshot :: ConfirmedSnapshot tx}
   | CommitRecorded
       { chainState :: ChainStateType tx
       , headId :: HeadId
@@ -137,14 +137,6 @@ data StateChanged tx
   | HeadContested {headId :: HeadId, chainState :: ChainStateType tx, contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
   | HeadIsReadyToFanout {headId :: HeadId}
   | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
-=======
-  | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | SnapshotSideLoaded {confirmedSnapshot :: ConfirmedSnapshot tx}
-  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
-  | HeadContested {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
-  | HeadIsReadyToFanout
-  | HeadFannedOut {chainState :: ChainStateType tx}
->>>>>>> 156d853b5 (introduce server output, outcome event and aggregate handle in logic)
   | ChainRolledBack {chainState :: ChainStateType tx}
   | TickObserved {chainSlot :: ChainSlot}
   | IgnoredHeadInitializing
@@ -169,7 +161,6 @@ instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
-<<<<<<< HEAD
     [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
     , HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
@@ -180,6 +171,7 @@ genStateChanged env =
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotSideLoaded <$> arbitrary <*> arbitrary
     , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitApproved <$> arbitrary <*> arbitrary
     , CommitRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
@@ -193,27 +185,6 @@ genStateChanged env =
     , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
-=======
-    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary
-    , CommittedUTxO party <$> arbitrary <*> arbitrary
-    , HeadAborted <$> arbitrary
-    , HeadOpened <$> arbitrary <*> arbitrary
-    , TransactionReceived <$> arbitrary
-    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary
-    , DecommitRecorded <$> arbitrary <*> arbitrary
-    , SnapshotRequestDecided <$> arbitrary
-    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotConfirmed <$> arbitrary <*> arbitrary
-    , SnapshotSideLoaded <$> arbitrary
-    , DecommitFinalized <$> arbitrary
-    , HeadClosed <$> arbitrary <*> arbitrary
-    , HeadContested <$> arbitrary <*> arbitrary
-    , pure HeadIsReadyToFanout
-    , HeadFannedOut <$> arbitrary
-    , ChainRolledBack <$> arbitrary
-    , TickObserved <$> arbitrary
->>>>>>> 156d853b5 (introduce server output, outcome event and aggregate handle in logic)
     ]
  where
   Environment{party} = env
