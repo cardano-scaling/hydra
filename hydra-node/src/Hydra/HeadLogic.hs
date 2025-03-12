@@ -1137,8 +1137,7 @@ onOpenClientSideLoadSnapshot openState sideLoadConfirmedSnapshot =
         then -- Spec:  ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
         --        ̅S.σ ← ̃σ
 
-          newState SnapshotSideLoaded{confirmedSnapshot = sideLoadConfirmedSnapshot}
-            <> cause (ClientEffect $ ServerOutput.SnapshotSideLoaded sideLoadConfirmedSnapshot)
+          newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
         else Error $ AssertionFailed "InitalSnapshot side loaded does not match last known."
     ConfirmedSnapshot{snapshot, signatures} ->
       -- REVIEW! should we check utxoToCommit and utxoToDecommit are the same ???
@@ -1153,12 +1152,12 @@ onOpenClientSideLoadSnapshot openState sideLoadConfirmedSnapshot =
             do
               -- Spec:  ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
               --        ̅S.σ ← ̃σ
-              newState SnapshotSideLoaded{confirmedSnapshot = sideLoadConfirmedSnapshot}
               -- REVIEW! what if we WaitOnNotApplicableTx for current localTxs not in snapshot confirmed ???
-              <> cause (ClientEffect $ ServerOutput.SnapshotSideLoaded sideLoadConfirmedSnapshot)
+              newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
  where
   OpenState
-    { parameters = HeadParameters{parties}
+    { headId
+    , parameters = HeadParameters{parties}
     , coordinatedHeadState
     } = openState
 

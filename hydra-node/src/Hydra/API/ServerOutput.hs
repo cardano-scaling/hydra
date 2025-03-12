@@ -190,7 +190,7 @@ data ServerOutput tx
   | -- | Snapshot was side-loaded, and the included transactions can be considered final.
     -- The local state has been reset, meaning pending transactions were pruned.
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
-    SnapshotSideLoaded {confirmedSnapshot :: ConfirmedSnapshot tx}
+    SnapshotSideLoaded {headId :: HeadId, confirmedSnapshot :: ConfirmedSnapshot tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -242,7 +242,7 @@ instance ArbitraryIsTx tx => Arbitrary (ServerOutput tx) where
     PeerConnected peer -> PeerConnected <$> shrink peer
     PeerDisconnected peer -> PeerDisconnected <$> shrink peer
     PeerHandshakeFailure host our theirs -> PeerHandshakeFailure <$> shrink host <*> shrink our <*> shrink theirs
-    SnapshotSideLoaded confirmedSnapshot -> SnapshotSideLoaded <$> shrink confirmedSnapshot
+    SnapshotSideLoaded headId confirmedSnapshot -> SnapshotSideLoaded headId <$> shrink confirmedSnapshot
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
@@ -307,6 +307,9 @@ prepareServerOutput config response =
 
 removeSnapshotUTxO :: LBS.ByteString -> LBS.ByteString
 removeSnapshotUTxO = key "snapshot" . atKey "utxo" .~ Nothing
+
+removeInitialUTxO :: LBS.ByteString -> LBS.ByteString
+removeInitialUTxO = atKey "initialUTxO" .~ Nothing
 
 handleUtxoInclusion :: ServerOutputConfig -> (a -> a) -> a -> a
 handleUtxoInclusion config f bs =

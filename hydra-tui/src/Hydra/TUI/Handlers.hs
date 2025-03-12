@@ -113,7 +113,7 @@ handleHydraEventsActiveLink e = do
       activeHeadStateL .= Open OpenHome
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{utxo}}}) ->
       utxoL .= utxo
-    Update TimedServerOutput{time, output = API.SnapshotSideLoaded{confirmedSnapshot}} ->
+    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotSideLoaded{confirmedSnapshot}}) ->
       case confirmedSnapshot of
         InitialSnapshot{initialUTxO} ->
           utxoL .= initialUTxO
@@ -183,7 +183,7 @@ handleHydraEventsInfo = \case
     info time "Head aborted, back to square one."
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{number}}}) ->
     info time ("Snapshot #" <> show number <> " confirmed.")
-  Update TimedServerOutput{time, output = API.SnapshotSideLoaded{confirmedSnapshot}} ->
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotSideLoaded{confirmedSnapshot}}) ->
     case confirmedSnapshot of
       InitialSnapshot{} ->
         info time "InitialSnapshot side loaded."

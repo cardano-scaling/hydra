@@ -37,7 +37,7 @@ import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.State (SeenSnapshot (..), seenSnapshotNumber)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import Hydra.Tx (HeadId, IsTx (..), Party, txId)
+import Hydra.Tx (ConfirmedSnapshot (..), HeadId, IsTx (..), Party, txId)
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.Environment (Environment)
 import Hydra.Tx.Snapshot (Snapshot (..))
@@ -232,6 +232,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx, transaction = tx}
     StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
     StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}
+    StateChanged.SnapshotSideLoaded{..} -> Just SnapshotSideLoaded{..}
     StateChanged.IgnoredHeadInitializing{..} -> Just IgnoredHeadInitializing{..}
     StateChanged.DecommitRecorded{..} -> Just DecommitRequested{..}
     StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
@@ -321,3 +322,11 @@ projectSeenSnapshot seenSnapshot = \case
         ss{signatories = Map.insert party signature signatories}
       _ -> seenSnapshot
   _other -> seenSnapshot
+
+-- | Projection of latest confirmed snapshot.
+projectSnapshotConfirmed :: Maybe (ConfirmedSnapshot tx) -> StateChanged.StateChanged tx -> Maybe (ConfirmedSnapshot tx)
+projectSnapshotConfirmed snapshotConfirmed = \case
+  StateChanged.SnapshotConfirmed _ snapshot signatures -> Just $ ConfirmedSnapshot snapshot signatures
+  StateChanged.HeadOpened headId _ utxos -> Just $ InitialSnapshot headId utxos
+  StateChanged.SnapshotSideLoaded _ confirmedSnapshot -> Just $ confirmedSnapshot
+  _other -> snapshotConfirmed

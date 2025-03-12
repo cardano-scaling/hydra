@@ -524,20 +524,6 @@ components:
             type: string
             enum: ["SideLoadSnapshot"]
 
-    GetUTxO:
-      title: GetUTxO
-      description: |
-        DEPRECATED: Use the `GET /snapshot/utxo http endpoint` to query the confirmed UTxO set.
-        Asynchronously access the current UTxO set of the Hydra node. This eventually triggers a UTxO event from the server.
-      payload:
-        type: object
-        required:
-          - tag
-        properties:
-          tag:
-            type: string
-            enum: ["GetUTxO"]
-
     ########
     #
     # Messages received on websocket
@@ -1523,6 +1509,7 @@ components:
       type: object
       required:
         - tag
+        - headId
         - confirmedSnapshot
         - seq
         - timestamp
@@ -1530,6 +1517,8 @@ components:
         tag:
           type: string
           enum: ["SnapshotSideLoaded"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
         confirmedSnapshot:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         seq:
