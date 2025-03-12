@@ -116,7 +116,6 @@ library
     , cryptonite
     , data-default
     , directory
-    , extra
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3

@@ -40,19 +40,19 @@ changes.
   - We now store the `time` in `StateEvent` which is a breaking change to our
   persistence loading
 
-- New environment variable, `HYDRA_ETCD_ADDITIONAL_ARGUMENTS`, when can be
-set before running the hydra node, to control additional etcd features.
+- New environment variable handling for the `etcd` service allows for control
+of (most) etcd parameters.
 
-You may like to use this to control auto-compaction; for example switching to
-periodic retention for 7 days:
+For example, you may like to use this to control auto-compaction by switching
+to periodic retention for 7 days:
 
 ```
-HYDRA_ETCD_ADDITIONAL_ARGUMENTS="--auto-compaction-mode=periodic --auto-compaction-retention=168h" hydra-node
+ETCD_AUTO_COMPACTION_MODE=periodic
+ETCD_AUTO_COMPACTION_RETENTION=168h
 ```
 
 > [!NOTE]
-> Note that spaces in the list of additional arguments is not supported; we
-> split on spaces to get the argument list correct.
+> Only variables prefixed with `ETCD_` are passed on to the `etcd` process.
 
 
 ## [0.20.0] - 2025-02-04
