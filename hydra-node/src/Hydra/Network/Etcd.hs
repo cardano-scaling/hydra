@@ -61,6 +61,7 @@ import Data.Aeson.Types (Value)
 import Data.ByteString qualified as BS
 import Data.List ((\\))
 import Data.List qualified as List
+import Data.Map qualified as Map
 import Data.Text (splitOn)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
@@ -91,6 +92,7 @@ import Network.GRPC.Common.NextElem (whileNext_)
 import Network.GRPC.Common.Protobuf (Protobuf, defMessage, (.~))
 import Network.GRPC.Etcd (KV, Lease, Watch)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
+import System.Environment.Blank (getEnvironment)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
 import System.Process (interruptProcessGroupOf)
@@ -101,6 +103,7 @@ import System.Process.Typed (
   getStderr,
   proc,
   setCreateGroup,
+  setEnv,
   setStderr,
   startProcess,
   stopProcess,
@@ -122,7 +125,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- TODO: fail if cluster config / members do not match --peer
   -- configuration? That would be similar to the 'acks' persistence
   -- bailing out on loading.
-  withProcessInterrupt etcdCmd $ \p -> do
+  envVars <- Map.fromList <$> getEnvironment
+  withProcessInterrupt (etcdCmd envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
         -- XXX: cleanup reconnecting through policy if other threads fail
@@ -182,8 +186,10 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
-  etcdCmd =
-    setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
+  etcdCmd envVars =
+    -- NOTE: We map prefers the left; so we need to mappend default at the end.
+    setEnv (Map.toList $ envVars <> defaultEnv)
+      . setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
       . setStderr createPipe
       . proc "etcd"
       $ concat
@@ -200,10 +206,16 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         , -- XXX: Could use unique initial-cluster-tokens to isolate clusters
           ["--initial-cluster-token", "hydra-network-1"]
         , ["--initial-cluster", clusterPeers]
-        , -- Keep up to 1000 revisions. See also:
-          -- https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction
-          ["--auto-compaction-mode=revision", "--auto-compaction-retention=1000"]
         ]
+
+  defaultEnv :: Map.Map String String
+  defaultEnv =
+    -- Keep up to 1000 revisions. See also:
+    -- https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction
+    Map.fromList
+      [ ("ETCD_AUTO_COMPACTION_MODE", "revision")
+      , ("ETCD_AUTO_COMPACTION_RETENTION", "1000")
+      ]
 
   -- NOTE: Building a canonical list of labels from the advertised addresses
   clusterPeers =

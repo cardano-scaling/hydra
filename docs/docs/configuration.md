@@ -6,7 +6,7 @@ Running a Hydra head involves operating a Hydra node connected to other Hydra no
 hydra-node --help
 ```
 
-Below, we document selected aspects of the configuration. For a comprehensive guide, refer to the [tutorial](./tutorial) or specific _how to_ articles. 
+Below, we document selected aspects of the configuration. For a comprehensive guide, refer to the [tutorial](./tutorial) or specific _how to_ articles.
 
 ### Cardano keys
 
@@ -20,7 +20,7 @@ cardano-cli address key-gen \
   --signing-key-file cardano.sk
 ```
 
-These keys authenticate on-chain transactions and ensure that only authorized participants can control the head's lifecycle, preventing unauthorized actors from interfering (eg, aborting an initialized head). While this issue does not put participants' funds at risk, it is still inconvenient and can be avoided. 
+These keys authenticate on-chain transactions and ensure that only authorized participants can control the head's lifecycle, preventing unauthorized actors from interfering (eg, aborting an initialized head). While this issue does not put participants' funds at risk, it is still inconvenient and can be avoided.
 
 ### Hydra keys
 
@@ -72,6 +72,29 @@ submitted. This can happen, for example, if:
 Currently, the `hydra-node` does not handle this situation. Each client application should implement a retry mechanism based on the expected time for transaction inclusion.
 
 :::
+
+### Networking: Configuring the limits of etcd networking recovery
+
+Since switching to the [`etcd`-backed network
+configuration](https://github.com/cardano-scaling/hydra/pull/1854), the system
+is more resiliant to nodes going offline.
+
+However, because we don't want the etcd cluster to use up unlimited disk
+space, we set a limit to how long it will retain messages for. By default this
+is 1000 revisions across all keys. You can override this by setting the
+relevant `etcd` [environment
+variables](https://etcd.io/docs/v3.4/op-guide/configuration/).
+
+For example, to configure etcd to retain 7 days worth of revisions, in the
+call to running hydra-node, you can define:
+
+```
+ETCD_AUTO_COMPACTION_MODE=periodic
+ETCD_AUTO_COMPACTION_RETENTION=168h
+```
+
+which will be passed on to the `etcd` executable.
+
 
 ### Reference scripts
 
@@ -127,7 +150,7 @@ While the `hydra-node` needs to pay fees for protocol transactions, any wallet c
 
 This endpoint returns a commit transaction, which is balanced, and all fees are paid by the `hydra-node`. The integrated wallet must sign and submit this transaction to the Cardano network. See the [API documentation](pathname:///api-reference/#operation-publish-/commit) for details.
 
-If using your own UTXO to commit to a head, send the appropriate JSON representation of the said UTXO to the `/commit` API endpoint. 
+If using your own UTXO to commit to a head, send the appropriate JSON representation of the said UTXO to the `/commit` API endpoint.
 Using a _blueprint_ transaction with `/commit` offers flexibility, as `hydra-node` adds necessary commit transaction data without removing additional information specified in the blueprint transaction (eg, reference inputs, redeemers, validity ranges).
 
 > Note: Outputs of a blueprint transaction are not considered — only inputs are used to commit funds to the head. The `hydra-node` will also **ignore** any minting or burning specified in the blueprint transaction.
@@ -149,7 +172,7 @@ hydra-node \
 ```
 
 :::info
-The `hydra-node` is compatible with the Cardano `mainnet` network, and can consequently operate using **real funds**. Please be sure to read the [known issues](/docs/known-issues) to fully understand the limitations and consequences of running Hydra nodes on mainnet. To choose `mainnet`, use `--mainnet` instead of `--testnet-magic`. 
+The `hydra-node` is compatible with the Cardano `mainnet` network, and can consequently operate using **real funds**. Please be sure to read the [known issues](/docs/known-issues) to fully understand the limitations and consequences of running Hydra nodes on mainnet. To choose `mainnet`, use `--mainnet` instead of `--testnet-magic`.
 :::
 
 Using the direct node connection, the `hydra-node` synchronizes the chain and observes Hydra protocol transactions. On startup, it starts observing from the chain's tip. Once a Hydra head has been observed, the point of the last known state change is used automatically.

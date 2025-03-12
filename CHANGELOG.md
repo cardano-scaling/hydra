@@ -40,6 +40,21 @@ changes.
   - We now store the `time` in `StateEvent` which is a breaking change to our
   persistence loading
 
+- New environment variable handling for the `etcd` service allows for control
+of (most) etcd parameters.
+
+For example, you may like to use this to control auto-compaction by switching
+to periodic retention for 7 days:
+
+```
+ETCD_AUTO_COMPACTION_MODE=periodic
+ETCD_AUTO_COMPACTION_RETENTION=168h
+```
+
+> [!NOTE]
+> Only variables prefixed with `ETCD_` are passed on to the `etcd` process.
+
+
 ## [0.20.0] - 2025-02-04
 
 - **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature
