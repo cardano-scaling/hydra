@@ -62,11 +62,11 @@ let
     pkgs.secp256k1
     pkgs.xz
     pkgs.zlib
+    pkgs.etcd # Run-time dependency of hydra-node
   ]
   ++
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [
     pkgs.systemd
-    pkgs.etcd # Run-time dependency of hydra-node
   ];
 
   haskellNixShell = hsPkgs.shellFor {
