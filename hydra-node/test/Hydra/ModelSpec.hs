@@ -121,7 +121,6 @@ import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, trac
 import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import GHC.IO (unsafePerformIO)
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
@@ -143,7 +142,6 @@ import Hydra.Model (
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment qualified as Payment
 import Hydra.Tx.Party (Party (..), deriveParty)
-import System.IO.Temp (writeSystemTempFile)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
@@ -221,7 +219,6 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
   case world of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
       utxo <- run $ lift $ headUTxO node
-      run $ lift $ threadDelay 1
       let expectedBalance =
             Map.fromListWith
               (<>)
@@ -404,13 +401,10 @@ runRunMonadIOSimGen f = do
         Left ex ->
           counterexample (show ex) False
  where
-  -- NOTE: Store trace dump in file when showing the counterexample. Behavior of
-  -- this during shrinking is not 100% confirmed, show the trace directly if you
-  -- want to be sure.
+  -- NOTE: Print the entire trace when we get an error; large, but aids
+  -- debugging.
   logsOnError tr =
-    counterexample . unsafePerformIO $ do
-      fn <- writeSystemTempFile "io-sim-trace" $ toString traceDump
-      pure $ "IOSim trace stored in: " <> toString fn
+    counterexample $ toString traceDump
    where
     traceDump = printTrace (Proxy :: Proxy (HydraLog Tx)) tr
 

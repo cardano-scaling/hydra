@@ -37,6 +37,8 @@ changes.
   - API Server does **NOT** serve the event history by default any more. Clients need to add a query parameter `?history=yes` in order to obtain the history.
   - Remove `GetUTxO` client input and corresponding `GetUTxOResponse`. There is already a way to query the `UTxO` in the Head with `GET /snapshot/utxo` query.
   - Renamed 'CommitFinalized' field 'theDeposit' to 'depositTxId'.
+  - We now store the `time` in `StateEvent` which is a breaking change to our
+  persistence loading
 
 ## [0.20.0] - 2025-02-04
 
