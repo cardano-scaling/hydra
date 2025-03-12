@@ -187,8 +187,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
   etcdCmd envVars =
-    -- NOTE: We append the inherited environment on top of the defaultEnv to allow overrides.
-    setEnv (Map.toList $ defaultEnv <> envVars)
+    -- NOTE: We map prefers the left; so we need to mappend default at the end.
+    setEnv (Map.toList $ envVars <> defaultEnv)
       . setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
       . setStderr createPipe
       . proc "etcd"
