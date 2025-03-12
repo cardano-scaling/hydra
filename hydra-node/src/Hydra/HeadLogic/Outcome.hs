@@ -86,20 +86,6 @@ data StateChanged tx
       , tx :: tx
       , newLocalUTxO :: UTxOType tx
       }
-  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitRecorded
-      { headId :: HeadId
-      , pendingDeposits :: Map (TxIdType tx) (UTxOType tx)
-      , newLocalUTxO :: UTxOType tx
-      , utxoToCommit :: UTxOType tx
-      , pendingDeposit :: TxIdType tx
-      , deadline :: UTCTime
-      }
-  | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
-  | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
-  | DecommitRecorded {headId :: HeadId, decommitTx :: tx, newLocalUTxO :: UTxOType tx, utxoToDecommit :: UTxOType tx}
-  | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
-  | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | -- | A snapshot was requested by some party.
     -- NOTE: We deliberately already include an updated local ledger state to
@@ -110,10 +96,41 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
       }
-  | CommitFinalized {headId :: HeadId, newVersion :: SnapshotVersion, depositTxId :: TxIdType tx}
-  | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx, newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
+  | CommitRecorded
+      { chainState :: ChainStateType tx
+      , headId :: HeadId
+      , pendingDeposits :: Map (TxIdType tx) (UTxOType tx)
+      , newLocalUTxO :: UTxOType tx
+      , utxoToCommit :: UTxOType tx
+      , pendingDeposit :: TxIdType tx
+      , deadline :: UTCTime
+      }
+  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
+  | CommitRecovered
+      { chainState :: ChainStateType tx
+      , headId :: HeadId
+      , recoveredUTxO :: UTxOType tx
+      , newLocalUTxO :: UTxOType tx
+      , recoveredTxId :: TxIdType tx
+      }
+  | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
+  | CommitFinalized
+      { chainState :: ChainStateType tx
+      , headId :: HeadId
+      , newVersion :: SnapshotVersion
+      , depositTxId :: TxIdType tx
+      }
+  | DecommitRecorded {headId :: HeadId, decommitTx :: tx, newLocalUTxO :: UTxOType tx, utxoToDecommit :: UTxOType tx}
+  | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
+  | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
+  | DecommitFinalized
+      { chainState :: ChainStateType tx
+      , headId :: HeadId
+      , decommitTxId :: TxIdType tx
+      , newVersion :: SnapshotVersion
+      }
   | HeadClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadContested {headId :: HeadId, chainState :: ChainStateType tx, contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
   | HeadIsReadyToFanout {headId :: HeadId}
@@ -139,9 +156,6 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) wher
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 
--- NOTE: Here we produce only 'StateChanged' values that can be converted to
--- 'ServerOutput' since there are tests depending on this conversion to not
--- fail.
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
@@ -149,11 +163,21 @@ genStateChanged env =
     , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
     , HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
     , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
+    , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotRequestDecided <$> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-    , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary
+    , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , CommitApproved <$> arbitrary <*> arbitrary
+    , CommitRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , CommitIgnored <$> arbitrary <*> arbitrary <*> arbitrary
+    , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitApproved <$> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitInvalid <$> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadClosed <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadIsReadyToFanout <$> arbitrary
