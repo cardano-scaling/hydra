@@ -711,7 +711,7 @@ performDecommit party tx = do
   party `sendsInput` Input.Decommit realTx
 
   lift $ do
-    waitUntilMatch [thisNode] $ \case
+    waitUntilMatch (Map.elems nodes) $ \case
       DecommitFinalized{} -> True
       _ -> False
 
@@ -928,9 +928,7 @@ waitForUTxOToSpend utxo key value node = go 100
     0 ->
       pure $ Left utxo
     n -> do
-      threadDelay 5
       u <- headUTxO node
-      threadDelay 5
       if u /= mempty
         then case find matchPayment (UTxO.pairs u) of
           Nothing -> go (n - 1)
@@ -945,7 +943,6 @@ headUTxO ::
   TestHydraClient tx m ->
   m (UTxOType tx)
 headUTxO node = do
-  threadDelay 1
   fromMaybe mempty . getHeadUTxO <$> queryState node
 
 isOwned :: CardanoSigningKey -> (TxIn, TxOut ctx) -> Bool

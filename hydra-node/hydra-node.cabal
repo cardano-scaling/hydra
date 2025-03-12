@@ -345,7 +345,6 @@ test-suite tests
     , regex-tdfa
     , req
     , silently
-    , temporary
     , text
     , time
     , tls
