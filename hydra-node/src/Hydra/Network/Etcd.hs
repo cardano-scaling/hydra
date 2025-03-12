@@ -187,7 +187,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
   etcdCmd envVars =
-    setEnv (Map.toList $ onlyEtcdVars envVars <> defaultEnv)
+    setEnv (Map.toList $ envVars <> defaultEnv)
       . setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
       . setStderr createPipe
       . proc "etcd"
@@ -206,8 +206,6 @@ withEtcdNetwork tracer protocolVersion config callback action = do
           ["--initial-cluster-token", "hydra-network-1"]
         , ["--initial-cluster", clusterPeers]
         ]
-
-  onlyEtcdVars = Map.filterWithKey (\k _ -> "ETCD_" `isPrefixOf` k)
 
   defaultEnv :: Map.Map String String
   defaultEnv =
