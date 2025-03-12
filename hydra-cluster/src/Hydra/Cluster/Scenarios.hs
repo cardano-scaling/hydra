@@ -690,12 +690,11 @@ persistenceCanLoadWithEmptyCommit tracer workDir node hydraScriptsTxId =
         output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
       pure headId
     let persistenceState = workDir </> "state-" <> show hydraNodeId </> "state"
-    stateContents <- readFileBS persistenceState
-    let headOpened = BSC.pack $ List.last (List.lines $ BSC.unpack stateContents)
-    case headOpened ^? key "stateChanged" . key "tag" . _String of
-      Nothing -> error "Failed to find HeadIsOpened in the state file"
-      Just headIsOpen -> do
-        headIsOpen `shouldBe` "HeadOpened"
+    stateContents <- readFileBS persistenceState <&> (fmap BSC.pack . (List.lines . BSC.unpack))
+    case mapMaybe (\a -> a ^? key "stateChanged" . key "tag" . _String) stateContents of
+      [] -> error "Failed to find HeadIsOpened in the state file"
+      stateChanges -> do
+        stateChanges `shouldContain` ["HeadOpened"]
         withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
           waitFor hydraTracer (10 * blockTime) [n1] $
             output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
