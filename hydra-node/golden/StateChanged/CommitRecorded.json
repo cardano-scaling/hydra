@@ -1,60 +1,36 @@
 {
     "samples": [
         {
-            "deadline": "1864-05-09T06:20:33.933700399873Z",
-            "headId": "00000000010100010101000001010100",
-            "newLocalUTxO": {},
-            "pendingDeposit": "0001000100010101000101000001010100000000000001010101000000000101",
-            "pendingDeposits": {
-                "0001000101000100010101010000010101000101000101010101010100010000": {
-                    "0100000100010001000100000001010000000101010100000001000000010100#20": {
-                        "address": "addr_test1zpqj8j637n2usgayxmdvx3x7qgvhv0yftnntnk9hj0n72w45j8q427df3l45d2k08auxhlel9c7x244t5xv3uuv9ledq64uz4u",
-                        "datum": null,
-                        "inlineDatum": {
-                            "int": 4
-                        },
-                        "inlineDatumRaw": "04",
-                        "inlineDatumhash": "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342",
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "4746010000220011",
-                                "description": "",
-                                "type": "PlutusScriptV2"
-                            },
-                            "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
-                        },
-                        "value": {
-                            "245d5a7a06fe18358242e81281cd5ba9e6abe4efc54e7b659f25abae": {
-                                "a20c3107ed64ce5b715f": 1
-                            }
+            "chainState": {
+                "recordedAt": {
+                    "tag": "ChainPointAtGenesis"
+                },
+                "spendableUTxO": {}
+            },
+            "deadline": "1864-05-09T00:56:38.983698539086Z",
+            "headId": "01000100010101010100000100000001",
+            "newLocalUTxO": {
+                "0001000001010101000100000100010100010101010001010101000100010001#94": {
+                    "address": "addr1x9qn667sq6qap3j0yvp6khlzgzw57yc04dc6ha5rs8g0nrjpd2em6zxaucfcfht5gdmejvn24fke69qhu6u7kwh4r85qwa9902",
+                    "datum": null,
+                    "datumhash": "6825d60ec81f041ebf7dcdf1076312142d0a36432936e598dbe0694acc984692",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                            "30": 2
                         }
                     }
                 }
             },
+            "pendingDeposit": "0100000101010100010001000000000100010001000100010001000101010100",
+            "pendingDeposits": {
+                "0000010101010000000001000100000100010101010001000100010100000000": {}
+            },
             "tag": "CommitRecorded",
-            "utxoToCommit": {
-                "0101010101010000010101000101000000000100010000010101000001000100#71": {
-                    "address": "addr1zyjya69cls6mv9gh0h7y7g7svjgfthyacuvv4ezlgyvc0s03fjs34slfuuls5xl7sm5e8yrkvvqn834pn99ermvfvscs0xkwy5",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "8202818201818200581cb1075ce9c25485e1f9547f8c9c9177e47239599a4cb96eea6e1ef1c5",
-                            "description": "",
-                            "type": "SimpleScript"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage"
-                    },
-                    "value": {
-                        "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
-                            "1709a19f55300ab14c212db363c5": 1
-                        }
-                    }
-                }
-            }
+            "utxoToCommit": {}
         }
     ],
-    "seed": 284889560
+    "seed": 735071337
 }

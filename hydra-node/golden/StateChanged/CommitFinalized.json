@@ -1,11 +1,41 @@
 {
     "samples": [
         {
-            "depositTxId": "0001010000010101000000000001000101000100000101010000010101010000",
-            "headId": "01010100010001010101000101000001",
-            "newVersion": 1,
+            "chainState": {
+                "recordedAt": {
+                    "blockHash": "0100000000010001010100010000000100000101010101000100010101000100",
+                    "slot": 1,
+                    "tag": "ChainPoint"
+                },
+                "spendableUTxO": {
+                    "0000010001000000000001000101010100000000010000000100000001000001#33": {
+                        "address": "2RhQhCGqYPDn9TWRPDVY9kcHEZpLDwnJka72YWCwDfxGA35wPizRdA9GyvhuD9qcqxKMaGPJZSjD2tBdXHee8wGiTFMAcxgxVLjs6fjkLan6mu",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "820501",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                                "1927e29b34ffa554fc50ccc8bf9b41e5ea17cbdfe6ae6e5a879765": 1094243968039730176
+                            },
+                            "lovelace": 1904754014670228328
+                        }
+                    }
+                }
+            },
+            "depositTxId": "0001010000000000010001000000010001000000000000010100010101000001",
+            "headId": "01010001000101000101010100010100",
+            "newVersion": 0,
             "tag": "CommitFinalized"
         }
     ],
-    "seed": -763406104
+    "seed": -1458698575
 }

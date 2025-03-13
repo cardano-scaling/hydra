@@ -920,6 +920,7 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
 
 onOpenChainDepositTx ::
   IsTx tx =>
+  ChainStateType tx ->
   HeadId ->
   Environment ->
   OpenState tx ->
@@ -930,11 +931,20 @@ onOpenChainDepositTx ::
   -- | Deposit deadline
   UTCTime ->
   Outcome tx
-onOpenChainDepositTx headId env st deposited depositTxId deadline =
+onOpenChainDepositTx newChainState headId env st deposited depositTxId deadline =
   -- TODO: We should check for deadline and only request snapshots that have deadline further in the future so
   -- we don't end up with a snapshot that is already outdated.
   waitOnUnresolvedDecommit $
-    newState CommitRecorded{headId, pendingDeposits = Map.singleton depositTxId deposited, newLocalUTxO = localUTxO <> deposited, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline}
+    newState
+      CommitRecorded
+        { chainState = newChainState
+        , headId
+        , pendingDeposits = Map.singleton depositTxId deposited
+        , newLocalUTxO = localUTxO <> deposited
+        , utxoToCommit = deposited
+        , pendingDeposit = depositTxId
+        , deadline
+        }
       <> if not snapshotInFlight && isLeader parameters party nextSn
         then
           cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
@@ -963,15 +973,23 @@ onOpenChainDepositTx headId env st deposited depositTxId deadline =
 
 onOpenChainRecoverTx ::
   IsTx tx =>
-  HeadId ->
   OpenState tx ->
+  ChainStateType tx ->
+  HeadId ->
   TxIdType tx ->
   Outcome tx
-onOpenChainRecoverTx headId st recoveredTxId =
+onOpenChainRecoverTx st newChainState headId recoveredTxId =
   case Map.lookup recoveredTxId pendingDeposits of
     Nothing -> Error $ RequireFailed RecoverNotMatchingDeposit
     Just recoveredUTxO ->
-      newState CommitRecovered{headId, recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO, recoveredTxId}
+      newState
+        CommitRecovered
+          { chainState = newChainState
+          , headId
+          , recoveredUTxO
+          , newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO
+          , recoveredTxId
+          }
  where
   OpenState{coordinatedHeadState} = st
 
@@ -984,13 +1002,14 @@ onOpenChainRecoverTx headId st recoveredTxId =
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainIncrementTx ::
   OpenState tx ->
+  ChainStateType tx ->
   -- | New open state version
   SnapshotVersion ->
   -- | Deposit TxId
   TxIdType tx ->
   Outcome tx
-onOpenChainIncrementTx openState newVersion depositTxId =
-  newState CommitFinalized{headId, newVersion, depositTxId}
+onOpenChainIncrementTx openState newChainState newVersion depositTxId =
+  newState CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
  where
   OpenState{headId} = openState
 
@@ -1005,12 +1024,13 @@ onOpenChainIncrementTx openState newVersion depositTxId =
 onOpenChainDecrementTx ::
   IsTx tx =>
   OpenState tx ->
+  ChainStateType tx ->
   -- | New open state version
   SnapshotVersion ->
   -- | Outputs removed by the decrement
   [TxOutType tx] ->
   Outcome tx
-onOpenChainDecrementTx openState newVersion distributedTxOuts =
+onOpenChainDecrementTx openState newChainState newVersion distributedTxOuts =
   -- Spec: if outputs(txω) = 𝑈ω
   case decommitTx of
     Nothing -> Error $ AssertionFailed "decrement observed but no decommit pending"
@@ -1018,7 +1038,13 @@ onOpenChainDecrementTx openState newVersion distributedTxOuts =
       | outputsOfTx tx == distributedTxOuts ->
           -- Spec: txω ← ⊥
           --       v  ← v
-          newState DecommitFinalized{headId, newVersion, decommitTxId = txId tx}
+          newState
+            DecommitFinalized
+              { chainState = newChainState
+              , headId
+              , newVersion
+              , decommitTxId = txId tx
+              }
       | otherwise -> Error $ AssertionFailed "decrement not matching pending decommit"
  where
   OpenState{coordinatedHeadState, headId} = openState
@@ -1258,23 +1284,23 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, depositTxId, deadline}})
-    | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited depositTxId deadline
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, depositTxId, deadline}, newChainState})
+    | ourHeadId == headId -> onOpenChainDepositTx newChainState headId env openState deposited depositTxId deadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId}})
-    | ourHeadId == headId -> onOpenChainRecoverTx headId openState recoveredTxId
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId}, newChainState})
+    | ourHeadId == headId -> onOpenChainRecoverTx openState newChainState headId recoveredTxId
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
     | ourHeadId == headId ->
-        onOpenChainIncrementTx openState newVersion depositTxId
+        onOpenChainIncrementTx openState newChainState newVersion depositTxId
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedOutputs}})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedOutputs}, newChainState})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx openState newVersion distributedOutputs
+        onOpenChainDecrementTx openState newChainState newVersion distributedOutputs
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
@@ -1341,6 +1367,34 @@ aggregate st = \case
         newCommitted = Map.insert party committedUTxO committed
         remainingParties = Set.delete party pendingCommits
       _otherState -> st
+  HeadAborted{chainState} ->
+    Idle $
+      IdleState
+        { chainState
+        }
+  HeadOpened{chainState, initialUTxO} ->
+    case st of
+      Initial InitialState{parameters, headId, headSeed} ->
+        Open
+          OpenState
+            { parameters
+            , coordinatedHeadState =
+                CoordinatedHeadState
+                  { localUTxO = initialUTxO
+                  , allTxs = mempty
+                  , localTxs = mempty
+                  , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
+                  , seenSnapshot = NoSeenSnapshot
+                  , pendingDeposits = mempty
+                  , decommitTx = Nothing
+                  , version = 0
+                  }
+            , chainState
+            , headId
+            , headSeed
+            , currentSlot = chainStateSlot chainState
+            }
+      _otherState -> st
   TransactionReceived{tx} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
@@ -1370,46 +1424,6 @@ aggregate st = \case
        where
         CoordinatedHeadState{localTxs} = coordinatedHeadState
       _otherState -> st
-  CommitRecorded{pendingDeposits, newLocalUTxO} -> case st of
-    Open
-      os@OpenState{coordinatedHeadState} ->
-        Open
-          os
-            { coordinatedHeadState =
-                coordinatedHeadState
-                  { localUTxO = newLocalUTxO
-                  , pendingDeposits = pendingDeposits `Map.union` existingDeposits
-                  }
-            }
-       where
-        CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
-    _otherState -> st
-  CommitRecovered{newLocalUTxO, recoveredTxId} -> case st of
-    Open
-      os@OpenState{coordinatedHeadState} ->
-        Open
-          os
-            { coordinatedHeadState =
-                coordinatedHeadState
-                  { localUTxO = newLocalUTxO
-                  , pendingDeposits = Map.delete recoveredTxId existingDeposits
-                  }
-            }
-       where
-        CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
-    _otherState -> st
-  DecommitRecorded{decommitTx, newLocalUTxO} -> case st of
-    Open
-      os@OpenState{coordinatedHeadState} ->
-        Open
-          os
-            { coordinatedHeadState =
-                coordinatedHeadState
-                  { localUTxO = newLocalUTxO
-                  , decommitTx = Just decommitTx
-                  }
-            }
-    _otherState -> st
   SnapshotRequestDecided{snapshotNumber} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
@@ -1443,11 +1457,123 @@ aggregate st = \case
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
-  HeadAborted{chainState} ->
-    Idle $
-      IdleState
-        { chainState
-        }
+  PartySignedSnapshot{party, signature} ->
+    case st of
+      Open
+        os@OpenState
+          { coordinatedHeadState =
+            chs@CoordinatedHeadState
+              { seenSnapshot = ss@SeenSnapshot{signatories}
+              }
+          } ->
+          Open
+            os
+              { coordinatedHeadState =
+                  chs
+                    { seenSnapshot =
+                        ss
+                          { signatories = Map.insert party signature signatories
+                          }
+                    }
+              }
+      _otherState -> st
+  SnapshotConfirmed{snapshot, signatures} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { confirmedSnapshot =
+                      ConfirmedSnapshot
+                        { snapshot
+                        , signatures
+                        }
+                  , seenSnapshot = LastSeenSnapshot number
+                  }
+            }
+       where
+        Snapshot{number} = snapshot
+      _otherState -> st
+  CommitRecorded{chainState, pendingDeposits, newLocalUTxO} -> case st of
+    Open
+      os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { chainState
+            , coordinatedHeadState =
+                coordinatedHeadState
+                  { localUTxO = newLocalUTxO
+                  , pendingDeposits = pendingDeposits `Map.union` existingDeposits
+                  }
+            }
+       where
+        CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
+    _otherState -> st
+  CommitApproved{} -> st
+  CommitRecovered{chainState, newLocalUTxO, recoveredTxId} -> case st of
+    Open
+      os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { chainState
+            , coordinatedHeadState =
+                coordinatedHeadState
+                  { localUTxO = newLocalUTxO
+                  , pendingDeposits = Map.delete recoveredTxId existingDeposits
+                  }
+            }
+       where
+        CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
+    _otherState -> st
+  CommitIgnored{} -> st
+  CommitFinalized{chainState, newVersion, depositTxId} ->
+    case st of
+      Open
+        os@OpenState{coordinatedHeadState} ->
+          let newLocalUTxO = fromMaybe mempty (Map.lookup depositTxId existingDeposits)
+              pendingDeposits = Map.delete depositTxId existingDeposits
+           in Open
+                os
+                  { chainState
+                  , coordinatedHeadState =
+                      coordinatedHeadState
+                        { pendingDeposits
+                        , version = newVersion
+                        , localUTxO = localUTxO <> newLocalUTxO
+                        }
+                  }
+         where
+          CoordinatedHeadState{pendingDeposits = existingDeposits, localUTxO} = coordinatedHeadState
+      _otherState -> st
+  DecommitRecorded{decommitTx, newLocalUTxO} -> case st of
+    Open
+      os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { localUTxO = newLocalUTxO
+                  , decommitTx = Just decommitTx
+                  }
+            }
+    _otherState -> st
+  DecommitApproved{} -> st
+  DecommitInvalid{} -> st
+  DecommitFinalized{chainState, newVersion} ->
+    case st of
+      Open
+        os@OpenState{coordinatedHeadState} ->
+          Open
+            os
+              { chainState
+              , coordinatedHeadState =
+                  coordinatedHeadState
+                    { decommitTx = Nothing
+                    , version = newVersion
+                    }
+              }
+      _otherState -> st
   HeadClosed{chainState, contestationDeadline} ->
     case st of
       Open
@@ -1496,99 +1622,7 @@ aggregate st = \case
             { chainState
             }
       _otherState -> st
-  HeadOpened{chainState, initialUTxO} ->
-    case st of
-      Initial InitialState{parameters, headId, headSeed} ->
-        Open
-          OpenState
-            { parameters
-            , coordinatedHeadState =
-                CoordinatedHeadState
-                  { localUTxO = initialUTxO
-                  , allTxs = mempty
-                  , localTxs = mempty
-                  , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
-                  , seenSnapshot = NoSeenSnapshot
-                  , pendingDeposits = mempty
-                  , decommitTx = Nothing
-                  , version = 0
-                  }
-            , chainState
-            , headId
-            , headSeed
-            , currentSlot = chainStateSlot chainState
-            }
-      _otherState -> st
-  SnapshotConfirmed{snapshot, signatures} ->
-    case st of
-      Open os@OpenState{coordinatedHeadState} ->
-        Open
-          os
-            { coordinatedHeadState =
-                coordinatedHeadState
-                  { confirmedSnapshot =
-                      ConfirmedSnapshot
-                        { snapshot
-                        , signatures
-                        }
-                  , seenSnapshot = LastSeenSnapshot number
-                  }
-            }
-       where
-        Snapshot{number} = snapshot
-      _otherState -> st
-  PartySignedSnapshot{party, signature} ->
-    case st of
-      Open
-        os@OpenState
-          { coordinatedHeadState =
-            chs@CoordinatedHeadState
-              { seenSnapshot = ss@SeenSnapshot{signatories}
-              }
-          } ->
-          Open
-            os
-              { coordinatedHeadState =
-                  chs
-                    { seenSnapshot =
-                        ss
-                          { signatories = Map.insert party signature signatories
-                          }
-                    }
-              }
-      _otherState -> st
-  CommitFinalized{newVersion, depositTxId} ->
-    case st of
-      Open
-        os@OpenState{coordinatedHeadState} ->
-          let newLocalUTxO = fromMaybe mempty (Map.lookup depositTxId existingDeposits)
-              pendingDeposits = Map.delete depositTxId existingDeposits
-           in Open
-                os
-                  { coordinatedHeadState =
-                      coordinatedHeadState
-                        { pendingDeposits
-                        , version = newVersion
-                        , localUTxO = localUTxO <> newLocalUTxO
-                        }
-                  }
-         where
-          CoordinatedHeadState{pendingDeposits = existingDeposits, localUTxO} = coordinatedHeadState
-      _otherState -> st
-  DecommitFinalized{newVersion} ->
-    case st of
-      Open
-        os@OpenState{coordinatedHeadState} ->
-          Open
-            os
-              { coordinatedHeadState =
-                  coordinatedHeadState
-                    { decommitTx = Nothing
-                    , version = newVersion
-                    }
-              }
-      _otherState -> st
-  HeadIsReadyToFanout _ ->
+  HeadIsReadyToFanout{} ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
@@ -1598,10 +1632,6 @@ aggregate st = \case
     case st of
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}
       _otherState -> st
-  CommitApproved{} -> st
-  CommitIgnored{} -> st
-  DecommitApproved{} -> st
-  DecommitInvalid{} -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{} -> st
 
@@ -1630,16 +1660,16 @@ aggregateChainStateHistory history = \case
   HeadAborted{chainState} -> pushNewState chainState history
   HeadOpened{chainState} -> pushNewState chainState history
   TransactionAppliedToLocalUTxO{} -> history
-  CommitRecovered{} -> history
-  CommitRecorded{} -> history
-  DecommitRecorded{} -> history
   SnapshotRequestDecided{} -> history
   SnapshotRequested{} -> history
   TransactionReceived{} -> history
   PartySignedSnapshot{} -> history
   SnapshotConfirmed{} -> history
-  CommitFinalized{} -> history
-  DecommitFinalized{} -> history
+  CommitRecorded{chainState} -> pushNewState chainState history
+  CommitRecovered{chainState} -> pushNewState chainState history
+  CommitFinalized{chainState} -> pushNewState chainState history
+  DecommitRecorded{} -> history
+  DecommitFinalized{chainState} -> pushNewState chainState history
   HeadClosed{chainState} -> pushNewState chainState history
   HeadContested{chainState} -> pushNewState chainState history
   HeadIsReadyToFanout{} -> history

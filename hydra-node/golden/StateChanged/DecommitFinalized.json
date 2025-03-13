@@ -1,11 +1,40 @@
 {
     "samples": [
         {
-            "decommitTxId": "0001000000000000000000000001000000000000010001010000010000010100",
-            "headId": "00000001010101000001000101000000",
+            "chainState": {
+                "recordedAt": {
+                    "blockHash": "0100010101010101010100000100010001000100000000010000010000010001",
+                    "slot": 1,
+                    "tag": "ChainPoint"
+                },
+                "spendableUTxO": {
+                    "0000000000010100010101000001010100010100010100010100000001010100#19": {
+                        "address": "addr_test1zpscm90puxtm785w02th7qws0w0v0vphzyh88g2w90e50387lg66ceyc8n04addy7qhqfwgpem2qkkhe3gafa47ltdls8pjj0t",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "83030081820180",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                                "eb0211177e54": 1
+                            }
+                        }
+                    }
+                }
+            },
+            "decommitTxId": "0101000101010000000101000001000000000101010001000100010100000101",
+            "headId": "00000101010100010001000000000100",
             "newVersion": 0,
             "tag": "DecommitFinalized"
         }
     ],
-    "seed": -2022187077
+    "seed": -277076702
 }

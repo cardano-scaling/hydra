@@ -19,6 +19,13 @@ changes.
   - Change `PeerConnected` and `PeerDisconnected` to indicate connectivity to `--peer` items and not the remote `node-id`.
   - Log outputs related to the network components changed significantly.
   - Persisted state (write ahead logs) of the network components changed significantly. The `<persistence-dir>/etcd` directory must not be lost or manual action to recover the L2 network (etcd cluster) with counter-parties needs to be taken.
+  - To configure the `etcd` instance used internally, you may use `ETCD_` environment variables. For example, to switch auto-compaction to periodic retention of 7 days:
+    ```
+    ETCD_AUTO_COMPACTION_MODE=periodic
+    ETCD_AUTO_COMPACTION_RETENTION=168h
+    ```
+
+- Fix a bug where incremental commits / decommits were not correctly observed after restart of `hydra-node`. This was due to incorrect handling of internal chain state [#1894](https://github.com/cardano-scaling/hydra/pull/1894)
 
 - Fix a bug where decoding `Party` information from chain would crash the node or chain observer.
   - A problematic transaction will now be ignored and not deemed a valid head protocol transaction.
@@ -39,21 +46,6 @@ changes.
   - Renamed 'CommitFinalized' field 'theDeposit' to 'depositTxId'.
   - We now store the `time` in `StateEvent` which is a breaking change to our
   persistence loading
-
-- New environment variable handling for the `etcd` service allows for control
-of (most) etcd parameters.
-
-For example, you may like to use this to control auto-compaction by switching
-to periodic retention for 7 days:
-
-```
-ETCD_AUTO_COMPACTION_MODE=periodic
-ETCD_AUTO_COMPACTION_RETENTION=168h
-```
-
-> [!NOTE]
-> Only variables prefixed with `ETCD_` are passed on to the `etcd` process.
-
 
 - Add a list of [clients](https://hydra.family/head-protocol/unstable/docs/clients) to the docs
 
