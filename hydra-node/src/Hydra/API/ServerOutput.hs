@@ -137,7 +137,7 @@ data ServerOutput tx
   | NetworkDisconnected
   | NetworkVersionMismatch
       { ourVersion :: ProtocolVersion
-      , theirVersion :: ProtocolVersion
+      , theirVersion :: Maybe ProtocolVersion
       }
   | PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}

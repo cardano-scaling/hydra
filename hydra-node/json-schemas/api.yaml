@@ -966,7 +966,7 @@ components:
           type: integer
           minimum: 0
         theirVersion:
-          type: integer
+          type: [integer, null]
           minimum: 0
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"

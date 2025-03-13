@@ -142,13 +142,17 @@ spec = do
           failAfter 10 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = ProtocolVersion 2
-            withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 -> do
-              (recordReceived, _, waitConnectivity) <- newRecordingCallback
-              withEtcdNetwork @Int tracer v2 bobConfig recordReceived $ \_n2 -> do
-                broadcast n1 123
-
-                waitEq waitConnectivity 5 $
-                  VersionMismatch{ourVersion = v2, theirVersion = v1}
+            (recordAlice, _, waitAlice) <- newRecordingCallback
+            (recordBob, _, waitBob) <- newRecordingCallback
+            withEtcdNetwork @Int tracer v1 aliceConfig recordAlice $ \_ -> do
+              withEtcdNetwork @Int tracer v2 bobConfig recordBob $ \_ -> do
+                -- Both will try to write to the cluster at the same time
+                let mismatch = VersionMismatch{ourVersion = v2, theirVersion = Just v1}
+                    bobSeesMismatch = waitEq waitBob 5 mismatch
+                    aliceSeesMismatch = waitEq waitAlice 5 mismatch
+                -- Hence, either one or the other will see the mismatch
+                -- FIXME: this is still flaky, but less so than before
+                race_ bobSeesMismatch aliceSeesMismatch
 
       it "resends messages" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do

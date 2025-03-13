@@ -157,7 +157,6 @@ withEtcdNetwork tracer protocolVersion config callback action = do
       }
 
   reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
-    putTextLn "RECONNECT?"
     done <- readTVarIO doneVar
     if done
       then pure DontReconnect
@@ -254,17 +253,17 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
   if res ^. #succeeded
     then forM_ (res ^.. #responses . traverse . #responseRange . #kvs . traverse) $ \kv ->
       case decodeFull' $ kv ^. #value of
-        -- TODO: make theirVersion a Maybe and report VersionMismatch with Nothing
-        Left err ->
+        Left err -> do
           traceWith tracer $
             FailedToDecodeValue
               { key = decodeUtf8 $ kv ^. #key
               , value = encodeBase16 $ kv ^. #value
               , reason = show err
               }
+          onConnectivity VersionMismatch{ourVersion, theirVersion = Nothing}
         Right theirVersion ->
           unless (theirVersion == ourVersion) $
-            onConnectivity VersionMismatch{ourVersion, theirVersion}
+            onConnectivity VersionMismatch{ourVersion, theirVersion = Just theirVersion}
     else
       traceWith tracer $ MatchingProtocolVersion{version = ourVersion}
  where
