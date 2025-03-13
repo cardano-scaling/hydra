@@ -183,6 +183,7 @@ instance Arbitrary Connectivity where
 
 newtype ProtocolVersion = ProtocolVersion Natural
   deriving stock (Eq, Show, Generic, Ord)
+  deriving newtype (ToCBOR, FromCBOR)
   deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary ProtocolVersion where
