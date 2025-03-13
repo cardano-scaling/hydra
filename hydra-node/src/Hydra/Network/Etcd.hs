@@ -85,8 +85,14 @@ import Network.GRPC.Client (
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
 import Network.GRPC.Common (GrpcError (..), GrpcException (..), HTTP2Settings (..), NextElem (..), def, defaultHTTP2Settings)
 import Network.GRPC.Common.NextElem (whileNext_)
-import Network.GRPC.Common.Protobuf (Protobuf, defMessage, (.~))
-import Network.GRPC.Etcd (KV, Lease, Watch)
+import Network.GRPC.Common.Protobuf (Proto (..), Protobuf, defMessage, (.~))
+import Network.GRPC.Etcd (
+  Compare'CompareResult (..),
+  Compare'CompareTarget (..),
+  KV,
+  Lease,
+  Watch,
+ )
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
 import System.FilePath ((</>))
@@ -129,17 +135,18 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         doneVar <- newTVarIO False
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) grpcServer $ \conn -> do
-          checkVersion conn protocolVersion callback
-          race_ (pollConnectivity tracer conn advertise callback) $ do
-            race_ (waitMessages tracer conn protocolVersion persistenceDir callback) $ do
-              queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-              race_ (broadcastMessages tracer conn advertise queue) $ do
-                action
-                  Network
-                    { broadcast = writePersistentQueue queue
-                    }
-                atomically (writeTVar doneVar True)
+        withConnection (connParams doneVar) grpcServer $ \conn ->
+          -- REVIEW: checkVersion blocks if used on main thread - why?
+          withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
+            race_ (pollConnectivity tracer conn advertise callback) $
+              race_ (waitMessages tracer conn persistenceDir callback) $ do
+                queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+                race_ (broadcastMessages tracer conn advertise queue) $ do
+                  action
+                    Network
+                      { broadcast = writePersistentQueue queue
+                      }
+                  atomically (writeTVar doneVar True)
  where
   connParams doneVar =
     def
@@ -150,6 +157,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
       }
 
   reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
+    putTextLn "RECONNECT?"
     done <- readTVarIO doneVar
     if done
       then pure DontReconnect
@@ -228,11 +236,58 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 -- majority cluster and succeed. If the version does not match a corresponding
 -- 'Connectivity' message is sent via 'NetworkCallback'.
 checkVersion ::
+  Tracer IO EtcdLog ->
   Connection ->
   ProtocolVersion ->
   NetworkCallback msg IO ->
   IO ()
-checkVersion conn protocolVersion callback = pure ()
+checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
+  -- Get or write our version into kv store
+  res <-
+    nonStreaming conn (rpc @(Protobuf KV "txn")) $
+      defMessage
+        & #compare .~ [versionExists]
+        & #success .~ [getVersion]
+        & #failure .~ [putVersion]
+
+  -- Check version if version was already present
+  if res ^. #succeeded
+    then forM_ (res ^.. #responses . traverse . #responseRange . #kvs . traverse) $ \kv ->
+      case decodeFull' $ kv ^. #value of
+        -- TODO: make theirVersion a Maybe and report VersionMismatch with Nothing
+        Left err ->
+          traceWith tracer $
+            FailedToDecodeValue
+              { key = decodeUtf8 $ kv ^. #key
+              , value = encodeBase16 $ kv ^. #value
+              , reason = show err
+              }
+        Right theirVersion ->
+          unless (theirVersion == ourVersion) $
+            onConnectivity VersionMismatch{ourVersion, theirVersion}
+    else
+      traceWith tracer $ MatchingProtocolVersion{version = ourVersion}
+ where
+  versionKey = "version"
+
+  -- exists = create_revision of key 'version' > 0
+  versionExists =
+    defMessage
+      & #result .~ Proto Compare'GREATER
+      & #target .~ Proto Compare'VERSION
+      & #key .~ versionKey
+      & #version .~ 0
+
+  getVersion =
+    defMessage & #requestRange .~ (defMessage & #key .~ versionKey)
+
+  putVersion =
+    defMessage
+      & #requestPut
+        .~ ( defMessage
+               & #key .~ versionKey
+               & #value .~ serialize' ourVersion
+           )
 
 -- | Broadcast messages from a queue to the etcd cluster.
 --
@@ -280,11 +335,10 @@ waitMessages ::
   FromCBOR msg =>
   Tracer IO EtcdLog ->
   Connection ->
-  ProtocolVersion ->
   FilePath ->
   NetworkCallback msg IO ->
   IO ()
-waitMessages tracer conn protocolVersion directory NetworkCallback{deliver, onConnectivity} = do
+waitMessages tracer conn directory NetworkCallback{deliver} = do
   revision <- getLastKnownRevision directory
   withGrpcContext "waitMessages" . forever $ do
     -- NOTE: We have not observed the watch (subscription) fail even when peers
@@ -334,7 +388,7 @@ putLastKnownRevision directory rev = do
   liftIO $ encodeFile (directory </> "last-known-revision") rev
 
 -- | Write a well-known key to indicate being alive, keep it alive using a lease
--- and poll other peers enries to yield connectivity events. While doing so,
+-- and poll other peers entries to yield connectivity events. While doing so,
 -- overall network connectivity is determined from the ability to read/write to
 -- the cluster.
 pollConnectivity ::
@@ -527,6 +581,7 @@ data EtcdLog
   | CreatedLease {leaseId :: Int64}
   | LowLeaseTTL {ttlRemaining :: DiffTime}
   | NoKeepAliveResponse
+  | MatchingProtocolVersion {version :: ProtocolVersion}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
