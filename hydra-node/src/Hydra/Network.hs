@@ -173,7 +173,7 @@ data Connectivity
     NetworkDisconnected
   | VersionMismatch
       { ourVersion :: ProtocolVersion
-      , theirVersion :: ProtocolVersion
+      , theirVersion :: Maybe ProtocolVersion
       }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)

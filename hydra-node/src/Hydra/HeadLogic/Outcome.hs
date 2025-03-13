@@ -62,7 +62,7 @@ data StateChanged tx
   | PeerDisconnected {peer :: Host}
   | NetworkVersionMismatch
       { ourVersion :: ProtocolVersion
-      , theirVersion :: ProtocolVersion
+      , theirVersion :: Maybe ProtocolVersion
       }
   | HeadInitialized
       { parameters :: HeadParameters
