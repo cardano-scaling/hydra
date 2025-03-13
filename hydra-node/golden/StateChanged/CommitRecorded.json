@@ -17,7 +17,7 @@
                         "inlineDatumhash": "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342",
                         "referenceScript": {
                             "script": {
-                                "cborHex": "4746010000220011",
+                                "cborHex": "46010000220011",
                                 "description": "",
                                 "type": "PlutusScriptV2"
                             },
