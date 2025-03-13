@@ -237,7 +237,6 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.CommitApproved{..} -> Just CommitApproved{..}
     StateChanged.CommitFinalized{..} -> Just CommitFinalized{..}
     StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}
-    StateChanged.CommitIgnored{..} -> Just CommitIgnored{..}
     StateChanged.NetworkConnected -> Just NetworkConnected
     StateChanged.NetworkDisconnected -> Just NetworkDisconnected
     StateChanged.PeerConnected{..} -> Just PeerConnected{..}

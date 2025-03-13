@@ -101,7 +101,6 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitApproved"
           - $ref: "api.yaml#/components/messages/CommitFinalized"
           - $ref: "api.yaml#/components/messages/CommitRecovered"
-          - $ref: "api.yaml#/components/messages/CommitIgnored"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -674,13 +673,6 @@ components:
         Recover transaction is observed and deposited funds are recovered to L1.
       payload:
         $ref: "api.yaml#/components/schemas/CommitRecovered"
-    CommitIgnored:
-      title: CommitIgnored
-      description: |
-        Deposit was recorded initially but next snapshot utxo to commit was not found in pending deposits.
-      payload:
-        $ref: "api.yaml#/components/schemas/CommitIgnored"
-
 
     # END OF SERVER OUTPUT MESSAGES
 
@@ -1404,35 +1396,6 @@ components:
           $ref: "api.yaml#/components/schemas/UTxO"
         recoveredTxId:
           type: string
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
-    CommitIgnored:
-      title: CommitIgnored
-      description: |
-        Deposit not matching snapshot utxo to commit.
-      additionalProperties: false
-      type: object
-      required:
-        - tag
-        - headId
-        - seq
-        - timestamp
-      properties:
-        tag:
-          type: string
-          enum: ["CommitIgnored"]
-        headId:
-          $ref: "api.yaml#/components/schemas/HeadId"
-        depositUTxO:
-          type: array
-          items:
-            $ref: "api.yaml#/components/schemas/UTxO"
-        snapshotUTxO:
-          oneOf:
-           - $ref: "api.yaml#/components/schemas/UTxO"
-           - type: "null"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
