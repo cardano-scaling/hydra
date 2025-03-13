@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.Ouroborus.ChainObserver where
 

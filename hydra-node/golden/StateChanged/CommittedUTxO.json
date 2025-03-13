@@ -12,7 +12,7 @@
                         "inlineDatumRaw": null,
                         "referenceScript": {
                             "script": {
-                                "cborHex": "4746010000222601",
+                                "cborHex": "46010000222601",
                                 "description": "",
                                 "type": "PlutusScriptV3"
                             },
