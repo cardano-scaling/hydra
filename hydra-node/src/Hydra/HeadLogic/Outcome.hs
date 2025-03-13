@@ -11,7 +11,7 @@ import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
-import Hydra.Network (Host)
+import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
   HeadId,
@@ -60,10 +60,9 @@ data StateChanged tx
   | NetworkDisconnected
   | PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
-  | PeerHandshakeFailure
-      { remoteHost :: Host
-      , ourVersion :: Natural
-      , theirVersions :: [Natural]
+  | NetworkVersionMismatch
+      { ourVersion :: ProtocolVersion
+      , theirVersion :: ProtocolVersion
       }
   | HeadInitialized
       { parameters :: HeadParameters

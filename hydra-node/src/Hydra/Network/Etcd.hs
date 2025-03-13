@@ -62,19 +62,15 @@ import Data.ByteString qualified as BS
 import Data.List ((\\))
 import Data.List qualified as List
 import Data.Map qualified as Map
-import Data.Text (splitOn)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
   Host (..),
-  HydraHandshakeRefused (..),
-  HydraVersionedProtocolNumber (MkHydraVersionedProtocolNumber),
-  KnownHydraVersions (..),
   Network (..),
   NetworkCallback (..),
   NetworkComponent,
   NetworkConfiguration (..),
-  hydraVersionedProtocolNumber,
+  ProtocolVersion,
  )
 import Network.GRPC.Client (
   Address (..),
@@ -117,7 +113,7 @@ import UnliftIO (readTVarIO)
 withEtcdNetwork ::
   (ToCBOR msg, FromCBOR msg, Eq msg) =>
   Tracer IO EtcdLog ->
-  HydraVersionedProtocolNumber ->
+  ProtocolVersion ->
   -- TODO: check if all of these needed?
   NetworkConfiguration ->
   NetworkComponent IO msg msg ()
@@ -134,10 +130,11 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
         withConnection (connParams doneVar) grpcServer $ \conn -> do
+          checkVersion conn protocolVersion callback
           race_ (pollConnectivity tracer conn advertise callback) $ do
             race_ (waitMessages tracer conn protocolVersion persistenceDir callback) $ do
               queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-              race_ (broadcastMessages tracer conn protocolVersion advertise queue) $ do
+              race_ (broadcastMessages tracer conn advertise queue) $ do
                 action
                   Network
                     { broadcast = writePersistentQueue queue
@@ -227,46 +224,15 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   NetworkConfiguration{persistenceDir, listen, advertise, peers} = config
 
--- | Fetch and check version of the Hydra network protocol mapped onto the etcd
--- cluster. See 'putMessage' for how a peer encodes the protocol version into an
--- etcd key.
-matchVersion ::
-  -- | Key used by the other peer.
-  ByteString ->
-  -- | Our protocol version to check against
-  HydraVersionedProtocolNumber ->
-  Maybe HydraHandshakeRefused
-matchVersion key ourVersion = do
-  case splitOn "-" $ decodeUtf8 key of
-    [_prefix, versionText, hostText] -> do
-      let remoteHost = fromMaybe (Host "???" 0) . readMaybe $ toString hostText
-      case parseVersion versionText of
-        Just theirVersion
-          | ourVersion == theirVersion -> Nothing
-          | otherwise ->
-              -- TODO: DRY just cases
-              Just
-                HydraHandshakeRefused
-                  { remoteHost
-                  , ourVersion
-                  , theirVersions = KnownHydraVersions [theirVersion]
-                  }
-        Nothing ->
-          Just
-            HydraHandshakeRefused
-              { remoteHost
-              , ourVersion
-              , theirVersions = NoKnownHydraVersions
-              }
-    _ ->
-      Just
-        HydraHandshakeRefused
-          { remoteHost = Host "???" 0 -- TODO: use optional data type
-          , ourVersion
-          , theirVersions = NoKnownHydraVersions
-          }
- where
-  parseVersion = fmap MkHydraVersionedProtocolNumber . readMaybe . toString
+-- | Check and write version on etcd cluster. This will retry until we are on a
+-- majority cluster and succeed. If the version does not match a corresponding
+-- 'Connectivity' message is sent via 'NetworkCallback'.
+checkVersion ::
+  Connection ->
+  ProtocolVersion ->
+  NetworkCallback msg IO ->
+  IO ()
+checkVersion conn protocolVersion callback = pure ()
 
 -- | Broadcast messages from a queue to the etcd cluster.
 --
@@ -276,15 +242,14 @@ broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
   Tracer IO EtcdLog ->
   Connection ->
-  HydraVersionedProtocolNumber ->
   -- | Used to identify sender.
   Host ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages tracer conn protocolVersion ourHost queue =
+broadcastMessages tracer conn ourHost queue =
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
-    (putMessage conn protocolVersion ourHost msg >> popPersistentQueue queue msg)
+    (putMessage conn ourHost msg >> popPersistentQueue queue msg)
       `catch` \case
         GrpcException{grpcError, grpcErrorMessage}
           | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
@@ -296,12 +261,11 @@ broadcastMessages tracer conn protocolVersion ourHost queue =
 putMessage ::
   ToCBOR msg =>
   Connection ->
-  HydraVersionedProtocolNumber ->
   -- | Used to identify sender.
   Host ->
   msg ->
   IO ()
-putMessage conn protocolVersion ourHost msg =
+putMessage conn ourHost msg =
   void $ nonStreaming conn (rpc @(Protobuf KV "put")) req
  where
   req =
@@ -309,15 +273,14 @@ putMessage conn protocolVersion ourHost msg =
       & #key .~ key
       & #value .~ serialize' msg
 
-  -- TODO: use one key again (after mapping version check)?
-  key = encodeUtf8 @Text $ "msg-" <> show (hydraVersionedProtocolNumber protocolVersion) <> "-" <> show ourHost
+  key = encodeUtf8 @Text $ "msg-" <> show ourHost
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
   FromCBOR msg =>
   Tracer IO EtcdLog ->
   Connection ->
-  HydraVersionedProtocolNumber ->
+  ProtocolVersion ->
   FilePath ->
   NetworkCallback msg IO ->
   IO ()
@@ -343,14 +306,6 @@ waitMessages tracer conn protocolVersion directory NetworkCallback{deliver, onCo
     let revision = fromIntegral $ res ^. #header . #revision
     putLastKnownRevision directory revision
     forM_ (res ^. #events) $ \event -> do
-      let key = event ^. #kv . #key
-      -- XXX: Check version on every watch event?
-      case matchVersion key protocolVersion of
-        Nothing ->
-          pure ()
-        Just HydraHandshakeRefused{remoteHost, ourVersion, theirVersions} ->
-          onConnectivity $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
-
       let value = event ^. #kv . #value
       case decodeFull' value of
         Left err ->

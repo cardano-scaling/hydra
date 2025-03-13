@@ -13,7 +13,7 @@ import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
-import Hydra.Network (Host)
+import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (
   HeadId,
@@ -135,13 +135,12 @@ deriving instance FromJSON InvalidInput
 data ServerOutput tx
   = NetworkConnected
   | NetworkDisconnected
+  | NetworkVersionMismatch
+      { ourVersion :: ProtocolVersion
+      , theirVersion :: ProtocolVersion
+      }
   | PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
-  | PeerHandshakeFailure
-      { remoteHost :: Host
-      , ourVersion :: Natural
-      , theirVersions :: [Natural]
-      }
   | HeadIsInitializing {headId :: HeadId, parties :: [Party]}
   | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
@@ -238,9 +237,9 @@ instance ArbitraryIsTx tx => Arbitrary (ServerOutput tx) where
     CommitFinalized headId depositTxId -> CommitFinalized headId <$> shrink depositTxId
     NetworkConnected -> []
     NetworkDisconnected -> []
+    NetworkVersionMismatch our theirs -> NetworkVersionMismatch <$> shrink our <*> shrink theirs
     PeerConnected peer -> PeerConnected <$> shrink peer
     PeerDisconnected peer -> PeerDisconnected <$> shrink peer
-    PeerHandshakeFailure host our theirs -> PeerHandshakeFailure <$> shrink host <*> shrink our <*> shrink theirs
     SnapshotSideLoaded headId snapshotNumber -> SnapshotSideLoaded headId <$> shrink snapshotNumber
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
@@ -297,9 +296,9 @@ prepareServerOutput config response =
     CommitRecovered{} -> encodedResponse
     NetworkConnected -> encodedResponse
     NetworkDisconnected -> encodedResponse
+    NetworkVersionMismatch{} -> encodedResponse
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
-    PeerHandshakeFailure{} -> encodedResponse
     SnapshotSideLoaded{} -> encodedResponse
  where
   encodedResponse = encode response

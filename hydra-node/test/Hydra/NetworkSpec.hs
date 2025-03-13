@@ -18,10 +18,9 @@ import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (
   Connectivity (..),
   Host (..),
-  HydraVersionedProtocolNumber (..),
-  KnownHydraVersions (..),
   Network (..),
   NetworkCallback (..),
+  ProtocolVersion (..),
  )
 import Hydra.Network.Etcd (withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
@@ -40,7 +39,7 @@ spec = do
   -- TODO: add tests about advertise being honored
   describe "Etcd" $
     around (showLogsOnFailure "NetworkSpec") $ do
-      let v1 = MkHydraVersionedProtocolNumber 1
+      let v1 = ProtocolVersion 1
 
       it "broadcasts to self" $ \tracer -> do
         failAfter 5 $
@@ -141,18 +140,14 @@ spec = do
         withTempDir "test-etcd" $ \tmp -> do
           failAfter 10 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
-            let v2 = MkHydraVersionedProtocolNumber 2
+            let v2 = ProtocolVersion 2
             withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 -> do
               (recordReceived, _, waitConnectivity) <- newRecordingCallback
               withEtcdNetwork @Int tracer v2 bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
 
                 waitEq waitConnectivity 5 $
-                  HandshakeFailure
-                    { remoteHost = aliceConfig.advertise
-                    , ourVersion = v2
-                    , theirVersions = KnownHydraVersions [v1]
-                    }
+                  VersionMismatch{ourVersion = v2, theirVersion = v1}
 
       it "resends messages" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
