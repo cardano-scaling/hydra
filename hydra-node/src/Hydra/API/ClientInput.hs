@@ -16,9 +16,7 @@ data ClientInput tx
   | Close
   | Contest
   | Fanout
-  | -- XXX: This is deliberately outside of the protocol as it is not part of the normal protocol flow.
-    -- WARN: Given its consequences to the local state, it is a very risky thing to use.
-    SideLoadSnapshot {snapshot :: ConfirmedSnapshot tx}
+  | SideLoadSnapshot {snapshot :: ConfirmedSnapshot tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (ClientInput tx)
