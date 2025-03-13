@@ -186,7 +186,6 @@ data ServerOutput tx
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
-  | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -233,7 +232,6 @@ instance ArbitraryIsTx tx => Arbitrary (ServerOutput tx) where
     CommitApproved headId u -> CommitApproved headId <$> shrink u
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
     CommitFinalized headId depositTxId -> CommitFinalized headId <$> shrink depositTxId
-    CommitIgnored headId depositUTxO snapshotUTxO -> CommitIgnored headId <$> shrink depositUTxO <*> shrink snapshotUTxO
     NetworkConnected -> []
     NetworkDisconnected -> []
     PeerConnected peer -> PeerConnected <$> shrink peer
@@ -292,7 +290,6 @@ prepareServerOutput config response =
     CommitApproved{} -> encodedResponse
     CommitFinalized{} -> encodedResponse
     CommitRecovered{} -> encodedResponse
-    CommitIgnored{} -> encodedResponse
     NetworkConnected -> encodedResponse
     NetworkDisconnected -> encodedResponse
     PeerConnected{} -> encodedResponse

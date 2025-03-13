@@ -696,14 +696,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                     , depositTxId
                     }
               }
-      _ ->
-        newState
-          CommitIgnored
-            { headId
-            , depositUTxO = Map.elems pendingDeposits
-            , snapshotUTxO = utxoToCommit
-            }
-          <> outcome
+      _ -> outcome
 
   maybePostDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
     case (decommitTx, utxoToDecommit) of
@@ -1526,7 +1519,6 @@ aggregate st = \case
        where
         CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
     _otherState -> st
-  CommitIgnored{} -> st
   CommitFinalized{chainState, newVersion, depositTxId} ->
     case st of
       Open
@@ -1678,7 +1670,6 @@ aggregateChainStateHistory history = \case
     rollbackHistory (chainStateSlot chainState) history
   TickObserved{} -> history
   CommitApproved{} -> history
-  CommitIgnored{} -> history
   DecommitApproved{} -> history
   DecommitInvalid{} -> history
   IgnoredHeadInitializing{} -> history

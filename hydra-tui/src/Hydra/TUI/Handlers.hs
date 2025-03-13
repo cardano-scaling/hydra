@@ -225,10 +225,6 @@ handleHydraEventsInfo = \case
     report Success time $
       "Commit finalized "
         <> show depositTxId
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitIgnored{depositUTxO}}) ->
-    warn time $
-      "Commit ignored. Local pending deposits "
-        <> foldMap (foldMap UTxO.render . UTxO.pairs) depositUTxO
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{utxo}}) -> do
     info time "Head is finalized"
   Update (ApiInvalidInput API.InvalidInput{reason}) -> do
