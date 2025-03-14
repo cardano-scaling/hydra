@@ -137,6 +137,34 @@ spec = do
               waitFor NetworkConnected
               waitFor $ PeerConnected carolConfig.advertise
 
+      it "tracks peer disconnects/connections correctly" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
+          -- Record and assert connectivity events from alice's perspective
+          (recordReceived, _, waitConnectivity) <- newRecordingCallback
+          let
+            waitFor :: HasCallStack => Connectivity -> IO ()
+            waitFor = waitEq waitConnectivity 10
+          withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \_ -> do
+            withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
+              waitFor NetworkConnected
+              waitFor $ PeerConnected bobConfig.advertise
+              withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
+                waitFor $ PeerConnected carolConfig.advertise
+                -- Carol stops
+                pure ()
+              waitFor $ PeerDisconnected carolConfig.advertise
+              -- Bob stops
+              pure ()
+            -- Question: When should we see Bob disconnect?
+            -- We are now in minority
+            waitFor NetworkDisconnected
+            -- Carol starts again and we reach a majority
+            withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
+              waitFor NetworkConnected
+              waitFor $ PeerDisconnected bobConfig.advertise
+              waitFor $ PeerConnected carolConfig.advertise
+
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
           failAfter 10 $ do
