@@ -141,29 +141,57 @@ spec = do
         withTempDir "test-etcd" $ \tmp -> do
           PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
           -- Record and assert connectivity events from alice's perspective
-          (recordReceived, _, waitConnectivity) <- newRecordingCallback
+          (aliceRecordReceived, _, aliceWaitConnectivity) <- newRecordingCallback
+          (bobRecordReceived, _, bobWaitConnectivity) <- newRecordingCallback
+          (carolRecordReceived, _, carolWaitConnectivity) <- newRecordingCallback
           let
-            waitFor :: HasCallStack => Connectivity -> IO ()
-            waitFor = waitEq waitConnectivity 10
-          withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \_ -> do
-            withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
-              waitFor NetworkConnected
-              waitFor $ PeerConnected bobConfig.advertise
-              withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
-                waitFor $ PeerConnected carolConfig.advertise
+            aliceWaitFor :: HasCallStack => Connectivity -> IO ()
+            aliceWaitFor = waitEq aliceWaitConnectivity 20
+            bobWaitFor :: HasCallStack => Connectivity -> IO ()
+            bobWaitFor = waitEq bobWaitConnectivity 20
+            carolWaitFor :: HasCallStack => Connectivity -> IO ()
+            carolWaitFor = waitEq carolWaitConnectivity 20
+          withEtcdNetwork @Int tracer v1 aliceConfig aliceRecordReceived $ \_ -> do
+            withEtcdNetwork @Int tracer v1 bobConfig bobRecordReceived $ \_ -> do
+              aliceWaitFor NetworkConnected
+              aliceWaitFor $ PeerConnected bobConfig.advertise
+
+              bobWaitFor NetworkConnected
+              bobWaitFor $ PeerConnected aliceConfig.advertise
+
+              withEtcdNetwork @Int tracer v1 carolConfig carolRecordReceived $ \_ -> do
+                aliceWaitFor $ PeerConnected carolConfig.advertise
+                bobWaitFor $ PeerConnected carolConfig.advertise
+
+                carolWaitFor NetworkConnected
+                carolWaitFor $ PeerConnected aliceConfig.advertise
+                carolWaitFor $ PeerConnected bobConfig.advertise
+
                 -- Carol stops
                 pure ()
-              waitFor $ PeerDisconnected carolConfig.advertise
+
+              aliceWaitFor $ PeerDisconnected carolConfig.advertise
+              bobWaitFor $ PeerDisconnected carolConfig.advertise
+
               -- Bob stops
               pure ()
+
             -- We are now in minority
-            waitFor NetworkDisconnected
+            aliceWaitFor NetworkDisconnected
+
             -- Carol starts again and we reach a majority
-            withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
-              waitFor NetworkConnected
-              waitFor $ PeerConnected carolConfig.advertise
+            withEtcdNetwork @Int tracer v1 carolConfig carolRecordReceived $ \_ -> do
+              aliceWaitFor NetworkConnected
+              aliceWaitFor $ PeerConnected carolConfig.advertise
+
               -- Once Carol is back, we see Bob disconnected.
-              waitFor $ PeerDisconnected bobConfig.advertise
+              aliceWaitFor $ PeerDisconnected bobConfig.advertise
+              carolWaitFor $ PeerDisconnected bobConfig.advertise
+
+              -- Bob returns and we see that too
+              withEtcdNetwork @Int tracer v1 bobConfig bobRecordReceived $ \_ -> do
+                aliceWaitFor $ PeerConnected bobConfig.advertise
+                carolWaitFor $ PeerConnected bobConfig.advertise
 
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
