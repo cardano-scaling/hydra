@@ -1731,7 +1731,7 @@ aggregate st = \case
             { chainState
             }
       _otherState -> st
-  HeadIsReadyToFanout _ ->
+  HeadIsReadyToFanout{} ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
