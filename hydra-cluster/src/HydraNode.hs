@@ -388,9 +388,9 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
   -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
   peers =
     [ Host
-        { Network.hostname = "0.0.0.0"
-        , Network.port = fromIntegral $ 5_000 + i
-        }
+      { Network.hostname = "0.0.0.0"
+      , Network.port = fromIntegral $ 5_000 + i
+      }
     | i <- allNodeIds
     , i /= hydraNodeId
     ]
@@ -406,34 +406,31 @@ withPreparedHydraNode ::
   IO a
 withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
   withLogFile logFilePath $ \logFileHandle -> do
-    -- XXX: using a dedicated pipe as 'createPipe' from typed-process closes too early
-    (readErr, writeErr) <- P.createPipe
     let cmd =
           (proc "hydra-node" . toArgs $ runOptions)
             & setStdout (useHandleOpen logFileHandle)
-            & setStderr (useHandleOpen writeErr)
+            & setStderr createPipe
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
     withProcessTerm cmd $ \p -> do
-      hClose writeErr
       -- NOTE: exit code thread gets cancelled if 'action' terminates first
       race
-        (collectAndCheckExitCode p readErr)
+        (collectAndCheckExitCode p)
         (withConnectionToNode tracer hydraNodeId action)
         <&> either absurd id
  where
-  collectAndCheckExitCode p h =
-    (`finally` hClose h) $
-      waitExitCode p >>= \case
-        ExitSuccess -> failure "hydra-node stopped early"
-        ExitFailure ec -> do
-          err <- hGetContents h
-          failure . toString $
-            unlines
-              [ "hydra-node (nodeId = " <> show hydraNodeId <> ") exited with failure code: " <> show ec
-              , decodeUtf8 err
-              ]
+  collectAndCheckExitCode p = do
+    let h = getStderr p
+    waitExitCode p >>= \case
+      ExitSuccess -> failure "hydra-node stopped early"
+      ExitFailure ec -> do
+        err <- hGetContents h
+        failure . toString $
+          unlines
+            [ "hydra-node (nodeId = " <> show hydraNodeId <> ") exited with failure code: " <> show ec
+            , decodeUtf8 err
+            ]
 
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
@@ -535,9 +532,9 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
   -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
   peers =
     [ Host
-        { Network.hostname = "0.0.0.0"
-        , Network.port = fromIntegral $ 5_000 + i
-        }
+      { Network.hostname = "0.0.0.0"
+      , Network.port = fromIntegral $ 5_000 + i
+      }
     | i <- allNodeIds
     , i /= hydraNodeId
     ]
