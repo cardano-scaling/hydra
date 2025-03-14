@@ -115,7 +115,6 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       , recoveredTxId :: TxIdType tx
       }
-  | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
   | CommitFinalized
       { chainState :: ChainStateType tx
       , headId :: HeadId
@@ -172,7 +171,6 @@ genStateChanged env =
     , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitApproved <$> arbitrary <*> arbitrary
     , CommitRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , CommitIgnored <$> arbitrary <*> arbitrary <*> arbitrary
     , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DecommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DecommitApproved <$> arbitrary <*> arbitrary <*> arbitrary
