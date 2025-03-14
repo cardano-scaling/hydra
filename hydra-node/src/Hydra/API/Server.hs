@@ -328,5 +328,5 @@ projectSnapshotConfirmed :: Maybe (ConfirmedSnapshot tx) -> StateChanged.StateCh
 projectSnapshotConfirmed snapshotConfirmed = \case
   StateChanged.SnapshotConfirmed _ snapshot signatures -> Just $ ConfirmedSnapshot snapshot signatures
   StateChanged.HeadOpened headId _ utxos -> Just $ InitialSnapshot headId utxos
-  StateChanged.SnapshotSideLoaded _ confirmedSnapshot -> Just $ confirmedSnapshot
+  StateChanged.SnapshotSideLoaded _ confirmedSnapshot -> Just confirmedSnapshot
   _other -> snapshotConfirmed
