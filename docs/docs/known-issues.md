@@ -35,6 +35,25 @@ Known errors are:
 
 We should be able to work around these UX issues using [etcd discovery](https://etcd.io/docs/v3.5/op-guide/clustering/#etcd-discovery) eventually.
 
+#### Auto-compaction (amount of time a peer can be offline)
+
+Because we do not want the hydra-node to take up unbounded disk space, we set
+a conservative amount of history that the internal `etcd` process will store.
+
+This can be controlled via environment variables that you can read more about
+here: [Etcd Configuration](configuration#networking-configuring-the-limits-of-etcd-networking-recovery)
+
+#### Adapting to new breaking changes
+
+If the hydra-node has breaking changes in regards to reading the files it stores in the `persistence` folder, it used to be recommended to just delete the entire folder.
+
+Now, because of etcd, it is important to only delete the `hydra-node` specific files; not the files associated with `etcd`. In particular you may like to delete the following files:
+
+- `persistence/state`
+- `persistence/server_output`
+
+Note that, as with any adjustments of this kind, it is good practice to make a backup first!
+
 ### Training wheels
 
 There is a hard-coded limit on the **mainnet** where only up to 100 ada can be committed into the Hydra head. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on the mainnet.
