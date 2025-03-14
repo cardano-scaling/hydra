@@ -156,14 +156,14 @@ spec = do
               waitFor $ PeerDisconnected carolConfig.advertise
               -- Bob stops
               pure ()
-            -- Question: When should we see Bob disconnect?
             -- We are now in minority
             waitFor NetworkDisconnected
             -- Carol starts again and we reach a majority
             withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
               waitFor NetworkConnected
-              waitFor $ PeerDisconnected bobConfig.advertise
               waitFor $ PeerConnected carolConfig.advertise
+              -- Once Carol is back, we see Bob disconnected.
+              waitFor $ PeerDisconnected bobConfig.advertise
 
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
