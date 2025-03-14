@@ -177,6 +177,7 @@ httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getSeenSna
       consumeRequestBodyStrict request
         >>= handleSideLoadSnapshot putClientInput
         >>= respond
+    -- TODO: remove, not needed as trivial
     ("POST", ["snapshot", "latest"]) ->
       getConfirmedSnapshot >>= \case
         Nothing -> respond notFound

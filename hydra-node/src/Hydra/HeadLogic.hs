@@ -939,7 +939,8 @@ onOpenChainDepositTx newChainState headId env st deposited depositTxId deadline 
         , deadline
         }
       <> if not snapshotInFlight && isLeader parameters party nextSn
-        then cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
+        then
+          cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
         else noop
  where
   waitOnUnresolvedDecommit cont =
@@ -1138,12 +1139,12 @@ onOpenClientSideLoadSnapshot openState sideLoadConfirmedSnapshot =
         else Error $ AssertionFailed "InitalSnapshot side loaded does not match last known."
     ConfirmedSnapshot{snapshot, signatures} ->
       -- REVIEW! should we check utxoToCommit and utxoToDecommit are the same ???
+      -- REVIEW! should we verify version is exactly the same instead ???
       requireVerifiedSnapshotVersion requestedSnapshoVersion $
         requireVerifiedSnapshotNumber requestedSnapshotNumber $
           requireVerifiedMultisignature snapshot signatures $
-            do
-              -- REVIEW! what if we WaitOnNotApplicableTx for current localTxs not in snapshot confirmed ???
-              newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
+            -- REVIEW! what if we WaitOnNotApplicableTx for current localTxs not in snapshot confirmed ???
+            newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
  where
   OpenState
     { headId
@@ -1174,7 +1175,6 @@ onOpenClientSideLoadSnapshot openState sideLoadConfirmedSnapshot =
       ConfirmedSnapshot{snapshot = Snapshot{version}} -> version
 
   requireVerifiedSnapshotVersion requestedSv cont =
-    -- REVIEW! should we verify version is exactly the same instead ???
     if requestedSv >= currentSnapshotVersion
       then cont
       else
