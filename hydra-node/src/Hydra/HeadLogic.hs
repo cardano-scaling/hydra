@@ -1343,10 +1343,7 @@ update env ledger st ev = case (st, ev) of
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ClientInput (SideLoadSnapshot confirmedSnapshot)) ->
-    let otherHeadId =
-          case confirmedSnapshot of
-            InitialSnapshot{headId} -> headId
-            ConfirmedSnapshot{snapshot = Snapshot{headId}} -> headId
+    let Snapshot{headId = otherHeadId} = getSnapshot confirmedSnapshot
      in if ourHeadId == otherHeadId
           then onOpenClientSideLoadSnapshot openState confirmedSnapshot
           else Error NotOurHead{ourHeadId, otherHeadId}
