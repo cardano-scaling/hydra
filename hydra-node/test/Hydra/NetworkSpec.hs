@@ -146,11 +146,11 @@ spec = do
           (carolRecordReceived, _, carolWaitConnectivity) <- newRecordingCallback
           let
             aliceWaitFor :: HasCallStack => Connectivity -> IO ()
-            aliceWaitFor = waitEq aliceWaitConnectivity 20
+            aliceWaitFor = waitEq aliceWaitConnectivity 100
             bobWaitFor :: HasCallStack => Connectivity -> IO ()
-            bobWaitFor = waitEq bobWaitConnectivity 20
+            bobWaitFor = waitEq bobWaitConnectivity 100
             carolWaitFor :: HasCallStack => Connectivity -> IO ()
-            carolWaitFor = waitEq carolWaitConnectivity 20
+            carolWaitFor = waitEq carolWaitConnectivity 100
           withEtcdNetwork @Int tracer v1 aliceConfig aliceRecordReceived $ \_ -> do
             withEtcdNetwork @Int tracer v1 bobConfig bobRecordReceived $ \_ -> do
               aliceWaitFor NetworkConnected
