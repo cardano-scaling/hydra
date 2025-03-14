@@ -19,12 +19,12 @@ import Data.Map.Strict as Map
 import Hydra.HeadLogic (
   Input (NetworkInput),
  )
-import Hydra.HeadLogic.Outcome (Outcome (Continue), StateChanged (..))
+import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
 import Hydra.Node (HydraNodeLog (..))
-import Hydra.Tx (IsTx (TxIdType), Snapshot (confirmed), txId)
+import Hydra.Tx (IsTx (TxIdType), Snapshot (..), txId)
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, HistogramMetric))
 import System.Metrics.Prometheus.Metric.Counter (add, inc)
@@ -94,16 +94,19 @@ monitor transactionsMap metricsMap = \case
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
     tick "hydra_head_requested_tx"
-  (Node (LogicOutcome _ (Continue [SnapshotConfirmed _ snapshot _] _))) -> do
-    t <- getMonotonicTime
-    forM_ (confirmed snapshot) $ \tx -> do
-      txsStartTime <- readTVarIO transactionsMap
-      case Map.lookup (txId tx) txsStartTime of
-        Just start -> do
-          atomically $ modifyTVar' transactionsMap $ Map.delete (txId tx)
-          histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
-        Nothing -> pure ()
-    tickN "hydra_head_confirmed_tx" (length $ confirmed snapshot)
+  (Node LogicOutcome{outcome = Continue{stateChanges}}) -> do
+    forM_ stateChanges $ \case
+      SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> do
+        tickN "hydra_head_confirmed_tx" (length confirmed)
+        forM_ confirmed $ \tx -> do
+          t <- getMonotonicTime
+          txsStartTime <- readTVarIO transactionsMap
+          case Map.lookup (txId tx) txsStartTime of
+            Just start -> do
+              atomically $ modifyTVar' transactionsMap $ Map.delete (txId tx)
+              histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
+            Nothing -> pure ()
+      _ -> pure ()
   (Node (EndInput _ _)) ->
     tick "hydra_head_inputs"
   _ -> pure ()
