@@ -1134,24 +1134,14 @@ onOpenClientSideLoadSnapshot openState sideLoadConfirmedSnapshot =
   case sideLoadConfirmedSnapshot of
     InitialSnapshot{} ->
       if currentConfirmedSnapshot == sideLoadConfirmedSnapshot
-        then -- Spec:  ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
-        --        ̅S.σ ← ̃σ
-
-          newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
+        then newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
         else Error $ AssertionFailed "InitalSnapshot side loaded does not match last known."
     ConfirmedSnapshot{snapshot, signatures} ->
       -- REVIEW! should we check utxoToCommit and utxoToDecommit are the same ???
       requireVerifiedSnapshotVersion requestedSnapshoVersion $
         requireVerifiedSnapshotNumber requestedSnapshotNumber $
-          -- Spec: η ← combine(𝑈ˆ)
-          --       𝜂𝛼 ← combine(𝑈𝛼)
-          --       𝑈𝜔 ← outputs(tx𝜔 )
-          --       ηω ← combine(𝑈𝜔)
-          --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η‖η𝛼‖ηω), σ̃)
           requireVerifiedMultisignature snapshot signatures $
             do
-              -- Spec:  ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
-              --        ̅S.σ ← ̃σ
               -- REVIEW! what if we WaitOnNotApplicableTx for current localTxs not in snapshot confirmed ???
               newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
  where
