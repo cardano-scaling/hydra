@@ -1134,6 +1134,81 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 
   OpenState{parameters = headParameters, headId, coordinatedHeadState} = openState
 
+-- | Client request to side load confirmed snapshot.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx -> Outcome tx
+onOpenClientSideLoadSnapshot openState sideLoadConfirmedSnapshot =
+  case sideLoadConfirmedSnapshot of
+    InitialSnapshot{} ->
+      if currentConfirmedSnapshot == sideLoadConfirmedSnapshot
+        then newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
+        else Error $ AssertionFailed "InitalSnapshot side loaded does not match last known."
+    ConfirmedSnapshot{snapshot, signatures} ->
+      -- REVIEW! should we check utxoToCommit and utxoToDecommit are the same ???
+      -- REVIEW! should we verify version is exactly the same instead ???
+      requireVerifiedSnapshotVersion requestedSnapshoVersion $
+        requireVerifiedSnapshotNumber requestedSnapshotNumber $
+          requireVerifiedMultisignature snapshot signatures $
+            -- REVIEW! what if we WaitOnNotApplicableTx for current localTxs not in snapshot confirmed ???
+            newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
+ where
+  OpenState
+    { headId
+    , parameters = HeadParameters{parties}
+    , coordinatedHeadState
+    } = openState
+
+  CoordinatedHeadState
+    { confirmedSnapshot = currentConfirmedSnapshot
+    , version = currentSnapshotVersion
+    } = coordinatedHeadState
+
+  vkeys = vkey <$> parties
+
+  currentSnapshotNumber =
+    case currentConfirmedSnapshot of
+      InitialSnapshot{} -> 0
+      ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+
+  requestedSnapshotNumber =
+    case sideLoadConfirmedSnapshot of
+      InitialSnapshot{} -> 0
+      ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+
+  requestedSnapshoVersion =
+    case sideLoadConfirmedSnapshot of
+      InitialSnapshot{} -> 0
+      ConfirmedSnapshot{snapshot = Snapshot{version}} -> version
+
+  requireVerifiedSnapshotVersion requestedSv cont =
+    if requestedSv >= currentSnapshotVersion
+      then cont
+      else
+        Error $
+          RequireFailed $
+            ReqSvNumberInvalid{requestedSv, lastSeenSv = currentSnapshotVersion}
+
+  requireVerifiedSnapshotNumber requestedSn cont =
+    if requestedSn >= currentSnapshotNumber
+      then cont
+      else
+        Error $
+          RequireFailed $
+            ReqSnNumberInvalid{requestedSn, lastSeenSn = currentSnapshotNumber}
+
+  requireVerifiedMultisignature snapshot signatories cont =
+    case verifyMultiSignature vkeys signatories snapshot of
+      Verified -> cont
+      FailedKeys failures ->
+        Error $
+          RequireFailed $
+            InvalidMultisignature{multisig = show signatories, vkeys = failures}
+      KeyNumberMismatch ->
+        Error $
+          RequireFailed $
+            InvalidMultisignature{multisig = show signatories, vkeys}
+
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
 --
@@ -1274,6 +1349,11 @@ update env ledger st ev = case (st, ev) of
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Open openState@OpenState{headId = ourHeadId}, ClientInput (SideLoadSnapshot confirmedSnapshot)) ->
+    let Snapshot{headId = otherHeadId} = getSnapshot confirmedSnapshot
+     in if ourHeadId == otherHeadId
+          then onOpenClientSideLoadSnapshot openState confirmedSnapshot
+          else Error NotOurHead{ourHeadId, otherHeadId}
   -- NOTE: If posting the collectCom transaction failed in the open state, then
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
@@ -1495,6 +1575,35 @@ aggregate st = \case
        where
         Snapshot{number} = snapshot
       _otherState -> st
+  SnapshotSideLoaded{confirmedSnapshot} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                case confirmedSnapshot of
+                  InitialSnapshot{initialUTxO} ->
+                    CoordinatedHeadState
+                      { localUTxO = initialUTxO
+                      , localTxs = mempty
+                      , allTxs = mempty
+                      , confirmedSnapshot = confirmedSnapshot
+                      , seenSnapshot = NoSeenSnapshot
+                      , pendingDeposits = mempty
+                      , decommitTx = Nothing
+                      , version = 0
+                      }
+                  ConfirmedSnapshot{snapshot = Snapshot{version, number, utxo}} ->
+                    coordinatedHeadState
+                      { localUTxO = utxo
+                      , localTxs = mempty
+                      , allTxs = mempty
+                      , confirmedSnapshot = confirmedSnapshot
+                      , seenSnapshot = LastSeenSnapshot number
+                      , version
+                      }
+            }
+      _otherState -> st
   CommitRecorded{chainState, pendingDeposits, newLocalUTxO} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
@@ -1665,6 +1774,7 @@ aggregateChainStateHistory history = \case
   TransactionReceived{} -> history
   PartySignedSnapshot{} -> history
   SnapshotConfirmed{} -> history
+  SnapshotSideLoaded{} -> history
   CommitRecorded{chainState} -> pushNewState chainState history
   CommitRecovered{chainState} -> pushNewState chainState history
   CommitFinalized{chainState} -> pushNewState chainState history

@@ -1458,6 +1458,21 @@ definitions:
             $ref: "api.yaml#/components/schemas/ChainState"
           newVersion:
             $ref: "api.yaml#/components/schemas/SnapshotVersion"
+      - title: "SnapshotSideLoaded"
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+          - confirmedSnapshot
+          - signatures
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotSideLoaded"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          confirmedSnapshot:
+            $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       - title: "HeadClosed"
         additionalProperties: false
         required:
@@ -1748,6 +1763,7 @@ definitions:
               - $ref: "api.yaml#/components/messages/Close/payload"
               - $ref: "api.yaml#/components/messages/Contest/payload"
               - $ref: "api.yaml#/components/messages/Fanout/payload"
+              - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
 
       - title: NetworkInput
         type: object
