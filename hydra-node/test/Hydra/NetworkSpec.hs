@@ -114,42 +114,13 @@ spec = do
         withTempDir "test-etcd" $ \tmp -> do
           PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
           -- Record and assert connectivity events from alice's perspective
-          (recordReceived, _, waitConnectivity) <- newRecordingCallback
-          let
-            waitFor :: HasCallStack => Connectivity -> IO ()
-            waitFor = waitEq waitConnectivity 10
-          withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \_ -> do
-            withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
-              -- Alice now on majority cluster
-              waitFor NetworkConnected
-              waitFor $ PeerConnected bobConfig.advertise
-              withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
-                waitFor $ PeerConnected carolConfig.advertise
-                -- Carol stops
-                pure ()
-              waitFor $ PeerDisconnected carolConfig.advertise
-              -- Bob stops
-              pure ()
-            -- We are now in minority
-            waitFor NetworkDisconnected
-            -- Carol starts again and we reach a majority
-            withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
-              waitFor NetworkConnected
-              waitFor $ PeerConnected carolConfig.advertise
-
-      it "tracks peer disconnects/connections correctly" $ \tracer -> do
-        withTempDir "test-etcd" $ \tmp -> do
-          PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
-          -- Record and assert connectivity events from alice's perspective
           (aliceRecordReceived, _, aliceWaitConnectivity) <- newRecordingCallback
           (bobRecordReceived, _, bobWaitConnectivity) <- newRecordingCallback
           (carolRecordReceived, _, carolWaitConnectivity) <- newRecordingCallback
           let
-            aliceWaitFor :: HasCallStack => Connectivity -> IO ()
+            aliceWaitFor, bobWaitFor, carolWaitFor :: HasCallStack => Connectivity -> IO ()
             aliceWaitFor = waitEq aliceWaitConnectivity 100
-            bobWaitFor :: HasCallStack => Connectivity -> IO ()
             bobWaitFor = waitEq bobWaitConnectivity 100
-            carolWaitFor :: HasCallStack => Connectivity -> IO ()
             carolWaitFor = waitEq carolWaitConnectivity 100
           withEtcdNetwork @Int tracer v1 aliceConfig aliceRecordReceived $ \_ -> do
             withEtcdNetwork @Int tracer v1 bobConfig bobRecordReceived $ \_ -> do
