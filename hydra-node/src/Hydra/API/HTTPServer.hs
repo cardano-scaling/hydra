@@ -152,7 +152,7 @@ httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getSeenSna
       , path = PathInfo $ rawPathInfo request
       }
   case (requestMethod request, pathInfo request) of
-    ("GET", ["snapshot", "seen"]) ->
+    ("GET", ["snapshot", "last-seen"]) ->
       getSeenSnapshot >>= respond . okJSON
     ("GET", ["snapshot", "utxo"]) ->
       -- XXX: Should ensure the UTxO is of the right head and the head is still

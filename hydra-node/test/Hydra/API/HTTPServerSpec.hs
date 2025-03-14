@@ -187,7 +187,7 @@ apiServerSpec = do
                 { matchBody = matchJSON defaultPParams
                 }
 
-    describe "GET /snapshot/seen" $ do
+    describe "GET /snapshot/last-seen" $ do
       prop "responds correctly" $ \seenSnapshot -> do
         let getSeenSnapshot = pure seenSnapshot
         withApplication
@@ -203,7 +203,7 @@ apiServerSpec = do
               putClientInput
           )
           $ do
-            get "/snapshot/seen"
+            get "/snapshot/last-seen"
               `shouldRespondWith` 200{matchBody = matchJSON seenSnapshot}
 
     describe "GET /snapshot/utxo" $ do

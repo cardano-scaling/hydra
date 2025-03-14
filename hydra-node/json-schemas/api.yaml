@@ -205,7 +205,7 @@ channels:
           method: DELETE
           bindingVersion: '0.1.0'
 
-  /snapshot/seen:
+  /snapshot/last-seen:
     servers:
       - localhost-http
     subscribe:
