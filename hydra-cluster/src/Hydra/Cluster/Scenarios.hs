@@ -1400,7 +1400,7 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
         send n3 $ input "NewTx" ["transaction" .= tx]
 
         -- Everyone confirms it
-        -- Note: We can't use `waitForAlMatch` here as it expects them to
+        -- Note: We can't use `waitForAllMatch` here as it expects them to
         -- emit the exact same datatype; but Carol will be behind in sequence
         -- numbers as she was offline.
         flip mapConcurrently_ [n1, n2, n3] $ \n ->
