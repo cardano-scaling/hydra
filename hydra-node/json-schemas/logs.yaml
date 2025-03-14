@@ -1647,7 +1647,7 @@ definitions:
       confirmedSnapshot:
         $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       seenSnapshot:
-        $ref: "logs.yaml#/definitions/SeenSnapshot"
+        $ref: "api.yaml#/components/schemas/SeenSnapshot"
       pendingDeposits:
         type: object
       decommitTx:
@@ -1658,65 +1658,6 @@ definitions:
       version:
         type: integer
         minimum: 0
-
-  SeenSnapshot:
-    oneOf:
-      - title: NoSeenSnapshot
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-        properties:
-          tag:
-            type: string
-            enum: ["NoSeenSnapshot"]
-      - title: LastSeenSnapshot
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - lastSeen
-        properties:
-          tag:
-            type: string
-            enum: ["LastSeenSnapshot"]
-          lastSeen:
-            $ref: "api.yaml#/components/schemas/SnapshotNumber"
-      - title: RequestedSnapshot
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - lastSeen
-          - requested
-        properties:
-          tag:
-            type: string
-            enum: ["RequestedSnapshot"]
-          lastSeen:
-            $ref: "api.yaml#/components/schemas/SnapshotNumber"
-          requested:
-            $ref: "api.yaml#/components/schemas/SnapshotNumber"
-      - title: SeenSnapshot
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - snapshot
-          - signatories
-        properties:
-          tag:
-            type: string
-            enum: ["SeenSnapshot"]
-          snapshot:
-            $ref: "api.yaml#/components/schemas/Snapshot"
-          signatories:
-            type: object
-            propertyNames:
-              type: string
-              contentEncoding: base16
-            items:
-              $ref: "api.yaml#/components/schemas/Signature"
 
   Input:
     description: >-
