@@ -315,6 +315,6 @@ projectSeenSnapshot seenSnapshot = \case
   StateChanged.PartySignedSnapshot{party, signature} ->
     case seenSnapshot of
       ss@SeenSnapshot{signatories} ->
-        ss{signatories = (Map.insert party signature signatories)}
+        ss{signatories = Map.insert party signature signatories}
       _ -> seenSnapshot
   _other -> seenSnapshot
