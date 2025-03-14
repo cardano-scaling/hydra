@@ -260,9 +260,6 @@ channels:
           * 200: OK
           * 404: when head was never open
       operationId: sideLoadLatestConfirmedSnapshotRequest
-      message:
-        payload:
-          type: "null"
       bindings:
         http:
           type: request
