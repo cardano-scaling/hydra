@@ -317,9 +317,6 @@ onOpenNetworkReqTx env ledger st ttl tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
-    -- Spec: wait L̂ ◦ tx ≠ ⊥
-
-    -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
       -- Spec: T̂ ← T̂ ⋃ {tx}
       --       L̂  ← L̂ ◦ tx
@@ -416,34 +413,9 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
   -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-
-    -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
       -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-
-      -- Spec: wait v = v̂
       waitOnSnapshotVersion $
-        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
-        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
-        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
-        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
-        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
-        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
-
         -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
           requireApplicableCommit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
@@ -636,9 +608,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       requireNotSignedYet sigs $ do
         -- Spec: ̂Σ[j] ← σⱼ
         (newState PartySignedSnapshot{snapshot, party = otherParty, signature = snapshotSignature} <>) $
-          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
-          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
-
           --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
           ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
             -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
@@ -971,7 +940,8 @@ onOpenChainDepositTx newChainState headId env st deposited depositTxId deadline 
         , deadline
         }
       <> if not snapshotInFlight && isLeader parameters party nextSn
-        then cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
+        then
+          cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
         else noop
  where
   waitOnUnresolvedDecommit cont =
