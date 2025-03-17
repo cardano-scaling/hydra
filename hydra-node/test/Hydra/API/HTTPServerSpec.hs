@@ -19,6 +19,7 @@ import Hydra.Cardano.Api (
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
+import Hydra.HeadLogic.State (SeenSnapshot (..))
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -154,32 +155,77 @@ apiServerSpec = do
         cantCommit = pure CannotCommit
         getPendingDeposits = pure []
         putClientInput = const (pure ())
+        getNoSeenSnapshot = pure NoSeenSnapshot
 
     describe "GET /protocol-parameters" $ do
-      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getPendingDeposits putClientInput) $ do
-        it "matches schema" $
-          withJsonSpecifications $ \schemaDir -> do
+      with
+        ( return $
+            httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              cantCommit
+              getNothing
+              getNoSeenSnapshot
+              getPendingDeposits
+              putClientInput
+        )
+        $ do
+          it "matches schema" $
+            withJsonSpecifications $ \schemaDir -> do
+              get "/protocol-parameters"
+                `shouldRespondWith` 200
+                  { matchBody =
+                      matchValidJSON
+                        (schemaDir </> "api.json")
+                        (key "components" . key "messages" . key "ProtocolParameters" . key "payload")
+                  }
+          it "responds given parameters" $
             get "/protocol-parameters"
               `shouldRespondWith` 200
-                { matchBody =
-                    matchValidJSON
-                      (schemaDir </> "api.json")
-                      (key "components" . key "messages" . key "ProtocolParameters" . key "payload")
+                { matchBody = matchJSON defaultPParams
                 }
-        it "responds given parameters" $
-          get "/protocol-parameters"
-            `shouldRespondWith` 200
-              { matchBody = matchJSON defaultPParams
-              }
+
+    describe "GET /snapshot/last-seen" $ do
+      prop "responds correctly" $ \seenSnapshot -> do
+        let getSeenSnapshot = pure seenSnapshot
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              cantCommit
+              getNothing
+              getSeenSnapshot
+              getPendingDeposits
+              putClientInput
+          )
+          $ do
+            get "/snapshot/last-seen"
+              `shouldRespondWith` 200{matchBody = matchJSON seenSnapshot}
 
     describe "GET /snapshot/utxo" $ do
       prop "responds correctly" $ \utxo -> do
         let getUTxO = pure utxo
-        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
-          get "/snapshot/utxo"
-            `shouldRespondWith` case utxo of
-              Nothing -> 404
-              Just u -> 200{matchBody = matchJSON u}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              cantCommit
+              getUTxO
+              getNoSeenSnapshot
+              getPendingDeposits
+              putClientInput
+          )
+          $ do
+            get "/snapshot/utxo"
+              `shouldRespondWith` case utxo of
+                Nothing -> 404
+                Just u -> 200{matchBody = matchJSON u}
 
       prop "ok response matches schema" $ \(utxo :: UTxOType Tx) ->
         withMaxSuccess 4
@@ -188,27 +234,51 @@ apiServerSpec = do
           . withJsonSpecifications
           $ \schemaDir -> do
             let getUTxO = pure $ Just utxo
-            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
-              get "/snapshot/utxo"
-                `shouldRespondWith` 200
-                  { matchBody =
-                      matchValidJSON
-                        (schemaDir </> "api.json")
-                        (key "channels" . key "/snapshot/utxo" . key "subscribe" . key "message" . key "payload")
-                  }
+            withApplication
+              ( httpApp @Tx
+                  nullTracer
+                  dummyChainHandle
+                  testEnvironment
+                  defaultPParams
+                  cantCommit
+                  getUTxO
+                  getNoSeenSnapshot
+                  getPendingDeposits
+                  putClientInput
+              )
+              $ do
+                get "/snapshot/utxo"
+                  `shouldRespondWith` 200
+                    { matchBody =
+                        matchValidJSON
+                          (schemaDir </> "api.json")
+                          (key "channels" . key "/snapshot/utxo" . key "subscribe" . key "message" . key "payload")
+                    }
 
       prop "has inlineDatumRaw" $ \i ->
         forAll genTxOut $ \o -> do
           let o' = modifyTxOutDatum (const $ mkTxOutDatumInline (123 :: Integer)) o
           let getUTxO = pure $ Just $ UTxO.fromPairs [(i, o')]
-          withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
-            get "/snapshot/utxo"
-              `shouldRespondWith` 200
-                { matchBody = MatchBody $ \_ body ->
-                    if isNothing (body ^? key (fromString $ Text.unpack $ renderTxIn i) . key "inlineDatumRaw")
-                      then Just $ "\ninlineDatumRaw not found in body:\n" <> show body
-                      else Nothing
-                }
+          withApplication
+            ( httpApp @Tx
+                nullTracer
+                dummyChainHandle
+                testEnvironment
+                defaultPParams
+                cantCommit
+                getUTxO
+                getNoSeenSnapshot
+                getPendingDeposits
+                putClientInput
+            )
+            $ do
+              get "/snapshot/utxo"
+                `shouldRespondWith` 200
+                  { matchBody = MatchBody $ \_ body ->
+                      if isNothing (body ^? key (fromString $ Text.unpack $ renderTxIn i) . key "inlineDatumRaw")
+                        then Just $ "\ninlineDatumRaw not found in body:\n" <> show body
+                        else Nothing
+                  }
 
     describe "POST /commit" $ do
       let getHeadId = pure $ NormalCommit (generateWith arbitrary 42)
@@ -219,9 +289,21 @@ apiServerSpec = do
                   pure $ Right tx
               }
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
-        withApplication (httpApp nullTracer workingChainHandle testEnvironment defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
-          post "/commit" (Aeson.encode request)
-            `shouldRespondWith` 200
+        withApplication
+          ( httpApp
+              nullTracer
+              workingChainHandle
+              testEnvironment
+              defaultPParams
+              getHeadId
+              getNothing
+              getNoSeenSnapshot
+              getPendingDeposits
+              putClientInput
+          )
+          $ do
+            post "/commit" (Aeson.encode request)
+              `shouldRespondWith` 200
 
       let failingChainHandle postTxError =
             dummyChainHandle
@@ -241,11 +323,23 @@ apiServerSpec = do
               InvalidHeadId{} -> cover 1 True "InvalidHeadId"
               CannotFindOwnInitial{} -> cover 1 True "CannotFindOwnInitial"
               _ -> property
-        checkCoverage $
-          coverage $
-            withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) testEnvironment defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
-              post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
-                `shouldRespondWith` expectedResponse
+        checkCoverage
+          $ coverage
+          $ withApplication
+            ( httpApp @Tx
+                nullTracer
+                (failingChainHandle postTxError)
+                testEnvironment
+                defaultPParams
+                getHeadId
+                getNothing
+                getNoSeenSnapshot
+                getPendingDeposits
+                putClientInput
+            )
+          $ do
+            post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
+              `shouldRespondWith` expectedResponse
 
 -- * Helpers
 

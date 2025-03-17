@@ -12,6 +12,7 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (map)
 import Data.Conduit.List (catMaybes)
+import Data.Map.Strict qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -33,11 +34,13 @@ import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
 import Hydra.HeadLogic.Outcome qualified as StateChanged
+import Hydra.HeadLogic.State (SeenSnapshot (..), seenSnapshotNumber)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Tx (HeadId, IsTx (..), Party, txId)
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.Environment (Environment)
+import Hydra.Tx.Snapshot (Snapshot (..))
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
@@ -90,6 +93,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     -- NOTE: we do not keep the stored events around in memory
     headStatusP <- mkProjection Idle projectHeadStatus
     snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
+    seenSnapshotP <- mkProjection NoSeenSnapshot projectSeenSnapshot
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
@@ -102,6 +106,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                 lift $ atomically $ do
                   update headStatusP stateChanged
                   update snapshotUtxoP stateChanged
+                  update seenSnapshotP stateChanged
                   update commitInfoP stateChanged
                   update headIdP stateChanged
                   update pendingDepositsP stateChanged
@@ -123,7 +128,17 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             $ websocketsOr
               defaultConnectionOptions
               (wsApp party tracer historyTimedOutputs callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
-              (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
+              ( httpApp
+                  tracer
+                  chain
+                  env
+                  pparams
+                  (atomically $ getLatest commitInfoP)
+                  (atomically $ getLatest snapshotUtxoP)
+                  (atomically $ getLatest seenSnapshotP)
+                  (atomically $ getLatest pendingDepositsP)
+                  callback
+              )
       )
       ( do
           waitForServerRunning
@@ -137,6 +152,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                           update headStatusP stateChanged
                           update commitInfoP stateChanged
                           update snapshotUtxoP stateChanged
+                          update seenSnapshotP stateChanged
                           update headIdP stateChanged
                           update pendingDepositsP stateChanged
                         atomically $ writeTChan responseChannel (Left timedOutput)
@@ -281,3 +297,24 @@ projectSnapshotUtxo snapshotUtxo = \case
   StateChanged.SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
   StateChanged.HeadOpened _ _ utxos -> Just utxos
   _other -> snapshotUtxo
+
+-- | Projection of latest seen snapshot.
+projectSeenSnapshot :: SeenSnapshot tx -> StateChanged.StateChanged tx -> SeenSnapshot tx
+projectSeenSnapshot seenSnapshot = \case
+  StateChanged.SnapshotRequestDecided{snapshotNumber} ->
+    RequestedSnapshot
+      { lastSeen = seenSnapshotNumber seenSnapshot
+      , requested = snapshotNumber
+      }
+  StateChanged.SnapshotRequested{snapshot} ->
+    SeenSnapshot snapshot mempty
+  StateChanged.HeadOpened{} ->
+    NoSeenSnapshot
+  StateChanged.SnapshotConfirmed{snapshot = Snapshot{number}} ->
+    LastSeenSnapshot number
+  StateChanged.PartySignedSnapshot{party, signature} ->
+    case seenSnapshot of
+      ss@SeenSnapshot{signatories} ->
+        ss{signatories = Map.insert party signature signatories}
+      _ -> seenSnapshot
+  _other -> seenSnapshot
