@@ -217,6 +217,7 @@ apiServerSpec = do
               cantCommit
               getNothing
               getSeenSnapshot
+              getNothing
               getPendingDeposits
               putClientInput
           )
@@ -227,7 +228,7 @@ apiServerSpec = do
     describe "GET /snapshot" $ do
       prop "responds correctly" $ \confirmedSnapshot -> do
         let getConfirmedSnapshot = pure confirmedSnapshot
-        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getConfirmedSnapshot getPendingDeposits putClientInput) $ do
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getNoSeenSnapshot getConfirmedSnapshot getPendingDeposits putClientInput) $ do
           get "/snapshot"
             `shouldRespondWith` case confirmedSnapshot of
               Nothing -> 404
@@ -238,7 +239,7 @@ apiServerSpec = do
           . withJsonSpecifications
           $ \schemaDir -> do
             let getConfirmedSnapshot = pure $ Just confirmedSnapshot
-            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getConfirmedSnapshot getPendingDeposits putClientInput) $ do
+            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getNoSeenSnapshot getConfirmedSnapshot getPendingDeposits putClientInput) $ do
               get "/snapshot"
                 `shouldRespondWith` 200
                   { matchBody =
@@ -249,7 +250,7 @@ apiServerSpec = do
 
     describe "POST /snapshot" $ do
       prop "responds on valid requests" $ \(request :: SideLoadSnapshotRequest Tx) ->
-        withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getNothing getPendingDeposits putClientInput) $
+        withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getNoSeenSnapshot getNothing getPendingDeposits putClientInput) $
           do
             post "/snapshot" (Aeson.encode request)
             `shouldRespondWith` 200
