@@ -1585,15 +1585,17 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 case confirmedSnapshot of
-                  InitialSnapshot{} ->
+                  InitialSnapshot{initialUTxO} ->
                     coordinatedHeadState
-                      { localTxs = mempty
+                      { localUTxO = initialUTxO
+                      , localTxs = mempty
                       , allTxs = mempty
                       , seenSnapshot = NoSeenSnapshot
                       }
-                  ConfirmedSnapshot{} ->
+                  ConfirmedSnapshot{snapshot = Snapshot{utxo}} ->
                     coordinatedHeadState
-                      { localTxs = mempty
+                      { localUTxO = utxo
+                      , localTxs = mempty
                       , allTxs = mempty
                       , seenSnapshot = LastSeenSnapshot snapshotNumber
                       }

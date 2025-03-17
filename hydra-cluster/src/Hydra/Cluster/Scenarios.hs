@@ -1394,7 +1394,7 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
           send n $ input "SideLoadSnapshot" ["snapshot" .= snapshotConfirmed]
           waitMatch (200 * blockTime) n $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotSideLoaded"
-            guard $ v ^? key "confirmedSnapshot" == Just (toJSON snapshotConfirmed)
+            guard $ v ^? key "snapshotNumber" == Just (toJSON (0 :: Integer))
 
         -- Carol re-submits the same transaction (but anyone can at this point)
         send n3 $ input "NewTx" ["transaction" .= tx]
