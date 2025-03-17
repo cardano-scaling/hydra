@@ -1160,6 +1160,14 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 
 -- | Client request to side load confirmed snapshot.
 --
+-- Note this is not covered by the spec as it is not reachable from an organic use of the protocol.
+--
+-- It must not have any effects outside of a neutral modification of the state to:
+-- * something it was before (in the case of the initial snapshot).
+-- * something it would be using side communication (in the case of a confirmed snapshot).
+--
+-- Besides the above, it is expected to work very much like the confirmed snapshot.
+--
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx -> Outcome tx
 onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
