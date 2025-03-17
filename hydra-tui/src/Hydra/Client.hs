@@ -92,7 +92,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
  where
   readExternalSk = readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   -- TODO(SN): ping thread?
-  client q = runClient (toString hostname) (fromIntegral port) "/" $ \con -> do
+  client q = runClient (toString hostname) (fromIntegral port) "/?history=yes" $ \con -> do
     -- REVIEW(SN): is sharing the 'con' fine?
     callback ClientConnected
     race_ (receiveOutputs con) (sendInputs q con)
