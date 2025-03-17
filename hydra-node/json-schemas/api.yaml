@@ -249,23 +249,6 @@ channels:
           method: GET
           bindingVersion: '0.1.0'
 
-  /snapshot/latest:
-    servers:
-      - localhost-http
-    publish:
-      description: |
-        Request to adopt latest confirmed snapshot.
-
-        Possible responses of this endpoint are:
-          * 200: OK
-          * 404: when head was never open
-      operationId: sideLoadLatestConfirmedSnapshotRequest
-      bindings:
-        http:
-          type: request
-          method: POST
-          bindingVersion: '0.1.0'
-
   /snapshot:
     servers:
       - localhost-http

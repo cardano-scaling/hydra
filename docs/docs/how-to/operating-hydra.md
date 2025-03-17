@@ -81,7 +81,7 @@ This issue can also arise if a peer goes offline while a transaction is submitte
 
 As a result of this divergence, the local ledger state of each Hydra node essentially becomes forked, resulting in inconsistent states across the network. While it is technically still possible to submit transactions to the Hydra nodes, doing so is ineffective because snapshots do not update unless all nodes sign them. Each node starts accepting transactions based on entirely different states, leading to disagreement on which UTxOs have been spent.
 
-To recover from this issue, we introduced side-loading of snapshots to synchronize the local ledger state of the Hydra nodes. With this mechanism, every peer reverts to the latest confirmed snapshot. This can be done using the POST /snapshot/latest endpoint, which clears the peer’s local pending transactions and restores its state to match the last agreed snapshot, allowing the node to rejoin the consensus with the rest of the network.
+To recover from this issue, we introduced side-loading of snapshots to synchronize the local ledger state of the Hydra nodes. With this mechanism, every peer reverts to the latest confirmed snapshot. This can be done by using latest snapshot confirmed from GET /snapshot to call the POST /snapshot endpoint, which clears the peer’s local pending transactions and restores its state to match the last agreed snapshot, allowing the node to rejoin the consensus with the rest of the network.
 
 Newer confirmed snapshots can also be adopted if all party members use the POST /snapshot endpoint with the same ConfirmedSnapshot as the JSON body.
 

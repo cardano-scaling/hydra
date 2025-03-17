@@ -177,13 +177,6 @@ httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getSeenSna
       consumeRequestBodyStrict request
         >>= handleSideLoadSnapshot putClientInput
         >>= respond
-    -- TODO: remove, not needed as trivial
-    ("POST", ["snapshot", "latest"]) ->
-      getConfirmedSnapshot >>= \case
-        Nothing -> respond notFound
-        Just snapshot -> do
-          putClientInput $ SideLoadSnapshot snapshot
-          respond $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
     ("GET", ["snapshot", "utxo"]) ->
       -- XXX: Should ensure the UTxO is of the right head and the head is still
       -- open. This is something we should fix on the "read model" side of the
