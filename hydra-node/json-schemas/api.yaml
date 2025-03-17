@@ -212,6 +212,9 @@ channels:
       operationId: getSeenSnapshot
       description: |
         Get latest seen snapshot.
+
+        This endpoint can help in situations where the head is not reaching consensus
+        by identifying the peers who are missing signing the current snapshot in flight and preventing its confirmation.
       message:
         payload:
           $ref: "api.yaml#/components/schemas/SeenSnapshot"
