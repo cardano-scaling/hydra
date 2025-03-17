@@ -1,59 +1,8 @@
 {
     "samples": [
         {
-            "confirmedSnapshot": {
-                "signatures": {
-                    "multiSignature": []
-                },
-                "snapshot": {
-                    "confirmed": [],
-                    "headId": "01010000010100000000000101000001",
-                    "number": 2,
-                    "utxo": {
-                        "0001000001000000010100000000010000010000000100010000010001000101#18": {
-                            "address": "addr1w9cfgvn6q33gmr22rre9wvkwevnsz2426xcxgka9gjpjd3ggr9qpf",
-                            "datum": null,
-                            "datumhash": null,
-                            "inlineDatum": null,
-                            "inlineDatumRaw": null,
-                            "referenceScript": null,
-                            "value": {
-                                "7ea36e55a169e14f82676a714a4290c398617832f04bd3009a942340": {
-                                    "ce": 1000967443713342587
-                                },
-                                "lovelace": 7714806903775962499
-                            }
-                        }
-                    },
-                    "utxoToCommit": {},
-                    "utxoToDecommit": {
-                        "0001000001010101010100000000000000010001010000010101000000000100#81": {
-                            "address": "2cWKMJemoBajvWcEzQEmBbk18hZK2U91PQThUL26yed6s6P8HQ5xD5yhYNeg8wiDszPGK",
-                            "datum": null,
-                            "datumhash": "a7da38e7d3d7d7967806c53f7b728e6b117779a342d2c4aa9d1367a4badaf70e",
-                            "inlineDatum": null,
-                            "inlineDatumRaw": null,
-                            "referenceScript": {
-                                "script": {
-                                    "cborHex": "820281820180",
-                                    "description": "",
-                                    "type": "SimpleScript"
-                                },
-                                "scriptLanguage": "SimpleScriptLanguage"
-                            },
-                            "value": {
-                                "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
-                                    "4471a49040e112f63a0d83310278ef90062171b1df85": 1
-                                },
-                                "lovelace": 7352276770870141906
-                            }
-                        }
-                    },
-                    "version": 0
-                },
-                "tag": "ConfirmedSnapshot"
-            },
             "headId": "00000000010101000001000000000001",
+            "snapshotNumber": 0,
             "tag": "SnapshotSideLoaded"
         }
     ],

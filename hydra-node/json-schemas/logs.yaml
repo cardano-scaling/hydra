@@ -1458,21 +1458,6 @@ definitions:
             $ref: "api.yaml#/components/schemas/ChainState"
           newVersion:
             $ref: "api.yaml#/components/schemas/SnapshotVersion"
-      - title: "SnapshotSideLoaded"
-        additionalProperties: false
-        required:
-          - tag
-          - headId
-          - confirmedSnapshot
-          - signatures
-        properties:
-          tag:
-            type: string
-            enum: ["SnapshotSideLoaded"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          confirmedSnapshot:
-            $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       - title: "HeadClosed"
         additionalProperties: false
         required:
@@ -1542,6 +1527,20 @@ definitions:
             enum: ["TickObserved"]
           chainSlot:
             $ref: "api.yaml#/components/schemas/ChainSlot"
+      - title: "ClearLocalState"
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+          - snapshotNumber
+        properties:
+          tag:
+            type: string
+            enum: ["ClearLocalState"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          snapshotNumber:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
   IdleState:
     type: object
     additionalProperties: false

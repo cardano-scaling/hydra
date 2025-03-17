@@ -14,7 +14,6 @@ import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
-  ConfirmedSnapshot,
   HeadId,
   HeadParameters,
   HeadSeed,
@@ -99,7 +98,6 @@ data StateChanged tx
       }
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | SnapshotSideLoaded {headId :: HeadId, confirmedSnapshot :: ConfirmedSnapshot tx}
   | CommitRecorded
       { chainState :: ChainStateType tx
       , headId :: HeadId
@@ -145,7 +143,7 @@ data StateChanged tx
       , participants :: [OnChainId]
       }
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
-  | SnapshotSideLoaded {confirmedSnapshot :: ConfirmedSnapshot tx}
+  | ClearLocalState {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
@@ -171,7 +169,6 @@ genStateChanged env =
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotSideLoaded <$> arbitrary <*> arbitrary
     , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitApproved <$> arbitrary <*> arbitrary
     , CommitRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
@@ -184,6 +181,7 @@ genStateChanged env =
     , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
+    , ClearLocalState <$> arbitrary <*> arbitrary
     ]
  where
   Environment{party} = env
@@ -226,6 +224,9 @@ cause e = Continue [] [e]
 
 causes :: [Effect tx] -> Outcome tx
 causes = Continue []
+
+changes :: [StateChanged tx] -> Outcome tx
+changes stateChanges = Continue stateChanges []
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}

@@ -816,6 +816,32 @@ spec =
               Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey alice, vkey bob, vkey carol]
               _ -> False
 
+        it "reject side load confirmed snapshot because wrong snapshot version" $ do
+          getConfirmedSnapshot startingState `shouldBe` Just snapshot1
+
+          let snapshot2 = Snapshot testHeadId 1 2 [tx2] (utxoRef 3) Nothing Nothing
+              multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
+
+          update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
+            `shouldBe` Error (RequireFailed{requirementFailure = ReqSvNumberInvalid 1 0})
+
+        prop "reject side load confirmed snapshot because wrong snapshot utxoToDecommit" $ \utxoToDecommit -> do
+          getConfirmedSnapshot startingState `shouldBe` Just snapshot1
+          let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing (Just utxoToDecommit)
+              multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
+
+          update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
+            `shouldBe` Error (AssertionFailed "ConfirmedSnapshot utxoToDecommit side loaded does not match last known.")
+
+        prop "reject side load confirmed snapshot because wrong snapshot utxoToCommit" $ \utxoToCommit -> do
+          getConfirmedSnapshot startingState `shouldBe` Just snapshot1
+
+          let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) (Just utxoToCommit) Nothing
+              multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
+
+          update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
+            `shouldBe` Error (AssertionFailed "ConfirmedSnapshot utxoToCommit side loaded does not match last known.")
+
         it "accept side load confirmed snapshot with idempotence" $ do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 

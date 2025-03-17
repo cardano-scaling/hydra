@@ -232,7 +232,6 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx, transaction = tx}
     StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
     StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}
-    StateChanged.SnapshotSideLoaded{..} -> Just SnapshotSideLoaded{..}
     StateChanged.IgnoredHeadInitializing{..} -> Just IgnoredHeadInitializing{..}
     StateChanged.DecommitRecorded{..} -> Just DecommitRequested{..}
     StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
@@ -253,6 +252,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.PartySignedSnapshot{} -> Nothing
     StateChanged.ChainRolledBack{} -> Nothing
     StateChanged.TickObserved{} -> Nothing
+    StateChanged.ClearLocalState{..} -> Just SnapshotSideLoaded{..}
 
 --
 
@@ -321,6 +321,10 @@ projectSeenSnapshot seenSnapshot = \case
       ss@SeenSnapshot{signatories} ->
         ss{signatories = Map.insert party signature signatories}
       _ -> seenSnapshot
+  StateChanged.ClearLocalState{snapshotNumber} ->
+    case snapshotNumber of
+      0 -> NoSeenSnapshot
+      _ -> LastSeenSnapshot snapshotNumber
   _other -> seenSnapshot
 
 -- | Projection of latest confirmed snapshot.
@@ -328,5 +332,4 @@ projectSnapshotConfirmed :: Maybe (ConfirmedSnapshot tx) -> StateChanged.StateCh
 projectSnapshotConfirmed snapshotConfirmed = \case
   StateChanged.SnapshotConfirmed _ snapshot signatures -> Just $ ConfirmedSnapshot snapshot signatures
   StateChanged.HeadOpened headId _ utxos -> Just $ InitialSnapshot headId utxos
-  StateChanged.SnapshotSideLoaded _ confirmedSnapshot -> Just confirmedSnapshot
   _other -> snapshotConfirmed

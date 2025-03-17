@@ -49,6 +49,7 @@ import Hydra.HeadLogic.Outcome (
   WaitReason (..),
   cause,
   causes,
+  changes,
   newState,
   noop,
   wait,
@@ -316,6 +317,9 @@ onOpenNetworkReqTx env ledger st ttl tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
+    -- Spec: wait L̂ ◦ tx ≠ ⊥
+
+    -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
       -- Spec: T̂ ← T̂ ⋃ {tx}
       --       L̂  ← L̂ ◦ tx
@@ -412,9 +416,34 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
   -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+
+    -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
       -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+
+      -- Spec: wait v = v̂
       waitOnSnapshotVersion $
+        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
+        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
+        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
+        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
+        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
+        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
+
         -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
           requireApplicableCommit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
@@ -607,6 +636,9 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       requireNotSignedYet sigs $ do
         -- Spec: ̂Σ[j] ← σⱼ
         (newState PartySignedSnapshot{snapshot, party = otherParty, signature = snapshotSignature} <>) $
+          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
+          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
+
           --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
           ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
             -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
@@ -939,8 +971,7 @@ onOpenChainDepositTx newChainState headId env st deposited depositTxId deadline 
         , deadline
         }
       <> if not snapshotInFlight && isLeader parameters party nextSn
-        then
-          cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
+        then cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
         else noop
  where
   waitOnUnresolvedDecommit cont =
@@ -1131,20 +1162,19 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx -> Outcome tx
-onOpenClientSideLoadSnapshot openState sideLoadConfirmedSnapshot =
-  case sideLoadConfirmedSnapshot of
+onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
+  case requestedConfirmedSnapshot of
     InitialSnapshot{} ->
-      if currentConfirmedSnapshot == sideLoadConfirmedSnapshot
-        then newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
-        else Error $ AssertionFailed "InitalSnapshot side loaded does not match last known."
+      requireVerifiedSameSnapshot $
+        newState ClearLocalState{headId, snapshotNumber = lastSeenSn}
     ConfirmedSnapshot{snapshot, signatures} ->
-      -- REVIEW! should we check utxoToCommit and utxoToDecommit are the same ???
-      -- REVIEW! should we verify version is exactly the same instead ???
-      requireVerifiedSnapshotVersion requestedSnapshoVersion $
-        requireVerifiedSnapshotNumber requestedSnapshotNumber $
+      requireVerifiedSnapshotNumber $
+        requireVerifiedL1Snapshot $
           requireVerifiedMultisignature snapshot signatures $
-            -- REVIEW! what if we WaitOnNotApplicableTx for current localTxs not in snapshot confirmed ???
-            newState SnapshotSideLoaded{headId, confirmedSnapshot = sideLoadConfirmedSnapshot}
+            changes
+              [ SnapshotConfirmed{headId, snapshot, signatures}
+              , ClearLocalState{headId, snapshotNumber = lastSeenSn}
+              ]
  where
   OpenState
     { headId
@@ -1154,41 +1184,43 @@ onOpenClientSideLoadSnapshot openState sideLoadConfirmedSnapshot =
 
   CoordinatedHeadState
     { confirmedSnapshot = currentConfirmedSnapshot
-    , version = currentSnapshotVersion
     } = coordinatedHeadState
 
   vkeys = vkey <$> parties
 
-  currentSnapshotNumber =
-    case currentConfirmedSnapshot of
-      InitialSnapshot{} -> 0
-      ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+  currentSnapshot@Snapshot
+    { version = lastSeenSv
+    , number = lastSeenSn
+    , utxoToCommit = lastSeenSc
+    , utxoToDecommit = lastSeenSd
+    } = getSnapshot currentConfirmedSnapshot
 
-  requestedSnapshotNumber =
-    case sideLoadConfirmedSnapshot of
-      InitialSnapshot{} -> 0
-      ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+  requestedSnapshot@Snapshot
+    { version = requestedSv
+    , number = requestedSnapshotNumber
+    , utxoToCommit = requestedSc
+    , utxoToDecommit = requestedSd
+    } = getSnapshot requestedConfirmedSnapshot
 
-  requestedSnapshoVersion =
-    case sideLoadConfirmedSnapshot of
-      InitialSnapshot{} -> 0
-      ConfirmedSnapshot{snapshot = Snapshot{version}} -> version
+  requireVerifiedSameSnapshot cont =
+    if requestedSnapshot == currentSnapshot
+      then cont
+      else Error $ AssertionFailed "InitalSnapshot side loaded does not match last known."
 
-  requireVerifiedSnapshotVersion requestedSv cont =
-    if requestedSv >= currentSnapshotVersion
+  requireVerifiedSnapshotNumber cont =
+    if requestedSnapshotNumber >= lastSeenSn
       then cont
       else
         Error $
           RequireFailed $
-            ReqSvNumberInvalid{requestedSv, lastSeenSv = currentSnapshotVersion}
+            ReqSnNumberInvalid{requestedSn = requestedSnapshotNumber, lastSeenSn}
 
-  requireVerifiedSnapshotNumber requestedSn cont =
-    if requestedSn >= currentSnapshotNumber
-      then cont
-      else
-        Error $
-          RequireFailed $
-            ReqSnNumberInvalid{requestedSn, lastSeenSn = currentSnapshotNumber}
+  requireVerifiedL1Snapshot
+    cont
+      | requestedSv /= lastSeenSv = Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv, lastSeenSv}
+      | requestedSc /= lastSeenSc = Error $ AssertionFailed "ConfirmedSnapshot utxoToCommit side loaded does not match last known."
+      | requestedSd /= lastSeenSd = Error $ AssertionFailed "ConfirmedSnapshot utxoToDecommit side loaded does not match last known."
+      | otherwise = cont
 
   requireVerifiedMultisignature snapshot signatories cont =
     case verifyMultiSignature vkeys signatories snapshot of
@@ -1568,32 +1600,24 @@ aggregate st = \case
        where
         Snapshot{number} = snapshot
       _otherState -> st
-  SnapshotSideLoaded{confirmedSnapshot} ->
+  ClearLocalState{snapshotNumber} ->
     case st of
-      Open os@OpenState{coordinatedHeadState} ->
+      Open os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot}} ->
         Open
           os
             { coordinatedHeadState =
                 case confirmedSnapshot of
-                  InitialSnapshot{initialUTxO} ->
-                    CoordinatedHeadState
-                      { localUTxO = initialUTxO
-                      , localTxs = mempty
-                      , allTxs = mempty
-                      , confirmedSnapshot = confirmedSnapshot
-                      , seenSnapshot = NoSeenSnapshot
-                      , pendingDeposits = mempty
-                      , decommitTx = Nothing
-                      , version = 0
-                      }
-                  ConfirmedSnapshot{snapshot = Snapshot{version, number, utxo}} ->
+                  InitialSnapshot{} ->
                     coordinatedHeadState
-                      { localUTxO = utxo
-                      , localTxs = mempty
+                      { localTxs = mempty
                       , allTxs = mempty
-                      , confirmedSnapshot = confirmedSnapshot
-                      , seenSnapshot = LastSeenSnapshot number
-                      , version
+                      , seenSnapshot = NoSeenSnapshot
+                      }
+                  ConfirmedSnapshot{} ->
+                    coordinatedHeadState
+                      { localTxs = mempty
+                      , allTxs = mempty
+                      , seenSnapshot = LastSeenSnapshot snapshotNumber
                       }
             }
       _otherState -> st
@@ -1766,7 +1790,6 @@ aggregateChainStateHistory history = \case
   TransactionReceived{} -> history
   PartySignedSnapshot{} -> history
   SnapshotConfirmed{} -> history
-  SnapshotSideLoaded{} -> history
   CommitRecorded{chainState} -> pushNewState chainState history
   CommitRecovered{chainState} -> pushNewState chainState history
   CommitFinalized{chainState} -> pushNewState chainState history
@@ -1784,3 +1807,4 @@ aggregateChainStateHistory history = \case
   DecommitInvalid{} -> history
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
+  ClearLocalState{} -> history
