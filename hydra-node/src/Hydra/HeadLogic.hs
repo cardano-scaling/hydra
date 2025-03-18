@@ -1193,8 +1193,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
           RequireFailed $
             ReqSnNumberInvalid{requestedSn = requestedSnapshotNumber, lastSeenSn}
 
-  requireVerifiedL1Snapshot
-    cont
+  requireVerifiedL1Snapshot cont
       | requestedSv /= lastSeenSv = Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv, lastSeenSv}
       | requestedSc /= lastSeenSc = Error $ AssertionFailed "ConfirmedSnapshot utxoToCommit side loaded does not match last known."
       | requestedSd /= lastSeenSd = Error $ AssertionFailed "ConfirmedSnapshot utxoToDecommit side loaded does not match last known."
