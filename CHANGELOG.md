@@ -40,7 +40,7 @@ changes.
 
 - Submit observations to a `hydra-explorer` via optional `--explorer` option.
 
-- Add API query (GET /snapshot/latest-seen) to fetch the latest seen snapshot by a node and help identify non-cooperating peers.
+- Add API query (GET /snapshot/last-seen) to fetch the latest seen snapshot by a node and help identify non-cooperating peers.
 
 - **BREAKING**
   - API Server does **NOT** serve the event history by default any more. Clients need to add a query parameter `?history=yes` in order to obtain the history.
