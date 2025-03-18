@@ -1194,10 +1194,10 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
             ReqSnNumberInvalid{requestedSn = requestedSnapshotNumber, lastSeenSn}
 
   requireVerifiedL1Snapshot cont
-      | requestedSv /= lastSeenSv = Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv, lastSeenSv}
-      | requestedSc /= lastSeenSc = Error $ AssertionFailed "ConfirmedSnapshot utxoToCommit side loaded does not match last known."
-      | requestedSd /= lastSeenSd = Error $ AssertionFailed "ConfirmedSnapshot utxoToDecommit side loaded does not match last known."
-      | otherwise = cont
+    | requestedSv /= lastSeenSv = Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv, lastSeenSv}
+    | requestedSc /= lastSeenSc = Error $ AssertionFailed "ConfirmedSnapshot utxoToCommit side loaded does not match last known."
+    | requestedSd /= lastSeenSd = Error $ AssertionFailed "ConfirmedSnapshot utxoToDecommit side loaded does not match last known."
+    | otherwise = cont
 
   requireVerifiedMultisignature snapshot signatories cont =
     case verifyMultiSignature vkeys signatories snapshot of
