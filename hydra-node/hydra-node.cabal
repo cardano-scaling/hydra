@@ -113,7 +113,6 @@ library
     , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
-    , cborg
     , conduit
     , containers
     , contra-tracer
