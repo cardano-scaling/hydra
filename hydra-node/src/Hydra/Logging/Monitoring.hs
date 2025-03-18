@@ -96,7 +96,6 @@ monitor transactionsMap metricsMap = \case
     tick "hydra_head_requested_tx"
   (Node LogicOutcome{outcome = Continue{stateChanges}}) -> do
     forM_ stateChanges $ \case
-      -- REIVEW! should we handle SnapshotSideLoaded ???
       SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> do
         tickN "hydra_head_confirmed_tx" (length confirmed)
         forM_ confirmed $ \tx -> do
