@@ -55,6 +55,7 @@ changes.
   * add new `SideLoadSnapshot` client input.
   * add new `LocalStateCleared` state changed event.
   * add new `SnapshotSideLoaded` server output.
+  * add new `SideLoadSnapshotFailed` logic error.
 
 ## [0.20.0] - 2025-02-04
 

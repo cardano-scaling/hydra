@@ -40,6 +40,7 @@ import Hydra.HeadLogic (
   OpenState (..),
   Outcome (..),
   RequirementFailure (..),
+  SideLoadRequirementFailure (..),
   StateChanged (..),
   TTL,
   WaitReason (..),
@@ -742,7 +743,7 @@ spec =
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
           let wrongInitialSnapshot = InitialSnapshot testHeadId (utxoRef 2)
           update bobEnv ledger s0 (ClientInput (SideLoadSnapshot wrongInitialSnapshot))
-            `shouldBe` Error (AssertionFailed "InitalSnapshot side loaded does not match last known.")
+            `shouldBe` Error (SideLoadSnapshotFailed SideLoadInitialSnapshotMissmatch)
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
 
         prop "ignores side load initial snapshot of another head" $ \otherHeadId -> do
@@ -803,7 +804,7 @@ spec =
           getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot2
 
           update bobEnv ledger sideLoadedState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot1 multisig1))
-            `shouldBe` Error (RequireFailed{requirementFailure = ReqSnNumberInvalid 1 2})
+            `shouldBe` Error (SideLoadSnapshotFailed{sideLoadRequirementFailure = SideLoadSnNumberInvalid 1 2})
 
         it "reject side load confirmed snapshot because missing signature" $ do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
@@ -813,7 +814,7 @@ spec =
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
             `shouldSatisfy` \case
-              Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey alice, vkey bob, vkey carol]
+              Error (SideLoadSnapshotFailed SideLoadInvalidMultisignature{vkeys}) -> vkeys == [vkey alice, vkey bob, vkey carol]
               _ -> False
 
         it "reject side load confirmed snapshot because wrong snapshot version" $ do
@@ -823,7 +824,7 @@ spec =
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
-            `shouldBe` Error (RequireFailed{requirementFailure = ReqSvNumberInvalid 1 0})
+            `shouldBe` Error (SideLoadSnapshotFailed{sideLoadRequirementFailure = SideLoadSvNumberInvalid 1 0})
 
         prop "reject side load confirmed snapshot because wrong snapshot utxoToDecommit" $ \utxoToDecommit -> do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
@@ -831,7 +832,7 @@ spec =
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
-            `shouldBe` Error (AssertionFailed "ConfirmedSnapshot utxoToDecommit side loaded does not match last known.")
+            `shouldBe` Error (SideLoadSnapshotFailed $ SideLoadUTxOToDecommitInvalid (Just utxoToDecommit) Nothing)
 
         prop "reject side load confirmed snapshot because wrong snapshot utxoToCommit" $ \utxoToCommit -> do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
@@ -840,7 +841,7 @@ spec =
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
-            `shouldBe` Error (AssertionFailed "ConfirmedSnapshot utxoToCommit side loaded does not match last known.")
+            `shouldBe` Error (SideLoadSnapshotFailed $ SideLoadUTxOToCommitInvalid (Just utxoToCommit) Nothing)
 
         it "accept side load confirmed snapshot with idempotence" $ do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1

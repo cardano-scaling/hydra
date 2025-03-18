@@ -10,7 +10,7 @@ import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Tx (
   HeadId,
-  IsTx (TxIdType),
+  IsTx (TxIdType, UTxOType),
   Party,
   SnapshotNumber,
   SnapshotVersion,
@@ -22,15 +22,43 @@ data LogicError tx
   | RequireFailed {requirementFailure :: RequirementFailure tx}
   | AssertionFailed {message :: Text}
   | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
+  | SideLoadSnapshotFailed {sideLoadRequirementFailure :: SideLoadRequirementFailure tx}
   deriving stock (Generic)
 
-instance (Arbitrary (Input tx), Arbitrary (HeadState tx), Arbitrary (RequirementFailure tx)) => Arbitrary (LogicError tx) where
+instance
+  ( Arbitrary (Input tx)
+  , Arbitrary (HeadState tx)
+  , Arbitrary (RequirementFailure tx)
+  , Arbitrary (SideLoadRequirementFailure tx)
+  ) =>
+  Arbitrary (LogicError tx)
+  where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
-deriving stock instance (Eq (HeadState tx), Eq (Input tx), Eq (RequirementFailure tx)) => Eq (LogicError tx)
-deriving stock instance (Show (HeadState tx), Show (Input tx), Show (RequirementFailure tx)) => Show (LogicError tx)
-deriving anyclass instance (ToJSON (HeadState tx), ToJSON (Input tx), ToJSON (RequirementFailure tx)) => ToJSON (LogicError tx)
+deriving stock instance
+  ( Eq (HeadState tx)
+  , Eq (Input tx)
+  , Eq (RequirementFailure tx)
+  , Eq (SideLoadRequirementFailure tx)
+  ) =>
+  Eq (LogicError tx)
+
+deriving stock instance
+  ( Show (HeadState tx)
+  , Show (Input tx)
+  , Show (RequirementFailure tx)
+  , Show (SideLoadRequirementFailure tx)
+  ) =>
+  Show (LogicError tx)
+
+deriving anyclass instance
+  ( ToJSON (HeadState tx)
+  , ToJSON (Input tx)
+  , ToJSON (RequirementFailure tx)
+  , ToJSON (SideLoadRequirementFailure tx)
+  ) =>
+  ToJSON (LogicError tx)
 
 data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
@@ -50,4 +78,20 @@ deriving stock instance Show (TxIdType tx) => Show (RequirementFailure tx)
 deriving anyclass instance ToJSON (TxIdType tx) => ToJSON (RequirementFailure tx)
 
 instance Arbitrary (TxIdType tx) => Arbitrary (RequirementFailure tx) where
+  arbitrary = genericArbitrary
+
+data SideLoadRequirementFailure tx
+  = SideLoadInitialSnapshotMissmatch
+  | SideLoadSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
+  | SideLoadSvNumberInvalid {requestedSv :: SnapshotVersion, lastSeenSv :: SnapshotVersion}
+  | SideLoadUTxOToCommitInvalid {requestedSc :: Maybe (UTxOType tx), lastSeenSc :: Maybe (UTxOType tx)}
+  | SideLoadUTxOToDecommitInvalid {requestedSd :: Maybe (UTxOType tx), lastSeenSd :: Maybe (UTxOType tx)}
+  | SideLoadInvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
+  deriving stock (Generic)
+
+deriving stock instance Eq (UTxOType tx) => Eq (SideLoadRequirementFailure tx)
+deriving stock instance Show (UTxOType tx) => Show (SideLoadRequirementFailure tx)
+deriving anyclass instance ToJSON (UTxOType tx) => ToJSON (SideLoadRequirementFailure tx)
+
+instance Arbitrary (UTxOType tx) => Arbitrary (SideLoadRequirementFailure tx) where
   arbitrary = genericArbitrary

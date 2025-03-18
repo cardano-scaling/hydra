@@ -40,6 +40,7 @@ import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
+  SideLoadRequirementFailure (..),
  )
 import Hydra.HeadLogic.Input (Input (..), TTL)
 import Hydra.HeadLogic.Outcome (
@@ -1183,33 +1184,26 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
   requireVerifiedSameSnapshot cont =
     if requestedSnapshot == currentSnapshot
       then cont
-      else Error $ AssertionFailed "InitalSnapshot side loaded does not match last known."
+      else Error . SideLoadSnapshotFailed $ SideLoadInitialSnapshotMissmatch
 
   requireVerifiedSnapshotNumber cont =
     if requestedSn >= lastSeenSn
       then cont
-      else
-        Error $
-          RequireFailed $
-            ReqSnNumberInvalid{requestedSn, lastSeenSn}
+      else Error . SideLoadSnapshotFailed $ SideLoadSnNumberInvalid{requestedSn, lastSeenSn}
 
   requireVerifiedL1Snapshot cont
-    | requestedSv /= lastSeenSv = Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv, lastSeenSv}
-    | requestedSc /= lastSeenSc = Error $ AssertionFailed "ConfirmedSnapshot utxoToCommit side loaded does not match last known."
-    | requestedSd /= lastSeenSd = Error $ AssertionFailed "ConfirmedSnapshot utxoToDecommit side loaded does not match last known."
+    | requestedSv /= lastSeenSv = Error . SideLoadSnapshotFailed $ SideLoadSvNumberInvalid{requestedSv, lastSeenSv}
+    | requestedSc /= lastSeenSc = Error . SideLoadSnapshotFailed $ SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
+    | requestedSd /= lastSeenSd = Error . SideLoadSnapshotFailed $ SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
     | otherwise = cont
 
   requireVerifiedMultisignature snapshot signatories cont =
     case verifyMultiSignature vkeys signatories snapshot of
       Verified -> cont
       FailedKeys failures ->
-        Error $
-          RequireFailed $
-            InvalidMultisignature{multisig = show signatories, vkeys = failures}
+        Error . SideLoadSnapshotFailed $ SideLoadInvalidMultisignature{multisig = show signatories, vkeys = failures}
       KeyNumberMismatch ->
-        Error $
-          RequireFailed $
-            InvalidMultisignature{multisig = show signatories, vkeys}
+        Error . SideLoadSnapshotFailed $ SideLoadInvalidMultisignature{multisig = show signatories, vkeys}
 
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
