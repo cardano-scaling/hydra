@@ -10,14 +10,12 @@ import Blockfrost.Client (
   runBlockfrost,
  )
 import Blockfrost.Client qualified as Blockfrost
-import Codec.CBOR.Encoding qualified as CBOR
-import Codec.CBOR.Write (toLazyByteString)
-import Data.ByteString.Lazy qualified as BL
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX
 import Hydra.Cardano.Api hiding (fromNetworkMagic)
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Crypto.Hash.Class (hashFromTextAsHex)
 import Cardano.Ledger.Api.PParams
 import Cardano.Ledger.BaseTypes (EpochInterval (..), NonNegativeInterval, UnitInterval, boundRational)
 import Cardano.Ledger.Binary.Version (mkVersion)
@@ -34,9 +32,7 @@ import Hydra.Cardano.Api.Prelude (StakePoolKey)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger.Cardano.Evaluate (epochSize)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import Money (someDiscreteAmount, someDiscreteCurrency)
-
--- import Money qualified
+import Money qualified
 
 data APIBlockfrostError
   = BlockfrostError Text
@@ -54,9 +50,6 @@ runBlockfrostM prj action = do
     Left err -> throwIO (BlockfrostError $ show err)
     Right val -> pure val
 
-instance MonadFail (BlockfrostClientT IO) where
-  fail = liftIO . throwIO . BlockfrostError . toText
-
 publishHydraScripts ::
   -- | The path where the Blockfrost project token hash is stored.
   FilePath ->
@@ -65,7 +58,6 @@ publishHydraScripts ::
   IO [TxId]
 publishHydraScripts projectPath sk = do
   prj <- Blockfrost.projectFromFile projectPath
-  pparams <- fromBlockfrostPParams prj
   runBlockfrostM prj $ do
     Blockfrost.Genesis
       { _genesisNetworkMagic = networkMagic
@@ -73,36 +65,55 @@ publishHydraScripts projectPath sk = do
       , _genesisSlotLength = slotLength
       } <-
       Blockfrost.getLedgerGenesis
+    pparams <- liftIO fromBlockfrostPParams
     let epoch = fixedEpochInfo epochSize (slotLengthFromSec slotLength)
     let address = Blockfrost.Address (vkAddress networkMagic)
     let networkId = fromNetworkMagic networkMagic
     let changeAddress = mkVkAddress networkId vk
     stakePools <- Blockfrost.listPools
     forM scripts $ \script -> do
+      liftIO $ threadDelay 2
       utxo <- Blockfrost.getAddressUtxos address
+      liftIO $ threadDelay 2
       liftIO $
         buildTx pparams (LedgerEpochInfo epoch) networkId systemStart stakePools script changeAddress utxo
           >>= \case
-            Left err ->
-              liftIO $ throwErrorAsException err
+            Left err -> throwErrorAsException err
             Right rawTx -> do
               let body = getTxBody rawTx
                   tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
-                  -- REVIEW! double CBOR encoding
-                  txByteString :: BL.ByteString = toLazyByteString (CBOR.encodeBytes $ serialiseToCBOR tx)
-                  txCborString = Blockfrost.CBORString txByteString
+                  txByteString = serialiseToCBOR tx
+                  txCborString = Blockfrost.CBORString $ fromStrict txByteString
+              let txEnvelope = toJSON $ serialiseToTextEnvelope Nothing tx
+              writeFileBS (show (getTxId (getTxBody tx)) <> ".cbor") txByteString
+              void $ writeFileJSON (show (getTxId (getTxBody tx)) <> ".envelope.cbor") txEnvelope
               txHash <- Blockfrost.submitTx txCborString
-              -- TODO! await transaction confirmed
-              pure undefined
+              let numberOfTries :: Int = 100
+              Blockfrost.Transaction{_transactionHash} <- awaitTransaction numberOfTries txHash
+
+              case hashFromTextAsHex _transactionHash of
+                Nothing -> liftIO $ throwIO $ BlockfrostError "Could not decode transaction hash."
+                Just txHash' -> pure $ TxId txHash'
  where
+  awaitTransaction :: Int -> Blockfrost.TxHash -> IO Blockfrost.Transaction
+  awaitTransaction n expectedTxHash =
+    if n <= 0
+      then throwIO $ BlockfrostError "Could not find transaction."
+      else do
+        Blockfrost.getTx expectedTxHash
+          `catch` ( \(_ :: SomeException) -> liftIO $ do
+                      threadDelay 2
+                      awaitTransaction (n - 1) expectedTxHash
+                  )
+
   scripts = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
 
   vk = getVerificationKey sk
 
   vkAddress networkMagic = textAddrOf (fromNetworkMagic networkMagic) vk
 
-fromBlockfrostPParams :: Blockfrost.Project -> IO (PParams LedgerEra)
-fromBlockfrostPParams prj = runBlockfrostM prj $ do
+fromBlockfrostPParams :: IO (PParams LedgerEra)
+fromBlockfrostPParams = do
   pparams <- Blockfrost.getLatestEpochProtocolParams
   minVersion <- mkVersion $ pparams ^. Blockfrost.protocolMinorVer
   let maxVersion = fromIntegral $ pparams ^. Blockfrost.protocolMajorVer
@@ -197,7 +208,6 @@ scriptTypeToPlutusVersion = \case
   Blockfrost.PlutusV3 -> Just PlutusV3
   Blockfrost.Timelock -> Nothing
 
--- TODO!
 buildTx ::
   PParams LedgerEra ->
   LedgerEpochInfo ->
@@ -226,15 +236,21 @@ buildTx pparams epochInfo networkId posixTime stakePools script changeAddress ut
         Nothing
  where
   unspendableScriptAddress = mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
-  -- FIXME! mkTxOutAutoBalance with minUTxOValue from pparams
-  outputs = TxOut unspendableScriptAddress mempty TxOutDatumNone <$> [mkScriptRef script]
+
+  mkScriptTxOut =
+    mkTxOutAutoBalance
+      pparams
+      unspendableScriptAddress
+      mempty
+      TxOutDatumNone
+
+  outputs = mkScriptTxOut <$> [mkScriptRef script]
   utxo' = toApiUTxO utxo changeAddress
   totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
   utxoToSpend = maybe mempty UTxO.singleton $ UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo'
   systemStart = SystemStart $ posixSecondsToUTCTime posixTime
   collateral = mempty
-  -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
-  dummyFeeForBalancing = TxFeeExplicit 0
+  dummyFeeForBalancing = TxFeeExplicit 1500000
   bodyContent =
     TxBodyContent
       (withWitness <$> toList (UTxO.inputSet utxoToSpend))
@@ -305,13 +321,13 @@ toApiValue = foldMap convertAmount
         )
       ]
   convertAmount (Blockfrost.AssetAmount money) =
-    let currency = someDiscreteCurrency money
+    let currency = Money.someDiscreteCurrency money
      in fromList
           [
             ( AssetId
                 (toApiPolicyId currency)
                 (toApiAssetName currency)
-            , Quantity (someDiscreteAmount money)
+            , Quantity (Money.someDiscreteAmount money)
             )
           ]
 
