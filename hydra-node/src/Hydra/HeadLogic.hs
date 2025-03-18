@@ -1144,14 +1144,14 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
   case requestedConfirmedSnapshot of
     InitialSnapshot{} ->
       requireVerifiedSameSnapshot $
-        newState ClearLocalState{headId, snapshotNumber = lastSeenSn}
+        newState ClearLocalState{headId, snapshotNumber = requestedSn}
     ConfirmedSnapshot{snapshot, signatures} ->
       requireVerifiedSnapshotNumber $
         requireVerifiedL1Snapshot $
           requireVerifiedMultisignature snapshot signatures $
             changes
               [ SnapshotConfirmed{headId, snapshot, signatures}
-              , ClearLocalState{headId, snapshotNumber = lastSeenSn}
+              , ClearLocalState{headId, snapshotNumber = requestedSn}
               ]
  where
   OpenState
@@ -1175,7 +1175,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
 
   requestedSnapshot@Snapshot
     { version = requestedSv
-    , number = requestedSnapshotNumber
+    , number = requestedSn
     , utxoToCommit = requestedSc
     , utxoToDecommit = requestedSd
     } = getSnapshot requestedConfirmedSnapshot
@@ -1186,12 +1186,12 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
       else Error $ AssertionFailed "InitalSnapshot side loaded does not match last known."
 
   requireVerifiedSnapshotNumber cont =
-    if requestedSnapshotNumber >= lastSeenSn
+    if requestedSn >= lastSeenSn
       then cont
       else
         Error $
           RequireFailed $
-            ReqSnNumberInvalid{requestedSn = requestedSnapshotNumber, lastSeenSn}
+            ReqSnNumberInvalid{requestedSn, lastSeenSn}
 
   requireVerifiedL1Snapshot cont
     | requestedSv /= lastSeenSv = Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv, lastSeenSv}
