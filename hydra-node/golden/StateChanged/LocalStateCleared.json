@@ -3,7 +3,7 @@
         {
             "headId": "00000001010000000101010001000100",
             "snapshotNumber": 1,
-            "tag": "ClearLocalState"
+            "tag": "LocalStateCleared"
         }
     ],
     "seed": -957561255

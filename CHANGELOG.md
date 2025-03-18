@@ -53,7 +53,7 @@ changes.
 
 - Add API command (POST /snapshot) which allows to adopt the given snapshot as the latest confirmed.
   * add new `SideLoadSnapshot` client input.
-  * add new `ClearLocalState` state changed event.
+  * add new `LocalStateCleared` state changed event.
   * add new `SnapshotSideLoaded` server output.
 
 ## [0.20.0] - 2025-02-04

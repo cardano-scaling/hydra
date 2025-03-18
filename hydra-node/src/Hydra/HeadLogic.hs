@@ -1144,14 +1144,14 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
   case requestedConfirmedSnapshot of
     InitialSnapshot{} ->
       requireVerifiedSameSnapshot $
-        newState ClearLocalState{headId, snapshotNumber = requestedSn}
+        newState LocalStateCleared{headId, snapshotNumber = requestedSn}
     ConfirmedSnapshot{snapshot, signatures} ->
       requireVerifiedSnapshotNumber $
         requireVerifiedL1Snapshot $
           requireVerifiedMultisignature snapshot signatures $
             changes
               [ SnapshotConfirmed{headId, snapshot, signatures}
-              , ClearLocalState{headId, snapshotNumber = requestedSn}
+              , LocalStateCleared{headId, snapshotNumber = requestedSn}
               ]
  where
   OpenState
@@ -1577,7 +1577,7 @@ aggregate st = \case
        where
         Snapshot{number} = snapshot
       _otherState -> st
-  ClearLocalState{snapshotNumber} ->
+  LocalStateCleared{snapshotNumber} ->
     case st of
       Open os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot}} ->
         Open
@@ -1786,4 +1786,4 @@ aggregateChainStateHistory history = \case
   DecommitInvalid{} -> history
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
-  ClearLocalState{} -> history
+  LocalStateCleared{} -> history

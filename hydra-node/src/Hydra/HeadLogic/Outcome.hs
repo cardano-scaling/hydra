@@ -143,7 +143,7 @@ data StateChanged tx
       , participants :: [OnChainId]
       }
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
-  | ClearLocalState {headId :: HeadId, snapshotNumber :: SnapshotNumber}
+  | LocalStateCleared {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
@@ -181,7 +181,7 @@ genStateChanged env =
     , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
-    , ClearLocalState <$> arbitrary <*> arbitrary
+    , LocalStateCleared <$> arbitrary <*> arbitrary
     ]
  where
   Environment{party} = env

@@ -252,7 +252,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.PartySignedSnapshot{} -> Nothing
     StateChanged.ChainRolledBack{} -> Nothing
     StateChanged.TickObserved{} -> Nothing
-    StateChanged.ClearLocalState{..} -> Just SnapshotSideLoaded{..}
+    StateChanged.LocalStateCleared{..} -> Just SnapshotSideLoaded{..}
 
 --
 
@@ -321,7 +321,7 @@ projectSeenSnapshot seenSnapshot = \case
       ss@SeenSnapshot{signatories} ->
         ss{signatories = Map.insert party signature signatories}
       _ -> seenSnapshot
-  StateChanged.ClearLocalState{snapshotNumber} ->
+  StateChanged.LocalStateCleared{snapshotNumber} ->
     case snapshotNumber of
       0 -> NoSeenSnapshot
       _ -> LastSeenSnapshot snapshotNumber

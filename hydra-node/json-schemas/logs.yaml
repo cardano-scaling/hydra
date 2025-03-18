@@ -1527,7 +1527,7 @@ definitions:
             enum: ["TickObserved"]
           chainSlot:
             $ref: "api.yaml#/components/schemas/ChainSlot"
-      - title: "ClearLocalState"
+      - title: "LocalStateCleared"
         additionalProperties: false
         required:
           - tag
@@ -1536,7 +1536,7 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["ClearLocalState"]
+            enum: ["LocalStateCleared"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
           snapshotNumber:
