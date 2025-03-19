@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -112,45 +113,75 @@ publishHydraScripts projectPath sk = do
 
   vkAddress networkMagic = textAddrOf (fromNetworkMagic networkMagic) vk
 
+data BlockfrostConversion
+  = BlockfrostConversion
+  { a0 :: NonNegativeInterval
+  , rho :: UnitInterval
+  , tau :: UnitInterval
+  , priceMemory :: NonNegativeInterval
+  , priceSteps :: NonNegativeInterval
+  , pvtMotionNoConfidence :: UnitInterval
+  , pvtCommitteeNormal :: UnitInterval
+  , pvtCommitteeNoConfidence :: UnitInterval
+  , pvtHardForkInitiation :: UnitInterval
+  , pvtPPSecurityGroup :: UnitInterval
+  , dvtMotionNoConfidence :: UnitInterval
+  , dvtCommitteeNormal :: UnitInterval
+  , dvtCommitteeNoConfidence :: UnitInterval
+  , dvtUpdateToConstitution :: UnitInterval
+  , dvtHardForkInitiation :: UnitInterval
+  , dvtPPNetworkGroup :: UnitInterval
+  , dvtPPEconomicGroup :: UnitInterval
+  , dvtPPTechnicalGroup :: UnitInterval
+  , dvtPPGovGroup :: UnitInterval
+  , dvtTreasuryWithdrawal :: UnitInterval
+  , committeeMinSize :: Blockfrost.Quantity
+  , committeeMaxTermLength :: Blockfrost.Quantity
+  , govActionLifetime :: Blockfrost.Quantity
+  , govActionDeposit :: Coin
+  , drepDeposit :: Integer
+  , drepActivity :: Blockfrost.Quantity
+  , minFeeRefScriptCostPerByte :: NonNegativeInterval
+  }
+
 fromBlockfrostPParams :: IO (PParams LedgerEra)
 fromBlockfrostPParams = do
   pparams <- Blockfrost.getLatestEpochProtocolParams
   minVersion <- mkVersion $ pparams ^. Blockfrost.protocolMinorVer
   let maxVersion = fromIntegral $ pparams ^. Blockfrost.protocolMajorVer
   let results = do
-        a0' <- boundRational (pparams ^. Blockfrost.a0)
-        rho' <- boundRational (pparams ^. Blockfrost.rho)
-        tau' <- boundRational (pparams ^. Blockfrost.tau)
-        priceMemory' <- boundRational @NonNegativeInterval (pparams ^. Blockfrost.priceMem)
-        priceSteps' <- boundRational @NonNegativeInterval (pparams ^. Blockfrost.priceStep)
-        pvtMotionNoConfidence' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.pvtMotionNoConfidence
-        pvtCommitteeNormal' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.pvtCommitteeNormal
-        pvtCommitteeNoConfidence' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.pvtCommitteeNoConfidence
-        pvtHardForkInitiation' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.pvtHardForkInitiation
-        pvtPPSecurityGroup' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.pvtppSecurityGroup
-        dvtMotionNoConfidence' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtMotionNoConfidence
-        dvtCommitteeNormal' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtCommitteeNormal
-        dvtCommitteeNoConfidence' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtCommitteeNoConfidence
-        dvtUpdateToConstitution' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtUpdateToConstitution
-        dvtHardForkInitiation' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtHardForkInitiation
-        dvtPPNetworkGroup' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtPPNetworkGroup
-        dvtPPEconomicGroup' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtPPEconomicGroup
-        dvtPPTechnicalGroup' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtPPTechnicalGroup
-        dvtPPGovGroup' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtPPGovGroup
-        dvtTreasuryWithdrawal' <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtTreasuryWithdrawal
-        committeeMinSize' <- pparams ^. Blockfrost.committeeMinSize
-        committeeMaxTermLength' <- pparams ^. Blockfrost.committeeMaxTermLength
-        govActionLifetime' <- pparams ^. Blockfrost.govActionLifetime
-        govActionDeposit' <- pparams ^. Blockfrost.govActionDeposit
-        drepDeposit' <- pparams ^. Blockfrost.drepDeposit
-        drepActivity' <- pparams ^. Blockfrost.drepActivity
-        minFeeRefScriptCostPerByte' <- boundRational @NonNegativeInterval =<< (pparams ^. Blockfrost.minFeeRefScriptCostPerByte)
-
-        pure (a0', rho', tau', priceMemory', priceSteps', pvtMotionNoConfidence', pvtCommitteeNormal', pvtCommitteeNoConfidence', pvtHardForkInitiation', pvtPPSecurityGroup', dvtMotionNoConfidence', dvtCommitteeNormal', dvtCommitteeNoConfidence', dvtUpdateToConstitution', dvtHardForkInitiation', dvtPPNetworkGroup', dvtPPEconomicGroup', dvtPPTechnicalGroup', dvtPPGovGroup', dvtTreasuryWithdrawal', committeeMinSize', committeeMaxTermLength', govActionLifetime', govActionDeposit', drepDeposit', drepActivity', minFeeRefScriptCostPerByte')
+        a0 <- boundRational (pparams ^. Blockfrost.a0)
+        rho <- boundRational (pparams ^. Blockfrost.rho)
+        tau <- boundRational (pparams ^. Blockfrost.tau)
+        priceMemory <- boundRational @NonNegativeInterval (pparams ^. Blockfrost.priceMem)
+        priceSteps <- boundRational @NonNegativeInterval (pparams ^. Blockfrost.priceStep)
+        pvtMotionNoConfidence <- boundRational @UnitInterval =<< pparams ^. Blockfrost.pvtMotionNoConfidence
+        pvtCommitteeNormal <- boundRational @UnitInterval =<< pparams ^. Blockfrost.pvtCommitteeNormal
+        pvtCommitteeNoConfidence <- boundRational @UnitInterval =<< pparams ^. Blockfrost.pvtCommitteeNoConfidence
+        pvtHardForkInitiation <- boundRational @UnitInterval =<< pparams ^. Blockfrost.pvtHardForkInitiation
+        pvtPPSecurityGroup <- boundRational @UnitInterval =<< pparams ^. Blockfrost.pvtppSecurityGroup
+        dvtMotionNoConfidence <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtMotionNoConfidence
+        dvtCommitteeNormal <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtCommitteeNormal
+        dvtCommitteeNoConfidence <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtCommitteeNoConfidence
+        dvtUpdateToConstitution <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtUpdateToConstitution
+        dvtHardForkInitiation <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtHardForkInitiation
+        dvtPPNetworkGroup <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtPPNetworkGroup
+        dvtPPEconomicGroup <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtPPEconomicGroup
+        dvtPPTechnicalGroup <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtPPTechnicalGroup
+        dvtPPGovGroup <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtPPGovGroup
+        dvtTreasuryWithdrawal <- boundRational @UnitInterval =<< pparams ^. Blockfrost.dvtTreasuryWithdrawal
+        committeeMinSize <- pparams ^. Blockfrost.committeeMinSize
+        committeeMaxTermLength <- pparams ^. Blockfrost.committeeMaxTermLength
+        govActionLifetime <- pparams ^. Blockfrost.govActionLifetime
+        govActionDeposit <- fromIntegral <$> pparams ^. Blockfrost.govActionDeposit
+        drepDeposit <- fromIntegral <$> pparams ^. Blockfrost.drepDeposit
+        drepActivity <- pparams ^. Blockfrost.drepActivity
+        minFeeRefScriptCostPerByte <- boundRational @NonNegativeInterval =<< (pparams ^. Blockfrost.minFeeRefScriptCostPerByte)
+        pure BlockfrostConversion{..}
 
   case results of
     Nothing -> liftIO $ throwIO $ DecodeError "Could not decode some values appropriately."
-    Just (a0, rho, tau, priceMemory, priceSteps, pvtMotionNoConfidence, pvtCommitteeNormal, pvtCommitteeNoConfidence, pvtHardForkInitiation, pvtPPSecurityGroup, dvtMotionNoConfidence, dvtCommitteeNormal, dvtCommitteeNoConfidence, dvtUpdateToConstitution, dvtHardForkInitiation, dvtPPNetworkGroup, dvtPPEconomicGroup, dvtPPTechnicalGroup, dvtPPGovGroup, dvtTreasuryWithdrawal, committeeMinSize, committeeMaxTermLength, govActionLifetime, govActionDeposit, drepDeposit, drepActivity, minFeeRefScriptCostPerByte) ->
+    Just BlockfrostConversion{..} ->
       pure $
         emptyPParams
           & ppMinFeeAL .~ fromIntegral (pparams ^. Blockfrost.minFeeA)
@@ -180,7 +211,7 @@ fromBlockfrostPParams = do
           & ppCommitteeMinSizeL .~ fromIntegral (Blockfrost.unQuantity committeeMinSize)
           & ppCommitteeMaxTermLengthL .~ EpochInterval (fromIntegral $ Blockfrost.unQuantity committeeMaxTermLength)
           & ppGovActionLifetimeL .~ EpochInterval (fromIntegral $ Blockfrost.unQuantity govActionLifetime)
-          & ppGovActionDepositL .~ fromIntegral govActionDeposit
+          & ppGovActionDepositL .~ govActionDeposit
           & ppDRepDepositL .~ fromIntegral drepDeposit
           & ppDRepActivityL .~ EpochInterval (fromIntegral $ Blockfrost.unQuantity drepActivity)
           & ppMinFeeRefScriptCostPerByteL .~ minFeeRefScriptCostPerByte
