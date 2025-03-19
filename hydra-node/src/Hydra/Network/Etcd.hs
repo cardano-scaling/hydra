@@ -407,7 +407,6 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
             traceWith tracer LowLeaseTTL{ttlRemaining}
           -- Determine alive peers
           alive <- getAlive
-          traceWith tracer CurrentlyAlive{alive}
           let othersAlive = alive \\ [advertise]
           seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
           forM_ (othersAlive \\ seenAlive) $ onConnectivity . PeerConnected
@@ -572,7 +571,6 @@ data EtcdLog
   | FailedToDecodeValue {key :: Text, value :: Text, reason :: Text}
   | CreatedLease {leaseId :: Int64}
   | LowLeaseTTL {ttlRemaining :: DiffTime}
-  | CurrentlyAlive {alive :: [Host]}
   | NoKeepAliveResponse
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
