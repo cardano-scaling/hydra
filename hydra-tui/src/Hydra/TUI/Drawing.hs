@@ -56,7 +56,7 @@ drawScreenShortLog CardanoClient{networkId} Client{sk} s =
                       , drawConnectedStatus s
                       , drawNetworkState (s ^. connectedStateL)
                       , hBorder
-                      , drawIfConnected (drawPeers . peers) (s ^. connectedStateL)
+                      , drawIfConnected (drawPeers (s ^. connectedStateL) . peers) (s ^. connectedStateL)
                       , hBorder
                       , drawIfConnected (drawMeIfIdentified . me) (s ^. connectedStateL)
                       , drawIfConnected (\connection -> drawIfActive (drawHeadParticipants (me connection) . parties) (headState connection)) (s ^. connectedStateL)
@@ -286,8 +286,14 @@ drawNetworkState s =
             Just NetworkDisconnected -> withAttr negative $ txt "Disconnected"
     ]
 
-drawPeers :: [Host] -> Widget n
-drawPeers peers = vBox $ str "Alive peers:" : map drawShow peers
+drawPeers :: ConnectedState -> [Host] -> Widget n
+drawPeers s peers = vBox $ str "Alive peers:" : rest
+ where
+  -- Note: We only show the list of alive peers if the network is connected;
+  -- otherwise, it is not reliable.
+  rest = case s of
+    Connected{connection = Connection{networkState = Just NetworkConnected}} -> map drawShow peers
+    _ -> [txt "Unknown"]
 
 drawHeadId :: HeadId -> Widget n
 drawHeadId x = txt $ "Head id: " <> serialiseToRawBytesHexText x
