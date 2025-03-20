@@ -102,6 +102,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
+import Hydra.Contract.Dummy (dummyRewardingScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
@@ -609,7 +610,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir node hydraScriptsTxId =
               exUnits = toLedgerExUnits maxTxExecutionUnits
               rewardAccount = RewardAccount Testnet (ScriptHashObj scriptHash)
               scriptHash = hashScript script
-              script = toLedgerScript @_ @Era dummyValidatorScript
+              script = toLedgerScript @_ @Era dummyRewardingScript
           let tx' =
                 fromLedgerTx $
                   recomputeIntegrityHash pparams [PlutusV3] $
