@@ -207,6 +207,13 @@ postDecommit HydraClient{apiHost = Host{hostname, port}} decommitTx = do
       <&> setRequestBodyJSON decommitTx
         >>= httpLbs
 
+-- | Get the protocol-parameters from the hydra-node.
+getProtocolParameters :: HydraClient -> IO (PParams LedgerEra)
+getProtocolParameters HydraClient{apiHost = Host{hostname, port}} =
+  parseUrlThrow ("GET http://" <> T.unpack hostname <> ":" <> show port <> "/protocol-parameters")
+    >>= httpJSON
+    <&> getResponseBody
+
 -- | Get the latest snapshot UTxO from the hydra-node. NOTE: While we usually
 -- avoid parsing responses using the same data types as the system under test,
 -- this parses the response as a 'UTxO' type as we often need to pick it apart.

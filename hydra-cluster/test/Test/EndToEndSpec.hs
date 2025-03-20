@@ -69,6 +69,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCommitsScriptBlueprint,
   singlePartyHeadFullLifeCycle,
   singlePartyUsesScriptOnL2,
+  singlePartyUsesWithdrawZeroTrick,
   threeNodesNoErrorsOnOpen,
   threeNodesWithMirrorParty,
  )
@@ -214,6 +215,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyUsesScriptOnL2 tracer tmpDir node
+      it "can use withdraw zero on L2" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyUsesWithdrawZeroTrick tracer tmpDir node
       it "can submit a signed user transaction" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
