@@ -86,6 +86,7 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.State qualified as Transition
+import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano.Evaluate (
@@ -399,7 +400,7 @@ genInitTxMutation seedInput tx =
 
   -- We do replace the minting policy of all tokens and datum of a head output to
   -- simulate a faked init transaction.
-  alwaysSucceedsV3 = dummyValidatorScript
+  alwaysSucceedsV3 = dummyMintingScript
   originalPolicyId = HeadTokens.headPolicyId seedInput
   fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV3
   changeMintingPolicy (out, idx)
