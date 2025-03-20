@@ -1,5 +1,4 @@
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Blockfrost.Client where
 
@@ -178,7 +177,7 @@ buildTx pparams epochInfo networkId posixTime stakePools script changeAddress ut
   utxoToSpend = maybe mempty UTxO.singleton $ UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo'
   systemStart = SystemStart $ posixSecondsToUTCTime posixTime
   collateral = mempty
-  dummyFeeForBalancing = TxFeeExplicit 1500000
+  dummyFeeForBalancing = TxFeeExplicit 0
   bodyContent =
     TxBodyContent
       (withWitness <$> toList (UTxO.inputSet utxoToSpend))

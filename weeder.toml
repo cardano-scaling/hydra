@@ -47,3 +47,7 @@ root-instances = [
  # Used via OverloadedStrings
  , { module = "Hydra.Tx.HeadId", instance = "IsString HeadSeed" }
  ]
+# TODO: Remove this once we finish script publishing via Blockfrost
+root-modules = [
+  "Hydra.Chain.Blockfrost.Client"
+]
