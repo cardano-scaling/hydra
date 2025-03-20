@@ -13,7 +13,14 @@ import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
-import Hydra.Options (ChainConfig (..), Command (GenHydraKey, Publish, Run), DirectChainConfig (..), PublishOptions (..), RunOptions (..), parseHydraCommand)
+import Hydra.Options (
+  ChainConfig (..),
+  Command (GenHydraKey, Publish, Run),
+  DirectChainConfig (..),
+  PublishOptions (..),
+  RunOptions (..),
+  parseHydraCommand,
+ )
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
 
