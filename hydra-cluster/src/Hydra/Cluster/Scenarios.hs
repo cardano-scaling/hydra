@@ -89,7 +89,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
-import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
+import Hydra.Cluster.Fixture (Actor (..), actorName, alice, alice2, alice2Sk, alice2Vk, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
@@ -1412,6 +1412,61 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
  where
   RunningNode{nodeSocket, networkId, blockTime} = cardanoNode
   hydraTracer = contramap FromHydraNode tracer
+
+-- | Three hydra nodes open a head and we assert that none of them sees errors if a party is duplicated.
+threeNodesWithPartyRedundancy :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+threeNodesWithPartyRedundancy tracer workDir cardanoNode@RunningNode{nodeSocket, networkId, blockTime} hydraScriptsTxId = do
+  let parties = [Alice, Bob, Alice2]
+
+  [(aliceCardanoVk, _), (bobCardanoVk, bobCardanoSk), (alice2CardanoVk, _)] <- forM parties keysFor
+  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode alice2CardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  let contestationPeriod = UnsafeContestationPeriod 1
+  let depositDeadline = UnsafeDepositDeadline 200
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Alice2] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Alice2] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+  alice2ChainConfig <-
+    chainConfigFor Alice2 workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+
+  let hydraTracer = contramap FromHydraNode tracer
+  let allNodeIds = [1, 2, 3]
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, alice2Vk] allNodeIds $ \n1 -> do
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, alice2Vk] allNodeIds $ \n2 -> do
+      -- One party will participate using same hydra credentials
+      withHydraNode hydraTracer alice2ChainConfig workDir 3 alice2Sk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+        let clients = [n1, n2, n3]
+        -- Init
+        send n2 $ input "Init" []
+        headId <- waitForAllMatch (10 * blockTime) clients $ headIsInitializingWith (Set.fromList [alice, bob, alice2])
+
+        -- Bob commits something
+        bobUTxO <- seedFromFaucet cardanoNode bobCardanoVk 1_000_000 (contramap FromFaucet tracer)
+        requestCommitTx n2 bobUTxO >>= submitTx cardanoNode
+
+        -- Alice and Alice2 commit nothing
+        -- XXX: if they commit different utxo then H17 is raised during checkCollectCom
+        mapConcurrently_ (\n -> requestCommitTx n mempty >>= submitTx cardanoNode) [n1, n3]
+
+        -- Observe open with relevant UTxO
+        waitFor hydraTracer (20 * blockTime) clients $
+          output "HeadIsOpen" ["utxo" .= toJSON bobUTxO, "headId" .= headId]
+
+        -- Bob performs a simple transaction from bob to himself
+        utxo <- getSnapshotUTxO n2
+        tx <- mkTransferTx networkId utxo bobCardanoSk bobCardanoVk
+        send n2 $ input "NewTx" ["transaction" .= tx]
+
+        -- Everyone confirms it
+        waitForAllMatch (200 * blockTime) clients $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $ v ^? key "snapshot" . key "number" == Just (toJSON (1 :: Integer))
 
 -- * L2 scenarios
 
