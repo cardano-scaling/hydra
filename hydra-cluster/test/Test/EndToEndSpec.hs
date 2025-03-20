@@ -48,28 +48,7 @@ import Hydra.Cluster.Fixture (
   carolSk,
   carolVk,
  )
-import Hydra.Cluster.Scenarios (
-  EndToEndLog (..),
-  canCloseWithLongContestationPeriod,
-  canCommit,
-  canDecommit,
-  canRecoverDeposit,
-  canSeePendingDeposits,
-  canSubmitTransactionThroughAPI,
-  headIsInitializingWith,
-  initWithWrongKeys,
-  oneOfThreeNodesStopsForAWhile,
-  persistenceCanLoadWithEmptyCommit,
-  refuelIfNeeded,
-  restartedNodeCanAbort,
-  restartedNodeCanObserveCommitTx,
-  singlePartyCommitsFromExternal,
-  singlePartyCommitsFromExternalTxBlueprint,
-  singlePartyCommitsScriptBlueprint,
-  singlePartyHeadFullLifeCycle,
-  singlePartyUsesScriptOnL2,
-  threeNodesNoErrorsOnOpen,
- )
+import Hydra.Cluster.Scenarios (EndToEndLog (..), canCloseWithLongContestationPeriod, canCommit, canDecommit, canRecoverDeposit, canSeePendingDeposits, canSubmitTransactionThroughAPI, headIsInitializingWith, initWithWrongKeys, oneOfThreeNodesStopsForAWhile, persistenceCanLoadWithEmptyCommit, refuelIfNeeded, restartedNodeCanAbort, restartedNodeCanObserveCommitTx, singlePartyCommitsFromExternal, singlePartyCommitsFromExternalTxBlueprint, singlePartyCommitsScriptBlueprint, singlePartyHeadFullLifeCycle, singlePartyUsesScriptOnL2, singlePartyUsesWithdrawZeroTrick, threeNodesNoErrorsOnOpen)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -212,6 +191,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyUsesScriptOnL2 tracer tmpDir node
+      it "can use withdraw zero on L2" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyUsesWithdrawZeroTrick tracer tmpDir node
       it "can submit a signed user transaction" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
