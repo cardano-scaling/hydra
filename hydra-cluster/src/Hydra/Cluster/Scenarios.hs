@@ -8,11 +8,14 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
+import Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
 import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
-import Cardano.Ledger.Api.Tx (EraTx, bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
+import Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
 import Cardano.Ledger.Api.Tx qualified as Ledger
 import Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
-import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits)
+import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
+import Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
+import Cardano.Ledger.Credential (Credential (ScriptHashObj))
 import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import CardanoClient (
   QueryPoint (QueryTip),
@@ -35,6 +38,7 @@ import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
 import Data.ByteString.Char8 qualified as BSC
 import Data.List qualified as List
+import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (
@@ -43,9 +47,11 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.Cardano.Api (
   Coin (..),
+  Era,
   File (File),
   Key (SigningKey),
-  KeyWitnessInCtx (KeyWitnessForSpending),
+  KeyWitnessInCtx (..),
+  LedgerProtocolParameters (..),
   PaymentKey,
   Tx,
   TxId,
@@ -72,7 +78,11 @@ import Hydra.Cardano.Api (
   selectLovelace,
   setTxProtocolParams,
   signTx,
+  toLedgerData,
+  toLedgerExUnits,
+  toLedgerScript,
   toLedgerTx,
+  toLedgerTxIn,
   toScriptData,
   txOutValue,
   txOuts',
@@ -80,7 +90,6 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
   pattern BuildTxWith,
   pattern KeyWitness,
-  pattern LedgerProtocolParameters,
   pattern PlutusScriptWitness,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
@@ -104,6 +113,7 @@ import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
+  getProtocolParameters,
   getSnapshotConfirmed,
   getSnapshotUTxO,
   input,
@@ -481,10 +491,7 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
         waitFor hydraTracer (10 * blockTime) [n1] $
           output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
 
-        pparamsReq <-
-          parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/protocol-parameters")
-            >>= httpJSON
-        let pparams = getResponseBody pparamsReq
+        pparams <- getProtocolParameters n1
 
         -- Send the UTxO to a script; in preparation for running the script
         let serializedScript = dummyValidatorScript
@@ -566,7 +573,63 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
           `shouldReturn` lovelaceToValue commitAmount
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
+
+-- | Open a head and run a script using 'Rewarding' script purpose and a zero
+-- lovelace withdrawal.
+singlePartyUsesWithdrawZeroTrick :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+singlePartyUsesWithdrawZeroTrick tracer workDir node hydraScriptsTxId =
+  -- Seed/return fuel
+  bracket_ (refuelIfNeeded tracer node Alice 250_000_000) (returnFundsToFaucet tracer node Alice) $ do
+    -- Seed/return funds
+    (walletVk, walletSk) <- keysFor AliceFunds
+    bracket
+      (seedFromFaucet node walletVk 100_000_000 (contramap FromFaucet tracer))
+      (\_ -> returnFundsToFaucet tracer node AliceFunds)
+      $ \utxoToCommit -> do
+        -- Start hydra-node and open a head
+        let contestationPeriod = UnsafeContestationPeriod 1
+        let depositDeadline = UnsafeDepositDeadline 1
+        aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+        let hydraNodeId = 1
+        let hydraTracer = contramap FromHydraNode tracer
+        withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+          send n1 $ input "Init" []
+          headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+          requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= submitTx node
+          waitFor hydraTracer (10 * blockTime) [n1] $
+            output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+          -- Prepare a tx that re-spends everything owned by walletVk
+          pparams <- getProtocolParameters n1
+          let change = mkVkAddress networkId walletVk
+          Right tx <- buildTransactionWithPParams pparams networkId nodeSocket change utxoToCommit [] []
+
+          -- Modify the tx to run a script via the withdraw 0 trick
+          let redeemer = toLedgerData $ toScriptData ()
+              exUnits = toLedgerExUnits maxTxExecutionUnits
+              rewardAccount = RewardAccount Testnet (ScriptHashObj scriptHash)
+              scriptHash = hashScript script
+              script = toLedgerScript @_ @Era dummyValidatorScript
+          let tx' =
+                fromLedgerTx $
+                  recomputeIntegrityHash pparams [PlutusV3] $
+                    toLedgerTx tx
+                      & bodyTxL . collateralInputsTxBodyL .~ Set.map toLedgerTxIn (UTxO.inputSet utxoToCommit)
+                      & bodyTxL . totalCollateralTxBodyL .~ SJust (foldMap (selectLovelace . txOutValue) utxoToCommit)
+                      & bodyTxL . withdrawalsTxBodyL .~ Withdrawals (Map.singleton rewardAccount 0)
+                      & witsTxL . rdmrsTxWitsL .~ Redeemers (Map.singleton (ConwayRewarding $ AsIx 0) (redeemer, exUnits))
+                      & witsTxL . scriptTxWitsL .~ Map.singleton scriptHash script
+
+          let signedL2tx = signTx walletSk tx'
+          send n1 $ input "NewTx" ["transaction" .= signedL2tx]
+
+          waitMatch 10 n1 $ \v -> do
+            guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+            guard $
+              toJSON signedL2tx
+                `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
 -- | Compute the integrity hash of a transaction using a list of plutus languages.
 recomputeIntegrityHash ::

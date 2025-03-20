@@ -9,7 +9,7 @@ import Hydra.Prelude
 
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
-import PlutusLedgerApi.V3 (BuiltinData, ScriptContext, serialiseCompiledCode, toOpaque)
+import PlutusLedgerApi.V3 (BuiltinData, ScriptContext, serialiseCompiledCode)
 import PlutusTx (CompiledCode, compile)
 
 dummyValidator :: BuiltinData -> BuiltinData -> ScriptContext -> Bool
@@ -17,14 +17,9 @@ dummyValidator _ _ _ = True
 
 compiledDummyValidator :: CompiledCode ValidatorType
 compiledDummyValidator =
-  $$(PlutusTx.compile [||fakeWrap dummyValidator||])
+  $$(PlutusTx.compile [||wrap dummyValidator||])
  where
   wrap = wrapValidator @BuiltinData @BuiltinData
-
-fakeWrap ::
-  (datum -> redeemer -> ScriptContext -> Bool) ->
-  ValidatorType
-fakeWrap _ _ = toOpaque ()
 
 dummyValidatorScript :: PlutusScript
 dummyValidatorScript = PlutusScriptSerialised $ serialiseCompiledCode compiledDummyValidator
