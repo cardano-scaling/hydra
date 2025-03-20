@@ -13,14 +13,25 @@ import Blockfrost.Client (
 import Blockfrost.Client qualified as Blockfrost
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX
-import Hydra.Cardano.Api hiding (fromNetworkMagic)
+import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.Hash.Class (hashFromTextAsHex)
 import Cardano.Ledger.Api.PParams
 import Cardano.Ledger.BaseTypes (EpochInterval (..), NonNegativeInterval, UnitInterval, boundRational)
 import Cardano.Ledger.Binary.Version (mkVersion)
-import Cardano.Ledger.Conway.Core (DRepVotingThresholds (..), PoolVotingThresholds (..), ppCommitteeMaxTermLengthL, ppCommitteeMinSizeL, ppDRepActivityL, ppDRepDepositL, ppDRepVotingThresholdsL, ppGovActionDepositL, ppGovActionLifetimeL, ppPoolVotingThresholdsL)
+import Cardano.Ledger.Conway.Core (
+  DRepVotingThresholds (..),
+  PoolVotingThresholds (..),
+  ppCommitteeMaxTermLengthL,
+  ppCommitteeMinSizeL,
+  ppDRepActivityL,
+  ppDRepDepositL,
+  ppDRepVotingThresholdsL,
+  ppGovActionDepositL,
+  ppGovActionLifetimeL,
+  ppPoolVotingThresholdsL,
+ )
 import Cardano.Ledger.Conway.PParams (ppMinFeeRefScriptCostPerByteL)
 import Cardano.Ledger.Plutus (ExUnits (..), Language (..), Prices (..))
 import Cardano.Ledger.Plutus.CostModels (CostModels, mkCostModel, mkCostModels)
@@ -66,52 +77,217 @@ publishHydraScripts projectPath sk = do
       , _genesisSlotLength = slotLength
       } <-
       Blockfrost.getLedgerGenesis
-    pparams <- liftIO fromBlockfrostPParams
+    pparams <- liftIO toCardanoPParams
     let epoch = fixedEpochInfo epochSize (slotLengthFromSec slotLength)
     let address = Blockfrost.Address (vkAddress networkMagic)
-    let networkId = fromNetworkMagic networkMagic
+    let networkId = toCardanoNetworkMagic networkMagic
     let changeAddress = mkVkAddress networkId vk
     stakePools <- Blockfrost.listPools
-    forM scripts $ \script -> do
-      liftIO $ threadDelay 2
-      utxo <- Blockfrost.getAddressUtxos address
-      liftIO $ threadDelay 2
-      liftIO $
-        buildTx pparams (LedgerEpochInfo epoch) networkId systemStart stakePools script changeAddress utxo
-          >>= \case
-            Left err -> throwErrorAsException err
-            Right rawTx -> do
-              let body = getTxBody rawTx
-                  tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
-                  txByteString = serialiseToCBOR tx
-                  txCborString = Blockfrost.CBORString $ fromStrict txByteString
-              let txEnvelope = toJSON $ serialiseToTextEnvelope Nothing tx
-              writeFileBS (show (getTxId (getTxBody tx)) <> ".cbor") txByteString
-              void $ writeFileJSON (show (getTxId (getTxBody tx)) <> ".envelope.cbor") txEnvelope
-              txHash <- Blockfrost.submitTx txCborString
-              let numberOfTries :: Int = 100
-              Blockfrost.Transaction{_transactionHash} <- awaitTransaction numberOfTries txHash
+    utxo <- Blockfrost.getAddressUtxos address
+    flip evalStateT utxo $
+      forM scripts $ \script -> do
+        nextUTxO <- get
+        tx <-
+          liftIO $
+            buildTx pparams (LedgerEpochInfo epoch) networkId systemStart stakePools script changeAddress nextUTxO
+              >>= \case
+                Left err -> throwErrorAsException err
+                Right rawTx -> do
+                  let body = getTxBody rawTx
+                  pure $ makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
 
-              case hashFromTextAsHex _transactionHash of
-                Nothing -> liftIO $ throwIO $ BlockfrostError "Could not decode transaction hash."
-                Just txHash' -> pure $ TxId txHash'
+        let txByteString = serialiseToCBOR tx
+        let txCborString = Blockfrost.CBORString $ fromStrict txByteString
+        txHash <- liftIO $ Blockfrost.submitTx txCborString
+        Blockfrost.Transaction{_transactionBlock, _transactionHash} <- liftIO $ await (Blockfrost.getTx txHash)
+        Blockfrost.TransactionUtxos{_transactionUtxosOutputs} <- liftIO $ await (Blockfrost.getTxUtxos txHash)
+
+        case hashFromTextAsHex _transactionHash of
+          Nothing -> liftIO $ throwIO $ BlockfrostError "Could not decode transaction hash."
+          Just txHash' -> do
+            newUTxO <- liftIO $ findTxOutUTxO _transactionBlock txHash _transactionUtxosOutputs
+            put newUTxO
+            pure $ TxId txHash'
  where
-  awaitTransaction :: Int -> Blockfrost.TxHash -> IO Blockfrost.Transaction
-  awaitTransaction n expectedTxHash =
+  numberOfTries :: Int = 100
+  delay' :: DiffTime = 5
+  await = awaitBlockfrost numberOfTries delay'
+  awaitBlockfrost :: forall a. Int -> DiffTime -> IO a -> IO a
+  awaitBlockfrost n delay action =
     if n <= 0
-      then throwIO $ BlockfrostError "Could not find transaction."
+      then throwIO $ BlockfrostError "Failed to get the result from Blockfrost."
       else do
-        Blockfrost.getTx expectedTxHash
+        action
           `catch` ( \(_ :: SomeException) -> liftIO $ do
-                      threadDelay 2
-                      awaitTransaction (n - 1) expectedTxHash
+                      threadDelay delay
+                      awaitBlockfrost (n - 1) delay action
                   )
 
   scripts = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
 
   vk = getVerificationKey sk
 
-  vkAddress networkMagic = textAddrOf (fromNetworkMagic networkMagic) vk
+  vkAddress networkMagic = textAddrOf (toCardanoNetworkMagic networkMagic) vk
+
+scriptTypeToPlutusVersion :: Blockfrost.ScriptType -> Maybe Language
+scriptTypeToPlutusVersion = \case
+  Blockfrost.PlutusV1 -> Just PlutusV1
+  Blockfrost.PlutusV2 -> Just PlutusV2
+  Blockfrost.PlutusV3 -> Just PlutusV3
+  Blockfrost.Timelock -> Nothing
+
+buildTx ::
+  PParams LedgerEra ->
+  LedgerEpochInfo ->
+  NetworkId ->
+  POSIXTime ->
+  [Blockfrost.PoolId] ->
+  PlutusScript ->
+  -- | Change address to send
+  AddressInEra ->
+  [Blockfrost.AddressUtxo] ->
+  IO (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTx pparams epochInfo networkId posixTime stakePools script changeAddress utxo = do
+  pure $
+    second (flip Tx [] . balancedTxBody) $
+      makeTransactionBodyAutoBalance
+        shelleyBasedEra
+        systemStart
+        epochInfo
+        (LedgerProtocolParameters pparams)
+        (Set.fromList (toCardanoPoolId <$> stakePools))
+        mempty
+        mempty
+        (UTxO.toApi utxoToSpend)
+        bodyContent
+        changeAddress
+        Nothing
+ where
+  unspendableScriptAddress = mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
+
+  mkScriptTxOut =
+    mkTxOutAutoBalance
+      pparams
+      unspendableScriptAddress
+      mempty
+      TxOutDatumNone
+
+  outputs = mkScriptTxOut <$> [mkScriptRef script]
+  utxo' = toCardanoUTxO utxo changeAddress
+  totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
+  utxoToSpend = maybe mempty UTxO.singleton $ UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo'
+  systemStart = SystemStart $ posixSecondsToUTCTime posixTime
+  collateral = mempty
+  dummyFeeForBalancing = TxFeeExplicit 1500000
+  bodyContent =
+    TxBodyContent
+      (withWitness <$> toList (UTxO.inputSet utxoToSpend))
+      (TxInsCollateral collateral)
+      TxInsReferenceNone
+      outputs
+      TxTotalCollateralNone
+      TxReturnCollateralNone
+      dummyFeeForBalancing
+      TxValidityNoLowerBound
+      TxValidityNoUpperBound
+      TxMetadataNone
+      TxAuxScriptsNone
+      TxExtraKeyWitnessesNone
+      (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
+      TxWithdrawalsNone
+      TxCertificatesNone
+      TxUpdateProposalNone
+      TxMintValueNone
+      TxScriptValidityNone
+      Nothing
+      Nothing
+      Nothing
+      Nothing
+
+-- ** Extras
+findTxOutUTxO :: Blockfrost.BlockHash -> Blockfrost.TxHash -> [Blockfrost.UtxoOutput] -> IO [Blockfrost.AddressUtxo]
+findTxOutUTxO blockHash txHash txOutputs =
+  case find (\Blockfrost.UtxoOutput{_utxoOutputReferenceScriptHash} -> isNothing _utxoOutputReferenceScriptHash) txOutputs of
+    Nothing -> throwIO $ BlockfrostError "Could not find script output."
+    Just Blockfrost.UtxoOutput{_utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputOutputIndex, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} -> do
+      let _addressUtxoAddress = _utxoOutputAddress
+      let _addressUtxoAmount = _utxoOutputAmount
+      let _addressUtxoOutputIndex = _utxoOutputOutputIndex
+      let _addressUtxoAmount = _utxoOutputAmount
+      let _addressUtxoBlock = blockHash
+      let _addressUtxoDataHash = _utxoOutputDataHash
+      let _addressUtxoInlineDatum = _utxoOutputInlineDatum
+      let _addressUtxoReferenceScriptHash = _utxoOutputReferenceScriptHash
+      let _addressUtxoTxHash = txHash
+      pure [Blockfrost.AddressUtxo{..}]
+
+toCardanoPoolId :: Blockfrost.PoolId -> Hash StakePoolKey
+toCardanoPoolId (Blockfrost.PoolId textPoolId) =
+  case deserialiseFromRawBytesHex (AsHash AsStakePoolKey) (encodeUtf8 textPoolId) of
+    Left err -> error (show err)
+    Right pool -> pool
+
+toCardanoUTxO :: [Blockfrost.AddressUtxo] -> AddressInEra -> UTxO' (TxOut CtxUTxO)
+toCardanoUTxO utxos addr = UTxO.fromPairs (toEntry <$> utxos)
+ where
+  toEntry :: Blockfrost.AddressUtxo -> (TxIn, TxOut CtxUTxO)
+  toEntry utxo = (toCardanoTxIn utxo, toCardanoTxOut utxo addr)
+
+toCardanoTxIn :: Blockfrost.AddressUtxo -> TxIn
+toCardanoTxIn Blockfrost.AddressUtxo{_addressUtxoTxHash = Blockfrost.TxHash{unTxHash}, _addressUtxoOutputIndex} =
+  case deserialiseFromRawBytesHex AsTxId (encodeUtf8 unTxHash) of
+    Left err -> error (show err)
+    Right txId -> TxIn txId (TxIx (fromIntegral _addressUtxoOutputIndex))
+
+-- REVIEW! TxOutDatumNone and ReferenceScriptNone
+toCardanoTxOut :: Blockfrost.AddressUtxo -> AddressInEra -> TxOut CtxUTxO
+toCardanoTxOut Blockfrost.AddressUtxo{_addressUtxoAmount} addr =
+  TxOut addr (toCardanoValue _addressUtxoAmount) TxOutDatumNone ReferenceScriptNone
+
+toCardanoPolicyId :: Text -> PolicyId
+toCardanoPolicyId pid =
+  case deserialiseFromRawBytesHex AsPolicyId (encodeUtf8 pid) of
+    Left err -> error (show err)
+    Right p -> p
+
+toCardanoAssetName :: Text -> AssetName
+toCardanoAssetName = AssetName . encodeUtf8
+
+toCardanoValue :: [Blockfrost.Amount] -> Value
+toCardanoValue = foldMap convertAmount
+ where
+  convertAmount (Blockfrost.AdaAmount lovelaces) =
+    fromList
+      [
+        ( AdaAssetId
+        , Quantity (toInteger lovelaces)
+        )
+      ]
+  convertAmount (Blockfrost.AssetAmount money) =
+    let currency = Money.someDiscreteCurrency money
+     in fromList
+          [
+            ( AssetId
+                (toCardanoPolicyId currency)
+                (toCardanoAssetName currency)
+            , Quantity (Money.someDiscreteAmount money)
+            )
+          ]
+
+-- ** Helpers
+
+unwrapAddress :: AddressInEra -> Text
+unwrapAddress = \case
+  ShelleyAddressInEra addr -> serialiseToBech32 addr
+  ByronAddressInEra{} -> error "Byron."
+
+textAddrOf :: NetworkId -> VerificationKey PaymentKey -> Text
+textAddrOf networkId vk = unwrapAddress (mkVkAddress @Era networkId vk)
+
+toCardanoNetworkMagic :: Integer -> NetworkId
+toCardanoNetworkMagic = \case
+  0 -> Mainnet
+  magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
 
 data BlockfrostConversion
   = BlockfrostConversion
@@ -144,8 +320,8 @@ data BlockfrostConversion
   , minFeeRefScriptCostPerByte :: NonNegativeInterval
   }
 
-fromBlockfrostPParams :: IO (PParams LedgerEra)
-fromBlockfrostPParams = do
+toCardanoPParams :: IO (PParams LedgerEra)
+toCardanoPParams = do
   pparams <- Blockfrost.getLatestEpochProtocolParams
   minVersion <- mkVersion $ pparams ^. Blockfrost.protocolMinorVer
   let maxVersion = fromIntegral $ pparams ^. Blockfrost.protocolMajorVer
@@ -231,148 +407,3 @@ fromBlockfrostPParams = do
                 )
           )
           (Map.toList costModelsMap)
-
-scriptTypeToPlutusVersion :: Blockfrost.ScriptType -> Maybe Language
-scriptTypeToPlutusVersion = \case
-  Blockfrost.PlutusV1 -> Just PlutusV1
-  Blockfrost.PlutusV2 -> Just PlutusV2
-  Blockfrost.PlutusV3 -> Just PlutusV3
-  Blockfrost.Timelock -> Nothing
-
-buildTx ::
-  PParams LedgerEra ->
-  LedgerEpochInfo ->
-  NetworkId ->
-  POSIXTime ->
-  [Blockfrost.PoolId] ->
-  PlutusScript ->
-  -- | Change address to send
-  AddressInEra ->
-  [Blockfrost.AddressUtxo] ->
-  IO (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTx pparams epochInfo networkId posixTime stakePools script changeAddress utxo = do
-  pure $
-    second (flip Tx [] . balancedTxBody) $
-      makeTransactionBodyAutoBalance
-        shelleyBasedEra
-        systemStart
-        epochInfo
-        (LedgerProtocolParameters pparams)
-        (Set.fromList (toApiPoolId <$> stakePools))
-        mempty
-        mempty
-        (UTxO.toApi utxoToSpend)
-        bodyContent
-        changeAddress
-        Nothing
- where
-  unspendableScriptAddress = mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
-
-  mkScriptTxOut =
-    mkTxOutAutoBalance
-      pparams
-      unspendableScriptAddress
-      mempty
-      TxOutDatumNone
-
-  outputs = mkScriptTxOut <$> [mkScriptRef script]
-  utxo' = toApiUTxO utxo changeAddress
-  totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
-  utxoToSpend = maybe mempty UTxO.singleton $ UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo'
-  systemStart = SystemStart $ posixSecondsToUTCTime posixTime
-  collateral = mempty
-  dummyFeeForBalancing = TxFeeExplicit 1500000
-  bodyContent =
-    TxBodyContent
-      (withWitness <$> toList (UTxO.inputSet utxoToSpend))
-      (TxInsCollateral collateral)
-      TxInsReferenceNone
-      outputs
-      TxTotalCollateralNone
-      TxReturnCollateralNone
-      dummyFeeForBalancing
-      TxValidityNoLowerBound
-      TxValidityNoUpperBound
-      TxMetadataNone
-      TxAuxScriptsNone
-      TxExtraKeyWitnessesNone
-      (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
-      TxWithdrawalsNone
-      TxCertificatesNone
-      TxUpdateProposalNone
-      TxMintValueNone
-      TxScriptValidityNone
-      Nothing
-      Nothing
-      Nothing
-      Nothing
-
--- ** Extras
-
-toApiPoolId :: Blockfrost.PoolId -> Hash StakePoolKey
-toApiPoolId (Blockfrost.PoolId textPoolId) =
-  case deserialiseFromRawBytesHex (AsHash AsStakePoolKey) (encodeUtf8 textPoolId) of
-    Left err -> error (show err)
-    Right pool -> pool
-
-toApiUTxO :: [Blockfrost.AddressUtxo] -> AddressInEra -> UTxO' (TxOut CtxUTxO)
-toApiUTxO utxos addr = UTxO.fromPairs (toEntry <$> utxos)
- where
-  toEntry :: Blockfrost.AddressUtxo -> (TxIn, TxOut CtxUTxO)
-  toEntry utxo = (toApiTxIn utxo, toApiTxOut utxo addr)
-
-toApiTxIn :: Blockfrost.AddressUtxo -> TxIn
-toApiTxIn Blockfrost.AddressUtxo{_addressUtxoTxHash = Blockfrost.TxHash{unTxHash}, _addressUtxoOutputIndex} =
-  case deserialiseFromRawBytesHex AsTxId (encodeUtf8 unTxHash) of
-    Left err -> error (show err)
-    Right txId -> TxIn txId (TxIx (fromIntegral _addressUtxoOutputIndex))
-
--- REVIEW! TxOutDatumNone and ReferenceScriptNone
-toApiTxOut :: Blockfrost.AddressUtxo -> AddressInEra -> TxOut CtxUTxO
-toApiTxOut Blockfrost.AddressUtxo{_addressUtxoAmount} addr =
-  TxOut addr (toApiValue _addressUtxoAmount) TxOutDatumNone ReferenceScriptNone
-
-toApiPolicyId :: Text -> PolicyId
-toApiPolicyId pid =
-  case deserialiseFromRawBytesHex AsPolicyId (encodeUtf8 pid) of
-    Left err -> error (show err)
-    Right p -> p
-
-toApiAssetName :: Text -> AssetName
-toApiAssetName = AssetName . encodeUtf8
-
-toApiValue :: [Blockfrost.Amount] -> Value
-toApiValue = foldMap convertAmount
- where
-  convertAmount (Blockfrost.AdaAmount lovelaces) =
-    fromList
-      [
-        ( AdaAssetId
-        , Quantity (toInteger lovelaces)
-        )
-      ]
-  convertAmount (Blockfrost.AssetAmount money) =
-    let currency = Money.someDiscreteCurrency money
-     in fromList
-          [
-            ( AssetId
-                (toApiPolicyId currency)
-                (toApiAssetName currency)
-            , Quantity (Money.someDiscreteAmount money)
-            )
-          ]
-
--- ** Helpers
-
-unwrapAddress :: AddressInEra -> Text
-unwrapAddress = \case
-  ShelleyAddressInEra addr -> serialiseToBech32 addr
-  ByronAddressInEra{} -> error "Byron."
-
-textAddrOf :: NetworkId -> VerificationKey PaymentKey -> Text
-textAddrOf networkId vk = unwrapAddress (mkVkAddress @Era networkId vk)
-
-fromNetworkMagic :: Integer -> NetworkId
-fromNetworkMagic = \case
-  0 -> Mainnet
-  magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
