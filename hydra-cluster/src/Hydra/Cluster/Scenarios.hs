@@ -1468,6 +1468,20 @@ threeNodesWithPartyRedundancy tracer workDir cardanoNode@RunningNode{nodeSocket,
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
           guard $ v ^? key "snapshot" . key "number" == Just (toJSON (1 :: Integer))
 
+      -- \| Mirror party disconnects and the others observe it
+      waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "PeerDisconnected"
+
+      -- Bob performs another simple transaction from bob to himself
+      utxo <- getSnapshotUTxO n2
+      tx <- mkTransferTx networkId utxo bobCardanoSk bobCardanoVk
+      send n2 $ input "NewTx" ["transaction" .= tx]
+
+      -- Everyone confirms it
+      waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
+
 -- * L2 scenarios
 
 -- | Finds UTxO owned by given key in the head and creates transactions
