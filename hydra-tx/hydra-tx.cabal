@@ -99,6 +99,7 @@ library
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , plutus-ledger-api
+    , prettyprinter
     , QuickCheck
     , quickcheck-instances
     , serialise
