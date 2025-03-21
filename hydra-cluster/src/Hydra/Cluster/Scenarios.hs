@@ -141,6 +141,7 @@ import System.FilePath ((</>))
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, elements, generate)
+import qualified Data.Type.Bool as time
 
 data EndToEndLog
   = ClusterOptions {options :: Options}
@@ -1424,6 +1425,7 @@ threeNodesWithPartyRedundancy tracer workDir cardanoNode@RunningNode{nodeSocket,
 
   let contestationPeriod = UnsafeContestationPeriod 1
   let depositDeadline = UnsafeDepositDeadline 200
+  
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline
       <&> setNetworkId networkId
@@ -1438,21 +1440,23 @@ threeNodesWithPartyRedundancy tracer workDir cardanoNode@RunningNode{nodeSocket,
       -- One party will participate using same hydra credentials
       withHydraNode hydraTracer aliceChainConfig workDir 3 aliceSk [bobVk] allNodeIds $ \n3 -> do
         let clients = [n1, n2, n3]
-        -- Init
-        send n2 $ input "Init" []
+        send n1 $ input "Init" []
         headId <- waitForAllMatch (10 * blockTime) clients $ headIsInitializingWith (Set.fromList [alice, bob])
+
+        -- N1 & N3 commit the same thing at the same time
+        -- XXX: one will fail but the head will still open
+        aliceUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+        race_
+          (requestCommitTx n1 aliceUTxO >>= submitTx cardanoNode)
+          (requestCommitTx n3 aliceUTxO >>= submitTx cardanoNode)
 
         -- N2 commits something
         bobUTxO <- seedFromFaucet cardanoNode bobCardanoVk 1_000_000 (contramap FromFaucet tracer)
         requestCommitTx n2 bobUTxO >>= submitTx cardanoNode
 
-        -- N1 commit something
-        aliceUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
-        requestCommitTx n1 aliceUTxO >>= submitTx cardanoNode
-
         -- Observe open with relevant UTxO
         waitFor hydraTracer (20 * blockTime) clients $
-          output "HeadIsOpen" ["utxo" .= toJSON (bobUTxO <> aliceUTxO), "headId" .= headId]
+          output "HeadIsOpen" ["utxo" .= toJSON (aliceUTxO <> bobUTxO), "headId" .= headId]
 
         -- N3 performs a simple transaction from N3 to itself
         utxo <- getSnapshotUTxO n3
