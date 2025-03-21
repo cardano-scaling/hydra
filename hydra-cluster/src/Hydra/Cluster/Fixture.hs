@@ -12,26 +12,20 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 import Hydra.Tx.DepositDeadline (DepositDeadline (..))
 
-alice, bob, carol, alice2 :: Party
+alice, bob, carol :: Party
 alice = deriveParty aliceSk
 bob = deriveParty bobSk
 carol = deriveParty carolSk
--- XXX: alice2 uses same party credentials as alice
-alice2 = deriveParty alice2Sk
 
-aliceSk, bobSk, carolSk, alice2Sk :: SigningKey HydraKey
+aliceSk, bobSk, carolSk :: SigningKey HydraKey
 aliceSk = generateSigningKey "alice"
 bobSk = generateSigningKey "bob"
 carolSk = generateSigningKey "carol"
--- XXX: alice2 uses same party credentials as alice
-alice2Sk = aliceSk
 
-aliceVk, bobVk, carolVk, alice2Vk :: VerificationKey HydraKey
+aliceVk, bobVk, carolVk :: VerificationKey HydraKey
 aliceVk = getVerificationKey aliceSk
 bobVk = getVerificationKey bobSk
 carolVk = getVerificationKey carolSk
--- XXX: alice2 uses same party credentials as alice
-alice2Vk = getVerificationKey alice2Sk
 
 cperiod :: ContestationPeriod
 cperiod = UnsafeContestationPeriod 10
@@ -53,9 +47,6 @@ data Actor
   | Carol
   | CarolFunds
   | Faucet
-  | -- XXX: alice2 is a separate actor
-    Alice2
-  | Alice2Funds
   deriving stock (Eq, Show)
 
 actorName :: Actor -> String
@@ -67,9 +58,6 @@ actorName = \case
   Carol -> "carol"
   CarolFunds -> "carol-funds"
   Faucet -> "faucet"
-  -- XXX: alice2 has same cardano credentials as carol
-  Alice2 -> "carol"
-  Alice2Funds -> "carol-funds"
 
 fundsOf :: Actor -> Actor
 fundsOf = \case
@@ -80,9 +68,6 @@ fundsOf = \case
   Carol -> CarolFunds
   CarolFunds -> CarolFunds
   Faucet -> Faucet
-  -- XXX: alice2 has same cardano funds as carol
-  Alice2 -> Alice2Funds
-  Alice2Funds -> Alice2Funds
 
 -- | A network known to the hydra-cluster. That means we have configuration
 -- files to connect to at least these networks.

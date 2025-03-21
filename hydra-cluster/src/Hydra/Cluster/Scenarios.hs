@@ -1418,7 +1418,7 @@ threeNodesWithPartyRedundancy :: Tracer IO EndToEndLog -> FilePath -> RunningNod
 threeNodesWithPartyRedundancy tracer workDir cardanoNode@RunningNode{nodeSocket, networkId, blockTime} hydraScriptsTxId = do
   let parties = [Alice, Bob]
 
-  [(aliceCardanoVk, _), (bobCardanoVk, bobCardanoSk)] <- forM parties keysFor
+  [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _)] <- forM parties keysFor
   seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
   seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
@@ -1442,43 +1442,41 @@ threeNodesWithPartyRedundancy tracer workDir cardanoNode@RunningNode{nodeSocket,
         send n2 $ input "Init" []
         headId <- waitForAllMatch (10 * blockTime) clients $ headIsInitializingWith (Set.fromList [alice, bob])
 
-        -- Bob commits something
+        -- N2 commits something
         bobUTxO <- seedFromFaucet cardanoNode bobCardanoVk 1_000_000 (contramap FromFaucet tracer)
         requestCommitTx n2 bobUTxO >>= submitTx cardanoNode
 
-        -- Alice commit nothing
-        -- XXX: if they commit different utxo then H17 is raised during checkCollectCom
-        mapConcurrently_ (\n -> requestCommitTx n mempty >>= submitTx cardanoNode) [n1]
+        -- N1 commit something
+        aliceUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+        requestCommitTx n1 aliceUTxO >>= submitTx cardanoNode
 
         -- Observe open with relevant UTxO
         waitFor hydraTracer (20 * blockTime) clients $
-          output "HeadIsOpen" ["utxo" .= toJSON bobUTxO, "headId" .= headId]
+          output "HeadIsOpen" ["utxo" .= toJSON (bobUTxO <> aliceUTxO), "headId" .= headId]
 
-        -- Bob performs a simple transaction from bob to himself
-        utxo <- getSnapshotUTxO n2
-        tx <- mkTransferTx networkId utxo bobCardanoSk bobCardanoVk
-        send n2 $ input "NewTx" ["transaction" .= tx]
+        -- N3 performs a simple transaction from N3 to itself
+        utxo <- getSnapshotUTxO n3
+        tx <- mkTransferTx networkId utxo aliceCardanoSk aliceCardanoVk
+        send n3 $ input "NewTx" ["transaction" .= tx]
 
         -- Everyone confirms it
         waitForAllMatch (200 * blockTime) clients $ \v -> do
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
           guard $ v ^? key "snapshot" . key "number" == Just (toJSON (1 :: Integer))
 
-      -- \| Mirror party disconnects and the others observe it
+      -- \| Mirror party N3 disconnects and the others observe it
       waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
-      -- Bob performs another simple transaction from bob to himself
-      utxo <- getSnapshotUTxO n2
-      tx <- mkTransferTx networkId utxo bobCardanoSk bobCardanoVk
-      send n2 $ input "NewTx" ["transaction" .= tx]
+      -- N1 performs another simple transaction from N1 to itself
+      utxo <- getSnapshotUTxO n1
+      tx <- mkTransferTx networkId utxo aliceCardanoSk aliceCardanoVk
+      send n1 $ input "NewTx" ["transaction" .= tx]
 
       -- Everyone confirms it
       waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
         guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
-
-      True `shouldBe` False
 
 -- * L2 scenarios
 
