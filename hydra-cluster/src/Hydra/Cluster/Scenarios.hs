@@ -1336,7 +1336,6 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
       let pparamsDecorator = atKey "maxTxSize" ?~ toJSON (Aeson.Number 0)
       wrongOptions <- prepareHydraNode carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] pparamsDecorator
       tx <- withPreparedHydraNode hydraTracer workDir 3 wrongOptions $ \n3 -> do
-        -- Init
         send n1 $ input "Init" []
         headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
 
