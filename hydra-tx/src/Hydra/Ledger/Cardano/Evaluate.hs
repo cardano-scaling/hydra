@@ -56,6 +56,7 @@ import Hydra.Cardano.Api (
   UTxO,
   evaluateTransactionExecutionUnits,
   getTxBody,
+  prettyError,
   toLedgerExUnits,
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
@@ -73,6 +74,8 @@ import Ouroboros.Consensus.HardFork.History (
   initBound,
   mkInterpreter,
  )
+import Prettyprinter (defaultLayoutOptions, layoutPretty)
+import Prettyprinter.Render.Text (renderStrict)
 import Test.QuickCheck (Property, choose, counterexample, property)
 import Test.QuickCheck.Gen (chooseWord64)
 
@@ -157,6 +160,19 @@ data EvaluationError
 -- evaluation or used a number of 'ExecutionUnits'.
 type EvaluationReport =
   (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
+
+-- | Render the 'EvaluationReport' as a pretty multi-line text.
+renderEvaluationReport :: EvaluationReport -> Text
+renderEvaluationReport =
+  unlines . map render . Map.toList
+ where
+  render (ix, Right exunits) =
+    "- " <> show ix <> " OK and used " <> show exunits
+  render (ix, Left err) =
+    unlines
+      [ "- " <> show ix <> " FAIL with error: "
+      , renderStrict $ layoutPretty defaultLayoutOptions $ prettyError err
+      ]
 
 -- | Get the total used 'ExecutionUnits' from an 'EvaluationReport'. Useful to
 -- further process the result of 'evaluateTx'.
@@ -333,7 +349,7 @@ propTransactionEvaluates (tx, lookupUTxO) =
     Right redeemerReport ->
       all isRight (Map.elems redeemerReport)
         & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
-        & counterexample ("Redeemer report: " <> show redeemerReport)
+        & counterexample ("Redeemer report:\n  " <> toString (renderEvaluationReport redeemerReport))
         & counterexample "Phase-2 validation failed"
 
 -- | Expect a given 'Tx' and 'UTxO' to fail phase 1 or phase 2 evaluation.
