@@ -141,7 +141,6 @@ import System.FilePath ((</>))
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, elements, generate)
-import qualified Data.Type.Bool as time
 
 data EndToEndLog
   = ClusterOptions {options :: Options}
@@ -1425,7 +1424,7 @@ threeNodesWithPartyRedundancy tracer workDir cardanoNode@RunningNode{nodeSocket,
 
   let contestationPeriod = UnsafeContestationPeriod 1
   let depositDeadline = UnsafeDepositDeadline 200
-  
+
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline
       <&> setNetworkId networkId
