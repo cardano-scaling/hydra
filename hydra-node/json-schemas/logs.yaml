@@ -999,6 +999,22 @@ definitions:
           otherHeadId:
             $ref: "api.yaml#/components/schemas/HeadId"
 
+      - title: SideLoadSnapshotFailed
+        description: >-
+          A precondition for side load snapshot to the Hydra
+          Head state-machine failed, providing more details in the
+          'contents' field.
+        additionalProperties: false
+        required:
+          - tag
+          - sideLoadRequirementFailure
+        properties:
+          tag:
+            type: string
+            enum: ["SideLoadSnapshotFailed"]
+          sideLoadRequirementFailure:
+            $ref: "logs.yaml#/definitions/SideLoadRequirementFailure"
+
   ValidationError:
     type: object
     additionalProperties: false
@@ -1176,6 +1192,109 @@ definitions:
           tag:
             type: string
             enum: ["RecoverNotMatchingDeposit"]
+
+  SideLoadRequirementFailure:
+      oneOf:
+        - title: "SideLoadInitialSnapshotMissmatch"
+          description: >-
+            Received SideLoadSnapshot containing an invalid InitialSnapshot
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadInitialSnapshotMissmatch"]
+        - title: "SideLoadSnNumberInvalid"
+          description: >-
+            Received SideLoadSnapshot containing an invalid snapshot number
+          additionalProperties: false
+          required:
+            - tag
+            - requestedSn
+            - lastSeenSn
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadSnNumberInvalid"]
+            requestedSn:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+            lastSeenSn:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        - title: "SideLoadSvNumberInvalid"
+          description: >-
+            Received SideLoadSnapshot containing an invalid snapshot version
+          additionalProperties: false
+          required:
+            - tag
+            - requestedSv
+            - lastSeenSv
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadSvNumberInvalid"]
+            requestedSv:
+              $ref: "api.yaml#/components/schemas/SnapshotVersion"
+            lastSeenSv:
+              $ref: "api.yaml#/components/schemas/SnapshotVersion"
+        - title: "SideLoadUTxOToCommitInvalid"
+          description: >-
+            Received SideLoadSnapshot containing an invalid utxoToCommit
+          additionalProperties: false
+          required:
+            - tag
+            - requestedSc
+            - lastSeenSc
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadUTxOToCommitInvalid"]
+            requestedSc:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTxO"
+                - type: "null"
+            lastSeenSc:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTxO"
+                - type: "null"
+        - title: "SideLoadUTxOToDecommitInvalid"
+          description: >-
+            Received SideLoadSnapshot containing an invalid utxoToDecommit
+          additionalProperties: false
+          required:
+            - tag
+            - requestedSd
+            - lastSeenSd
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadUTxOToDecommitInvalid"]
+            requestedSd:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTxO"
+                - type: "null"
+            lastSeenSd:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTxO"
+                - type: "null"
+        - title: "SideLoadInvalidMultisignature"
+          description: >-
+            Multisignature computed for a side load snapshot from individual parties signature is invalid.
+          additionalProperties: false
+          required:
+            - tag
+            - multisig
+            - vkeys
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadInvalidMultisignature"]
+            multisig:
+              type: string
+            vkeys:
+              type: array
+              items:
+                type: string
 
   HeadState:
     oneOf:
@@ -1527,6 +1646,20 @@ definitions:
             enum: ["TickObserved"]
           chainSlot:
             $ref: "api.yaml#/components/schemas/ChainSlot"
+      - title: "LocalStateCleared"
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+          - snapshotNumber
+        properties:
+          tag:
+            type: string
+            enum: ["LocalStateCleared"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          snapshotNumber:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
   IdleState:
     type: object
     additionalProperties: false
@@ -1689,6 +1822,7 @@ definitions:
               - $ref: "api.yaml#/components/messages/Close/payload"
               - $ref: "api.yaml#/components/messages/Contest/payload"
               - $ref: "api.yaml#/components/messages/Fanout/payload"
+              - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
 
       - title: NetworkInput
         type: object

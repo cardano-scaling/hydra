@@ -55,6 +55,7 @@ import Hydra.Cluster.Scenarios (
   canDecommit,
   canRecoverDeposit,
   canSeePendingDeposits,
+  canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
   headIsInitializingWith,
   initWithWrongKeys,
@@ -464,6 +465,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   waitMatch 10 n $ \v -> do
                     guard $ v ^? key "tag" == Just "HeadIsContested"
                     guard $ v ^? key "headId" == Just (toJSON headId)
+
+      it "can side load snapshot" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canSideLoadSnapshot tracer tmpDir node
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->

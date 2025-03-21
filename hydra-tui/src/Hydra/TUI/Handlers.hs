@@ -177,6 +177,8 @@ handleHydraEventsInfo = \case
     info time "Head aborted, back to square one."
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{number}}}) ->
     info time ("Snapshot #" <> show number <> " confirmed.")
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotSideLoaded{snapshotNumber}}) ->
+    info time ("Snapshot #" <> show snapshotNumber <> " side loaded.")
   Update (ApiClientMessage API.CommandFailed{clientInput}) -> do
     time <- liftIO getCurrentTime
     warn time $ "Invalid command: " <> show clientInput

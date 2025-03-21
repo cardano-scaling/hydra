@@ -26,6 +26,7 @@ import Hydra.HeadLogic.State (SeenSnapshot (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (
   CommitBlueprintTx (..),
+  ConfirmedSnapshot,
   IsTx (..),
   UTxOType,
  )
@@ -126,6 +127,18 @@ instance FromJSON TransactionSubmitted where
 instance Arbitrary TransactionSubmitted where
   arbitrary = genericArbitrary
 
+newtype SideLoadSnapshotRequest tx = SideLoadSnapshotRequest
+  { snapshot :: ConfirmedSnapshot tx
+  }
+  deriving newtype (Eq, Show, Generic)
+  deriving newtype (ToJSON, FromJSON)
+
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (SideLoadSnapshotRequest tx) where
+  arbitrary = genericArbitrary
+
+  shrink = \case
+    SideLoadSnapshotRequest snapshot -> SideLoadSnapshotRequest <$> shrink snapshot
+
 -- | Hydra HTTP server
 httpApp ::
   forall tx.
@@ -140,12 +153,14 @@ httpApp ::
   IO (Maybe (UTxOType tx)) ->
   -- | Get latest seen snapshot.
   IO (SeenSnapshot tx) ->
+  -- | Get latest confirmed snapshot.
+  IO (Maybe (ConfirmedSnapshot tx)) ->
   -- | Get the pending commits (deposits)
   IO [TxIdType tx] ->
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
   Application
-httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getSeenSnapshot getPendingDeposits putClientInput request respond = do
+httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getSeenSnapshot getConfirmedSnapshot getPendingDeposits putClientInput request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -154,6 +169,14 @@ httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getSeenSna
   case (requestMethod request, pathInfo request) of
     ("GET", ["snapshot", "last-seen"]) ->
       getSeenSnapshot >>= respond . okJSON
+    ("GET", ["snapshot"]) ->
+      getConfirmedSnapshot >>= \case
+        Nothing -> respond notFound
+        Just snapshot -> respond $ okJSON snapshot
+    ("POST", ["snapshot"]) ->
+      consumeRequestBodyStrict request
+        >>= handleSideLoadSnapshot putClientInput
+        >>= respond
     ("GET", ["snapshot", "utxo"]) ->
       -- XXX: Should ensure the UTxO is of the right head and the head is still
       -- open. This is something we should fix on the "read model" side of the
@@ -288,6 +311,21 @@ handleDecommit putClientInput body =
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right decommitTx -> do
       putClientInput Decommit{decommitTx}
+      pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
+
+-- | Handle request to side load confirmed snapshot.
+handleSideLoadSnapshot ::
+  forall tx.
+  IsChainState tx =>
+  (ClientInput tx -> IO ()) ->
+  LBS.ByteString ->
+  IO Response
+handleSideLoadSnapshot putClientInput body = do
+  case Aeson.eitherDecode' body :: Either String (SideLoadSnapshotRequest tx) of
+    Left err ->
+      pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+    Right SideLoadSnapshotRequest{snapshot} -> do
+      putClientInput $ SideLoadSnapshot snapshot
       pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
 
 badRequest :: IsChainState tx => PostTxError tx -> Response

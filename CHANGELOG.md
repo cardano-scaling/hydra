@@ -51,6 +51,12 @@ changes.
 
 - Add a list of [clients](https://hydra.family/head-protocol/unstable/docs/clients) to the docs
 
+- Add API command (POST /snapshot) which allows to adopt the given snapshot as the latest confirmed.
+  * add new `SideLoadSnapshot` client input.
+  * add new `LocalStateCleared` state changed event.
+  * add new `SnapshotSideLoaded` server output.
+  * add new `SideLoadSnapshotFailed` logic error.
+
 ## [0.20.0] - 2025-02-04
 
 - **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature

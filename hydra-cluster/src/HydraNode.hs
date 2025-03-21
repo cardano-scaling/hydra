@@ -25,6 +25,7 @@ import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Network qualified as Network
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
+import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.DepositDeadline (DepositDeadline)
@@ -215,6 +216,21 @@ getSnapshotUTxO HydraClient{apiHost = Host{hostname, port}} =
     >>= httpJSON
     <&> getResponseBody
 
+-- | Get the latest snapshot from the hydra-node. NOTE: While we usually
+-- avoid parsing responses using the same data types as the system under test,
+-- this parses the response as a 'ConfirmedSnapshot' type as we often need to pick it apart.
+getSnapshotConfirmed :: HydraClient -> IO (ConfirmedSnapshot Tx)
+getSnapshotConfirmed HydraClient{apiHost = Host{hostname, port}} =
+  runReq defaultHttpConfig request <&> responseBody
+ where
+  request =
+    Req.req
+      GET
+      (Req.http hostname /: "snapshot")
+      NoReqBody
+      (Proxy :: Proxy (JsonResponse (ConfirmedSnapshot Tx)))
+      (Req.port (fromInteger . toInteger $ port))
+
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
   failAfter 3 $
@@ -295,6 +311,128 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
         (\c -> startNodes (c : clients) rest)
 
 -- * Start / connect to a hydra-node
+
+-- | Prepare protocol-parameters to run a hydra-node with given 'ChainConfig' and using the config from
+-- config/.
+preparePParams ::
+  ChainConfig ->
+  FilePath ->
+  (Aeson.Value -> Aeson.Value) ->
+  IO FilePath
+preparePParams chainConfig stateDir paramsDecorator = do
+  let cardanoLedgerProtocolParametersFile = stateDir </> "protocol-parameters.json"
+  case chainConfig of
+    Offline _ ->
+      readConfigFile "protocol-parameters.json"
+        >>= writeFileBS cardanoLedgerProtocolParametersFile
+    Direct DirectChainConfig{nodeSocket, networkId} -> do
+      -- NOTE: This implicitly tests of cardano-cli with hydra-node
+      protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
+      Aeson.encodeFile cardanoLedgerProtocolParametersFile $
+        paramsDecorator protocolParameters
+          & atKey "txFeeFixed" ?~ toJSON (Number 0)
+          & atKey "txFeePerByte" ?~ toJSON (Number 0)
+          & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
+          & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
+          & atKey "utxoCostPerByte" ?~ toJSON (Number 0)
+          & atKey "treasuryCut" ?~ toJSON (Number 0)
+          & atKey "minFeeRefScriptCostPerByte" ?~ toJSON (Number 0)
+  pure cardanoLedgerProtocolParametersFile
+
+-- | Prepare 'RunOptions' to run a hydra-node with given 'ChainConfig' and using the config from
+-- config/.
+prepareHydraNode ::
+  HasCallStack =>
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  SigningKey HydraKey ->
+  [VerificationKey HydraKey] ->
+  [Int] ->
+  (Aeson.Value -> Aeson.Value) ->
+  IO RunOptions
+prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds paramsDecorator = do
+  -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
+  when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
+  let stateDir = workDir </> "state-" <> show hydraNodeId
+  createDirectoryIfMissing True stateDir
+  cardanoLedgerProtocolParametersFile <- preparePParams chainConfig stateDir paramsDecorator
+  let hydraSigningKey = stateDir </> "me.sk"
+  void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
+  hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
+    let filepath = stateDir </> ("other-" <> show i <> ".vk")
+    filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
+  pure $
+    RunOptions
+      { verbosity = Verbose "HydraNode"
+      , nodeId = NodeId $ show hydraNodeId
+      , listen = Host "0.0.0.0" (fromIntegral $ 5_000 + hydraNodeId)
+      , advertise = Nothing
+      , peers
+      , apiHost = "0.0.0.0"
+      , apiPort = fromIntegral $ 4_000 + hydraNodeId
+      , tlsCertPath = Nothing
+      , tlsKeyPath = Nothing
+      , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
+      , hydraSigningKey
+      , hydraVerificationKeys
+      , persistenceDir = stateDir
+      , chainConfig
+      , ledgerConfig =
+          CardanoLedgerConfig
+            { cardanoLedgerProtocolParametersFile
+            }
+      }
+ where
+  port = fromIntegral $ 5_000 + hydraNodeId
+  -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
+  peers =
+    [ Host
+        { Network.hostname = "0.0.0.0"
+        , Network.port = fromIntegral $ 5_000 + i
+        }
+    | i <- allNodeIds
+    , i /= hydraNodeId
+    ]
+
+-- | Run a hydra-node with given 'RunOptions'.
+withPreparedHydraNode ::
+  HasCallStack =>
+  Tracer IO HydraNodeLog ->
+  FilePath ->
+  Int ->
+  RunOptions ->
+  (HydraClient -> IO a) ->
+  IO a
+withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
+  withLogFile logFilePath $ \logFileHandle -> do
+    let cmd =
+          (proc "hydra-node" . toArgs $ runOptions)
+            & setStdout (useHandleOpen logFileHandle)
+            & setStderr createPipe
+
+    traceWith tracer $ HydraNodeCommandSpec $ show cmd
+
+    withProcessTerm cmd $ \p -> do
+      -- NOTE: exit code thread gets cancelled if 'action' terminates first
+      race
+        (collectAndCheckExitCode p)
+        (withConnectionToNode tracer hydraNodeId action)
+        <&> either absurd id
+ where
+  collectAndCheckExitCode p = do
+    let h = getStderr p
+    waitExitCode p >>= \case
+      ExitSuccess -> failure "hydra-node stopped early"
+      ExitFailure ec -> do
+        err <- hGetContents h
+        failure . toString $
+          unlines
+            [ "hydra-node (nodeId = " <> show hydraNodeId <> ") exited with failure code: " <> show ec
+            , decodeUtf8 err
+            ]
+
+  logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.

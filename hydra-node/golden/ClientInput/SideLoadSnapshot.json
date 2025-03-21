@@ -1,0 +1,91 @@
+{
+    "samples": [
+        {
+            "snapshot": {
+                "signatures": {
+                    "multiSignature": [
+                        "a336634632facc17f2e568dc45ab3558c0b2ae80089ea70b8ff295cc05a802c10cff3549002233c07224347d1dedb4db801453ff4f155adc9664360ca7635c02"
+                    ]
+                },
+                "snapshot": {
+                    "confirmed": [],
+                    "headId": "01010100010000000001010001000100",
+                    "number": 1,
+                    "utxo": {
+                        "0101010100010000010000000001000100000100010101010000000001000101#42": {
+                            "address": "EqGAuA8vHnNhuCBsEZp9M3LezbMGP9ewceTj7EX6eQPedD66DZBkVY8vLusRKv3JSCwSAU2RTd6Rxh3TSJk9134pV73VfrDKnbuhUVUoF4aLB3VKssrgys7",
+                            "datum": null,
+                            "inlineDatum": {
+                                "int": -2
+                            },
+                            "inlineDatumRaw": "21",
+                            "inlineDatumhash": "0268be9dbd0446eaa217e1dec8f399249305e551d7fc1437dd84521f74aa621c",
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "8201838201828200581c790ea7e32417084490f3ef7fa5b9b0ce4fab127fd87c5be9b0763ba4830300838200581c71cb2b2effe12abf01ebbf6d07daa799c6f3aa1b2a10878220e3ceba8200581c9d605bf8edb40893f4bd62c25cbfab72834b5acf17382c9492794b588200581cc4c084479814e9b861ffcba86d2616be58be974f764239c4a52ccd8e830301828202828200581c2aaccda3e253995d65dddf66abc5113826e02ee2e26bc0b2243abc418200581c5339233c8c5978483e40e336cf4e8c35acb23106e7531030ba2faeea8200581c20e133be167308f0428372e88448d95047151ac7a0ff81489951ae608201838201818200581c7d70eb9c1e99ff3577a77aa2f40f42f3a2d0baa904f138c2e34662738202828200581cbfbe3af7180c2c514d1a4685a5c0ef1c34278a6efd43410e782da6868200581cdfd0d22df8fe798f1e262180ae5fe91e0e9081a4295a8d347c0205e08202848200581ca09b76ffb87ce4f1cc1fcbf745be484ddec7000014be46d5ed7cee758200581c3c8c628f712b5a704c54ca86c2a13daa830ba4cf30819ccaf3de41d58200581c5a99210209752f050251ac5ae23f09e410433a50672f2e6a1a901d408200581c11c104b0e401c91530b95486c868f27a79154ca5a78869c65cdab8fe",
+                                    "description": "",
+                                    "type": "SimpleScript"
+                                },
+                                "scriptLanguage": "SimpleScriptLanguage"
+                            },
+                            "value": {
+                                "fe777b78440626ab45b6dbca0d5da6bed6bdcfde3c291a2e02d9919b": {
+                                    "4db01963ebc7127db351c39e0a4d5b7c2bccbd6d": 1
+                                }
+                            }
+                        }
+                    },
+                    "utxoToCommit": {
+                        "0100000001000000000100010101000000010001010100000001010101000000#31": {
+                            "address": "addr1qyd2wq3xht3fgzgjuc2tq2tw73jvlydwmlpp20suaw9m54j7lkae3e5wgy068946k9xpdm7knatde40wkj8emmsa0dvq478hfu",
+                            "datum": null,
+                            "datumhash": "5e7c791f4f297485965961163d5be98a959c6381a6eb15fae8434ff225d65600",
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "46450100002261",
+                                    "description": "",
+                                    "type": "PlutusScriptV3"
+                                },
+                                "scriptLanguage": "PlutusScriptLanguage PlutusScriptV3"
+                            },
+                            "value": {
+                                "4b9f876091a341142e4411d7cc1e5e362963181a6d7114a8d8df0386": {
+                                    "39": 2
+                                },
+                                "lovelace": 3945022900553466251
+                            }
+                        }
+                    },
+                    "utxoToDecommit": {
+                        "0001010000010101000100000000000100010100000100010101010101000001#72": {
+                            "address": "addr_test1zqajukv9hxmf2ws409ezphda8u4pv9550ym5ld7t36smnvwz98ns3fjdhqln76gqccp69k6849u8v8ldzalwxkj9tpmsynpmtz",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "8200581c382657e544e4b3ddd143eb012eb715d330c6036ca96171210b28a70e",
+                                    "description": "",
+                                    "type": "SimpleScript"
+                                },
+                                "scriptLanguage": "SimpleScriptLanguage"
+                            },
+                            "value": {
+                                "9c95d055a1830e330eea4ffac2d2f4bee1a1ddb687c8444391658388": {
+                                    "37": 1
+                                }
+                            }
+                        }
+                    },
+                    "version": 0
+                },
+                "tag": "ConfirmedSnapshot"
+            },
+            "tag": "SideLoadSnapshot"
+        }
+    ],
+    "seed": 782610174
+}

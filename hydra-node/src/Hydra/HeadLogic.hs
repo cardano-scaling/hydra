@@ -40,6 +40,7 @@ import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
+  SideLoadRequirementFailure (..),
  )
 import Hydra.HeadLogic.Input (Input (..), TTL)
 import Hydra.HeadLogic.Outcome (
@@ -49,6 +50,7 @@ import Hydra.HeadLogic.Outcome (
   WaitReason (..),
   cause,
   causes,
+  changes,
   newState,
   noop,
   wait,
@@ -1127,6 +1129,82 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 
   OpenState{parameters = headParameters, headId, coordinatedHeadState} = openState
 
+-- | Client request to side load confirmed snapshot.
+--
+-- Note this is not covered by the spec as it is not reachable from an organic use of the protocol.
+--
+-- It must not have any effects outside of a neutral modification of the state to:
+-- * something it was before (in the case of the initial snapshot).
+-- * something it would be using side communication (in the case of a confirmed snapshot).
+--
+-- Besides the above, it is expected to work very much like the confirmed snapshot.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx -> Outcome tx
+onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
+  case requestedConfirmedSnapshot of
+    InitialSnapshot{} ->
+      requireVerifiedSameSnapshot $
+        newState LocalStateCleared{headId, snapshotNumber = requestedSn}
+    ConfirmedSnapshot{snapshot, signatures} ->
+      requireVerifiedSnapshotNumber $
+        requireVerifiedL1Snapshot $
+          requireVerifiedMultisignature snapshot signatures $
+            changes
+              [ SnapshotConfirmed{headId, snapshot, signatures}
+              , LocalStateCleared{headId, snapshotNumber = requestedSn}
+              ]
+ where
+  OpenState
+    { headId
+    , parameters = HeadParameters{parties}
+    , coordinatedHeadState
+    } = openState
+
+  CoordinatedHeadState
+    { confirmedSnapshot = currentConfirmedSnapshot
+    } = coordinatedHeadState
+
+  vkeys = vkey <$> parties
+
+  currentSnapshot@Snapshot
+    { version = lastSeenSv
+    , number = lastSeenSn
+    , utxoToCommit = lastSeenSc
+    , utxoToDecommit = lastSeenSd
+    } = getSnapshot currentConfirmedSnapshot
+
+  requestedSnapshot@Snapshot
+    { version = requestedSv
+    , number = requestedSn
+    , utxoToCommit = requestedSc
+    , utxoToDecommit = requestedSd
+    } = getSnapshot requestedConfirmedSnapshot
+
+  requireVerifiedSameSnapshot cont =
+    if requestedSnapshot == currentSnapshot
+      then cont
+      else Error . SideLoadSnapshotFailed $ SideLoadInitialSnapshotMissmatch
+
+  requireVerifiedSnapshotNumber cont =
+    if requestedSn >= lastSeenSn
+      then cont
+      else Error . SideLoadSnapshotFailed $ SideLoadSnNumberInvalid{requestedSn, lastSeenSn}
+
+  requireVerifiedL1Snapshot cont
+    | requestedSv /= lastSeenSv = Error . SideLoadSnapshotFailed $ SideLoadSvNumberInvalid{requestedSv, lastSeenSv}
+    | requestedSc /= lastSeenSc = Error . SideLoadSnapshotFailed $ SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
+    | requestedSd /= lastSeenSd = Error . SideLoadSnapshotFailed $ SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
+    | otherwise = cont
+
+  requireVerifiedMultisignature snapshot signatories cont =
+    case verifyMultiSignature vkeys signatories snapshot of
+      Verified -> cont
+      FailedKeys failures ->
+        Error . SideLoadSnapshotFailed $ SideLoadInvalidMultisignature{multisig = show signatories, vkeys = failures}
+      KeyNumberMismatch ->
+        Error . SideLoadSnapshotFailed $ SideLoadInvalidMultisignature{multisig = show signatories, vkeys}
+
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
 --
@@ -1267,6 +1345,11 @@ update env ledger st ev = case (st, ev) of
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Open openState@OpenState{headId = ourHeadId}, ClientInput (SideLoadSnapshot confirmedSnapshot)) ->
+    let Snapshot{headId = otherHeadId} = getSnapshot confirmedSnapshot
+     in if ourHeadId == otherHeadId
+          then onOpenClientSideLoadSnapshot openState confirmedSnapshot
+          else Error NotOurHead{ourHeadId, otherHeadId}
   -- NOTE: If posting the collectCom transaction failed in the open state, then
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
@@ -1488,6 +1571,29 @@ aggregate st = \case
        where
         Snapshot{number} = snapshot
       _otherState -> st
+  LocalStateCleared{snapshotNumber} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot}} ->
+        Open
+          os
+            { coordinatedHeadState =
+                case confirmedSnapshot of
+                  InitialSnapshot{initialUTxO} ->
+                    coordinatedHeadState
+                      { localUTxO = initialUTxO
+                      , localTxs = mempty
+                      , allTxs = mempty
+                      , seenSnapshot = NoSeenSnapshot
+                      }
+                  ConfirmedSnapshot{snapshot = Snapshot{utxo}} ->
+                    coordinatedHeadState
+                      { localUTxO = utxo
+                      , localTxs = mempty
+                      , allTxs = mempty
+                      , seenSnapshot = LastSeenSnapshot snapshotNumber
+                      }
+            }
+      _otherState -> st
   CommitRecorded{chainState, pendingDeposits, newLocalUTxO} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
@@ -1674,3 +1780,4 @@ aggregateChainStateHistory history = \case
   DecommitInvalid{} -> history
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
+  LocalStateCleared{} -> history

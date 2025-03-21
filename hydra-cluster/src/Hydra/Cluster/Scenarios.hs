@@ -26,10 +26,10 @@ import CardanoClient (
  )
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
-import Control.Lens ((.~), (^.), (^..), (^?))
+import Control.Lens ((.~), (?~), (^.), (^..), (^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, values, _JSON, _String)
+import Data.Aeson.Lens (atKey, key, values, _JSON, _String)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
@@ -104,10 +104,12 @@ import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
+  getSnapshotConfirmed,
   getSnapshotUTxO,
   input,
   output,
   postDecommit,
+  prepareHydraNode,
   requestCommitTx,
   send,
   waitFor,
@@ -116,6 +118,7 @@ import HydraNode (
   waitMatch,
   withHydraCluster,
   withHydraNode,
+  withPreparedHydraNode,
  )
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
@@ -1304,6 +1307,111 @@ canDecommit tracer workDir node hydraScriptsTxId =
   hydraTracer = contramap FromHydraNode tracer
 
   RunningNode{networkId, nodeSocket, blockTime} = node
+
+-- | Can side load snapshot and resume agreement after a peer comes back online with healthy configuration
+canSideLoadSnapshot :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
+  let clients = [Alice, Bob, Carol]
+  [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _), (carolCardanoVk, _)] <- forM clients keysFor
+  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  let contestationPeriod = UnsafeContestationPeriod 1
+  let depositDeadline = UnsafeDepositDeadline 200
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+  carolChainConfig <-
+    chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+    aliceUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      -- Carol starts its node misconfigured
+      let pparamsDecorator = atKey "maxTxSize" ?~ toJSON (Aeson.Number 0)
+      wrongOptions <- prepareHydraNode carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] pparamsDecorator
+      tx <- withPreparedHydraNode hydraTracer workDir 3 wrongOptions $ \n3 -> do
+        send n1 $ input "Init" []
+        headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+
+        -- Alice commits something
+        requestCommitTx n1 aliceUTxO >>= submitTx cardanoNode
+
+        -- Everyone else commits nothing
+        mapConcurrently_ (\n -> requestCommitTx n mempty >>= submitTx cardanoNode) [n2, n3]
+
+        -- Observe open with the relevant UTxOs
+        waitFor hydraTracer (20 * blockTime) [n1, n2, n3] $
+          output "HeadIsOpen" ["utxo" .= toJSON aliceUTxO, "headId" .= headId]
+
+        -- Alice submits a new transaction
+        utxo <- getSnapshotUTxO n1
+        tx <- mkTransferTx testNetworkId utxo aliceCardanoSk aliceCardanoVk
+        send n1 $ input "NewTx" ["transaction" .= tx]
+
+        -- Alice and Bob accept it
+        waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
+          guard $ v ^? key "tag" == Just "TxValid"
+          guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
+
+        -- Carol does not because of its node being missconfigured
+        waitMatch 3 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "TxInvalid"
+          guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
+
+        pure tx
+
+      -- Carol disconnects and the others observe it
+      waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "PeerDisconnected"
+
+      -- Carol reconnects with healthy reconfigured node
+      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        -- Carol re-submits the same transaction
+        send n3 $ input "NewTx" ["transaction" .= tx]
+        -- Carol accepts it
+        waitMatch 3 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "TxValid"
+          guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
+        -- But now Alice and Bob does not because they already applied it
+        waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
+          guard $ v ^? key "tag" == Just "TxInvalid"
+          guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
+
+        -- \| Up to this point the head became stuck and no further SnapshotConfirmed
+        -- including above tx will be seen signed by everyone.
+
+        -- The party side-loads latest confirmed snapshot (which is the initial)
+        -- This also prunes local txs, and discards any signing round inflight
+        snapshotConfirmed <- getSnapshotConfirmed n1
+        flip mapConcurrently_ [n1, n2, n3] $ \n -> do
+          send n $ input "SideLoadSnapshot" ["snapshot" .= snapshotConfirmed]
+          waitMatch (200 * blockTime) n $ \v -> do
+            guard $ v ^? key "tag" == Just "SnapshotSideLoaded"
+            guard $ v ^? key "snapshotNumber" == Just (toJSON (0 :: Integer))
+
+        -- Carol re-submits the same transaction (but anyone can at this point)
+        send n3 $ input "NewTx" ["transaction" .= tx]
+
+        -- Everyone confirms it
+        -- Note: We can't use `waitForAllMatch` here as it expects them to
+        -- emit the exact same datatype; but Carol will be behind in sequence
+        -- numbers as she was offline.
+        flip mapConcurrently_ [n1, n2, n3] $ \n ->
+          waitMatch (200 * blockTime) n $ \v -> do
+            guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+            guard $ v ^? key "snapshot" . key "number" == Just (toJSON (1 :: Integer))
+            -- Just check that everyone signed it.
+            let sigs = v ^.. key "signatures" . key "multiSignature" . values
+            guard $ length sigs == 3
+ where
+  RunningNode{nodeSocket, networkId, blockTime} = cardanoNode
+  hydraTracer = contramap FromHydraNode tracer
 
 -- * L2 scenarios
 

@@ -101,7 +101,7 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitApproved"
           - $ref: "api.yaml#/components/messages/CommitFinalized"
           - $ref: "api.yaml#/components/messages/CommitRecovered"
-
+          - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
@@ -115,6 +115,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Close"
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
+          - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
 
   /commit:
     servers:
@@ -237,6 +238,41 @@ channels:
       message:
         payload:
           $ref: "api.yaml#/components/schemas/UTxO"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+
+  /snapshot:
+    servers:
+      - localhost-http
+    publish:
+      description: |
+        Request to adopt given confirmed snapshot.
+
+        Possible responses of this endpoint are:
+          * 200: OK
+          * 404: when head was never open
+      operationId: sideLoadSnapshotRequest
+      message:
+        $ref: "api.yaml#/components/messages/SideLoadSnapshotRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: getConfirmedSnapshot
+      description: |
+        Get latest confirmed snapshot.
+
+        Possible responses of this endpoint are:
+          * 200: Latest confirmed snapshot
+          * 404: when head was never open
+      message:
+        payload:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       bindings:
         http:
           type: response
@@ -448,6 +484,20 @@ components:
             type: string
             enum: ["Fanout"]
 
+    SideLoadSnapshot:
+      title: SideLoadSnapshot
+      description: |
+        Request to adopt the provided confirmed snapshot, which must be enforceable and valid against the current protocol state on L1.
+        The snapshot number and version must be equal to or greater than the previously known values and must be signed by all participants.
+        Adopting a side-loaded snapshot is particularly useful when the head becomes stuck. It clears pending transactions in the local state, resets the local UTxO, and restarts the snapshot signing round by pruning the latest seen snapshot, which also resets the current leader.
+      payload:
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["SideLoadSnapshot"]
 
     ########
     #
@@ -674,6 +724,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/CommitRecovered"
 
+    SnapshotSideLoaded:
+      title: SnapshotSideLoaded
+      description: |
+        The given confirmed snapshot has been side-loaded. Pending transactions have been pruned, the local UTxO has been reset, any pending seen snapshots have been cleared, and the snapshot leader has been reassigned accordingly.
+      payload:
+        $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
+
     # END OF SERVER OUTPUT MESSAGES
 
     DraftCommitTxRequest:
@@ -702,6 +759,14 @@ components:
       title: ProtocolParameters
       payload:
         $ref: "api.yaml#/components/schemas/ProtocolParameters"
+
+    SideLoadSnapshotRequest:
+      title: SideLoadSnapshotRequest
+      description: |
+        Submit a confirmed snapshot to update the local node's state, reset pending transactions, and restart any snapshot signing round in flight. The provided snapshot must be enforceable and valid according to the current protocol state on L1, meaning it must be signed by all required participants.
+        The snapshot number and version must be equal to or greater than the previously known values.
+      payload:
+        $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
 
   ########
   #
@@ -1127,6 +1192,7 @@ components:
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
 
     IgnoredHeadInitializing:
       type: object
@@ -1396,6 +1462,31 @@ components:
           $ref: "api.yaml#/components/schemas/UTxO"
         recoveredTxId:
           type: string
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    SnapshotSideLoaded:
+      title: SnapshotSideLoaded
+      description: |
+        The given confirmed snapshot has been side-loaded. Pending transactions have been pruned, the local UTxO has been reset, any pending seen snapshots have been cleared, and the snapshot leader has been reassigned accordingly.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - snapshotNumber
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["SnapshotSideLoaded"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        snapshotNumber:
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

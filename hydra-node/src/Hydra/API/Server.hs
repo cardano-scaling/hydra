@@ -37,7 +37,7 @@ import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.State (SeenSnapshot (..), seenSnapshotNumber)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import Hydra.Tx (HeadId, IsTx (..), Party, txId)
+import Hydra.Tx (ConfirmedSnapshot (..), HeadId, IsTx (..), Party, txId)
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.Environment (Environment)
 import Hydra.Tx.Snapshot (Snapshot (..))
@@ -94,6 +94,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     headStatusP <- mkProjection Idle projectHeadStatus
     snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
     seenSnapshotP <- mkProjection NoSeenSnapshot projectSeenSnapshot
+    snapshotConfirmedP <- mkProjection Nothing projectSnapshotConfirmed
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
@@ -107,6 +108,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                   update headStatusP stateChanged
                   update snapshotUtxoP stateChanged
                   update seenSnapshotP stateChanged
+                  update snapshotConfirmedP stateChanged
                   update commitInfoP stateChanged
                   update headIdP stateChanged
                   update pendingDepositsP stateChanged
@@ -136,6 +138,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                   (atomically $ getLatest commitInfoP)
                   (atomically $ getLatest snapshotUtxoP)
                   (atomically $ getLatest seenSnapshotP)
+                  (atomically $ getLatest snapshotConfirmedP)
                   (atomically $ getLatest pendingDepositsP)
                   callback
               )
@@ -153,6 +156,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                           update commitInfoP stateChanged
                           update snapshotUtxoP stateChanged
                           update seenSnapshotP stateChanged
+                          update snapshotConfirmedP stateChanged
                           update headIdP stateChanged
                           update pendingDepositsP stateChanged
                         atomically $ writeTChan responseChannel (Left timedOutput)
@@ -248,6 +252,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.PartySignedSnapshot{} -> Nothing
     StateChanged.ChainRolledBack{} -> Nothing
     StateChanged.TickObserved{} -> Nothing
+    StateChanged.LocalStateCleared{..} -> Just SnapshotSideLoaded{..}
 
 --
 
@@ -316,4 +321,15 @@ projectSeenSnapshot seenSnapshot = \case
       ss@SeenSnapshot{signatories} ->
         ss{signatories = Map.insert party signature signatories}
       _ -> seenSnapshot
+  StateChanged.LocalStateCleared{snapshotNumber} ->
+    case snapshotNumber of
+      0 -> NoSeenSnapshot
+      _ -> LastSeenSnapshot snapshotNumber
   _other -> seenSnapshot
+
+-- | Projection of latest confirmed snapshot.
+projectSnapshotConfirmed :: Maybe (ConfirmedSnapshot tx) -> StateChanged.StateChanged tx -> Maybe (ConfirmedSnapshot tx)
+projectSnapshotConfirmed snapshotConfirmed = \case
+  StateChanged.SnapshotConfirmed _ snapshot signatures -> Just $ ConfirmedSnapshot snapshot signatures
+  StateChanged.HeadOpened headId _ utxos -> Just $ InitialSnapshot headId utxos
+  _other -> snapshotConfirmed
