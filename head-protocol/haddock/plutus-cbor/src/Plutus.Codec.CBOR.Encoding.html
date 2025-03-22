@@ -1,0 +1,706 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -fno-specialize #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_HADDOCK prune #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- | An on-chain implementation of [RFC 8949](https://www.rfc-editor.org/rfc/rfc8949): Concise Binary Object Representation (CBOR).</span><span>
+</span><span id="line-5"></span><span class="hs-comment">--</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- This is generally something one would want to avoid as the memory and CPU</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- budgets on-chain are heavily limited. However, there are scenarios when one</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- needs to serialise some higher level data-type into binary. This library</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- provides an efficient way of doing it.</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- = How to use</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Let's start with some relatively simple type:</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- data Foo = Foo</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--  { bar :: Bool</span><span>
+</span><span id="line-18"></span><span class="hs-comment">--  , baz :: Integer</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--  }</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-21"></span><span class="hs-comment">--</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- From there, one can define an 'Encoding' for the @Foo@ data-type. This is a</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- simple record of unary constructors, so using a 2-tuple should do. Note that</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- 'Encoding' is a 'Semigroup', and thus, they are easily composed using the</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- concatenation operator ('&lt;&gt;').</span><span>
+</span><span id="line-26"></span><span class="hs-comment">--</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- encodeFoo :: Foo -&gt; Encoding</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- encodeFoo Foo{bar,baz} =</span><span>
+</span><span id="line-30"></span><span class="hs-comment">--   encodeListLen 2</span><span>
+</span><span id="line-31"></span><span class="hs-comment">--     &lt;&gt; encodeBool bar</span><span>
+</span><span id="line-32"></span><span class="hs-comment">--     &lt;&gt; encodeInteger baz</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-34"></span><span class="hs-comment">--</span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- Then, any 'Encoding' can be turned into a 'BuiltinByteString' using: 'encodingToBuiltinByteString'.</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- For instance, one could define:</span><span>
+</span><span id="line-37"></span><span class="hs-comment">--</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- serialiseFoo :: Foo -&gt; BuiltinByteString</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- serialiseFoo = encodingToBuiltinByteString . encodeFoo</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-42"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Plutus.Codec.CBOR.Encoding</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Encoding</span></span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier">Encoding</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodingToBuiltinByteString"><span class="hs-identifier">encodingToBuiltinByteString</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Basic Types</span></span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBool"><span class="hs-identifier">encodeBool</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeInteger"><span class="hs-identifier">encodeInteger</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-50"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeByteString"><span class="hs-identifier">encodeByteString</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeString"><span class="hs-identifier">encodeString</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeNull"><span class="hs-identifier">encodeNull</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Data-Structures</span></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><span class="hs-comment">-- ** Finite Structures</span></span><span>
+</span><span id="line-57"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMaybe"><span class="hs-identifier">encodeMaybe</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-58"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeListLen"><span class="hs-identifier">encodeListLen</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-59"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeList"><span class="hs-identifier">encodeList</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-60"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMapLen"><span class="hs-identifier">encodeMapLen</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMap"><span class="hs-identifier">encodeMap</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><span class="hs-comment">-- ** Indefinite Structures</span></span><span>
+</span><span id="line-64"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBreak"><span class="hs-identifier">encodeBreak</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-65"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBeginList"><span class="hs-identifier">encodeBeginList</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-66"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeListIndef"><span class="hs-identifier">encodeListIndef</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBeginMap"><span class="hs-identifier">encodeBeginMap</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMapIndef"><span class="hs-identifier">encodeMapIndef</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Tags</span></span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeTag"><span class="hs-identifier">encodeTag</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Backdoor / Unsafe</span></span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#unsafeEncodeRaw"><span class="hs-identifier">unsafeEncodeRaw</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-75"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Prelude</span></span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.AssocMap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Map</span></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.AssocMap</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-81"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Builtins</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">subtractInteger</span></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="annot"><span class="hs-comment">-- * Encoding</span></span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="annot"><span class="hs-comment">-- | An opaque 'Encoding' type. See also 'encodingToBuiltinByteString'.</span></span><span>
+</span><span id="line-86"></span><span class="hs-keyword">newtype</span><span> </span><span id="Encoding"><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Encoding"><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-89"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span> </span><span id="local-6989586621679098146"><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString
+</span><a href="#local-6989586621679098146"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679098147"><span class="annot"><span class="annottext">&lt;&gt; :: Encoding -&gt; Encoding -&gt; Encoding
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;&gt;</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span> </span><span id="local-6989586621679098148"><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString
+</span><a href="#local-6989586621679098148"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString
+</span><a href="#local-6989586621679098146"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString)
+-&gt; (BuiltinByteString -&gt; BuiltinByteString)
+-&gt; BuiltinByteString
+-&gt; BuiltinByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString
+</span><a href="#local-6989586621679098148"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-92"></span><span>  </span><span id="local-6989586621679098155"><span class="annot"><span class="annottext">mempty :: Encoding
+</span><a href="#local-6989586621679098155"><span class="hs-identifier hs-var hs-var hs-var hs-var">mempty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span class="annot"><span class="hs-comment">-- | Runs an encoder and produce a 'BuiltinByteString'.</span></span><span>
+</span><span id="line-95"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodingToBuiltinByteString"><span class="hs-identifier hs-type">encodingToBuiltinByteString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-96"></span><span id="encodingToBuiltinByteString"><span class="annot"><span class="annottext">encodingToBuiltinByteString :: Encoding -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodingToBuiltinByteString"><span class="hs-identifier hs-var hs-var">encodingToBuiltinByteString</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span> </span><span id="local-6989586621679098158"><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString
+</span><a href="#local-6989586621679098158"><span class="hs-identifier hs-var">runEncoder</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-97"></span><span>  </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString
+</span><a href="#local-6989586621679098158"><span class="hs-identifier hs-var">runEncoder</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><span class="hs-identifier hs-var">emptyByteString</span></span><span>
+</span><span id="line-98"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodingToBuiltinByteString"><span class="hs-pragma hs-type">encodingToBuiltinByteString</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="annot"><span class="hs-comment">-- * Basic types</span></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="annot"><span class="hs-comment">-- | Encode a 'Bool' as a CBOR type-07 major type.</span></span><span>
+</span><span id="line-103"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBool"><span class="hs-identifier hs-type">encodeBool</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-104"></span><span id="encodeBool"><span class="annot"><span class="annottext">encodeBool :: Bool -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeBool"><span class="hs-identifier hs-var hs-var">encodeBool</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-105"></span><span>  </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned8"><span class="hs-identifier hs-var">encodeUnsigned8</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">244</span></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>  </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned8"><span class="hs-identifier hs-var">encodeUnsigned8</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">245</span></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBool"><span class="hs-pragma hs-type">encodeBool</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- | Encode an 'Integer' as a CBOR type-00 or type-01 (negative) number.</span><span>
+</span><span id="line-112"></span><span class="hs-comment">--</span><span>
+</span><span id="line-113"></span><span class="hs-comment">-- Note (1): The 'Encoding' is of variable-length, larger numbers are larger to</span><span>
+</span><span id="line-114"></span><span class="hs-comment">-- encode.</span><span>
+</span><span id="line-115"></span><span class="hs-comment">--</span><span>
+</span><span id="line-116"></span><span class="hs-comment">-- Note (2): This can only encode numbers up to @2^64 - 1@ and down to @-2^63@</span><span>
+</span><span id="line-117"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeInteger"><span class="hs-identifier hs-type">encodeInteger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-118"></span><span id="encodeInteger"><span class="annot"><span class="annottext">encodeInteger :: Integer -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeInteger"><span class="hs-identifier hs-var hs-var">encodeInteger</span></a></span></span><span> </span><span id="local-6989586621679098161"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098161"><span class="hs-identifier hs-var">n</span></a></span></span><span>
+</span><span id="line-119"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098161"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-120"></span><span>      </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned"><span class="hs-identifier hs-var">encodeUnsigned</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+</span><span class="hs-identifier hs-var">subtractInteger</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098161"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. AdditiveGroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-121"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-122"></span><span>      </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned"><span class="hs-identifier hs-var">encodeUnsigned</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098161"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeInteger"><span class="hs-pragma hs-type">encodeInteger</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span class="annot"><span class="hs-comment">-- | Encode a 'BuiltinByteString' as a CBOR type-02 major type.</span></span><span>
+</span><span id="line-126"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeByteString"><span class="hs-identifier hs-type">encodeByteString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-127"></span><span id="encodeByteString"><span class="annot"><span class="annottext">encodeByteString :: BuiltinByteString -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeByteString"><span class="hs-identifier hs-var hs-var">encodeByteString</span></a></span></span><span> </span><span id="local-6989586621679098165"><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098165"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-128"></span><span>  </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned"><span class="hs-identifier hs-var">encodeUnsigned</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">2</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinByteString -&gt; Integer
+</span><span class="hs-identifier hs-var">lengthOfByteString</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098165"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString)
+-&gt; (BuiltinByteString -&gt; BuiltinByteString)
+-&gt; BuiltinByteString
+-&gt; BuiltinByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><span class="hs-identifier hs-var">appendByteString</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098165"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeByteString"><span class="hs-pragma hs-type">encodeByteString</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="annot"><span class="hs-comment">-- | Encode a 'BuiltinString' as a CBOR type-03 major type.</span></span><span>
+</span><span id="line-132"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeString"><span class="hs-identifier hs-type">encodeString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-133"></span><span id="encodeString"><span class="annot"><span class="annottext">encodeString :: BuiltinString -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeString"><span class="hs-identifier hs-var hs-var">encodeString</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinString -&gt; BuiltinByteString
+</span><span class="hs-identifier hs-var">encodeUtf8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span id="local-6989586621679098169"><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098169"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-134"></span><span>  </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned"><span class="hs-identifier hs-var">encodeUnsigned</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">3</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinByteString -&gt; Integer
+</span><span class="hs-identifier hs-var">lengthOfByteString</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098169"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString)
+-&gt; (BuiltinByteString -&gt; BuiltinByteString)
+-&gt; BuiltinByteString
+-&gt; BuiltinByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><span class="hs-identifier hs-var">appendByteString</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098169"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeString"><span class="hs-pragma hs-type">encodeString</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span class="annot"><span class="hs-comment">-- | Encode a null character, useful to encode optional values.</span></span><span>
+</span><span id="line-138"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeNull"><span class="hs-identifier hs-type">encodeNull</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-139"></span><span id="encodeNull"><span class="annot"><span class="annottext">encodeNull :: Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeNull"><span class="hs-identifier hs-var hs-var">encodeNull</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-140"></span><span>  </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><span class="hs-identifier hs-var">consByteString</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">246</span></span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeNull"><span class="hs-pragma hs-type">encodeNull</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span class="annot"><span class="hs-comment">-- * Data-Structure</span></span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span class="hs-comment">-- | Encode a indefinite list or map termination. This must come (not</span><span>
+</span><span id="line-146"></span><span class="hs-comment">-- necessarily immediately) after an 'encodeListIndef' or 'encodeMapIndef'</span><span>
+</span><span id="line-147"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBreak"><span class="hs-identifier hs-type">encodeBreak</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-148"></span><span id="encodeBreak"><span class="annot"><span class="annottext">encodeBreak :: Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeBreak"><span class="hs-identifier hs-var hs-var">encodeBreak</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><span class="hs-identifier hs-var">consByteString</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">0xFF</span></span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBreak"><span class="hs-pragma hs-type">encodeBreak</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span class="hs-comment">-- | Declare a list of fixed size. Each element of the list must then be</span><span>
+</span><span id="line-152"></span><span class="hs-comment">-- separately provided via appending them ('Encoding' is a 'Semigroup').</span><span>
+</span><span id="line-153"></span><span class="hs-comment">--</span><span>
+</span><span id="line-154"></span><span class="hs-comment">-- This is useful to construct non-uniform arrays where elements may have</span><span>
+</span><span id="line-155"></span><span class="hs-comment">-- different types. For uniform list, see 'encodeList'.</span><span>
+</span><span id="line-156"></span><span class="hs-comment">--</span><span>
+</span><span id="line-157"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-158"></span><span class="hs-comment">-- -- Encoding (14, 42) as a finite list...</span><span>
+</span><span id="line-159"></span><span class="hs-comment">-- encodeListLen 2</span><span>
+</span><span id="line-160"></span><span class="hs-comment">--   &lt;&gt; encodeInteger 14</span><span>
+</span><span id="line-161"></span><span class="hs-comment">--   &lt;&gt; encodeInteger 42</span><span>
+</span><span id="line-162"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-163"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeListLen"><span class="hs-identifier hs-type">encodeListLen</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-164"></span><span id="encodeListLen"><span class="annot"><span class="annottext">encodeListLen :: Integer -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeListLen"><span class="hs-identifier hs-var hs-var">encodeListLen</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="annot"><span class="annottext">((BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding)
+-&gt; (Integer -&gt; BuiltinByteString -&gt; BuiltinByteString)
+-&gt; Integer
+-&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned"><span class="hs-identifier hs-var">encodeUnsigned</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">4</span></span><span>
+</span><span id="line-165"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeListLen"><span class="hs-pragma hs-type">encodeListLen</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-166"></span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- | Declare a list of indefinite size. Each element of the list must then be</span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- separately provided via appending them ('Encoding' is a 'Semigroup').</span><span>
+</span><span id="line-169"></span><span class="hs-comment">--</span><span>
+</span><span id="line-170"></span><span class="hs-comment">-- This is useful to construct non-uniform arrays where elements may have</span><span>
+</span><span id="line-171"></span><span class="hs-comment">-- different types. For uniform list, see 'encodeListIndef'.</span><span>
+</span><span id="line-172"></span><span class="hs-comment">--</span><span>
+</span><span id="line-173"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-174"></span><span class="hs-comment">-- -- Encoding (14, 42) as an indefinite list...</span><span>
+</span><span id="line-175"></span><span class="hs-comment">-- encodeBeginList</span><span>
+</span><span id="line-176"></span><span class="hs-comment">--   &lt;&gt; encodeInteger 14</span><span>
+</span><span id="line-177"></span><span class="hs-comment">--   &lt;&gt; encodeInteger 42</span><span>
+</span><span id="line-178"></span><span class="hs-comment">--   &lt;&gt; encodeBreak</span><span>
+</span><span id="line-179"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-180"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBeginList"><span class="hs-identifier hs-type">encodeBeginList</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-181"></span><span id="encodeBeginList"><span class="annot"><span class="annottext">encodeBeginList :: Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeBeginList"><span class="hs-identifier hs-var hs-var">encodeBeginList</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#withMajorType"><span class="hs-identifier hs-var">withMajorType</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">4</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">31</span></span><span class="hs-special">)</span><span>
+</span><span id="line-182"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBeginList"><span class="hs-pragma hs-type">encodeBeginList</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-183"></span><span>
+</span><span id="line-184"></span><span class="hs-comment">-- | Shorthand for encoding a uniform list. Note that CBOR supports non-uniform</span><span>
+</span><span id="line-185"></span><span class="hs-comment">-- lists (i.e. n-tuples) for which one should use 'encodeListLen' or</span><span>
+</span><span id="line-186"></span><span class="hs-comment">-- 'encodeBeginList' / 'encodeBreak'.</span><span>
+</span><span id="line-187"></span><span id="local-6989586621679098086"><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeList"><span class="hs-identifier hs-type">encodeList</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679098086"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679098086"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span></span><span>
+</span><span id="line-188"></span><span id="encodeList"><span class="annot"><span class="annottext">encodeList :: forall a. (a -&gt; Encoding) -&gt; [a] -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeList"><span class="hs-identifier hs-var hs-var">encodeList</span></a></span></span><span> </span><span id="local-6989586621679098178"><span class="annot"><span class="annottext">a -&gt; Encoding
+</span><a href="#local-6989586621679098178"><span class="hs-identifier hs-var">encodeElem</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-189"></span><span>  </span><span class="annot"><span class="annottext">Integer -&gt; Encoding -&gt; [a] -&gt; Encoding
+</span><a href="#local-6989586621679098179"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Encoding
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-190"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-191"></span><span>  </span><span id="local-6989586621679098179"><span class="annot"><span class="annottext">step :: Integer -&gt; Encoding -&gt; [a] -&gt; Encoding
+</span><a href="#local-6989586621679098179"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span id="local-6989586621679098180"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098180"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679098181"><span class="annot"><span class="annottext">Encoding
+</span><a href="#local-6989586621679098181"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-192"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeListLen"><span class="hs-identifier hs-var">encodeListLen</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098180"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Encoding
+</span><a href="#local-6989586621679098181"><span class="hs-identifier hs-var">bs</span></a></span><span>
+</span><span id="line-193"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679098182"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679098182"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span id="local-6989586621679098183"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679098183"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Encoding -&gt; [a] -&gt; Encoding
+</span><a href="#local-6989586621679098179"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098180"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. AdditiveSemigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Encoding
+</span><a href="#local-6989586621679098181"><span class="hs-identifier hs-var">bs</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Encoding
+</span><a href="#local-6989586621679098178"><span class="hs-identifier hs-var">encodeElem</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679098182"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679098183"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-194"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeList"><span class="hs-pragma hs-type">encodeList</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-195"></span><span>
+</span><span id="line-196"></span><span class="hs-comment">-- | Shorthand for encoding uniform list of indefinite sizes. Note that CBOR</span><span>
+</span><span id="line-197"></span><span class="hs-comment">-- supports non-uniform indefinite list (i.e. n-tuples) for which one should use</span><span>
+</span><span id="line-198"></span><span class="hs-comment">-- 'encodeListLen' or 'encodeBeginList' / 'encodeBreak'.</span><span>
+</span><span id="line-199"></span><span id="local-6989586621679098185"><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeListIndef"><span class="hs-identifier hs-type">encodeListIndef</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679098185"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679098185"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span></span><span>
+</span><span id="line-200"></span><span id="encodeListIndef"><span class="annot"><span class="annottext">encodeListIndef :: forall a. (a -&gt; Encoding) -&gt; [a] -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeListIndef"><span class="hs-identifier hs-var hs-var">encodeListIndef</span></a></span></span><span> </span><span id="local-6989586621679098188"><span class="annot"><span class="annottext">a -&gt; Encoding
+</span><a href="#local-6989586621679098188"><span class="hs-identifier hs-var">encodeElem</span></a></span></span><span> </span><span id="local-6989586621679098189"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679098189"><span class="hs-identifier hs-var">es</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-201"></span><span>  </span><span class="annot"><span class="annottext">Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeBeginList"><span class="hs-identifier hs-var">encodeBeginList</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[a] -&gt; Encoding
+</span><a href="#local-6989586621679098190"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679098189"><span class="hs-identifier hs-var">es</span></a></span><span>
+</span><span id="line-202"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-203"></span><span>  </span><span id="local-6989586621679098190"><span class="annot"><span class="annottext">step :: [a] -&gt; Encoding
+</span><a href="#local-6989586621679098190"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-204"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeBreak"><span class="hs-identifier hs-var">encodeBreak</span></a></span><span>
+</span><span id="line-205"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679098191"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679098191"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span id="local-6989586621679098192"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679098192"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Encoding
+</span><a href="#local-6989586621679098188"><span class="hs-identifier hs-var">encodeElem</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679098191"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[a] -&gt; Encoding
+</span><a href="#local-6989586621679098190"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679098192"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-206"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeListIndef"><span class="hs-pragma hs-type">encodeListIndef</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-207"></span><span>
+</span><span id="line-208"></span><span class="hs-comment">-- | Declare a map of fixed size. Each key/value pair of the map must then</span><span>
+</span><span id="line-209"></span><span class="hs-comment">-- be separately provided via appending them ('Encoding' is a 'Semigroup').</span><span>
+</span><span id="line-210"></span><span class="hs-comment">--</span><span>
+</span><span id="line-211"></span><span class="hs-comment">-- This is useful to construct non-uniform maps where keys and values may have</span><span>
+</span><span id="line-212"></span><span class="hs-comment">-- different types. For uniform maps, see 'encodeMap'.</span><span>
+</span><span id="line-213"></span><span class="hs-comment">--</span><span>
+</span><span id="line-214"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-215"></span><span class="hs-comment">-- -- Encoding { 14: b'1abc', 42: b'0000' } as a finite map...</span><span>
+</span><span id="line-216"></span><span class="hs-comment">-- encodeMapLen 2</span><span>
+</span><span id="line-217"></span><span class="hs-comment">--   &lt;&gt; encodeInteger 14 &lt;&gt; encodeByteString &quot;1abc&quot;</span><span>
+</span><span id="line-218"></span><span class="hs-comment">--   &lt;&gt; encodeInteger 42 &lt;&gt; encodeByteString &quot;0000&quot;</span><span>
+</span><span id="line-219"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-220"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMapLen"><span class="hs-identifier hs-type">encodeMapLen</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-221"></span><span id="encodeMapLen"><span class="annot"><span class="annottext">encodeMapLen :: Integer -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeMapLen"><span class="hs-identifier hs-var hs-var">encodeMapLen</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="annot"><span class="annottext">((BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding)
+-&gt; (Integer -&gt; BuiltinByteString -&gt; BuiltinByteString)
+-&gt; Integer
+-&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned"><span class="hs-identifier hs-var">encodeUnsigned</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">5</span></span><span>
+</span><span id="line-222"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMapLen"><span class="hs-pragma hs-type">encodeMapLen</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-223"></span><span>
+</span><span id="line-224"></span><span class="hs-comment">-- | Declare a map of indefinite size. Each key/value pair of the map must then</span><span>
+</span><span id="line-225"></span><span class="hs-comment">-- be separately provided via appending them ('Encoding' is a 'Semigroup').</span><span>
+</span><span id="line-226"></span><span class="hs-comment">--</span><span>
+</span><span id="line-227"></span><span class="hs-comment">-- This is useful to construct non-uniform maps where keys and values may have</span><span>
+</span><span id="line-228"></span><span class="hs-comment">-- different types. For uniform maps, see 'encodeMap'.</span><span>
+</span><span id="line-229"></span><span class="hs-comment">--</span><span>
+</span><span id="line-230"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-231"></span><span class="hs-comment">-- -- Encoding { 14: b'1abc', 42: b'0000' } as a finite map...</span><span>
+</span><span id="line-232"></span><span class="hs-comment">-- encodeBeginMap</span><span>
+</span><span id="line-233"></span><span class="hs-comment">--   &lt;&gt; encodeInteger 14 &lt;&gt; encodeByteString &quot;1abc&quot;</span><span>
+</span><span id="line-234"></span><span class="hs-comment">--   &lt;&gt; encodeInteger 42 &lt;&gt; encodeByteString &quot;0000&quot;</span><span>
+</span><span id="line-235"></span><span class="hs-comment">--   &lt;&gt; encodeBreak</span><span>
+</span><span id="line-236"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-237"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBeginMap"><span class="hs-identifier hs-type">encodeBeginMap</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-238"></span><span id="encodeBeginMap"><span class="annot"><span class="annottext">encodeBeginMap :: Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeBeginMap"><span class="hs-identifier hs-var hs-var">encodeBeginMap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#withMajorType"><span class="hs-identifier hs-var">withMajorType</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">5</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">31</span></span><span class="hs-special">)</span><span>
+</span><span id="line-239"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeBeginMap"><span class="hs-pragma hs-type">encodeBeginMap</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-240"></span><span>
+</span><span id="line-241"></span><span class="hs-comment">-- | Shorthand for encoding a uniform map of fixed size.</span><span>
+</span><span id="line-242"></span><span class="hs-comment">--</span><span>
+</span><span id="line-243"></span><span class="hs-comment">-- see also: 'encodeMapLen' / 'encodeBreak' for non-uniform maps.</span><span>
+</span><span id="line-244"></span><span id="local-6989586621679098090"><span id="local-6989586621679098091"><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMap"><span class="hs-identifier hs-type">encodeMap</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679098090"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679098091"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Map</span></span><span> </span><span class="annot"><a href="#local-6989586621679098090"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679098091"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span></span></span><span>
+</span><span id="line-245"></span><span id="encodeMap"><span class="annot"><span class="annottext">encodeMap :: forall k v.
+(k -&gt; Encoding) -&gt; (v -&gt; Encoding) -&gt; Map k v -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeMap"><span class="hs-identifier hs-var hs-var">encodeMap</span></a></span></span><span> </span><span id="local-6989586621679098200"><span class="annot"><span class="annottext">k -&gt; Encoding
+</span><a href="#local-6989586621679098200"><span class="hs-identifier hs-var">encodeKey</span></a></span></span><span> </span><span id="local-6989586621679098201"><span class="annot"><span class="annottext">v -&gt; Encoding
+</span><a href="#local-6989586621679098201"><span class="hs-identifier hs-var">encodeValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-246"></span><span>  </span><span class="annot"><span class="annottext">Integer -&gt; Encoding -&gt; [(k, v)] -&gt; Encoding
+</span><a href="#local-6989586621679098202"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Encoding
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="annot"><span class="annottext">([(k, v)] -&gt; Encoding)
+-&gt; (Map k v -&gt; [(k, v)]) -&gt; Map k v -&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Map k v -&gt; [(k, v)]
+forall k v. Map k v -&gt; [(k, v)]
+</span><span class="hs-identifier hs-var">Map.toList</span></span><span>
+</span><span id="line-247"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-248"></span><span>  </span><span id="local-6989586621679098202"><span class="annot"><span class="annottext">step :: Integer -&gt; Encoding -&gt; [(k, v)] -&gt; Encoding
+</span><a href="#local-6989586621679098202"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span id="local-6989586621679098204"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098204"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679098205"><span class="annot"><span class="annottext">Encoding
+</span><a href="#local-6989586621679098205"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-249"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeMapLen"><span class="hs-identifier hs-var">encodeMapLen</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098204"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Encoding
+</span><a href="#local-6989586621679098205"><span class="hs-identifier hs-var">bs</span></a></span><span>
+</span><span id="line-250"></span><span>    </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679098206"><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679098206"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679098207"><span class="annot"><span class="annottext">v
+</span><a href="#local-6989586621679098207"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span id="local-6989586621679098208"><span class="annot"><span class="annottext">[(k, v)]
+</span><a href="#local-6989586621679098208"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Encoding -&gt; [(k, v)] -&gt; Encoding
+</span><a href="#local-6989586621679098202"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098204"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. AdditiveSemigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Encoding
+</span><a href="#local-6989586621679098205"><span class="hs-identifier hs-var">bs</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">k -&gt; Encoding
+</span><a href="#local-6989586621679098200"><span class="hs-identifier hs-var">encodeKey</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679098206"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">v -&gt; Encoding
+</span><a href="#local-6989586621679098201"><span class="hs-identifier hs-var">encodeValue</span></a></span><span> </span><span class="annot"><span class="annottext">v
+</span><a href="#local-6989586621679098207"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(k, v)]
+</span><a href="#local-6989586621679098208"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-251"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMap"><span class="hs-pragma hs-type">encodeMap</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-252"></span><span>
+</span><span id="line-253"></span><span class="hs-comment">-- | Shorthand for encoding a uniform map of indefinite size.</span><span>
+</span><span id="line-254"></span><span class="hs-comment">--</span><span>
+</span><span id="line-255"></span><span class="hs-comment">-- see also: 'encodeBeginMap' / 'encodeBreak' for non-uniform maps.</span><span>
+</span><span id="line-256"></span><span id="local-6989586621679098209"><span id="local-6989586621679098210"><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMapIndef"><span class="hs-identifier hs-type">encodeMapIndef</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679098209"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679098210"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Map</span></span><span> </span><span class="annot"><a href="#local-6989586621679098209"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679098210"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span></span></span><span>
+</span><span id="line-257"></span><span id="encodeMapIndef"><span class="annot"><span class="annottext">encodeMapIndef :: forall k v.
+(k -&gt; Encoding) -&gt; (v -&gt; Encoding) -&gt; Map k v -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeMapIndef"><span class="hs-identifier hs-var hs-var">encodeMapIndef</span></a></span></span><span> </span><span id="local-6989586621679098214"><span class="annot"><span class="annottext">k -&gt; Encoding
+</span><a href="#local-6989586621679098214"><span class="hs-identifier hs-var">encodeKey</span></a></span></span><span> </span><span id="local-6989586621679098215"><span class="annot"><span class="annottext">v -&gt; Encoding
+</span><a href="#local-6989586621679098215"><span class="hs-identifier hs-var">encodeValue</span></a></span></span><span> </span><span id="local-6989586621679098216"><span class="annot"><span class="annottext">Map k v
+</span><a href="#local-6989586621679098216"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-258"></span><span>  </span><span class="annot"><span class="annottext">Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeBeginMap"><span class="hs-identifier hs-var">encodeBeginMap</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[(k, v)] -&gt; Encoding
+</span><a href="#local-6989586621679098217"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Map k v -&gt; [(k, v)]
+forall k v. Map k v -&gt; [(k, v)]
+</span><span class="hs-identifier hs-var">Map.toList</span></span><span> </span><span class="annot"><span class="annottext">Map k v
+</span><a href="#local-6989586621679098216"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-259"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-260"></span><span>  </span><span id="local-6989586621679098217"><span class="annot"><span class="annottext">step :: [(k, v)] -&gt; Encoding
+</span><a href="#local-6989586621679098217"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-261"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeBreak"><span class="hs-identifier hs-var">encodeBreak</span></a></span><span>
+</span><span id="line-262"></span><span>    </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679098218"><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679098218"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679098219"><span class="annot"><span class="annottext">v
+</span><a href="#local-6989586621679098219"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span id="local-6989586621679098220"><span class="annot"><span class="annottext">[(k, v)]
+</span><a href="#local-6989586621679098220"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">k -&gt; Encoding
+</span><a href="#local-6989586621679098214"><span class="hs-identifier hs-var">encodeKey</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679098218"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">v -&gt; Encoding
+</span><a href="#local-6989586621679098215"><span class="hs-identifier hs-var">encodeValue</span></a></span><span> </span><span class="annot"><span class="annottext">v
+</span><a href="#local-6989586621679098219"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[(k, v)] -&gt; Encoding
+</span><a href="#local-6989586621679098217"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">[(k, v)]
+</span><a href="#local-6989586621679098220"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-263"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMapIndef"><span class="hs-pragma hs-type">encodeMapIndef</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-264"></span><span>
+</span><span id="line-265"></span><span class="hs-comment">-- | Helper for optionally encoding a type. Note that in the @Nothing@ case,</span><span>
+</span><span id="line-266"></span><span class="hs-comment">-- this is a no-op.</span><span>
+</span><span id="line-267"></span><span id="local-6989586621679098099"><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMaybe"><span class="hs-identifier hs-type">encodeMaybe</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679098099"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679098099"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span></span><span>
+</span><span id="line-268"></span><span id="encodeMaybe"><span class="annot"><span class="annottext">encodeMaybe :: forall a. (a -&gt; Encoding) -&gt; Maybe a -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeMaybe"><span class="hs-identifier hs-var hs-var">encodeMaybe</span></a></span></span><span> </span><span id="local-6989586621679098221"><span class="annot"><span class="annottext">a -&gt; Encoding
+</span><a href="#local-6989586621679098221"><span class="hs-identifier hs-var">encode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-269"></span><span>  </span><span class="annot"><span class="annottext">Maybe a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-270"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679098222"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679098222"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Encoding
+</span><a href="#local-6989586621679098221"><span class="hs-identifier hs-var">encode</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679098222"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-271"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeMaybe"><span class="hs-pragma hs-type">encodeMaybe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-272"></span><span>
+</span><span id="line-273"></span><span class="annot"><span class="hs-comment">-- * Tags</span></span><span>
+</span><span id="line-274"></span><span>
+</span><span id="line-275"></span><span class="hs-comment">-- | Encode a CBOR-tag as a major type-06.</span><span>
+</span><span id="line-276"></span><span class="hs-comment">--</span><span>
+</span><span id="line-277"></span><span class="hs-comment">-- Well known tags:</span><span>
+</span><span id="line-278"></span><span class="hs-comment">--</span><span>
+</span><span id="line-279"></span><span class="hs-comment">-- +-----+-------------------------------------+--------------+</span><span>
+</span><span id="line-280"></span><span class="hs-comment">-- | Tag | Description                         | Type         |</span><span>
+</span><span id="line-281"></span><span class="hs-comment">-- +-----+-------------------------------------+--------------+</span><span>
+</span><span id="line-282"></span><span class="hs-comment">-- |  0  | Standard date/time string           | text string  |</span><span>
+</span><span id="line-283"></span><span class="hs-comment">-- +-----+-------------------------------------+--------------+</span><span>
+</span><span id="line-284"></span><span class="hs-comment">-- |  1  | Epoch-based date/time               | number       |</span><span>
+</span><span id="line-285"></span><span class="hs-comment">-- +-----+-------------------------------------+--------------+</span><span>
+</span><span id="line-286"></span><span class="hs-comment">-- |  2  | Positive bignum                     | byte string  |</span><span>
+</span><span id="line-287"></span><span class="hs-comment">-- +-----+-------------------------------------+--------------+</span><span>
+</span><span id="line-288"></span><span class="hs-comment">-- |  3  | Negative bignum                     | byte string  |</span><span>
+</span><span id="line-289"></span><span class="hs-comment">-- +-----+-------------------------------------+--------------+</span><span>
+</span><span id="line-290"></span><span class="hs-comment">-- |  4  | Decimal fraction                    | array        |</span><span>
+</span><span id="line-291"></span><span class="hs-comment">-- +-----+-------------------------------------+--------------+</span><span>
+</span><span id="line-292"></span><span class="hs-comment">-- | 24  | Encoded CBOR data item              | byte string  |</span><span>
+</span><span id="line-293"></span><span class="hs-comment">-- +-----+-------------------------------------+--------------+</span><span>
+</span><span id="line-294"></span><span class="hs-comment">--</span><span>
+</span><span id="line-295"></span><span class="hs-comment">-- For more tags, have a look at [iana's Concise Binary Object Representation (CBOR) Tags list](https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml).</span><span>
+</span><span id="line-296"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeTag"><span class="hs-identifier hs-type">encodeTag</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-297"></span><span id="encodeTag"><span class="annot"><span class="annottext">encodeTag :: Integer -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeTag"><span class="hs-identifier hs-var hs-var">encodeTag</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-298"></span><span>  </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="annot"><span class="annottext">((BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding)
+-&gt; (Integer -&gt; BuiltinByteString -&gt; BuiltinByteString)
+-&gt; Integer
+-&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned"><span class="hs-identifier hs-var">encodeUnsigned</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">6</span></span><span>
+</span><span id="line-299"></span><span>
+</span><span id="line-300"></span><span class="annot"><span class="hs-comment">-- * Backdoor</span></span><span>
+</span><span id="line-301"></span><span>
+</span><span id="line-302"></span><span class="hs-comment">-- | Inject an already CBOR-encoded bytestring into an 'Encoding'. Do not use</span><span>
+</span><span id="line-303"></span><span class="hs-comment">-- unless you know what you're doing, this may creates an 'Encoding' not</span><span>
+</span><span id="line-304"></span><span class="hs-comment">-- compliant with the CBOR specification.</span><span>
+</span><span id="line-305"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#unsafeEncodeRaw"><span class="hs-identifier hs-type">unsafeEncodeRaw</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-type">Encoding</span></a></span><span>
+</span><span id="line-306"></span><span id="unsafeEncodeRaw"><span class="annot"><span class="annottext">unsafeEncodeRaw :: BuiltinByteString -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#unsafeEncodeRaw"><span class="hs-identifier hs-var hs-var">unsafeEncodeRaw</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-307"></span><span>  </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding
+</span><a href="Plutus.Codec.CBOR.Encoding.html#Encoding"><span class="hs-identifier hs-var">Encoding</span></a></span><span> </span><span class="annot"><span class="annottext">((BuiltinByteString -&gt; BuiltinByteString) -&gt; Encoding)
+-&gt; (BuiltinByteString -&gt; BuiltinByteString -&gt; BuiltinByteString)
+-&gt; BuiltinByteString
+-&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><span class="hs-identifier hs-var">appendByteString</span></span><span>
+</span><span id="line-308"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#unsafeEncodeRaw"><span class="hs-pragma hs-type">unsafeEncodeRaw</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-309"></span><span>
+</span><span id="line-310"></span><span class="annot"><span class="hs-comment">-- * Internal</span></span><span>
+</span><span id="line-311"></span><span>
+</span><span id="line-312"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#withMajorType"><span class="hs-identifier hs-type">withMajorType</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-313"></span><span id="withMajorType"><span class="annot"><span class="annottext">withMajorType :: Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#withMajorType"><span class="hs-identifier hs-var hs-var">withMajorType</span></a></span></span><span> </span><span id="local-6989586621679098223"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098223"><span class="hs-identifier hs-var">major</span></a></span></span><span> </span><span id="local-6989586621679098224"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098224"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-314"></span><span>  </span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><span class="hs-identifier hs-var">consByteString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">32</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. MultiplicativeSemigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098223"><span class="hs-identifier hs-var">major</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. AdditiveSemigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098224"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-315"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#withMajorType"><span class="hs-pragma hs-type">withMajorType</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-316"></span><span>
+</span><span id="line-317"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned"><span class="hs-identifier hs-type">encodeUnsigned</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-318"></span><span id="encodeUnsigned"><span class="annot"><span class="annottext">encodeUnsigned :: Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned"><span class="hs-identifier hs-var hs-var">encodeUnsigned</span></a></span></span><span> </span><span id="local-6989586621679098226"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098226"><span class="hs-identifier hs-var">major</span></a></span></span><span> </span><span id="local-6989586621679098227"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098227"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679098228"><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098228"><span class="hs-identifier hs-var">next</span></a></span></span><span>
+</span><span id="line-319"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098227"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">24</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-320"></span><span>      </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#withMajorType"><span class="hs-identifier hs-var">withMajorType</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098226"><span class="hs-identifier hs-var">major</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098227"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098228"><span class="hs-identifier hs-var">next</span></a></span><span>
+</span><span id="line-321"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098227"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">256</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-322"></span><span>      </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#withMajorType"><span class="hs-identifier hs-var">withMajorType</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098226"><span class="hs-identifier hs-var">major</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">24</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned8"><span class="hs-identifier hs-var">encodeUnsigned8</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098227"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098228"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-323"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098227"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">65536</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-324"></span><span>      </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#withMajorType"><span class="hs-identifier hs-var">withMajorType</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098226"><span class="hs-identifier hs-var">major</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">25</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned16"><span class="hs-identifier hs-var">encodeUnsigned16</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098227"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098228"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-325"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098227"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">4294967296</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-326"></span><span>      </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#withMajorType"><span class="hs-identifier hs-var">withMajorType</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098226"><span class="hs-identifier hs-var">major</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">26</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned32"><span class="hs-identifier hs-var">encodeUnsigned32</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098227"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098228"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-327"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-328"></span><span>      </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#withMajorType"><span class="hs-identifier hs-var">withMajorType</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098226"><span class="hs-identifier hs-var">major</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">27</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned64"><span class="hs-identifier hs-var">encodeUnsigned64</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098227"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679098228"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-329"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned"><span class="hs-pragma hs-type">encodeUnsigned</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-330"></span><span>
+</span><span id="line-331"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned8"><span class="hs-identifier hs-type">encodeUnsigned8</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-332"></span><span id="encodeUnsigned8"><span class="annot"><span class="annottext">encodeUnsigned8 :: Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned8"><span class="hs-identifier hs-var hs-var">encodeUnsigned8</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><span class="hs-identifier hs-var">consByteString</span></span><span>
+</span><span id="line-333"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned8"><span class="hs-pragma hs-type">encodeUnsigned8</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-334"></span><span>
+</span><span id="line-335"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned16"><span class="hs-identifier hs-type">encodeUnsigned16</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-336"></span><span id="encodeUnsigned16"><span class="annot"><span class="annottext">encodeUnsigned16 :: Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned16"><span class="hs-identifier hs-var hs-var">encodeUnsigned16</span></a></span></span><span> </span><span id="local-6989586621679098232"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098232"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-337"></span><span>  </span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned8"><span class="hs-identifier hs-var">encodeUnsigned8</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+</span><span class="hs-identifier hs-var">quotient</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098232"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">256</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString)
+-&gt; (BuiltinByteString -&gt; BuiltinByteString)
+-&gt; BuiltinByteString
+-&gt; BuiltinByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned8"><span class="hs-identifier hs-var">encodeUnsigned8</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+</span><span class="hs-identifier hs-var">remainder</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098232"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">256</span></span><span class="hs-special">)</span><span>
+</span><span id="line-338"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned16"><span class="hs-pragma hs-type">encodeUnsigned16</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-339"></span><span>
+</span><span id="line-340"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned32"><span class="hs-identifier hs-type">encodeUnsigned32</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-341"></span><span id="encodeUnsigned32"><span class="annot"><span class="annottext">encodeUnsigned32 :: Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned32"><span class="hs-identifier hs-var hs-var">encodeUnsigned32</span></a></span></span><span> </span><span id="local-6989586621679098235"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098235"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-342"></span><span>  </span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned16"><span class="hs-identifier hs-var">encodeUnsigned16</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+</span><span class="hs-identifier hs-var">quotient</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098235"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">65536</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString)
+-&gt; (BuiltinByteString -&gt; BuiltinByteString)
+-&gt; BuiltinByteString
+-&gt; BuiltinByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned16"><span class="hs-identifier hs-var">encodeUnsigned16</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+</span><span class="hs-identifier hs-var">remainder</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098235"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">65536</span></span><span class="hs-special">)</span><span>
+</span><span id="line-343"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned32"><span class="hs-pragma hs-type">encodeUnsigned32</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-344"></span><span>
+</span><span id="line-345"></span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned64"><span class="hs-identifier hs-type">encodeUnsigned64</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-346"></span><span id="encodeUnsigned64"><span class="annot"><span class="annottext">encodeUnsigned64 :: Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned64"><span class="hs-identifier hs-var hs-var">encodeUnsigned64</span></a></span></span><span> </span><span id="local-6989586621679098236"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098236"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-347"></span><span>  </span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned32"><span class="hs-identifier hs-var">encodeUnsigned32</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+</span><span class="hs-identifier hs-var">quotient</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098236"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">4294967296</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString)
+-&gt; (BuiltinByteString -&gt; BuiltinByteString)
+-&gt; BuiltinByteString
+-&gt; BuiltinByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString -&gt; BuiltinByteString
+</span><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned32"><span class="hs-identifier hs-var">encodeUnsigned32</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+</span><span class="hs-identifier hs-var">remainder</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679098236"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">4294967296</span></span><span class="hs-special">)</span><span>
+</span><span id="line-348"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Plutus.Codec.CBOR.Encoding.html#encodeUnsigned64"><span class="hs-pragma hs-type">encodeUnsigned64</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-349"></span></pre></body></html>
