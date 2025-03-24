@@ -94,6 +94,13 @@ Ensuring high availability in a Hydra Head can be achieved by using mirror nodes
 
 A mirror node operates with the same party credentials (Cardano and Hydra keys) as the original node, enabling it to sign L2 snapshots and perform L1 operations like `Init`, `Commit`, `Close`, `Contest`, `FanOut`, and `Increment/Decrement` funds from the head.
 
+> Note, each node must be configured as follows:
+> - with a unique `--node-id`.
+> - with a unique `--advertise` IP address, as they run on separate machines.
+> - specify each original and mirror node with its unique `--peer` IP address being advertised.
+> - must not duplicate `--cardano-verification-key` and `--hydra-verification-key`, as these identify unique parties independently of their peer setup.
+> - mirror nodes must use the same `--hydra-signing-key` and `--cardano-signing-key` as their original counterpart.
+
 Mirror nodes coexist alongside their original counterpart without conflict, although some duplication of Hydra network messages sent and received from the mirror is expected.
 Occasionally, operators might observe a `SnapshotAlreadySigned` log, which is raised when both the mirror and the original party attempt to sign the same snapshot. This log is transient, harmless, and can be safely ignored.
 
