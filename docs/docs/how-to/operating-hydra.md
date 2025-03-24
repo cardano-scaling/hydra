@@ -89,10 +89,21 @@ It is important to note that this recovery process is a coordinated effort among
 
 ### Run the Node on High Availability Using Mirror Nodes
 
-Mirror nodes allow the same party to participate in a Hydra Head from multiple machines or instances.
-This setup enables running a Hydra Head with high availability, increasing redundancy and improving fault tolerance, as one node can take over if another becomes unavailable.
+Ensuring high availability in a Hydra Head can be achieved by using mirror nodes, allowing the same party to participate from multiple machines.
+> This setup enhances redundancy and fault tolerance, ensuring protocol continuity even if a node fails, as another node can take over signing snapshots if one becomes unavailable.
 
-A mirror node uses the same party credentials (Cardano and Hydra keys) as the original node. This configuration allows mirror nodes not only to sign L2 snapshots but also to perform L1 operations such as `Close`, `Contest`, `Increment`, or `Decrement` funds from the head.
-> Ensure that the `--node-id` is different and that the mirror node runs on a separate machine with a different IP address.
+A mirror node operates with the same party credentials (Cardano and Hydra keys) as the original node, enabling it to sign L2 snapshots and perform L1 operations like `Init`, `Commit`, `Close`, `Contest`, `FanOut`, and `Increment/Decrement` funds from the head.
 
-Mirror nodes operate alongside their original counterpart without conflict, although some duplication of Hydra network messages sent and received from the mirror is expected. In some cases, operators might observe a `SnapshotAlreadySigned` log, which is raised when both the mirror and the original party attempt to sign the same snapshot. This log is transient, harmless, and can be safely ignored.
+Mirror nodes coexist alongside their original counterpart without conflict, although some duplication of Hydra network messages sent and received from the mirror is expected.
+Occasionally, operators might observe a `SnapshotAlreadySigned` log, which is raised when both the mirror and the original party attempt to sign the same snapshot. This log is transient, harmless, and can be safely ignored.
+
+Beyond the Hydra Head protocol, mirror nodes impact the underlying etcd cluster, which follows the Raft consensus protocol.
+> The cluster remains healthy only if a majority of nodes (`⌊n/2⌋ + 1`) are online.
+
+If too many nodes (including mirrors) go offline, the etcd cluster may become unresponsive, even if the Hydra protocol itself remains operational.
+
+For instance, in a cluster with 3 Alice nodes (2 mirrors) and 1 Bob node:
+- The Hydra Head protocol remains functional as long as all unique party keys are active.
+- However, if 2 Alice nodes go down, the etcd cluster becomes unhealthy due to an insufficient active quorum.
+
+To maintain both Hydra network stability and a functional etcd quorum, the number of mirrors (`k`) should always be **fewer than half of the total nodes (`n`)**: `k < ⌊n/2⌋`.
