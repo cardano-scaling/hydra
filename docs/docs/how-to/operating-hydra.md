@@ -86,3 +86,13 @@ To recover from this issue, we introduced side-loading of snapshots to synchroni
 Newer confirmed snapshots can also be adopted if all party members use the POST /snapshot endpoint with the same ConfirmedSnapshot as the JSON body.
 
 It is important to note that this recovery process is a coordinated effort among peers to ensure the consistency and availability of the Hydra head.
+
+### Run the Node on High Availability Using Mirror Nodes
+
+Mirror nodes allow the same party to participate in a Hydra Head from multiple machines or instances.
+This setup enables running a Hydra Head with high availability, increasing redundancy and improving fault tolerance, as one node can take over if another becomes unavailable.
+
+A mirror node uses the same party credentials (Cardano and Hydra keys) as the original node. This configuration allows mirror nodes not only to sign L2 snapshots but also to perform L1 operations such as `Close`, `Contest`, `Increment`, or `Decrement` funds from the head.
+> Ensure that the `--node-id` is different and that the mirror node runs on a separate machine with a different IP address.
+
+Mirror nodes operate alongside their original counterpart without conflict, although some duplication of Hydra network messages sent and received from the mirror is expected. In some cases, operators might observe a `SnapshotAlreadySigned` log, which is raised when both the mirror and the original party attempt to sign the same snapshot. This log is transient, harmless, and can be safely ignored.
