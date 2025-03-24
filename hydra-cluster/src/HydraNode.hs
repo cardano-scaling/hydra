@@ -24,7 +24,7 @@ import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Network qualified as Network
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
+import Hydra.Options (BlockfrostChainConfig (..), ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
@@ -344,6 +344,7 @@ preparePParams chainConfig stateDir paramsDecorator = do
           & atKey "utxoCostPerByte" ?~ toJSON (Number 0)
           & atKey "treasuryCut" ?~ toJSON (Number 0)
           & atKey "minFeeRefScriptCostPerByte" ?~ toJSON (Number 0)
+    Blockfrost BlockfrostChainConfig{} -> error "Blockfrost chain component is not supported yet"
   pure cardanoLedgerProtocolParametersFile
 
 -- | Prepare 'RunOptions' to run a hydra-node with given 'ChainConfig' and using the config from
@@ -477,6 +478,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
             & atKey "utxoCostPerByte" ?~ toJSON (Number 0)
             & atKey "treasuryCut" ?~ toJSON (Number 0)
             & atKey "minFeeRefScriptCostPerByte" ?~ toJSON (Number 0)
+      Blockfrost BlockfrostChainConfig{} -> error "Blockfrost chain component is not supported yet"
 
     let hydraSigningKey = stateDir </> "me.sk"
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey

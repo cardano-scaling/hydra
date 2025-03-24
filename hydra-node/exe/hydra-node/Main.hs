@@ -9,11 +9,13 @@ import Control.Exception (AsyncException (UserInterrupt), throwTo)
 import Data.ByteString (intercalate)
 import GHC.Weak (deRefWeak)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
 import Hydra.Options (
+  BlockfrostChainConfig (..),
   ChainConfig (..),
   Command (GenHydraKey, Publish, Run),
   DirectChainConfig (..),
@@ -43,6 +45,11 @@ main = do
       do
         (_, sk) <- readKeyPair cardanoSigningKey
         txIds <- publishHydraScripts networkId nodeSocket sk
+        putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
+    Blockfrost BlockfrostChainConfig{bfProjectPath, bfCardanoSigningKey} ->
+      do
+        (_, sk) <- readKeyPair bfCardanoSigningKey
+        txIds <- Blockfrost.publishHydraScripts bfProjectPath sk
         putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Handle SIGTERM like SIGINT

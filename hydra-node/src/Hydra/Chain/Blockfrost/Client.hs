@@ -16,7 +16,7 @@ import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.Hash.Class (hashFromTextAsHex)
 import Cardano.Ledger.Api.PParams
-import Cardano.Ledger.BaseTypes (EpochInterval (..), NonNegativeInterval, UnitInterval, boundRational)
+import Cardano.Ledger.BaseTypes (EpochInterval (..), EpochSize (..), NonNegativeInterval, UnitInterval, boundRational)
 import Cardano.Ledger.Binary.Version (mkVersion)
 import Cardano.Ledger.Conway.Core (
   DRepVotingThresholds (..),
@@ -37,8 +37,9 @@ import Cardano.Ledger.Shelley.API (ProtVer (..))
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (slotLengthFromSec)
 import Control.Lens ((.~), (^.))
+import Data.Default (def)
 import Data.Set qualified as Set
-import Hydra.Cardano.Api.Prelude (StakePoolKey)
+import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger.Cardano.Evaluate (epochSize)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
@@ -406,3 +407,32 @@ toCardanoPParams = do
                 )
           )
           (Map.toList costModelsMap)
+
+toCardanoGenesisParameters :: Blockfrost.Genesis -> GenesisParameters ShelleyEra
+toCardanoGenesisParameters bfGenesis =
+  GenesisParameters
+    { protocolParamSlotsPerKESPeriod = fromIntegral _genesisSlotsPerKesPeriod
+    , protocolParamUpdateQuorum = fromIntegral _genesisUpdateQuorum
+    , protocolParamMaxLovelaceSupply = fromIntegral _genesisMaxLovelaceSupply
+    , protocolParamSecurity = fromIntegral _genesisSecurityParam
+    , protocolParamActiveSlotsCoefficient = _genesisActiveSlotsCoefficient
+    , protocolParamSystemStart = posixSecondsToUTCTime _genesisSystemStart
+    , protocolParamNetworkId = fromNetworkMagic $ NetworkMagic $ fromIntegral _genesisNetworkMagic
+    , protocolParamMaxKESEvolutions = fromIntegral _genesisMaxKesEvolutions
+    , protocolParamEpochLength = EpochSize $ fromIntegral _genesisEpochLength
+    , protocolParamSlotLength = fromIntegral _genesisSlotLength
+    , protocolInitialUpdateableProtocolParameters = def
+    }
+ where
+  Blockfrost.Genesis
+    { _genesisActiveSlotsCoefficient
+    , _genesisUpdateQuorum
+    , _genesisMaxLovelaceSupply
+    , _genesisNetworkMagic
+    , _genesisEpochLength
+    , _genesisSystemStart
+    , _genesisSlotsPerKesPeriod
+    , _genesisSlotLength
+    , _genesisMaxKesEvolutions
+    , _genesisSecurityParam
+    } = bfGenesis
