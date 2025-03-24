@@ -114,3 +114,7 @@ For instance, in a cluster with 3 Alice nodes (2 mirrors) and 1 Bob node:
 - However, if 2 Alice nodes go down, the etcd cluster becomes unhealthy due to an insufficient active quorum.
 
 To maintain both Hydra network stability and a functional etcd quorum, the number of mirrors (`k`) should always be **fewer than half of the total nodes (`n`)**: `k < ⌊n/2⌋`.
+
+![optimal-nbr-mirrors](optimal-nbr-mirrors.png)
+
+As you can see, the optimal number of mirrors in the cluster should be less than half of the total number of peers. This ensures the etcd cluster remains responsive and functional while still benefiting from high availability.
