@@ -1414,8 +1414,8 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
   hydraTracer = contramap FromHydraNode tracer
 
 -- | Three hydra nodes open a head and we assert that none of them sees errors if a party is duplicated.
-threeNodesWithPartyRedundancy :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
-threeNodesWithPartyRedundancy tracer workDir cardanoNode@RunningNode{nodeSocket, networkId, blockTime} hydraScriptsTxId = do
+threeNodesWithMirrorParty :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+threeNodesWithMirrorParty tracer workDir cardanoNode@RunningNode{nodeSocket, networkId, blockTime} hydraScriptsTxId = do
   let parties = [Alice, Bob]
 
   [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _)] <- forM parties keysFor
