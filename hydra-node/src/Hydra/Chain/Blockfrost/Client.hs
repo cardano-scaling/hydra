@@ -104,13 +104,11 @@ publishHydraScripts projectPath sk = do
                 Right rawTx -> do
                   let body = getTxBody rawTx
                   pure (makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body, body)
-        let txByteString = serialiseToCBOR tx
-        let txCborString = Blockfrost.CBORString $ fromStrict txByteString
-        _ <- lift $ Blockfrost.submitTx txCborString
-        put $ pickNextUTxO $ adjustUTxO tx someUTxO
+        _ <- lift $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR tx
+        put $ pickKeyAddressUTxO $ adjustUTxO tx someUTxO
         pure $ getTxId body
  where
-  pickNextUTxO utxo = maybe mempty UTxO.singleton $ UTxO.findBy (\(_, txOut) -> isKeyAddress (txOutAddress txOut)) utxo
+  pickKeyAddressUTxO utxo = maybe mempty UTxO.singleton $ UTxO.findBy (\(_, txOut) -> isKeyAddress (txOutAddress txOut)) utxo
 
   scripts = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
 
