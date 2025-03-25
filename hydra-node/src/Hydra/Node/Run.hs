@@ -2,6 +2,7 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
+import Blockfrost.Client (getLedgerGenesis, projectFromFile)
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -16,6 +17,7 @@ import Hydra.Cardano.Api (
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Chain.Blockfrost.Client (runBlockfrostM, toCardanoGenesisParameters)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
@@ -154,7 +156,10 @@ getGlobalsForChain = \case
   Direct DirectChainConfig{networkId, nodeSocket} ->
     queryGenesisParameters networkId nodeSocket QueryTip
       >>= newGlobals
-  Blockfrost BlockfrostChainConfig{} -> error "Blockfrost chain component is not supported yet."
+  Blockfrost BlockfrostChainConfig{bfProjectPath} -> do
+    prj <- projectFromFile bfProjectPath
+    genesis <- runBlockfrostM prj getLedgerGenesis
+    newGlobals $ toCardanoGenesisParameters genesis
 
 data GlobalsTranslationException = GlobalsTranslationException
   deriving stock (Eq, Show)
