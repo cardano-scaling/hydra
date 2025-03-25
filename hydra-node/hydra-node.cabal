@@ -149,6 +149,7 @@ library
     , resourcet
     , safe-money
     , serialise
+    , sop-extras
     , stm
     , text
     , time

@@ -14,7 +14,6 @@ import Data.Time.Clock.POSIX
 import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Crypto.Hash.Class (hashFromTextAsHex)
 import Cardano.Ledger.Api.PParams
 import Cardano.Ledger.BaseTypes (EpochInterval (..), EpochSize (..), NonNegativeInterval, UnitInterval, boundRational)
 import Cardano.Ledger.Binary.Version (mkVersion)
@@ -34,16 +33,20 @@ import Cardano.Ledger.Conway.PParams (ppMinFeeRefScriptCostPerByteL)
 import Cardano.Ledger.Plutus (ExUnits (..), Language (..), Prices (..))
 import Cardano.Ledger.Plutus.CostModels (CostModels, mkCostModel, mkCostModels)
 import Cardano.Ledger.Shelley.API (ProtVer (..))
-import Cardano.Slotting.EpochInfo (fixedEpochInfo)
-import Cardano.Slotting.Time (slotLengthFromSec)
+import Cardano.Slotting.Time (mkSlotLength)
 import Control.Lens ((.~), (^.))
 import Data.Default (def)
+import Data.SOP.NonEmpty (NonEmpty (..))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
+import Hydra.Chain.CardanoClient (buildTransactionWithPParams')
 import Hydra.Contract.Head qualified as Head
-import Hydra.Ledger.Cardano.Evaluate (epochSize)
+import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Money qualified
+import Ouroboros.Consensus.Block (GenesisWindow (..))
+import Ouroboros.Consensus.Cardano.Block (CardanoEras)
+import Ouroboros.Consensus.HardFork.History (EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), initBound, mkInterpreter)
 
 data APIBlockfrostError
   = BlockfrostError Text
@@ -70,58 +73,44 @@ publishHydraScripts ::
 publishHydraScripts projectPath sk = do
   prj <- Blockfrost.projectFromFile projectPath
   runBlockfrostM prj $ do
-    Blockfrost.Genesis
+    genesis@Blockfrost.Genesis
       { _genesisNetworkMagic = networkMagic
-      , _genesisSystemStart = systemStart
-      , _genesisSlotLength = slotLength
+      , _genesisSystemStart = systemStart'
       } <-
       Blockfrost.getLedgerGenesis
-    pparams <- liftIO toCardanoPParams
-    let epoch = fixedEpochInfo epochSize (slotLengthFromSec slotLength)
+    pparams <- toCardanoPParams
     let address = Blockfrost.Address (vkAddress networkMagic)
     let networkId = toCardanoNetworkMagic networkMagic
     let changeAddress = mkVkAddress networkId vk
-    stakePools <- Blockfrost.listPools
+    stakePools' <- Blockfrost.listPools
+    let stakePools = Set.fromList (toCardanoPoolId <$> stakePools')
+    let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
+    let eraHistory = mkEraHistory genesis
     utxo <- Blockfrost.getAddressUtxos address
-    flip evalStateT utxo $
+    let cardanoUTxO = toCardanoUTxO utxo changeAddress
+    flip evalStateT cardanoUTxO $
       forM scripts $ \script -> do
         nextUTxO <- get
-        tx <-
+        let output = mkScriptTxOut pparams networkId <$> [mkScriptRef script]
+            totalDeposit = sum (selectLovelace . txOutValue <$> output)
+            someUTxO =
+              maybe mempty UTxO.singleton $
+                UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) nextUTxO
+        (tx, body) <-
           liftIO $
-            buildTx pparams (LedgerEpochInfo epoch) networkId systemStart stakePools script changeAddress nextUTxO
+            buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress someUTxO [] output
               >>= \case
                 Left err -> throwErrorAsException err
                 Right rawTx -> do
                   let body = getTxBody rawTx
-                  pure $ makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
-
+                  pure (makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body, body)
         let txByteString = serialiseToCBOR tx
         let txCborString = Blockfrost.CBORString $ fromStrict txByteString
-        txHash <- liftIO $ Blockfrost.submitTx txCborString
-        Blockfrost.Transaction{_transactionBlock, _transactionHash} <- liftIO $ await (Blockfrost.getTx txHash)
-        Blockfrost.TransactionUtxos{_transactionUtxosOutputs} <- liftIO $ await (Blockfrost.getTxUtxos txHash)
-
-        case hashFromTextAsHex _transactionHash of
-          Nothing -> liftIO $ throwIO $ BlockfrostError "Could not decode transaction hash."
-          Just txHash' -> do
-            newUTxO <- liftIO $ findTxOutUTxO _transactionBlock txHash _transactionUtxosOutputs
-            put newUTxO
-            pure $ TxId txHash'
+        _ <- lift $ Blockfrost.submitTx txCborString
+        put $ pickNextUTxO $ adjustUTxO tx someUTxO
+        pure $ getTxId body
  where
-  -- REVIEW! Values for number of tries and delay are highly specific to the network we run on. Should they be configurable?
-  numberOfTries :: Int = 100
-  delay' :: DiffTime = 5
-  await = awaitBlockfrost numberOfTries delay'
-  awaitBlockfrost :: forall a. Int -> DiffTime -> IO a -> IO a
-  awaitBlockfrost n delay action =
-    if n <= 0
-      then throwIO $ BlockfrostError "Failed to get the result from Blockfrost."
-      else do
-        action
-          `catch` ( \(_ :: SomeException) -> liftIO $ do
-                      threadDelay delay
-                      awaitBlockfrost (n - 1) delay action
-                  )
+  pickNextUTxO utxo = maybe mempty UTxO.singleton $ UTxO.findBy (\(_, txOut) -> isKeyAddress (txOutAddress txOut)) utxo
 
   scripts = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
 
@@ -129,97 +118,21 @@ publishHydraScripts projectPath sk = do
 
   vkAddress networkMagic = textAddrOf (toCardanoNetworkMagic networkMagic) vk
 
+  unspendableScriptAddress networkId = mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
+
+  mkScriptTxOut pparams networkId =
+    mkTxOutAutoBalance
+      pparams
+      (unspendableScriptAddress networkId)
+      mempty
+      TxOutDatumNone
+
 scriptTypeToPlutusVersion :: Blockfrost.ScriptType -> Maybe Language
 scriptTypeToPlutusVersion = \case
   Blockfrost.PlutusV1 -> Just PlutusV1
   Blockfrost.PlutusV2 -> Just PlutusV2
   Blockfrost.PlutusV3 -> Just PlutusV3
   Blockfrost.Timelock -> Nothing
-
-buildTx ::
-  PParams LedgerEra ->
-  LedgerEpochInfo ->
-  NetworkId ->
-  POSIXTime ->
-  [Blockfrost.PoolId] ->
-  PlutusScript ->
-  -- | Change address to send
-  AddressInEra ->
-  [Blockfrost.AddressUtxo] ->
-  IO (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTx pparams epochInfo networkId posixTime stakePools script changeAddress utxo = do
-  pure $
-    second (flip Tx [] . balancedTxBody) $
-      makeTransactionBodyAutoBalance
-        shelleyBasedEra
-        systemStart
-        epochInfo
-        (LedgerProtocolParameters pparams)
-        (Set.fromList (toCardanoPoolId <$> stakePools))
-        mempty
-        mempty
-        (UTxO.toApi utxoToSpend)
-        bodyContent
-        changeAddress
-        Nothing
- where
-  unspendableScriptAddress = mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
-
-  mkScriptTxOut =
-    mkTxOutAutoBalance
-      pparams
-      unspendableScriptAddress
-      mempty
-      TxOutDatumNone
-
-  outputs = mkScriptTxOut <$> [mkScriptRef script]
-  utxo' = toCardanoUTxO utxo changeAddress
-  totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
-  utxoToSpend = maybe mempty UTxO.singleton $ UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo'
-  systemStart = SystemStart $ posixSecondsToUTCTime posixTime
-  collateral = mempty
-  dummyFeeForBalancing = TxFeeExplicit 0
-  bodyContent =
-    TxBodyContent
-      (withWitness <$> toList (UTxO.inputSet utxoToSpend))
-      (TxInsCollateral collateral)
-      TxInsReferenceNone
-      outputs
-      TxTotalCollateralNone
-      TxReturnCollateralNone
-      dummyFeeForBalancing
-      TxValidityNoLowerBound
-      TxValidityNoUpperBound
-      TxMetadataNone
-      TxAuxScriptsNone
-      TxExtraKeyWitnessesNone
-      (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
-      TxWithdrawalsNone
-      TxCertificatesNone
-      TxUpdateProposalNone
-      TxMintValueNone
-      TxScriptValidityNone
-      Nothing
-      Nothing
-      Nothing
-      Nothing
-
--- ** Extras
-findTxOutUTxO :: Blockfrost.BlockHash -> Blockfrost.TxHash -> [Blockfrost.UtxoOutput] -> IO [Blockfrost.AddressUtxo]
-findTxOutUTxO blockHash txHash txOutputs =
-  case find (\Blockfrost.UtxoOutput{_utxoOutputReferenceScriptHash} -> isNothing _utxoOutputReferenceScriptHash) txOutputs of
-    Nothing -> throwIO $ BlockfrostError "Could not find script output."
-    Just Blockfrost.UtxoOutput{_utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputOutputIndex, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} -> do
-      let _addressUtxoAddress = _utxoOutputAddress
-      let _addressUtxoAmount = _utxoOutputAmount
-      let _addressUtxoOutputIndex = _utxoOutputOutputIndex
-      let _addressUtxoAmount = _utxoOutputAmount
-      let _addressUtxoBlock = blockHash
-      let _addressUtxoDataHash = _utxoOutputDataHash
-      let _addressUtxoInlineDatum = _utxoOutputInlineDatum
-      let _addressUtxoReferenceScriptHash = _utxoOutputReferenceScriptHash
-      let _addressUtxoTxHash = txHash
-      pure [Blockfrost.AddressUtxo{..}]
 
 toCardanoPoolId :: Blockfrost.PoolId -> Hash StakePoolKey
 toCardanoPoolId (Blockfrost.PoolId textPoolId) =
@@ -241,8 +154,10 @@ toCardanoTxIn Blockfrost.AddressUtxo{_addressUtxoTxHash = Blockfrost.TxHash{unTx
 
 -- REVIEW! TxOutDatumNone and ReferenceScriptNone
 toCardanoTxOut :: Blockfrost.AddressUtxo -> AddressInEra -> TxOut CtxUTxO
-toCardanoTxOut Blockfrost.AddressUtxo{_addressUtxoAmount} addr =
+toCardanoTxOut addrUTxO addr =
   TxOut addr (toCardanoValue _addressUtxoAmount) TxOutDatumNone ReferenceScriptNone
+ where
+  Blockfrost.AddressUtxo{_addressUtxoAmount, _addressUtxoDataHash, _addressUtxoInlineDatum, _addressUtxoReferenceScriptHash} = addrUTxO
 
 toCardanoPolicyId :: Text -> PolicyId
 toCardanoPolicyId pid =
@@ -320,10 +235,10 @@ data BlockfrostConversion
   , minFeeRefScriptCostPerByte :: NonNegativeInterval
   }
 
-toCardanoPParams :: IO (PParams LedgerEra)
+toCardanoPParams :: MonadIO m => BlockfrostClientT m (PParams LedgerEra)
 toCardanoPParams = do
   pparams <- Blockfrost.getLatestEpochProtocolParams
-  minVersion <- mkVersion $ pparams ^. Blockfrost.protocolMinorVer
+  minVersion <- liftIO $ mkVersion $ pparams ^. Blockfrost.protocolMinorVer
   let maxVersion = fromIntegral $ pparams ^. Blockfrost.protocolMajorVer
   let results = do
         a0 <- boundRational (pparams ^. Blockfrost.a0)
@@ -436,3 +351,30 @@ toCardanoGenesisParameters bfGenesis =
     , _genesisMaxKesEvolutions
     , _genesisSecurityParam
     } = bfGenesis
+
+mkEraHistory :: Blockfrost.Genesis -> EraHistory
+mkEraHistory genesis = EraHistory (mkInterpreter summary)
+ where
+  Blockfrost.Genesis
+    { _genesisNetworkMagic
+    , _genesisSystemStart
+    , _genesisSlotLength
+    , _genesisEpochLength
+    } = genesis
+
+  summary :: Summary (CardanoEras StandardCrypto)
+  summary =
+    Summary . NonEmptyOne $
+      EraSummary
+        { eraStart = initBound
+        , eraEnd = EraUnbounded
+        , eraParams
+        }
+
+  eraParams =
+    EraParams
+      { eraEpochSize = EpochSize $ fromIntegral _genesisEpochLength
+      , eraSlotLength = mkSlotLength $ fromIntegral _genesisSlotLength
+      , eraSafeZone = UnsafeIndefiniteSafeZone
+      , eraGenesisWin = GenesisWindow 1
+      }
