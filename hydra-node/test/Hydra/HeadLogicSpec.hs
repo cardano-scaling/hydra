@@ -18,6 +18,7 @@ import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
+import GHC.Natural (naturalToInteger)
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
@@ -68,7 +69,7 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber,
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genKeyPair, genOutput)
-import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
+import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
 spec :: Spec
@@ -720,10 +721,20 @@ spec =
         update bobEnv ledger (inClosedState threeParties) contestOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
-      prop "ignores fanoutTx of another head" $ \otherHeadId -> do
-        let collectOtherHead = observeTx $ OnFanoutTx{headId = otherHeadId}
+      prop "ignores fanoutTx of another head" $ \otherHeadId fanoutUTxO -> do
+        let collectOtherHead = observeTx $ OnFanoutTx{headId = otherHeadId, fanoutUTxO}
         update bobEnv ledger (inClosedState threeParties) collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "fanout utxo always relies on observed utxo" $ \i ->
+        forAllShrink genClosedState shrink $ \closedState -> do
+          let fanoutUTxO = utxoRef $ naturalToInteger i
+              fanoutHead = observeTx $ OnFanoutTx{headId = testHeadId, fanoutUTxO}
+          let outcome = update bobEnv ledger closedState fanoutHead
+          counterexample ("Outcome: " <> show outcome) $
+            outcome `hasStateChangedSatisfying` \case
+              HeadFannedOut{utxo} -> utxo == fanoutUTxO
+              _ -> False
 
       describe "SideLoad InitialSnapshot" $ do
         it "accept side load initial snapshot with idempotence" $ do
@@ -1002,6 +1013,11 @@ prop_ignoresUnrelatedOnInitTx =
         , headParameters = HeadParameters{contestationPeriod, parties = party : otherParties}
         , participants = differentParticipants
         }
+
+genClosedState :: Gen (HeadState SimpleTx)
+genClosedState = do
+  closedState <- arbitrary
+  pure $ Closed $ closedState{headId = testHeadId}
 
 -- * Utilities
 
