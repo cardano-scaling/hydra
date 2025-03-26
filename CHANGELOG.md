@@ -43,6 +43,8 @@ changes.
 
 - Add API query (GET /snapshot/last-seen) to fetch the latest seen snapshot by a node and help identify non-cooperating peers.
 
+- Bugfix: HeadFannedOut should always display the observed fanned-out UTxO instead of local confirmed snapshot.
+
 - **BREAKING**
   - API Server does **NOT** serve the event history by default any more. Clients need to add a query parameter `?history=yes` in order to obtain the history.
   - Remove `GetUTxO` client input and corresponding `GetUTxOResponse`. There is already a way to query the `UTxO` in the Head with `GET /snapshot/utxo` query.
