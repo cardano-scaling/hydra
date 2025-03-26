@@ -156,9 +156,10 @@ jobs:
         redirect /tmp/public/head-protocol/unstable/monthly/index.html https://cardano-scaling.github.io/website/monthly
 
     - name: 🚢 Publish Documentation
-      uses: peaceiris/actions-gh-pages@v4
+      uses: JamesIves/github-pages-deploy-action@v4
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        publish_dir: /tmp/public
-        enable_jekyll: true
-        force_orphan: true
+        token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        folder: /tmp/public
+        single-commit: true
+        force: false
+        clean-exclude: pr-preview/

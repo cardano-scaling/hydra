@@ -12,6 +12,12 @@ on:
     - master
     - release
   pull_request:
+    # Enumeration needed to also remove the preview pages on PR close
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
   schedule:
     # Everyday at 4:00 AM
     - cron: "0 4 * * *"
@@ -226,6 +232,9 @@ jobs:
     name: Documentation
     needs: [haddock,benchmarks,build-test,build-specification]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # to write to github pages branch
+      pull-requests: write # to update comments
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -279,6 +288,11 @@ jobs:
         yarn
         yarn build-dev
 
+    - name: 📚 Deploy documentation preview
+      uses: rossjrw/pr-preview-action@v1
+      if: github.event.pull_request
+      with:
+        source-dir: docs/build
 
   # Compute the cost difference between this branch and master.
   tx-cost-diff:
