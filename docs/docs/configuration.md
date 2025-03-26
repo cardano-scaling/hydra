@@ -200,11 +200,11 @@ As an offline head will not connect to any chain, we need to provide an `--offli
 
 To initialize UTxO state available on the L2 ledger, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](https://hydra.family/head-protocol/api-reference/#schema-UTxO) for the schema.
 
-Using this example UTxO:
+For example, the following UTxO contains 100 ADA owned by test key [alice-funds.sk](https://github.com/cardano-scaling/hydra/tree/master/hydra-cluster/config/credentials/alice-funds.sk):
 ```json utxo.json
 {
   "0000000000000000000000000000000000000000000000000000000000000000#0": {
-    "address": "addr_test1vqg9ywrpx6e50uam03nlu0ewunh3yrscxmjayurmkp52lfskgkq5k",
+    "address": "addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z",
     "value": {
       "lovelace": 100000000
     }
@@ -212,13 +212,13 @@ Using this example UTxO:
 }
 ```
 
-A (single participant) offline Hydra head can be started with:
+A single participant offline Hydra head can be started with our demo keys and protocol parameters:
 ```shell
 hydra-node \
   --offline-head-seed 0001 \
   --initial-utxo utxo.json \
-  --hydra-signing-key hydra.sk \
-  --ledger-protocol-parameters protocol-parameters.json
+  --hydra-signing-key demo/alice.sk \
+  --ledger-protocol-parameters hydra-cluster/config/protocol-parameters.json
 ```
 
 As the node is not connected to a real network, genesis parameters that normally influence things like time-based transaction validation cannot be fetched and are set to defaults. To configure block times, set `--ledger-genesis` to a Shelley genesis file similar to the [shelley-genesis.json](https://book.world.dev.cardano.org/environments/mainnet/shelley-genesis.json).
