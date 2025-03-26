@@ -352,8 +352,8 @@ convertObservation = \case
         }
   Contest ContestObservation{contestationDeadline, headId, snapshotNumber} ->
     pure OnContestTx{contestationDeadline, headId, snapshotNumber}
-  Fanout FanoutObservation{headId} ->
-    pure OnFanoutTx{headId}
+  Fanout FanoutObservation{headId, fanoutUTxO} ->
+    pure OnFanoutTx{headId, fanoutUTxO}
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>

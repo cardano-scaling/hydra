@@ -1272,17 +1272,15 @@ onClosedClientFanout closedState =
 --
 -- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx ::
-  IsTx tx =>
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
+  UTxOType tx ->
   Outcome tx
-onClosedChainFanoutTx closedState newChainState =
-  newState HeadFannedOut{headId, utxo = (utxo <> fromMaybe mempty utxoToCommit) `withoutUTxO` fromMaybe mempty utxoToDecommit, chainState = newChainState}
+onClosedChainFanoutTx closedState newChainState fanoutUTxO =
+  newState HeadFannedOut{headId, utxo = fanoutUTxO, chainState = newChainState}
  where
-  Snapshot{utxo, utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
-
-  ClosedState{confirmedSnapshot, headId} = closedState
+  ClosedState{headId} = closedState
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed succesfully. Later, the Node will
@@ -1377,9 +1375,9 @@ update env ledger st ev = case (st, ev) of
         newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
-  (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId}, newChainState})
+  (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId, fanoutUTxO}, newChainState})
     | ourHeadId == headId ->
-        onClosedChainFanoutTx closedState newChainState
+        onClosedChainFanoutTx closedState newChainState fanoutUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- General
