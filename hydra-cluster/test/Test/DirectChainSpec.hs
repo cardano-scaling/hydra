@@ -5,6 +5,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL, reqSignerHashesTxBodyL)
 import CardanoClient (
   QueryPoint (QueryTip),
@@ -364,7 +365,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             let expectedUTxO =
                   (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
                     `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
-            aliceChain `observesInTime` OnFanoutTx headId
+            aliceChain `observesInTimeSatisfying` \case
+              OnFanoutTx _ finalUTxO ->
+                if UTxO.containsOutputs finalUTxO expectedUTxO
+                  then pure ()
+                  else failure "OnFanoutTx does not contain expected UTxO"
+              _ -> failure "expected OnFanoutTx"
+
             failAfter 5 $
               waitForUTxO node expectedUTxO
 
