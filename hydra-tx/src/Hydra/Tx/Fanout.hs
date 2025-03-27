@@ -77,7 +77,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
 
 -- * Observation
 
-newtype FanoutObservation = FanoutObservation {headId :: HeadId}
+data FanoutObservation = FanoutObservation {headId :: HeadId, fanoutUTxO :: UTxO}
   deriving stock (Eq, Show, Generic)
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
@@ -90,8 +90,9 @@ observeFanoutTx ::
 observeFanoutTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  pubKeyOutputs <- findPubKeyOutputs (utxoFromTx tx)
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
-      Head.Fanout{} -> pure FanoutObservation{headId}
+      Head.Fanout{} -> pure FanoutObservation{headId, fanoutUTxO = pubKeyOutputs}
       _ -> Nothing
