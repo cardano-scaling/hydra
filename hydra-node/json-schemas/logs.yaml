@@ -2057,7 +2057,7 @@ definitions:
             type: string
             enum: ["Observation"]
           observedTx:
-            $ref: "https://raw.githubusercontent.com/cardano-scaling/hydra/748b2a225b8c984b14257060e825eb7bda795737/hydra-node/json-schemas/common.yaml#/definitions/OnChainTx"
+            $ref: "https://raw.githubusercontent.com/cardano-scaling/hydra/ee8c8bd791263dee540cabb39c15244dff4e1ae5/hydra-node/json-schemas/common.yaml#/definitions/OnChainTx"
           newChainState:
             $ref: "api.yaml#/components/schemas/ChainState"
 
