@@ -89,7 +89,7 @@ It is important to note that this recovery process is a coordinated effort among
 
 ### Run the Node on High Availability Using Mirror Nodes
 
-It you are worried about one of the nodes disappearing entirely; i.e. completey computer failure with no backup, then you might be interested in running "mirror nodes". While it is recommend that you would maintain backups of the `persistence` folder (along with your keys!), you can choose to follow the mirror-node technique in any case as yet another measure to ensure operation in the disastrous loss of a peer.
+It you are concerned about one of the nodes disappearing entirely; i.e. completey computer failure with no backup, then you might be interested in running "mirror nodes". While it is recommend that you would maintain backups of the `persistence` folder (along with your keys!), you can choose to follow the mirror-node technique in any case as yet another measure to ensure operation in the disastrous loss of a peer. Note further that this technique increases availability, but has a cost in that it requires storing your key material in two places.
 
 Ensuring high availability in a Hydra Head can be achieved by using mirror nodes, allowing the same party to participate from multiple machines.
 > This setup enhances redundancy and fault tolerance, ensuring protocol continuity even if a node fails, as another node can take over signing snapshots if one becomes unavailable.
