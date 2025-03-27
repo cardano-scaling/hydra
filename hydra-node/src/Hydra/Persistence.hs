@@ -18,6 +18,7 @@ import Conduit (
 import Control.Monad.Trans.Resource (allocate)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
+import Data.Conduit.Combinators (peekForeverE)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO (MVar, newMVar, putMVar, takeMVar, withMVar)
@@ -107,7 +108,7 @@ createPersistenceIncremental fp = do
         void $ allocate (takeMVar mutex) (putMVar mutex)
         -- NOTE: Read, decode and yield values line by line.
         sourceFileBS fp
-          .| linesUnboundedAsciiC
+          .| peekForeverE linesUnboundedAsciiC
           .| mapMC
             ( \bs ->
                 case Aeson.eitherDecodeStrict' bs of
