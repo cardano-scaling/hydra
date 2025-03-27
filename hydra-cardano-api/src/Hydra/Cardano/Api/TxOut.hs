@@ -101,6 +101,19 @@ findTxOutByScript utxo script =
     _ ->
       False
 
+-- | Find all pub key outputs in some 'UTxO'
+findPubKeyOutputs ::
+  UTxO ->
+  Maybe UTxO
+findPubKeyOutputs utxo =
+  case List.filter matchPubKey (UTxO.pairs utxo) of
+    [] -> Nothing
+    as -> Just $ UTxO.fromPairs as
+ where
+  matchPubKey = \case
+    (_, TxOut (AddressInEra _ (ShelleyAddress _ (Ledger.KeyHashObj _) _)) _ _ _) -> True
+    _ -> False
+
 -- | Predicate to find or filter 'TxOut' owned by a key. This
 -- is better than comparing the full address as it does not require a network
 -- discriminator.
