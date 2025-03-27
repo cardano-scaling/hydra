@@ -57,6 +57,7 @@ import Hydra.Cluster.Scenarios (
   canSeePendingDeposits,
   canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
+  checkFanout,
   headIsInitializingWith,
   initWithWrongKeys,
   oneOfThreeNodesStopsForAWhile,
@@ -305,8 +306,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
                 send n1 $ input "Init" []
                 headId <-
-                  waitForAllMatch 10 [n1, n2, n3] $
-                    headIsInitializingWith (Set.fromList [alice, bob, carol])
+                  waitForAllMatch 10 [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
 
                 -- Get some UTXOs to commit to a head
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
@@ -337,8 +337,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   output "ReadyToFanout" ["headId" .= headId]
 
                 send n1 $ input "Fanout" []
-                waitFor hydraTracer 3 [n1] $
-                  output "HeadIsFinalized" ["utxo" .= u0, "headId" .= headId]
+                waitForAllMatch 10 [n1] $ checkFanout headId u0
 
       it "supports mirror party" $ \tracer ->
         failAfter 60 $
@@ -795,13 +794,12 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
       output "ReadyToFanout" ["headId" .= headId]
 
     send n1 $ input "Fanout" []
-    waitFor hydraTracer 3 [n1] $
-      output "HeadIsFinalized" ["utxo" .= newUTxO, "headId" .= headId]
 
     case fromJSON $ toJSON newUTxO of
       Error err ->
         failure $ "newUTxO isn't valid JSON?: " <> err
-      Data.Aeson.Success u ->
+      Data.Aeson.Success u -> do
+        waitForAllMatch 3 [n1] $ checkFanout headId u
         failAfter 5 $ waitForUTxO node u
 
 -- * Fixtures
