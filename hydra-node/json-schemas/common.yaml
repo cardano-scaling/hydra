@@ -230,12 +230,15 @@ definitions:
         required:
           - tag
           - headId
+          - fanoutUTxO
         properties:
           tag:
             type: string
             enum: ["OnFanoutTx"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
+          fanoutUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
 
   ChainPoint:
     oneOf:

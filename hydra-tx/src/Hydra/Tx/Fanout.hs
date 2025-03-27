@@ -90,8 +90,7 @@ observeFanoutTx ::
 observeFanoutTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
-  -- NOTE: perhaps use adjustUTxO but then we get also script outputs.
-  pubKeyOutputs <- findPubKeyOutputs utxo
+  pubKeyOutputs <- findPubKeyOutputs (utxoFromTx tx)
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case

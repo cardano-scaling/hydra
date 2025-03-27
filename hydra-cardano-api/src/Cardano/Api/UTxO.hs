@@ -14,6 +14,7 @@ import Cardano.Api.Shelley (ReferenceScript (..))
 import Cardano.Ledger.Babbage ()
 import Data.Bifunctor (second)
 import Data.Coerce (coerce)
+import Data.Foldable (toList)
 import Data.List qualified as List
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -83,6 +84,15 @@ render (k, TxOut _ (txOutValueToValue -> v) _ _) =
 -- | Remove the right hand side from the left hand side.
 difference :: UTxO' out -> UTxO' out -> UTxO' out
 difference a b = UTxO $ Map.difference (toMap a) (toMap b)
+
+-- | Check if the first 'UTxO' contains all **outputs** of the second 'UTxO'.
+-- First argument is the 'UTxO' to search in, second argument is the 'UTxO'
+-- to search for.
+containsOutputs :: Eq out => UTxO' out -> UTxO' out -> Bool
+containsOutputs utxoForSearching utxo =
+  let allOutputs = toList utxoForSearching
+      expectedOutputs = toList utxo
+   in all (`elem` allOutputs) expectedOutputs
 
 -- * Type Conversions
 
