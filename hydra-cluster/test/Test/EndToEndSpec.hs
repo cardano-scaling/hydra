@@ -70,6 +70,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyHeadFullLifeCycle,
   singlePartyUsesScriptOnL2,
   threeNodesNoErrorsOnOpen,
+  threeNodesWithMirrorParty,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
@@ -338,6 +339,13 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 send n1 $ input "Fanout" []
                 waitFor hydraTracer 3 [n1] $
                   output "HeadIsFinalized" ["utxo" .= u0, "headId" .= headId]
+
+      it "supports mirror party" $ \tracer ->
+        failAfter 60 $
+          withClusterTempDir $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+              publishHydraScriptsAs node Faucet
+                >>= threeNodesWithMirrorParty tracer tmpDir node
 
     describe "restarting nodes" $ do
       it "can abort head after restart" $ \tracer -> do

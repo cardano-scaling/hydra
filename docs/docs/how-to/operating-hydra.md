@@ -86,3 +86,37 @@ To recover from this issue, we introduced side-loading of snapshots to synchroni
 Newer confirmed snapshots can also be adopted if all party members use the POST /snapshot endpoint with the same ConfirmedSnapshot as the JSON body.
 
 It is important to note that this recovery process is a coordinated effort among peers to ensure the consistency and availability of the Hydra head.
+
+### Run the Node on High Availability Using Mirror Nodes
+
+It you are concerned about one of the nodes disappearing entirely; i.e. completey computer failure with no backup, then you might be interested in running "mirror nodes". While it is recommend that you would maintain backups of the `persistence` folder (along with your keys!), you can choose to follow the mirror-node technique in any case as yet another measure to ensure operation in the disastrous loss of a peer. Note further that this technique increases availability, but has a cost in that it requires storing your key material in two places.
+
+Ensuring high availability in a Hydra Head can be achieved by using mirror nodes, allowing the same party to participate from multiple machines.
+> This setup enhances redundancy and fault tolerance, ensuring protocol continuity even if a node fails, as another node can take over signing snapshots if one becomes unavailable.
+
+A mirror node operates with the same party credentials (Cardano and Hydra keys) as the original node, enabling it to sign L2 snapshots and perform L1 operations like `Init`, `Commit`, `Close`, `Contest`, `FanOut`, and `Increment/Decrement` funds from the head.
+
+> Note, each node must be configured as follows:
+> - with a unique `--node-id`.
+> - with a unique `--advertise` IP address, as they run on separate machines.
+> - specify each original and mirror node with its unique `--peer` IP address being advertised.
+> - must not duplicate `--cardano-verification-key` and `--hydra-verification-key`, as these identify unique parties independently of their peer setup.
+> - mirror nodes must use the same `--hydra-signing-key` and `--cardano-signing-key` as their original counterpart.
+
+Mirror nodes coexist alongside their original counterpart without conflict, although some duplication of Hydra network messages sent and received from the mirror is expected.
+Occasionally, operators might observe a `SnapshotAlreadySigned` log, which is raised when both the mirror and the original party attempt to sign the same snapshot. This log is transient, harmless, and can be safely ignored.
+
+Beyond the Hydra Head protocol, mirror nodes impact the underlying etcd cluster, which follows the Raft consensus protocol.
+> The cluster remains healthy only if a majority of nodes (`⌊n/2⌋ + 1`) are online.
+
+If too many nodes (including mirrors) go offline, the etcd cluster may become unresponsive, even if the Hydra protocol itself remains operational.
+
+For instance, in a cluster with 3 Alice nodes (2 mirrors) and 1 Bob node:
+- The Hydra Head protocol remains functional as long as all unique party keys are active.
+- However, if 2 Alice nodes go down, the etcd cluster becomes unhealthy due to an insufficient active quorum.
+
+To maintain both Hydra network stability and a functional etcd quorum, the number of mirrors (`k`) should always be **fewer than half of the total nodes (`n`)**: `k < ⌊n/2⌋`.
+
+![optimal-nbr-mirrors](optimal-nbr-mirrors.png)
+
+As you can see, the optimal number of mirrors in the cluster should be less than half of the total number of peers. This ensures the etcd cluster remains responsive and functional while still benefiting from high availability.

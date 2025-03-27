@@ -1413,6 +1413,74 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
   RunningNode{nodeSocket, networkId, blockTime} = cardanoNode
   hydraTracer = contramap FromHydraNode tracer
 
+-- | Three hydra nodes open a head and we assert that none of them sees errors if a party is duplicated.
+threeNodesWithMirrorParty :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+threeNodesWithMirrorParty tracer workDir cardanoNode@RunningNode{nodeSocket, networkId, blockTime} hydraScriptsTxId = do
+  let parties = [Alice, Bob]
+
+  [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _)] <- forM parties keysFor
+  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  let contestationPeriod = UnsafeContestationPeriod 1
+  let depositDeadline = UnsafeDepositDeadline 200
+
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+
+  let hydraTracer = contramap FromHydraNode tracer
+  let allNodeIds = [1, 2, 3]
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] allNodeIds $ \n1 -> do
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+      -- One party will participate using same hydra credentials
+      withHydraNode hydraTracer aliceChainConfig workDir 3 aliceSk [bobVk] allNodeIds $ \n3 -> do
+        let clients = [n1, n2, n3]
+        send n1 $ input "Init" []
+        headId <- waitForAllMatch (10 * blockTime) clients $ headIsInitializingWith (Set.fromList [alice, bob])
+
+        -- N1 & N3 commit the same thing at the same time
+        -- XXX: one will fail but the head will still open
+        aliceUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+        race_
+          (requestCommitTx n1 aliceUTxO >>= submitTx cardanoNode)
+          (requestCommitTx n3 aliceUTxO >>= submitTx cardanoNode)
+
+        -- N2 commits something
+        bobUTxO <- seedFromFaucet cardanoNode bobCardanoVk 1_000_000 (contramap FromFaucet tracer)
+        requestCommitTx n2 bobUTxO >>= submitTx cardanoNode
+
+        -- Observe open with relevant UTxO
+        waitFor hydraTracer (20 * blockTime) clients $
+          output "HeadIsOpen" ["utxo" .= toJSON (aliceUTxO <> bobUTxO), "headId" .= headId]
+
+        -- N3 performs a simple transaction from N3 to itself
+        utxo <- getSnapshotUTxO n3
+        tx <- mkTransferTx networkId utxo aliceCardanoSk aliceCardanoVk
+        send n3 $ input "NewTx" ["transaction" .= tx]
+
+        -- Everyone confirms it
+        waitForAllMatch (200 * blockTime) clients $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $ v ^? key "snapshot" . key "number" == Just (toJSON (1 :: Integer))
+
+      -- \| Mirror party N3 disconnects and the others observe it
+      waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "PeerDisconnected"
+
+      -- N1 performs another simple transaction from N1 to itself
+      utxo <- getSnapshotUTxO n1
+      tx <- mkTransferTx networkId utxo aliceCardanoSk aliceCardanoVk
+      send n1 $ input "NewTx" ["transaction" .= tx]
+
+      -- Everyone confirms it
+      waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
+
 -- * L2 scenarios
 
 -- | Finds UTxO owned by given key in the head and creates transactions
