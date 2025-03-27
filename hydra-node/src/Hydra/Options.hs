@@ -133,28 +133,14 @@ commandParser =
           (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
       )
 
-data PublishOptions = PublishOptions
-  { publishNetworkId :: NetworkId
-  , publishNodeSocket :: SocketPath
-  , publishSigningKey :: FilePath
+newtype PublishOptions = PublishOptions
+  { publishChainConfig :: ChainConfig
   }
   deriving stock (Show, Eq)
 
--- | Default options as they should also be provided by 'runOptionsParser'.
-defaultPublishOptions :: PublishOptions
-defaultPublishOptions =
-  PublishOptions
-    { publishNetworkId = Testnet (NetworkMagic 42)
-    , publishNodeSocket = "node.socket"
-    , publishSigningKey = "cardano.sk"
-    }
-
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
-  PublishOptions
-    <$> networkIdParser
-    <*> nodeSocketParser
-    <*> cardanoSigningKeyFileParser
+  PublishOptions <$> chainConfigParser
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -259,10 +245,14 @@ runOptionsParser =
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
     <*> persistenceDirParser
-    <*> ( Direct <$> directChainConfigParser
-            <|> Offline <$> offlineChainConfigParser
-        )
+    <*> chainConfigParser
     <*> ledgerConfigParser
+
+chainConfigParser :: Parser ChainConfig
+chainConfigParser =
+  Direct <$> directChainConfigParser
+    <|> Offline <$> offlineChainConfigParser
+    <|> Blockfrost <$> blockfrostChainConfigParser
 
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
@@ -315,12 +305,14 @@ cardanoLedgerProtocolParametersParser =
 data ChainConfig
   = Offline OfflineChainConfig
   | Direct DirectChainConfig
+  | Blockfrost BlockfrostChainConfig
   deriving stock (Eq, Show, Generic)
 
 instance ToJSON ChainConfig where
   toJSON = \case
     Offline cfg -> toJSON cfg & atKey "tag" ?~ String "OfflineChainConfig"
     Direct cfg -> toJSON cfg & atKey "tag" ?~ String "DirectChainConfig"
+    Blockfrost cfg -> toJSON cfg & atKey "tag" ?~ String "BlockfrostChainConfig"
 
 instance FromJSON ChainConfig where
   parseJSON =
@@ -361,6 +353,24 @@ data DirectChainConfig = DirectChainConfig
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+data BlockfrostChainConfig = BlockfrostChainConfig
+  { bfProjectPath :: FilePath
+  -- ^ Path to the blockfrost project file
+  , bfHydraScriptsTxId :: [TxId]
+  -- ^ Identifier of transaction holding the hydra scripts to use.
+  , bfCardanoSigningKey :: FilePath
+  -- ^ Path to the cardano signing key of the internal wallet.
+  , bfCardanoVerificationKeys :: [FilePath]
+  -- ^ Paths to other node's verification keys.
+  , bfStartChainFrom :: Maybe ChainPoint
+  -- ^ Point at which to start following the chain.
+  , bfContestationPeriod :: ContestationPeriod
+  , bfDepositDeadline :: DepositDeadline
+  -- ^ Deadline to detect deposit tx on-chain.
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
+
 defaultDirectChainConfig :: DirectChainConfig
 defaultDirectChainConfig =
   DirectChainConfig
@@ -372,6 +382,18 @@ defaultDirectChainConfig =
     , startChainFrom = Nothing
     , contestationPeriod = defaultContestationPeriod
     , depositDeadline = defaultDepositDeadline
+    }
+
+defaultBlockfrostChainConfig :: BlockfrostChainConfig
+defaultBlockfrostChainConfig =
+  BlockfrostChainConfig
+    { bfProjectPath = "blockfrost.txt"
+    , bfHydraScriptsTxId = []
+    , bfCardanoSigningKey = "cardano.sk"
+    , bfCardanoVerificationKeys = []
+    , bfStartChainFrom = Nothing
+    , bfContestationPeriod = defaultContestationPeriod
+    , bfDepositDeadline = defaultDepositDeadline
     }
 
 instance Arbitrary ChainConfig where
@@ -463,6 +485,28 @@ directChainConfigParser =
     <*> contestationPeriodParser
     <*> depositDeadlineParser
 
+blockfrostChainConfigParser :: Parser BlockfrostChainConfig
+blockfrostChainConfigParser =
+  BlockfrostChainConfig
+    <$> blockfrostProjectPathParser
+    <*> (hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser)
+    <*> cardanoSigningKeyFileParser
+    <*> many cardanoVerificationKeyFileParser
+    <*> optional startChainFromParser
+    <*> contestationPeriodParser
+    <*> depositDeadlineParser
+
+blockfrostProjectPathParser :: Parser FilePath
+blockfrostProjectPathParser =
+  strOption
+    ( long "blockfrost"
+        <> metavar "FILE"
+        <> showDefault
+        <> value (bfProjectPath defaultBlockfrostChainConfig)
+        <> help
+          "Blockfrost project path containing the api key."
+    )
+
 networkIdParser :: Parser NetworkId
 networkIdParser = pMainnet <|> fmap Testnet pTestnetMagic
  where
@@ -495,7 +539,7 @@ nodeSocketParser =
   strOption
     ( long "node-socket"
         <> metavar "FILE"
-        <> value (publishNodeSocket defaultPublishOptions)
+        <> value (nodeSocket defaultDirectChainConfig)
         <> showDefault
         <> help
           "Filepath to local unix domain socket used to communicate with \
@@ -508,7 +552,7 @@ cardanoSigningKeyFileParser =
     ( long "cardano-signing-key"
         <> metavar "FILE"
         <> showDefault
-        <> value (publishSigningKey defaultPublishOptions)
+        <> value (cardanoSigningKey defaultDirectChainConfig)
         <> help
           "Cardano signing key of our hydra-node. This will be used to authorize \
           \Hydra protocol transactions for heads the node takes part in and any \
@@ -834,6 +878,7 @@ validateRunOptions RunOptions{hydraVerificationKeys, chainConfig} =
       | length cardanoVerificationKeys /= length hydraVerificationKeys ->
           Left CardanoAndHydraKeysMissmatch
       | otherwise -> Right ()
+    Blockfrost{} -> Right ()
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraCommand :: IO Command
@@ -930,6 +975,21 @@ toArgs
             <> ["--deposit-deadline", show depositDeadline]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
+      Blockfrost
+        BlockfrostChainConfig
+          { bfHydraScriptsTxId
+          , bfCardanoSigningKey
+          , bfCardanoVerificationKeys
+          , bfStartChainFrom
+          , bfContestationPeriod
+          , bfDepositDeadline
+          } ->
+          ["--hydra-scripts-tx-id", intercalate "," $ toString . serialiseToRawBytesHexText <$> bfHydraScriptsTxId]
+            <> ["--cardano-signing-key", bfCardanoSigningKey]
+            <> ["--contestation-period", show bfContestationPeriod]
+            <> ["--deposit-deadline", show bfDepositDeadline]
+            <> concatMap (\vk -> ["--cardano-verification-key", vk]) bfCardanoVerificationKeys
+            <> toArgStartChainFrom bfStartChainFrom
 
     argsLedgerConfig =
       ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]
