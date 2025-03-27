@@ -342,8 +342,8 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
         waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
           output "ReadyToFanout" ["headId" .= headId]
         send n1 $ input "Fanout" []
-        waitFor hydraTracer (10 * blockTime) [n1] $
-          output "HeadIsFinalized" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+        waitForAllMatch (10 * blockTime) [n1] $ checkFanout headId utxoToCommit
       traceRemainingFunds Alice
       traceRemainingFunds AliceFunds
  where
@@ -1544,6 +1544,14 @@ headIsInitializingWith expectedParties v = do
   guard $ parties == expectedParties
   headId <- v ^? key "headId"
   parseMaybe parseJSON headId
+
+checkFanout :: HeadId -> UTxO -> Value -> Maybe ()
+checkFanout expectedHeadId expectedUTxO v = do
+  guard $ v ^? key "tag" == Just "HeadIsFinalized"
+  headId' <- v ^? key "headId" >>= parseMaybe parseJSON
+  utxo <- v ^? key "utxo" >>= parseMaybe parseJSON
+  guard (headId' == expectedHeadId)
+  guard (UTxO.containsOutputs utxo expectedUTxO)
 
 expectErrorStatus ::
   -- | Expected http status code
