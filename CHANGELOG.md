@@ -31,6 +31,8 @@ changes.
   - A problematic transaction will now be ignored and not deemed a valid head protocol transaction.
   - An example was if the datum would contain CBOR instead of just hex encoded bytes.
 
+- Fix a bug related to high memory consuption on loading the state from disk.
+
 - **BREAKING** Enable multi-party, networked "offline" heads by providing an `--offline-head-seed` option to `hydra-node`.
   - Drop `hydra-node offline` as a sub-command. Use `--offline-head-seed` and `--initial-utxo` options to switch to offline mode.
 
