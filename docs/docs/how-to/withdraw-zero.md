@@ -33,7 +33,7 @@ cardano-cli latest transaction build-raw \
   --tx-in 0000000000000000000000000000000000000000000000000000000000000000#0 \
   --tx-in-collateral 0000000000000000000000000000000000000000000000000000000000000000#0 \
   --tx-out addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z+100000000 \
-  --withdrawal stake_test17rekjamvnjyn3c3tcjpxe7ea20g7aek9vdqkaa3jefknz3gc066pt+0 \
+  --withdrawal stake_test17zadf9dcekqn9cxkg3q68y56f4d6ujxsv8l6kq4kz2cuduc3gm35e+0 \
   --withdrawal-script-file rewarding.plutus \
   --withdrawal-redeemer-value "{}" \
   --withdrawal-execution-units "(10000000000, 14000000)" \
@@ -53,18 +53,18 @@ cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .}' | websocat ws://loca
 
 You might have noticed that registering the stake address was not needed - this is different than on the Cardano L1!
 
-While you don't need to do it, you can still submit a transaction that registers the stake address and the L2 ledger will just ignore it (on the L1 you would also do this before using it in withdrawal transactions):
+While you don't need to do it, you can still submit a transaction that registers the stake address and the L2 ledger will just ignore it:
 
 ```shell title="Register stake transaction"
 cardano-cli latest stake-address registration-certificate \
-  --stake-script-file rewarding.plutus \
-  --key-reg-deposit-amt 0 \
+  --stake-address stake_test17zadf9dcekqn9cxkg3q68y56f4d6ujxsv8l6kq4kz2cuduc3gm35e \
+  --key-reg-deposit-amt 2000000 \
   --out-file reg.cert
 
 cardano-cli latest transaction build-raw \
   --tx-in 0000000000000000000000000000000000000000000000000000000000000000#0 \
   --tx-in-collateral 0000000000000000000000000000000000000000000000000000000000000000#0 \
-  --tx-out addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z+100000000 \
+  --tx-out addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z+98000000 \
   --certificate reg.cert \
   --certificate-script-file rewarding.plutus \
   --certificate-redeemer-value "{}" \
