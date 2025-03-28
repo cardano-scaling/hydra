@@ -62,19 +62,15 @@ import Data.ByteString qualified as BS
 import Data.List ((\\))
 import Data.List qualified as List
 import Data.Map qualified as Map
-import Data.Text (splitOn)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
   Host (..),
-  HydraHandshakeRefused (..),
-  HydraVersionedProtocolNumber (MkHydraVersionedProtocolNumber),
-  KnownHydraVersions (..),
   Network (..),
   NetworkCallback (..),
   NetworkComponent,
   NetworkConfiguration (..),
-  hydraVersionedProtocolNumber,
+  ProtocolVersion,
  )
 import Network.GRPC.Client (
   Address (..),
@@ -89,8 +85,14 @@ import Network.GRPC.Client (
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
 import Network.GRPC.Common (GrpcError (..), GrpcException (..), HTTP2Settings (..), NextElem (..), def, defaultHTTP2Settings)
 import Network.GRPC.Common.NextElem (whileNext_)
-import Network.GRPC.Common.Protobuf (Protobuf, defMessage, (.~))
-import Network.GRPC.Etcd (KV, Lease, Watch)
+import Network.GRPC.Common.Protobuf (Proto (..), Protobuf, defMessage, (.~))
+import Network.GRPC.Etcd (
+  Compare'CompareResult (..),
+  Compare'CompareTarget (..),
+  KV,
+  Lease,
+  Watch,
+ )
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
 import System.FilePath ((</>))
@@ -117,7 +119,7 @@ import UnliftIO (readTVarIO)
 withEtcdNetwork ::
   (ToCBOR msg, FromCBOR msg, Eq msg) =>
   Tracer IO EtcdLog ->
-  HydraVersionedProtocolNumber ->
+  ProtocolVersion ->
   -- TODO: check if all of these needed?
   NetworkConfiguration ->
   NetworkComponent IO msg msg ()
@@ -133,16 +135,18 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         doneVar <- newTVarIO False
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) grpcServer $ \conn -> do
-          race_ (pollConnectivity tracer conn advertise callback) $ do
-            race_ (waitMessages tracer conn protocolVersion persistenceDir callback) $ do
-              queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-              race_ (broadcastMessages tracer conn protocolVersion advertise queue) $ do
-                action
-                  Network
-                    { broadcast = writePersistentQueue queue
-                    }
-                atomically (writeTVar doneVar True)
+        withConnection (connParams doneVar) grpcServer $ \conn ->
+          -- REVIEW: checkVersion blocks if used on main thread - why?
+          withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
+            race_ (pollConnectivity tracer conn advertise callback) $
+              race_ (waitMessages tracer conn persistenceDir callback) $ do
+                queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+                race_ (broadcastMessages tracer conn advertise queue) $ do
+                  action
+                    Network
+                      { broadcast = writePersistentQueue queue
+                      }
+                  atomically (writeTVar doneVar True)
  where
   connParams doneVar =
     def
@@ -227,46 +231,62 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   NetworkConfiguration{persistenceDir, listen, advertise, peers} = config
 
--- | Fetch and check version of the Hydra network protocol mapped onto the etcd
--- cluster. See 'putMessage' for how a peer encodes the protocol version into an
--- etcd key.
-matchVersion ::
-  -- | Key used by the other peer.
-  ByteString ->
-  -- | Our protocol version to check against
-  HydraVersionedProtocolNumber ->
-  Maybe HydraHandshakeRefused
-matchVersion key ourVersion = do
-  case splitOn "-" $ decodeUtf8 key of
-    [_prefix, versionText, hostText] -> do
-      let remoteHost = fromMaybe (Host "???" 0) . readMaybe $ toString hostText
-      case parseVersion versionText of
-        Just theirVersion
-          | ourVersion == theirVersion -> Nothing
-          | otherwise ->
-              -- TODO: DRY just cases
-              Just
-                HydraHandshakeRefused
-                  { remoteHost
-                  , ourVersion
-                  , theirVersions = KnownHydraVersions [theirVersion]
-                  }
-        Nothing ->
-          Just
-            HydraHandshakeRefused
-              { remoteHost
-              , ourVersion
-              , theirVersions = NoKnownHydraVersions
+-- | Check and write version on etcd cluster. This will retry until we are on a
+-- majority cluster and succeed. If the version does not match a corresponding
+-- 'Connectivity' message is sent via 'NetworkCallback'.
+checkVersion ::
+  Tracer IO EtcdLog ->
+  Connection ->
+  ProtocolVersion ->
+  NetworkCallback msg IO ->
+  IO ()
+checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
+  -- Get or write our version into kv store
+  res <-
+    nonStreaming conn (rpc @(Protobuf KV "txn")) $
+      defMessage
+        & #compare .~ [versionExists]
+        & #success .~ [getVersion]
+        & #failure .~ [putVersion]
+
+  -- Check version if version was already present
+  if res ^. #succeeded
+    then forM_ (res ^.. #responses . traverse . #responseRange . #kvs . traverse) $ \kv ->
+      case decodeFull' $ kv ^. #value of
+        Left err -> do
+          traceWith tracer $
+            FailedToDecodeValue
+              { key = decodeUtf8 $ kv ^. #key
+              , value = encodeBase16 $ kv ^. #value
+              , reason = show err
               }
-    _ ->
-      Just
-        HydraHandshakeRefused
-          { remoteHost = Host "???" 0 -- TODO: use optional data type
-          , ourVersion
-          , theirVersions = NoKnownHydraVersions
-          }
+          onConnectivity VersionMismatch{ourVersion, theirVersion = Nothing}
+        Right theirVersion ->
+          unless (theirVersion == ourVersion) $
+            onConnectivity VersionMismatch{ourVersion, theirVersion = Just theirVersion}
+    else
+      traceWith tracer $ MatchingProtocolVersion{version = ourVersion}
  where
-  parseVersion = fmap MkHydraVersionedProtocolNumber . readMaybe . toString
+  versionKey = "version"
+
+  -- exists = create_revision of key 'version' > 0
+  versionExists =
+    defMessage
+      & #result .~ Proto Compare'GREATER
+      & #target .~ Proto Compare'VERSION
+      & #key .~ versionKey
+      & #version .~ 0
+
+  getVersion =
+    defMessage & #requestRange .~ (defMessage & #key .~ versionKey)
+
+  putVersion =
+    defMessage
+      & #requestPut
+        .~ ( defMessage
+               & #key .~ versionKey
+               & #value .~ serialize' ourVersion
+           )
 
 -- | Broadcast messages from a queue to the etcd cluster.
 --
@@ -276,15 +296,14 @@ broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
   Tracer IO EtcdLog ->
   Connection ->
-  HydraVersionedProtocolNumber ->
   -- | Used to identify sender.
   Host ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages tracer conn protocolVersion ourHost queue =
+broadcastMessages tracer conn ourHost queue =
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
-    (putMessage conn protocolVersion ourHost msg >> popPersistentQueue queue msg)
+    (putMessage conn ourHost msg >> popPersistentQueue queue msg)
       `catch` \case
         GrpcException{grpcError, grpcErrorMessage}
           | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
@@ -296,12 +315,11 @@ broadcastMessages tracer conn protocolVersion ourHost queue =
 putMessage ::
   ToCBOR msg =>
   Connection ->
-  HydraVersionedProtocolNumber ->
   -- | Used to identify sender.
   Host ->
   msg ->
   IO ()
-putMessage conn protocolVersion ourHost msg =
+putMessage conn ourHost msg =
   void $ nonStreaming conn (rpc @(Protobuf KV "put")) req
  where
   req =
@@ -309,19 +327,17 @@ putMessage conn protocolVersion ourHost msg =
       & #key .~ key
       & #value .~ serialize' msg
 
-  -- TODO: use one key again (after mapping version check)?
-  key = encodeUtf8 @Text $ "msg-" <> show (hydraVersionedProtocolNumber protocolVersion) <> "-" <> show ourHost
+  key = encodeUtf8 @Text $ "msg-" <> show ourHost
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
   FromCBOR msg =>
   Tracer IO EtcdLog ->
   Connection ->
-  HydraVersionedProtocolNumber ->
   FilePath ->
   NetworkCallback msg IO ->
   IO ()
-waitMessages tracer conn protocolVersion directory NetworkCallback{deliver, onConnectivity} = do
+waitMessages tracer conn directory NetworkCallback{deliver} = do
   revision <- getLastKnownRevision directory
   withGrpcContext "waitMessages" . forever $ do
     -- NOTE: We have not observed the watch (subscription) fail even when peers
@@ -343,14 +359,6 @@ waitMessages tracer conn protocolVersion directory NetworkCallback{deliver, onCo
     let revision = fromIntegral $ res ^. #header . #revision
     putLastKnownRevision directory revision
     forM_ (res ^. #events) $ \event -> do
-      let key = event ^. #kv . #key
-      -- XXX: Check version on every watch event?
-      case matchVersion key protocolVersion of
-        Nothing ->
-          pure ()
-        Just HydraHandshakeRefused{remoteHost, ourVersion, theirVersions} ->
-          onConnectivity $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
-
       let value = event ^. #kv . #value
       case decodeFull' value of
         Left err ->
@@ -379,7 +387,7 @@ putLastKnownRevision directory rev = do
   liftIO $ encodeFile (directory </> "last-known-revision") rev
 
 -- | Write a well-known key to indicate being alive, keep it alive using a lease
--- and poll other peers enries to yield connectivity events. While doing so,
+-- and poll other peers entries to yield connectivity events. While doing so,
 -- overall network connectivity is determined from the ability to read/write to
 -- the cluster.
 pollConnectivity ::
@@ -572,6 +580,7 @@ data EtcdLog
   | CreatedLease {leaseId :: Int64}
   | LowLeaseTTL {ttlRemaining :: DiffTime}
   | NoKeepAliveResponse
+  | MatchingProtocolVersion {version :: ProtocolVersion}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 

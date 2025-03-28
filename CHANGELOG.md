@@ -17,6 +17,7 @@ changes.
   - `--listen` can be the same as the old `--host/--port` combined, but you may require `--advertise` to set your _public_ IP address and port combination, if you cannot bind to that on the local machine.
   - Adds `NetworkConnected` and `NetworkDisconnected` outputs which are most indicative of whether the L2 network is up or not.
   - Change `PeerConnected` and `PeerDisconnected` to indicate connectivity to `--peer` items and not the remote `node-id`.
+  - Change `PeerHandshakeFailure` to a network-level `NetworkVersionMismatch`
   - Log outputs related to the network components changed significantly.
   - Persisted state (write ahead logs) of the network components changed significantly. The `<persistence-dir>/etcd` directory must not be lost or manual action to recover the L2 network (etcd cluster) with counter-parties needs to be taken.
   - To configure the `etcd` instance used internally, you may use `ETCD_` environment variables. For example, to switch auto-compaction to periodic retention of 7 days:

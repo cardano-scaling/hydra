@@ -243,9 +243,9 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}
     StateChanged.NetworkConnected -> Just NetworkConnected
     StateChanged.NetworkDisconnected -> Just NetworkDisconnected
+    StateChanged.NetworkVersionMismatch{..} -> Just NetworkVersionMismatch{..}
     StateChanged.PeerConnected{..} -> Just PeerConnected{..}
     StateChanged.PeerDisconnected{..} -> Just PeerDisconnected{..}
-    StateChanged.PeerHandshakeFailure{..} -> Just PeerHandshakeFailure{..}
     StateChanged.TransactionReceived{} -> Nothing
     StateChanged.SnapshotRequested{} -> Nothing
     StateChanged.SnapshotRequestDecided{} -> Nothing

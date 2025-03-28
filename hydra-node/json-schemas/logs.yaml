@@ -1932,7 +1932,7 @@ definitions:
                     type: object
                     $ref: "api.yaml#/components/schemas/IP"
                   ourVersion:
-                    $ref: "api.yaml#/components/schemas/MkHydraVersionedProtocolNumber"
+                    $ref: "api.yaml#/components/schemas/ProtocolVersion"
                   theirVersions:
                     $ref: "api.yaml#/components/schemas/KnownHydraVersions"
 

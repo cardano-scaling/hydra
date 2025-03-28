@@ -45,7 +45,7 @@ module Hydra.Node.Network (
 import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
-import Hydra.Network (HydraVersionedProtocolNumber (..), NetworkComponent, NetworkConfiguration (..))
+import Hydra.Network (NetworkComponent, NetworkConfiguration (..), ProtocolVersion (..))
 import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
 import Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
 import Hydra.Network.Message (Message)
@@ -74,8 +74,8 @@ withNetwork tracer conf callback action = do
 
 -- | The latest hydra network protocol version. Used to identify
 -- incompatibilities ahead of time.
-currentNetworkProtocolVersion :: HydraVersionedProtocolNumber
-currentNetworkProtocolVersion = MkHydraVersionedProtocolNumber 1
+currentNetworkProtocolVersion :: ProtocolVersion
+currentNetworkProtocolVersion = ProtocolVersion 1
 
 -- * Tracing
 
