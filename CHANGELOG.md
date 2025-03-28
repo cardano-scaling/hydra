@@ -37,6 +37,10 @@ changes.
 - **BREAKING** Enable multi-party, networked "offline" heads by providing an `--offline-head-seed` option to `hydra-node`.
   - Drop `hydra-node offline` as a sub-command. Use `--offline-head-seed` and `--initial-utxo` options to switch to offline mode.
 
+- Add support for "withdraw zero trick" transactions:
+  - Any transaction with a `Rewarding` redeemer for a `Withdrawal` of `0 lovelace`, will be validated as if there would be a corresponding stake `RewardAccount` already registered.
+  - No need to register the script's stake address before.
+
 - Stream historical data from disk in the hydra-node API server.
 
 - Record used and free memory when running `bench-e2e` benchmark.
