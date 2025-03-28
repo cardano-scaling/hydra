@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE StrictData #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
@@ -153,7 +152,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ List of transactions applied locally and pending inclusion in a snapshot.
   -- Ordering in this list is important as transactions are added in order of
   -- application. Spec: T̂
-  , allTxs :: Map.Map (TxIdType tx) tx
+  , allTxs :: !(Map.Map (TxIdType tx) tx)
   -- ^ Map containing all the transactions ever seen by this node and not yet
   -- included in a snapshot. Spec: Tall
   , confirmedSnapshot :: ConfirmedSnapshot tx
