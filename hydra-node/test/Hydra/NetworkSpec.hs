@@ -144,15 +144,15 @@ spec = do
             let v2 = ProtocolVersion 2
             (recordAlice, _, waitAlice) <- newRecordingCallback
             (recordBob, _, waitBob) <- newRecordingCallback
+            let aliceSees = waitEq waitAlice 5
+                bobSees = waitEq waitBob 5
             withEtcdNetwork @Int tracer v1 aliceConfig recordAlice $ \_ -> do
               withEtcdNetwork @Int tracer v2 bobConfig recordBob $ \_ -> do
                 -- Both will try to write to the cluster at the same time
-                let mismatch = VersionMismatch{ourVersion = v2, theirVersion = Just v1}
-                    bobSeesMismatch = waitEq waitBob 5 mismatch
-                    aliceSeesMismatch = waitEq waitAlice 5 mismatch
                 -- Hence, either one or the other will see the mismatch
-                -- FIXME: this is still flaky, but less so than before
-                race_ bobSeesMismatch aliceSeesMismatch
+                race_
+                  (aliceSees VersionMismatch{ourVersion = v1, theirVersion = Just v2})
+                  (bobSees VersionMismatch{ourVersion = v2, theirVersion = Just v1})
 
       it "resends messages" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
