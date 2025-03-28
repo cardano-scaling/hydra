@@ -193,20 +193,8 @@ data ServerOutput tx
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
 deriving stock instance IsChainState tx => Show (ServerOutput tx)
-
-instance IsChainState tx => ToJSON (ServerOutput tx) where
-  toJSON =
-    genericToJSON
-      defaultOptions
-        { omitNothingFields = True
-        }
-
-instance IsChainState tx => FromJSON (ServerOutput tx) where
-  parseJSON =
-    genericParseJSON
-      defaultOptions
-        { omitNothingFields = True
-        }
+deriving anyclass instance IsChainState tx => FromJSON (ServerOutput tx)
+deriving anyclass instance IsChainState tx => ToJSON (ServerOutput tx)
 
 instance ArbitraryIsTx tx => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary

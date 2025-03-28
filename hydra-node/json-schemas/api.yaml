@@ -963,11 +963,11 @@ components:
           type: string
           enum: ["NetworkVersionMismatch"]
         ourVersion:
-          type: integer
-          minimum: 0
+          $ref: "api.yaml#/components/schemas/ProtocolVersion"
         theirVersion:
-          type: [integer, null]
-          minimum: 0
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/ProtocolVersion"
+            - type: "null"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2826,7 +2826,6 @@ components:
           maximum: 65535
           example: 5000
 
-
     IP:
       type: object
       oneOf:
@@ -2847,34 +2846,7 @@ components:
             ipv6:
               type: string
 
-    MkHydraVersionedProtocolNumber:
-      type: object
-      required:
-      - hydraVersionedProtocolNumber
-      properties:
-        hydraVersionedProtocolNumber:
-          type: integer
-          minimum: 0
-
-    KnownHydraVersions:
-      oneOf:
-        - title: NoKnownHydraVersions
-          required:
-            - tag
-          properties:
-            tag:
-              type: string
-              enum: ["NoKnownHydraVersions"]
-        - title: KnownHydraVersions
-          type: object
-          required:
-          - tag
-          - fromKnownHydraVersions
-          properties:
-            tag:
-              type: string
-              enum: ["KnownHydraVersions"]
-            fromKnownHydraVersions:
-              type: array
-              items:
-                $ref: "api.yaml#/components/schemas/MkHydraVersionedProtocolNumber"
+    ProtocolVersion:
+      description: Hydra network protocol version
+      type: integer
+      minimum: 0
