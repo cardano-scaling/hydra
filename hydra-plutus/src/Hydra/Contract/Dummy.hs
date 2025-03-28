@@ -47,6 +47,7 @@ dummyRewardingScript =
             [||
             \ctx ->
               check $ case unsafeFromBuiltinData ctx of
+                ScriptContext{scriptContextScriptInfo = CertifyingScript{}} -> True
                 ScriptContext{scriptContextScriptInfo = RewardingScript{}} -> True
                 _ -> False
             ||]
