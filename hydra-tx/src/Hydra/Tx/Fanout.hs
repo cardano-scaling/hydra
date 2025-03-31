@@ -91,12 +91,11 @@ observeFanoutTx ::
 observeFanoutTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
-  let txOutputs = utxoFromTx tx
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
       Head.Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs} -> do
         let allOutputs = fromIntegral $ numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
-        let fanoutUTxO = UTxO.fromPairs $ take allOutputs $ UTxO.pairs txOutputs
+        let fanoutUTxO = UTxO.fromPairs $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> take allOutputs (txOuts' tx))
         pure FanoutObservation{headId, fanoutUTxO}
       _ -> Nothing
