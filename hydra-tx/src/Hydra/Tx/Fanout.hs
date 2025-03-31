@@ -3,6 +3,7 @@ module Hydra.Tx.Fanout where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.MintAction (MintAction (..))
@@ -90,9 +91,12 @@ observeFanoutTx ::
 observeFanoutTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
-  pubKeyOutputs <- findPubKeyOutputs (utxoFromTx tx)
+  let txOutputs = utxoFromTx tx
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
-      Head.Fanout{} -> pure FanoutObservation{headId, fanoutUTxO = pubKeyOutputs}
+      Head.Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs} -> do
+        let allOutputs = fromIntegral $ numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
+        let fanoutUTxO = UTxO.fromPairs $ take allOutputs $ UTxO.pairs txOutputs
+        pure FanoutObservation{headId, fanoutUTxO}
       _ -> Nothing
