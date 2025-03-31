@@ -73,7 +73,6 @@ import Hydra.Ledger (
   applyTransactions,
   outputsOfTx,
  )
-import Hydra.Network (HydraVersionedProtocolNumber (..), KnownHydraVersions (..))
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Tx (
@@ -109,24 +108,12 @@ onConnectionEvent = \case
     newState NetworkConnected
   Network.NetworkDisconnected ->
     newState NetworkDisconnected
+  Network.VersionMismatch{ourVersion, theirVersion} ->
+    newState NetworkVersionMismatch{ourVersion, theirVersion}
   Network.PeerConnected{peer} ->
     newState PeerConnected{peer}
   Network.PeerDisconnected{peer} ->
     newState PeerDisconnected{peer}
-  Network.HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
-    newState
-      ( PeerHandshakeFailure
-          { remoteHost
-          , ourVersion = getVersion ourVersion
-          , theirVersions = getKnownVersions theirVersions
-          }
-      )
-   where
-    getVersion MkHydraVersionedProtocolNumber{hydraVersionedProtocolNumber} = hydraVersionedProtocolNumber
-
-    getKnownVersions = \case
-      NoKnownHydraVersions -> []
-      KnownHydraVersions{fromKnownHydraVersions} -> getVersion <$> fromKnownHydraVersions
 
 -- * The Coordinated Head protocol
 
@@ -1414,9 +1401,9 @@ aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
 aggregate st = \case
   NetworkConnected -> st
   NetworkDisconnected -> st
+  NetworkVersionMismatch{} -> st
   PeerConnected{} -> st
   PeerDisconnected{} -> st
-  PeerHandshakeFailure{} -> st
   HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, headSeed, chainState} ->
     Initial
       InitialState
@@ -1750,9 +1737,9 @@ aggregateChainStateHistory :: IsChainState tx => ChainStateHistory tx -> StateCh
 aggregateChainStateHistory history = \case
   NetworkConnected -> history
   NetworkDisconnected -> history
+  NetworkVersionMismatch{} -> history
   PeerConnected{} -> history
   PeerDisconnected{} -> history
-  PeerHandshakeFailure{} -> history
   HeadInitialized{chainState} -> pushNewState chainState history
   CommittedUTxO{chainState} -> pushNewState chainState history
   HeadAborted{chainState} -> pushNewState chainState history

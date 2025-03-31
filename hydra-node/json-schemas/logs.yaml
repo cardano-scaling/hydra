@@ -1916,25 +1916,23 @@ definitions:
                   peer:
                     $ref: "api.yaml#/components/schemas/Host"
 
-              - title: HandshakeFailure
+              - title: VersionMismatch
                 type: object
                 additionalProperties: false
                 required:
                   - tag
-                  - remoteHost
                   - ourVersion
-                  - theirVersions
+                  - theirVersion
                 properties:
                   tag:
                     type: string
-                    enum: ["HandshakeFailure"]
-                  remoteHost:
-                    type: object
-                    $ref: "api.yaml#/components/schemas/IP"
+                    enum: ["VersionMismatch"]
                   ourVersion:
-                    $ref: "api.yaml#/components/schemas/MkHydraVersionedProtocolNumber"
-                  theirVersions:
-                    $ref: "api.yaml#/components/schemas/KnownHydraVersions"
+                    $ref: "api.yaml#/components/schemas/ProtocolVersion"
+                  theirVersion:
+                    oneOf:
+                      - $ref: "api.yaml#/components/schemas/ProtocolVersion"
+                      - type: "null"
 
       - title: ReceivedMessage
         type: object

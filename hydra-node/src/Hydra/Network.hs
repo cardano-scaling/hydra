@@ -9,25 +9,9 @@
 --
 -- Incoming and outgoing messages are modelled as 'Message' data type.
 module Hydra.Network (
-  -- * Types
-  Network (..),
-  NetworkCallback (..),
-  NetworkComponent,
-  NetworkConfiguration (..),
+  module Hydra.Network,
   IP,
-  Host (..),
-  NodeId (..),
-  showHost,
-  readHost,
   PortNumber,
-  readPort,
-  Connectivity (..),
-  HydraVersionedProtocolNumber (..),
-  KnownHydraVersions (..),
-  HydraHandshakeRefused (..),
-
-  -- * Utility functions
-  close,
 ) where
 
 import Hydra.Prelude hiding (show)
@@ -38,7 +22,7 @@ import Data.Text (pack, unpack)
 import Hydra.Cardano.Api (Key (SigningKey))
 import Hydra.Tx (Party)
 import Hydra.Tx.Crypto (HydraKey)
-import Network.Socket (PortNumber, close)
+import Network.Socket (PortNumber)
 import Test.QuickCheck (elements, listOf, suchThat)
 import Test.QuickCheck.Instances.Natural ()
 import Text.Read (Read (readsPrec))
@@ -178,8 +162,6 @@ readHost s =
 
 -- ** Connectivity & versions
 
--- TODO: improve these types
-
 data Connectivity
   = -- | Individual peer appeared alive on network.
     PeerConnected {peer :: Host}
@@ -189,10 +171,9 @@ data Connectivity
     NetworkConnected
   | -- | Disconnected from Hydra network.
     NetworkDisconnected
-  | HandshakeFailure
-      { remoteHost :: Host
-      , ourVersion :: HydraVersionedProtocolNumber
-      , theirVersions :: KnownHydraVersions
+  | VersionMismatch
+      { ourVersion :: ProtocolVersion
+      , theirVersion :: Maybe ProtocolVersion
       }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
@@ -200,25 +181,10 @@ data Connectivity
 instance Arbitrary Connectivity where
   arbitrary = genericArbitrary
 
-newtype HydraVersionedProtocolNumber = MkHydraVersionedProtocolNumber {hydraVersionedProtocolNumber :: Natural}
+newtype ProtocolVersion = ProtocolVersion Natural
   deriving stock (Eq, Show, Generic, Ord)
-  deriving anyclass (ToJSON)
+  deriving newtype (ToCBOR, FromCBOR)
+  deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary HydraVersionedProtocolNumber where
+instance Arbitrary ProtocolVersion where
   arbitrary = genericArbitrary
-
-data KnownHydraVersions
-  = KnownHydraVersions {fromKnownHydraVersions :: [HydraVersionedProtocolNumber]}
-  | NoKnownHydraVersions
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
-
-instance Arbitrary KnownHydraVersions where
-  arbitrary = genericArbitrary
-
-data HydraHandshakeRefused = HydraHandshakeRefused
-  { remoteHost :: Host
-  , ourVersion :: HydraVersionedProtocolNumber
-  , theirVersions :: KnownHydraVersions
-  }
-  deriving stock (Eq, Show, Generic)

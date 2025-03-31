@@ -79,7 +79,7 @@ channels:
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
           - $ref: "api.yaml#/components/messages/NetworkConnected"
           - $ref: "api.yaml#/components/messages/NetworkDisconnected"
-          - $ref: "api.yaml#/components/messages/PeerHandshakeFailure"
+          - $ref: "api.yaml#/components/messages/NetworkVersionMismatch"
           - $ref: "api.yaml#/components/messages/HeadIsInitializing"
           - $ref: "api.yaml#/components/messages/Committed"
           - $ref: "api.yaml#/components/messages/HeadIsOpen"
@@ -365,68 +365,37 @@ channels:
           bindingVersion: '0.1.0'
 components:
   messages:
-    ########
-    #
+
     # Client Inputs
-    #
-    #######
 
     Init:
       title: Init
       description: |
         Initializes a new Head. This command is a no-op when a Head is already open and the server will output an `CommandFailed` message should this happen.
       payload:
-        type: object
-        required:
-          - tag
-        properties:
-          tag:
-            type: string
-            enum: ["Init"]
+        $ref: "api.yaml#/components/schemas/Init"
 
     Abort:
       title: Abort
       description: |
         Aborts a head before it is opened. This can only be done before all participants have committed. Once opened, the head can't be aborted anymore but it can be closed using: `Close`.
       payload:
-        type: object
-        required:
-          - tag
-        properties:
-          tag:
-            type: string
-            enum: ["Abort"]
+        $ref: "api.yaml#/components/schemas/Abort"
 
     NewTx:
       title: NewTx
       description: |
         Submit a transaction through the head. Note that the transaction is only broadcast if well-formed and valid.
       payload:
-        type: object
-        required:
-          - tag
-          - transaction
-        properties:
-          tag:
-            type: string
-            enum: ["NewTx"]
-          transaction:
-            $ref: "api.yaml#/components/schemas/Transaction"
+        $ref: "api.yaml#/components/schemas/NewTx"
+
     Recover:
       title: Recover
       description: |
         Request a recover of deposited UTxO by providing a recover transaction for posting.
       payload:
-        type: object
-        required:
-          - tag
-          - recoverTxId
-        properties:
-          tag:
-            type: string
-            enum: ["Recover"]
-          recoverTxId:
-            type: string
+        $ref: "api.yaml#/components/schemas/Recover"
+
     Decommit:
       title: Decommit
       description: |
@@ -434,55 +403,28 @@ components:
         will eventually result in corresponding transaction outputs becoming
         available on the layer 1.
       payload:
-        type: object
-        required:
-          - tag
-          - decommitTx
-        properties:
-          tag:
-            type: string
-            enum: ["Decommit"]
-          decommitTx:
-            type: object
-            $ref: "api.yaml#/components/schemas/Transaction"
+        $ref: "api.yaml#/components/schemas/Decommit"
+
     Close:
       title: Close
       description: |
         Terminate a head with the latest known snapshot. This effectively moves the head from the Open state to the Close state where the contestation phase begin. As a result of closing a head, no more transactions can be submitted via NewTx.
       payload:
-        type: object
-        required:
-          - tag
-        properties:
-          tag:
-            type: string
-            enum: ["Close"]
+        $ref: "api.yaml#/components/schemas/Close"
 
     Contest:
       title: Contest
       description: |
         Challenge the latest snapshot announced as a result of a head closure from another participant. Note that this necessarily contest with the latest snapshot known of your local Hydra node. Participants can only contest once.
       payload:
-        type: object
-        required:
-          - tag
-        properties:
-          tag:
-            type: string
-            enum: ["Contest"]
+        $ref: "api.yaml#/components/schemas/Contest"
 
     Fanout:
       title: Fanout
       description: |
         Finalize a head after the contestation period passed. This will distribute the final (as closed and maybe contested) head state back on the layer 1.
       payload:
-        type: object
-        required:
-          - tag
-        properties:
-          tag:
-            type: string
-            enum: ["Fanout"]
+        $ref: "api.yaml#/components/schemas/Fanout"
 
     SideLoadSnapshot:
       title: SideLoadSnapshot
@@ -499,11 +441,7 @@ components:
             type: string
             enum: ["SideLoadSnapshot"]
 
-    ########
-    #
-    # Messages received on websocket
-    #
-    #######
+    # Server outputs
 
     Greetings:
       title: Greetings
@@ -541,12 +479,12 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/PeerDisconnected"
 
-    PeerHandshakeFailure:
-      title: PeerHandshakeFailure
+    NetworkVersionMismatch:
+      title: NetworkVersionMismatch
       description: |
-        A peer has failed to negotiate a protocol.
+        The version of our network stack is not consistent with other nodes on the network.
       payload:
-        $ref: "api.yaml#/components/schemas/PeerHandshakeFailure"
+        $ref: "api.yaml#/components/schemas/NetworkVersionMismatch"
 
     HeadIsInitializing:
       title: HeadIsInitializing
@@ -731,7 +669,7 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
 
-    # END OF SERVER OUTPUT MESSAGES
+    # Other messages
 
     DraftCommitTxRequest:
       title: DraftCommitTxRequest
@@ -768,17 +706,57 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
 
-  ########
-  #
-  # Schemas
-  #
-  #######
-
   schemas:
+    ClientInput:
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/Init"
+        - $ref: "api.yaml#/components/schemas/Abort"
+        - $ref: "api.yaml#/components/schemas/NewTx"
+        - $ref: "api.yaml#/components/schemas/Recover"
+        - $ref: "api.yaml#/components/schemas/Decommit"
+        - $ref: "api.yaml#/components/schemas/Close"
+        - $ref: "api.yaml#/components/schemas/Contest"
+        - $ref: "api.yaml#/components/schemas/Fanout"
+        - $ref: "api.yaml#/components/schemas/SideLoadSnapshot"
+
+    ServerOutput:
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/NetworkConnected"
+        - $ref: "api.yaml#/components/schemas/NetworkDisconnected"
+        - $ref: "api.yaml#/components/schemas/NetworkVersionMismatch"
+        - $ref: "api.yaml#/components/schemas/PeerConnected"
+        - $ref: "api.yaml#/components/schemas/PeerDisconnected"
+        - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
+        - $ref: "api.yaml#/components/schemas/Committed"
+        - $ref: "api.yaml#/components/schemas/HeadIsOpen"
+        - $ref: "api.yaml#/components/schemas/HeadIsClosed"
+        - $ref: "api.yaml#/components/schemas/HeadIsContested"
+        - $ref: "api.yaml#/components/schemas/ReadyToFanout"
+        - $ref: "api.yaml#/components/schemas/HeadIsAborted"
+        - $ref: "api.yaml#/components/schemas/HeadIsFinalized"
+        - $ref: "api.yaml#/components/schemas/TxValid"
+        - $ref: "api.yaml#/components/schemas/TxInvalid"
+        - $ref: "api.yaml#/components/schemas/SnapshotConfirmed"
+        - $ref: "api.yaml#/components/schemas/InvalidInput"
+        - $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
+        - $ref: "api.yaml#/components/schemas/DecommitInvalid"
+        - $ref: "api.yaml#/components/schemas/DecommitRequested"
+        - $ref: "api.yaml#/components/schemas/DecommitApproved"
+        - $ref: "api.yaml#/components/schemas/DecommitFinalized"
+        - $ref: "api.yaml#/components/schemas/CommitRecorded"
+        - $ref: "api.yaml#/components/schemas/CommitApproved"
+        - $ref: "api.yaml#/components/schemas/CommitFinalized"
+        - $ref: "api.yaml#/components/schemas/CommitRecovered"
+        - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
+
+    ClientMessage:
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
+        - $ref: "api.yaml#/components/schemas/CommandFailed"
+
     Greetings:
       type: object
       required:
-        - tag
         - me
         - headStatus
         - hydraNodeVersion
@@ -798,6 +776,113 @@ components:
           $ref: "api.yaml#/components/schemas/UTCTime"
         hydraNodeVersion:
           $ref: "api.yaml#/components/schemas/HydraNodeVersion"
+
+    # Client inputs
+
+    Init:
+      title: Init
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Init"]
+
+    Abort:
+      title: Abort
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Abort"]
+
+    NewTx:
+      title: NewTx
+      type: object
+      required:
+        - tag
+        - transaction
+      properties:
+        tag:
+          type: string
+          enum: ["NewTx"]
+        transaction:
+          $ref: "api.yaml#/components/schemas/Transaction"
+
+    Recover:
+      title: Recover
+      type: object
+      required:
+        - tag
+        - recoverTxId
+      properties:
+        tag:
+          type: string
+          enum: ["Recover"]
+        recoverTxId:
+          type: string
+
+    Decommit:
+      title: Decommit
+      type: object
+      required:
+        - tag
+        - decommitTx
+      properties:
+        tag:
+          type: string
+          enum: ["Decommit"]
+        decommitTx:
+          type: object
+          $ref: "api.yaml#/components/schemas/Transaction"
+
+    Close:
+      title: Close
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Close"]
+
+    Contest:
+      title: Contest
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Contest"]
+
+    Fanout:
+      title: Fanout
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Fanout"]
+
+    SideLoadSnapshot:
+      title: SideLoadSnapshot
+      type: object
+      required:
+        - tag
+        - snapshot
+      properties:
+        tag:
+          type: string
+          enum: ["SideLoadSnapshot"]
+        snapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+
+    # Server outputs
 
     NetworkConnected:
       type: object
@@ -865,30 +950,24 @@ components:
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
-    # TODO: Update to indicate network-level incompatibility
-    PeerHandshakeFailure:
+    NetworkVersionMismatch:
       type: object
       required:
         - tag
-        - remoteHost
         - ourVersion
-        - theirVersions
+        - theirVersion
         - seq
         - timestamp
       properties:
         tag:
           type: string
-          enum: ["PeerHandshakeFailure"]
-        remoteHost:
-          type: object
-          $ref: "api.yaml#/components/schemas/Host"
+          enum: ["NetworkVersionMismatch"]
         ourVersion:
-          type: integer
-          minimum: 0
-        theirVersions:
-          type: array
-          items:
-            type: integer
+          $ref: "api.yaml#/components/schemas/ProtocolVersion"
+        theirVersion:
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/ProtocolVersion"
+            - type: "null"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1384,6 +1463,7 @@ components:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
+
     CommitRecorded:
       title: CommitRecorded
       description: |
@@ -1414,6 +1494,7 @@ components:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
+
     CommitFinalized:
       title: CommitFinalized
       description: |
@@ -2745,7 +2826,6 @@ components:
           maximum: 65535
           example: 5000
 
-
     IP:
       type: object
       oneOf:
@@ -2766,34 +2846,7 @@ components:
             ipv6:
               type: string
 
-    MkHydraVersionedProtocolNumber:
-      type: object
-      required:
-      - hydraVersionedProtocolNumber
-      properties:
-        hydraVersionedProtocolNumber:
-          type: integer
-          minimum: 0
-
-    KnownHydraVersions:
-      oneOf:
-        - title: NoKnownHydraVersions
-          required:
-            - tag
-          properties:
-            tag:
-              type: string
-              enum: ["NoKnownHydraVersions"]
-        - title: KnownHydraVersions
-          type: object
-          required:
-          - tag
-          - fromKnownHydraVersions
-          properties:
-            tag:
-              type: string
-              enum: ["KnownHydraVersions"]
-            fromKnownHydraVersions:
-              type: array
-              items:
-                $ref: "api.yaml#/components/schemas/MkHydraVersionedProtocolNumber"
+    ProtocolVersion:
+      description: Hydra network protocol version
+      type: integer
+      minimum: 0
