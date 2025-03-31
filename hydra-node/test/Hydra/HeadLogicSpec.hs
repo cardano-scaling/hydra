@@ -18,7 +18,6 @@ import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import GHC.Natural (naturalToInteger)
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
@@ -726,10 +725,9 @@ spec =
         update bobEnv ledger (inClosedState threeParties) collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
-      prop "fanout utxo always relies on observed utxo" $ \i ->
+      prop "fanout utxo always relies on observed utxo" $ \fanoutUTxO ->
         forAllShrink genClosedState shrink $ \closedState -> do
-          let fanoutUTxO = utxoRef $ naturalToInteger i
-              fanoutHead = observeTx $ OnFanoutTx{headId = testHeadId, fanoutUTxO}
+          let fanoutHead = observeTx $ OnFanoutTx{headId = testHeadId, fanoutUTxO}
           let outcome = update bobEnv ledger closedState fanoutHead
           counterexample ("Outcome: " <> show outcome) $
             outcome `hasStateChangedSatisfying` \case

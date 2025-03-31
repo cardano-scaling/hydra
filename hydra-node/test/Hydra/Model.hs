@@ -539,8 +539,11 @@ instance
       Fanout{} ->
         case hydraState st of
           Final{finalUTxO} -> do
-            let allOutputs = Data.Foldable.toList result
-            pure $ all (`elem` allOutputs) (toTxOuts finalUTxO)
+            -- NOTE: Sort `[TxOut]` by the address and values. We want to make
+            -- sure that the fanout outputs match what we had in the open Head
+            -- exactly.
+            let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
+            sorted (toTxOuts finalUTxO) === sorted (Data.Foldable.toList result)
           _ -> pure False
       _ -> pure True
 

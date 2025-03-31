@@ -1147,7 +1147,7 @@ toOnChainTx now = \case
       , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
-    OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit `withoutUTxO` fromMaybe mempty utxoToDecommit}
+    OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
 
 testContestationPeriod :: ContestationPeriod
 testContestationPeriod = UnsafeContestationPeriod 10
