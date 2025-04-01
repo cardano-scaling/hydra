@@ -46,10 +46,10 @@ main = do
         (_, sk) <- readKeyPair cardanoSigningKey
         txIds <- publishHydraScripts networkId nodeSocket sk
         putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
-    Blockfrost BlockfrostChainConfig{bfProjectPath, bfCardanoSigningKey} ->
+    Blockfrost BlockfrostChainConfig{blockFrostProjectPath, blockFrostCardanoSigningKey} ->
       do
-        (_, sk) <- readKeyPair bfCardanoSigningKey
-        txIds <- Blockfrost.publishHydraScripts bfProjectPath sk
+        (_, sk) <- readKeyPair blockFrostCardanoSigningKey
+        txIds <- Blockfrost.publishHydraScripts blockFrostProjectPath sk
         putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Handle SIGTERM like SIGINT

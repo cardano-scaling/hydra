@@ -91,23 +91,16 @@ initEnvironment options = do
           ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
           otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
-      Blockfrost
-        BlockfrostChainConfig
-          { bfCardanoVerificationKeys
-          , bfCardanoSigningKey
-          } -> do
-          ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) bfCardanoSigningKey
-          otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) bfCardanoVerificationKeys
-          pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
+      Blockfrost BlockfrostChainConfig{} -> pure []
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
     Direct DirectChainConfig{contestationPeriod = cp} -> cp
-    Blockfrost BlockfrostChainConfig{bfContestationPeriod = cp} -> cp
+    Blockfrost BlockfrostChainConfig{} -> defaultContestationPeriod
   depositDeadline = case chainConfig of
     Offline{} -> defaultDepositDeadline
     Direct DirectChainConfig{depositDeadline = ddeadline} -> ddeadline
-    Blockfrost BlockfrostChainConfig{bfDepositDeadline = ddeadline} -> ddeadline
+    Blockfrost BlockfrostChainConfig{} -> defaultDepositDeadline
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p

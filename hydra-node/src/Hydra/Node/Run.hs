@@ -156,8 +156,8 @@ getGlobalsForChain = \case
   Direct DirectChainConfig{networkId, nodeSocket} ->
     queryGenesisParameters networkId nodeSocket QueryTip
       >>= newGlobals
-  Blockfrost BlockfrostChainConfig{bfProjectPath} -> do
-    prj <- projectFromFile bfProjectPath
+  Blockfrost BlockfrostChainConfig{blockFrostProjectPath} -> do
+    prj <- projectFromFile blockFrostProjectPath
     genesis <- runBlockfrostM prj getLedgerGenesis
     newGlobals $ toCardanoGenesisParameters genesis
 

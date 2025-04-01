@@ -13,6 +13,7 @@ import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
+  BlockfrostChainConfig (blockFrostProjectPath),
   ChainConfig (..),
   Command (..),
   DirectChainConfig (..),
@@ -23,6 +24,8 @@ import Hydra.Options (
   ParserResult (..),
   PublishOptions (..),
   RunOptions (..),
+  blockFrostCardanoSigningKey,
+  defaultBlockfrostChainConfig,
   defaultDirectChainConfig,
   defaultLedgerConfig,
   defaultRunOptions,
@@ -249,6 +252,27 @@ spec = parallel $
                 Direct
                   defaultDirectChainConfig
                     { cardanoSigningKey = "./alice-cardano.sk"
+                    }
+            }
+
+    it "parses --blockfrost-project-path option as a filepath" $
+      ["--blockfrost-project-path", "./blockfrost-path.txt"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                Blockfrost
+                  defaultBlockfrostChainConfig
+                    { blockFrostProjectPath = "./blockfrost-path.txt"
+                    }
+            }
+    it "parses --blockfrost-cardano-signing-key option as a filepath" $
+      ["--blockfrost-cardano-signing-key", "./alice-cardano.sk"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                Blockfrost
+                  defaultBlockfrostChainConfig
+                    { blockFrostCardanoSigningKey = "./alice-cardano.sk"
                     }
             }
 
