@@ -436,6 +436,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             )
             ""
         let hydraScriptsTxId = fromString <$> splitWhen (== ',') (filter (/= '\n') hydraScriptsTxIdStr)
+        threadDelay 1
         failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
   it "can only contest once" $ \tracer -> do

@@ -39,10 +39,8 @@ import Data.Default (def)
 import Data.SOP.NonEmpty (NonEmpty (..))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
-import Hydra.Chain.ScriptRegistry (buildScriptPublishingTx)
-import Hydra.Contract.Head qualified as Head
-import Hydra.Ledger.Cardano (adjustUTxO)
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import Hydra.Chain.ScriptRegistry (buildScriptPublishingTxs)
+import Hydra.Tx (txId)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
@@ -88,18 +86,12 @@ publishHydraScripts projectPath sk = do
     let eraHistory = mkEraHistory genesis
     utxo <- Blockfrost.getAddressUtxos address
     let cardanoUTxO = toCardanoUTxO utxo changeAddress
-    flip evalStateT cardanoUTxO $
-      forM scripts $ \script -> do
-        nextUTxO <- get
-        (tx, body, spentUTxO) <- liftIO $ buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script nextUTxO
-        _ <- lift $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR tx
-        put $ pickKeyAddressUTxO $ adjustUTxO tx spentUTxO
-        pure $ getTxId body
+
+    let txs = buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools cardanoUTxO sk
+    forM txs $ \(tx :: Tx) -> do
+      void $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR tx
+      pure $ txId tx
  where
-  pickKeyAddressUTxO utxo = maybe mempty UTxO.singleton $ UTxO.findBy (\(_, txOut) -> isKeyAddress (txOutAddress txOut)) utxo
-
-  scripts = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
-
   vk = getVerificationKey sk
 
   vkAddress networkMagic = textAddrOf (toCardanoNetworkMagic networkMagic) vk
@@ -127,7 +119,7 @@ toCardanoTxIn :: Blockfrost.AddressUtxo -> TxIn
 toCardanoTxIn Blockfrost.AddressUtxo{_addressUtxoTxHash = Blockfrost.TxHash{unTxHash}, _addressUtxoOutputIndex} =
   case deserialiseFromRawBytesHex AsTxId (encodeUtf8 unTxHash) of
     Left err -> error (show err)
-    Right txId -> TxIn txId (TxIx (fromIntegral _addressUtxoOutputIndex))
+    Right txid -> TxIn txid (TxIx (fromIntegral _addressUtxoOutputIndex))
 
 -- REVIEW! TxOutDatumNone and ReferenceScriptNone
 toCardanoTxOut :: Blockfrost.AddressUtxo -> AddressInEra -> TxOut CtxUTxO

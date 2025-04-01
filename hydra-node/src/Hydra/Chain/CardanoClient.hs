@@ -76,22 +76,21 @@ buildTransactionWithBody ::
   TxBodyContent BuildTx ->
   -- | Unspent transaction outputs to spend.
   UTxO ->
-  IO (Either (TxBodyErrorAutoBalance Era) Tx)
+  Either (TxBodyErrorAutoBalance Era) Tx
 buildTransactionWithBody pparams systemStart eraHistory stakePools changeAddress body utxoToSpend = do
-  pure $
-    second (flip Tx [] . balancedTxBody) $
-      makeTransactionBodyAutoBalance
-        shelleyBasedEra
-        systemStart
-        (toLedgerEpochInfo eraHistory)
-        (LedgerProtocolParameters pparams)
-        stakePools
-        mempty
-        mempty
-        (UTxO.toApi utxoToSpend)
-        body
-        changeAddress
-        Nothing
+  second (flip Tx [] . balancedTxBody) $
+    makeTransactionBodyAutoBalance
+      shelleyBasedEra
+      systemStart
+      (toLedgerEpochInfo eraHistory)
+      (LedgerProtocolParameters pparams)
+      stakePools
+      mempty
+      mempty
+      (UTxO.toApi utxoToSpend)
+      body
+      changeAddress
+      Nothing
 
 buildTransaction ::
   -- | Current network identifier
@@ -136,7 +135,7 @@ buildTransactionWithPParams pparams networkId socket changeAddress utxoToSpend c
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
-  buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs
+  pure $ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs
 
 buildTransactionWithPParams' ::
   -- | Protocol parameters
@@ -152,7 +151,7 @@ buildTransactionWithPParams' ::
   [TxIn] ->
   -- | Outputs to create.
   [TxOut CtxTx] ->
-  IO (Either (TxBodyErrorAutoBalance Era) Tx)
+  Either (TxBodyErrorAutoBalance Era) Tx
 buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs = do
   buildTransactionWithBody pparams systemStart eraHistory stakePools changeAddress bodyContent utxoToSpend
  where

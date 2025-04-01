@@ -387,13 +387,6 @@ defaultDirectChainConfig =
     , depositDeadline = defaultDepositDeadline
     }
 
-defaultDirectChainBackend :: ChainBackend
-defaultDirectChainBackend =
-  DirectBackend
-    { networkId = defaultDirectChainConfig.networkId
-    , nodeSocket = defaultDirectChainConfig.nodeSocket
-    }
-
 instance Arbitrary ChainConfig where
   arbitrary =
     oneof
@@ -736,10 +729,9 @@ hydraScriptsTxIdsParser =
     ( long "hydra-scripts-tx-id"
         <> metavar "TXID"
         <> help
-          "The transaction which is expected to have published Hydra scripts as \
-          \reference scripts in its outputs. Note: All scripts need to be in the \
-          \first 10 outputs. See release notes for pre-published versions. You \
-          \can use the 'publish-scripts' sub-command to publish them yourself."
+          "The transactions which are expected to have published Hydra scripts as \
+          \reference scripts in their outputs. You can use the 'publish-scripts' \
+          \sub-command to publish scripts yourself."
     )
  where
   parseFromHex = mapM (deserialiseFromRawBytesHex AsTxId)

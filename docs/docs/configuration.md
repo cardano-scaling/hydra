@@ -130,8 +130,8 @@ You can also use blockfrost for script publishing. On top of providing cardano s
 
 ```shell
 hydra-node publish-scripts \
-  --blockfrost-project-path /path/to/node.socket \
-  --blockfrost-cardano-signing-key cardano.sk
+  --blockfrost /path/to/node.socket \
+  --cardano-signing-key cardano.sk
 ```
 
 ### Ledger parameters

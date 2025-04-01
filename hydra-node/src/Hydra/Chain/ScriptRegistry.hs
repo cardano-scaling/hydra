@@ -24,6 +24,7 @@ import Hydra.Cardano.Api (
   TxId,
   TxIn (..),
   TxIx (..),
+  UTxO,
   WitCtx (..),
   examplePlutusScriptAlwaysFails,
   getTxBody,
@@ -36,7 +37,6 @@ import Hydra.Cardano.Api (
   mkTxOutAutoBalance,
   mkVkAddress,
   selectLovelace,
-  throwErrorAsException,
   txOutAddress,
   txOutValue,
   pattern TxOutDatumNone,
@@ -63,14 +63,9 @@ import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 -- This is implemented by repeated querying until we have all necessary
 -- reference scripts as we do only know the transaction id, not the indices.
 --
--- NOTE: This is limited to an upper bound of 10 to not query too much before
--- providing an error.
---
--- NOTE: If this should change, make sure to update the command line help.
---
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
-  (MonadIO m, MonadThrow m, MonadDelay m) =>
+  (MonadIO m, MonadThrow m) =>
   -- | cardano-node's network identifier.
   -- A combination of network discriminant + magic number.
   NetworkId ->
@@ -78,14 +73,13 @@ queryScriptRegistry ::
   SocketPath ->
   [TxId] ->
   m ScriptRegistry
-queryScriptRegistry networkId socketPath txIds = go 10
+queryScriptRegistry networkId socketPath txIds = do
+  utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates
+  case newScriptRegistry utxo of
+    Left e -> throwIO e
+    Right sr -> pure sr
  where
-  go n = do
-    utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates
-    case newScriptRegistry utxo of
-      Left e -> if n == (0 :: Integer) then throwIO e else threadDelay 1 >> go (n - 1)
-      Right sr -> pure sr
-  candidates = concatMap (\txId -> [TxIn txId ix | ix <- [TxIx 0 .. TxIx 10]]) txIds -- Arbitrary but, high-enough.
+  candidates = map (\txid -> TxIn txid (TxIx 0)) txIds
 
 publishHydraScripts ::
   -- | Expected network discriminant.
@@ -96,22 +90,51 @@ publishHydraScripts ::
   SigningKey PaymentKey ->
   IO [TxId]
 publishHydraScripts networkId socketPath sk = do
+  txs <- publishHydraScripts' networkId socketPath sk
+  pure $ getTxId . getTxBody <$> txs
+
+publishHydraScripts' ::
+  -- | Expected network discriminant.
+  NetworkId ->
+  -- | Path to the cardano-node's domain socket
+  SocketPath ->
+  -- | Keys assumed to hold funds to pay for the publishing transaction.
+  SigningKey PaymentKey ->
+  IO [Tx]
+publishHydraScripts' networkId socketPath sk = do
   pparams <- queryProtocolParameters networkId socketPath QueryTip
   systemStart <- querySystemStart networkId socketPath QueryTip
   eraHistory <- queryEraHistory networkId socketPath QueryTip
   stakePools <- queryStakePools networkId socketPath QueryTip
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
-  flip evalStateT utxo $
+  let txs = buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
+  forM txs $ \tx -> do
+    submitTransaction networkId socketPath tx
+    pure tx
+ where
+  vk = getVerificationKey sk
+
+buildScriptPublishingTxs ::
+  PParams LedgerEra ->
+  SystemStart ->
+  NetworkId ->
+  EraHistory ->
+  Set PoolId ->
+  UTxO ->
+  SigningKey PaymentKey ->
+  [Tx]
+buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools startUTxO sk =
+  flip evalState (startUTxO, mempty) $
     forM scripts $ \script -> do
-      nextUTxO <- get
-      (tx, body, spentUTxO) <- liftIO $ buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script nextUTxO
-      _ <- lift $ submitTransaction networkId socketPath tx
-      put $ pickKeyAddressUTxO $ adjustUTxO tx spentUTxO
-      pure $ getTxId body
+      (nextUTxO, _) <- get
+      let (tx, _, spentUTxO) = buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script nextUTxO
+      modify' (\(_, existingTxs) -> (pickKeyAddressUTxO $ adjustUTxO tx spentUTxO, tx : existingTxs))
+      pure tx
  where
   pickKeyAddressUTxO utxo = maybe mempty UTxO.singleton $ UTxO.findBy (\(_, txOut) -> isKeyAddress (txOutAddress txOut)) utxo
 
   scripts = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
+
   vk = getVerificationKey sk
 
   changeAddress = mkVkAddress networkId vk
@@ -126,19 +149,18 @@ buildScriptPublishingTx ::
   SigningKey PaymentKey ->
   PlutusScript ->
   UTxO.UTxO ->
-  IO (Tx, TxBody, UTxO.UTxO)
-buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script utxo = do
+  (Tx, TxBody, UTxO.UTxO)
+buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script utxo =
   let output = mkScriptTxOut <$> [mkScriptRef script]
       totalDeposit = sum (selectLovelace . txOutValue <$> output)
       utxoToSpend =
         maybe mempty UTxO.singleton $
           UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
-  buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend [] output
-    >>= \case
-      Left e -> throwErrorAsException e
-      Right rawTx -> do
-        let body = getTxBody rawTx
-        pure (makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body, body, utxoToSpend)
+   in case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend [] output of
+        Left e -> error $ show e
+        Right rawTx -> do
+          let body = getTxBody rawTx
+          (makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body, body, utxoToSpend)
  where
   mkScriptTxOut =
     mkTxOutAutoBalance
