@@ -70,7 +70,7 @@ import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 --
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
-  (MonadIO m, MonadThrow m) =>
+  (MonadIO m, MonadThrow m, MonadDelay m) =>
   -- | cardano-node's network identifier.
   -- A combination of network discriminant + magic number.
   NetworkId ->
@@ -78,12 +78,13 @@ queryScriptRegistry ::
   SocketPath ->
   [TxId] ->
   m ScriptRegistry
-queryScriptRegistry networkId socketPath txIds = do
-  utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates
-  case newScriptRegistry utxo of
-    Left e -> throwIO e
-    Right sr -> pure sr
+queryScriptRegistry networkId socketPath txIds = go 10
  where
+  go n = do
+    utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates
+    case newScriptRegistry utxo of
+      Left e -> if n == (0 :: Integer) then throwIO e else threadDelay 1 >> go (n - 1)
+      Right sr -> pure sr
   candidates = concatMap (\txId -> [TxIn txId ix | ix <- [TxIx 0 .. TxIx 10]]) txIds -- Arbitrary but, high-enough.
 
 publishHydraScripts ::
