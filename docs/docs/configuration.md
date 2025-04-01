@@ -119,6 +119,21 @@ hydra-node publish-scripts \
 
 This command outputs a transaction ID upon success. The provided key should hold sufficient funds (> 50 ada) to create multiple **UNSPENDABLE** UTXO entries on-chain, each carrying a script referenced by the Hydra node.
 
+```shell
+hydra-node publish-scripts \
+  --testnet-magic 42 \
+  --node-socket /path/to/node.socket \
+  --cardano-signing-key cardano.sk
+```
+
+You can also use blockfrost for script publishing. On top of providing cardano signing key you need to provide a path to the file containing the blockfrost (project id)[https://blockfrost.dev/overview/getting-started#creating-first-project].
+
+```shell
+hydra-node publish-scripts \
+  --blockfrost-project-path /path/to/node.socket \
+  --blockfrost-cardano-signing-key cardano.sk
+```
+
 ### Ledger parameters
 
 The ledger is at the core of a Hydra head. Hydra is currently integrated with Cardano and assumes a ledger configuration similar to layer 1. This translates as a command-line option `--ledger-protocol-parameters`. This defines the updatable protocol parameters such as fees or transaction sizes. These parameters follow the same format as the `cardano-cli query protocol-parameters` output.
