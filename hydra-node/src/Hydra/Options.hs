@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Options (
@@ -133,14 +134,25 @@ commandParser =
           (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
       )
 
-newtype PublishOptions = PublishOptions
-  { publishChainConfig :: ChainConfig
+data PublishOptions = PublishOptions
+  { chainBackend :: ChainBackend
+  , cardanoSigningKey :: FilePath
   }
+  deriving stock (Show, Eq)
+
+data ChainBackend
+  = DirectBackend
+      { networkId :: NetworkId
+      , nodeSocket :: SocketPath
+      }
+  | BlockfrostBackend
+      { projectPath :: FilePath
+      }
   deriving stock (Show, Eq)
 
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
-  PublishOptions <$> chainConfigParser
+  PublishOptions <$> chainBackendParser <*> cardanoSigningKeyFileParser
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -252,7 +264,18 @@ chainConfigParser :: Parser ChainConfig
 chainConfigParser =
   Direct <$> directChainConfigParser
     <|> Offline <$> offlineChainConfigParser
-    <|> Blockfrost <$> blockfrostChainConfigParser
+
+chainBackendParser :: Parser ChainBackend
+chainBackendParser = directBackendParser <|> blockfrostBackendParser
+ where
+  directBackendParser =
+    DirectBackend
+      <$> networkIdParser
+      <*> nodeSocketParser
+
+  blockfrostBackendParser =
+    BlockfrostBackend
+      <$> blockfrostProjectPathParser
 
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
@@ -305,14 +328,12 @@ cardanoLedgerProtocolParametersParser =
 data ChainConfig
   = Offline OfflineChainConfig
   | Direct DirectChainConfig
-  | Blockfrost BlockfrostChainConfig
   deriving stock (Eq, Show, Generic)
 
 instance ToJSON ChainConfig where
   toJSON = \case
     Offline cfg -> toJSON cfg & atKey "tag" ?~ String "OfflineChainConfig"
     Direct cfg -> toJSON cfg & atKey "tag" ?~ String "DirectChainConfig"
-    Blockfrost cfg -> toJSON cfg & atKey "tag" ?~ String "BlockfrostChainConfig"
 
 instance FromJSON ChainConfig where
   parseJSON =
@@ -353,13 +374,6 @@ data DirectChainConfig = DirectChainConfig
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-data BlockfrostChainConfig = BlockfrostChainConfig
-  { blockFrostProjectPath :: FilePath
-  , blockFrostCardanoSigningKey :: FilePath
-  }
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
-
 defaultDirectChainConfig :: DirectChainConfig
 defaultDirectChainConfig =
   DirectChainConfig
@@ -373,11 +387,11 @@ defaultDirectChainConfig =
     , depositDeadline = defaultDepositDeadline
     }
 
-defaultBlockfrostChainConfig :: BlockfrostChainConfig
-defaultBlockfrostChainConfig =
-  BlockfrostChainConfig
-    { blockFrostProjectPath = "blockfrost.txt"
-    , blockFrostCardanoSigningKey = "cardano.sk"
+defaultDirectChainBackend :: ChainBackend
+defaultDirectChainBackend =
+  DirectBackend
+    { networkId = defaultDirectChainConfig.networkId
+    , nodeSocket = defaultDirectChainConfig.nodeSocket
     }
 
 instance Arbitrary ChainConfig where
@@ -469,19 +483,13 @@ directChainConfigParser =
     <*> contestationPeriodParser
     <*> depositDeadlineParser
 
-blockfrostChainConfigParser :: Parser BlockfrostChainConfig
-blockfrostChainConfigParser =
-  BlockfrostChainConfig
-    <$> blockfrostProjectPathParser
-    <*> blockFrostCardanoSigningKeyFileParser
-
 blockfrostProjectPathParser :: Parser FilePath
 blockfrostProjectPathParser =
   strOption
-    ( long "blockfrost-project-path"
+    ( long "blockfrost"
         <> metavar "FILE"
         <> showDefault
-        <> value (blockFrostProjectPath defaultBlockfrostChainConfig)
+        <> value "blockfrost.txt"
         <> help
           "Blockfrost project path containing the api key."
     )
@@ -518,7 +526,7 @@ nodeSocketParser =
   strOption
     ( long "node-socket"
         <> metavar "FILE"
-        <> value (nodeSocket defaultDirectChainConfig)
+        <> value defaultDirectChainConfig.nodeSocket
         <> showDefault
         <> help
           "Filepath to local unix domain socket used to communicate with \
@@ -531,22 +539,9 @@ cardanoSigningKeyFileParser =
     ( long "cardano-signing-key"
         <> metavar "FILE"
         <> showDefault
-        <> value (cardanoSigningKey defaultDirectChainConfig)
+        <> value defaultDirectChainConfig.cardanoSigningKey
         <> help
           "Cardano signing key of our hydra-node. This will be used to authorize \
-          \Hydra protocol transactions for heads the node takes part in and any \
-          \funds owned by this key will be used as 'fuel'."
-    )
-
-blockFrostCardanoSigningKeyFileParser :: Parser FilePath
-blockFrostCardanoSigningKeyFileParser =
-  strOption
-    ( long "blockfrost-cardano-signing-key"
-        <> metavar "FILE"
-        <> showDefault
-        <> value (blockFrostCardanoSigningKey defaultBlockfrostChainConfig)
-        <> help
-          "Cardano signing key to use when publishing hydra-scripts. This will be used to authorize \
           \Hydra protocol transactions for heads the node takes part in and any \
           \funds owned by this key will be used as 'fuel'."
     )
@@ -870,7 +865,6 @@ validateRunOptions RunOptions{hydraVerificationKeys, chainConfig} =
       | length cardanoVerificationKeys /= length hydraVerificationKeys ->
           Left CardanoAndHydraKeysMissmatch
       | otherwise -> Right ()
-    Blockfrost{} -> Right ()
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraCommand :: IO Command
@@ -967,13 +961,6 @@ toArgs
             <> ["--deposit-deadline", show depositDeadline]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
-      Blockfrost
-        BlockfrostChainConfig
-          { blockFrostProjectPath
-          , blockFrostCardanoSigningKey
-          } ->
-          ["--blockfrost-project-path", blockFrostProjectPath]
-            <> ["--blockfrost-cardano-signing-key", blockFrostCardanoSigningKey]
 
     argsLedgerConfig =
       ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]

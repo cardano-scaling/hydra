@@ -53,7 +53,7 @@ import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Options (BlockfrostChainConfig (..), ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Crypto (AsType (AsHydraKey))
 import Hydra.Tx.Environment (Environment (..))
@@ -91,16 +91,13 @@ initEnvironment options = do
           ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
           otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
-      Blockfrost BlockfrostChainConfig{} -> pure []
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
     Direct DirectChainConfig{contestationPeriod = cp} -> cp
-    Blockfrost BlockfrostChainConfig{} -> defaultContestationPeriod
   depositDeadline = case chainConfig of
     Offline{} -> defaultDepositDeadline
     Direct DirectChainConfig{depositDeadline = ddeadline} -> ddeadline
-    Blockfrost BlockfrostChainConfig{} -> defaultDepositDeadline
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p

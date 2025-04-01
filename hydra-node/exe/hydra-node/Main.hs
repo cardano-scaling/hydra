@@ -14,15 +14,7 @@ import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
-import Hydra.Options (
-  BlockfrostChainConfig (..),
-  ChainConfig (..),
-  Command (GenHydraKey, Publish, Run),
-  DirectChainConfig (..),
-  PublishOptions (..),
-  RunOptions (..),
-  parseHydraCommand,
- )
+import Hydra.Options (ChainBackend (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand)
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
 
@@ -39,18 +31,14 @@ main = do
     GenHydraKey outputFile ->
       either (die . show) pure =<< genHydraKeys outputFile
  where
-  publish PublishOptions{publishChainConfig} = case publishChainConfig of
-    Offline _ -> error "not supported"
-    Direct DirectChainConfig{networkId, nodeSocket, cardanoSigningKey} ->
-      do
-        (_, sk) <- readKeyPair cardanoSigningKey
-        txIds <- publishHydraScripts networkId nodeSocket sk
-        putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
-    Blockfrost BlockfrostChainConfig{blockFrostProjectPath, blockFrostCardanoSigningKey} ->
-      do
-        (_, sk) <- readKeyPair blockFrostCardanoSigningKey
-        txIds <- Blockfrost.publishHydraScripts blockFrostProjectPath sk
-        putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
+  publish PublishOptions{chainBackend, cardanoSigningKey} = do
+    (_, sk) <- readKeyPair cardanoSigningKey
+    txIds <- case chainBackend of
+      DirectBackend{networkId, nodeSocket} ->
+        publishHydraScripts networkId nodeSocket sk
+      BlockfrostBackend{projectPath} ->
+        Blockfrost.publishHydraScripts projectPath sk
+    putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Handle SIGTERM like SIGINT
 --

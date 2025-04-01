@@ -201,3 +201,5 @@ publishHydraScriptsAs :: RunningNode -> Actor -> IO [TxId]
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
   publishHydraScripts networkId nodeSocket sk
+-- FIXME: need to figure out how to await for txs here
+-- >>= mapM (awaitTransaction networkId nodeSocket)
