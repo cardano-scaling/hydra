@@ -19,6 +19,8 @@ import Hydra.Cardano.Api (
   UTxO,
   findRedeemerSpending,
   genTxIn,
+  getTxBody,
+  getTxId,
   hashScript,
   isScriptTxOut,
   lovelaceToValue,
@@ -70,6 +72,7 @@ import Hydra.Chain.Direct.State (
   getContestationDeadline,
   getKnownUTxO,
   initialize,
+  maxGenParties,
   observeClose,
   observeCollect,
   observeCommit,
@@ -79,6 +82,7 @@ import Hydra.Chain.Direct.State (
   unsafeCollect,
   unsafeCommit,
   unsafeFanout,
+  unsafeIncrement,
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.State qualified as Transition
@@ -93,6 +97,7 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (initialValidatorScript)
+import Hydra.Plutus.Extras.Time (posixToUTCTime)
 import Hydra.Tx.Close (ClosedThreadOutput (closedContesters))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
@@ -110,6 +115,7 @@ import Hydra.Tx.Observe (
   observeCommitTx,
   observeDecrementTx,
   observeHeadTx,
+  observeIncrementTx,
   observeInitTx,
  )
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
@@ -148,7 +154,7 @@ import Test.QuickCheck (
   (===),
   (==>),
  )
-import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
+import Test.QuickCheck.Monadic (assert, assertWith, monadicIO, monadicST, monitor, pick)
 import Prelude qualified
 
 spec :: Spec
@@ -348,6 +354,7 @@ spec = parallel $ do
   describe "increment" $ do
     propBelowSizeLimit maxTxSize forAllIncrement
     propIsValid forAllIncrement
+    it "increment observation observes correct utxo" prop_incrementObservesCorrectUTxO
 
   describe "decrement" $ do
     propBelowSizeLimit maxTxSize forAllDecrement
@@ -527,6 +534,31 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
     -- XXX: Coverage does not work if we only collectFails
     checkCoverage
       (collectFails .||. collectCloseAndFanoutPass)
+
+prop_incrementObservesCorrectUTxO :: Property
+prop_incrementObservesCorrectUTxO = monadicIO $ do
+  (ctx, st@OpenState{headId}, _, txDeposit) <- pickBlind $ genDepositTx maxGenParties
+  (_, _, _, txDeposit2) <- pickBlind $ genDepositTx maxGenParties
+  case observeDepositTx (ctxNetworkId ctx) txDeposit of
+    Nothing -> assertWith False "Deposit not observed"
+    Just DepositObservation{depositTxId = depositedTxId, deadline} -> do
+      cctx <- pickBlind $ pickChainContext ctx
+      let slotNo = slotNoFromUTCTime systemStart slotLength (posixToUTCTime deadline)
+      let version = 0
+      let openUTxO = getKnownUTxO st
+      -- NOTE: Use second deposit utxo deliberately here to test that the
+      -- increment observation picks the correct one.
+      -- We rely here on a fact that eventually this property will generate
+      -- UTxO which would be wrongly picked up by the increment observation.
+      let utxo = getKnownUTxO st <> utxoFromTx txDeposit <> utxoFromTx txDeposit2
+      snapshot <- pickBlind $ Snapshot.genConfirmedSnapshot headId version 1 openUTxO (Just utxo) Nothing (ctxHydraSigningKeys ctx)
+      let txIncrement = unsafeIncrement cctx utxo headId (ctxHeadParameters ctx) snapshot depositedTxId slotNo
+      case observeIncrementTx utxo txIncrement of
+        Nothing -> assertWith False "Increment not observed"
+        Just IncrementObservation{depositTxId} -> do
+          let txDepositId = getTxId (getTxBody txDeposit)
+          monitor (counterexample $ "Expected TxId:" <> show depositTxId <> " Actual TxId:" <> show txDepositId)
+          assert (depositTxId == txDepositId)
 
 --
 -- Generic Properties
