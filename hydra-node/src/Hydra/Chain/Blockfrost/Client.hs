@@ -39,7 +39,7 @@ import Data.Default (def)
 import Data.SOP.NonEmpty (NonEmpty (..))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
-import Hydra.Chain.CardanoClient (buildTransactionWithPParams')
+import Hydra.Chain.ScriptRegistry (buildScriptPublishingTx)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
@@ -91,21 +91,9 @@ publishHydraScripts projectPath sk = do
     flip evalStateT cardanoUTxO $
       forM scripts $ \script -> do
         nextUTxO <- get
-        let output = mkScriptTxOut pparams networkId <$> [mkScriptRef script]
-            totalDeposit = sum (selectLovelace . txOutValue <$> output)
-            someUTxO =
-              maybe mempty UTxO.singleton $
-                UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) nextUTxO
-        (tx, body) <-
-          liftIO $
-            buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress someUTxO [] output
-              >>= \case
-                Left err -> throwErrorAsException err
-                Right rawTx -> do
-                  let body = getTxBody rawTx
-                  pure (makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body, body)
+        (tx, body, spentUTxO) <- liftIO $ buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script nextUTxO
         _ <- lift $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR tx
-        put $ pickKeyAddressUTxO $ adjustUTxO tx someUTxO
+        put $ pickKeyAddressUTxO $ adjustUTxO tx spentUTxO
         pure $ getTxId body
  where
   pickKeyAddressUTxO utxo = maybe mempty UTxO.singleton $ UTxO.findBy (\(_, txOut) -> isKeyAddress (txOutAddress txOut)) utxo
@@ -115,15 +103,6 @@ publishHydraScripts projectPath sk = do
   vk = getVerificationKey sk
 
   vkAddress networkMagic = textAddrOf (toCardanoNetworkMagic networkMagic) vk
-
-  unspendableScriptAddress networkId = mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
-
-  mkScriptTxOut pparams networkId =
-    mkTxOutAutoBalance
-      pparams
-      (unspendableScriptAddress networkId)
-      mempty
-      TxOutDatumNone
 
 scriptTypeToPlutusVersion :: Blockfrost.ScriptType -> Maybe Language
 scriptTypeToPlutusVersion = \case

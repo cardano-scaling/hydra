@@ -6,12 +6,21 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Cardano.Api (
+  AddressInEra,
+  EraHistory,
   Key (..),
+  LedgerEra,
   NetworkId,
+  PParams,
   PaymentKey,
+  PlutusScript,
+  PoolId,
   ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
   SocketPath,
+  SystemStart,
+  Tx,
+  TxBody,
   TxId,
   TxIn (..),
   TxIx (..),
@@ -19,6 +28,7 @@ import Hydra.Cardano.Api (
   examplePlutusScriptAlwaysFails,
   getTxBody,
   getTxId,
+  isKeyAddress,
   makeShelleyKeyWitness,
   makeSignedTransaction,
   mkScriptAddress,
@@ -27,19 +37,23 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   selectLovelace,
   throwErrorAsException,
+  txOutAddress,
   txOutValue,
   pattern TxOutDatumNone,
  )
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
-  awaitTransaction,
-  buildTransaction,
+  buildTransactionWithPParams',
+  queryEraHistory,
   queryProtocolParameters,
+  queryStakePools,
+  querySystemStart,
   queryUTxOByTxIn,
   queryUTxOFor,
   submitTransaction,
  )
 import Hydra.Contract.Head qualified as Head
+import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 
@@ -82,36 +96,50 @@ publishHydraScripts ::
   IO [TxId]
 publishHydraScripts networkId socketPath sk = do
   pparams <- queryProtocolParameters networkId socketPath QueryTip
-  forM scripts $ \script -> do
-    utxo <- queryUTxOFor networkId socketPath QueryTip vk
-    let output = mkScriptTxOut pparams <$> [mkScriptRef script]
-        totalDeposit = sum (selectLovelace . txOutValue <$> output)
-        someUTxO =
-          maybe mempty UTxO.singleton $
-            UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
-    buildTransaction
-      networkId
-      socketPath
-      changeAddress
-      someUTxO
-      []
-      output
-      >>= \case
-        Left e ->
-          throwErrorAsException e
-        Right x -> do
-          let body = getTxBody x
-          let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
-          submitTransaction networkId socketPath tx
-          void $ awaitTransaction networkId socketPath tx
-          return $ getTxId body
+  systemStart <- querySystemStart networkId socketPath QueryTip
+  eraHistory <- queryEraHistory networkId socketPath QueryTip
+  stakePools <- queryStakePools networkId socketPath QueryTip
+  utxo <- queryUTxOFor networkId socketPath QueryTip vk
+  flip evalStateT utxo $
+    forM scripts $ \script -> do
+      nextUTxO <- get
+      (tx, body, spentUTxO) <- liftIO $ buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script nextUTxO
+      _ <- lift $ submitTransaction networkId socketPath tx
+      put $ pickKeyAddressUTxO $ adjustUTxO tx spentUTxO
+      pure $ getTxId body
  where
+  pickKeyAddressUTxO utxo = maybe mempty UTxO.singleton $ UTxO.findBy (\(_, txOut) -> isKeyAddress (txOutAddress txOut)) utxo
+
   scripts = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
   vk = getVerificationKey sk
 
   changeAddress = mkVkAddress networkId vk
 
-  mkScriptTxOut pparams =
+buildScriptPublishingTx ::
+  PParams LedgerEra ->
+  SystemStart ->
+  NetworkId ->
+  EraHistory ->
+  Set PoolId ->
+  AddressInEra ->
+  SigningKey PaymentKey ->
+  PlutusScript ->
+  UTxO.UTxO ->
+  IO (Tx, TxBody, UTxO.UTxO)
+buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script utxo = do
+  let output = mkScriptTxOut <$> [mkScriptRef script]
+      totalDeposit = sum (selectLovelace . txOutValue <$> output)
+      utxoToSpend =
+        maybe mempty UTxO.singleton $
+          UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
+  buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend [] output
+    >>= \case
+      Left e -> throwErrorAsException e
+      Right rawTx -> do
+        let body = getTxBody rawTx
+        pure (makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body, body, utxoToSpend)
+ where
+  mkScriptTxOut =
     mkTxOutAutoBalance
       pparams
       unspendableScriptAddress
