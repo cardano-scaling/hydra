@@ -4,7 +4,7 @@ sidebar_position: 7
 
 # Sideload snapshot
 
-This guide provides a walkthrough on using `POST /snapshot` to adopt a given confirmed snapshot to an open `head`.
+This guide provides a walkthrough on using `POST /snapshot` to adopt a gi\'ven confirmed snapshot to an open `head`.
 
 **Prerequisites**
 
@@ -18,6 +18,61 @@ You should have access to the following repositories:
 ## Step 1: Open a Head
 Assuming we already have an open Head.
 
+<details>
+  <summary>Offline head</summary>
+```
+cat > utxo.json <<EOF
+{
+  "0000000000000000000000000000000000000000000000000000000000000000#0": {
+    "address": "addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z",
+    "value": {
+      "lovelace": 100000000
+    }
+  }
+}
+EOF
+``` 
+  
+```shell
+cabal run hydra-node:exe:hydra-node -- --offline-head-seed 0001 --initial-utxo utxo.json \
+  --ledger-protocol-parameters hydra-cluster/config/protocol-parameters.json \
+  --persistence-dir tmp-sideload/alice \
+  --api-port 4001 \
+  --listen 0.0.0.0:5001 \
+  --peer 0.0.0.0:5002 \
+  --peer 0.0.0.0:5003 \
+  --hydra-signing-key demo/alice.sk \
+  --hydra-verification-key demo/bob.vk \
+  --hydra-verification-key demo/carol.vk
+```
+
+```shell
+cabal run hydra-node:exe:hydra-node -- --offline-head-seed 0001 --initial-utxo utxo.json \
+  --ledger-protocol-parameters hydra-cluster/config/protocol-parameters.json \
+  --persistence-dir tmp-sideload/bob \
+  --api-port 4002 \
+  --listen 0.0.0.0:5002 \
+  --peer 0.0.0.0:5001 \
+  --peer 0.0.0.0:5003 \
+  --hydra-signing-key demo/bob.sk \
+  --hydra-verification-key demo/alice.vk \
+  --hydra-verification-key demo/carol.vk
+```
+
+```shell
+cabal run hydra-node:exe:hydra-node -- --offline-head-seed 0001 --initial-utxo utxo.json \
+  --ledger-protocol-parameters <(jq '.txFeeFixed = 16000' hydra-cluster/config/protocol-parameters.json) \
+  --persistence-dir tmp-sideload/carol \
+  --api-port 4003 \
+  --listen 0.0.0.0:5003 \
+  --peer 0.0.0.0:5001 \
+  --peer 0.0.0.0:5002 \
+  --hydra-signing-key demo/carol.sk \
+  --hydra-verification-key demo/alice.vk \
+  --hydra-verification-key demo/bob.vk
+```
+</details>
+
 
 :::info
 You could run a local [demo](./../getting-started)
@@ -28,7 +83,7 @@ You could run a local [demo](./../getting-started)
 At the beginning, we should observe an InitialSnapshot with NoSeenSnapshot confirmed.  
 This confirms that the head is fresh and that no L2 snapshots have been multisigned and confirmed yet.
 
-curl -X GET 127.0.0.1:4001/snapshot
+curl 127.0.0.1:4001/snapshot
 
 ```json
 {
@@ -72,7 +127,7 @@ curl -X GET 127.0.0.1:4001/snapshot
 }
 ```
 
-curl -X GET 127.0.0.1:4001/snapshot/last-seen
+curl GET 127.0.0.1:4001/snapshot/last-seen
 
 ```json
 {
@@ -127,30 +182,18 @@ At this point, we will evolve the InitialSnapshot into a ConfirmedSnapshot.
 To achieve this, we will prepare a self-transfer from Alice to Alice using cardano-cli:
 
 ```sh
-cardano-cli conway transaction build-raw \
-  --tx-in c9a5fb7ca6f55f07facefccb7c5d824eed00ce18719d28ec4c4a2e4041e85d97#0 \
+cardano-cli latest transaction build-raw \
+  --tx-in 0000000000000000000000000000000000000000000000000000000000000000#0 \
   --tx-out addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z+100000000 \
   --fee 0 \
   --out-file self-tx.json
-```
 
-That will produce the following tx:
-
-```json
-{
-    "type": "Unwitnessed Tx ConwayEra",
-    "description": "Ledger Cddl Format",
-    "cborHex": "84a300d9010281825820c9a5fb7ca6f55f07facefccb7c5d824eed00ce18719d28ec4c4a2e4041e85d9700018182581d6069830961c6af9095b0f2648dff31fa9545d8f0b6623db865eb78fde81a05f5e1000200a0f5f6"
-}
-```
-
-Finally, it needs to be signed:
-
-```sh
-cardano-cli conway transaction sign \
+cardano-cli latest transaction sign \
   --tx-body-file self-tx.json \
-  --signing-key-file ./devnet/credentials/alice.sk \
+  --signing-key-file hydra-cluster/config/credentials/alice-funds.sk \
   --out-file signed-self-tx.json
+
+cat signed-self-tx.json | jq -c '{tag: "NewTx", transaction: .}' | websocat ws://localhost:4001
 ```
 
 And will produce the following signed tx:
@@ -207,7 +250,7 @@ let confirmed :: [Tx] = maybeToList $ Aeson.decode "{\"type\":\"Witnessed Tx Con
 
 -- | apply the confirmed tx to the initial UTxO to obtain the new confirmed UTxO
 let utxo :: UTxO = either (error . show) id $ applyTransactions (ChainSlot 0) initialUTxO confirmed
-let number :: SnapshotNumber = 1
+let number :: SnapshotNumber = 5
 let snapshot = Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit}
 
 -- | in practice, each member signs the snapshot individually and then shares their signed snapshot with the rest
@@ -220,11 +263,10 @@ Aeson.encode confirmedSnapshot
 
 ## Step 5: Sideload ConfirmedSnapshot
 
-Using the above, coordinate with all participants to submit the same snapshot
+Using the above, all participants would reset their last confirmed snapshot using the snapshot side-load API:
 
-> Sideload the encoded ConfirmedSnapshot above:
-```sh
-curl -X POST 127.0.0.1:4001/snapshot -H "Content-Type: application/json" -d '{"signatures":{"multiSignature":["889b605f57d9233ba93ab38f061b26f0a666e60fb9f7bb5a791fb22c359ae13a8d22833aa4e56dcf3043dc16fa41abdd78b64878df13c8e2e1a1fc7c48c72605","9e6021fcd45efbcb72130eba2e806264f54ada18362eee48b55ce3807473ff1727c2186483160553f240aaafe0bdaca948eed6a3d597ec9aafc4687fa75c270b","25bdda7d72973495d27515646a0f376cb90deb1498d39d4b88beb32a938b142cc63fc9f5aeb65329c7cc54b370742f2950e8180c3abd3924cd00126f2217740c"]},"snapshot":{"confirmed":[{"cborHex":"84a300d9010281825820c9a5fb7ca6f55f07facefccb7c5d824eed00ce18719d28ec4c4a2e4041e85d9700018182581d6069830961c6af9095b0f2648dff31fa9545d8f0b6623db865eb78fde81a05f5e1000200a100d9010281825820f953b2d6b6f319faa9f8462257eb52ad73e33199c650f0755e279e21882399c05840968cc62ac470c4a0589d0309f3bdddeb28920b29711237035f5a6f9e9c674ae0c23442901c9db4c4b60b09ff95bb32fe6f39bfedaf6cf5397e79a2125ad28f02f5f6","description":"","txId":"93d8bb448a4dcd80da5199919a354ba76675139d71dc7e7845acc4d4e3717f64","type":"Tx ConwayEra"}],"headId":"64956cb50a35eef60b7abf2e3392cc815a50806d8088138e49ea5611","number":1,"utxo":{"7b27f432e04984dc21ee61e8b1539775cd72cc8669f72cf39aebf6d87e35c697#0":{"address":"addr_test1vp0yug22dtwaxdcjdvaxr74dthlpunc57cm639578gz7algset3fh","datum":null,"datumhash":null,"inlineDatum":null,"inlineDatumRaw":null,"referenceScript":null,"value":{"lovelace":50000000}},"93d8bb448a4dcd80da5199919a354ba76675139d71dc7e7845acc4d4e3717f64#0":{"address":"addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z","datum":null,"datumhash":null,"inlineDatum":null,"inlineDatumRaw":null,"referenceScript":null,"value":{"lovelace":100000000}},"f0a39560ea80ccc68e8dffb6a4a077c8927811f06c5d9058d0fa2d1a8d047d20#0":{"address":"addr_test1vqx5tu4nzz5cuanvac4t9an4djghrx7hkdvjnnhstqm9kegvm6g6c","datum":null,"datumhash":null,"inlineDatum":null,"inlineDatumRaw":null,"referenceScript":null,"value":{"lovelace":25000000}}},"utxoToCommit":null,"utxoToDecommit":null,"version":0},"tag":"ConfirmedSnapshot"}'
+```shell
+curl -X POST 0.0.0.0:4002/snapshot --data @<(curl 0.0.0.0:4002/snapshot)
 ```
 
 This ensures consistency across all parties.
