@@ -19,14 +19,40 @@ cabal repl hydra-plutus
 > import Hydra.Cardano.Api
 > script = PlutusScript dummyRewardingScript
 > serialiseAddress $ makeStakeAddress (Testnet $ NetworkMagic 42) (StakeCredentialByScript $ hashScript script)
-"stake_test17rekjamvnjyn3c3tcjpxe7ea20g7aek9vdqkaa3jefknz3gc066pt" 
+"stake_test17rekjamvnjyn3c3tcjpxe7ea20g7aek9vdqkaa3jefknz3gc066pt"
 > writeFileTextEnvelope (File "../rewarding.plutus") Nothing script
 Right ()
 ```
 
 ## Withdraw zero transaction
 
-Then, we can construct a transaction that withdraws zero lovelace from the rewarding script's "account". Usually, other purposes like spending a UTxO would require the reward script to run, but here we just assume there exists such a UTxO in the L2 state and initialize an [offline head](../configuration#offline-mode) for an easy demo set-up:
+We can construct a transaction that withdraws zero lovelace from the rewarding script's "account". Usually, other purposes like spending a UTxO would require the reward script to run, but here we just assume there exists such a UTxO in the L2 state. You can initialize an [offline head](../configuration#offline-mode) for an easy demo set-up:
+
+<details>
+  <summary>Setup with offline head</summary>
+```
+cat > utxo.json <<EOF
+{
+  "0000000000000000000000000000000000000000000000000000000000000000#0": {
+    "address": "addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z",
+    "value": {
+      "lovelace": 100000000
+    }
+  }
+}
+EOF
+```
+
+```shell
+cabal run hydra-node:exe:hydra-node -- \
+  --offline-head-seed 0001 \
+  --initial-utxo utxo.json \
+  --ledger-protocol-parameters hydra-cluster/config/protocol-parameters.json \
+  --hydra-signing-key demo/alice.sk
+```
+</details>
+
+Then, build, sign and submit the transaction that runs the rewarding script:
 
 ```shell title="Withdraw zero transaction"
 cardano-cli latest transaction build-raw \
