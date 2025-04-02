@@ -121,7 +121,7 @@ observeIncrementTx ::
 observeIncrementTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
-  (TxIn depositTxId _, depositOutput) <- findTxOutByScript utxo depositValidatorScript
+  (TxIn depositTxId _, depositOutput) <- findTxOutByScript inputUTxO depositValidatorScript
   dat <- txOutScriptData $ toTxContext depositOutput
   -- we need to be able to decode the datum, no need to use it tho
   _ :: Deposit.DepositDatum <- fromScriptData dat
