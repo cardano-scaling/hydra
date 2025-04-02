@@ -307,6 +307,32 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
+nodeReObservesOnChainTxs :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
+  refuelIfNeeded tracer cardanoNode Alice 100_000_000
+  -- Start hydra-node on chain tip
+  tip <- queryTip networkId nodeSocket
+  let contestationPeriod = UnsafeContestationPeriod 2
+  let depositDeadline = UnsafeDepositDeadline 200
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+      <&> modifyConfig (\config -> config{networkId, startChainFrom = Nothing})
+
+  let hydraTracer = contramap FromHydraNode tracer
+  headId1 <- withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    send n1 $ input "Init" []
+    waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    -- Also expect to see past server outputs replayed
+    headId2 <- waitMatch 20 n1 $ headIsInitializingWith (Set.fromList [alice])
+    headId1 `shouldBe` headId2
+    send n1 $ input "Abort" []
+    waitFor hydraTracer 20 [n1] $
+      output "HeadIsAborted" ["utxo" .= object mempty, "headId" .= headId2]
+ where
+  RunningNode{nodeSocket, networkId} = cardanoNode
+
 -- | Step through the full life cycle of a Hydra Head with only a single
 -- participant. This scenario is also used by the smoke test run via the
 -- `hydra-cluster` executable.

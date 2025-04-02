@@ -60,6 +60,7 @@ import Hydra.Cluster.Scenarios (
   checkFanout,
   headIsInitializingWith,
   initWithWrongKeys,
+  nodeReObservesOnChainTxs,
   oneOfThreeNodesStopsForAWhile,
   persistenceCanLoadWithEmptyCommit,
   refuelIfNeeded,
@@ -261,6 +262,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= persistenceCanLoadWithEmptyCommit tracer tmpDir node
+      it "node re-observes on-chain txs" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= nodeReObservesOnChainTxs tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "can survive a bit of downtime of 1 in 3 nodes" $ \tracer -> do
