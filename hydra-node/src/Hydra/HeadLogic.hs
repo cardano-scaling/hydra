@@ -1025,7 +1025,7 @@ onOpenChainDecrementTx openState newChainState newVersion distributedTxOuts =
               { chainState = newChainState
               , headId
               , newVersion
-              , decommitTxId = txId tx
+              , distributedOutputs = distributedTxOuts
               }
       | otherwise -> Error $ AssertionFailed "decrement not matching pending decommit"
  where
