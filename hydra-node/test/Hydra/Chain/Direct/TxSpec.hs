@@ -36,7 +36,7 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Contract.Dummy (dummyValidatorScript)
+import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
@@ -265,9 +265,9 @@ genBlueprintTxWithUTxO =
       , do
           lovelace <- arbitrary
           let redeemer = hedgehog genHashableScriptData `generateWith` 42
-              alwaysSucceedingScript = dummyValidatorScript
-              scriptWitness = mkScriptWitness alwaysSucceedingScript NoScriptDatumForStake redeemer
-              stakeAddress = mkScriptStakeAddress testNetworkId alwaysSucceedingScript
+              script = dummyRewardingScript
+              scriptWitness = mkScriptWitness script NoScriptDatumForStake redeemer
+              stakeAddress = mkScriptStakeAddress testNetworkId script
           pure
             ( utxo
             , txbody

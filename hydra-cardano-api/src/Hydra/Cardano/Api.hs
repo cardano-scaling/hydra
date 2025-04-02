@@ -96,6 +96,7 @@ import Cardano.Api.Shelley as X (
   ShelleyGenesis (..),
   ShelleyLedgerEra,
   SigningKey (..),
+  StakeCredential (..),
   VerificationKey (..),
   fromAlonzoCostModels,
   fromAlonzoPrices,

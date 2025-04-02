@@ -99,6 +99,7 @@ library
     , http-types
     , hydra-cardano-api
     , hydra-node
+    , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
     , hydra-tx

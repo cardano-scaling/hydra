@@ -20,7 +20,9 @@ import Cardano.Ledger.Alonzo.Rules (
   FailureDescription (..),
   TagMismatchDescription (FailedUnexpectedly),
  )
+import Cardano.Ledger.Api (bodyTxL, raCredential, unWithdrawals, withdrawalsTxBodyL)
 import Cardano.Ledger.BaseTypes qualified as Ledger
+import Cardano.Ledger.CertState (dsUnifiedL)
 import Cardano.Ledger.Conway.Rules (
   ConwayLedgerPredFailure (ConwayUtxowFailure),
   ConwayUtxoPredFailure (UtxosFailure),
@@ -32,9 +34,13 @@ import Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
 import Cardano.Ledger.Shelley.Genesis qualified as Ledger
 import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
 import Cardano.Ledger.Shelley.Rules qualified as Ledger
+import Cardano.Ledger.UMap qualified as UM
+import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (foldM)
 import Data.ByteString qualified as BS
 import Data.Default (def)
+import Data.Map qualified as Map
+import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
@@ -97,10 +103,22 @@ cardanoLedger globals ledgerEnv =
     env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
 
     memPoolState =
-      Ledger.LedgerState
-        { Ledger.lsUTxOState = def{Ledger.utxosUtxo = toLedgerUTxO utxo}
-        , Ledger.lsCertState = def
-        }
+      def
+        & Ledger.lsUTxOStateL . Ledger.utxosUtxoL .~ toLedgerUTxO utxo
+        & Ledger.lsCertStateL . Ledger.certDStateL %~ mockCertState
+
+    -- NOTE: Mocked certificate state that simulates any reward accounts for any
+    -- withdraw-zero scripts included in the transaction.
+    mockCertState = dsUnifiedL %~ (\umap -> foldl' register umap withdrawZeroCredentials)
+
+    register umap hk = UM.RewDepUView umap UM.∪ (hk, UM.RDPair (UM.CompactCoin 0) (UM.CompactCoin 0))
+
+    withdrawZeroCredentials =
+      toLedgerTx tx ^. bodyTxL . withdrawalsTxBodyL
+        & unWithdrawals
+        & Map.filter (== Coin 0)
+        & Map.keysSet
+        & Set.map raCredential
 
 -- * LedgerEnv
 

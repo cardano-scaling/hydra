@@ -1,5 +1,5 @@
 ---
-sidebar_position: 5
+sidebar_position: 99
 ---
 
 # Extend the node with event source and sinks
