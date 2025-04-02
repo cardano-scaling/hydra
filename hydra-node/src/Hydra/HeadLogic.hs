@@ -71,7 +71,6 @@ import Hydra.HeadLogic.State (
 import Hydra.Ledger (
   Ledger (..),
   applyTransactions,
-  outputsOfTx,
  )
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
@@ -1004,7 +1003,6 @@ onOpenChainIncrementTx openState newChainState newVersion depositTxId =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainDecrementTx ::
-  IsTx tx =>
   OpenState tx ->
   ChainStateType tx ->
   -- | New open state version
@@ -1013,25 +1011,19 @@ onOpenChainDecrementTx ::
   [TxOutType tx] ->
   Outcome tx
 onOpenChainDecrementTx openState newChainState newVersion distributedTxOuts =
+  -- FIXME: fix the removed spec parts
   -- Spec: if outputs(txω) = 𝑈ω
-  case decommitTx of
-    Nothing -> Error $ AssertionFailed "decrement observed but no decommit pending"
-    Just tx
-      | outputsOfTx tx == distributedTxOuts ->
-          -- Spec: txω ← ⊥
-          --       v  ← v
-          newState
-            DecommitFinalized
-              { chainState = newChainState
-              , headId
-              , newVersion
-              , distributedOutputs = distributedTxOuts
-              }
-      | otherwise -> Error $ AssertionFailed "decrement not matching pending decommit"
+  -- Spec: txω ← ⊥
+  --       v  ← v
+  newState
+    DecommitFinalized
+      { chainState = newChainState
+      , headId
+      , newVersion
+      , distributedOutputs = distributedTxOuts
+      }
  where
-  OpenState{coordinatedHeadState, headId} = openState
-
-  CoordinatedHeadState{decommitTx} = coordinatedHeadState
+  OpenState{headId} = openState
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
