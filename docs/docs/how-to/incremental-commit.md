@@ -1,3 +1,7 @@
+---
+sidebar_position: 4
+---
+
 # Commit funds to an open Head
 
 Assuming we already have an open Head and some funds on the L1 we would like to commit.
