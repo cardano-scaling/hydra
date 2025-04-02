@@ -1,26 +1,38 @@
 ---
+
 sidebar_position: 7
 ---
 
-# Sideload snapshot
+# Sideload Snapshot
 
-This guide provides a walkthrough on using `POST /snapshot` to adopt a gi\'ven confirmed snapshot to an open `head`.
+```mdx-code-block
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+```
+
+This guide provides a walkthrough on how to use `POST /snapshot` to adopt a given confirmed snapshot to "unstuck" an open `head`.
 
 **Prerequisites**
 
-You should have access to the following repositories:
+Ensure you have access to the following repositories:
 
 - `hydra-node`
-- `hydra-tui`
-- `cardano-cli`, and
-- `curl` binaries.
+- `cardano-cli`
+- `curl` binaries
+- `websocat` binaries
 
 ## Step 1: Open a Head
-Assuming we already have an open Head.
+
+For an easy demo setup, we will open an [offline head](../configuration#offline-mode).
+
+:::info
+You could also run a local [demo](./../getting-started).
+:::
 
 <details>
-  <summary>Offline head</summary>
-```
+  <summary>Offline Head</summary>
+
+```shell
 cat > utxo.json <<EOF
 {
   "0000000000000000000000000000000000000000000000000000000000000000#0": {
@@ -32,7 +44,13 @@ cat > utxo.json <<EOF
 }
 EOF
 ``` 
+</details>
   
+````mdx-code-block
+<Tabs>
+
+<TabItem value="Alice">
+
 ```shell
 cabal run hydra-node:exe:hydra-node -- --offline-head-seed 0001 --initial-utxo utxo.json \
   --ledger-protocol-parameters hydra-cluster/config/protocol-parameters.json \
@@ -45,6 +63,10 @@ cabal run hydra-node:exe:hydra-node -- --offline-head-seed 0001 --initial-utxo u
   --hydra-verification-key demo/bob.vk \
   --hydra-verification-key demo/carol.vk
 ```
+
+</TabItem>
+
+<TabItem value="Bob">
 
 ```shell
 cabal run hydra-node:exe:hydra-node -- --offline-head-seed 0001 --initial-utxo utxo.json \
@@ -59,6 +81,10 @@ cabal run hydra-node:exe:hydra-node -- --offline-head-seed 0001 --initial-utxo u
   --hydra-verification-key demo/carol.vk
 ```
 
+</TabItem>
+
+<TabItem value="Carol">
+
 ```shell
 cabal run hydra-node:exe:hydra-node -- --offline-head-seed 0001 --initial-utxo utxo.json \
   --ledger-protocol-parameters <(jq '.txFeeFixed = 16000' hydra-cluster/config/protocol-parameters.json) \
@@ -71,117 +97,31 @@ cabal run hydra-node:exe:hydra-node -- --offline-head-seed 0001 --initial-utxo u
   --hydra-verification-key demo/alice.vk \
   --hydra-verification-key demo/bob.vk
 ```
-</details>
 
+</TabItem>
 
-:::info
-You could run a local [demo](./../getting-started)
-:::
+</Tabs>
+````
 
-## Step 2: Get the latest confirmed snapshot
-
-At the beginning, we should observe an InitialSnapshot with NoSeenSnapshot confirmed.  
-This confirms that the head is fresh and that no L2 snapshots have been multisigned and confirmed yet.
-
-curl 127.0.0.1:4001/snapshot
-
-```json
-{
-    "headId": "64956cb50a35eef60b7abf2e3392cc815a50806d8088138e49ea5611",
-    "initialUTxO": {
-        "7b27f432e04984dc21ee61e8b1539775cd72cc8669f72cf39aebf6d87e35c697#0": {
-            "address": "addr_test1vp0yug22dtwaxdcjdvaxr74dthlpunc57cm639578gz7algset3fh",
-            "datum": null,
-            "datumhash": null,
-            "inlineDatum": null,
-            "inlineDatumRaw": null,
-            "referenceScript": null,
-            "value": {
-                "lovelace": 50000000
-            }
-        },
-        "c9a5fb7ca6f55f07facefccb7c5d824eed00ce18719d28ec4c4a2e4041e85d97#0": {
-            "address": "addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z",
-            "datum": null,
-            "datumhash": null,
-            "inlineDatum": null,
-            "inlineDatumRaw": null,
-            "referenceScript": null,
-            "value": {
-                "lovelace": 100000000
-            }
-        },
-        "f0a39560ea80ccc68e8dffb6a4a077c8927811f06c5d9058d0fa2d1a8d047d20#0": {
-            "address": "addr_test1vqx5tu4nzz5cuanvac4t9an4djghrx7hkdvjnnhstqm9kegvm6g6c",
-            "datum": null,
-            "datumhash": null,
-            "inlineDatum": null,
-            "inlineDatumRaw": null,
-            "referenceScript": null,
-            "value": {
-                "lovelace": 25000000
-            }
-        }
-    },
-    "tag": "InitialSnapshot"
-}
+Note that Carol uses different protocol parameters.
+```shell
+curl -s 0.0.0.0:{4001,4002,4003}/protocol-parameters | jq '.txFeeFixed'
+```
+```shell
+0
+0
+16000
 ```
 
-curl GET 127.0.0.1:4001/snapshot/last-seen
+> This is intentional to force the head to get stuck upon submitting a NewTx.
 
-```json
-{
-  "tag": "NoSeenSnapshot"
-}
-```
+## Step 2: Stuck the Head
 
-## Step 3: Understanding ConfirmedSnapshot to sideload
+Now, let's build the confirmed transaction we would like to include in the next confirmed snapshot.
 
-We have two options:
+To do this, we will prepare a self-transfer from Alice to Alice using `cardano-cli`:
 
-1. Build a custom ConfirmedSnapshot and get it multi-signed.
-
-2. Fetch the latest confirmed snapshot, which is already multi-signed.
-
-For simplicity, let's go with the second and retrieve the latest confirmed snapshot using `GET /snapshot`.
-
-It should return a response like this:
-
-```json
-{
-    "snapshot": {
-        "confirmed": [],
-        "headId": "00010000000001010001000101010101",
-        "number": 0,
-        "utxo": {},
-        "utxoToCommit": null,
-        "utxoToDecommit": null,
-        "version": 1
-    },
-    "signatures": {
-        "multiSignature": []
-    },
-    "tag": "ConfirmedSnapshot"
-}
-```
-
-For a snapshot to be accepted:
-
-* Its number must be greater than or equal to the latest seen snapshot.
-
-* It must be valid and enforceable based on the current protocol state on L1, meaning:
-  - It aligns with the chain’s rules and history.
-  - It is multi-signed by all participants.
-
-All this ensures consensus before the snapshot is considered confirmed.
-
-## Step 4: Prepare the confirmed tx to be included
-
-At this point, we will evolve the InitialSnapshot into a ConfirmedSnapshot.
-
-To achieve this, we will prepare a self-transfer from Alice to Alice using cardano-cli:
-
-```sh
+```shell
 cardano-cli latest transaction build-raw \
   --tx-in 0000000000000000000000000000000000000000000000000000000000000000#0 \
   --tx-out addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z+100000000 \
@@ -192,97 +132,99 @@ cardano-cli latest transaction sign \
   --tx-body-file self-tx.json \
   --signing-key-file hydra-cluster/config/credentials/alice-funds.sk \
   --out-file signed-self-tx.json
+```
 
+> Note that the transaction is expected to consume the output from the initial `utxo.json` used to open the head.
+
+Now, let's submit it using `websocat`:
+
+```shell
 cat signed-self-tx.json | jq -c '{tag: "NewTx", transaction: .}' | websocat ws://localhost:4001
 ```
 
-And will produce the following signed tx:
+If we look into the latest confirmed snapshot:
 
-```json
+```shell
+curl -s 0.0.0.0:{4001,4002,4003}/snapshot | jq
+```
+
+We will notice every peer is still on `InitialSnapshot` and there is no snapshot in flight.
+
+```shell
+curl -s 0.0.0.0:{4001,4002,4003}/snapshot/last-seen | jq
+```
+```shell
 {
-    "type": "Witnessed Tx ConwayEra",
-    "description": "Ledger Cddl Format",
-    "cborHex": "84a300d9010281825820c9a5fb7ca6f55f07facefccb7c5d824eed00ce18719d28ec4c4a2e4041e85d9700018182581d6069830961c6af9095b0f2648dff31fa9545d8f0b6623db865eb78fde81a05f5e1000200a100d9010281825820eb94e8236e2099357fa499bfbc415968691573f25ec77435b7949f5fdfaa5da058400809e9809a08f5412c326cc5f5aba259e633b458fde47fa52be61975b64af55bfa6c303522d9d784a136abd05aadcadbb52b8abad954cc61605341125a75b009f5f6"
+  "tag": "NoSeenSnapshot"
+}
+{
+  "tag": "NoSeenSnapshot"
+}
+{
+  "tag": "NoSeenSnapshot"
 }
 ```
 
-## Prepare ConfirmedSnapshot from repl
-run from root of the project: `cabal repl hydra-node:lib:hydra-node`
-
-```hs
-import Hydra.Cardano.Api (Tx, PParams, AsType(AsSigningKey))
-import Hydra.Cardano.Api.Prelude (UTxO, LedgerEra, SigningKey, NetworkId(..), NetworkMagic(..))
-
-import Hydra.Chain.ChainState (ChainSlot(..))
-import Hydra.Chain.CardanoClient (QueryPoint(..), queryGenesisParameters)
-import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-
-import Hydra.Ledger (Ledger(..))
-import Hydra.Ledger.Cardano (Globals, LedgerEnv, newLedgerEnv, cardanoLedger)
-
-import Hydra.Node.Run (getGlobalsForChain, newGlobals)
-
-import Hydra.Tx.Crypto (AsType(AsHydraKey), aggregate, sign, HydraKey)
-import Hydra.Tx.HeadId (HeadId, mkHeadId)
-import Hydra.Tx.Snapshot (SnapshotNumber, SnapshotVersion, Snapshot(..), ConfirmedSnapshot(..))
-
-import Hydra.Utils (readJsonFileThrow)
-
--- | assumes we are running the local demo
-aliceSk :: SigningKey HydraKey <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) "../demo/alice.sk"
-bobSk :: SigningKey HydraKey <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) "../demo/bob.sk"
-carolSk :: SigningKey HydraKey <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) "../demo/carol.sk"
-pparams :: PParams LedgerEra <- readJsonFileThrow parseJSON "../demo/devnet/protocol-parameters.json"
-let ledgerEnv :: LedgerEnv LedgerEra = newLedgerEnv pparams
-let networkId = Testnet (NetworkMagic 42)
-let nodeSocket = "../demo/devnet/node.socket"
-globals <- queryGenesisParameters networkId nodeSocket QueryTip >>= newGlobals
-let Ledger{applyTransactions} = cardanoLedger globals ledgerEnv
-
--- | obtained from GET /snapshot/last-seen
-let headId :: HeadId = mkHeadId "64956cb50a35eef60b7abf2e3392cc815a50806d8088138e49ea5611"
-let version :: SnapshotVersion = 0
-let (utxoToCommit, utxoToDecommit) :: (Maybe UTxO, Maybe UTxO) = (Nothing, Nothing)
-let initialUTxO :: UTxO = fromMaybe mempty $ Aeson.decode "{\"7b27f432e04984dc21ee61e8b1539775cd72cc8669f72cf39aebf6d87e35c697#0\":{\"address\":\"addr_test1vp0yug22dtwaxdcjdvaxr74dthlpunc57cm639578gz7algset3fh\",\"datum\":null,\"datumhash\":null,\"inlineDatum\":null,\"inlineDatumRaw\":null,\"referenceScript\":null,\"value\":{\"lovelace\":50000000}},\"c9a5fb7ca6f55f07facefccb7c5d824eed00ce18719d28ec4c4a2e4041e85d97#0\":{\"address\":\"addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z\",\"datum\":null,\"datumhash\":null,\"inlineDatum\":null,\"inlineDatumRaw\":null,\"referenceScript\":null,\"value\":{\"lovelace\":100000000}},\"f0a39560ea80ccc68e8dffb6a4a077c8927811f06c5d9058d0fa2d1a8d047d20#0\":{\"address\":\"addr_test1vqx5tu4nzz5cuanvac4t9an4djghrx7hkdvjnnhstqm9kegvm6g6c\",\"datum\":null,\"datumhash\":null,\"inlineDatum\":null,\"inlineDatumRaw\":null,\"referenceScript\":null,\"value\":{\"lovelace\":25000000}}}"
-
--- | built using cardano-cli
-let confirmed :: [Tx] = maybeToList $ Aeson.decode "{\"type\":\"Witnessed Tx ConwayEra\",\"description\":\"Ledger Cddl Format\",\"cborHex\":\"84a300d9010281825820c9a5fb7ca6f55f07facefccb7c5d824eed00ce18719d28ec4c4a2e4041e85d9700018182581d6069830961c6af9095b0f2648dff31fa9545d8f0b6623db865eb78fde81a05f5e1000200a100d9010281825820eb94e8236e2099357fa499bfbc415968691573f25ec77435b7949f5fdfaa5da058400809e9809a08f5412c326cc5f5aba259e633b458fde47fa52be61975b64af55bfa6c303522d9d784a136abd05aadcadbb52b8abad954cc61605341125a75b009f5f6\"}"
-
--- | apply the confirmed tx to the initial UTxO to obtain the new confirmed UTxO
-let utxo :: UTxO = either (error . show) id $ applyTransactions (ChainSlot 0) initialUTxO confirmed
-let number :: SnapshotNumber = 5
-let snapshot = Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit}
-
--- | in practice, each member signs the snapshot individually and then shares their signed snapshot with the rest
-let signatures = aggregate $ (flip sign $ snapshot) <$> [aliceSk, bobSk, carolSk]
-
--- | once all signatures are collected, we can build the ConfirmedSnapshot
-let confirmedSnapshot = ConfirmedSnapshot{snapshot, signatures}
-Aeson.encode confirmedSnapshot
+The reason is that Carol has rejected the transaction due to her ledger misconfiguration:
+```json
+{"timestamp":"2025-04-02T14:11:09.622965Z","threadId":27,"namespace":"HydraNode-\"hydra-node-1\"","message":{"node":{"by":{"vkey":"7abcda7de6d883e7570118c1ccc8ee2e911f2e628a41ab0685ffee15f39bba96"},"outcome":{"effects":[],"stateChanges":[{"tag":"TransactionReceived","tx":{"cborHex":"84a300d9010281825820000000000000000000000000000000000000000000000000000000000000000000018182581d6069830961c6af9095b0f2648dff31fa9545d8f0b6623db865eb78fde81a05f5e1000200a100d9010281825820f953b2d6b6f319faa9f8462257eb52ad73e33199c650f0755e279e21882399c05840807ce5a384a4fa69bccd8d2778e9ff4ad568aa8ec11e037fdebb0ce5a9e1495985fa9d6c2783758acd9f9bacfc4d47e8a208398914eba98b0fc1bc63baa08602f5f6","description":"","txId":"5e0cc0a74606a48f6a99bd9793ac84aacb7db9141d4a526532aefe926b0ee589","type":"Tx ConwayEra"}},{"headId":"6f66666c696e652d0001","tag":"TxInvalid","transaction":{"cborHex":"84a300d9010281825820000000000000000000000000000000000000000000000000000000000000000000018182581d6069830961c6af9095b0f2648dff31fa9545d8f0b6623db865eb78fde81a05f5e1000200a100d9010281825820f953b2d6b6f319faa9f8462257eb52ad73e33199c650f0755e279e21882399c05840807ce5a384a4fa69bccd8d2778e9ff4ad568aa8ec11e037fdebb0ce5a9e1495985fa9d6c2783758acd9f9bacfc4d47e8a208398914eba98b0fc1bc63baa08602f5f6","description":"","txId":"5e0cc0a74606a48f6a99bd9793ac84aacb7db9141d4a526532aefe926b0ee589","type":"Tx ConwayEra"},"utxo":{"0000000000000000000000000000000000000000000000000000000000000000#0":{"address":"addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z","datum":null,"datumhash":null,"inlineDatum":null,"inlineDatumRaw":null,"referenceScript":null,"value":{"lovelace":100000000}}},"validationError":{"reason":"ConwayUtxowFailure (UtxoFailure (FeeTooSmallUTxO (Mismatch {mismatchSupplied = Coin 0, mismatchExpected = Coin 16000})))"}}],"tag":"Continue"},"tag":"Node"}}
 ```
 
-## Step 5: Sideload ConfirmedSnapshot
+## Step 3: Unstuck the Head
 
-Using the above, all participants would reset their last confirmed snapshot using the snapshot side-load API:
+From this point, all participants would reset their last confirmed snapshot using the snapshot side-load API:
 
 ```shell
+curl -X POST 0.0.0.0:4001/snapshot --data @<(curl 0.0.0.0:4001/snapshot)
 curl -X POST 0.0.0.0:4002/snapshot --data @<(curl 0.0.0.0:4002/snapshot)
+curl -X POST 0.0.0.0:4003/snapshot --data @<(curl 0.0.0.0:4003/snapshot)
 ```
 
 This ensures consistency across all parties.
 
-Remember, for consensus to be reached on L2, everyone must share the same local state view.
+> Remember, for consensus to be reached on L2, everyone must share the same local state view.
 
-If the sideloaded ConfirmedSnapshot is adopted by the node, we should see SnapshotConfirmed and SnapshotSideLoaded server outputs.
+If the sideloaded `ConfirmedSnapshot` is adopted by the nodes, we should see the `SnapshotSideLoaded` server output:
 
-These outputs confirm that the node is ready to continue operating from that position.
-
-> Check if it has been adopted:
-```sh
-curl -X GET 127.0.0.1:4001/snapshot/last-seen
+```shell
+websocat ws://localhost:4001?history=yes
+websocat ws://localhost:4002?history=yes
+websocat ws://localhost:4003?history=yes
 ```
 
-Notice that the snapshot leader has been reset, and the ongoing snapshot signing round has been discarded. This means any pending transactions were pruned and must be re-submitted.
+This output confirms that the node is ready to continue operating from that position.
 
-Once we do this, we should observe the Head reaching consensus and a new ConfirmedSnapshot being signed through the normal protocol workflow.
+> Note that the snapshot leader has been reset, and the ongoing snapshot signing round has been discarded. This means any pending transactions were pruned and must be re-submitted.
 
+Now, before we re-submit the same transaction, we need to fix Carol's node by restarting it with the correct ledger protocol parameters:
+
+```shell
+cabal run hydra-node:exe:hydra-node -- --offline-head-seed 0001 --initial-utxo utxo.json \
+  --ledger-protocol-parameters hydra-cluster/config/protocol-parameters.json \
+  --persistence-dir tmp-sideload/carol \
+  --api-port 4003 \
+  --listen 0.0.0.0:5003 \
+  --peer 0.0.0.0:5001 \
+  --peer 0.0.0.0:5002 \
+  --hydra-signing-key demo/carol.sk \
+  --hydra-verification-key demo/alice.vk \
+  --hydra-verification-key demo/bob.vk
+```
+
+> Once we do this, we should observe the Head reaching consensus and a new `ConfirmedSnapshot` being signed through the normal protocol workflow.
+
+Let's re-submit the same transaction:
+```shell
+cat signed-self-tx.json | jq -c '{tag: "NewTx", transaction: .}' | websocat ws://localhost:4001
+```
+
+And check if it has been adopted:
+```sh
+curl -X GET 127.0.0.1:{4001,4002,4003}/snapshot/last-seen | jq
+```
+
+We can also check the transaction was included in the latest confirmed snapshot:
+
+```shell
+curl -s 0.0.0.0:{4001,4002,4003}/snapshot | jq
+```
