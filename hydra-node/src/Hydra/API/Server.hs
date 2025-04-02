@@ -148,17 +148,19 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
           action
             ( EventSink
                 { putEvent = \event@StateEvent{stateChanged} -> do
+                    -- Update our read models
+                    atomically $ do
+                      update headStatusP stateChanged
+                      update commitInfoP stateChanged
+                      update snapshotUtxoP stateChanged
+                      update seenSnapshotP stateChanged
+                      update snapshotConfirmedP stateChanged
+                      update headIdP stateChanged
+                      update pendingDepositsP stateChanged
+                    -- Send to the client if it maps to a server output
                     case mkTimedServerOutputFromStateEvent event of
                       Nothing -> pure ()
                       Just timedOutput -> do
-                        atomically $ do
-                          update headStatusP stateChanged
-                          update commitInfoP stateChanged
-                          update snapshotUtxoP stateChanged
-                          update seenSnapshotP stateChanged
-                          update snapshotConfirmedP stateChanged
-                          update headIdP stateChanged
-                          update pendingDepositsP stateChanged
                         atomically $ writeTChan responseChannel (Left timedOutput)
                 }
             , Server{sendMessage = atomically . writeTChan responseChannel . Right}
