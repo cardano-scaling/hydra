@@ -117,7 +117,7 @@ curl -s 0.0.0.0:{4001,4002,4003}/protocol-parameters | jq '.txFeeFixed'
 
 ## Step 2: Stuck the Head
 
-Now, let's build the confirmed transaction we would like to include in the next confirmed snapshot.
+Now, let's build the transaction we would like to include in the next confirmed snapshot.
 
 To do this, we will prepare a self-transfer from Alice to Alice using `cardano-cli`:
 
