@@ -10,6 +10,7 @@ import CardanoClient (
   RunningNode (..),
   SubmitTransactionException,
   awaitTransaction,
+  awaitTransactionId,
   buildAddress,
   buildTransaction,
   queryUTxO,
@@ -200,4 +201,6 @@ retryOnExceptions tracer action =
 publishHydraScriptsAs :: RunningNode -> Actor -> IO [TxId]
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
-  publishHydraScripts networkId nodeSocket sk
+  txIds <- publishHydraScripts networkId nodeSocket sk
+  mapM_ (awaitTransactionId networkId nodeSocket) txIds
+  pure txIds

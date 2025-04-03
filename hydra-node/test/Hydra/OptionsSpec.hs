@@ -13,6 +13,7 @@ import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
+  ChainBackend (..),
   ChainConfig (..),
   Command (..),
   DirectChainConfig (..),
@@ -23,6 +24,7 @@ import Hydra.Options (
   ParserResult (..),
   PublishOptions (..),
   RunOptions (..),
+  defaultDirectBackend,
   defaultDirectChainConfig,
   defaultLedgerConfig,
   defaultPublishOptions,
@@ -352,7 +354,7 @@ spec = parallel $
           , ["--node-socket", "foo"]
           , ["--mainnet"]
           ]
-          `shouldParse` Publish defaultPublishOptions{publishNodeSocket = "foo", publishNetworkId = Mainnet}
+          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNodeSocket = "foo", publishNetworkId = Mainnet}}
 
       it "parses with some missing option (2)" $
         mconcat
@@ -360,7 +362,7 @@ spec = parallel $
           , ["--testnet-magic", "42"]
           , ["--cardano-signing-key", "foo"]
           ]
-          `shouldParse` Publish defaultPublishOptions{publishSigningKey = "foo", publishNetworkId = Testnet (NetworkMagic 42)}
+          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNetworkId = Testnet (NetworkMagic 42)}, publishSigningKey = "foo"}
 
       it "parses with some missing option (3)" $
         mconcat
@@ -368,7 +370,7 @@ spec = parallel $
           , ["--node-socket", "foo"]
           , ["--cardano-signing-key", "foo"]
           ]
-          `shouldParse` Publish defaultPublishOptions{publishNodeSocket = "foo", publishSigningKey = "foo"}
+          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNodeSocket = "foo"}, publishSigningKey = "foo"}
 
       it "should parse using testnet and all options" $
         mconcat
@@ -378,11 +380,11 @@ spec = parallel $
           , ["--cardano-signing-key", "bar"]
           ]
           `shouldParse` Publish
-            PublishOptions
-              { publishNodeSocket = "foo"
-              , publishNetworkId = Testnet (NetworkMagic 42)
+            defaultPublishOptions
+              { chainBackend = defaultDirectBackend{publishNodeSocket = "foo", publishNetworkId = Testnet (NetworkMagic 42)}
               , publishSigningKey = "bar"
               }
+
       it "should parse using mainnet and all options" $
         mconcat
           [ ["publish-scripts"]
@@ -391,12 +393,25 @@ spec = parallel $
           , ["--cardano-signing-key", "crux"]
           ]
           `shouldParse` Publish
-            PublishOptions
-              { publishNodeSocket = "baz"
-              , publishNetworkId = Mainnet
+            defaultPublishOptions
+              { chainBackend = defaultDirectBackend{publishNodeSocket = "baz", publishNetworkId = Mainnet}
               , publishSigningKey = "crux"
               }
 
+      it "should parse using blockfrost" $
+        mconcat
+          [ ["publish-scripts"]
+          , ["--blockfrost", "baz"]
+          ]
+          `shouldParse` Publish
+            ( PublishOptions
+                { chainBackend =
+                    BlockfrostBackend
+                      { projectPath = "baz"
+                      }
+                , publishSigningKey = "cardano.sk"
+                }
+            )
     describe "gen-hydra-keys sub-command" $ do
       it "should be able to parse gen-hydra-keys sub-command" $
         mconcat

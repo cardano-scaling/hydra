@@ -66,41 +66,31 @@ mkCardanoClient networkId nodeSocket =
 buildTransactionWithBody ::
   -- | Protocol parameters
   PParams LedgerEra ->
-  -- | Current network identifier
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
+  -- | System start
+  SystemStart ->
   -- | Change address to send
+  EraHistory ->
+  Set PoolId ->
   AddressInEra ->
   -- | Body
   TxBodyContent BuildTx ->
   -- | Unspent transaction outputs to spend.
   UTxO ->
-  IO (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransactionWithBody pparams networkId socket changeAddress body utxoToSpend = do
-  -- XXX: Note minor inconsistency here; we are querying the _socket_ (i.e.
-  -- L1) for this information, but in fact this function may be called for the
-  -- construction of an L2 transaction. For this reason we take the pparams as
-  -- an argument, and at some point we can move these other fields to
-  -- arguments as well; but they are not important for our purposes at
-  -- present.
-  systemStart <- querySystemStart networkId socket QueryTip
-  eraHistory <- queryEraHistory networkId socket QueryTip
-  stakePools <- queryStakePools networkId socket QueryTip
-  pure $
-    second (flip Tx [] . balancedTxBody) $
-      makeTransactionBodyAutoBalance
-        shelleyBasedEra
-        systemStart
-        (toLedgerEpochInfo eraHistory)
-        (LedgerProtocolParameters pparams)
-        stakePools
-        mempty
-        mempty
-        (UTxO.toApi utxoToSpend)
-        body
-        changeAddress
-        Nothing
+  Either (TxBodyErrorAutoBalance Era) Tx
+buildTransactionWithBody pparams systemStart eraHistory stakePools changeAddress body utxoToSpend = do
+  second (flip Tx [] . balancedTxBody) $
+    makeTransactionBodyAutoBalance
+      shelleyBasedEra
+      systemStart
+      (toLedgerEpochInfo eraHistory)
+      (LedgerProtocolParameters pparams)
+      stakePools
+      mempty
+      mempty
+      (UTxO.toApi utxoToSpend)
+      body
+      changeAddress
+      Nothing
 
 buildTransaction ::
   -- | Current network identifier
@@ -142,10 +132,30 @@ buildTransactionWithPParams ::
   [TxOut CtxTx] ->
   IO (Either (TxBodyErrorAutoBalance Era) Tx)
 buildTransactionWithPParams pparams networkId socket changeAddress utxoToSpend collateral outs = do
-  buildTransactionWithBody pparams networkId socket changeAddress bodyContent utxoToSpend
+  systemStart <- querySystemStart networkId socket QueryTip
+  eraHistory <- queryEraHistory networkId socket QueryTip
+  stakePools <- queryStakePools networkId socket QueryTip
+  pure $ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs
+
+buildTransactionWithPParams' ::
+  -- | Protocol parameters
+  PParams LedgerEra ->
+  SystemStart ->
+  EraHistory ->
+  Set PoolId ->
+  -- | Change address to send
+  AddressInEra ->
+  -- | Unspent transaction outputs to spend.
+  UTxO ->
+  -- | Collateral inputs.
+  [TxIn] ->
+  -- | Outputs to create.
+  [TxOut CtxTx] ->
+  Either (TxBodyErrorAutoBalance Era) Tx
+buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs = do
+  buildTransactionWithBody pparams systemStart eraHistory stakePools changeAddress bodyContent utxoToSpend
  where
   -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
-  dummyFeeForBalancing = TxFeeExplicit 0
   bodyContent =
     TxBodyContent
       (withWitness <$> toList (UTxO.inputSet utxoToSpend))
@@ -154,7 +164,7 @@ buildTransactionWithPParams pparams networkId socket changeAddress utxoToSpend c
       outs
       TxTotalCollateralNone
       TxReturnCollateralNone
-      dummyFeeForBalancing
+      (TxFeeExplicit 0)
       TxValidityNoLowerBound
       TxValidityNoUpperBound
       TxMetadataNone
@@ -227,6 +237,29 @@ awaitTransaction networkId socket tx =
   ins = keys (UTxO.toMap $ utxoFromTx tx)
   go = do
     utxo <- queryUTxOByTxIn networkId socket QueryTip ins
+    if null utxo
+      then go
+      else pure utxo
+
+-- | Await until the given transaction id is visible on-chain. Returns the UTxO
+-- set produced by that transaction.
+--
+-- Note that this function loops forever; hence, one probably wants to couple it
+-- with a surrounding timeout.
+awaitTransactionId ::
+  -- | Current network discriminant
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  SocketPath ->
+  -- | The transaction ID to watch / await
+  TxId ->
+  IO UTxO
+awaitTransactionId networkId socket txid =
+  go
+ where
+  txIn = TxIn txid (TxIx 0)
+  go = do
+    utxo <- queryUTxOByTxIn networkId socket QueryTip [txIn]
     if null utxo
       then go
       else pure utxo

@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Options (
@@ -134,8 +135,7 @@ commandParser =
       )
 
 data PublishOptions = PublishOptions
-  { publishNetworkId :: NetworkId
-  , publishNodeSocket :: SocketPath
+  { chainBackend :: ChainBackend
   , publishSigningKey :: FilePath
   }
   deriving stock (Show, Eq)
@@ -144,17 +144,30 @@ data PublishOptions = PublishOptions
 defaultPublishOptions :: PublishOptions
 defaultPublishOptions =
   PublishOptions
-    { publishNetworkId = Testnet (NetworkMagic 42)
-    , publishNodeSocket = "node.socket"
+    { chainBackend = defaultDirectBackend
     , publishSigningKey = "cardano.sk"
     }
 
+defaultDirectBackend :: ChainBackend
+defaultDirectBackend =
+  DirectBackend
+    { publishNetworkId = Testnet (NetworkMagic 42)
+    , publishNodeSocket = "node.socket"
+    }
+
+data ChainBackend
+  = DirectBackend
+      { publishNetworkId :: NetworkId
+      , publishNodeSocket :: SocketPath
+      }
+  | BlockfrostBackend
+      { projectPath :: FilePath
+      }
+  deriving stock (Show, Eq)
+
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
-  PublishOptions
-    <$> networkIdParser
-    <*> nodeSocketParser
-    <*> cardanoSigningKeyFileParser
+  PublishOptions <$> chainBackendParser <*> cardanoSigningKeyFileParser
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -259,10 +272,25 @@ runOptionsParser =
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
     <*> persistenceDirParser
-    <*> ( Direct <$> directChainConfigParser
-            <|> Offline <$> offlineChainConfigParser
-        )
+    <*> chainConfigParser
     <*> ledgerConfigParser
+
+chainConfigParser :: Parser ChainConfig
+chainConfigParser =
+  Direct <$> directChainConfigParser
+    <|> Offline <$> offlineChainConfigParser
+
+chainBackendParser :: Parser ChainBackend
+chainBackendParser = directBackendParser <|> blockfrostBackendParser
+ where
+  directBackendParser =
+    DirectBackend
+      <$> networkIdParser
+      <*> nodeSocketParser
+
+  blockfrostBackendParser =
+    BlockfrostBackend
+      <$> blockfrostProjectPathParser
 
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
@@ -463,6 +491,17 @@ directChainConfigParser =
     <*> contestationPeriodParser
     <*> depositDeadlineParser
 
+blockfrostProjectPathParser :: Parser FilePath
+blockfrostProjectPathParser =
+  strOption
+    ( long "blockfrost"
+        <> metavar "FILE"
+        <> showDefault
+        <> value "blockfrost.txt"
+        <> help
+          "Blockfrost project path containing the api key."
+    )
+
 networkIdParser :: Parser NetworkId
 networkIdParser = pMainnet <|> fmap Testnet pTestnetMagic
  where
@@ -495,7 +534,7 @@ nodeSocketParser =
   strOption
     ( long "node-socket"
         <> metavar "FILE"
-        <> value (publishNodeSocket defaultPublishOptions)
+        <> value defaultDirectChainConfig.nodeSocket
         <> showDefault
         <> help
           "Filepath to local unix domain socket used to communicate with \
@@ -508,7 +547,7 @@ cardanoSigningKeyFileParser =
     ( long "cardano-signing-key"
         <> metavar "FILE"
         <> showDefault
-        <> value (publishSigningKey defaultPublishOptions)
+        <> value defaultDirectChainConfig.cardanoSigningKey
         <> help
           "Cardano signing key of our hydra-node. This will be used to authorize \
           \Hydra protocol transactions for heads the node takes part in and any \
@@ -705,10 +744,9 @@ hydraScriptsTxIdsParser =
     ( long "hydra-scripts-tx-id"
         <> metavar "TXID"
         <> help
-          "The transaction which is expected to have published Hydra scripts as \
-          \reference scripts in its outputs. Note: All scripts need to be in the \
-          \first 10 outputs. See release notes for pre-published versions. You \
-          \can use the 'publish-scripts' sub-command to publish them yourself."
+          "The transactions which are expected to have published Hydra scripts as \
+          \reference scripts in their outputs. You can use the 'publish-scripts' \
+          \sub-command to publish scripts yourself."
     )
  where
   parseFromHex = mapM (deserialiseFromRawBytesHex AsTxId)
