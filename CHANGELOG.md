@@ -26,6 +26,8 @@ changes.
     ETCD_AUTO_COMPACTION_RETENTION=168h
     ```
 
+- Introduce an option to publish hydra scripts using blockfrost.
+
 - Fix a bug in increment observation where wrong deposited UTxO was picked up.
 
 - Fix a bug where incremental commits / decommits were not correctly observed after restart of `hydra-node`. This was due to incorrect handling of internal chain state [#1894](https://github.com/cardano-scaling/hydra/pull/1894)
