@@ -136,14 +136,29 @@ commandParser =
 
 data PublishOptions = PublishOptions
   { chainBackend :: ChainBackend
-  , cardanoSigningKey :: FilePath
+  , publishSigningKey :: FilePath
   }
   deriving stock (Show, Eq)
 
+-- | Default options as they should also be provided by 'runOptionsParser'.
+defaultPublishOptions :: PublishOptions
+defaultPublishOptions =
+  PublishOptions
+    { chainBackend = defaultDirectBackend
+    , publishSigningKey = "cardano.sk"
+    }
+
+defaultDirectBackend :: ChainBackend
+defaultDirectBackend =
+  DirectBackend
+    { publishNetworkId = Testnet (NetworkMagic 42)
+    , publishNodeSocket = "node.socket"
+    }
+
 data ChainBackend
   = DirectBackend
-      { networkId :: NetworkId
-      , nodeSocket :: SocketPath
+      { publishNetworkId :: NetworkId
+      , publishNodeSocket :: SocketPath
       }
   | BlockfrostBackend
       { projectPath :: FilePath

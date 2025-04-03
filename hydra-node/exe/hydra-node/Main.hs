@@ -31,11 +31,11 @@ main = do
     GenHydraKey outputFile ->
       either (die . show) pure =<< genHydraKeys outputFile
  where
-  publish PublishOptions{chainBackend, cardanoSigningKey} = do
-    (_, sk) <- readKeyPair cardanoSigningKey
+  publish PublishOptions{chainBackend, publishSigningKey} = do
+    (_, sk) <- readKeyPair publishSigningKey
     txIds <- case chainBackend of
-      DirectBackend{networkId, nodeSocket} ->
-        publishHydraScripts networkId nodeSocket sk
+      DirectBackend{publishNetworkId, publishNodeSocket} ->
+        publishHydraScripts publishNetworkId publishNodeSocket sk
       BlockfrostBackend{projectPath} ->
         Blockfrost.publishHydraScripts projectPath sk
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)

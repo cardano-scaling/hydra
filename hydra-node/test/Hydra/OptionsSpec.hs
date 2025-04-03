@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedRecordDot #-}
-
 module Hydra.OptionsSpec where
 
 import Hydra.Prelude
@@ -14,7 +12,29 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Network (Host (Host))
-import Hydra.Options (ChainBackend (..), ChainConfig (..), Command (..), DirectChainConfig (..), GenerateKeyPair (GenerateKeyPair), InvalidOptions (..), LedgerConfig (..), OfflineChainConfig (..), ParserResult (..), PublishOptions (..), RunOptions (..), defaultDirectChainConfig, defaultLedgerConfig, defaultRunOptions, outputFile, parseHydraCommandFromArgs, renderFailure, toArgs, validateRunOptions)
+import Hydra.Options (
+  ChainBackend (..),
+  ChainConfig (..),
+  Command (..),
+  DirectChainConfig (..),
+  GenerateKeyPair (GenerateKeyPair),
+  InvalidOptions (..),
+  LedgerConfig (..),
+  OfflineChainConfig (..),
+  ParserResult (..),
+  PublishOptions (..),
+  RunOptions (..),
+  defaultDirectBackend,
+  defaultDirectChainConfig,
+  defaultLedgerConfig,
+  defaultPublishOptions,
+  defaultRunOptions,
+  outputFile,
+  parseHydraCommandFromArgs,
+  renderFailure,
+  toArgs,
+  validateRunOptions,
+ )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.DepositDeadline (DepositDeadline (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -119,15 +139,8 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  DirectChainConfig
+                  defaultDirectChainConfig
                     { networkId = Testnet (NetworkMagic 0)
-                    , nodeSocket = defaultDirectChainConfig.nodeSocket
-                    , cardanoSigningKey = defaultDirectChainConfig.cardanoSigningKey
-                    , cardanoVerificationKeys = defaultDirectChainConfig.cardanoVerificationKeys
-                    , hydraScriptsTxId = defaultDirectChainConfig.hydraScriptsTxId
-                    , startChainFrom = defaultDirectChainConfig.startChainFrom
-                    , contestationPeriod = defaultDirectChainConfig.contestationPeriod
-                    , depositDeadline = defaultDirectChainConfig.depositDeadline
                     }
             }
       ["--testnet-magic", "-1"] -- Word32 overflow expected
@@ -135,15 +148,8 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  DirectChainConfig
+                  defaultDirectChainConfig
                     { networkId = Testnet (NetworkMagic 4294967295)
-                    , nodeSocket = defaultDirectChainConfig.nodeSocket
-                    , cardanoSigningKey = defaultDirectChainConfig.cardanoSigningKey
-                    , cardanoVerificationKeys = defaultDirectChainConfig.cardanoVerificationKeys
-                    , hydraScriptsTxId = defaultDirectChainConfig.hydraScriptsTxId
-                    , startChainFrom = defaultDirectChainConfig.startChainFrom
-                    , contestationPeriod = defaultDirectChainConfig.contestationPeriod
-                    , depositDeadline = defaultDirectChainConfig.depositDeadline
                     }
             }
       ["--testnet-magic", "123"]
@@ -151,15 +157,8 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  DirectChainConfig
+                  defaultDirectChainConfig
                     { networkId = Testnet (NetworkMagic 123)
-                    , nodeSocket = defaultDirectChainConfig.nodeSocket
-                    , cardanoSigningKey = defaultDirectChainConfig.cardanoSigningKey
-                    , cardanoVerificationKeys = defaultDirectChainConfig.cardanoVerificationKeys
-                    , hydraScriptsTxId = defaultDirectChainConfig.hydraScriptsTxId
-                    , startChainFrom = defaultDirectChainConfig.startChainFrom
-                    , contestationPeriod = defaultDirectChainConfig.contestationPeriod
-                    , depositDeadline = defaultDirectChainConfig.depositDeadline
                     }
             }
 
@@ -169,15 +168,8 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  DirectChainConfig
+                  defaultDirectChainConfig
                     { networkId = Mainnet
-                    , nodeSocket = defaultDirectChainConfig.nodeSocket
-                    , cardanoSigningKey = defaultDirectChainConfig.cardanoSigningKey
-                    , cardanoVerificationKeys = defaultDirectChainConfig.cardanoVerificationKeys
-                    , hydraScriptsTxId = defaultDirectChainConfig.hydraScriptsTxId
-                    , startChainFrom = defaultDirectChainConfig.startChainFrom
-                    , contestationPeriod = defaultDirectChainConfig.contestationPeriod
-                    , depositDeadline = defaultDirectChainConfig.depositDeadline
                     }
             }
 
@@ -236,15 +228,8 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  DirectChainConfig
+                  defaultDirectChainConfig
                     { networkId = Mainnet
-                    , nodeSocket = defaultDirectChainConfig.nodeSocket
-                    , cardanoSigningKey = defaultDirectChainConfig.cardanoSigningKey
-                    , cardanoVerificationKeys = defaultDirectChainConfig.cardanoVerificationKeys
-                    , hydraScriptsTxId = defaultDirectChainConfig.hydraScriptsTxId
-                    , startChainFrom = defaultDirectChainConfig.startChainFrom
-                    , contestationPeriod = defaultDirectChainConfig.contestationPeriod
-                    , depositDeadline = defaultDirectChainConfig.depositDeadline
                     }
             }
 
@@ -254,15 +239,8 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  DirectChainConfig
-                    { networkId = defaultDirectChainConfig.networkId
-                    , nodeSocket = "foo.sock"
-                    , cardanoSigningKey = defaultDirectChainConfig.cardanoSigningKey
-                    , cardanoVerificationKeys = defaultDirectChainConfig.cardanoVerificationKeys
-                    , hydraScriptsTxId = defaultDirectChainConfig.hydraScriptsTxId
-                    , startChainFrom = defaultDirectChainConfig.startChainFrom
-                    , contestationPeriod = defaultDirectChainConfig.contestationPeriod
-                    , depositDeadline = defaultDirectChainConfig.depositDeadline
+                  defaultDirectChainConfig
+                    { nodeSocket = "foo.sock"
                     }
             }
 
@@ -272,15 +250,8 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  DirectChainConfig
-                    { networkId = defaultDirectChainConfig.networkId
-                    , nodeSocket = defaultDirectChainConfig.nodeSocket
-                    , cardanoSigningKey = "./alice-cardano.sk"
-                    , cardanoVerificationKeys = defaultDirectChainConfig.cardanoVerificationKeys
-                    , hydraScriptsTxId = defaultDirectChainConfig.hydraScriptsTxId
-                    , startChainFrom = defaultDirectChainConfig.startChainFrom
-                    , contestationPeriod = defaultDirectChainConfig.contestationPeriod
-                    , depositDeadline = defaultDirectChainConfig.depositDeadline
+                  defaultDirectChainConfig
+                    { cardanoSigningKey = "./alice-cardano.sk"
                     }
             }
 
@@ -375,13 +346,7 @@ spec = parallel $
       it "parses without any options" $
         [ "publish-scripts"
         ]
-          `shouldParse` Publish
-            ( PublishOptions
-                { chainBackend =
-                    DirectBackend{networkId = defaultDirectChainConfig.networkId, nodeSocket = defaultDirectChainConfig.nodeSocket}
-                , cardanoSigningKey = defaultDirectChainConfig.cardanoSigningKey
-                }
-            )
+          `shouldParse` Publish defaultPublishOptions
 
       it "parses with some missing option (1)" $
         mconcat
@@ -389,13 +354,7 @@ spec = parallel $
           , ["--node-socket", "foo"]
           , ["--mainnet"]
           ]
-          `shouldParse` Publish
-            ( PublishOptions
-                { chainBackend =
-                    DirectBackend{networkId = Mainnet, nodeSocket = "foo"}
-                , cardanoSigningKey = defaultDirectChainConfig.cardanoSigningKey
-                }
-            )
+          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNodeSocket = "foo", publishNetworkId = Mainnet}}
 
       it "parses with some missing option (2)" $
         mconcat
@@ -403,12 +362,7 @@ spec = parallel $
           , ["--testnet-magic", "42"]
           , ["--cardano-signing-key", "foo"]
           ]
-          `shouldParse` Publish
-            ( PublishOptions
-                { chainBackend = DirectBackend{networkId = Testnet (NetworkMagic 42), nodeSocket = defaultDirectChainConfig.nodeSocket}
-                , cardanoSigningKey = "foo"
-                }
-            )
+          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNetworkId = Testnet (NetworkMagic 42)}, publishSigningKey = "foo"}
 
       it "parses with some missing option (3)" $
         mconcat
@@ -416,12 +370,7 @@ spec = parallel $
           , ["--node-socket", "foo"]
           , ["--cardano-signing-key", "foo"]
           ]
-          `shouldParse` Publish
-            ( PublishOptions
-                { chainBackend = DirectBackend{networkId = Testnet (NetworkMagic 42), nodeSocket = "foo"}
-                , cardanoSigningKey = "foo"
-                }
-            )
+          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNodeSocket = "foo"}, publishSigningKey = "foo"}
 
       it "should parse using testnet and all options" $
         mconcat
@@ -431,15 +380,11 @@ spec = parallel $
           , ["--cardano-signing-key", "bar"]
           ]
           `shouldParse` Publish
-            ( PublishOptions
-                { chainBackend =
-                    DirectBackend
-                      { nodeSocket = "foo"
-                      , networkId = Testnet (NetworkMagic 42)
-                      }
-                , cardanoSigningKey = "bar"
-                }
-            )
+            defaultPublishOptions
+              { chainBackend = defaultDirectBackend{publishNodeSocket = "foo", publishNetworkId = Testnet (NetworkMagic 42)}
+              , publishSigningKey = "bar"
+              }
+
       it "should parse using mainnet and all options" $
         mconcat
           [ ["publish-scripts"]
@@ -448,15 +393,11 @@ spec = parallel $
           , ["--cardano-signing-key", "crux"]
           ]
           `shouldParse` Publish
-            ( PublishOptions
-                { chainBackend =
-                    DirectBackend
-                      { nodeSocket = "baz"
-                      , networkId = Mainnet
-                      }
-                , cardanoSigningKey = "crux"
-                }
-            )
+            defaultPublishOptions
+              { chainBackend = defaultDirectBackend{publishNodeSocket = "baz", publishNetworkId = Mainnet}
+              , publishSigningKey = "crux"
+              }
+
       it "should parse using blockfrost" $
         mconcat
           [ ["publish-scripts"]
@@ -468,10 +409,9 @@ spec = parallel $
                     BlockfrostBackend
                       { projectPath = "baz"
                       }
-                , cardanoSigningKey = "cardano.sk"
+                , publishSigningKey = "cardano.sk"
                 }
             )
-
     describe "gen-hydra-keys sub-command" $ do
       it "should be able to parse gen-hydra-keys sub-command" $
         mconcat

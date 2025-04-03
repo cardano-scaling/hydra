@@ -28,7 +28,6 @@ import Hydra.Cardano.Api (
   WitCtx (..),
   examplePlutusScriptAlwaysFails,
   getTxBody,
-  getTxId,
   isKeyAddress,
   makeShelleyKeyWitness,
   makeSignedTransaction,
@@ -37,12 +36,14 @@ import Hydra.Cardano.Api (
   mkTxOutAutoBalance,
   mkVkAddress,
   selectLovelace,
+  throwErrorAsException,
   txOutAddress,
   txOutValue,
   pattern TxOutDatumNone,
  )
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
+  awaitTransaction,
   buildTransactionWithPParams',
   queryEraHistory,
   queryProtocolParameters,
@@ -55,6 +56,7 @@ import Hydra.Chain.CardanoClient (
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import Hydra.Tx (txId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
@@ -90,27 +92,16 @@ publishHydraScripts ::
   SigningKey PaymentKey ->
   IO [TxId]
 publishHydraScripts networkId socketPath sk = do
-  txs <- publishHydraScripts' networkId socketPath sk
-  pure $ getTxId . getTxBody <$> txs
-
-publishHydraScripts' ::
-  -- | Expected network discriminant.
-  NetworkId ->
-  -- | Path to the cardano-node's domain socket
-  SocketPath ->
-  -- | Keys assumed to hold funds to pay for the publishing transaction.
-  SigningKey PaymentKey ->
-  IO [Tx]
-publishHydraScripts' networkId socketPath sk = do
   pparams <- queryProtocolParameters networkId socketPath QueryTip
   systemStart <- querySystemStart networkId socketPath QueryTip
   eraHistory <- queryEraHistory networkId socketPath QueryTip
   stakePools <- queryStakePools networkId socketPath QueryTip
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
-  let txs = buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
+  txs <- buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
   forM txs $ \tx -> do
     submitTransaction networkId socketPath tx
-    pure tx
+    void $ awaitTransaction networkId socketPath tx
+    pure $ txId tx
  where
   vk = getVerificationKey sk
 
@@ -122,12 +113,12 @@ buildScriptPublishingTxs ::
   Set PoolId ->
   UTxO ->
   SigningKey PaymentKey ->
-  [Tx]
+  IO [Tx]
 buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools startUTxO sk =
-  flip evalState (startUTxO, mempty) $
+  flip evalStateT (startUTxO, []) $
     forM scripts $ \script -> do
       (nextUTxO, _) <- get
-      let (tx, _, spentUTxO) = buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script nextUTxO
+      (tx, _, spentUTxO) <- liftIO $ buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script nextUTxO
       modify' (\(_, existingTxs) -> (pickKeyAddressUTxO $ adjustUTxO tx spentUTxO, tx : existingTxs))
       pure tx
  where
@@ -149,7 +140,7 @@ buildScriptPublishingTx ::
   SigningKey PaymentKey ->
   PlutusScript ->
   UTxO.UTxO ->
-  (Tx, TxBody, UTxO.UTxO)
+  IO (Tx, TxBody, UTxO.UTxO)
 buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script utxo =
   let output = mkScriptTxOut <$> [mkScriptRef script]
       totalDeposit = sum (selectLovelace . txOutValue <$> output)
@@ -157,10 +148,10 @@ buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools chan
         maybe mempty UTxO.singleton $
           UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
    in case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend [] output of
-        Left e -> error $ show e
+        Left e -> throwErrorAsException e
         Right rawTx -> do
           let body = getTxBody rawTx
-          (makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body, body, utxoToSpend)
+          pure (makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body, body, utxoToSpend)
  where
   mkScriptTxOut =
     mkTxOutAutoBalance

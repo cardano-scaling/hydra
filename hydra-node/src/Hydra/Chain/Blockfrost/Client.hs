@@ -87,7 +87,7 @@ publishHydraScripts projectPath sk = do
     utxo <- Blockfrost.getAddressUtxos address
     let cardanoUTxO = toCardanoUTxO utxo changeAddress
 
-    let txs = buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools cardanoUTxO sk
+    txs <- liftIO $ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools cardanoUTxO sk
     forM txs $ \(tx :: Tx) -> do
       void $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR tx
       pure $ txId tx

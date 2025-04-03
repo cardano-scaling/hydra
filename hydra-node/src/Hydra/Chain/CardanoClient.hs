@@ -241,6 +241,29 @@ awaitTransaction networkId socket tx =
       then go
       else pure utxo
 
+-- | Await until the given transaction id is visible on-chain. Returns the UTxO
+-- set produced by that transaction.
+--
+-- Note that this function loops forever; hence, one probably wants to couple it
+-- with a surrounding timeout.
+awaitTransactionId ::
+  -- | Current network discriminant
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  SocketPath ->
+  -- | The transaction ID to watch / await
+  TxId ->
+  IO UTxO
+awaitTransactionId networkId socket txid =
+  go
+ where
+  txIn = TxIn txid (TxIx 0)
+  go = do
+    utxo <- queryUTxOByTxIn networkId socket QueryTip [txIn]
+    if null utxo
+      then go
+      else pure utxo
+
 -- * Local state query
 
 -- | Describes whether to query at the tip or at a specific point.

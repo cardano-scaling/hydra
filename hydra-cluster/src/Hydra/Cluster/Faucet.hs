@@ -10,6 +10,7 @@ import CardanoClient (
   RunningNode (..),
   SubmitTransactionException,
   awaitTransaction,
+  awaitTransactionId,
   buildAddress,
   buildTransaction,
   queryUTxO,
@@ -22,7 +23,7 @@ import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import Hydra.Chain.ScriptRegistry (
-  publishHydraScripts',
+  publishHydraScripts,
  )
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
@@ -200,6 +201,6 @@ retryOnExceptions tracer action =
 publishHydraScriptsAs :: RunningNode -> Actor -> IO [TxId]
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
-  txs <- publishHydraScripts' networkId nodeSocket sk
-  mapM_ (awaitTransaction networkId nodeSocket) txs
-  pure $ getTxId . getTxBody <$> txs
+  txIds <- publishHydraScripts networkId nodeSocket sk
+  mapM_ (awaitTransactionId networkId nodeSocket) txIds
+  pure txIds
