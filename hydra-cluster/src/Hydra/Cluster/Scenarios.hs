@@ -332,7 +332,7 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
   let hydraTracer = contramap FromHydraNode tracer
 
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-    (headId1, decrementOuts) <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+    (headId1, decrementUTxO) <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
       send n1 $ input "Init" []
 
       headId <- waitMatch (20 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice, bob])
@@ -370,7 +370,6 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
 
       let decommitUTxO = utxoFromTx decommitTx
           decommitTxId = txId decommitTx
-          expectedDecrementOutputs = snd <$> UTxO.pairs decommitUTxO
 
       -- Sometimes use websocket, sometimes use HTTP
       join . generate $
@@ -385,8 +384,8 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
         output "DecommitApproved" ["headId" .= headId, "decommitTxId" .= decommitTxId, "utxoToDecommit" .= decommitUTxO]
       failAfter 10 $ waitForUTxO cardanoNode decommitUTxO
       waitFor hydraTracer 10 [n1, n2] $
-        output "DecommitFinalized" ["headId" .= headId, "distributedOutputs" .= expectedDecrementOutputs]
-      pure (headId, expectedDecrementOutputs)
+        output "DecommitFinalized" ["headId" .= headId, "distributedUTxO" .= decommitUTxO]
+      pure (headId, decommitUTxO)
 
     -- Here we post a deposit while one node is down so we can test if recover works later on
     resp2 <-
@@ -416,7 +415,7 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
           output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId2]
 
         waitFor hydraTracer 5 [n2] $
-          output "DecommitFinalized" ["headId" .= headId2, "distributedOutputs" .= decrementOuts]
+          output "DecommitFinalized" ["headId" .= headId2, "distributedUTxO" .= decrementUTxO]
 
         let depositTxId = getTxId $ getTxBody depositTransaction2
         let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show depositTxId
@@ -1467,7 +1466,6 @@ canDecommit tracer workDir node hydraScriptsTxId =
   expectSuccessOnSignedDecommitTx n headId decommitTx = do
     let decommitUTxO = utxoFromTx decommitTx
         decommitTxId = txId decommitTx
-        expectedDecrementOutputs = snd <$> UTxO.pairs decommitUTxO
     -- Sometimes use websocket, sometimes use HTTP
     join . generate $
       elements
@@ -1480,7 +1478,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
       output "DecommitApproved" ["headId" .= headId, "decommitTxId" .= decommitTxId, "utxoToDecommit" .= decommitUTxO]
     failAfter 10 $ waitForUTxO node decommitUTxO
     waitFor hydraTracer 10 [n] $
-      output "DecommitFinalized" ["headId" .= headId, "distributedOutputs" .= expectedDecrementOutputs]
+      output "DecommitFinalized" ["headId" .= headId, "distributedUTxO" .= decommitUTxO]
 
   expectFailureOnUnsignedDecommitTx n headId decommitTx = do
     let unsignedDecommitTx = makeSignedTransaction [] $ getTxBody decommitTx
