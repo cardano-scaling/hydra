@@ -116,6 +116,7 @@ import HydraNode (
   HydraNodeLog,
   getProtocolParameters,
   getSnapshotConfirmed,
+  getSnapshotLastSeen,
   getSnapshotUTxO,
   input,
   output,
@@ -1428,6 +1429,13 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
           guard $ v ^? key "tag" == Just "TxInvalid"
           guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
 
+        -- We observe that a snapshot is in progress, but Carol has not signed it.
+        seenSn1 <- getSnapshotLastSeen n1
+        seenSn2 <- getSnapshotLastSeen n2
+        seenSn1 `shouldBe` seenSn2
+        seenSn3 <- getSnapshotLastSeen n3
+        seenSn2 `shouldNotBe` seenSn3
+
         pure tx
 
       -- Carol disconnects and the others observe it
@@ -1449,6 +1457,12 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
 
         -- \| Up to this point the head became stuck and no further SnapshotConfirmed
         -- including above tx will be seen signed by everyone.
+        -- We observe that a snapshot is in progress, but Carol has not signed it.
+        seenSn1 <- getSnapshotLastSeen n1
+        seenSn2 <- getSnapshotLastSeen n2
+        seenSn1 `shouldBe` seenSn2
+        seenSn3 <- getSnapshotLastSeen n3
+        seenSn2 `shouldNotBe` seenSn3
 
         -- The party side-loads latest confirmed snapshot (which is the initial)
         -- This also prunes local txs, and discards any signing round inflight
@@ -1473,6 +1487,13 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
             -- Just check that everyone signed it.
             let sigs = v ^.. key "signatures" . key "multiSignature" . values
             guard $ length sigs == 3
+
+        -- Finally observe everyone having the same latest seen snapshot.
+        seenSn1' <- getSnapshotLastSeen n1
+        seenSn2' <- getSnapshotLastSeen n2
+        seenSn1' `shouldBe` seenSn2'
+        seenSn3' <- getSnapshotLastSeen n3
+        seenSn2' `shouldBe` seenSn3'
  where
   RunningNode{nodeSocket, networkId, blockTime} = cardanoNode
   hydraTracer = contramap FromHydraNode tracer
