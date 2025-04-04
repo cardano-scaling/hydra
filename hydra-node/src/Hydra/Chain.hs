@@ -66,6 +66,7 @@ data PostChainTx tx
       { headId :: HeadId
       , recoverTxId :: TxIdType tx
       , deadline :: ChainSlot
+      , recoverUTxO :: UTxOType tx
       }
   | DecrementTx
       { headId :: HeadId
@@ -100,8 +101,8 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
     IncrementTx{headId, headParameters, incrementingSnapshot, depositTxId} ->
       IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositTxId
-    RecoverTx{headId, recoverTxId, deadline} ->
-      RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink deadline
+    RecoverTx{headId, recoverTxId, deadline, recoverUTxO} ->
+      RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink deadline <*> shrink recoverUTxO
     DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
@@ -132,6 +133,7 @@ data OnChainTx tx
   | OnRecoverTx
       { headId :: HeadId
       , recoveredTxId :: TxIdType tx
+      , recoveredUTxO :: UTxOType tx
       }
   | OnIncrementTx
       { headId :: HeadId
@@ -141,7 +143,7 @@ data OnChainTx tx
   | OnDecrementTx
       { headId :: HeadId
       , newVersion :: SnapshotVersion
-      , distributedOutputs :: [TxOutType tx]
+      , distributedUTxO :: UTxOType tx
       }
   | OnCloseTx
       { headId :: HeadId

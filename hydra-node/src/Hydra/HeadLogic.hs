@@ -71,7 +71,6 @@ import Hydra.HeadLogic.State (
 import Hydra.Ledger (
   Ledger (..),
   applyTransactions,
-  outputsOfTx,
  )
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
@@ -745,6 +744,7 @@ onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
                   { headId
                   , recoverTxId = recoverTxId
                   , deadline = currentSlot
+                  , recoverUTxO = pendingDeposits Map.! recoverTxId
                   }
             }
         ]
@@ -959,19 +959,17 @@ onOpenChainRecoverTx ::
   ChainStateType tx ->
   HeadId ->
   TxIdType tx ->
+  UTxOType tx ->
   Outcome tx
-onOpenChainRecoverTx st newChainState headId recoveredTxId =
-  case Map.lookup recoveredTxId pendingDeposits of
-    Nothing -> Error $ RequireFailed RecoverNotMatchingDeposit
-    Just recoveredUTxO ->
-      newState
-        CommitRecovered
-          { chainState = newChainState
-          , headId
-          , recoveredUTxO
-          , newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO
-          , recoveredTxId
-          }
+onOpenChainRecoverTx st newChainState headId recoveredTxId recoveredUTxO =
+  newState
+    CommitRecovered
+      { chainState = newChainState
+      , headId
+      , recoveredUTxO
+      , newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO
+      , recoveredTxId
+      }
  where
   OpenState{coordinatedHeadState} = st
 
@@ -1004,34 +1002,27 @@ onOpenChainIncrementTx openState newChainState newVersion depositTxId =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainDecrementTx ::
-  IsTx tx =>
   OpenState tx ->
   ChainStateType tx ->
   -- | New open state version
   SnapshotVersion ->
-  -- | Outputs removed by the decrement
-  [TxOutType tx] ->
+  -- | UTxO removed by the decrement
+  UTxOType tx ->
   Outcome tx
-onOpenChainDecrementTx openState newChainState newVersion distributedTxOuts =
+onOpenChainDecrementTx openState newChainState newVersion distributedUTxO =
+  -- FIXME: fix the removed spec parts
   -- Spec: if outputs(txω) = 𝑈ω
-  case decommitTx of
-    Nothing -> Error $ AssertionFailed "decrement observed but no decommit pending"
-    Just tx
-      | outputsOfTx tx == distributedTxOuts ->
-          -- Spec: txω ← ⊥
-          --       v  ← v
-          newState
-            DecommitFinalized
-              { chainState = newChainState
-              , headId
-              , newVersion
-              , decommitTxId = txId tx
-              }
-      | otherwise -> Error $ AssertionFailed "decrement not matching pending decommit"
+  -- Spec: txω ← ⊥
+  --       v  ← v
+  newState
+    DecommitFinalized
+      { chainState = newChainState
+      , headId
+      , newVersion
+      , distributedUTxO
+      }
  where
-  OpenState{coordinatedHeadState, headId} = openState
-
-  CoordinatedHeadState{decommitTx} = coordinatedHeadState
+  OpenState{headId} = openState
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
@@ -1349,8 +1340,8 @@ update env ledger st ev = case (st, ev) of
     | ourHeadId == headId -> onOpenChainDepositTx newChainState headId env openState deposited depositTxId deadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId}, newChainState})
-    | ourHeadId == headId -> onOpenChainRecoverTx openState newChainState headId recoveredTxId
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
+    | ourHeadId == headId -> onOpenChainRecoverTx openState newChainState headId recoveredTxId recoveredUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
@@ -1358,10 +1349,10 @@ update env ledger st ev = case (st, ev) of
         onOpenChainIncrementTx openState newChainState newVersion depositTxId
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedOutputs}, newChainState})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO}, newChainState})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx openState newChainState newVersion distributedOutputs
+        onOpenChainDecrementTx openState newChainState newVersion distributedUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed

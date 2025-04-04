@@ -54,7 +54,7 @@ import Hydra.Cardano.Api (
   LedgerProtocolParameters (..),
   PaymentKey,
   Tx,
-  TxId,
+  TxId (..),
   UTxO,
   addTxIns,
   addTxInsCollateral,
@@ -150,6 +150,7 @@ import Network.HTTP.Req (
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
 import System.FilePath ((</>))
+import System.Process (proc, readCreateProcessWithExitCode)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, elements, generate)
@@ -306,6 +307,133 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
       output "HeadIsAborted" ["utxo" .= object mempty, "headId" .= headId2]
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
+
+nodeReObservesOnChainTxs :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
+  refuelIfNeeded tracer cardanoNode Alice 100_000_000
+  refuelIfNeeded tracer cardanoNode Bob 100_000_000
+  -- Start hydra-node on chain tip
+  tip <- queryTip networkId nodeSocket
+  let contestationPeriod = UnsafeContestationPeriod 2
+  let deadline = 10
+  let depositDeadline = UnsafeDepositDeadline deadline
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline
+      <&> modifyConfig (\config -> config{networkId, startChainFrom = Nothing})
+
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositDeadline
+      <&> modifyConfig (\config -> config{networkId, startChainFrom = Nothing})
+
+  (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+  (bobCardanoVk, bobCardanoSk) <- keysFor Bob
+  commitUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 5_000_000 (contramap FromFaucet tracer)
+  commitUTxO2 <- seedFromFaucet cardanoNode bobCardanoVk 7_000_000 (contramap FromFaucet tracer)
+
+  let hydraTracer = contramap FromHydraNode tracer
+
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+    (headId1, decrementUTxO) <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      send n1 $ input "Init" []
+
+      headId <- waitMatch (20 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice, bob])
+      _ <- waitMatch (20 * blockTime) n2 $ headIsInitializingWith (Set.fromList [alice, bob])
+
+      requestCommitTx n1 mempty >>= submitTx cardanoNode
+      requestCommitTx n2 mempty >>= submitTx cardanoNode
+
+      waitFor hydraTracer (20 * blockTime) [n1, n2] $
+        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+      resp <-
+        parseUrlThrow ("POST " <> hydraNodeBaseUrl n2 <> "/commit")
+          <&> setRequestBodyJSON commitUTxO
+            >>= httpJSON
+
+      let depositTransaction = getResponseBody resp :: Tx
+      let tx = signTx aliceCardanoSk depositTransaction
+
+      submitTx cardanoNode tx
+
+      waitFor hydraTracer 10 [n2] $
+        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
+      waitFor hydraTracer 10 [n2] $
+        output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
+
+      getSnapshotUTxO n1 `shouldReturn` commitUTxO
+
+      let aliceAddress = mkVkAddress networkId aliceCardanoVk
+
+      decommitTx <- do
+        let (i, o) = List.head $ UTxO.pairs commitUTxO
+        either (failure . show) pure $
+          mkSimpleTx (i, o) (aliceAddress, txOutValue o) aliceCardanoSk
+
+      let decommitUTxO = utxoFromTx decommitTx
+          decommitTxId = txId decommitTx
+
+      -- Sometimes use websocket, sometimes use HTTP
+      join . generate $
+        elements
+          [ send n2 $ input "Decommit" ["decommitTx" .= decommitTx]
+          , postDecommit n1 decommitTx
+          ]
+
+      waitFor hydraTracer 10 [n1, n2] $
+        output "DecommitRequested" ["headId" .= headId, "decommitTx" .= decommitTx, "utxoToDecommit" .= decommitUTxO]
+      waitFor hydraTracer 10 [n1, n2] $
+        output "DecommitApproved" ["headId" .= headId, "decommitTxId" .= decommitTxId, "utxoToDecommit" .= decommitUTxO]
+      failAfter 10 $ waitForUTxO cardanoNode decommitUTxO
+      waitFor hydraTracer 10 [n1, n2] $
+        output "DecommitFinalized" ["headId" .= headId, "distributedUTxO" .= decommitUTxO]
+      pure (headId, decommitUTxO)
+
+    -- Here we post a deposit while one node is down so we can test if recover works later on
+    resp2 <-
+      parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
+        <&> setRequestBodyJSON commitUTxO2
+          >>= httpJSON
+
+    let depositTransaction2 = getResponseBody resp2 :: Tx
+    let tx2 = signTx bobCardanoSk depositTransaction2
+
+    submitTx cardanoNode tx2
+
+    threadDelay $ fromIntegral (deadline * 2 + 1)
+
+    bobChainConfigFromTip <-
+      chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositDeadline
+        <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
+
+    withTempDir "blank-state" $ \tmpDir -> do
+      void $ readCreateProcessWithExitCode (proc "cp" ["-r", workDir </> "state-2", tmpDir]) ""
+      void $ readCreateProcessWithExitCode (proc "rm" ["-rf", tmpDir </> "state-2" </> "state"]) ""
+      withHydraNode hydraTracer bobChainConfigFromTip tmpDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+        -- Also expect to see past server outputs replayed
+        headId2 <- waitMatch 5 n2 $ headIsInitializingWith (Set.fromList [alice, bob])
+        headId2 `shouldBe` headId1
+        waitFor hydraTracer 5 [n2] $
+          output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId2]
+
+        waitFor hydraTracer 5 [n2] $
+          output "DecommitFinalized" ["headId" .= headId2, "distributedUTxO" .= decrementUTxO]
+
+        let depositTxId = getTxId $ getTxBody depositTransaction2
+        let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show depositTxId
+
+        recoverResp <-
+          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n2 <> "/commits/" <> path)
+            >>= httpJSON
+
+        (getResponseBody recoverResp :: String) `shouldBe` "OK"
+
+        waitForAllMatch (20 * blockTime) [n2] $ \v -> do
+          guard $ v ^? key "tag" == Just "CommitRecovered"
+          guard $ v ^? key "recoveredTxId" == Just (toJSON depositTxId)
+ where
+  RunningNode{nodeSocket, networkId, blockTime} = cardanoNode
+
+  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
 
 -- | Step through the full life cycle of a Hydra Head with only a single
 -- participant. This scenario is also used by the smoke test run via the
@@ -1351,7 +1479,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
       output "DecommitApproved" ["headId" .= headId, "decommitTxId" .= decommitTxId, "utxoToDecommit" .= decommitUTxO]
     failAfter 10 $ waitForUTxO node decommitUTxO
     waitFor hydraTracer 10 [n] $
-      output "DecommitFinalized" ["headId" .= headId, "decommitTxId" .= decommitTxId]
+      output "DecommitFinalized" ["headId" .= headId, "distributedUTxO" .= decommitUTxO]
 
   expectFailureOnUnsignedDecommitTx n headId decommitTx = do
     let unsignedDecommitTx = makeSignedTransaction [] $ getTxBody decommitTx
