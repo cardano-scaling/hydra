@@ -264,7 +264,7 @@ const config = {
             ],
           },
         ],
-        copyright: `© 2024`,
+        copyright: `© 2025`,
       },
       prism: {
         theme: lightCodeTheme,
