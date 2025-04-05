@@ -15,11 +15,13 @@ index-state:
   , hackage.haskell.org 2025-02-20T07:20:13Z
   , cardano-haskell-packages 2025-02-11T21:18:23Z
 
+-- NOTE: Needed until https://github.com/blockfrost/blockfrost-haskell/pull/72
+-- merged and released to hackage.
 source-repository-package
   type: git
   location: https://github.com/cardano-scaling/blockfrost-haskell.git
-  tag: 042179583f439d09c271b11bac9e9289133c0a66
-  --sha256: j2kRxDxtehHB0mQ4lHE6PqjOVca2dHgQgJaxtCPDeM8=
+  tag: c775359d8c2f70890adda503dfdba484ab8b6063
+  --sha256: sha256-auvg0S+6YBZsucPMcVedq0WHAjaOwd37740D3OgyXS4=
   subdir:
     blockfrost-client-core
     blockfrost-api
