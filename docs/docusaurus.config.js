@@ -175,12 +175,6 @@ const config = {
             label: "Developer documentation",
             position: "left",
           },
-          //commenting out for the time being
-          // {
-          //   to: "/core-concepts",
-          //   label: "Core Concepts",
-          //   position: "right",
-          // },
           {
             to: "/topologies",
             label: "Topologies",
