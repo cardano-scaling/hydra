@@ -1,0 +1,120 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Network.Ouroboros.Server</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html"><span class="hs-identifier">Hydra.Network.Ouroboros.Type</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-6"></span><span>  </span><span class="annot"><span class="hs-identifier">ClientHasAgency</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#TokIdle"><span class="hs-identifier">TokIdle</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-7"></span><span>  </span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#FireForget"><span class="hs-identifier">FireForget</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#StIdle"><span class="hs-identifier">StIdle</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><span class="hs-identifier">Message</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#MsgDone"><span class="hs-identifier">MsgDone</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#MsgSend"><span class="hs-identifier">MsgSend</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><span class="hs-identifier">NobodyHasAgency</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#TokDone"><span class="hs-identifier">TokDone</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.TypedProtocol</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier">Peer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Await</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Done</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Effect</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-identifier">PeerHasAgency</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ClientAgency</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier">PeerRole</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">AsServer</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">data</span><span> </span><span id="FireForgetServer"><span class="annot"><a href="Hydra.Network.Ouroboros.Server.html#FireForgetServer"><span class="hs-identifier hs-var">FireForgetServer</span></a></span></span><span> </span><span id="local-6989586621680219057"><span class="annot"><a href="#local-6989586621680219057"><span class="hs-identifier hs-type">msg</span></a></span></span><span> </span><span id="local-6989586621680219058"><span class="annot"><a href="#local-6989586621680219058"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621680219059"><span class="annot"><a href="#local-6989586621680219059"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="FireForgetServer"><span class="annot"><a href="Hydra.Network.Ouroboros.Server.html#FireForgetServer"><span class="hs-identifier hs-var">FireForgetServer</span></a></span></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3ArecvMsg%3AFireForgetServer"><span class="annot"><span class="annottext">forall msg (m :: * -&gt; *) a.
+FireForgetServer msg m a -&gt; msg -&gt; m (FireForgetServer msg m a)
+</span><a href="Hydra.Network.Ouroboros.Server.html#%24sel%3ArecvMsg%3AFireForgetServer"><span class="hs-identifier hs-var hs-var">recvMsg</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680219057"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680219058"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Ouroboros.Server.html#FireForgetServer"><span class="hs-identifier hs-type">FireForgetServer</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219057"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219058"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219059"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-comment">-- ^ The client sent us a message.</span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-comment">-- There is no response and we must have effects.</span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3ArecvMsgDone%3AFireForgetServer"><span class="annot"><span class="annottext">forall msg (m :: * -&gt; *) a. FireForgetServer msg m a -&gt; m a
+</span><a href="Hydra.Network.Ouroboros.Server.html#%24sel%3ArecvMsgDone%3AFireForgetServer"><span class="hs-identifier hs-var hs-var">recvMsgDone</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680219058"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219059"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-comment">-- ^ The client terminated. Here we have a pure return value, but we</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-comment">-- could have done another action in 'm' if we wanted to.</span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span id="local-6989586621680219067"><span id="local-6989586621680219068"><span id="local-6989586621680219069"><span class="annot"><a href="Hydra.Network.Ouroboros.Server.html#fireForgetServerPeer"><span class="hs-identifier hs-type">fireForgetServerPeer</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219067"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><a href="Hydra.Network.Ouroboros.Server.html#FireForgetServer"><span class="hs-identifier hs-type">FireForgetServer</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219068"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219067"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219069"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Peer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#FireForget"><span class="hs-identifier hs-type">FireForget</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219068"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">AsServer</span></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#StIdle"><span class="hs-identifier hs-type">StIdle</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219067"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680219069"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-30"></span><span id="fireForgetServerPeer"><span class="annot"><span class="annottext">fireForgetServerPeer :: forall (m :: * -&gt; *) msg a.
+Monad m =&gt;
+FireForgetServer msg m a
+-&gt; Peer (FireForget msg) 'AsServer 'StIdle m a
+</span><a href="Hydra.Network.Ouroboros.Server.html#fireForgetServerPeer"><span class="hs-identifier hs-var hs-var">fireForgetServerPeer</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Network.Ouroboros.Server.html#FireForgetServer"><span class="hs-identifier hs-type">FireForgetServer</span></a></span><span class="hs-special">{</span><span id="local-6989586621680219126"><span class="annot"><span class="annottext">msg -&gt; m (FireForgetServer msg m a)
+$sel:recvMsg:FireForgetServer :: forall msg (m :: * -&gt; *) a.
+FireForgetServer msg m a -&gt; msg -&gt; m (FireForgetServer msg m a)
+recvMsg :: msg -&gt; m (FireForgetServer msg m a)
+</span><a href="Hydra.Network.Ouroboros.Server.html#%24sel%3ArecvMsg%3AFireForgetServer"><span class="hs-identifier hs-var hs-var">recvMsg</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680219127"><span class="annot"><span class="annottext">m a
+$sel:recvMsgDone:FireForgetServer :: forall msg (m :: * -&gt; *) a. FireForgetServer msg m a -&gt; m a
+recvMsgDone :: m a
+</span><a href="Hydra.Network.Ouroboros.Server.html#%24sel%3ArecvMsgDone%3AFireForgetServer"><span class="hs-identifier hs-var hs-var">recvMsgDone</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-comment">-- In the 'StIdle' the server is awaiting a request message</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><span class="annottext">TheyHaveAgency 'AsServer 'StIdle
+-&gt; (forall {st' :: FireForget msg}.
+    Message (FireForget msg) 'StIdle st'
+    -&gt; Peer (FireForget msg) 'AsServer st' m a)
+-&gt; Peer (FireForget msg) 'AsServer 'StIdle m a
+forall (pr :: PeerRole) ps (st :: ps) (m :: * -&gt; *) a.
+TheyHaveAgency pr st
+-&gt; (forall (st' :: ps). Message ps st st' -&gt; Peer ps pr st' m a)
+-&gt; Peer ps pr st m a
+</span><span class="hs-identifier hs-var">Await</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ClientHasAgency 'StIdle -&gt; PeerHasAgency 'AsClient 'StIdle
+forall {ps} (st :: ps).
+ClientHasAgency st -&gt; PeerHasAgency 'AsClient st
+</span><span class="hs-identifier hs-var">ClientAgency</span></span><span> </span><span class="annot"><span class="annottext">ClientHasAgency 'StIdle
+forall {k} {msg :: k}. ClientHasAgency 'StIdle
+</span><a href="Hydra.Network.Ouroboros.Type.html#TokIdle"><span class="hs-identifier hs-var">TokIdle</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((forall {st' :: FireForget msg}.
+  Message (FireForget msg) 'StIdle st'
+  -&gt; Peer (FireForget msg) 'AsServer st' m a)
+ -&gt; Peer (FireForget msg) 'AsServer 'StIdle m a)
+-&gt; (forall {st' :: FireForget msg}.
+    Message (FireForget msg) 'StIdle st'
+    -&gt; Peer (FireForget msg) 'AsServer st' m a)
+-&gt; Peer (FireForget msg) 'AsServer 'StIdle m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-33"></span><span>    </span><span class="hs-comment">-- The client got to choose between two messages and we have to handle</span><span>
+</span><span id="line-34"></span><span>    </span><span class="hs-comment">-- either of them</span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#MsgSend"><span class="hs-identifier hs-type">MsgSend</span></a></span><span> </span><span id="local-6989586621680219138"><span class="annot"><span class="annottext">msg1
+</span><a href="#local-6989586621680219138"><span class="hs-identifier hs-var">payload</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">m (Peer (FireForget msg) 'AsServer st' m a)
+-&gt; Peer (FireForget msg) 'AsServer st' m a
+forall (m :: * -&gt; *) ps (pr :: PeerRole) (st :: ps) a.
+m (Peer ps pr st m a) -&gt; Peer ps pr st m a
+</span><span class="hs-identifier hs-var">Effect</span></span><span> </span><span class="annot"><span class="annottext">(m (Peer (FireForget msg) 'AsServer st' m a)
+ -&gt; Peer (FireForget msg) 'AsServer st' m a)
+-&gt; m (Peer (FireForget msg) 'AsServer st' m a)
+-&gt; Peer (FireForget msg) 'AsServer st' m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">FireForgetServer msg m a -&gt; Peer (FireForget msg) 'AsServer st' m a
+FireForgetServer msg m a
+-&gt; Peer (FireForget msg) 'AsServer 'StIdle m a
+forall (m :: * -&gt; *) msg a.
+Monad m =&gt;
+FireForgetServer msg m a
+-&gt; Peer (FireForget msg) 'AsServer 'StIdle m a
+</span><a href="Hydra.Network.Ouroboros.Server.html#fireForgetServerPeer"><span class="hs-identifier hs-var">fireForgetServerPeer</span></a></span><span> </span><span class="annot"><span class="annottext">(FireForgetServer msg m a
+ -&gt; Peer (FireForget msg) 'AsServer st' m a)
+-&gt; m (FireForgetServer msg m a)
+-&gt; m (Peer (FireForget msg) 'AsServer st' m a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">msg -&gt; m (FireForgetServer msg m a)
+</span><a href="#local-6989586621680219126"><span class="hs-identifier hs-var">recvMsg</span></a></span><span> </span><span class="annot"><span class="annottext">msg
+msg1
+</span><a href="#local-6989586621680219138"><span class="hs-identifier hs-var">payload</span></a></span><span>
+</span><span id="line-36"></span><span>    </span><span class="annot"><span class="annottext">Message (FireForget msg) 'StIdle st'
+R:MessageFireForgetfromto (*) msg 'StIdle st'
+</span><a href="Hydra.Network.Ouroboros.Type.html#MsgDone"><span class="hs-identifier hs-var">MsgDone</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">m (Peer (FireForget msg) 'AsServer st' m a)
+-&gt; Peer (FireForget msg) 'AsServer st' m a
+forall (m :: * -&gt; *) ps (pr :: PeerRole) (st :: ps) a.
+m (Peer ps pr st m a) -&gt; Peer ps pr st m a
+</span><span class="hs-identifier hs-var">Effect</span></span><span> </span><span class="annot"><span class="annottext">(m (Peer (FireForget msg) 'AsServer st' m a)
+ -&gt; Peer (FireForget msg) 'AsServer st' m a)
+-&gt; m (Peer (FireForget msg) 'AsServer st' m a)
+-&gt; Peer (FireForget msg) 'AsServer st' m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">NobodyHasAgency st' -&gt; a -&gt; Peer (FireForget msg) 'AsServer st' m a
+forall ps (st :: ps) a (pr :: PeerRole) (m :: * -&gt; *).
+NobodyHasAgency st -&gt; a -&gt; Peer ps pr st m a
+</span><span class="hs-identifier hs-var">Done</span></span><span> </span><span class="annot"><span class="annottext">NobodyHasAgency st'
+NobodyHasAgency 'StDone
+forall {k} {msg :: k}. NobodyHasAgency 'StDone
+</span><a href="Hydra.Network.Ouroboros.Type.html#TokDone"><span class="hs-identifier hs-var">TokDone</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Peer (FireForget msg) 'AsServer st' m a)
+-&gt; m a -&gt; m (Peer (FireForget msg) 'AsServer st' m a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621680219127"><span class="hs-identifier hs-var">recvMsgDone</span></a></span><span>
+</span><span id="line-37"></span></pre></body></html>
