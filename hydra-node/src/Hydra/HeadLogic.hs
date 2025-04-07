@@ -1010,10 +1010,6 @@ onOpenChainDecrementTx ::
   UTxOType tx ->
   Outcome tx
 onOpenChainDecrementTx openState newChainState newVersion distributedUTxO =
-  -- FIXME: fix the removed spec parts
-  -- Spec: if outputs(txω) = 𝑈ω
-  -- Spec: txω ← ⊥
-  --       v  ← v
   newState
     DecommitFinalized
       { chainState = newChainState
