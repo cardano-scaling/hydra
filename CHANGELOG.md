@@ -30,6 +30,8 @@ changes.
 
 - Introduce an option to publish hydra scripts using blockfrost.
 
+- Remove checks that rely on hydra-node's local state and trust on-chain data when we observe decrement/recover transactions.
+
 - Fix a bug in increment observation where wrong deposited UTxO was picked up.
 
 - Fix a bug where incremental commits / decommits were not correctly observed after restart of `hydra-node`. This was due to incorrect handling of internal chain state [#1894](https://github.com/cardano-scaling/hydra/pull/1894)
