@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkhydra_head_protocol_docs=self.webpackChunkhydra_head_protocol_docs||[]).push([[1903],{1912:o=>{o.exports=JSON.parse('{"blogBasePath":"/head-protocol/unstable/adr","blogTitle":"Architecture Decision Records","authorsListPath":"/head-protocol/unstable/adr/authors"}')}}]);

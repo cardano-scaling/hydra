@@ -1,0 +1,58 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | Error codes to be used in plutus scripts.</span><span>
+</span><span id="line-2"></span><span class="hs-comment">--</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Define a new type and instantiate 'ToErrorCode' for error cases you want to</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- use in scripts.</span><span>
+</span><span id="line-5"></span><span class="hs-comment">--</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- data MyError = CaseA | CaseB deriving Show</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- instance ToErrorCode MyError where</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--   toErrorCode = \case</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--     CaseA -&gt; &quot;CA&quot;</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--     CaseB -&gt; &quot;CB&quot;</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- In plutus-tx, you can then use template haskell to inline the error codes</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- using the '$(errorCode ..)' splice.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- validator = traceError $(errorCode CaseA)</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-21"></span><span class="hs-comment">--</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- This example will have your validator fail with user error &quot;CA&quot;, which you</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- can match for using 'toErrorCode CaseA' in Haskell.</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.Error</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/template-haskell-2.20.0.0/src/Language.Haskell.TH.html"><span class="hs-identifier">Language.Haskell.TH</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/template-haskell-2.20.0.0/src/Language.Haskell.TH.Syntax.html#Exp"><span class="hs-identifier">Exp</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/template-haskell-2.20.0.0/src/Language.Haskell.TH.Syntax.html#Lit"><span class="hs-identifier">Lit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/template-haskell-2.20.0.0/src/Language.Haskell.TH.Syntax.html#StringL"><span class="hs-identifier">StringL</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/template-haskell-2.20.0.0/src/Language.Haskell.TH.Syntax.html#Q"><span class="hs-identifier">Q</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- | Types which are used to describe errors as short error codes in scripts.</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">class</span><span> </span><span id="ToErrorCode"><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier hs-var">ToErrorCode</span></a></span></span><span> </span><span id="local-6989586621679467938"><span class="annot"><a href="#local-6989586621679467938"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-comment">-- | Get the short error code used in a script for given type.</span><span>
+</span><span id="line-33"></span><span>  </span><span id="toErrorCode"><span class="annot"><a href="Hydra.Contract.Error.html#toErrorCode"><span class="hs-identifier hs-type">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679467938"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- | Get the string literal from given error 'e'. Use this with template haskell</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- splices, e.g. $(errorCode MyError)</span><span>
+</span><span id="line-37"></span><span id="local-6989586621679467926"><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier hs-type">errorCode</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier hs-type">ToErrorCode</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679467926"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679467926"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/template-haskell-2.20.0.0/src/Language.Haskell.TH.Syntax.html#Q"><span class="hs-identifier hs-type">Q</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/template-haskell-2.20.0.0/src/Language.Haskell.TH.Syntax.html#Exp"><span class="hs-identifier hs-type">Exp</span></a></span></span><span>
+</span><span id="line-38"></span><span id="errorCode"><span class="annot"><span class="annottext">errorCode :: forall e. ToErrorCode e =&gt; e -&gt; Q Exp
+</span><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier hs-var hs-var">errorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-39"></span><span>  </span><span class="annot"><span class="annottext">Exp -&gt; Q Exp
+forall a. a -&gt; Q a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Exp -&gt; Q Exp) -&gt; (e -&gt; Exp) -&gt; e -&gt; Q Exp
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Lit -&gt; Exp
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/template-haskell-2.20.0.0/src/Language.Haskell.TH.Syntax.html#LitE"><span class="hs-identifier hs-var">LitE</span></a></span><span> </span><span class="annot"><span class="annottext">(Lit -&gt; Exp) -&gt; (e -&gt; Lit) -&gt; e -&gt; Exp
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Lit
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/template-haskell-2.20.0.0/src/Language.Haskell.TH.Syntax.html#StringL"><span class="hs-identifier hs-var">StringL</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Lit) -&gt; (e -&gt; String) -&gt; e -&gt; Lit
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+forall a. ToString a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; String) -&gt; (e -&gt; Text) -&gt; e -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">e -&gt; Text
+forall a. ToErrorCode a =&gt; a -&gt; Text
+</span><a href="Hydra.Contract.Error.html#toErrorCode"><span class="hs-identifier hs-var">toErrorCode</span></a></span><span>
+</span><span id="line-40"></span></pre></body></html>
