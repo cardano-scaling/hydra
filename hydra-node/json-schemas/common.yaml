@@ -70,6 +70,7 @@ definitions:
           - tag
           - headId
           - recoveredTxId
+          - recoveredUTxO
         description: >-
           The recover transaction unlocking the deposited UTxO.
         properties:
@@ -80,6 +81,8 @@ definitions:
             $ref: "api.yaml#/components/schemas/HeadId"
           recoveredTxId:
             type: string
+          recoveredUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
       - title: OnIncrementTx
         type: object
         additionalProperties: false

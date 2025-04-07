@@ -1423,7 +1423,7 @@ components:
       required:
         - tag
         - headId
-        - decommitTxId
+        - distributedOutputs
         - seq
         - timestamp
       properties:
@@ -1432,8 +1432,10 @@ components:
           enum: ["DecommitFinalized"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
-        decommitTxId:
-          $ref: "api.yaml#/components/schemas/TxId"
+        distributedOutputs:
+          type: array
+          items:
+           - $ref: "api.yaml#/components/schemas/TxOut"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1988,6 +1990,7 @@ components:
             - tag
             - headId
             - recoverTxId
+            - recoverUTxO
             - deadline
           description: |
             Post a transaction to recover deposited UTxO back to L1.
@@ -1999,6 +2002,8 @@ components:
               $ref: "api.yaml#/components/schemas/HeadId"
             recoverTxId:
               type: string
+            recoverUTxO:
+              $ref: "api.yaml#/components/schemas/UTxO"
             deadline:
               $ref: "api.yaml#/components/schemas/ChainSlot"
         - title: IncrementTx

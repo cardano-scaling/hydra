@@ -19,13 +19,12 @@ import Data.Aeson.Lens (key, _String)
 import Data.ByteString (hGetLine)
 import Data.List qualified as List
 import Data.Text qualified as T
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, txOuts', unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Tx.IsTx (txId)
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
@@ -86,7 +85,7 @@ spec = do
                 chainObserverSees observer "HeadDecrementTx" headId
 
                 waitFor hydraTracer 50 [hydraNode] $
-                  output "DecommitFinalized" ["headId" .= headId, "decommitTxId" .= txId decommitTx]
+                  output "DecommitFinalized" ["headId" .= headId, "distributedOutputs" .= toJSON (txOuts' decommitTx)]
 
                 send hydraNode $ input "Close" []
 

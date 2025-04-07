@@ -336,8 +336,8 @@ convertObservation = \case
     pure OnCollectComTx{headId}
   Deposit DepositObservation{headId, deposited, depositTxId, deadline} ->
     pure $ OnDepositTx{headId, deposited, depositTxId, deadline = posixToUTCTime deadline}
-  Recover RecoverObservation{headId, recoveredTxId} ->
-    pure OnRecoverTx{headId, recoveredTxId}
+  Recover RecoverObservation{headId, recoveredTxId, recoveredUTxO} ->
+    pure OnRecoverTx{headId, recoveredTxId, recoveredUTxO}
   Increment IncrementObservation{headId, newVersion, depositTxId} ->
     pure OnIncrementTx{headId, newVersion, depositTxId}
   Decrement DecrementObservation{headId, newVersion, distributedOutputs} ->

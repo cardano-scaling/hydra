@@ -1116,8 +1116,8 @@ toOnChainTx now = \case
     OnAbortTx{headId = testHeadId}
   CollectComTx{headId} ->
     OnCollectComTx{headId}
-  RecoverTx{headId, recoverTxId} ->
-    OnRecoverTx{headId, recoveredTxId = recoverTxId}
+  RecoverTx{headId, recoverTxId, recoverUTxO} ->
+    OnRecoverTx{headId, recoveredTxId = recoverTxId, recoveredUTxO = recoverUTxO}
   IncrementTx{headId, incrementingSnapshot, depositTxId} ->
     OnIncrementTx
       { headId

@@ -3,20 +3,20 @@
         {
             "chainState": {
                 "recordedAt": {
-                    "blockHash": "0100010101010101010100000100010001000100000000010000010000010001",
+                    "blockHash": "0000010000000001000001000101010100010101010100010101000100010001",
                     "slot": 1,
                     "tag": "ChainPoint"
                 },
                 "spendableUTxO": {
-                    "0000000000010100010101000001010100010100010100010100000001010100#19": {
-                        "address": "addr_test1zpscm90puxtm785w02th7qws0w0v0vphzyh88g2w90e50387lg66ceyc8n04addy7qhqfwgpem2qkkhe3gafa47ltdls8pjj0t",
+                    "0000000000000101000101000000000001000100010101000100000001000000#33": {
+                        "address": "addr1z8x2xz27e7rtnr7sg5srqz3xvw5ent7lk8swq6nhv6cxez2vsky84frr8aun8vkqm7rcsyea5fh7unnl7l98cgqwhrjqgvpy82",
                         "datum": null,
-                        "datumhash": null,
+                        "datumhash": "27dfefd7b5d62489c2656fa160886efdc5abbf8a3a180049a439c3417db7c16e",
                         "inlineDatum": null,
                         "inlineDatumRaw": null,
                         "referenceScript": {
                             "script": {
-                                "cborHex": "83030081820180",
+                                "cborHex": "830301828202838200581cff262700384cf402b1dd67c64885bb86daaa4fb001b0dc23993f010f830301818200581cfa7e2656f1c916a670ca9eb1ab960d8bd95c8b54c9589d10f2952b2f8201828200581cff6a39027ffd86c3816475723fc81d4b40935c877ff0249da7829b298200581c7767c6cb10c95c7dee64e1bff8624bca269ff4e4c8646f1418b63936820180",
                                 "description": "",
                                 "type": "SimpleScript"
                             },
@@ -24,15 +24,16 @@
                         },
                         "value": {
                             "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
-                                "eb0211177e54": 1
-                            }
+                                "38": 1
+                            },
+                            "lovelace": 5089451595132491754
                         }
                     }
                 }
             },
-            "decommitTxId": "0101000101010000000101000001000000000101010001000100010100000101",
-            "headId": "00000101010100010001000000000100",
-            "newVersion": 0,
+            "distributedOutputs": [],
+            "headId": "00000001000000000001000101010100",
+            "newVersion": 1,
             "tag": "DecommitFinalized"
         }
     ],

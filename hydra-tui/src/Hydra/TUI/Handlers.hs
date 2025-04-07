@@ -196,10 +196,10 @@ handleHydraEventsInfo = \case
         <> show decommitTxId
         <> " "
         <> foldMap UTxO.render (UTxO.pairs utxoToDecommit)
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitFinalized{decommitTxId}}) ->
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitFinalized{distributedOutputs}}) ->
     report Success time $
       "Decommit finalized "
-        <> show decommitTxId
+        <> show distributedOutputs
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitInvalid{decommitTx, decommitInvalidReason}}) ->
     warn time $
       "Decommit Transaction with id "

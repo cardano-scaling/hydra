@@ -700,6 +700,7 @@ spec =
                 OnRecoverTx
                   { headId = otherHeadId
                   , recoveredTxId = 1
+                  , recoveredUTxO = utxoRef 1
                   }
         update bobEnv ledger (inOpenState threeParties) recoverOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})

@@ -744,6 +744,7 @@ onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
                   { headId
                   , recoverTxId = recoverTxId
                   , deadline = currentSlot
+                  , recoverUTxO = pendingDeposits Map.! recoverTxId
                   }
             }
         ]
@@ -958,23 +959,21 @@ onOpenChainRecoverTx ::
   ChainStateType tx ->
   HeadId ->
   TxIdType tx ->
+  UTxOType tx ->
   Outcome tx
-onOpenChainRecoverTx st newChainState headId recoveredTxId =
-  case Map.lookup recoveredTxId pendingDeposits of
-    Nothing -> Error $ RequireFailed RecoverNotMatchingDeposit
-    Just recoveredUTxO ->
-      newState
-        CommitRecovered
-          { chainState = newChainState
-          , headId
-          , recoveredUTxO
-          , newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO
-          , recoveredTxId
-          }
+onOpenChainRecoverTx st newChainState headId recoveredTxId recoveredUTxO =
+  newState
+    CommitRecovered
+      { chainState = newChainState
+      , headId
+      , recoveredUTxO
+      , newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO
+      , recoveredTxId
+      }
  where
   OpenState{coordinatedHeadState} = st
 
-  CoordinatedHeadState{localUTxO, pendingDeposits} = coordinatedHeadState
+  CoordinatedHeadState{localUTxO} = coordinatedHeadState
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
@@ -1341,8 +1340,8 @@ update env ledger st ev = case (st, ev) of
     | ourHeadId == headId -> onOpenChainDepositTx newChainState headId env openState deposited depositTxId deadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId}, newChainState})
-    | ourHeadId == headId -> onOpenChainRecoverTx openState newChainState headId recoveredTxId
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
+    | ourHeadId == headId -> onOpenChainRecoverTx openState newChainState headId recoveredTxId recoveredUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
