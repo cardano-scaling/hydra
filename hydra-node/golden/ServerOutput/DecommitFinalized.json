@@ -1,22 +1,7 @@
 {
     "samples": [
         {
-            "distributedOutputs": [
-                {
-                    "address": "addr_test1yr9dext3kprw0jgxcn500rc3ll29q43ghu9es9g8tlvfht86ynxt3ntv06nd3dkclwgvp997899zfl3dete7u7f7jqpqwkf4tx",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
-                    "referenceScript": null,
-                    "value": {
-                        "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
-                            "8684f2d27713": 2
-                        },
-                        "lovelace": 3994419685064364546
-                    }
-                }
-            ],
+            "distributedUTxO": {},
             "headId": "01000101010100010100000001010100",
             "tag": "DecommitFinalized"
         }

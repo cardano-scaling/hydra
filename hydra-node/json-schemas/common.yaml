@@ -164,7 +164,7 @@ definitions:
           - tag
           - headId
           - newVersion
-          - distributedOutputs
+          - distributedUTxO
         properties:
           tag:
             type: string
@@ -173,10 +173,8 @@ definitions:
             $ref: "api.yaml#/components/schemas/HeadId"
           newVersion:
             $ref: "api.yaml#/components/schemas/SnapshotVersion"
-          distributedOutputs:
-            type: array
-            items:
-              $ref: "api.yaml#/components/schemas/TxOut"
+          distributedUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
       - title: OnCollectComTx
         type: object
         additionalProperties: false

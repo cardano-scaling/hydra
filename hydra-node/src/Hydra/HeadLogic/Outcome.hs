@@ -29,7 +29,7 @@ import Hydra.Tx (
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.Environment (Environment (..))
-import Hydra.Tx.IsTx (ArbitraryIsTx, TxOutType)
+import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.QuickCheck (oneof)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
@@ -126,7 +126,7 @@ data StateChanged tx
   | DecommitFinalized
       { chainState :: ChainStateType tx
       , headId :: HeadId
-      , distributedOutputs :: [TxOutType tx]
+      , distributedUTxO :: UTxOType tx
       , newVersion :: SnapshotVersion
       }
   | HeadClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}

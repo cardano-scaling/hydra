@@ -340,8 +340,8 @@ convertObservation = \case
     pure OnRecoverTx{headId, recoveredTxId, recoveredUTxO}
   Increment IncrementObservation{headId, newVersion, depositTxId} ->
     pure OnIncrementTx{headId, newVersion, depositTxId}
-  Decrement DecrementObservation{headId, newVersion, distributedOutputs} ->
-    pure OnDecrementTx{headId, newVersion, distributedOutputs}
+  Decrement DecrementObservation{headId, newVersion, distributedUTxO} ->
+    pure OnDecrementTx{headId, newVersion, distributedUTxO}
   -- XXX: Needing ClosedThreadOutput feels weird here
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
     pure

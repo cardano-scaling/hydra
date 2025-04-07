@@ -15,11 +15,11 @@ import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Lens ((^?))
 import Data.Aeson as Aeson
-import Data.Aeson.Lens (key, _String)
+import Data.Aeson.Lens (key, _JSON, _String)
 import Data.ByteString (hGetLine)
 import Data.List qualified as List
 import Data.Text qualified as T
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, txOuts', unFile)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile, utxoFromTx)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -84,8 +84,12 @@ spec = do
 
                 chainObserverSees observer "HeadDecrementTx" headId
 
-                waitFor hydraTracer 50 [hydraNode] $
-                  output "DecommitFinalized" ["headId" .= headId, "distributedOutputs" .= toJSON (txOuts' decommitTx)]
+                distributedUTxO <- waitMatch 50 hydraNode $ \v -> do
+                  guard $ v ^? key "tag" == Just "DecommitFinalized"
+                  guard $ v ^? key "headId" == Just (toJSON headId)
+                  v ^? key "distributedUTxO" . _JSON
+
+                guard $ distributedUTxO `UTxO.containsOutputs` utxoFromTx decommitTx
 
                 send hydraNode $ input "Close" []
 

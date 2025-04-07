@@ -31,7 +31,31 @@
                     }
                 }
             },
-            "distributedOutputs": [],
+            "distributedUTxO": {
+                "0100000101000101000000010000000100000000010101000001010000000100#77": {
+                    "address": "addr_test1wpwe0u03kaxzzah58su5dg23uza090pr0q9544wn3jgprlgrlennf",
+                    "datum": null,
+                    "inlineDatum": {
+                        "map": []
+                    },
+                    "inlineDatumRaw": "a0",
+                    "inlineDatumhash": "d36a2619a672494604e11bb447cbcf5231e9f2ba25c2169177edc941bd50ad6c",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "820180",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "d239ea01587fbc7f83f42878838d76b355c9a507ec41ffd1e9a6551e": {
+                            "38": 1
+                        },
+                        "lovelace": 5303846555036031747
+                    }
+                }
+            },
             "headId": "00000001000000000001000101010100",
             "newVersion": 1,
             "tag": "DecommitFinalized"

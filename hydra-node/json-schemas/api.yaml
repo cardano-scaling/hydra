@@ -1423,7 +1423,7 @@ components:
       required:
         - tag
         - headId
-        - distributedOutputs
+        - distributedUTxO
         - seq
         - timestamp
       properties:
@@ -1432,10 +1432,8 @@ components:
           enum: ["DecommitFinalized"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
-        distributedOutputs:
-          type: array
-          items:
-           - $ref: "api.yaml#/components/schemas/TxOut"
+        distributedUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

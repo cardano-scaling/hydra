@@ -1007,9 +1007,9 @@ onOpenChainDecrementTx ::
   -- | New open state version
   SnapshotVersion ->
   -- | Outputs removed by the decrement
-  [TxOutType tx] ->
+  UTxOType tx ->
   Outcome tx
-onOpenChainDecrementTx openState newChainState newVersion distributedTxOuts =
+onOpenChainDecrementTx openState newChainState newVersion distributedUTxO =
   -- FIXME: fix the removed spec parts
   -- Spec: if outputs(txω) = 𝑈ω
   -- Spec: txω ← ⊥
@@ -1019,7 +1019,7 @@ onOpenChainDecrementTx openState newChainState newVersion distributedTxOuts =
       { chainState = newChainState
       , headId
       , newVersion
-      , distributedOutputs = distributedTxOuts
+      , distributedUTxO
       }
  where
   OpenState{headId} = openState
@@ -1349,10 +1349,10 @@ update env ledger st ev = case (st, ev) of
         onOpenChainIncrementTx openState newChainState newVersion depositTxId
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedOutputs}, newChainState})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO}, newChainState})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx openState newChainState newVersion distributedOutputs
+        onOpenChainDecrementTx openState newChainState newVersion distributedUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed

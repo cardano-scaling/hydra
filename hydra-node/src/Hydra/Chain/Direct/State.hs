@@ -1161,7 +1161,7 @@ genIncrementTx numParties = do
     , unsafeIncrement cctx (openUTxO <> utxo) headId (ctxHeadParameters ctx) snapshot depositTxId slotNo
     )
 
-genDecrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)
+genDecrementTx :: Int -> Gen (ChainContext, UTxO, OpenState, UTxO, Tx)
 genDecrementTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx `suchThat` \(u, _) -> not (null u)
@@ -1172,7 +1172,7 @@ genDecrementTx numParties = do
   let openUTxO = getKnownUTxO stOpen
   pure
     ( cctx
-    , maybe mempty toList (utxoToDecommit $ getSnapshot snapshot)
+    , fromMaybe mempty (utxoToDecommit $ getSnapshot snapshot)
     , stOpen
     , mempty
     , unsafeDecrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot

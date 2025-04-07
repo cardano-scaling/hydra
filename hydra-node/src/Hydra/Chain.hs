@@ -143,7 +143,7 @@ data OnChainTx tx
   | OnDecrementTx
       { headId :: HeadId
       , newVersion :: SnapshotVersion
-      , distributedOutputs :: [TxOutType tx]
+      , distributedUTxO :: UTxOType tx
       }
   | OnCloseTx
       { headId :: HeadId
