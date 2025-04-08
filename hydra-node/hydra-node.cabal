@@ -67,6 +67,7 @@ library
     Hydra.Chain.Direct.Wallet
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
+    Hydra.Chain.Wallet
     Hydra.Events
     Hydra.Events.FileBased
     Hydra.HeadLogic
