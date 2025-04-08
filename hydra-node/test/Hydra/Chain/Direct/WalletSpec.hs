@@ -43,16 +43,18 @@ import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Cardano.Api.Tx (signTx, toLedgerTx)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Wallet (
+  applyTxs,
+  coverFee_,
+  findLargestUTxO,
+  newTinyWallet,
+ )
+import Hydra.Chain.Wallet (
   Address,
   ChainQuery,
   TinyWallet (..),
   TxIn,
   TxOut,
   WalletInfoOnChain (..),
-  applyTxs,
-  coverFee_,
-  findLargestUTxO,
-  newTinyWallet,
  )
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genSigningKey)
