@@ -353,6 +353,7 @@ mkEraHistory genesis = EraHistory (mkInterpreter summary)
 -- Wallet API --
 ----------------
 
+-- | Query the Blockfrost API for address UTxO and convert to cardano 'UTxO'.
 queryUTxO :: SigningKey PaymentKey -> NetworkId -> BlockfrostClientT IO UTxO
 queryUTxO sk networkId = do
   let address = Blockfrost.Address vkAddress
@@ -363,14 +364,17 @@ queryUTxO sk networkId = do
   vk = getVerificationKey sk
   vkAddress = textAddrOf networkId vk
 
+-- | Query the Blockfrost API for 'Genesis' and convert to cardano 'SystemStart'.
 querySystemStart :: BlockfrostClientT IO SystemStart
 querySystemStart = do
   Blockfrost.Genesis{_genesisSystemStart} <- Blockfrost.getLedgerGenesis
   pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
 
+-- | Query the Blockfrost API for 'Genesis'
 queryGenesis :: BlockfrostClientT IO Blockfrost.Genesis
 queryGenesis = Blockfrost.getLedgerGenesis
 
+-- | Query the Blockfrost API for 'Genesis' and convert to cardano 'ChainPoint'.
 queryTip :: BlockfrostClientT IO ChainPoint
 queryTip = do
   Blockfrost.Block

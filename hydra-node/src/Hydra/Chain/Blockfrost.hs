@@ -4,10 +4,14 @@ import Hydra.Prelude
 
 import Blockfrost.Client qualified as Blockfrost
 import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Slotting.EpochInfo.API (EpochInfo, hoistEpochInfo)
 import Hydra.Cardano.Api (
+  EraHistory (..),
+  runExcept,
   toLedgerUTxO,
  )
 import Hydra.Chain.Blockfrost.Client (
+  mkEraHistory,
   queryGenesis,
   querySystemStart,
   queryTip,
@@ -27,6 +31,7 @@ import Hydra.Chain.Wallet (
  )
 import Hydra.Logging (Tracer)
 import Hydra.Options (BlockfrostChainConfig (..))
+import Ouroboros.Consensus.HardFork.History qualified as Consensus
 
 mkTinyWallet ::
   Tracer IO DirectChainLog ->
@@ -36,17 +41,22 @@ mkTinyWallet tracer config = do
   keyPair@(_, sk) <- readKeyPair cardanoSigningKey
   prj <- Blockfrost.projectFromFile projectPath
   genesis <- runBlockfrostM prj queryGenesis
-  newTinyWallet (contramap Wallet tracer) genesis keyPair (queryWalletInfo prj sk) queryEpochInfo querySomePParams
+  newTinyWallet (contramap Wallet tracer) genesis keyPair (queryWalletInfo prj sk) (queryEpochInfo genesis) querySomePParams
  where
   BlockfrostChainConfig{projectPath, cardanoSigningKey} = config
 
-  queryEpochInfo = undefined
+  queryEpochInfo genesis = toEpochInfo $ mkEraHistory genesis
+
+  toEpochInfo :: EraHistory -> EpochInfo (Either Text)
+  toEpochInfo (EraHistory interpreter) =
+    hoistEpochInfo (first show . runExcept) $
+      Consensus.interpreterToEpochInfo interpreter
 
   querySomePParams = undefined
 
   queryWalletInfo prj sk networkId = runBlockfrostM prj $ do
     point <- queryTip
-    bfUTxO <- queryUTxO sk networkId
-    let walletUTxO = Ledger.unUTxO $ toLedgerUTxO bfUTxO
+    utxo <- queryUTxO sk networkId
+    let walletUTxO = Ledger.unUTxO $ toLedgerUTxO utxo
     systemStart <- querySystemStart
     pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
