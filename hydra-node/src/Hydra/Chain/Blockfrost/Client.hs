@@ -38,6 +38,7 @@ import Control.Lens ((.~), (^.))
 import Data.Default (def)
 import Data.SOP.NonEmpty (NonEmpty (..))
 import Data.Set qualified as Set
+import Data.Text qualified as T
 import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
 import Hydra.Chain.ScriptRegistry (buildScriptPublishingTxs)
 import Hydra.Tx (txId)
@@ -75,10 +76,10 @@ publishHydraScripts projectPath sk = do
       { _genesisNetworkMagic = networkMagic
       , _genesisSystemStart = systemStart'
       } <-
-      Blockfrost.getLedgerGenesis
+      queryGenesis
     pparams <- toCardanoPParams
     let address = Blockfrost.Address (vkAddress networkMagic)
-    let networkId = toCardanoNetworkMagic networkMagic
+    let networkId = toCardanoNetworkId networkMagic
     let changeAddress = mkVkAddress networkId vk
     stakePools' <- Blockfrost.listPools
     let stakePools = Set.fromList (toCardanoPoolId <$> stakePools')
@@ -94,7 +95,7 @@ publishHydraScripts projectPath sk = do
  where
   vk = getVerificationKey sk
 
-  vkAddress networkMagic = textAddrOf (toCardanoNetworkMagic networkMagic) vk
+  vkAddress networkMagic = textAddrOf (toCardanoNetworkId networkMagic) vk
 
 scriptTypeToPlutusVersion :: Blockfrost.ScriptType -> Maybe Language
 scriptTypeToPlutusVersion = \case
@@ -168,8 +169,8 @@ unwrapAddress = \case
 textAddrOf :: NetworkId -> VerificationKey PaymentKey -> Text
 textAddrOf networkId vk = unwrapAddress (mkVkAddress @Era networkId vk)
 
-toCardanoNetworkMagic :: Integer -> NetworkId
-toCardanoNetworkMagic = \case
+toCardanoNetworkId :: Integer -> NetworkId
+toCardanoNetworkId = \case
   0 -> Mainnet
   magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
 
@@ -347,3 +348,48 @@ mkEraHistory genesis = EraHistory (mkInterpreter summary)
       , eraSafeZone = UnsafeIndefiniteSafeZone
       , eraGenesisWin = GenesisWindow 1
       }
+
+----------------
+-- Wallet API --
+----------------
+
+queryUTxO :: SigningKey PaymentKey -> NetworkId -> BlockfrostClientT IO UTxO
+queryUTxO sk networkId = do
+  let address = Blockfrost.Address vkAddress
+  utxo <- Blockfrost.getAddressUtxos address
+  let cardanoAddress = mkVkAddress networkId vk
+  pure $ toCardanoUTxO utxo cardanoAddress
+ where
+  vk = getVerificationKey sk
+  vkAddress = textAddrOf networkId vk
+
+querySystemStart :: BlockfrostClientT IO SystemStart
+querySystemStart = do
+  Blockfrost.Genesis{_genesisSystemStart} <- Blockfrost.getLedgerGenesis
+  pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
+
+queryGenesis :: BlockfrostClientT IO Blockfrost.Genesis
+queryGenesis = Blockfrost.getLedgerGenesis
+
+queryTip :: BlockfrostClientT IO ChainPoint
+queryTip = do
+  Blockfrost.Block
+    { _blockHeight
+    , _blockHash
+    , _blockSlot
+    } <-
+    Blockfrost.getLatestBlock
+  let slotAndBlockNumber = do
+        blockSlot <- _blockSlot
+        blockNumber <- _blockHeight
+        pure (blockSlot, blockNumber)
+  case slotAndBlockNumber of
+    Nothing -> pure $ chainTipToChainPoint ChainTipAtGenesis
+    Just (blockSlot, blockNo) -> do
+      let Blockfrost.BlockHash blockHash = _blockHash
+      pure $
+        chainTipToChainPoint $
+          ChainTip
+            (SlotNo $ fromIntegral $ Blockfrost.unSlot blockSlot)
+            (fromString $ T.unpack blockHash)
+            (BlockNo $ fromIntegral blockNo)
