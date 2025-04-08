@@ -736,7 +736,7 @@ onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
   case Map.lookup recoverTxId pendingDeposits of
     Nothing ->
       Error $ RequireFailed RecoverNotMatchingDeposit
-    Just _ ->
+    Just recoverUTxO ->
       causes
         [ OnChainEffect
             { postChainTx =
@@ -744,7 +744,7 @@ onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
                   { headId
                   , recoverTxId = recoverTxId
                   , deadline = currentSlot
-                  , recoverUTxO = pendingDeposits Map.! recoverTxId
+                  , recoverUTxO
                   }
             }
         ]
