@@ -24,7 +24,11 @@ import Hydra.Chain.Blockfrost.Client (
 import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
  )
-import Hydra.Chain.Direct.Wallet (TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
+import Hydra.Chain.Direct.Wallet (
+  TinyWallet (..),
+  WalletInfoOnChain (..),
+  newTinyWallet,
+ )
 import Hydra.Logging (Tracer)
 import Hydra.Node.Util (
   readKeyPair,
@@ -39,9 +43,9 @@ mkTinyWallet ::
 mkTinyWallet tracer config = do
   keyPair@(_, sk) <- readKeyPair cardanoSigningKey
   prj <- Blockfrost.projectFromFile projectPath
-  Blockfrost.Genesis{_genesisSystemStart, _genesisNetworkMagic} <- runBlockfrostM prj queryGenesis
+  genesis@Blockfrost.Genesis{_genesisSystemStart, _genesisNetworkMagic} <- runBlockfrostM prj queryGenesis
   let networkId = toCardanoNetworkId _genesisNetworkMagic
-  let queryEpochInfo = toEpochInfo <$> runBlockfrostM prj mkEraHistory
+  let queryEpochInfo = pure $ toEpochInfo $ mkEraHistory genesis
   -- NOTE: we don't need to provide address here since it is derived from the
   -- keypair but we still want to keep the same wallet api.
   let queryWalletInfo queryPoint _address = runBlockfrostM prj $ do
