@@ -80,12 +80,15 @@ import Hydra.Chain.Direct.State (
   ChainStateAt (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
-import Hydra.Chain.Direct.Wallet (
+import Hydra.Chain.Direct.Util (
+  readKeyPair,
+ )
+import Hydra.Chain.Direct.Wallet (newTinyWallet)
+import Hydra.Chain.ScriptRegistry (queryScriptRegistry)
+import Hydra.Chain.Wallet (
   TinyWallet (..),
   WalletInfoOnChain (..),
-  newTinyWallet,
  )
-import Hydra.Chain.ScriptRegistry (queryScriptRegistry)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.Util (readKeyPair)
 import Hydra.Options (DirectChainConfig (..))

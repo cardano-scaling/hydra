@@ -8,7 +8,8 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Ledger.Address qualified as Ledger
-import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
+import Cardano.Ledger.Alonzo.Plutus.Context (EraPlutusContext, ContextError, EraPlutusContext)
+import Cardano.Crypto.Hash.Class
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
   AsIx (..),
@@ -54,9 +55,6 @@ import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (
-  TxUpgradeError,
- )
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Hashes (EraIndependentTxBody, HashAnnotated, hashAnnotated)
@@ -74,13 +72,9 @@ import Data.Ratio ((%))
 import Data.Sequence.Strict ((|>))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
-  BlockHeader,
-  ChainPoint,
-  LedgerEra,
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
-  ShelleyAddr,
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
@@ -97,48 +91,19 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
+import Hydra.Chain.Wallet (
+  Address,
+  ChainQuery,
+  ChangeError (..),
+  ErrCoverFee (..),
+  TinyWallet (..),
+  TinyWalletLog (..),
+  TxIn,
+  TxOut,
+  WalletInfoOnChain (..),
+ )
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
-
-type Address = Ledger.Addr
-type TxIn = Ledger.TxIn
-type TxOut = Ledger.TxOut LedgerEra
-
--- | A 'TinyWallet' is a small abstraction of a wallet with basic UTXO
--- management. The wallet is assumed to have only one address, and only one UTXO
--- at that address. It can sign transactions and keeps track of its UTXO behind
--- the scene.
---
--- The wallet is connecting to the node initially and when asked to 'reset'.
--- Otherwise it can be fed blocks via 'update' as the chain rolls forward.
-data TinyWallet m = TinyWallet
-  { getUTxO :: STM m (Map TxIn TxOut)
-  -- ^ Return all known UTxO addressed to this wallet.
-  , getSeedInput :: STM m (Maybe Api.TxIn)
-  -- ^ Returns the /seed input/
-  -- This is the special input needed by `Direct` chain component to initialise
-  -- a head
-  , sign :: Api.Tx -> Api.Tx
-  , coverFee ::
-      UTxO ->
-      Api.Tx ->
-      m (Either ErrCoverFee Api.Tx)
-  , reset :: m ()
-  -- ^ Re-initializ wallet against the latest tip of the node and start to
-  -- ignore 'update' calls until reaching that tip.
-  , update :: BlockHeader -> [Api.Tx] -> m ()
-  -- ^ Update the wallet state given a block and list of txs. May be ignored if
-  -- wallet is still initializing.
-  }
-
-data WalletInfoOnChain = WalletInfoOnChain
-  { walletUTxO :: Map TxIn TxOut
-  , systemStart :: SystemStart
-  , tip :: ChainPoint
-  -- ^ Latest point on chain the wallet knows of.
-  }
-
-type ChainQuery m = QueryPoint -> Api.Address ShelleyAddr -> m WalletInfoOnChain
 
 -- | Create a new tiny wallet handle.
 newTinyWallet ::
@@ -227,19 +192,6 @@ getTxId ::
   Babbage.AlonzoTx era ->
   Ledger.TxId
 getTxId tx = Ledger.TxId $ hashAnnotated (body tx)
-
--- | This are all the error that can happen during coverFee.
-data ErrCoverFee
-  = ErrNotEnoughFunds ChangeError
-  | ErrNoFuelUTxOFound
-  | ErrUnknownInput {input :: TxIn}
-  | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text}
-  | ErrTranslationError (ContextError LedgerEra)
-  | ErrConwayUpgradeError (TxUpgradeError ConwayEra)
-  deriving stock (Show)
-
-data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
-  deriving stock (Show)
 
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
 -- necessary fees and augments inputs / outputs / collateral accordingly to
@@ -435,17 +387,3 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
           { redeemerPointer = show ptr
           , scriptFailure = show failure
           }
-
---
--- Logs
---
-
-data TinyWalletLog
-  = BeginInitialize
-  | EndInitialize {initialUTxO :: Api.UTxO, tip :: ChainPoint}
-  | BeginUpdate {point :: ChainPoint}
-  | EndUpdate {newUTxO :: Api.UTxO}
-  | SkipUpdate {point :: ChainPoint}
-  deriving stock (Eq, Generic, Show)
-
-deriving anyclass instance ToJSON TinyWalletLog
