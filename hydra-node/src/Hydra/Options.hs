@@ -414,6 +414,13 @@ defaultDirectChainConfig =
     , depositPeriod = defaultDepositPeriod
     }
 
+data BlockfrostChainConfig = BlockfrostChainConfig
+  { projectPath :: FilePath
+  , cardanoSigningKey :: FilePath
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 instance Arbitrary ChainConfig where
   arbitrary =
     oneof
