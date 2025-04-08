@@ -1,11 +1,14 @@
+import useDocusaurusContext from "@docusaurus/useDocusaurusContext"
 import { DocSearch } from '@docsearch/react'
 import '@docsearch/css'
 
 export default function NavbarSearch({ children, className }) {
+  const { siteConfig } = useDocusaurusContext()
+
   return (
     <DocSearch
-      appId="***"
-      apiKey="***"
+      appId={siteConfig.customFields.docsearchAppId}
+      apiKey={siteConfig.customFields.docsearchApiKey}
       indexName="hydra"
       transformItems={(items) => {
         if (typeof window === 'undefined') return items

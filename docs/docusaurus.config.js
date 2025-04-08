@@ -8,6 +8,8 @@ const docsMetadataJson = require("./static/docs-metadata.json");
 const customFields = {
   apiSpecDir: "../hydra-node/json-schemas",
   apiSpecUrl: "api.yaml",
+  docsearchAppId: "OF3CR7K89X",
+  docsearchApiKey: "09b2fc0200d06fb433a5f4ced7c9d427",
 };
 
 const editUrl = "https://github.com/cardano-scaling/hydra/tree/master/docs";
