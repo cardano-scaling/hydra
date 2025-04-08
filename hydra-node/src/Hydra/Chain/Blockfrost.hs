@@ -17,6 +17,7 @@ import Hydra.Chain.Blockfrost.Client (
   queryTip,
   queryUTxO,
   runBlockfrostM,
+  toCardanoPParams,
  )
 import Hydra.Chain.Blockfrost.Wallet (newTinyWallet)
 import Hydra.Chain.Direct.Handlers (
@@ -41,6 +42,7 @@ mkTinyWallet tracer config = do
   keyPair@(_, sk) <- readKeyPair cardanoSigningKey
   prj <- Blockfrost.projectFromFile projectPath
   genesis <- runBlockfrostM prj queryGenesis
+  let querySomePParams = runBlockfrostM prj toCardanoPParams
   newTinyWallet (contramap Wallet tracer) genesis keyPair (queryWalletInfo prj sk) (queryEpochInfo genesis) querySomePParams
  where
   BlockfrostChainConfig{projectPath, cardanoSigningKey} = config
@@ -52,7 +54,6 @@ mkTinyWallet tracer config = do
     hoistEpochInfo (first show . runExcept) $
       Consensus.interpreterToEpochInfo interpreter
 
-  querySomePParams = undefined
 
   queryWalletInfo prj sk networkId = runBlockfrostM prj $ do
     point <- queryTip
