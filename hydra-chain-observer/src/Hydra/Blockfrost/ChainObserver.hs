@@ -158,14 +158,11 @@ rollForward tracer prj networkId observerHandler blockConfirmations (blockHash, 
   nextBlockHash <- maybe (throwIO $ MissingNextBlockHash _blockHash) pure _blockNextBlock
 
   -- Search block transactions
-  txHashes <- runBlockfrostM prj . Blockfrost.allPages $ \p ->
-    Blockfrost.getBlockTxs' (Right _blockHash) p Blockfrost.def
-
-  -- Collect CBOR representations
-  cborTxs <- traverse (runBlockfrostM prj . Blockfrost.getTxCBOR) txHashes
+  txHashesCBOR <- runBlockfrostM prj . Blockfrost.allPages $ \p ->
+    Blockfrost.getBlockTxsCBOR' (Right _blockHash) p Blockfrost.def
 
   -- Convert to cardano-api Tx
-  receivedTxs <- mapM toTx cborTxs
+  receivedTxs <- mapM (toTx . (\(Blockfrost.TxHashCBOR (_txHash, cbor)) -> cbor)) txHashesCBOR
   let receivedTxIds = txId <$> receivedTxs
   let point = toChainPoint block
   traceWith tracer RollForward{point, receivedTxIds}
