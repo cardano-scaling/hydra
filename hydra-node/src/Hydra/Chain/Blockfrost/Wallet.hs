@@ -12,15 +12,21 @@ import Cardano.Slotting.EpochInfo (EpochInfo)
 import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
 import Hydra.Cardano.Api (
   NetworkId,
+  PaymentCredential (..),
   PaymentKey,
   SigningKey,
+  StakeAddressReference (NoStakeAddress),
   VerificationKey,
   fromLedgerTxIn,
   fromLedgerUTxO,
+  makeShelleyAddress,
+  shelleyAddressInEra,
+  toLedgerAddr,
+  verificationKeyHash,
  )
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Chain.Blockfrost.Client (toCardanoNetworkId)
-import Hydra.Chain.Direct.Wallet (findLargestUTxO)
+import Hydra.Chain.Blockfrost.Client (getChainPoint, toCardanoNetworkId)
+import Hydra.Chain.Direct.Wallet (applyTxs, findLargestUTxO)
 import Hydra.Chain.Wallet (
   TinyWallet (..),
   TinyWalletLog (..),
@@ -43,7 +49,7 @@ newTinyWallet ::
   -- | A means to query some pparams.
   IO (PParams Conway) ->
   IO (TinyWallet IO)
-newTinyWallet tracer genesis (_, sk) queryWalletInfo queryEpochInfo querySomePParams = do
+newTinyWallet tracer genesis (vk, sk) queryWalletInfo queryEpochInfo querySomePParams = do
   walletInfoVar <- newTVarIO =<< initialize
   let getUTxO = readTVar walletInfoVar <&> walletUTxO
   pure
@@ -53,13 +59,32 @@ newTinyWallet tracer genesis (_, sk) queryWalletInfo queryEpochInfo querySomePPa
       , sign = Api.signTx sk
       , coverFee = \_ -> undefined
       , reset = initialize >>= atomically . writeTVar walletInfoVar
-      , update = \_ -> undefined
+      , update = \header txs -> do
+          point <- getChainPoint header
+          walletTip <- atomically $ readTVar walletInfoVar <&> \WalletInfoOnChain{tip} -> tip
+          if point < walletTip
+            then traceWith tracer $ SkipUpdate{point}
+            else do
+              traceWith tracer $ BeginUpdate{point}
+              utxo' <- atomically $ do
+                walletInfo@WalletInfoOnChain{walletUTxO} <- readTVar walletInfoVar
+                let utxo' = applyTxs txs (== ledgerAddress) walletUTxO
+                writeTVar walletInfoVar $ walletInfo{walletUTxO = utxo', tip = point}
+                pure utxo'
+              traceWith tracer $ EndUpdate (fromLedgerUTxO (Ledger.UTxO utxo'))
       }
  where
   Blockfrost.Genesis{_genesisNetworkMagic, _genesisSystemStart} = genesis
+
   initialize = do
     traceWith tracer BeginInitialize
     let networkId = toCardanoNetworkId _genesisNetworkMagic
     walletInfo@WalletInfoOnChain{walletUTxO, tip} <- queryWalletInfo networkId
     traceWith tracer $ EndInitialize{initialUTxO = fromLedgerUTxO (Ledger.UTxO walletUTxO), tip}
     pure walletInfo
+
+  address =
+    let networkId = toCardanoNetworkId _genesisNetworkMagic
+     in makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
+
+  ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era Api.shelleyBasedEra address
