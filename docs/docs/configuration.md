@@ -50,7 +50,7 @@ The contestation period is used in:
 - Computing the contestation deadline, which defines the lower validity
   bound for the `FanOut` transaction.
 
-The default contestation period is _60 seconds_, but it should be tailored to the network conditions, as different networks have varying slot lengths and block production rates.
+The default contestation period is _600 seconds_, but it should be tailored to the network conditions, as different networks have varying block production rates.
 
 :::info Consistent contestation period
 

@@ -810,10 +810,10 @@ hydraNodeVersion =
         <|> Just unknownVersion
 
 defaultContestationPeriod :: ContestationPeriod
-defaultContestationPeriod = UnsafeContestationPeriod 60
+defaultContestationPeriod = UnsafeContestationPeriod 600
 
 defaultDepositDeadline :: DepositDeadline
-defaultDepositDeadline = UnsafeDepositDeadline 60
+defaultDepositDeadline = UnsafeDepositDeadline 3600
 
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
