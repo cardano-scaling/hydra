@@ -385,8 +385,13 @@ queryTip = do
     { _blockHeight
     , _blockHash
     , _blockSlot
-    } <-
-    Blockfrost.getLatestBlock
+    } <- case queryPoint of
+    QueryTip -> Blockfrost.getLatestBlock
+    QueryAt point -> do
+      let slot = case point of
+            ChainPointAtGenesis -> 0
+            ChainPoint slotNo _ -> fromIntegral $ unSlotNo slotNo
+      Blockfrost.getBlock (Left slot)
   let slotAndBlockNumber = do
         blockSlot <- _blockSlot
         blockNumber <- _blockHeight
