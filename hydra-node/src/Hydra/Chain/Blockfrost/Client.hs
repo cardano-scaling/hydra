@@ -40,6 +40,7 @@ import Data.SOP.NonEmpty (NonEmpty (..))
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
+import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.ScriptRegistry (buildScriptPublishingTxs)
 import Hydra.Tx (txId)
 import Money qualified
@@ -364,25 +365,24 @@ queryUTxO sk networkId = do
   vk = getVerificationKey sk
   vkAddress = textAddrOf networkId vk
 
--- | Query the Blockfrost API for 'Genesis' and convert to cardano 'SystemStart'.
-querySystemStart :: BlockfrostClientT IO SystemStart
-querySystemStart = do
-  Blockfrost.Genesis{_genesisSystemStart} <- Blockfrost.getLedgerGenesis
-  pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
-
 -- | Query the Blockfrost API for 'Genesis'
 queryGenesis :: BlockfrostClientT IO Blockfrost.Genesis
 queryGenesis = Blockfrost.getLedgerGenesis
 
 -- | Query the Blockfrost API for 'Genesis' and convert to cardano 'ChainPoint'.
-queryTip :: BlockfrostClientT IO ChainPoint
-queryTip = do
+queryTip :: QueryPoint -> BlockfrostClientT IO ChainPoint
+queryTip queryPoint = do
   Blockfrost.Block
     { _blockHeight
     , _blockHash
     , _blockSlot
-    } <-
-    Blockfrost.getLatestBlock
+    } <- case queryPoint of
+    QueryTip -> Blockfrost.getLatestBlock
+    QueryAt point -> do
+      let slot = case point of
+            ChainPointAtGenesis -> 0
+            ChainPoint slotNo _ -> fromIntegral $ unSlotNo slotNo
+      Blockfrost.getBlock (Left slot)
   let slotAndBlockNumber = do
         blockSlot <- _blockSlot
         blockNumber <- _blockHeight
@@ -397,11 +397,3 @@ queryTip = do
             (SlotNo $ fromIntegral $ Blockfrost.unSlot blockSlot)
             (fromString $ T.unpack blockHash)
             (BlockNo $ fromIntegral blockNo)
-
--- | Get the chain point corresponding to a given 'BlockHeader'.
-getChainPoint :: BlockHeader -> IO ChainPoint
-getChainPoint header = do
-  Blockfrost.Block{_blockHash} <- Blockfrost.getBlock (Left $ fromIntegral $ unSlotNo slotNo)
-  pure $ ChainPoint slotNo (fromString $ T.unpack $ Blockfrost.unBlockHash _blockHash)
- where
-  (BlockHeader slotNo _ _) = header
