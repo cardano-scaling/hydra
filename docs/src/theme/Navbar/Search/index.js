@@ -18,7 +18,7 @@ export default function NavbarSearch({ children, className }) {
         return items.filter((item) => {
           const url = item.url || ''
           const isItemUnstable = url.includes('/head-protocol/unstable/')
-          return isUnstable ? isUnstable && isItemUnstable : !isItemUnstable
+          return isUnstable ? isItemUnstable : !isItemUnstable
         })
       }}
     />
