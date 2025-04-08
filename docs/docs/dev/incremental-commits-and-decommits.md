@@ -62,6 +62,10 @@ transaction that will do the heavy lifting and bring the specified input on L2.
 Deposit deadline value is specified as the `hydra-node` option eg.
 `--deposit-deadline "100s"`
 
+Default value for the deposit deadline is _3600 seconds_, which probably makes
+sense when running on mainnet, but this value can be adjusted depending on the
+underlying network.
+
 Once a hydra-node observes a deposit transaction it will record the deposit as
 pending into the local state. There can be many pending deposits but the new
 Snapshot will include them one by one.

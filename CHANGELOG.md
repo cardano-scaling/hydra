@@ -26,6 +26,8 @@ changes.
     ETCD_AUTO_COMPACTION_RETENTION=168h
     ```
 
+- Changed default contestation period to 600 seconds and deposit deadline to 3600 seconds.
+
 - Introduce an option to publish hydra scripts using blockfrost.
 
 - Fix a bug in increment observation where wrong deposited UTxO was picked up.
