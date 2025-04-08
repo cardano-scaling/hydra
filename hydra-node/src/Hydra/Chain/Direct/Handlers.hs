@@ -57,7 +57,7 @@ import Hydra.Chain.Direct.State (
   recover,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Wallet (
+import Hydra.Chain.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
