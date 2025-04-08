@@ -416,10 +416,11 @@ defaultDirectChainConfig =
 
 data BlockfrostChainConfig = BlockfrostChainConfig
   { projectPath :: FilePath
+  -- ^ Path to the blockfrost project file
   , cardanoSigningKey :: FilePath
+  -- ^ Path to the cardano signing key of the internal wallet.
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary ChainConfig where
   arbitrary =
