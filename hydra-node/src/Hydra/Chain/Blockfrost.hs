@@ -4,37 +4,29 @@ import Hydra.Prelude
 
 import Blockfrost.Client qualified as Blockfrost
 import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Slotting.EpochInfo.API (EpochInfo, hoistEpochInfo)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
-  EraHistory (..),
-  SystemStart (..),
-  runExcept,
   toLedgerUTxO,
  )
 import Hydra.Chain.Blockfrost.Client (
-  mkEraHistory,
   queryGenesis,
+  querySystemStart,
   queryTip,
   queryUTxO,
   runBlockfrostM,
-  toCardanoNetworkId,
-  toCardanoPParams,
  )
+import Hydra.Chain.Blockfrost.Wallet (newTinyWallet)
 import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
  )
-import Hydra.Chain.Direct.Wallet (
-  TinyWallet (..),
-  WalletInfoOnChain (..),
-  newTinyWallet,
- )
-import Hydra.Logging (Tracer)
-import Hydra.Node.Util (
+import Hydra.Chain.Direct.Util (
   readKeyPair,
  )
+import Hydra.Chain.Wallet (
+  TinyWallet (..),
+  WalletInfoOnChain (..),
+ )
+import Hydra.Logging (Tracer)
 import Hydra.Options (BlockfrostChainConfig (..))
-import Ouroboros.Consensus.HardFork.History qualified as Consensus
 
 mkTinyWallet ::
   Tracer IO DirectChainLog ->

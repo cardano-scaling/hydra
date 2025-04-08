@@ -361,7 +361,6 @@ mkEraHistory = do
 -- Wallet API --
 ----------------
 
--- | Query the Blockfrost API for address UTxO and convert to cardano 'UTxO'.
 queryUTxO :: SigningKey PaymentKey -> NetworkId -> BlockfrostClientT IO UTxO
 queryUTxO sk networkId = do
   let address = Blockfrost.Address vkAddress
@@ -372,24 +371,22 @@ queryUTxO sk networkId = do
   vk = getVerificationKey sk
   vkAddress = textAddrOf networkId vk
 
--- | Query the Blockfrost API for 'Genesis'
+querySystemStart :: BlockfrostClientT IO SystemStart
+querySystemStart = do
+  Blockfrost.Genesis{_genesisSystemStart} <- Blockfrost.getLedgerGenesis
+  pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
+
 queryGenesis :: BlockfrostClientT IO Blockfrost.Genesis
 queryGenesis = Blockfrost.getLedgerGenesis
 
--- | Query the Blockfrost API for 'Genesis' and convert to cardano 'ChainPoint'.
-queryTip :: QueryPoint -> BlockfrostClientT IO ChainPoint
-queryTip queryPoint = do
+queryTip :: BlockfrostClientT IO ChainPoint
+queryTip = do
   Blockfrost.Block
     { _blockHeight
     , _blockHash
     , _blockSlot
-    } <- case queryPoint of
-    QueryTip -> Blockfrost.getLatestBlock
-    QueryAt point -> do
-      let slot = case point of
-            ChainPointAtGenesis -> 0
-            ChainPoint slotNo _ -> fromIntegral $ unSlotNo slotNo
-      Blockfrost.getBlock (Left slot)
+    } <-
+    Blockfrost.getLatestBlock
   let slotAndBlockNumber = do
         blockSlot <- _blockSlot
         blockNumber <- _blockHeight
