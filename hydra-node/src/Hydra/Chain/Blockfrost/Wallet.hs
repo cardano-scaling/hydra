@@ -7,9 +7,10 @@ import Cardano.Ledger.Api (
   Conway,
   PParams,
  )
+import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Slotting.EpochInfo (EpochInfo)
-import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
 import Hydra.Cardano.Api (
   NetworkId,
   PaymentCredential (..),
@@ -17,16 +18,19 @@ import Hydra.Cardano.Api (
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
+  fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerUTxO,
   makeShelleyAddress,
   shelleyAddressInEra,
   toLedgerAddr,
+  toLedgerTx,
+  toLedgerUTxO,
   verificationKeyHash,
  )
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.Blockfrost.Client (getChainPoint, toCardanoNetworkId)
-import Hydra.Chain.Direct.Wallet (applyTxs, findLargestUTxO)
+import Hydra.Chain.Direct.Wallet (applyTxs, coverFee_, findLargestUTxO)
 import Hydra.Chain.Wallet (
   TinyWallet (..),
   TinyWalletLog (..),
@@ -57,7 +61,16 @@ newTinyWallet tracer genesis (vk, sk) queryWalletInfo queryEpochInfo querySomePP
       { getUTxO
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
       , sign = Api.signTx sk
-      , coverFee = \_ -> undefined
+      , coverFee = \lookupUTxO partialTx -> do
+          let ledgerLookupUTxO = unUTxO $ toLedgerUTxO lookupUTxO
+          WalletInfoOnChain{walletUTxO, systemStart} <- readTVarIO walletInfoVar
+          let epochInfo = queryEpochInfo
+          -- We query pparams here again as it's possible that a hardfork
+          -- occurred and the pparams changed.
+          pparams <- querySomePParams
+          pure $
+            fromLedgerTx
+              <$> coverFee_ pparams systemStart epochInfo ledgerLookupUTxO walletUTxO (toLedgerTx partialTx)
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           point <- getChainPoint header
