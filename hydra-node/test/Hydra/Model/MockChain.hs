@@ -55,7 +55,7 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
-import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import Hydra.Chain.Wallet (TinyWallet (..))
 import Hydra.HeadLogic (
   ClosedState (..),
   HeadState (..),
