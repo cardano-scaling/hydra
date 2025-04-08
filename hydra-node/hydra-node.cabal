@@ -56,11 +56,11 @@ library
     Hydra.API.ServerOutputFilter
     Hydra.API.WSServer
     Hydra.Chain
+    Hydra.Chain.Blockfrost
     Hydra.Chain.Blockfrost.Client
     Hydra.Chain.Blockfrost.Wallet
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
-    Hydra.Chain.Blockfrost
     Hydra.Chain.Direct.Handlers
     Hydra.Chain.Direct.State
     Hydra.Chain.Direct.TimeHandle
