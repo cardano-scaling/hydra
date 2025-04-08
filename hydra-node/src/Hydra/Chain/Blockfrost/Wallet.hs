@@ -15,10 +15,12 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SigningKey,
   VerificationKey,
+  fromLedgerTxIn,
   fromLedgerUTxO,
  )
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Chain.Blockfrost.Client (textAddrOf, toCardanoNetworkId)
+import Hydra.Chain.Blockfrost.Client (toCardanoNetworkId)
+import Hydra.Chain.Direct.Wallet (findLargestUTxO)
 import Hydra.Chain.Wallet (
   TinyWallet (..),
   TinyWalletLog (..),
@@ -37,17 +39,17 @@ newTinyWallet ::
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   -- | A function to query for 'WalletInfo'
   (NetworkId -> IO WalletInfoOnChain) ->
-  IO (EpochInfo (Either Text)) ->
+  EpochInfo (Either Text) ->
   -- | A means to query some pparams.
   IO (PParams Conway) ->
   IO (TinyWallet IO)
-newTinyWallet tracer genesis (vk, sk) queryWalletInfo queryEpochInfo querySomePParams = do
+newTinyWallet tracer genesis (_, sk) queryWalletInfo queryEpochInfo querySomePParams = do
   walletInfoVar <- newTVarIO =<< initialize
   let getUTxO = readTVar walletInfoVar <&> walletUTxO
   pure
     TinyWallet
       { getUTxO
-      , getSeedInput = undefined
+      , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
       , sign = Api.signTx sk
       , coverFee = \_ -> undefined
       , reset = initialize >>= atomically . writeTVar walletInfoVar
