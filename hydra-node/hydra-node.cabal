@@ -58,7 +58,6 @@ library
     Hydra.Chain
     Hydra.Chain.Blockfrost
     Hydra.Chain.Blockfrost.Client
-    Hydra.Chain.Blockfrost.TimeHandle
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
     Hydra.Chain.Direct.Handlers
@@ -67,7 +66,6 @@ library
     Hydra.Chain.Direct.Wallet
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
-    Hydra.Chain.Wallet
     Hydra.Events
     Hydra.Events.FileBased
     Hydra.HeadLogic
