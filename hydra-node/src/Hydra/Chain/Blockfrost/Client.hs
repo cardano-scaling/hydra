@@ -397,3 +397,11 @@ queryTip = do
             (SlotNo $ fromIntegral $ Blockfrost.unSlot blockSlot)
             (fromString $ T.unpack blockHash)
             (BlockNo $ fromIntegral blockNo)
+
+-- | Get the chain point corresponding to a given 'BlockHeader'.
+getChainPoint :: BlockHeader -> IO ChainPoint
+getChainPoint header = do
+  Blockfrost.Block{_blockHash} <- Blockfrost.getBlock (Left $ fromIntegral $ unSlotNo slotNo)
+  pure $ ChainPoint slotNo (fromString $ T.unpack $ Blockfrost.unBlockHash _blockHash)
+ where
+  (BlockHeader slotNo _ _) = header
