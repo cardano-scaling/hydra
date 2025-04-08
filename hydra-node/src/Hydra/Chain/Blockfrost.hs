@@ -54,7 +54,6 @@ mkTinyWallet tracer config = do
     hoistEpochInfo (first show . runExcept) $
       Consensus.interpreterToEpochInfo interpreter
 
-
   queryWalletInfo prj sk networkId = runBlockfrostM prj $ do
     point <- queryTip
     utxo <- queryUTxO sk networkId

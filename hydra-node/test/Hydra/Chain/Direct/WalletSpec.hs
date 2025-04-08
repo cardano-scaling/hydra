@@ -41,6 +41,7 @@ import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Cardano.Api.Tx (signTx, toLedgerTx)
+import Hydra.Chain.Blockfrost.Wallet qualified as Blockfrost
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Wallet (
   applyTxs,
