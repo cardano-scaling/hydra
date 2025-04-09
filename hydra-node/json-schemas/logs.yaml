@@ -1550,7 +1550,7 @@ definitions:
           newLocalUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
           recoveredTxId:
-            type: string
+            $ref: "api.yaml#/components/schemas/TxId"
       - title: "DecommitRecorded"
         additionalProperties: false
         required:

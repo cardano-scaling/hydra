@@ -1542,7 +1542,7 @@ components:
         recoveredUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
         recoveredTxId:
-          type: string
+          $ref: "api.yaml#/components/schemas/TxId"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

@@ -80,7 +80,7 @@ definitions:
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
           recoveredTxId:
-            type: string
+            $ref: "api.yaml#/components/schemas/TxId"
           recoveredUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
       - title: OnIncrementTx
