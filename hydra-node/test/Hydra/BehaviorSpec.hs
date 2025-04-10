@@ -571,8 +571,8 @@ spec = parallel $ do
                         maybe False (42 `member`) utxoToDecommit
                       _ -> False
 
-                  waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
-                  waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
+                  waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRef 42}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
@@ -609,8 +609,8 @@ spec = parallel $ do
                         maybe False (88 `member`) utxoToDecommit
                       _ -> False
 
-                  waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [88])
-                  waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
+                  waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRefs [88]}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 88}
 
                   headUTxO2 <- getHeadUTxO <$> queryState n1
                   fromMaybe mempty headUTxO2 `shouldSatisfy` (not . member 11)
@@ -645,8 +645,8 @@ spec = parallel $ do
                         maybe False (42 `member`) utxoToDecommit
                       _ -> False
 
-                  waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
-                  waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
+                  waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRefs [42]}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
 
                   headUTxO <- getHeadUTxO <$> queryState n1
                   fromMaybe mempty headUTxO `shouldSatisfy` (not . member 42)
@@ -671,11 +671,11 @@ spec = parallel $ do
                       , decommitInvalidReason = DecommitAlreadyInFlight{otherDecommitTxId = txId decommitTx1}
                       }
 
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx1}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
 
                   send n2 (Decommit{decommitTx = decommitTx2})
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx2, utxoToDecommit = utxoRefs [22]}
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx2}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 22}
 
         it "can process transactions while decommit pending" $
           shouldRunInSim $ do
@@ -697,7 +697,7 @@ spec = parallel $ do
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
                     _ -> False
 
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = 1}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
 
         it "can close with decommit in flight" $
           shouldRunInSim $ do
@@ -753,14 +753,14 @@ spec = parallel $ do
                   waitUntil [n1, n2] $
                     DecommitFinalized
                       { headId = testHeadId
-                      , decommitTxId = txId decommitTx
+                      , distributedUTxO = utxoRef 42
                       }
                   let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 88)
                   send n1 (Decommit{decommitTx = decommitTx2})
                   waitUntil [n1, n2] $
                     DecommitFinalized
                       { headId = testHeadId
-                      , decommitTxId = txId decommitTx2
+                      , distributedUTxO = utxoRef 88
                       }
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
@@ -1116,8 +1116,8 @@ toOnChainTx now = \case
     OnAbortTx{headId = testHeadId}
   CollectComTx{headId} ->
     OnCollectComTx{headId}
-  RecoverTx{headId, recoverTxId} ->
-    OnRecoverTx{headId, recoveredTxId = recoverTxId}
+  RecoverTx{headId, recoverTxId, recoverUTxO} ->
+    OnRecoverTx{headId, recoveredTxId = recoverTxId, recoveredUTxO = recoverUTxO}
   IncrementTx{headId, incrementingSnapshot, depositTxId} ->
     OnIncrementTx
       { headId
@@ -1130,7 +1130,7 @@ toOnChainTx now = \case
     OnDecrementTx
       { headId
       , newVersion = version + 1
-      , distributedOutputs = maybe mempty outputsOfUTxO utxoToDecommit
+      , distributedUTxO = fromMaybe mempty utxoToDecommit
       }
    where
     Snapshot{version, utxoToDecommit} = getSnapshot decrementingSnapshot

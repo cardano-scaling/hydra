@@ -10,10 +10,6 @@ import Hydra.Tx.IsTx (IsTx (..))
 import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Text ()
 
--- | Get outputs of a transaction.
-outputsOfTx :: IsTx tx => tx -> [TxOutType tx]
-outputsOfTx = outputsOfUTxO . utxoFromTx
-
 -- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
 -- instances to 'ChainSlot'.
 nextChainSlot :: ChainSlot -> ChainSlot

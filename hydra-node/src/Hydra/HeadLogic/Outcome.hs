@@ -126,7 +126,7 @@ data StateChanged tx
   | DecommitFinalized
       { chainState :: ChainStateType tx
       , headId :: HeadId
-      , decommitTxId :: TxIdType tx
+      , distributedUTxO :: UTxOType tx
       , newVersion :: SnapshotVersion
       }
   | HeadClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}

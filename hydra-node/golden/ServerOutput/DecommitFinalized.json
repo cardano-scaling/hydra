@@ -1,8 +1,8 @@
 {
     "samples": [
         {
-            "decommitTxId": "171e664c04a43149bfd8c1cb1e9a9f7646076421bff99b652891cf15db78ec7a",
-            "headId": "203296a3f8557f12f55a28c25b68c335",
+            "distributedUTxO": {},
+            "headId": "01000101010100010100000001010100",
             "tag": "DecommitFinalized"
         }
     ],

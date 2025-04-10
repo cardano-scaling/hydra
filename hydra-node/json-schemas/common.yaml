@@ -70,6 +70,7 @@ definitions:
           - tag
           - headId
           - recoveredTxId
+          - recoveredUTxO
         description: >-
           The recover transaction unlocking the deposited UTxO.
         properties:
@@ -79,7 +80,9 @@ definitions:
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
           recoveredTxId:
-            type: string
+            $ref: "api.yaml#/components/schemas/TxId"
+          recoveredUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
       - title: OnIncrementTx
         type: object
         additionalProperties: false
@@ -161,7 +164,7 @@ definitions:
           - tag
           - headId
           - newVersion
-          - distributedOutputs
+          - distributedUTxO
         properties:
           tag:
             type: string
@@ -170,10 +173,8 @@ definitions:
             $ref: "api.yaml#/components/schemas/HeadId"
           newVersion:
             $ref: "api.yaml#/components/schemas/SnapshotVersion"
-          distributedOutputs:
-            type: array
-            items:
-              $ref: "api.yaml#/components/schemas/TxOut"
+          distributedUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
       - title: OnCollectComTx
         type: object
         additionalProperties: false

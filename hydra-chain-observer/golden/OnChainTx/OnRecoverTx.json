@@ -1,8 +1,31 @@
 {
     "samples": [
         {
-            "headId": "a42836de904bad82fe8684bee8a92cab",
-            "recoveredTxId": "8c912bcc3f52bb968cbe13d560ee871b4f11d26fab67a8bc7eb22f3d5b8ff8a8",
+            "headId": "01010001010101010000010000010100",
+            "recoveredTxId": "0101010001000101010101010000000100010101000101010000010100000000",
+            "recoveredUTxO": {
+                "0000010100000001010001010001000001010000000100010001010100010001#19": {
+                    "address": "addr1x92vfd793n7lrdf25997kcer6e6jw7uhqpe00ey5ankrgdk007z0vphatrd0wnnqtn03xtwm8a047zdfxzx5tdfcx3zqu0sl53",
+                    "datum": null,
+                    "datumhash": "41755210135075cee7ff8d57236c51b4ed7c3c4867d088794ccba361f4752f97",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "830303848202848202828200581c9bbabc12319ea48352a6a835890bd8fad0f14ab9ec0a0f251894184b8200581cd9b1df6c1ac835f8513c8cd0de277abf304a334d6d438e937817b53c830302838200581ce61b4b8251e699e032b4f4f43f4ea0c25b035f7d43f4b20211cbda028200581c21d70ae5ee17527d8e2f82688bcc20bd4d3eed680df390871412f4398200581cdeb1647f384d13c10570fa5c1161e7150afa5cacc8202bd9441de9308200581c2720245cb48418676d67bf8888272011a66d7bd6e39b4f64ce69b2e2830301818200581c33c415f5ab19d59ae612cb5ee119f07dbd7db9ebac6df054adb8f2d78201818201838200581c30faeb1e5fbb28ce466fc4da0cd5981845336a2dd02231441ce54f658200581c87b10fbac658e08c486e1ee81a5f5abdcbf3f136aea3e79bbb1bf1788200581c6d82b551bda55b8949a1d38d6dd4d59d7a0621d518d6bd25a385946c830303848200581ceaf3ebce47ee589cb3883e0bfccb9c6953aa78b4065d10c20df34e2b8202848200581cfbebf90ad162b1cd95ceaabfc25bd28980549fbea8f6dc1d448781178200581c16d184c4e3838078e4f550bd75556b63e8661e61c43c72f859fcddb18200581ce244244c609691dd6b104adfffa5fabb2f22a1b0d6d76bcf4475c7bf8200581cb76f0f9cb9010b48fecfba785686b76864926bce8c0ea474a3f47eac8200581ca3020a1e15cea47d4cbad968f6870e74531b831f5bde8a6d449684438200581cf4d02e30e2a91897ea4ab473f39fac97a9e7072534e49eff5f1da150820280",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "245d5a7a06fe18358242e81281cd5ba9e6abe4efc54e7b659f25abae": {
+                            "55": 590494318831573294
+                        },
+                        "lovelace": 878270261755167725
+                    }
+                }
+            },
             "tag": "OnRecoverTx"
         }
     ],

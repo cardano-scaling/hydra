@@ -180,7 +180,7 @@ data ServerOutput tx
   | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
-  | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
+  | DecommitFinalized {headId :: HeadId, distributedUTxO :: UTxOType tx}
   | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx, deadline :: UTCTime}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}

@@ -11,11 +11,9 @@ import Cardano.Binary (serialize)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
-  CtxUTxO,
   NetworkId (Mainnet),
   Tx,
   TxIn,
-  TxOut,
   UTxO,
   findRedeemerSpending,
   genTxIn,
@@ -364,8 +362,8 @@ spec = parallel $ do
   prop "observes distributed outputs" $
     forAllDecrement' $ \toDistribute utxo tx ->
       case observeDecrementTx utxo tx of
-        Just DecrementObservation{distributedOutputs} ->
-          distributedOutputs === toDistribute
+        Just DecrementObservation{distributedUTxO} ->
+          toList distributedUTxO === toList toDistribute
         Nothing ->
           False & counterexample ("observeDecrementTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
@@ -716,7 +714,7 @@ forAllDecrement action = do
 
 forAllDecrement' ::
   Testable property =>
-  ([TxOut CtxUTxO] -> UTxO -> Tx -> property) ->
+  (UTxO -> UTxO -> Tx -> property) ->
   Property
 forAllDecrement' action = do
   forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, utxo', tx) ->

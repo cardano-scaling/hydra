@@ -3,6 +3,7 @@ module Hydra.Tx.Decrement where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano.Builder (
@@ -95,7 +96,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 data DecrementObservation = DecrementObservation
   { headId :: HeadId
   , newVersion :: SnapshotVersion
-  , distributedOutputs :: [TxOut CtxUTxO]
+  , distributedUTxO :: UTxO
   }
   deriving stock (Show, Eq, Generic)
 
@@ -120,10 +121,13 @@ observeDecrementTx utxo tx = do
             DecrementObservation
               { headId
               , newVersion = fromChainSnapshotVersion version
-              , distributedOutputs =
-                  toCtxUTxOTxOut <$> txOuts' tx
-                    & drop 1 -- NOTE: Head output must be in first position
-                    & take (fromIntegral numberOfDecommitOutputs)
+              , distributedUTxO =
+                  let inputs = txIns' tx
+                      outputs =
+                        toCtxUTxOTxOut <$> txOuts' tx
+                          & drop 1 -- NOTE: Head output must be in first position
+                          & take (fromIntegral numberOfDecommitOutputs)
+                   in UTxO.fromPairs $ zip inputs outputs
               }
         _ -> Nothing
     _ -> Nothing
