@@ -8,8 +8,7 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Ledger.Address qualified as Ledger
-import Cardano.Ledger.Alonzo.Plutus.Context (EraPlutusContext, ContextError, EraPlutusContext)
-import Cardano.Crypto.Hash.Class
+import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
   AsIx (..),
@@ -101,8 +100,8 @@ import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 
-type Address = Ledger.Addr StandardCrypto
-type TxIn = Ledger.TxIn StandardCrypto
+type Address = Ledger.Addr
+type TxIn = Ledger.TxIn
 type TxOut = Ledger.TxOut LedgerEra
 
 -- | A 'TinyWallet' is a small abstraction of a wallet with basic UTXO
@@ -236,7 +235,7 @@ data ErrCoverFee
   | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text}
   | ErrTranslationError (ContextError LedgerEra)
-  | ErrConwayUpgradeError (TxUpgradeError Conway)
+  | ErrConwayUpgradeError (TxUpgradeError ConwayEra)
   deriving stock (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
