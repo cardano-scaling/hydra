@@ -75,7 +75,7 @@ library
   -- dependencies on cardano-ledger* and plutus-ledger-api follow.
   build-depends:
     , aeson                   >=2
-    , base                    >=4.16
+    , base                    >=4.14
     , bytestring
     , cardano-api             ^>=10.13
     , cardano-api:gen
