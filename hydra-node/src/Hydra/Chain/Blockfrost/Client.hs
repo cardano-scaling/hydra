@@ -33,10 +33,10 @@ import Cardano.Ledger.Conway.PParams (ppMinFeeRefScriptCostPerByteL)
 import Cardano.Ledger.Plutus (ExUnits (..), Language (..), Prices (..))
 import Cardano.Ledger.Plutus.CostModels (CostModels, mkCostModel, mkCostModels)
 import Cardano.Ledger.Shelley.API (ProtVer (..))
-import Cardano.Slotting.Time (mkSlotLength)
+import Cardano.Slotting.Time (RelativeTime (..), mkSlotLength)
 import Control.Lens ((.~), (^.))
 import Data.Default (def)
-import Data.SOP.NonEmpty (NonEmpty (..))
+import Data.SOP.NonEmpty (nonEmptyFromList)
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
@@ -45,8 +45,7 @@ import Hydra.Chain.ScriptRegistry (buildScriptPublishingTxs)
 import Hydra.Tx (txId)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
-import Ouroboros.Consensus.Cardano.Block (CardanoEras, StandardCrypto)
-import Ouroboros.Consensus.HardFork.History (EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), initBound, mkInterpreter)
+import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), mkInterpreter)
 
 data APIBlockfrostError
   = BlockfrostError Text
@@ -73,7 +72,7 @@ publishHydraScripts ::
 publishHydraScripts projectPath sk = do
   prj <- Blockfrost.projectFromFile projectPath
   runBlockfrostM prj $ do
-    genesis@Blockfrost.Genesis
+    Blockfrost.Genesis
       { _genesisNetworkMagic = networkMagic
       , _genesisSystemStart = systemStart'
       } <-
@@ -85,7 +84,7 @@ publishHydraScripts projectPath sk = do
     stakePools' <- Blockfrost.listPools
     let stakePools = Set.fromList (toCardanoPoolId <$> stakePools')
     let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
-    let eraHistory = mkEraHistory genesis
+    eraHistory <- mkEraHistory
     utxo <- Blockfrost.getAddressUtxos address
     let cardanoUTxO = toCardanoUTxO utxo changeAddress
 
@@ -323,32 +322,40 @@ toCardanoGenesisParameters bfGenesis =
     , _genesisSecurityParam
     } = bfGenesis
 
-mkEraHistory :: Blockfrost.Genesis -> EraHistory
-mkEraHistory genesis = EraHistory (mkInterpreter summary)
+mkEraHistory :: BlockfrostClientT IO EraHistory
+mkEraHistory = do
+  eras' <- Blockfrost.getNetworkEras
+  let eras = filter withoutEmptyEra eras'
+  let summary = mkEra <$> eras
+  case nonEmptyFromList summary of
+    Nothing ->
+      liftIO $ throwIO $ BlockfrostError "Failed to create EraHistory."
+    Just s -> pure $ EraHistory (mkInterpreter $ Summary s)
  where
-  Blockfrost.Genesis
-    { _genesisNetworkMagic
-    , _genesisSystemStart
-    , _genesisSlotLength
-    , _genesisEpochLength
-    } = genesis
-
-  summary :: Summary (CardanoEras StandardCrypto)
-  summary =
-    Summary . NonEmptyOne $
-      EraSummary
-        { eraStart = initBound
-        , eraEnd = EraUnbounded
-        , eraParams
-        }
-
-  eraParams =
-    EraParams
-      { eraEpochSize = EpochSize $ fromIntegral _genesisEpochLength
-      , eraSlotLength = mkSlotLength $ fromIntegral _genesisSlotLength
-      , eraSafeZone = UnsafeIndefiniteSafeZone
-      , eraGenesisWin = GenesisWindow 1
+  mkBound Blockfrost.NetworkEraBound{_boundEpoch, _boundSlot, _boundTime} =
+    Bound
+      { boundTime = RelativeTime _boundTime
+      , boundSlot = SlotNo $ fromIntegral _boundSlot
+      , boundEpoch = EpochNo $ fromIntegral _boundEpoch
       }
+  mkEraParams Blockfrost.NetworkEraParameters{_parametersEpochLength, _parametersSlotLength, _parametersSafeZone} =
+    EraParams
+      { eraEpochSize = EpochSize $ fromIntegral _parametersEpochLength
+      , eraSlotLength = mkSlotLength _parametersSlotLength
+      , eraSafeZone = StandardSafeZone _parametersSafeZone
+      , eraGenesisWin = GenesisWindow _parametersSafeZone
+      }
+  mkEra Blockfrost.NetworkEraSummary{_networkEraStart, _networkEraEnd, _networkEraParameters} =
+    EraSummary
+      { eraStart = mkBound _networkEraStart
+      , eraEnd = EraEnd $ mkBound _networkEraEnd
+      , eraParams = mkEraParams _networkEraParameters
+      }
+  withoutEmptyEra
+    Blockfrost.NetworkEraSummary
+      { _networkEraStart = Blockfrost.NetworkEraBound{_boundTime = boundStart}
+      , _networkEraEnd = Blockfrost.NetworkEraBound{_boundTime = boundEnd}
+      } = boundStart == 0 && boundEnd == 0
 
 ----------------
 -- Wallet API --
