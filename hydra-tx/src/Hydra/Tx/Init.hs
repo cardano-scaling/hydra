@@ -38,7 +38,7 @@ initTx networkId seedTxIn participants parameters =
         ( mkHeadOutputInitial networkId seedTxIn parameters
             : map (mkInitialOutput networkId seedTxIn) participants
         )
-      & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
+      & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint (fromList $ (hydraHeadV1AssetName, 1) : participationTokens)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "InitTx")
  where
   participationTokens =
