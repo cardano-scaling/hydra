@@ -2,8 +2,8 @@ module Hydra.Chain.Offline where
 
 import Hydra.Prelude
 
-import Cardano.Api.Genesis (shelleyGenesisDefaults)
-import Cardano.Api.GenesisParameters (fromShelleyGenesis)
+import Cardano.Api.Internal.Genesis (shelleyGenesisDefaults)
+import Cardano.Api.Internal.GenesisParameters (fromShelleyGenesis)
 import Cardano.Ledger.Slot (unSlotNo)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)

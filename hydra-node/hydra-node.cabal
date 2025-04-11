@@ -98,7 +98,7 @@ library
     , base
     , blockfrost-client               >=0.9.1.0
     , bytestring
-    , cardano-api:internal
+    , cardano-api
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
