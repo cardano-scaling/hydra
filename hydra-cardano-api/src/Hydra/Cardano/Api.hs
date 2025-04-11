@@ -361,12 +361,6 @@ pattern TxAuxScripts{txAuxScripts'} <-
 -- ** TxBody
 
 type TxBody = Cardano.Api.TxBody Era
-{-# COMPLETE TxBody #-}
-
-pattern TxBody :: TxBodyContent ViewTx -> TxBody
-pattern TxBody{txBodyContent} <-
-  Cardano.Api.TxBody txBodyContent
-{-# COMPLETE TxBody #-}
 
 createAndValidateTransactionBody :: TxBodyContent BuildTx -> Either TxBodyError TxBody
 createAndValidateTransactionBody = Cardano.Api.createTransactionBody shelleyBasedEra

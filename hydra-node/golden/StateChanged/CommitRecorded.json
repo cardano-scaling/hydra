@@ -3,34 +3,57 @@
         {
             "chainState": {
                 "recordedAt": {
-                    "tag": "ChainPointAtGenesis"
+                    "blockHash": "0000010001000101010100000000010100010000000100000000010000000101",
+                    "slot": 1,
+                    "tag": "ChainPoint"
                 },
-                "spendableUTxO": {}
-            },
-            "deadline": "1864-05-09T00:56:38.983698539086Z",
-            "headId": "01000100010101010100000100000001",
-            "newLocalUTxO": {
-                "0001000001010101000100000100010100010101010001010101000100010001#94": {
-                    "address": "addr1x9qn667sq6qap3j0yvp6khlzgzw57yc04dc6ha5rs8g0nrjpd2em6zxaucfcfht5gdmejvn24fke69qhu6u7kwh4r85qwa9902",
-                    "datum": null,
-                    "datumhash": "6825d60ec81f041ebf7dcdf1076312142d0a36432936e598dbe0694acc984692",
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
-                    "referenceScript": null,
-                    "value": {
-                        "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
-                            "30": 2
+                "spendableUTxO": {
+                    "0100000100000001000101000101000000010001010000010101010001000100#41": {
+                        "address": "addr_test1zpm4s72j2y5h2s86vpytxqj5eat6c2crhcym0wat9vlxskwy4h0tengl3jj7hr3dxfyr8j5s8ru6ky7cwml76kyssw0sufh7pd",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "450100002601",
+                                "description": "",
+                                "type": "PlutusScriptV2"
+                            },
+                            "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                        },
+                        "value": {
+                            "15c172cac6bb86b84f301c100e54f835dab31b4b4d284bcf4db0dd1c": {
+                                "98bccf05ffbfc2af1978154091de9409": 1
+                            },
+                            "lovelace": 5765185246845637122
                         }
                     }
                 }
             },
-            "pendingDeposit": "0100000101010100010001000000000100010001000100010001000101010100",
-            "pendingDeposits": {
-                "0000010101010000000001000100000100010101010001000100010100000000": {}
-            },
+            "deadline": "1864-05-09T04:09:58.558007896222Z",
+            "headId": "00010001000000010100010101010100",
+            "newLocalUTxO": {},
+            "pendingDeposit": "0100000101000101010001010000010001010100000101010100000101000000",
+            "pendingDeposits": {},
             "tag": "CommitRecorded",
-            "utxoToCommit": {}
+            "utxoToCommit": {
+                "0000000101010101010000000101000001000100000000000001000100010000#38": {
+                    "address": "addr_test1ypjyhvungmkxkftv76zzmm4vjluuk0ed3lfznhxq4tt8e992yx2h8c7j6gq2v7hg2gyvj5vzl4wyjfekaa80a9urgwys0h62d9",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                            "0adfb3a9ff6af0e6f6f1d4cf62f7f3": 3998346932507029401
+                        },
+                        "lovelace": 3300367527891185095
+                    }
+                }
+            }
         }
     ],
-    "seed": 735071337
+    "seed": -1162243071
 }
