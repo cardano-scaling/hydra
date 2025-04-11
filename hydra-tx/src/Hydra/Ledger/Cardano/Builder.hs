@@ -1,6 +1,7 @@
 -- | Utilities to building transactions on top of the cardano-api.
 module Hydra.Ledger.Cardano.Builder where
 
+import Data.MonoTraversable (omap)
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
@@ -39,20 +40,22 @@ addTxInsSpending ins =
   addTxIns ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
 
 -- | Mint tokens with given plutus minting script and redeemer.
-mintTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
-mintTokens script redeemer assets = addTxMintValue newTokens
+mintTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> PolicyAssets -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+mintTokens script redeemer assets = addTxMintValue newAssets
  where
-  newTokens =
-    Map.fromList [(policyId, fmap (\(x, y) -> (x, y, BuildTxWith mintingWitness)) assets)]
+  newAssets :: Map PolicyId (PolicyAssets, BuildTxWith BuildTx (ScriptWitness WitCtxMint))
+  newAssets = Map.fromList [(policyId, (assets, BuildTxWith mintingWitness))]
 
+  mintingWitness :: ScriptWitness WitCtxMint
   mintingWitness =
     mkScriptWitness script NoScriptDatumForMint (toScriptData redeemer)
 
+  policyId :: PolicyId
   policyId =
     PolicyId $ hashScript $ PlutusScript script
 
 -- | Burn tokens with given plutus minting script and redeemer.
 -- This is really just `mintTokens` with negated 'Quantity'.
-burnTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+burnTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> PolicyAssets -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 burnTokens script redeemer assets =
-  mintTokens script redeemer (fmap (second negate) assets)
+  mintTokens script redeemer $ omap negate assets

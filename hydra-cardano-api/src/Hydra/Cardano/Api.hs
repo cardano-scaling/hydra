@@ -573,7 +573,7 @@ pattern TxMintValueNone <-
       Cardano.Api.TxMintNone
 
 pattern TxMintValue ::
-  Map PolicyId [(AssetName, Quantity, BuildTxWith buidl (ScriptWitness WitCtxMint))] ->
+  Map PolicyId (PolicyAssets, BuildTxWith buidl (ScriptWitness WitCtxMint)) ->
   TxMintValue buidl
 pattern TxMintValue{txMintValueInEra} <-
   Cardano.Api.TxMintValue _ txMintValueInEra

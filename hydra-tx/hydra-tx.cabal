@@ -96,6 +96,7 @@ library
     , hydra-plutus-extras
     , hydra-prelude
     , lens
+    , mono-traversable
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , plutus-ledger-api

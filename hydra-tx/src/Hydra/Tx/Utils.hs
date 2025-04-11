@@ -54,12 +54,13 @@ verificationKeyToOnChainId :: VerificationKey PaymentKey -> OnChainId
 verificationKeyToOnChainId =
   UnsafeOnChainId . fromBuiltin . getPubKeyHash . toPlutusKeyHash . verificationKeyHash
 
-headTokensFromValue :: PlutusScript -> Value -> [(AssetName, Quantity)]
+headTokensFromValue :: PlutusScript -> Value -> PolicyAssets
 headTokensFromValue headTokenScript v =
-  [ (assetName, q)
-  | (AssetId pid assetName, q) <- toList v
-  , pid == scriptPolicyId (PlutusScript headTokenScript)
-  ]
+  fromList $
+    [ (assetName, q)
+    | (AssetId pid assetName, q) <- toList v
+    , pid == scriptPolicyId (PlutusScript headTokenScript)
+    ]
 
 -- | Split a given UTxO into two, such that the second UTxO is non-empty. This
 -- is useful to pick a UTxO to decommit.
