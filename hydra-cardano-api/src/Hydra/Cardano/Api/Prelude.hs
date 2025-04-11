@@ -7,11 +7,9 @@ module Hydra.Cardano.Api.Prelude (
   Typeable,
   UTxO,
   UTxO' (UTxO),
-  StandardCrypto,
   Era,
   LedgerEra,
   ledgerEraVersion,
-  UsesStandardCrypto,
   Text,
   decodeUtf8,
   encodeUtf8,
@@ -38,9 +36,7 @@ import Cardano.Api.Shelley hiding (
 import Cardano.Api.UTxO (UTxO, UTxO' (..))
 import Cardano.Crypto.Hash.Class qualified as CC
 import Cardano.Ledger.Binary qualified as Ledger
-import Cardano.Ledger.Core (EraCrypto)
 import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Crypto (StandardCrypto)
 import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (fromStrict, toStrict)
@@ -57,8 +53,6 @@ type Era = ConwayEra
 
 -- | Currently supported ledger era.
 type LedgerEra = ShelleyLedgerEra Era
-
-type UsesStandardCrypto era = (EraCrypto (ShelleyLedgerEra era) ~ StandardCrypto)
 
 -- | Associated version for the fixed 'LedgerEra'.
 ledgerEraVersion :: Ledger.Version

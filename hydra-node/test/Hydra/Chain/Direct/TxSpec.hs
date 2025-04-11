@@ -8,7 +8,6 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Core (EraTxAuxData (hashTxAuxData))
 import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import Cardano.Ledger.Api (
   ConwayPlutusPurpose (ConwayRewarding, ConwaySpending),
@@ -16,6 +15,7 @@ import Cardano.Ledger.Api (
   auxDataHashTxBodyL,
   auxDataTxL,
   bodyTxL,
+  hashTxAuxData,
   inputsTxBodyL,
   outputsTxBodyL,
   ppProtocolVersionL,

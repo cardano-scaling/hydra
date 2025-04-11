@@ -15,7 +15,6 @@
 -- of the right version (e.g. when compiling and serializing plutus-tx).
 module Hydra.Cardano.Api (
   -- * Common type-alias
-  StandardCrypto,
   Era,
   LedgerEra,
   ledgerEraVersion,
@@ -118,7 +117,6 @@ import Hydra.Cardano.Api.Prelude (
   LedgerEra,
   LedgerProtocolParameters,
   Map,
-  StandardCrypto,
   ledgerEraVersion,
  )
 
@@ -213,14 +211,14 @@ pattern BalancedTxBody{balancedTxBodyContent, balancedTxBody, balancedTxChangeOu
 type KeyWitness = Cardano.Api.KeyWitness Era
 {-# COMPLETE ShelleyBootstrapWitness, ShelleyKeyWitness #-}
 
-pattern ShelleyBootstrapWitness :: Ledger.BootstrapWitness StandardCrypto -> KeyWitness
+pattern ShelleyBootstrapWitness :: Ledger.BootstrapWitness -> KeyWitness
 pattern ShelleyBootstrapWitness{shelleyBootstrapWitness} <-
   Cardano.Api.Shelley.ShelleyBootstrapWitness _ shelleyBootstrapWitness
   where
     ShelleyBootstrapWitness =
       Cardano.Api.Shelley.ShelleyBootstrapWitness shelleyBasedEra
 
-pattern ShelleyKeyWitness :: Ledger.WitVKey 'Ledger.Witness StandardCrypto -> KeyWitness
+pattern ShelleyKeyWitness :: Ledger.WitVKey 'Ledger.Witness -> KeyWitness
 pattern ShelleyKeyWitness{shelleyKeyWitness} <-
   Cardano.Api.Shelley.ShelleyKeyWitness _ shelleyKeyWitness
   where

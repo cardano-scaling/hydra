@@ -29,7 +29,7 @@ import Cardano.Ledger.Conway.Rules (
   ConwayUtxosPredFailure (ValidationTagMismatch),
   ConwayUtxowPredFailure (UtxoFailure),
  )
-import Cardano.Ledger.Plutus (debugPlutus)
+import Cardano.Ledger.Plutus (PlutusDebugOverrides (..), debugPlutus)
 import Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
 import Cardano.Ledger.Shelley.Genesis qualified as Ledger
 import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
@@ -97,14 +97,14 @@ cardanoLedger globals ledgerEnv =
             -- NOTE: There is not a clear reason why 'debugPlutus' is an IO
             -- action. It only re-evaluates the script and does not have any
             -- side-effects.
-            <> show (unsafeDupablePerformIO $ debugPlutus @StandardCrypto (decodeUtf8 ctx))
+            <> show (unsafeDupablePerformIO $ debugPlutus (decodeUtf8 ctx) $ PlutusDebugOverrides Nothing Nothing Nothing Nothing Nothing Nothing)
       _ -> ValidationError $ show e
 
     env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
 
     memPoolState =
       def
-        & Ledger.lsUTxOStateL . Ledger.utxosUtxoL .~ toLedgerUTxO utxo
+        & Ledger.lsUTxOStateL . Ledger.utxoL .~ toLedgerUTxO utxo
         & Ledger.lsCertStateL . Ledger.certDStateL %~ mockCertState
 
     -- NOTE: Mocked certificate state that simulates any reward accounts for any
@@ -137,7 +137,6 @@ newLedgerEnv protocolParams =
       -- future with these two but for now, we'll consider them empty.
       Ledger.ledgerAccount = Ledger.AccountState mempty mempty
     , Ledger.ledgerPp = protocolParams
-    , Ledger.ledgerMempool = False
     , Ledger.ledgerEpochNo = Nothing
     }
 

@@ -15,7 +15,7 @@ import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api.PParams
-import Cardano.Ledger.BaseTypes (EpochInterval (..), EpochSize (..), NonNegativeInterval, UnitInterval, boundRational)
+import Cardano.Ledger.BaseTypes (EpochInterval (..), EpochSize (..), NonNegativeInterval, UnitInterval, boundRational, unsafeNonZero)
 import Cardano.Ledger.Binary.Version (mkVersion)
 import Cardano.Ledger.Conway.Core (
   DRepVotingThresholds (..),
@@ -43,7 +43,7 @@ import Hydra.Chain.ScriptRegistry (buildScriptPublishingTxs)
 import Hydra.Tx (txId)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
-import Ouroboros.Consensus.Cardano.Block (CardanoEras)
+import Ouroboros.Consensus.Cardano.Block (CardanoEras, StandardCrypto)
 import Ouroboros.Consensus.HardFork.History (EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), initBound, mkInterpreter)
 
 data APIBlockfrostError
@@ -298,7 +298,7 @@ toCardanoGenesisParameters bfGenesis =
     { protocolParamSlotsPerKESPeriod = fromIntegral _genesisSlotsPerKesPeriod
     , protocolParamUpdateQuorum = fromIntegral _genesisUpdateQuorum
     , protocolParamMaxLovelaceSupply = fromIntegral _genesisMaxLovelaceSupply
-    , protocolParamSecurity = fromIntegral _genesisSecurityParam
+    , protocolParamSecurity = unsafeNonZero $ fromIntegral _genesisSecurityParam
     , protocolParamActiveSlotsCoefficient = _genesisActiveSlotsCoefficient
     , protocolParamSystemStart = posixSecondsToUTCTime _genesisSystemStart
     , protocolParamNetworkId = fromNetworkMagic $ NetworkMagic $ fromIntegral _genesisNetworkMagic

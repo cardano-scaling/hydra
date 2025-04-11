@@ -5,14 +5,14 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), Conway, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway.TxBody (ConwayTxBody (..))
 import Cardano.Ledger.Core (Tx, Value)
-import Cardano.Ledger.SafeHash qualified as SafeHash
+import Cardano.Ledger.Hashes (hashAnnotated)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Ledger.Val (Val (..), invert)
@@ -142,7 +142,7 @@ mockChainQuery vk _point addr = do
 mockQueryEpochInfo :: IO (EpochInfo (Either Text))
 mockQueryEpochInfo = pure Fixture.epochInfo
 
-mockQueryPParams :: IO (PParams Conway)
+mockQueryPParams :: IO (PParams ConwayEra)
 mockQueryPParams = pure Fixture.pparams
 
 --
@@ -339,7 +339,7 @@ genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
           base
             & inputsTxBodyL .~ Set.singleton input
             & outputsTxBodyL .~ StrictSeq.singleton output
-    let input' = Ledger.TxIn (Ledger.TxId $ SafeHash.hashAnnotated body) (Ledger.TxIx 0)
+    let input' = Ledger.TxIn (Ledger.TxId $ hashAnnotated body) (Ledger.TxIx 0)
     modify (\m -> m & Map.delete input & Map.insert input' output)
     pure body
 

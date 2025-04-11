@@ -19,7 +19,7 @@ instance Arbitrary PolicyId where
 -- * Type conversions
 
 -- | Convert Cardano api 'PolicyId' to Cardano ledger `PolicyID`.
-toLedgerPolicyID :: PolicyId -> Ledger.PolicyID StandardCrypto
+toLedgerPolicyID :: PolicyId -> Ledger.PolicyID
 toLedgerPolicyID (PolicyId sh) = Ledger.PolicyID (toShelleyScriptHash sh)
 
 -- | Convert Cardano api 'PolicyId' to Plutus `CurrencySymbol`.

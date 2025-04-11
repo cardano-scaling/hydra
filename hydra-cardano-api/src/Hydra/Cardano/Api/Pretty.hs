@@ -9,7 +9,6 @@ import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.SafeHash qualified as Ledger
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BL
 import Data.Function (on)

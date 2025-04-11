@@ -26,6 +26,7 @@ import Cardano.Ledger.Plutus (
   Language (..),
  )
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
+import Cardano.Protocol.Crypto (StandardCrypto)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
 import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength, SystemStart (SystemStart), mkSlotLength)
@@ -50,7 +51,6 @@ import Hydra.Cardano.Api (
   ScriptExecutionError,
   ScriptWitnessIndex,
   SerialiseAsCBOR (serialiseToCBOR),
-  StandardCrypto,
   TransactionValidityError,
   Tx,
   UTxO,

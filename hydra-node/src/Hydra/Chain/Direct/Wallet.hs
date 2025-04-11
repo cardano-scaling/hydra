@@ -7,7 +7,6 @@ module Hydra.Chain.Direct.Wallet where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
-import Cardano.Crypto.Hash.Class
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
@@ -25,9 +24,8 @@ import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
   AlonzoEraTx,
   BabbageEraTxBody,
-  Conway,
+  ConwayEra,
   Data,
-  EraCrypto,
   PParams,
   TransactionScriptFailure,
   Tx,
@@ -61,9 +59,7 @@ import Cardano.Ledger.Core (
  )
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Crypto (HASH, StandardCrypto)
-import Cardano.Ledger.Hashes (EraIndependentTxBody)
-import Cardano.Ledger.SafeHash qualified as SafeHash
+import Cardano.Ledger.Hashes (EraIndependentTxBody, HashAnnotated, hashAnnotated)
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
@@ -104,8 +100,8 @@ import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 
-type Address = Ledger.Addr StandardCrypto
-type TxIn = Ledger.TxIn StandardCrypto
+type Address = Ledger.Addr
+type TxIn = Ledger.TxIn
 type TxOut = Ledger.TxOut LedgerEra
 
 -- | A 'TinyWallet' is a small abstraction of a wallet with basic UTXO
@@ -157,7 +153,7 @@ newTinyWallet ::
   ChainQuery IO ->
   IO (EpochInfo (Either Text)) ->
   -- | A means to query some pparams.
-  IO (PParams Conway) ->
+  IO (PParams ConwayEra) ->
   IO (TinyWallet IO)
 newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySomePParams = do
   walletInfoVar <- newTVarIO =<< initialize
@@ -225,15 +221,12 @@ applyTxs txs isOurs utxo =
         when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
 
 getTxId ::
-  ( HashAlgorithm (HASH crypto)
-  , SafeHash.HashAnnotated
-      (Ledger.TxBody (era crypto))
-      EraIndependentTxBody
-      crypto
-  ) =>
-  Babbage.AlonzoTx (era crypto) ->
-  Ledger.TxId crypto
-getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
+  HashAnnotated
+    (Ledger.TxBody era)
+    EraIndependentTxBody =>
+  Babbage.AlonzoTx era ->
+  Ledger.TxId
+getTxId tx = Ledger.TxId $ hashAnnotated (body tx)
 
 -- | This are all the error that can happen during coverFee.
 data ErrCoverFee
@@ -242,7 +235,7 @@ data ErrCoverFee
   | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text}
   | ErrTranslationError (ContextError LedgerEra)
-  | ErrConwayUpgradeError (TxUpgradeError Conway)
+  | ErrConwayUpgradeError (TxUpgradeError ConwayEra)
   deriving stock (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
@@ -254,8 +247,8 @@ data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
 --
 -- XXX: All call sites of this function use cardano-api types
 coverFee_ ::
-  ( EraCrypto era ~ StandardCrypto
-  , EraPlutusContext era
+  ( EraPlutusContext era
+  , Ledger.EraCertState era
   , AlonzoEraTx era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , EraUTxO era
@@ -408,7 +401,7 @@ findLargestUTxO utxo =
 -- cost a little.
 estimateScriptsCost ::
   forall era.
-  (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraCrypto era ~ StandardCrypto, EraUTxO era) =>
+  (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era) =>
   -- | Protocol parameters
   Core.PParams era ->
   -- | Start of the blockchain, for converting slots to UTC times

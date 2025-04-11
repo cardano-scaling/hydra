@@ -23,6 +23,7 @@ import Graphics.Vty (
   outputPicture,
   shutdownInput,
  )
+import Graphics.Vty.Config (userConfig)
 import Graphics.Vty.Image (DisplayRegion)
 import Graphics.Vty.Platform.Unix.Input (buildInput)
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
@@ -258,7 +259,8 @@ withTUITest region action = do
     -- NOTE(SN): The null device should allow using this in CI, while we do
     -- capture the output via `outputByteBuffer` anyway.
     nullFd <- openFd "/dev/null" WriteOnly defaultFileFlags
-    realOut <- buildOutput =<< defaultSettings
+    userCfg <- userConfig
+    realOut <- buildOutput userCfg =<< defaultSettings
     closeFd nullFd
     let output = testOut realOut as frameBuffer
     pure $
