@@ -50,3 +50,21 @@ allow-newer:
   , ouroboros-network-api:network
   , ouroboros-network-framework:network
   , ouroboros-network-protocols:network
+
+source-repository-package
+  type: git
+  location: https://github.com/IntersectMBO/cardano-base
+  tag: 9b4b06e43e45884f6e1d9dca5436e5367f5ed439
+  --sha256: sha256-i6ZlV69Ji84bBOBGfCohiUodNOxjuzBfnsxeKx3OLxw=
+  subdir:
+    cardano-crypto-class
+
+source-repository-package
+  type: git
+  location: https://github.com/cardano-scaling/plutus
+  tag: 99a9f51af6b73fd37ac0703d3fc0ec4d11d15c20
+  --sha256: sha256-ogpH5vRJBP68DcLWamsh3hR6B1TFoKAkA8X7ycnLHmA=
+  subdir:
+    plutus-core
+    plutus-tx
+    plutus-tx-plugin
