@@ -26,7 +26,6 @@ import Hydra.Cardano.Api (
   Quantity (..),
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
-  ToTxContext (toTxContext),
   Tx,
   TxId,
   TxIn,
@@ -34,6 +33,7 @@ import Hydra.Cardano.Api (
   UTxO,
   UTxO' (UTxO),
   chainPointToSlotNo,
+  fromCtxUTxOTxOut,
   fromScriptData,
   genTxIn,
   getTxBody,
@@ -44,7 +44,6 @@ import Hydra.Cardano.Api (
   networkIdToNetwork,
   selectAsset,
   selectLovelace,
-  toTxContext,
   txIns',
   txOutScriptData,
   txOutValue,
@@ -659,7 +658,7 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
  where
   Snapshot{utxoToCommit, utxoToDecommit} = sn
   checkHeadDatum headUTxO@(_, headOutput) = do
-    headDatum <- txOutScriptData (toTxContext headOutput) ?> MissingHeadDatumInContest
+    headDatum <- txOutScriptData (fromCtxUTxOTxOut headOutput) ?> MissingHeadDatumInContest
     datum <- fromScriptData headDatum ?> FailedToConvertFromScriptDataInContest
 
     case datum of
@@ -726,7 +725,7 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotN
 
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <-
-      txOutScriptData (toTxContext headOutput) ?> MissingHeadDatumInFanout
+      txOutScriptData (fromCtxUTxOTxOut headOutput) ?> MissingHeadDatumInFanout
     datum <-
       fromScriptData headDatum ?> FailedToConvertFromScriptDataInFanout
 

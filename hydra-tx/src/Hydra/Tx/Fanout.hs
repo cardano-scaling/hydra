@@ -64,17 +64,17 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
     headTokensFromValue headTokenScript (txOutValue headOutput)
 
   orderedTxOutsToFanout =
-    toTxContext <$> toList utxo
+    fromCtxUTxOTxOut <$> toList utxo
 
   orderedTxOutsToCommit =
     case utxoToCommit of
       Nothing -> []
-      Just commitUTxO -> toTxContext <$> toList commitUTxO
+      Just commitUTxO -> fromCtxUTxOTxOut <$> toList commitUTxO
 
   orderedTxOutsToDecommit =
     case utxoToDecommit of
       Nothing -> []
-      Just decommitUTxO -> toTxContext <$> toList decommitUTxO
+      Just decommitUTxO -> fromCtxUTxOTxOut <$> toList decommitUTxO
 
 -- * Observation
 

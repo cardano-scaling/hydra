@@ -99,7 +99,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
-  reimbursedOutputs = toTxContext . snd <$> UTxO.pairs committedUTxO
+  reimbursedOutputs = fromCtxUTxOTxOut . snd <$> UTxO.pairs committedUTxO
 
 -- * Observation
 

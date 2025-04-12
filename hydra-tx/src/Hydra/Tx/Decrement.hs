@@ -44,7 +44,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
       & addTxInsReference [headScriptRef]
-      & addTxOuts (headOutput' : map toTxContext decommitOutputs)
+      & addTxOuts (headOutput' : map fromCtxUTxOTxOut decommitOutputs)
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DecrementTx")
  where
@@ -108,13 +108,13 @@ observeDecrementTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{}, Head.Decrement Head.DecrementRedeemer{numberOfDecommitOutputs}) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
-      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       case fromScriptData newHeadDatum of
         Just (Head.Open Head.OpenDatum{version}) ->
           pure

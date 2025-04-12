@@ -170,13 +170,13 @@ observeCloseTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open Head.OpenDatum{parties}, Head.Close{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
-      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       (closeContestationDeadline, onChainSnapshotNumber) <- case fromScriptData newHeadDatum of
         Just (Head.Closed Head.ClosedDatum{contestationDeadline, snapshotNumber}) ->
           pure (contestationDeadline, snapshotNumber)
