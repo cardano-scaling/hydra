@@ -122,17 +122,17 @@ observeIncrementTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
   (TxIn depositTxId _, depositOutput) <- findTxOutByScript inputUTxO depositValidatorScript
-  dat <- txOutScriptData $ toTxContext depositOutput
+  dat <- txOutScriptData $ fromCtxUTxOTxOut depositOutput
   -- we need to be able to decode the datum, no need to use it tho
   _ :: Deposit.DepositDatum <- fromScriptData dat
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{}, Head.Increment Head.IncrementRedeemer{}) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
-      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       case fromScriptData newHeadDatum of
         Just (Head.Open Head.OpenDatum{version}) ->
           pure
