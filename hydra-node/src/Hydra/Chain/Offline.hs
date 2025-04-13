@@ -9,7 +9,7 @@ import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
-import Hydra.Cardano.Api (GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), StandardCrypto, Tx)
+import Hydra.Cardano.Api (GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), Tx)
 import Hydra.Chain (
   Chain (..),
   ChainComponent,
@@ -55,7 +55,7 @@ loadGenesisFile ledgerGenesisFile =
         pure shelleyGenesisDefaults{sgSystemStart = now}
       Just fp -> do
         jsonVal <- Aeson.eitherDecodeFileStrict fp >>= either fail pure -- just crash if we can't read the file
-        case Aeson.parseEither (parseJSON @(ShelleyGenesis StandardCrypto)) jsonVal of
+        case Aeson.parseEither (parseJSON @ShelleyGenesis) jsonVal of
           Right a -> pure a
           Left e -> throwIO $ InitialUTxOParseException e
 

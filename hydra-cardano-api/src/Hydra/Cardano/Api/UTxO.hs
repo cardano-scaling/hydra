@@ -50,7 +50,7 @@ toLedgerUTxO =
   fn ::
     TxIn ->
     TxOut CtxUTxO Era ->
-    Map (Ledger.TxIn StandardCrypto) (Ledger.BabbageTxOut LedgerEra)
+    Map Ledger.TxIn (Ledger.BabbageTxOut LedgerEra)
   fn i o =
     Map.singleton (toLedgerTxIn i) (toLedgerTxOut o)
 
@@ -59,7 +59,7 @@ fromLedgerUTxO =
   UTxO . Map.foldMapWithKey fn . Ledger.unUTxO
  where
   fn ::
-    Ledger.TxIn StandardCrypto ->
+    Ledger.TxIn ->
     Ledger.BabbageTxOut LedgerEra ->
     Map TxIn (TxOut CtxUTxO Era)
   fn i o =

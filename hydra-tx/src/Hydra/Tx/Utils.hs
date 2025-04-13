@@ -75,7 +75,7 @@ adaOnly = \case
   TxOut addr value datum refScript ->
     TxOut addr (lovelaceToValue $ selectLovelace value) datum refScript
 
-addMetadata :: TxMetadata -> Tx -> Ledger.AlonzoTx (Ledger.ConwayEra StandardCrypto) -> Ledger.AlonzoTx (Ledger.ConwayEra StandardCrypto)
+addMetadata :: TxMetadata -> Tx -> Ledger.AlonzoTx Ledger.ConwayEra -> Ledger.AlonzoTx Ledger.ConwayEra
 addMetadata (TxMetadata newMetadata) blueprintTx tx =
   let
     newMetadataMap = toShelleyMetadata newMetadata

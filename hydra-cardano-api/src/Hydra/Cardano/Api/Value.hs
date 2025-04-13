@@ -51,19 +51,19 @@ valueSize = length . toList
 -- * Type Conversions
 
 -- | Convert a cardano-ledger 'Value' into a cardano-api 'Value'.
-fromLedgerValue :: Ledger.MaryValue StandardCrypto -> Value
+fromLedgerValue :: Ledger.MaryValue -> Value
 fromLedgerValue =
   fromMaryValue
 
 -- | Convert a cardano-ledger 'MultiAsset' into a cardano-api 'Value'. The
 -- cardano-api currently does not have an asset-only type. So this conversion
 -- will construct a 'Value' with no 'AdaAssetId' entry in it.
-fromLedgerMultiAsset :: Ledger.MultiAsset StandardCrypto -> Value
+fromLedgerMultiAsset :: Ledger.MultiAsset -> Value
 fromLedgerMultiAsset =
   fromMaryValue . Ledger.MaryValue (Coin 0)
 
 -- | Convert a cardano-api 'Value' into a cardano-ledger 'Value'.
-toLedgerValue :: Value -> Ledger.MaryValue StandardCrypto
+toLedgerValue :: Value -> Ledger.MaryValue
 toLedgerValue =
   toMaryValue
 

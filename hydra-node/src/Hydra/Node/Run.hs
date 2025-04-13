@@ -2,7 +2,7 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
-import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
+import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
@@ -166,7 +166,7 @@ newGlobals genesisParameters = do
   case mkActiveSlotCoeff <$> boundRational protocolParamActiveSlotsCoefficient of
     Nothing -> throwIO GlobalsTranslationException
     Just slotCoeff -> do
-      let k = fromIntegral protocolParamSecurity
+      let k = unNonZero protocolParamSecurity
       pure $
         Globals
           { activeSlotCoeff = slotCoeff
@@ -176,7 +176,7 @@ newGlobals genesisParameters = do
           , networkId = toShelleyNetwork protocolParamNetworkId
           , quorum = fromIntegral protocolParamUpdateQuorum
           , randomnessStabilisationWindow = computeRandomnessStabilisationWindow k slotCoeff
-          , securityParameter = k
+          , securityParameter = protocolParamSecurity
           , slotsPerKESPeriod = fromIntegral protocolParamSlotsPerKESPeriod
           , stabilityWindow = computeStabilityWindow k slotCoeff
           , systemStart = SystemStart protocolParamSystemStart

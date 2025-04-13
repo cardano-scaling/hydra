@@ -57,7 +57,7 @@ spec =
                   tx ^. bodyTxL . inputsTxBodyL
                     === toLedgerTx decodedTx ^. bodyTxL . inputsTxBodyL
 
-genConwayCompatibleBabbageTx :: Gen (Ledger.Tx Ledger.Babbage)
+genConwayCompatibleBabbageTx :: Gen (Ledger.Tx Ledger.BabbageEra)
 genConwayCompatibleBabbageTx = do
   tx <- arbitrary
   pure $

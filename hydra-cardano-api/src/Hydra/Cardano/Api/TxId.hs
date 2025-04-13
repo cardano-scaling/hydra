@@ -6,7 +6,7 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Hash.Class qualified as CC
-import Cardano.Ledger.SafeHash qualified as Ledger
+import Cardano.Ledger.Hashes qualified as Ledger
 import Cardano.Ledger.TxIn qualified as Ledger
 
 -- missing CBOR instances
@@ -24,6 +24,6 @@ instance FromCBOR TxId where
 -- * Type Conversions
 
 -- | Convert a cardano-api 'TxId' into a cardano-ledger 'TxId'.
-toLedgerTxId :: TxId -> Ledger.TxId StandardCrypto
+toLedgerTxId :: TxId -> Ledger.TxId
 toLedgerTxId (TxId h) =
   Ledger.TxId (Ledger.unsafeMakeSafeHash (CC.castHash h))

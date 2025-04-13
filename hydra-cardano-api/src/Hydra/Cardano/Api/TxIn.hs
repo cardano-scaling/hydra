@@ -38,11 +38,11 @@ txInputSet = Set.fromList . txIns'
 -- * Type Conversions
 
 -- | Convert a cardano-ledger 'TxIn' into a cardano-api 'TxIn'
-fromLedgerTxIn :: Ledger.TxIn StandardCrypto -> TxIn
+fromLedgerTxIn :: Ledger.TxIn -> TxIn
 fromLedgerTxIn = fromShelleyTxIn
 
 -- | Convert a cardano-api 'TxIn' into a cardano-ledger 'TxIn'
-toLedgerTxIn :: TxIn -> Ledger.TxIn StandardCrypto
+toLedgerTxIn :: TxIn -> Ledger.TxIn
 toLedgerTxIn = toShelleyTxIn
 
 -- | Convert a plutus' 'TxOutRef' into a cardano-api 'TxIn'

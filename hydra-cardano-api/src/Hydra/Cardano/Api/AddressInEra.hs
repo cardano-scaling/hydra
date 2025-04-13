@@ -6,7 +6,6 @@ import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Hashes qualified as Ledger
-import Cardano.Ledger.Keys qualified as Ledger
 import Hydra.Cardano.Api.Network (Network)
 import PlutusLedgerApi.V3 (
   Address (..),
@@ -60,11 +59,11 @@ mkScriptAddress networkId script =
 -- * Type Conversions
 
 -- | From a ledger 'Addr' to an api 'AddressInEra'
-fromLedgerAddr :: IsShelleyBasedEra era => Ledger.Addr StandardCrypto -> AddressInEra era
+fromLedgerAddr :: IsShelleyBasedEra era => Ledger.Addr -> AddressInEra era
 fromLedgerAddr = fromShelleyAddrIsSbe shelleyBasedEra
 
 -- | From an api 'AddressInEra' to a ledger 'Addr'
-toLedgerAddr :: AddressInEra era -> Ledger.Addr StandardCrypto
+toLedgerAddr :: AddressInEra era -> Ledger.Addr
 toLedgerAddr = \case
   AddressInEra ByronAddressInAnyEra (ByronAddress addr) ->
     Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)
