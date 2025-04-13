@@ -4,7 +4,7 @@ module Hydra.Cardano.Api.Pretty where
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
@@ -23,7 +23,7 @@ renderTx :: Api.Tx -> String
 renderTx = renderTxWithUTxO mempty
 
 -- | Like 'renderTx', but uses the given UTxO to resolve inputs.
-renderTxWithUTxO :: UTxO -> Api.Tx -> String
+renderTxWithUTxO :: Api.UTxO -> Api.Tx -> String
 renderTxWithUTxO utxo (Tx body _wits) =
   unlines $
     intercalate
@@ -72,7 +72,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
       Api.TxInsCollateral refInputs -> refInputs
 
   prettyTxIn i =
-    case UTxO.resolve i utxo of
+    case UTxO.lookup i utxo of
       Nothing -> T.unpack $ renderTxIn i
       Just o ->
         T.unpack (renderTxIn i)

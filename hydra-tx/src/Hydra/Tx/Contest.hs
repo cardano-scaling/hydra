@@ -157,13 +157,13 @@ observeContestTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Closed Head.ClosedDatum{}, Head.Contest{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
-      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       let (onChainSnapshotNumber, contestationDeadline, contesters) = decodeDatum newHeadDatum
       pure
         ContestObservation

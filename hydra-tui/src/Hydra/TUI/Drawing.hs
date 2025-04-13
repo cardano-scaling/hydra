@@ -15,7 +15,7 @@ import Brick.Forms (
  )
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.Map qualified as Map
 import Data.Text (chunksOf)
 import Data.Time (defaultTimeLocale, formatTime)

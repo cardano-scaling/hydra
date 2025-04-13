@@ -3,7 +3,7 @@ module Hydra.Tx.Decrement where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano.Builder (
@@ -44,7 +44,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
       & addTxInsReference [headScriptRef]
-      & addTxOuts (headOutput' : map toTxContext decommitOutputs)
+      & addTxOuts (headOutput' : map fromCtxUTxOTxOut decommitOutputs)
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DecrementTx")
  where
@@ -55,7 +55,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           { signature = toPlutusSignatures signatures
           , snapshotNumber = fromIntegral number
           , numberOfDecommitOutputs =
-              fromIntegral $ length $ maybe [] toList utxoToDecommit
+              fromIntegral $ length $ maybe [] (toList . UTxO.unUTxO) utxoToDecommit
           }
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
@@ -69,7 +69,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   decomittedValue = foldMap txOutValue decommitOutputs
 
-  decommitOutputs = maybe [] toList utxoToDecommit
+  decommitOutputs = maybe [] (toList . UTxO.unUTxO) utxoToDecommit
 
   headScriptRef = fst (headReference scriptRegistry)
 
@@ -108,13 +108,13 @@ observeDecrementTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{}, Head.Decrement Head.DecrementRedeemer{numberOfDecommitOutputs}) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
-      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       case fromScriptData newHeadDatum of
         Just (Head.Open Head.OpenDatum{version}) ->
           pure
@@ -127,7 +127,7 @@ observeDecrementTx utxo tx = do
                         toCtxUTxOTxOut <$> txOuts' tx
                           & drop 1 -- NOTE: Head output must be in first position
                           & take (fromIntegral numberOfDecommitOutputs)
-                   in UTxO.fromPairs $ zip inputs outputs
+                   in UTxO.fromList $ zip inputs outputs
               }
         _ -> Nothing
     _ -> Nothing

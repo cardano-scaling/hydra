@@ -7,7 +7,8 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.Core (EraTxAuxData (hashTxAuxData))
 import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import Cardano.Ledger.Api (
   ConwayPlutusPurpose (ConwayRewarding, ConwaySpending),
@@ -226,7 +227,7 @@ genBlueprintTxWithUTxO =
       ( utxo <> utxoToSpend
       , txbody
           & addTxIns
-            ( UTxO.pairs $
+            ( UTxO.toList $
                 ( \_ ->
                     BuildTxWith $
                       ScriptWitness ScriptWitnessForSpending $

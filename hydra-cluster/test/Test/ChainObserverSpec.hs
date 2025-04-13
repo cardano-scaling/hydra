@@ -9,7 +9,7 @@ module Test.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import CardanoClient (RunningNode (..), submitTx)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
@@ -76,7 +76,7 @@ spec = do
                 decommitTx <-
                   either (failure . show) pure $
                     mkSimpleTx
-                      (List.head $ UTxO.pairs commitUTxO)
+                      (List.head $ UTxO.toList commitUTxO)
                       (walletAddress, lovelaceToValue 2_000_000)
                       walletSk
 

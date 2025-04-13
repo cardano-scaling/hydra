@@ -3,7 +3,7 @@ module Hydra.Tx.Increment where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.List qualified as List
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
@@ -91,10 +91,10 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           , version = toInteger version + 1
           }
 
-  depositedValue = foldMap (txOutValue . snd) $ UTxO.pairs (fromMaybe mempty utxoToCommit)
+  depositedValue = foldMap (txOutValue . snd) $ UTxO.toList (fromMaybe mempty utxoToCommit)
 
   -- NOTE: we expect always a single output from a deposit tx
-  (depositIn, _) = List.head $ UTxO.pairs depositScriptUTxO
+  (depositIn, _) = List.head $ UTxO.toList depositScriptUTxO
 
   depositRedeemer = toScriptData $ Deposit.redeemer $ Deposit.Claim $ headIdToCurrencySymbol headId
 
@@ -122,17 +122,17 @@ observeIncrementTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
   (TxIn depositTxId _, depositOutput) <- findTxOutByScript inputUTxO depositValidatorScript
-  dat <- txOutScriptData $ toTxContext depositOutput
+  dat <- txOutScriptData $ fromCtxUTxOTxOut depositOutput
   -- we need to be able to decode the datum, no need to use it tho
   _ :: Deposit.DepositDatum <- fromScriptData dat
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{}, Head.Increment Head.IncrementRedeemer{}) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
-      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       case fromScriptData newHeadDatum of
         Just (Head.Open Head.OpenDatum{version}) ->
           pure

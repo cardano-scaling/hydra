@@ -6,7 +6,7 @@ module Test.Hydra.Tx.Gen where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -105,7 +105,7 @@ instance Arbitrary UTxO where
   arbitrary = genUTxO
 
 shrinkUTxO :: UTxO -> [UTxO]
-shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.pairs (shrinkList shrinkOne)
+shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.toList (shrinkList shrinkOne)
  where
   shrinkOne :: (TxIn, TxOut CtxUTxO) -> [(TxIn, TxOut CtxUTxO)]
   shrinkOne (i, o) = case o of
@@ -122,7 +122,7 @@ shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.pairs (shrinkList shrinkOne)
 genUTxO :: Gen UTxO
 genUTxO = do
   utxoMap <- Map.toList . Ledger.unUTxO <$> arbitrary
-  fmap UTxO.fromPairs . forM utxoMap $ \(_, o) -> do
+  fmap UTxO.fromList . forM utxoMap $ \(_, o) -> do
     i <- arbitrary
     pure (i, fromLedgerTxOut o)
 
@@ -130,16 +130,13 @@ genUTxO = do
 -- 'genTxOut'.
 genUTxOSized :: Int -> Gen UTxO
 genUTxOSized numUTxO =
-  fold <$> vectorOf numUTxO (UTxO.singleton <$> gen)
+  fold <$> vectorOf numUTxO (UTxO.unUTxO $ UTxO.singleton <$> gen)
  where
   gen = (,) <$> arbitrary <*> genTxOut
 
 -- | Genereate a 'UTxO' with a single entry using given 'TxOut' generator.
 genUTxO1 :: Gen (TxOut CtxUTxO) -> Gen UTxO
-genUTxO1 gen = do
-  txIn <- arbitrary
-  txOut <- gen
-  pure $ UTxO.singleton (txIn, txOut)
+genUTxO1 gen = UTxO.singleton <$> arbitrary <*> gen
 
 -- | Generate utxos owned by the given cardano key.
 genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
@@ -151,10 +148,10 @@ genUTxOFor vk = do
 
 -- | Generate a fixed size UTxO with ada-only outputs.
 genUTxOAdaOnlyOfSize :: Int -> Gen UTxO
-genUTxOAdaOnlyOfSize numUTxO =
-  fold <$> vectorOf numUTxO (UTxO.singleton <$> gen)
- where
-  gen = (,) <$> arbitrary <*> (genTxOutAdaOnly =<< arbitrary)
+genUTxOAdaOnlyOfSize numUTxO = do
+  txIn <- genTxOutAdaOnly =<< arbitrary
+  txOut <- arbitrary
+  fold <$> vectorOf numUTxO (UTxO.singleton txIn txOut)
 
 -- | Generate a single UTXO owned by 'vk'.
 genOneUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
@@ -170,7 +167,7 @@ genOneUTxOFor vk = do
 -- for backward-compatibility and obscure features.
 genUTxOWithSimplifiedAddresses :: Gen UTxO
 genUTxOWithSimplifiedAddresses =
-  UTxO.fromPairs <$> listOf genEntry
+  UTxO.fromList <$> listOf genEntry
  where
   genEntry = (,) <$> genTxIn <*> genTxOut
 

@@ -16,7 +16,6 @@ module Hydra.Ledger.Cardano.Evaluate where
 
 import Hydra.Prelude hiding (label)
 
-import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModel, mkCostModels, txscriptfee)
 import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
@@ -110,9 +109,9 @@ evaluateTx' maxUnits tx utxo = do
       | otherwise -> Right report
  where
   result ::
-    LedgerProtocolParameters UTxO.Era ->
+    LedgerProtocolParameters Era ->
     Either
-      (TransactionValidityError UTxO.Era)
+      (TransactionValidityError Era)
       ( Map
           ScriptWitnessIndex
           ( Either
@@ -127,7 +126,7 @@ evaluateTx' maxUnits tx utxo = do
         systemStart
         (LedgerEpochInfo epochInfo)
         pparams'
-        (UTxO.toApi utxo)
+        utxo
         (getTxBody tx)
 
 -- | Check the budget used by provided 'EvaluationReport' does not exceed given

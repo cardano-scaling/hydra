@@ -13,7 +13,7 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotVersion,
  )
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Maybe (fromJust)
 import Hydra.Contract.Commit (Commit)
@@ -168,7 +168,7 @@ genIncrementMutation (tx, utxo) =
     [ SomeMutation (pure $ toErrorCode DepositDeadlineSurpassed) DepositMutateDepositDeadline <$> do
         let datum =
               txOutDatum $
-                flip modifyInlineDatum (toTxContext depositOut) $ \case
+                flip modifyInlineDatum (fromCtxUTxOTxOut depositOut) $ \case
                   ((headCS', depositDatumDeadline, commits) :: (Plutus.CurrencySymbol, Plutus.POSIXTime, [Commit])) ->
                     (headCS', Plutus.POSIXTime $ Plutus.getPOSIXTime depositDatumDeadline - 1000, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
@@ -177,7 +177,7 @@ genIncrementMutation (tx, utxo) =
         otherHeadId <- arbitrary
         let datum =
               txOutDatum $
-                flip modifyInlineDatum (toTxContext depositOut) $ \case
+                flip modifyInlineDatum (fromCtxUTxOTxOut depositOut) $ \case
                   ((_headCS, depositDatumDeadline, commits) :: (Plutus.CurrencySymbol, Plutus.POSIXTime, [Commit])) ->
                     (otherHeadId, depositDatumDeadline, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
@@ -195,7 +195,7 @@ genIncrementMutation (tx, utxo) =
             Head.IncrementRedeemer
               { signature = invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
-              , increment = toPlutusTxOutRef $ fst $ List.head $ UTxO.pairs depositUTxO
+              , increment = toPlutusTxOutRef $ fst $ List.head $ UTxO.toList depositUTxO
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
@@ -220,4 +220,4 @@ genIncrementMutation (tx, utxo) =
     fromJust $
       find
         (\(_, TxOut address _ _ _) -> address == Deposit.depositAddress testNetworkId)
-        (UTxO.pairs (resolveInputsUTxO utxo tx))
+        (UTxO.toList (resolveInputsUTxO utxo tx))

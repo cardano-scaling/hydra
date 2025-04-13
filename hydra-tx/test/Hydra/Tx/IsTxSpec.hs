@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 -- NOTE: Arbitrary UTxO and Tx instances
 import Test.Hydra.Tx.Gen ()
 
-import Cardano.Api.UTxO (fromApi, toApi)
+import Cardano.Api.Tx.UTxO (fromApi, toApi)
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Binary qualified as CB
 import Cardano.Ledger.Api (bodyTxL, certsTxBodyL, inputsTxBodyL, updateTxBodyL)
