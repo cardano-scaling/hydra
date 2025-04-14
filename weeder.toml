@@ -12,10 +12,11 @@ roots = [
  , "spy'$"
  , "showFromAction$"
  , "redeemer$"
- # toCardanoGenesisParameters, mkTinyWallet, queryTimeHandle will be needed for full blockfrost integration
+ # needed for full blockfrost integration
  , "toCardanoGenesisParameters"
  , "mkTinyWallet"
  , "queryTimeHandle"
+ , "loadChainContext"
  ]
 root-instances = [
  # Stock instances are treated as roots.
