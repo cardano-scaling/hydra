@@ -76,6 +76,9 @@ filter fn = UTxO . Map.filter fn . toMap
 inputSet :: UTxO' out -> Set TxIn
 inputSet = Map.keysSet . toMap
 
+squash :: [UTxO' out] -> UTxO' out
+squash = foldMap (<> mempty)
+
 -- | Get a human-readable pretty text representation of a UTxO.
 render :: (TxIn, TxOut ctx era) -> Text
 render (k, TxOut _ (txOutValueToValue -> v) _ _) =
