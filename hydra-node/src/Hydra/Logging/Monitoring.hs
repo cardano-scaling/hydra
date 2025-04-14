@@ -26,11 +26,12 @@ import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Tx (IsTx (TxIdType), Snapshot (..), txId)
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
-import System.Metrics.Prometheus.Metric (Metric (CounterMetric, HistogramMetric))
+import System.Metrics.Prometheus.Metric (Metric (CounterMetric, GaugeMetric, HistogramMetric))
 import System.Metrics.Prometheus.Metric.Counter (add, inc)
+import System.Metrics.Prometheus.Metric.Gauge qualified as Gauge
 import System.Metrics.Prometheus.Metric.Histogram (observe)
 import System.Metrics.Prometheus.MetricId (Name (Name))
-import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, registerHistogram, sample)
+import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, registerGauge, registerHistogram, sample)
 
 -- | Wraps a monadic action using a `Tracer` and capture metrics based on traces.
 -- Given a `portNumber`, this wrapper starts a Prometheus-compliant server on this port.
@@ -76,6 +77,7 @@ allMetrics =
   , MetricDefinition (Name "hydra_head_requested_tx") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_confirmed_tx") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_tx_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 1000]
+  , MetricDefinition (Name "hydra_head_peers_connected") GaugeMetric $ flip registerGauge mempty
   ]
 
 -- | Main monitoring function that updates metrics store given some log entries.
@@ -96,6 +98,8 @@ monitor transactionsMap metricsMap = \case
     tick "hydra_head_requested_tx"
   (Node LogicOutcome{outcome = Continue{stateChanges}}) -> do
     forM_ stateChanges $ \case
+      PeerConnected{} -> gauge Gauge.inc $ "hydra_head_peers_connected"
+      PeerDisconnected{} -> gauge Gauge.dec $ "hydra_head_peers_connected"
       SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> do
         tickN "hydra_head_confirmed_tx" (length confirmed)
         forM_ confirmed $ \tx -> do
@@ -111,6 +115,11 @@ monitor transactionsMap metricsMap = \case
     tick "hydra_head_inputs"
   _ -> pure ()
  where
+  gauge f metricName =
+    case Map.lookup metricName metricsMap of
+      (Just (GaugeMetric c)) -> liftIO $ f c
+      _ -> pure ()
+
   tick metricName =
     case Map.lookup metricName metricsMap of
       (Just (CounterMetric c)) -> liftIO $ inc c
