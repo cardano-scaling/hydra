@@ -43,19 +43,21 @@ mkTinyWallet ::
 mkTinyWallet tracer config = do
   keyPair@(_, sk) <- readKeyPair cardanoSigningKey
   prj <- Blockfrost.projectFromFile projectPath
-  genesis@Blockfrost.Genesis{_genesisSystemStart, _genesisNetworkMagic} <- runBlockfrostM prj queryGenesis
-  let networkId = toCardanoNetworkId _genesisNetworkMagic
-  let queryEpochInfo = pure $ toEpochInfo $ mkEraHistory genesis
-  -- NOTE: we don't need to provide address here since it is derived from the
-  -- keypair but we still want to keep the same wallet api.
-  let queryWalletInfo queryPoint _address = runBlockfrostM prj $ do
-        point <- queryTip queryPoint
-        utxo <- queryUTxO sk networkId
-        let walletUTxO = Ledger.unUTxO $ toLedgerUTxO utxo
-        let systemStart = SystemStart $ posixSecondsToUTCTime _genesisSystemStart
-        pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
-  let querySomePParams = runBlockfrostM prj toCardanoPParams
-  newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
+  runBlockfrostM prj $ do
+    Blockfrost.Genesis{_genesisSystemStart, _genesisNetworkMagic} <- queryGenesis
+    let networkId = toCardanoNetworkId _genesisNetworkMagic
+    eraHistory <- mkEraHistory
+    let queryEpochInfo = pure $ toEpochInfo eraHistory
+    -- NOTE: we don't need to provide address here since it is derived from the
+    -- keypair but we still want to keep the same wallet api.
+    let queryWalletInfo queryPoint _address = runBlockfrostM prj $ do
+          point <- queryTip queryPoint
+          utxo <- queryUTxO sk networkId
+          let walletUTxO = Ledger.unUTxO $ toLedgerUTxO utxo
+          let systemStart = SystemStart $ posixSecondsToUTCTime _genesisSystemStart
+          pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
+    let querySomePParams = runBlockfrostM prj toCardanoPParams
+    liftIO $ newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
  where
   BlockfrostChainConfig{projectPath, cardanoSigningKey} = config
 
