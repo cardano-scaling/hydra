@@ -80,9 +80,6 @@ import Hydra.Chain.Direct.State (
   ChainStateAt (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
-import Hydra.Chain.Direct.Util (
-  readKeyPair,
- )
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   WalletInfoOnChain (..),
