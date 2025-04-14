@@ -43,6 +43,8 @@ will output:
 hydra_head_confirmed_tx  0
 # TYPE hydra_head_inputs counter
 hydra_head_inputs  50467
+# TYPE hydra_head_peers_connected gauge
+hydra_head_peers_connected  0.0
 # TYPE hydra_head_requested_tx counter
 hydra_head_requested_tx  0
 # TYPE hydra_head_tx_confirmation_time_ms histogram

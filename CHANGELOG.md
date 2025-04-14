@@ -10,6 +10,7 @@ changes.
 
 ## [0.21.0] - UNRELEASED
 
+- New metric for counting the number of active peers: `hydra_head_peers_connected`
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network
   - New run-time dependency onto `etcd` binary
   - The peer network options to `hydra-node` (`--peer`) need to match across the Hydra network.
