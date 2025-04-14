@@ -30,7 +30,7 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
-import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
+import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
 import Hydra.HeadLogic (
   Effect (..),

@@ -85,7 +85,6 @@ library
     , cardano-ledger-binary
     , cardano-ledger-core
     , cardano-ledger-shelley
-    , cardano-protocol-tpraos
     , cardano-slotting
     , cardano-strict-containers
     , cborg

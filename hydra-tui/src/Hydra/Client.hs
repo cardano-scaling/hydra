@@ -21,7 +21,7 @@ import Hydra.Cardano.Api.Prelude (
 import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.CardanoClient (submitTransaction)
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
+import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.TUI.Options (Options (..))

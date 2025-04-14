@@ -10,7 +10,7 @@ import Data.ByteString (intercalate)
 import GHC.Weak (deRefWeak)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Chain.Direct.Util (readKeyPair)
+import Hydra.Node.Util (readKeyPair)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
