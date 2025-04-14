@@ -168,7 +168,7 @@ genIncrementMutation (tx, utxo) =
     [ SomeMutation (pure $ toErrorCode DepositDeadlineSurpassed) DepositMutateDepositDeadline <$> do
         let datum =
               txOutDatum $
-                flip modifyInlineDatum (toTxContext depositOut) $ \case
+                flip modifyInlineDatum (fromCtxUTxOTxOut depositOut) $ \case
                   ((headCS', depositDatumDeadline, commits) :: (Plutus.CurrencySymbol, Plutus.POSIXTime, [Commit])) ->
                     (headCS', Plutus.POSIXTime $ Plutus.getPOSIXTime depositDatumDeadline - 1000, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
@@ -177,7 +177,7 @@ genIncrementMutation (tx, utxo) =
         otherHeadId <- arbitrary
         let datum =
               txOutDatum $
-                flip modifyInlineDatum (toTxContext depositOut) $ \case
+                flip modifyInlineDatum (fromCtxUTxOTxOut depositOut) $ \case
                   ((_headCS, depositDatumDeadline, commits) :: (Plutus.CurrencySymbol, Plutus.POSIXTime, [Commit])) ->
                     (otherHeadId, depositDatumDeadline, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript

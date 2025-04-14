@@ -88,7 +88,7 @@ genRecoverMutation (tx, utxo) =
         let n = POSIX.posixSecondsToUTCTime $ realToFrac $ (arbitrary :: Gen Milli) `generateWith` 42
         let datum =
               txOutDatum $
-                flip modifyInlineDatum (toTxContext depositOut) $ \case
+                flip modifyInlineDatum (fromCtxUTxOTxOut depositOut) $ \case
                   ((headCS', depositDatumDeadline, commits) :: (CurrencySymbol, POSIXTime, [Commit])) ->
                     (headCS', depositDatumDeadline + posixFromUTCTime n, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript

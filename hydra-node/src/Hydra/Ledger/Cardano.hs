@@ -187,11 +187,12 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
 
   outs =
     TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
-      : [ TxOut @CtxTx
-            owner
-            (valueIn <> negateValue valueOut)
-            (toTxContext datum)
-            refScript
+      : [ fromCtxUTxOTxOut $
+            TxOut
+              owner
+              (valueIn <> negateValue valueOut)
+              datum
+              refScript
         | valueOut /= valueIn
         ]
 
@@ -216,11 +217,12 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
       { txIns = [(txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
       , txOuts =
           TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
-            : [ TxOut @CtxTx
-                  owner
-                  (valueIn <> negateValue valueOut)
-                  (toTxContext datum)
-                  refScript
+            : [ fromCtxUTxOTxOut $
+                  TxOut
+                    owner
+                    (valueIn <> negateValue valueOut)
+                    datum
+                    refScript
               | valueOut /= valueIn
               ]
       , txFee = TxFeeExplicit $ Coin 0

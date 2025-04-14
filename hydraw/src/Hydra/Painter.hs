@@ -79,7 +79,7 @@ mkPaintTx (txin, txOut) sk Pixel{x, y, red, green, blue} = do
   bodyContent =
     defaultTxBodyContent
       & addTxIn (txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)
-      & addTxOut (toTxContext txOut)
+      & addTxOut (fromCtxUTxOTxOut txOut)
       & setTxFee (TxFeeExplicit $ Coin 0)
       & setTxMetadata metadata
 
