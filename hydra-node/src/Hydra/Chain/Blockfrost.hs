@@ -14,6 +14,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain.Blockfrost.Client (
   queryGenesis,
+  queryScriptRegistry,
   queryTip,
   queryUTxO,
   runBlockfrostM,
@@ -23,12 +24,40 @@ import Hydra.Chain.Blockfrost.Client (
 import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
  )
-import Hydra.Chain.Direct.Util (
+import Hydra.Chain.Direct.State (ChainContext (..))
+import Hydra.Chain.Direct.Wallet (TinyWallet, WalletInfoOnChain (..), newTinyWallet)
+import Hydra.Logging (Tracer)
+import Hydra.Node.Util (
   readKeyPair,
  )
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
 import Hydra.Logging (Tracer)
 import Hydra.Options (BlockfrostChainConfig (..))
+import Hydra.Tx (Party)
+import Ouroboros.Consensus.HardFork.History qualified as Consensus
+
+-- | Build the 'ChainContext' from a 'BlockfrostChainConfig and additional information.
+loadChainContext ::
+  BlockfrostChainConfig ->
+  -- | Hydra party of our hydra node.
+  Party ->
+  IO ChainContext
+loadChainContext config party = do
+  (vk, _) <- readKeyPair cardanoSigningKey
+  (scriptRegistry, networkId) <- queryScriptRegistry projectPath hydraScriptsTxId
+  pure $
+    ChainContext
+      { networkId
+      , ownVerificationKey = vk
+      , ownParty = party
+      , scriptRegistry
+      }
+ where
+  BlockfrostChainConfig
+    { projectPath
+    , hydraScriptsTxId
+    , cardanoSigningKey
+    } = config
 
 mkTinyWallet ::
   Tracer IO DirectChainLog ->

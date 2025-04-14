@@ -419,6 +419,8 @@ data BlockfrostChainConfig = BlockfrostChainConfig
   -- ^ Path to the blockfrost project file
   , cardanoSigningKey :: FilePath
   -- ^ Path to the cardano signing key of the internal wallet.
+  , hydraScriptsTxId :: [TxId]
+  -- ^ Identifier of transaction holding the hydra scripts to use.
   }
   deriving stock (Eq, Show, Generic)
 

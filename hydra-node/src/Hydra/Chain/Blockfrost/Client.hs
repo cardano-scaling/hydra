@@ -14,6 +14,7 @@ import Data.Time.Clock.POSIX
 import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic)
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Crypto.Hash (hashToTextAsHex)
 import Cardano.Ledger.Api.PParams
 import Cardano.Ledger.BaseTypes (EpochInterval (..), EpochSize (..), NonNegativeInterval, UnitInterval, boundRational, unsafeNonZero)
 import Cardano.Ledger.Binary.Version (mkVersion)
@@ -42,7 +43,7 @@ import Data.Text qualified as T
 import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.ScriptRegistry (buildScriptPublishingTxs)
-import Hydra.Tx (txId)
+import Hydra.Tx (ScriptRegistry, newScriptRegistry, txId)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), mkInterpreter)
@@ -62,6 +63,34 @@ runBlockfrostM prj action = do
   case result of
     Left err -> throwIO (BlockfrostError $ show err)
     Right val -> pure val
+
+-- | Query for 'TxIn's in the search for outputs containing all the reference
+-- scripts of the 'ScriptRegistry'.
+--
+-- This is implemented by repeated querying until we have all necessary
+-- reference scripts as we do only know the transaction id, not the indices.
+--
+-- Can throw at least 'NewScriptRegistryException' on failure.
+queryScriptRegistry ::
+  (MonadIO m, MonadThrow m) =>
+  FilePath ->
+  [TxId] ->
+  m (ScriptRegistry, NetworkId)
+queryScriptRegistry projectPath txIds = do
+  prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  runBlockfrostM prj $ do
+    Blockfrost.Genesis
+      { _genesisNetworkMagic
+      , _genesisSystemStart
+      } <-
+      queryGenesis
+    let networkId = toCardanoNetworkId _genesisNetworkMagic
+    utxoList <- forM candidates $ \candidateTxIn -> queryUTxOByTxIn networkId candidateTxIn
+    case newScriptRegistry $ UTxO.squash utxoList of
+      Left e -> liftIO $ throwIO e
+      Right sr -> pure (sr, networkId)
+ where
+  candidates = map (\txid -> TxIn txid (TxIx 0)) txIds
 
 publishHydraScripts ::
   -- | The path where the Blockfrost project token hash is stored.
@@ -361,6 +390,57 @@ mkEraHistory = do
 -- Wallet API --
 ----------------
 
+-- | Query the Blockfrost API to get the 'UTxO' for 'TxIn' and convert to cardano 'UTxO'.
+queryUTxOByTxIn :: NetworkId -> TxIn -> BlockfrostClientT IO UTxO
+queryUTxOByTxIn networkId txIn = do
+  bfUTxO <- Blockfrost.getTxUtxos (Blockfrost.TxHash $ hashToTextAsHex txHash)
+  fromBFUtxo bfUTxO
+ where
+  fromBFUtxo Blockfrost.TransactionUtxos{_transactionUtxosOutputs} = do
+    utxoList <- mapM toCardanoUTxO' _transactionUtxosOutputs
+    pure $ UTxO.squash utxoList
+
+  toCardanoUTxO' output@Blockfrost.UtxoOutput{_utxoOutputReferenceScriptHash} = do
+    case _utxoOutputReferenceScriptHash of
+      -- NOTE: We don't care about outputs without reference scripts
+      Nothing -> pure mempty
+      Just scriptHash -> do
+        Blockfrost.ScriptCBOR{_scriptCborCbor} <- Blockfrost.getScriptCBOR scriptHash
+        case _scriptCborCbor of
+          Nothing -> liftIO $ throwIO $ BlockfrostError "Failed to get script CBOR."
+          Just fullScriptCBOR -> do
+            case decodeBase16 fullScriptCBOR of
+              Left decodeErr -> liftIO $ throwIO . DecodeError $ "Bad Base16 PlutusScript CBOR: " <> decodeErr
+              Right bytes ->
+                case deserialiseFromCBOR (proxyToAsType (Proxy @PlutusScript)) bytes of
+                  Left err -> liftIO $ throwIO $ BlockfrostError $ "Failed to decode script: " <> T.pack (show err)
+                  Right plutusScript -> do
+                    let o = toCardanoTxOut' output plutusScript
+                    pure $ UTxO.singleton (txIn, o)
+
+  toCardanoTxOut' Blockfrost.UtxoOutput{_utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} plutusScript =
+    let datum =
+          case _utxoOutputInlineDatum of
+            Nothing ->
+              case _utxoOutputDataHash of
+                Nothing -> TxOutDatumNone
+                Just datumHash -> TxOutDatumHash (fromString $ T.unpack $ Blockfrost.unDatumHash datumHash)
+            Just (Blockfrost.InlineDatum (Blockfrost.ScriptDatumCBOR cborDatum)) ->
+              case deserialiseFromCBOR (proxyToAsType (Proxy @HashableScriptData)) (encodeUtf8 cborDatum) of
+                Left _ -> TxOutDatumNone
+                Right hashableScriptData -> TxOutDatumInline hashableScriptData
+     in TxOut (scriptAddr plutusScript) (toCardanoValue _utxoOutputAmount) datum (mkScriptRef plutusScript)
+
+  scriptAddr script =
+    makeShelleyAddressInEra
+      shelleyBasedEra
+      networkId
+      (PaymentCredentialByScript $ hashScript $ PlutusScript script)
+      NoStakeAddress
+
+  TxIn (TxId txHash) _ = txIn
+
+-- | Query the Blockfrost API for address UTxO and convert to cardano 'UTxO'.
 queryUTxO :: SigningKey PaymentKey -> NetworkId -> BlockfrostClientT IO UTxO
 queryUTxO sk networkId = do
   let address = Blockfrost.Address vkAddress
