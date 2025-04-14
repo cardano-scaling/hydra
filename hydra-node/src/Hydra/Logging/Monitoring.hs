@@ -98,8 +98,8 @@ monitor transactionsMap metricsMap = \case
     tick "hydra_head_requested_tx"
   (Node LogicOutcome{outcome = Continue{stateChanges}}) -> do
     forM_ stateChanges $ \case
-      PeerConnected{} -> gauge Gauge.inc $ "hydra_head_peers_connected"
-      PeerDisconnected{} -> gauge Gauge.dec $ "hydra_head_peers_connected"
+      PeerConnected{} -> gauge Gauge.inc "hydra_head_peers_connected"
+      PeerDisconnected{} -> gauge Gauge.dec "hydra_head_peers_connected"
       SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> do
         tickN "hydra_head_confirmed_tx" (length confirmed)
         forM_ confirmed $ \tx -> do
