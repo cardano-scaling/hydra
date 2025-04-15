@@ -160,7 +160,7 @@ data ServerOutput tx
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
-    TxValid {headId :: HeadId, transactionId :: TxIdType tx, transaction :: tx}
+    TxValid {headId :: HeadId, transactionId :: TxIdType tx}
   | -- | Given transaction was not not applicable to the given UTxO in time and
     -- has been dropped.
     TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
@@ -211,7 +211,7 @@ instance ArbitraryIsTx tx => Arbitrary (ServerOutput tx) where
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
-    TxValid headId i tx -> TxValid <$> shrink headId <*> shrink i <*> shrink tx
+    TxValid headId txid -> TxValid <$> shrink headId <*> shrink txid
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     IgnoredHeadInitializing{} -> []

@@ -688,7 +688,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
     -- Second submission: now valid
     send n1 $ input "NewTx" ["transaction" .= tx]
     waitFor hydraTracer 3 [n1] $
-      output "TxValid" ["transactionId" .= txId tx, "headId" .= headId, "transaction" .= tx]
+      output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
 
     confirmedTransactions <- waitMatch 3 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -744,7 +744,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
             aliceExternalSk
     send n1 $ input "NewTx" ["transaction" .= tx]
     waitFor hydraTracer 10 [n1, n2, n3] $
-      output "TxValid" ["transactionId" .= txId tx, "headId" .= headId, "transaction" .= tx]
+      output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
 
     -- The expected new utxo set is the created payment to bob,
     -- alice's remaining utxo in head and whatever bot has

@@ -175,7 +175,7 @@ spec = parallel $ do
               >>= recordServerOutputs
           runToCompletion node
 
-          getServerOutputs >>= (`shouldContain` [Left TxValid{headId = testHeadId, transactionId = 1, transaction = tx1}])
+          getServerOutputs >>= (`shouldContain` [Left TxValid{headId = testHeadId, transactionId = 1}])
 
           -- Ensures that event ids are correctly loaded in hydrate
           events <- getRecordedEvents

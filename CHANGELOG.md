@@ -58,12 +58,13 @@ changes.
 
 - Bugfix: HeadFannedOut should always display the observed fanned-out UTxO instead of local confirmed snapshot.
 
-- **BREAKING**
+- **BREAKING** API changes
   - API Server does **NOT** serve the event history by default any more. Clients need to add a query parameter `?history=yes` in order to obtain the history.
   - Remove `GetUTxO` client input and corresponding `GetUTxOResponse`. There is already a way to query the `UTxO` in the Head with `GET /snapshot/utxo` query.
   - Renamed 'CommitFinalized' field 'theDeposit' to 'depositTxId'.
-  - We now store the `time` in `StateEvent` which is a breaking change to our
-  persistence loading
+  - We now store the `time` in `StateEvent` which is a breaking change to our persistence loading
+  - Query parameter `?address=..` does **NOT** filter `TxValid` and `TxInvalid` server outputs anymore.
+  - Removed the `transaction` from `TxValid` server outputs. Use `SnapshotConfirmed` to determine what transactions got confirmed intead!
 
 - Add a list of [clients](https://hydra.family/head-protocol/unstable/docs/clients) to the docs
 

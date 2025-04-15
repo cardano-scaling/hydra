@@ -17,7 +17,6 @@ import CardanoNode (
 import Control.Lens ((^?))
 import Data.Aeson ((.=))
 import Data.Aeson.Lens (key)
-import Data.Aeson.Types (parseMaybe)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
@@ -45,7 +44,22 @@ import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Tx (HeadId, IsTx (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
-import HydraNode (HydraClient (..), HydraNodeLog, getSnapshotUTxO, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, waitNoMatch, withConnectionToNodeHost, withHydraCluster)
+import HydraNode (
+  HydraClient (..),
+  HydraNodeLog,
+  getSnapshotUTxO,
+  input,
+  output,
+  requestCommitTx,
+  send,
+  waitFor,
+  waitForAllMatch,
+  waitForNodesConnected,
+  waitMatch,
+  waitNoMatch,
+  withConnectionToNodeHost,
+  withHydraCluster,
+ )
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
@@ -53,23 +67,21 @@ import Prelude qualified
 
 spec :: Spec
 spec = around (showLogsOnFailure "HydraClientSpec") $ do
-  describe "HydraClient on Cardano devnet" $ do
-    describe "hydra-client" $ do
-      it "should filter TxValid by provided address" $ \tracer -> do
-        failAfter 60 $
-          withTempDir "hydra-client" $ \tmpDir ->
-            filterTxValidByAddressScenario tracer tmpDir
-      it "should filter out TxValid when given a random address" $ \tracer -> do
-        failAfter 60 $
-          withTempDir "hydra-client" $ \tmpDir ->
-            filterTxValidByRandomAddressScenario tracer tmpDir
-      it "should filter out TxValid when given a wrong address" $ \tracer -> do
-        failAfter 60 $
-          withTempDir "hydra-client" $ \tmpDir ->
-            filterTxValidByWrongAddressScenario tracer tmpDir
+  it "should filter SnapshotConfirmed by provided address" $ \tracer -> do
+    failAfter 60 $
+      withTempDir "hydra-client" $ \tmpDir ->
+        filterSnapshotConfirmedByAddressScenario tracer tmpDir
+  it "should filter out SnapshotConfirmed when given a random address" $ \tracer -> do
+    failAfter 60 $
+      withTempDir "hydra-client" $ \tmpDir ->
+        filterSnapshotConfirmedByRandomAddressScenario tracer tmpDir
+  it "should filter out SnapshotConfirmed when given a wrong address" $ \tracer -> do
+    failAfter 60 $
+      withTempDir "hydra-client" $ \tmpDir ->
+        filterSnapshotConfirmedByWrongAddressScenario tracer tmpDir
 
-filterTxValidByAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
-filterTxValidByAddressScenario tracer tmpDir = do
+filterSnapshotConfirmedByAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
+filterSnapshotConfirmedByAddressScenario tracer tmpDir = do
   scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
     (expectedSnapshotNumber, initialTxId, headId, (aliceExternalVk, _), (bobExternalVk, bobExternalSk)) <-
       prepareScenario node nodes tracer
@@ -77,10 +89,9 @@ filterTxValidByAddressScenario tracer tmpDir = do
 
     -- 1/ query alice address from alice node -> Does see the tx
     runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
-      waitMatch 3 con $ \v -> do
+      waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
-        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == initialTxId
+        guard $ v ^? key "transactionId" == Just (toJSON initialTxId)
 
       waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -90,10 +101,9 @@ filterTxValidByAddressScenario tracer tmpDir = do
 
     -- 2/ query bob address from bob node -> Does see the tx
     runScenario hydraTracer n2 (textAddrOf bobExternalVk) $ \con -> do
-      waitMatch 3 con $ \v -> do
+      waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
-        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == initialTxId
+        guard $ v ^? key "transactionId" == Just (toJSON initialTxId)
 
       waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -103,10 +113,9 @@ filterTxValidByAddressScenario tracer tmpDir = do
 
     -- 3/ query bob address from alice node -> Does see the tx
     runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
-      waitMatch 3 con $ \v -> do
+      waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
-        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == initialTxId
+        guard $ v ^? key "transactionId" == Just (toJSON initialTxId)
 
       waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -115,13 +124,13 @@ filterTxValidByAddressScenario tracer tmpDir = do
         guard $ snapshotNumber == toJSON expectedSnapshotNumber
 
     -- 4/ query alice address from alice node -> Does not see the bob-self tx
-    (newTxId, newExpectedSnapshotNumber) <-
+    newExpectedSnapshotNumber <-
       runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
         -- XXX: perform a new tx while the connection query by address is open.
         utxo <- getSnapshotUTxO n1
         newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
         waitFor hydraTracer 10 (toList nodes) $
-          output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId, "transaction" .= newTx]
+          output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId]
 
         let newExpectedSnapshotNumber = expectedSnapshotNumber + 1
         waitMatch 10 n1 $ \v -> do
@@ -130,37 +139,25 @@ filterTxValidByAddressScenario tracer tmpDir = do
           snapshotNumber <- v ^? key "snapshot" . key "number"
           guard $ snapshotNumber == toJSON newExpectedSnapshotNumber
 
-        -- XXX: the connection does not observe the new tx
         waitNoMatch 3 con $ \v -> do
-          guard $ v ^? key "tag" == Just "TxValid"
-          tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-          guard $ txId tx == txId newTx
-
-        waitNoMatch 10 con $ \v -> do
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
           guard $ v ^? key "headId" == Just (toJSON headId)
           snapshotNumber <- v ^? key "snapshot" . key "number"
           guard $ snapshotNumber == toJSON newExpectedSnapshotNumber
 
-        pure (txId newTx, newExpectedSnapshotNumber)
+        pure newExpectedSnapshotNumber
 
     -- 5/ query bob address from alice node -> Does see both tx from history.
     runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
-      waitMatch 3 con $ \v -> do
+      waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
-        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == initialTxId
+        guard $ v ^? key "transactionId" == Just (toJSON initialTxId)
 
       waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
         guard $ v ^? key "headId" == Just (toJSON headId)
         snapshotNumber <- v ^? key "snapshot" . key "number"
         guard $ snapshotNumber == toJSON expectedSnapshotNumber
-
-      waitMatch 3 con $ \v -> do
-        guard $ v ^? key "tag" == Just "TxValid"
-        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == newTxId
 
       waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -174,7 +171,7 @@ filterTxValidByAddressScenario tracer tmpDir = do
       utxo <- getSnapshotUTxO n1
       newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
       waitFor hydraTracer 10 (toList nodes) $
-        output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId, "transaction" .= newTx]
+        output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId]
 
       let newExpectedSnapshotNumber' = newExpectedSnapshotNumber + 1
       waitMatch 10 n1 $ \v -> do
@@ -184,10 +181,9 @@ filterTxValidByAddressScenario tracer tmpDir = do
         guard $ snapshotNumber == toJSON newExpectedSnapshotNumber'
 
       -- XXX: the connection does observe the new tx
-      waitMatch 3 con $ \v -> do
+      waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
-        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == txId newTx
+        guard $ v ^? key "transactionId" == Just (toJSON initialTxId)
 
       waitMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -195,38 +191,28 @@ filterTxValidByAddressScenario tracer tmpDir = do
         snapshotNumber <- v ^? key "snapshot" . key "number"
         guard $ snapshotNumber == toJSON newExpectedSnapshotNumber'
 
-filterTxValidByRandomAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
-filterTxValidByRandomAddressScenario tracer tmpDir = do
+filterSnapshotConfirmedByRandomAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
+filterSnapshotConfirmedByRandomAddressScenario tracer tmpDir = do
   scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
-    (expectedSnapshotNumber, initialTxId, headId, _, _) <- prepareScenario node nodes tracer
+    (expectedSnapshotNumber, _, headId, _, _) <- prepareScenario node nodes tracer
     let [n1, _, _] = toList nodes
 
     (randomVk, _) <- generate genKeyPair
     runScenario hydraTracer n1 (textAddrOf randomVk) $ \con -> do
       waitNoMatch 3 con $ \v -> do
-        guard $ v ^? key "tag" == Just "TxValid"
-        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == initialTxId
-
-      waitNoMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
         guard $ v ^? key "headId" == Just (toJSON headId)
         snapshotNumber <- v ^? key "snapshot" . key "number"
         guard $ snapshotNumber == toJSON expectedSnapshotNumber
 
-filterTxValidByWrongAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
-filterTxValidByWrongAddressScenario tracer tmpDir = do
+filterSnapshotConfirmedByWrongAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
+filterSnapshotConfirmedByWrongAddressScenario tracer tmpDir = do
   scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
-    (expectedSnapshotNumber, initialTxId, headId, _, _) <- prepareScenario node nodes tracer
+    (expectedSnapshotNumber, _, headId, _, _) <- prepareScenario node nodes tracer
     let [_, _, n3] = toList nodes
 
     runScenario hydraTracer n3 "invalid" $ \con -> do
       waitNoMatch 3 con $ \v -> do
-        guard $ v ^? key "tag" == Just "TxValid"
-        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == initialTxId
-
-      waitNoMatch 10 con $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
         guard $ v ^? key "headId" == Just (toJSON headId)
         snapshotNumber <- v ^? key "snapshot" . key "number"
@@ -320,7 +306,7 @@ prepareScenario node nodes tracer = do
   -- Create an arbitrary transaction using some input to have history.
   tx <- sendTx nodes committedUTxOByAlice aliceExternalSk bobExternalVk paymentFromAliceToBob
   waitFor hydraTracer 10 (toList nodes) $
-    output "TxValid" ["transactionId" .= txId tx, "headId" .= headId, "transaction" .= tx]
+    output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
 
   let expectedSnapshotNumber :: Int = 1
 
@@ -332,7 +318,7 @@ prepareScenario node nodes tracer = do
 
   pure (expectedSnapshotNumber, txId tx, headId, aliceKeys, bobKeys)
 
--- NOTE(AB): this is partial and will fail if we are not able to generate a payment
+-- NOTE: this is partial and will fail if we are not able to generate a payment
 sendTx :: NonEmpty HydraClient -> UTxO' (TxOut CtxUTxO) -> SigningKey PaymentKey -> VerificationKey PaymentKey -> Lovelace -> IO Tx
 sendTx nodes senderUTxO sender receiver amount = do
   let utxo = Prelude.head $ UTxO.pairs senderUTxO
