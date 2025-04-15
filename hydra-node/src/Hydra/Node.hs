@@ -30,7 +30,6 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
-import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
 import Hydra.HeadLogic (
   Effect (..),
@@ -53,6 +52,7 @@ import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
+import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Crypto (AsType (AsHydraKey))

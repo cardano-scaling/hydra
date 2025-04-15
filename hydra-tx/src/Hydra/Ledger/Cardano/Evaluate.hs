@@ -22,11 +22,8 @@ import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL,
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
-import Cardano.Ledger.Plutus (
-  Language (..),
- )
+import Cardano.Ledger.Plutus (Language (..))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
-import Cardano.Protocol.Crypto (StandardCrypto)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
 import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength, SystemStart (SystemStart), mkSlotLength)
@@ -74,6 +71,7 @@ import Ouroboros.Consensus.HardFork.History (
   initBound,
   mkInterpreter,
  )
+import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
 import Prettyprinter (defaultLayoutOptions, layoutPretty)
 import Prettyprinter.Render.Text (renderStrict)
 import Test.QuickCheck (Property, choose, counterexample, property)

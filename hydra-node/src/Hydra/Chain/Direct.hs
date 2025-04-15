@@ -80,9 +80,6 @@ import Hydra.Chain.Direct.State (
   ChainStateAt (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
-import Hydra.Chain.Direct.Util (
-  readKeyPair,
- )
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   WalletInfoOnChain (..),
@@ -90,6 +87,7 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Chain.ScriptRegistry (queryScriptRegistry)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node.Util (readKeyPair)
 import Hydra.Options (DirectChainConfig (..))
 import Hydra.Tx (Party)
 import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
