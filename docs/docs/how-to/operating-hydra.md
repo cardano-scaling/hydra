@@ -58,6 +58,12 @@ hydra_head_tx_confirmation_time_ms_sum  0.0
 hydra_head_tx_confirmation_time_ms_count  0
 ```
 
+> [!NOTE]
+> Note that `hydra_head_peers_connected` will count down if the number of
+> online peers is greater than `total_peers/2`. After that, if another peer
+> goes offline, it will drop to `0`, to indicate that etcd consensus is
+> broken.
+
 ## Common issues
 
 ### No head is observed from the chain
