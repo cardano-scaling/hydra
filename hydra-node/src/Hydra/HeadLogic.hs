@@ -1357,8 +1357,8 @@ update env ledger st ev = case (st, ev) of
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime})
-    | chainTime > contestationDeadline && not readyToFanoutSent ->
+  (Closed ClosedState{contestationDeadline, readyToFanout, headId}, ChainInput Tick{chainTime})
+    | chainTime > contestationDeadline && not readyToFanout ->
         newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
@@ -1662,7 +1662,7 @@ aggregate st = \case
               { parameters
               , confirmedSnapshot
               , contestationDeadline
-              , readyToFanoutSent = False
+              , readyToFanout = False
               , chainState
               , headId
               , headSeed
@@ -1671,13 +1671,13 @@ aggregate st = \case
       _otherState -> st
   HeadContested{chainState, contestationDeadline} ->
     case st of
-      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version} ->
+      Closed ClosedState{parameters, confirmedSnapshot, readyToFanout, headId, headSeed, version} ->
         Closed
           ClosedState
             { parameters
             , confirmedSnapshot
             , contestationDeadline
-            , readyToFanoutSent
+            , readyToFanout
             , chainState
             , headId
             , headSeed
@@ -1694,7 +1694,7 @@ aggregate st = \case
       _otherState -> st
   HeadIsReadyToFanout{} ->
     case st of
-      Closed cst -> Closed cst{readyToFanoutSent = True}
+      Closed cst -> Closed cst{readyToFanout = True}
       _otherState -> st
   ChainRolledBack{chainState} ->
     setChainState chainState st
