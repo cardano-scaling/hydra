@@ -186,10 +186,10 @@ handleHydraEventsInfo = \case
     info time $ "Head closed with snapshot number " <> show snapshotNumber
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsContested{snapshotNumber, contestationDeadline}}) ->
     info time ("Head contested with snapshot number " <> show snapshotNumber <> " and deadline " <> show contestationDeadline)
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.TxValid{}}) ->
-    report Success time "Transaction submitted successfully"
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.TxValid{transactionId}}) ->
+    report Success time ("Transaction " <> show transactionId <> " submitted successfully")
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.TxInvalid{transaction, validationError}}) ->
-    warn time ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
+    warn time ("Transaction " <> show (txId transaction) <> " is not applicable: " <> show validationError)
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitApproved{decommitTxId, utxoToDecommit}}) ->
     report Success time $
       "Decommit approved and submitted to Cardano "

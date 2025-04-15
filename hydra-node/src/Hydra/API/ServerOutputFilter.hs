@@ -22,7 +22,6 @@ serverOutputFilter :: ServerOutputFilter Tx =
   ServerOutputFilter
     { txContainsAddr = \response address ->
         case output response of
-          TxInvalid{transaction} -> matchingAddr address transaction
           SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> any (matchingAddr address) confirmed
           _ -> True
     }
