@@ -261,7 +261,7 @@ data ClosedState tx = ClosedState
   { parameters :: HeadParameters
   , confirmedSnapshot :: ConfirmedSnapshot tx
   , contestationDeadline :: UTCTime
-  , readyToFanoutSent :: Bool
+  , readyToFanout :: Bool
   -- ^ Tracks whether we have informed clients already about being
   -- 'ReadyToFanout'.
   , chainState :: ChainStateType tx

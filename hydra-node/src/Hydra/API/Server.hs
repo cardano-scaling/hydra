@@ -12,7 +12,6 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (map)
 import Data.Conduit.List (catMaybes)
-import Data.Map.Strict qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -20,7 +19,6 @@ import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   ClientMessage,
   CommitInfo (..),
-  HeadStatus (..),
   ServerOutput (..),
   TimedServerOutput (..),
  )
@@ -32,16 +30,21 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.Events (EventSink (..), EventSource (..))
+import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
+import Hydra.HeadLogic (aggregate)
 import Hydra.HeadLogic.Outcome qualified as StateChanged
-import Hydra.HeadLogic.State (Deposit (..), SeenSnapshot (..), seenSnapshotNumber)
+import Hydra.HeadLogic.State (
+  Deposit (..),
+  HeadState (Idle),
+  IdleState (..),
+  SeenSnapshot (..),
+  seenSnapshotNumber,
+ )
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Node.Environment (Environment)
-import Hydra.Tx (ConfirmedSnapshot (..), HeadId, IsTx (..), Party, txId)
-import Hydra.Tx qualified as Tx
-import Hydra.Tx.Snapshot (Snapshot (..))
+import Hydra.Tx (HeadId, IsTx (..), Party, txId)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
@@ -92,10 +95,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
-    headStatusP <- mkProjection Idle projectHeadStatus
-    snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
-    seenSnapshotP <- mkProjection NoSeenSnapshot projectSeenSnapshot
-    snapshotConfirmedP <- mkProjection Nothing projectSnapshotConfirmed
+    headStateP <- mkProjection (Idle $ IdleState mkChainState) aggregate
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
@@ -106,10 +106,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
           .| mapM_C
             ( \StateEvent{stateChanged} ->
                 lift $ atomically $ do
-                  update headStatusP stateChanged
-                  update snapshotUtxoP stateChanged
-                  update seenSnapshotP stateChanged
-                  update snapshotConfirmedP stateChanged
+                  update headStateP stateChanged
                   update commitInfoP stateChanged
                   update headIdP stateChanged
                   update pendingDepositsP stateChanged
@@ -130,16 +127,14 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp party tracer historyTimedOutputs callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
+              (wsApp party tracer historyTimedOutputs callback headStateP headIdP responseChannel serverOutputFilter)
               ( httpApp
                   tracer
                   chain
                   env
                   pparams
+                  (getLatest headStateP)
                   (atomically $ getLatest commitInfoP)
-                  (atomically $ getLatest snapshotUtxoP)
-                  (atomically $ getLatest seenSnapshotP)
-                  (atomically $ getLatest snapshotConfirmedP)
                   (atomically $ getLatest pendingDepositsP)
                   callback
               )
@@ -151,11 +146,8 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                 { putEvent = \event@StateEvent{stateChanged} -> do
                     -- Update our read models
                     atomically $ do
-                      update headStatusP stateChanged
+                      update headStateP stateChanged
                       update commitInfoP stateChanged
-                      update snapshotUtxoP stateChanged
-                      update seenSnapshotP stateChanged
-                      update snapshotConfirmedP stateChanged
                       update headIdP stateChanged
                       update pendingDepositsP stateChanged
                     -- Send to the client if it maps to a server output
@@ -171,6 +163,8 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
   EventSource{sourceEvents} = eventSource
+
+  Chain{mkChainState} = chain
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of
@@ -261,8 +255,6 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.LocalStateCleared{..} -> Just SnapshotSideLoaded{..}
     StateChanged.Checkpoint{} -> Just EventLogRotated
 
---
-
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
 projectPendingDeposits txIds = \case
@@ -291,53 +283,3 @@ projectInitializingHeadId mHeadId = \case
   StateChanged.HeadOpened{} -> Nothing
   StateChanged.HeadAborted{} -> Nothing
   _other -> mHeadId
-
--- | Projection function related to 'headStatus' field in 'Greetings' message.
-projectHeadStatus :: HeadStatus -> StateChanged.StateChanged tx -> HeadStatus
-projectHeadStatus headStatus = \case
-  StateChanged.HeadInitialized{} -> Initializing
-  StateChanged.HeadOpened{} -> Open
-  StateChanged.HeadClosed{} -> Closed
-  StateChanged.HeadIsReadyToFanout{} -> FanoutPossible
-  StateChanged.HeadFannedOut{} -> Final
-  StateChanged.HeadAborted{} -> Idle
-  _other -> headStatus
-
--- | Projection of latest confirmed snapshot UTxO.
-projectSnapshotUtxo :: Monoid (UTxOType tx) => Maybe (UTxOType tx) -> StateChanged.StateChanged tx -> Maybe (UTxOType tx)
-projectSnapshotUtxo snapshotUtxo = \case
-  StateChanged.SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
-  StateChanged.HeadOpened _ _ utxos -> Just utxos
-  _other -> snapshotUtxo
-
--- | Projection of latest seen snapshot.
-projectSeenSnapshot :: SeenSnapshot tx -> StateChanged.StateChanged tx -> SeenSnapshot tx
-projectSeenSnapshot seenSnapshot = \case
-  StateChanged.SnapshotRequestDecided{snapshotNumber} ->
-    RequestedSnapshot
-      { lastSeen = seenSnapshotNumber seenSnapshot
-      , requested = snapshotNumber
-      }
-  StateChanged.SnapshotRequested{snapshot} ->
-    SeenSnapshot snapshot mempty
-  StateChanged.HeadOpened{} ->
-    NoSeenSnapshot
-  StateChanged.SnapshotConfirmed{snapshot = Snapshot{number}} ->
-    LastSeenSnapshot number
-  StateChanged.PartySignedSnapshot{party, signature} ->
-    case seenSnapshot of
-      ss@SeenSnapshot{signatories} ->
-        ss{signatories = Map.insert party signature signatories}
-      _ -> seenSnapshot
-  StateChanged.LocalStateCleared{snapshotNumber} ->
-    case snapshotNumber of
-      0 -> NoSeenSnapshot
-      _ -> LastSeenSnapshot snapshotNumber
-  _other -> seenSnapshot
-
--- | Projection of latest confirmed snapshot.
-projectSnapshotConfirmed :: Maybe (ConfirmedSnapshot tx) -> StateChanged.StateChanged tx -> Maybe (ConfirmedSnapshot tx)
-projectSnapshotConfirmed snapshotConfirmed = \case
-  StateChanged.SnapshotConfirmed _ snapshot signatures -> Just $ ConfirmedSnapshot snapshot signatures
-  StateChanged.HeadOpened headId _ utxos -> Just $ InitialSnapshot headId utxos
-  _other -> snapshotConfirmed

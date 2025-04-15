@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.HTTPServer where
@@ -12,7 +13,7 @@ import Data.ByteString.Short ()
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (CommitInfo (..))
+import Hydra.API.ServerOutput (CommitInfo (..), getSnapshotUtxo)
 import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
@@ -22,7 +23,7 @@ import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic.State (SeenSnapshot (..))
+import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (..), OpenState (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
@@ -147,43 +148,43 @@ httpApp ::
   Chain tx IO ->
   Environment ->
   PParams LedgerEra ->
+  -- | Get latest 'HeadState'.
+  STM IO (HeadState tx) ->
   -- | A means to get commit info.
   IO CommitInfo ->
-  -- | Get latest confirmed UTxO snapshot.
-  IO (Maybe (UTxOType tx)) ->
-  -- | Get latest seen snapshot.
-  IO (SeenSnapshot tx) ->
-  -- | Get latest confirmed snapshot.
-  IO (Maybe (ConfirmedSnapshot tx)) ->
   -- | Get the pending commits (deposits)
   IO [TxIdType tx] ->
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
   Application
-httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getSeenSnapshot getConfirmedSnapshot getPendingDeposits putClientInput request respond = do
+httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDeposits putClientInput request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
       , path = PathInfo $ rawPathInfo request
       }
   case (requestMethod request, pathInfo request) of
-    ("GET", ["snapshot", "last-seen"]) ->
-      getSeenSnapshot >>= respond . okJSON
+    ("GET", []) ->
+      atomically getHeadState >>= respond . okJSON
     ("GET", ["snapshot"]) ->
-      getConfirmedSnapshot >>= \case
-        Nothing -> respond notFound
-        Just snapshot -> respond $ okJSON snapshot
+      atomically getHeadState >>= \case
+        Open OpenState{coordinatedHeadState} ->
+          respond $ okJSON coordinatedHeadState.confirmedSnapshot
+        _ -> respond notFound
+    ("GET", ["snapshot", "utxo"]) -> do
+      hs <- atomically getHeadState
+      case getSnapshotUtxo hs of
+        Just utxo -> respond $ okJSON utxo
+        _ -> respond notFound
+    ("GET", ["snapshot", "last-seen"]) ->
+      atomically getHeadState >>= \case
+        Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot}} ->
+          respond $ okJSON seenSnapshot
+        _ -> respond notFound
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
         >>= handleSideLoadSnapshot putClientInput
         >>= respond
-    ("GET", ["snapshot", "utxo"]) ->
-      -- XXX: Should ensure the UTxO is of the right head and the head is still
-      -- open. This is something we should fix on the "read model" side of the
-      -- server.
-      getConfirmedUTxO >>= \case
-        Nothing -> respond notFound
-        Just utxo -> respond $ okJSON utxo
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
         >>= handleDraftCommitUtxo env directChain getCommitInfo

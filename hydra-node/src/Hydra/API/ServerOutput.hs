@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.ServerOutput where
@@ -11,16 +12,13 @@ import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic.State (HeadState)
+import Hydra.HeadLogic.State (HeadState, OpenState (..))
+import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Prelude hiding (seq)
-import Hydra.Tx (
-  HeadId,
-  Party,
-  Snapshot,
-  SnapshotNumber,
- )
+import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
+import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
@@ -301,7 +299,6 @@ data HeadStatus
   | Open
   | Closed
   | FanoutPossible
-  | Final
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -313,3 +310,11 @@ data CommitInfo
   = CannotCommit
   | NormalCommit HeadId
   | IncrementalCommit HeadId
+
+-- | Get latest confirmed snapshot UTxO from 'HeadState'.
+getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)
+getSnapshotUtxo = \case
+  HeadState.Open OpenState{coordinatedHeadState} ->
+    let snapshot = getSnapshot coordinatedHeadState.confirmedSnapshot
+     in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
+  _ -> Nothing
