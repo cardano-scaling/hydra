@@ -11,12 +11,14 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import Cardano.Ledger.Api (
   ConwayPlutusPurpose (ConwayRewarding, ConwaySpending),
+  IsValid (..),
   Metadatum,
   auxDataHashTxBodyL,
   auxDataTxL,
   bodyTxL,
   hashTxAuxData,
   inputsTxBodyL,
+  isValidTxL,
   outputsTxBodyL,
   ppProtocolVersionL,
   rdmrsTxWitsL,
@@ -29,7 +31,7 @@ import Cardano.Ledger.Api (
   pattern ShelleyTxAuxData,
  )
 import Cardano.Ledger.Credential (Credential (..))
-import Control.Lens ((^.))
+import Control.Lens ((.~), (^.))
 import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
@@ -82,6 +84,19 @@ spec =
   parallel $ do
     -- TODO: DRY with prop_observeAnyTx
     describe "observeHeadTx" $ do
+      prop "Invalid transactions are never observed" $
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- This is sufficient to simulate an where and adversary would create a
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- state transition happened.
+        forAllBlind genChainStateWithTx $ \(_ctx, st, additionalUTxO, validTx, transition) ->
+          checkCoverage . genericCoverTable [transition] $
+            let utxo = getKnownUTxO st <> additionalUTxO
+                tx = fromLedgerTx $ toLedgerTx validTx & isValidTxL .~ IsValid False
+             in observeHeadTx testNetworkId utxo tx === NoHeadTx
+
       prop "All valid transitions for all possible states can be observed." $
         checkCoverage $
           forAllBlind genChainStateWithTx $ \(_ctx, st, additionalUTxO, tx, transition) ->
