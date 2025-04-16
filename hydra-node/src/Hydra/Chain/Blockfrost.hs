@@ -24,11 +24,11 @@ import Hydra.Chain.Blockfrost.Client (
 import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
  )
-import Hydra.Chain.Direct.Util (
-  readKeyPair,
- )
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
 import Hydra.Logging (Tracer)
+import Hydra.Node.Util (
+  readKeyPair,
+ )
 import Hydra.Options (BlockfrostChainConfig (..))
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 
