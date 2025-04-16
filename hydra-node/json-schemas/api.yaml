@@ -1152,7 +1152,6 @@ components:
         - tag
         - headId
         - transactionId
-        - transaction
         - seq
         - timestamp
       properties:
@@ -1163,8 +1162,6 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         transactionId:
           $ref: "api.yaml#/components/schemas/TxId"
-        transaction:
-          $ref: "api.yaml#/components/schemas/Transaction"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
