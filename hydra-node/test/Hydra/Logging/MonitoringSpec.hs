@@ -45,3 +45,13 @@ spec =
         metrics `shouldContain` ["hydra_head_confirmed_tx  2"]
         metrics `shouldContain` ["hydra_head_peers_connected  1.0"]
         metrics `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"1000.0\"} 2.0"]
+
+        traceWith tracer (Node $ LogicOutcome alice (Continue [NetworkDisconnected] mempty))
+
+        m <-
+          Text.lines
+            . decodeUtf8
+            . responseBody
+            <$> runReq @IO defaultHttpConfig (req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p))
+
+        m `shouldContain` ["hydra_head_peers_connected  0.0"]

@@ -100,6 +100,7 @@ monitor transactionsMap metricsMap = \case
     forM_ stateChanges $ \case
       PeerConnected{} -> gauge Gauge.inc "hydra_head_peers_connected"
       PeerDisconnected{} -> gauge Gauge.dec "hydra_head_peers_connected"
+      NetworkDisconnected{} -> gaugeN "hydra_head_peers_connected" 0
       SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> do
         tickN "hydra_head_confirmed_tx" (length confirmed)
         forM_ confirmed $ \tx -> do
@@ -115,6 +116,11 @@ monitor transactionsMap metricsMap = \case
     tick "hydra_head_inputs"
   _ -> pure ()
  where
+  gaugeN metricName num =
+    case Map.lookup metricName metricsMap of
+      (Just (GaugeMetric c)) -> liftIO $ Gauge.set num c
+      _ -> pure ()
+
   gauge f metricName =
     case Map.lookup metricName metricsMap of
       (Just (GaugeMetric c)) -> liftIO $ f c
