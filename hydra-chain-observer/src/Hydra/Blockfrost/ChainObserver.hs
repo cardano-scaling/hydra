@@ -31,16 +31,19 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Prelude (
   BlockHeader (..),
  )
-import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
   NodeClient (..),
   ObserverHandler,
+  convertObservation,
   logOnChainTx,
   observeAll,
  )
-import Hydra.Logging (Tracer, traceWith)
+import Control.Tracer (
+  Tracer (..),
+  traceWith,
+ )
 import Hydra.Tx (IsTx (..))
 
 data APIBlockfrostError

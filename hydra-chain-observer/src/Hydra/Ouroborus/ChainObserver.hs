@@ -5,7 +5,12 @@ module Hydra.Ouroborus.ChainObserver where
 
 import Hydra.Prelude
 
+import Control.Tracer (
+  Tracer (..),
+  traceWith,
+ )
 import Hydra.Cardano.Api (
+  chainTipToChainPoint,
   BlockHeader (BlockHeader),
   BlockInMode (..),
   CardanoEra (..),
@@ -22,21 +27,20 @@ import Hydra.Cardano.Api (
   UTxO,
   connectToLocalNode,
   getChainPoint,
+  getLocalChainTip,
   getTxBody,
   getTxId,
   pattern Block,
  )
-import Hydra.Chain.CardanoClient (queryTip)
-import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
   NodeClient (..),
   ObserverHandler,
+  convertObservation,
   logOnChainTx,
   observeAll,
  )
-import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),
@@ -159,3 +163,18 @@ chainSyncClient tracer networkId startingPoint observerHandler =
           traceWith tracer Rollback{point}
           pure $ clientStIdle utxo
       }
+
+-- | Query the latest chain point aka "the tip".
+queryTip :: NetworkId -> SocketPath -> IO ChainPoint
+queryTip networkId socket =
+  chainTipToChainPoint <$> getLocalChainTip (localNodeConnectInfo networkId socket)
+
+localNodeConnectInfo :: NetworkId -> SocketPath -> LocalNodeConnectInfo
+localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams
+
+cardanoModeParams :: ConsensusModeParams
+cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
+ where
+  -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
+  -- is the default for cardano-cli
+  defaultByronEpochSlots = 21600 :: Word64

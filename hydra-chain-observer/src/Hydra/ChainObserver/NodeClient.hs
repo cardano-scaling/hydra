@@ -4,20 +4,42 @@ module Hydra.ChainObserver.NodeClient where
 
 import Hydra.Prelude
 
+import Cardano.Api.UTxO (fromPairs, pairs)
 import Hydra.Cardano.Api (
   BlockNo,
   ChainPoint,
   NetworkId,
   SocketPath,
   Tx,
+  TxIn (..),
+  TxIx (..),
   UTxO,
+  toCtxUTxOTxOut,
+  txIns',
+  txOuts',
  )
 import Hydra.Cardano.Api.Prelude (TxId)
-import Hydra.Chain (OnChainTx (..))
+import Hydra.Chain.Chain (OnChainTx (..))
 import Hydra.Contract (ScriptInfo)
-import Hydra.Ledger.Cardano (adjustUTxO)
-import Hydra.Tx.HeadId (HeadId (..))
-import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
+import Hydra.Plutus.Extras (posixToUTCTime)
+import Hydra.Tx (HeadParameters (..), txId)
+import Hydra.Tx.Close (ClosedThreadOutput (..))
+import Hydra.Tx.HeadId (HeadId (..), txInToHeadSeed)
+import Hydra.Tx.Observe (
+  AbortObservation (..),
+  CloseObservation (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  DecrementObservation (..),
+  DepositObservation (..),
+  FanoutObservation (..),
+  HeadObservation (..),
+  IncrementObservation (..),
+  InitObservation (..),
+  RecoverObservation (..),
+  observeHeadTx,
+ )
 
 type ObserverHandler m = [ChainObservation] -> m ()
 
@@ -30,9 +52,10 @@ data ChainObservation
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary ChainObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
+-- FIXME: Check if this is needed
+-- instance Arbitrary ChainObservation where
+--   arbitrary = genericArbitrary
+--   shrink = genericShrink
 
 data NodeClient m = NodeClient
   { follow :: Maybe ChainPoint -> ObserverHandler m -> m ()
@@ -82,6 +105,23 @@ observeTx networkId utxo tx =
         NoHeadTx -> (utxo, Nothing)
         observation -> (utxo', pure observation)
 
+-- | Utility function to "adjust" a `UTxO` set given a `Tx`
+--
+--  The inputs from the `Tx` are removed from the internal map of the `UTxO` and
+--  the outputs added, correctly indexed by the `TxIn`. This function is useful
+--  to manually maintain a `UTxO` set without caring too much about the `Ledger`
+--  rules.
+--  TODO: This is exact duplicate from 'Hydra.Ledger.Cardano'
+adjustUTxO :: Tx -> UTxO -> UTxO
+adjustUTxO tx utxo =
+  let txid = txId tx
+      consumed = txIns' tx
+      produced =
+        toCtxUTxOTxOut
+          <$> fromPairs ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
+      utxo' = fromPairs $ filter (\(txin, _) -> txin `notElem` consumed) $ pairs utxo
+   in utxo' <> produced
+
 observeAll :: NetworkId -> UTxO -> [Tx] -> (UTxO, [HeadObservation])
 observeAll networkId utxo txs =
   second reverse $ foldr go (utxo, []) txs
@@ -91,3 +131,41 @@ observeAll networkId utxo txs =
     case observeTx networkId utxo'' tx of
       (utxo', Nothing) -> (utxo', observations)
       (utxo', Just observation) -> (utxo', observation : observations)
+
+convertObservation :: HeadObservation -> Maybe (OnChainTx Tx)
+convertObservation = \case
+  NoHeadTx -> Nothing
+  Init InitObservation{headId, contestationPeriod, parties, seedTxIn, participants} ->
+    pure
+      OnInitTx
+        { headId
+        , headSeed = txInToHeadSeed seedTxIn
+        , headParameters = HeadParameters{contestationPeriod, parties}
+        , participants
+        }
+  Abort AbortObservation{headId} ->
+    pure OnAbortTx{headId}
+  Commit CommitObservation{headId, party, committed} ->
+    pure OnCommitTx{headId, party, committed}
+  CollectCom CollectComObservation{headId} ->
+    pure OnCollectComTx{headId}
+  Deposit DepositObservation{headId, deposited, depositTxId, deadline} ->
+    pure $ OnDepositTx{headId, deposited, depositTxId, deadline = posixToUTCTime deadline}
+  Recover RecoverObservation{headId, recoveredTxId, recoveredUTxO} ->
+    pure OnRecoverTx{headId, recoveredTxId, recoveredUTxO}
+  Increment IncrementObservation{headId, newVersion, depositTxId} ->
+    pure OnIncrementTx{headId, newVersion, depositTxId}
+  Decrement DecrementObservation{headId, newVersion, distributedUTxO} ->
+    pure OnDecrementTx{headId, newVersion, distributedUTxO}
+  -- XXX: Needing ClosedThreadOutput feels weird here
+  Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
+    pure
+      OnCloseTx
+        { headId
+        , snapshotNumber
+        , contestationDeadline = posixToUTCTime closedContestationDeadline
+        }
+  Contest ContestObservation{contestationDeadline, headId, snapshotNumber} ->
+    pure OnContestTx{contestationDeadline, headId, snapshotNumber}
+  Fanout FanoutObservation{headId, fanoutUTxO} ->
+    pure OnFanoutTx{headId, fanoutUTxO}

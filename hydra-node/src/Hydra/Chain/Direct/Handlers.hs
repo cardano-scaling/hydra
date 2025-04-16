@@ -317,43 +317,6 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
 
-convertObservation :: HeadObservation -> Maybe (OnChainTx Tx)
-convertObservation = \case
-  NoHeadTx -> Nothing
-  Init InitObservation{headId, contestationPeriod, parties, seedTxIn, participants} ->
-    pure
-      OnInitTx
-        { headId
-        , headSeed = txInToHeadSeed seedTxIn
-        , headParameters = HeadParameters{contestationPeriod, parties}
-        , participants
-        }
-  Abort AbortObservation{headId} ->
-    pure OnAbortTx{headId}
-  Commit CommitObservation{headId, party, committed} ->
-    pure OnCommitTx{headId, party, committed}
-  CollectCom CollectComObservation{headId} ->
-    pure OnCollectComTx{headId}
-  Deposit DepositObservation{headId, deposited, depositTxId, deadline} ->
-    pure $ OnDepositTx{headId, deposited, depositTxId, deadline = posixToUTCTime deadline}
-  Recover RecoverObservation{headId, recoveredTxId, recoveredUTxO} ->
-    pure OnRecoverTx{headId, recoveredTxId, recoveredUTxO}
-  Increment IncrementObservation{headId, newVersion, depositTxId} ->
-    pure OnIncrementTx{headId, newVersion, depositTxId}
-  Decrement DecrementObservation{headId, newVersion, distributedUTxO} ->
-    pure OnDecrementTx{headId, newVersion, distributedUTxO}
-  -- XXX: Needing ClosedThreadOutput feels weird here
-  Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
-    pure
-      OnCloseTx
-        { headId
-        , snapshotNumber
-        , contestationDeadline = posixToUTCTime closedContestationDeadline
-        }
-  Contest ContestObservation{contestationDeadline, headId, snapshotNumber} ->
-    pure OnContestTx{contestationDeadline, headId, snapshotNumber}
-  Fanout FanoutObservation{headId, fanoutUTxO} ->
-    pure OnFanoutTx{headId, fanoutUTxO}
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>

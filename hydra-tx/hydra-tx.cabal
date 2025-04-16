@@ -42,6 +42,7 @@ library
   import:          project-config
   hs-source-dirs:  src
   exposed-modules:
+    Hydra.Chain.Chain
     Hydra.Chain.ChainState
     Hydra.Ledger.Cardano.Builder
     Hydra.Ledger.Cardano.Evaluate
@@ -102,6 +103,7 @@ library
     , plutus-ledger-api
     , prettyprinter
     , QuickCheck
+    , quickcheck-arbitrary-adt
     , quickcheck-instances
     , serialise
     , sop-extras

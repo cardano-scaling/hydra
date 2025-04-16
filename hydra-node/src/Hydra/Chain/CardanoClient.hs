@@ -270,11 +270,6 @@ awaitTransactionId networkId socket txid =
 data QueryPoint = QueryTip | QueryAt ChainPoint
   deriving stock (Eq, Show, Generic)
 
--- | Query the latest chain point aka "the tip".
-queryTip :: NetworkId -> SocketPath -> IO ChainPoint
-queryTip networkId socket =
-  chainTipToChainPoint <$> getLocalChainTip (localNodeConnectInfo networkId socket)
-
 -- | Query the latest chain point just for the slot number.
 queryTipSlotNo :: NetworkId -> SocketPath -> IO SlotNo
 queryTipSlotNo networkId socket =
@@ -506,12 +501,3 @@ throwOnUnsupportedNtcVersion res =
     Left unsupportedNtcVersion -> error $ show unsupportedNtcVersion -- TODO
     Right result -> pure result
 
-localNodeConnectInfo :: NetworkId -> SocketPath -> LocalNodeConnectInfo
-localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams
-
-cardanoModeParams :: ConsensusModeParams
-cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
- where
-  -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
-  -- is the default for cardano-cli
-  defaultByronEpochSlots = 21600 :: Word64
