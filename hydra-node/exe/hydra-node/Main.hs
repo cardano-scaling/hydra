@@ -34,8 +34,8 @@ main = do
   publish PublishOptions{chainBackend, publishSigningKey} = do
     (_, sk) <- readKeyPair publishSigningKey
     txIds <- case chainBackend of
-      DirectBackend{publishNetworkId, publishNodeSocket} ->
-        publishHydraScripts publishNetworkId publishNodeSocket sk
+      DirectBackend{networkId, nodeSocket} ->
+        publishHydraScripts networkId nodeSocket sk
       BlockfrostBackend{projectPath} ->
         Blockfrost.publishHydraScripts projectPath sk
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
