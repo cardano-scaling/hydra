@@ -20,6 +20,8 @@ module Hydra.Tx.Observe (
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
+import Cardano.Ledger.Api (IsValid (..), isValidTxL)
+import Control.Lens ((^.))
 import Hydra.Tx.Abort (AbortObservation (..), observeAbortTx)
 import Hydra.Tx.Close (CloseObservation (..), observeCloseTx)
 import Hydra.Tx.CollectCom (CollectComObservation (..), observeCollectComTx)
@@ -57,7 +59,9 @@ observeHeadTx networkId utxo tx =
   -- all "not an XX" reasons here in case we fall through and want that
   -- diagnostic information in the call site of this function. Collecting errors
   -- could be done with 'validation' or a similar package.
-  fromMaybe NoHeadTx $
+  fromMaybe NoHeadTx $ do
+    -- NOTE: Never make an observation on invalid transactions.
+    guard txIsValid
     either (const Nothing) (Just . Init) (observeInitTx tx)
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
@@ -69,3 +73,5 @@ observeHeadTx networkId utxo tx =
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
+ where
+  txIsValid = toLedgerTx tx ^. isValidTxL == IsValid True

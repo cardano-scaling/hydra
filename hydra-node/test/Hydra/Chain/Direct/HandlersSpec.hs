@@ -14,10 +14,14 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   VerificationKey,
+  fromLedgerTx,
   genTxIn,
   getChainPoint,
+  toLedgerTx,
  )
 
+import Cardano.Ledger.Api (IsValid (..), isValidTxL)
+import Control.Lens ((.~))
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
 import Hydra.Chain.ChainState (ChainSlot (..), chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
@@ -126,7 +130,7 @@ spec = do
           onRollForward handler header txs
             `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
 
-    prop "observes transactions onRollForward" . monadicIO $ do
+    prop "observes valid transactions onRollForward" . monadicIO $ do
       -- Generate a state and related transaction and a block containing it
       (ctx, st, utxo', tx, transition) <- pick genChainStateWithTx
       let utxo = getKnownUTxO st <> utxo'
@@ -154,6 +158,38 @@ spec = do
                       OnDepositTx{} -> error "OnDepositTx not expected"
                       OnRecoverTx{} -> error "OnRecoverTx not expected"
               observedTransition `shouldBe` transition
+
+      let handler =
+            chainSyncHandler
+              nullTracer
+              callback
+              (pure timeHandle)
+              ctx
+              localChainState
+      run $ onRollForward handler header txs
+
+    prop "ignores invalid transactions onRollForward" . monadicIO $ do
+      -- NOTE: Generate a valid state transition, but then mark it as invalid.
+      -- This is sufficient to simulate an where and adversary would create a
+      -- transaction that looks like a proper transaction, but not entirely and
+      -- scripts would fail, but deliberately marks the tx as invalid (only at
+      -- the expense of collateral) to trick the hydra-node into thinking the
+      -- state transition happened.
+      (ctx, st, utxo', validTx, transition) <- pick genChainStateWithTx
+      let tx = fromLedgerTx $ toLedgerTx validTx & isValidTxL .~ IsValid False
+      let utxo = getKnownUTxO st <> utxo'
+
+      TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
+      monitor (label $ show transition)
+
+      localChainState <-
+        run $ newLocalChainState (initHistory ChainStateAt{spendableUTxO = utxo, recordedAt = Nothing})
+      timeHandle <- pickBlind arbitrary
+      let callback = \case
+            Rollback{} -> failure "rolled back but expected roll forward."
+            PostTxError{} -> failure "Unxpected PostTxError event"
+            Tick{} -> pure ()
+            Observation{observedTx} -> failure $ "Unxpected observation: " <> show observedTx
 
       let handler =
             chainSyncHandler
