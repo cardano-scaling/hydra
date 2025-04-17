@@ -354,6 +354,7 @@ instance ToJSON ChainConfig where
   toJSON = \case
     Offline cfg -> toJSON cfg & atKey "tag" ?~ String "OfflineChainConfig"
     Direct cfg -> toJSON cfg & atKey "tag" ?~ String "DirectChainConfig"
+    Cardano cfg -> toJSON cfg & atKey "tag" ?~ String "CardanoChainConfig"
 
 instance FromJSON ChainConfig where
   parseJSON =
@@ -361,6 +362,7 @@ instance FromJSON ChainConfig where
       o .: "tag" >>= \case
         "OfflineChainConfig" -> Offline <$> parseJSON (Object o)
         "DirectChainConfig" -> Direct <$> parseJSON (Object o)
+        "CardanoChainConfig" -> Cardano <$> parseJSON (Object o)
         tag -> fail $ "unexpected tag " <> tag
 
 data OfflineChainConfig = OfflineChainConfig
@@ -904,6 +906,12 @@ validateRunOptions RunOptions{hydraVerificationKeys, chainConfig} =
       | length cardanoVerificationKeys /= length hydraVerificationKeys ->
           Left CardanoAndHydraKeysMissmatch
       | otherwise -> Right ()
+    Cardano CardanoChainConfig{cardanoVerificationKeys}
+      | max (length hydraVerificationKeys) (length cardanoVerificationKeys) + 1 > maximumNumberOfParties ->
+          Left MaximumNumberOfPartiesExceeded
+      | length cardanoVerificationKeys /= length hydraVerificationKeys ->
+          Left CardanoAndHydraKeysMissmatch
+      | otherwise -> Right ()
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraCommand :: IO Command
@@ -994,6 +1002,29 @@ toArgs
           } ->
           toArgNetworkId networkId
             <> toArgNodeSocket nodeSocket
+            <> ["--hydra-scripts-tx-id", intercalate "," $ toString . serialiseToRawBytesHexText <$> hydraScriptsTxId]
+            <> ["--cardano-signing-key", cardanoSigningKey]
+            <> ["--contestation-period", show contestationPeriod]
+            <> ["--deposit-deadline", show depositDeadline]
+            <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
+            <> toArgStartChainFrom startChainFrom
+      Cardano
+        CardanoChainConfig
+          { hydraScriptsTxId
+          , cardanoSigningKey
+          , cardanoVerificationKeys
+          , startChainFrom
+          , contestationPeriod
+          , depositDeadline
+          , chainBackend
+          } ->
+          ( case chainBackend of
+              BlockfrostBackend{projectPath} ->
+                ["--blockfrost", projectPath]
+              DirectBackend{networkId, nodeSocket} ->
+                toArgNetworkId networkId
+                  <> toArgNodeSocket nodeSocket
+          )
             <> ["--hydra-scripts-tx-id", intercalate "," $ toString . serialiseToRawBytesHexText <$> hydraScriptsTxId]
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
