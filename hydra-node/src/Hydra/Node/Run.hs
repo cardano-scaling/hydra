@@ -39,6 +39,8 @@ import Hydra.Node (
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
+  CardanoChainConfig (..),
+  ChainBackend (..),
   ChainConfig (..),
   DirectChainConfig (..),
   InvalidOptions (..),
@@ -124,10 +126,15 @@ run opts = do
   prepareChainComponent tracer Environment{party, otherParties} = \case
     Offline cfg ->
       pure $ withOfflineChain cfg party otherParties
-    Direct cfg -> do
+    Cardano CardanoChainConfig{chainBackend} -> do
+      let cfg = undefined
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
-      pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
+      case chainBackend of
+        DirectBackend{} ->
+          pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
+        BlockfrostBackend{} ->
+          pure undefined
 
   RunOptions
     { verbosity
