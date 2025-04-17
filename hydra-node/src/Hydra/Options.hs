@@ -162,7 +162,8 @@ data ChainBackend
   | BlockfrostBackend
       { projectPath :: FilePath
       }
-  deriving stock (Show, Eq)
+  deriving stock (Generic, Show, Eq)
+  deriving anyclass (ToJSON, FromJSON)
 
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
@@ -356,6 +357,7 @@ cardanoLedgerProtocolParametersParser =
 data ChainConfig
   = Offline OfflineChainConfig
   | Direct DirectChainConfig
+  | Cardano CardanoChainConfig
   deriving stock (Eq, Show, Generic)
 
 instance ToJSON ChainConfig where
@@ -378,6 +380,23 @@ data OfflineChainConfig = OfflineChainConfig
   -- ^ Path to a json encoded starting 'UTxO' for the offline-mode head.
   , ledgerGenesisFile :: Maybe FilePath
   -- ^ Path to a shelley genesis file with slot lengths used by the offline-mode chain.
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+data CardanoChainConfig = CardanoChainConfig
+  { hydraScriptsTxId :: [TxId]
+  -- ^ Identifier of transaction holding the hydra scripts to use.
+  , cardanoSigningKey :: FilePath
+  -- ^ Path to the cardano signing key of the internal wallet.
+  , cardanoVerificationKeys :: [FilePath]
+  -- ^ Paths to other node's verification keys.
+  , startChainFrom :: Maybe ChainPoint
+  -- ^ Point at which to start following the chain.
+  , contestationPeriod :: ContestationPeriod
+  , depositDeadline :: DepositDeadline
+  -- ^ Deadline to detect deposit tx on-chain.
+  , chainBackend :: ChainBackend
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
