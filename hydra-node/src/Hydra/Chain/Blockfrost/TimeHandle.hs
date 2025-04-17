@@ -11,21 +11,18 @@ import Hydra.Cardano.Api (
   SystemStart (..),
  )
 import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
-import Hydra.Chain.Blockfrost.Client (mkEraHistory, queryGenesis, queryTip, runBlockfrostM)
-import Hydra.Chain.CardanoClient (
-  QueryPoint (QueryTip),
- )
+import Hydra.Chain.Blockfrost.Client (queryEraHistory, queryGenesisParameters, queryTip, runBlockfrostM)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
 
 -- | Query node for system start and era history before constructing a
 -- 'TimeHandle' using the slot at the tip of the network.
 queryTimeHandle :: Blockfrost.Project -> IO TimeHandle
 queryTimeHandle prj = runBlockfrostM prj $ do
-  tip <- queryTip QueryTip
+  tip <- queryTip
 
-  Blockfrost.Genesis{_genesisSystemStart} <- queryGenesis
+  Blockfrost.Genesis{_genesisSystemStart} <- queryGenesisParameters
   let systemStart = SystemStart $ posixSecondsToUTCTime _genesisSystemStart
-  eraHistory <- mkEraHistory
+  eraHistory <- queryEraHistory
   currentTipSlot <-
     case tip of
       ChainPointAtGenesis -> pure $ SlotNo 0
