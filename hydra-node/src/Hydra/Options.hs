@@ -150,17 +150,20 @@ defaultPublishOptions =
 defaultDirectBackend :: ChainBackend
 defaultDirectBackend =
   DirectBackend
-    { publishNetworkId = Testnet (NetworkMagic 42)
-    , publishNodeSocket = "node.socket"
+    { networkId = Testnet (NetworkMagic 42)
+    , nodeSocket = "node.socket"
     }
 
 data ChainBackend
   = DirectBackend
-      { publishNetworkId :: NetworkId
-      , publishNodeSocket :: SocketPath
+      { networkId :: NetworkId
+      -- ^ Network identifer to which we expect to connect.
+      , nodeSocket :: SocketPath
+      -- ^ Path to a domain socket used to connect to the server.
       }
   | BlockfrostBackend
       { projectPath :: FilePath
+      -- ^ Path to the blockfrost project file
       }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
