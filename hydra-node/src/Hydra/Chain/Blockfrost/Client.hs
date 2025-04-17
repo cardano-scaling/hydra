@@ -33,18 +33,19 @@ import Cardano.Ledger.Conway.PParams (ppMinFeeRefScriptCostPerByteL)
 import Cardano.Ledger.Plutus (ExUnits (..), Language (..), Prices (..))
 import Cardano.Ledger.Plutus.CostModels (CostModels, mkCostModel, mkCostModels)
 import Cardano.Ledger.Shelley.API (ProtVer (..))
-import Cardano.Slotting.Time (mkSlotLength)
+import Cardano.Slotting.Time (RelativeTime (..), mkSlotLength)
 import Control.Lens ((.~), (^.))
 import Data.Default (def)
-import Data.SOP.NonEmpty (NonEmpty (..))
+import Data.SOP.NonEmpty (nonEmptyFromList)
 import Data.Set qualified as Set
+import Data.Text qualified as T
 import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
+import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.ScriptRegistry (buildScriptPublishingTxs)
 import Hydra.Tx (txId)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
-import Ouroboros.Consensus.Cardano.Block (CardanoEras, StandardCrypto)
-import Ouroboros.Consensus.HardFork.History (EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), initBound, mkInterpreter)
+import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), mkInterpreter)
 
 data APIBlockfrostError
   = BlockfrostError Text
@@ -71,19 +72,19 @@ publishHydraScripts ::
 publishHydraScripts projectPath sk = do
   prj <- Blockfrost.projectFromFile projectPath
   runBlockfrostM prj $ do
-    genesis@Blockfrost.Genesis
+    Blockfrost.Genesis
       { _genesisNetworkMagic = networkMagic
       , _genesisSystemStart = systemStart'
       } <-
-      Blockfrost.getLedgerGenesis
+      queryGenesis
     pparams <- toCardanoPParams
     let address = Blockfrost.Address (vkAddress networkMagic)
-    let networkId = toCardanoNetworkMagic networkMagic
+    let networkId = toCardanoNetworkId networkMagic
     let changeAddress = mkVkAddress networkId vk
     stakePools' <- Blockfrost.listPools
     let stakePools = Set.fromList (toCardanoPoolId <$> stakePools')
     let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
-    let eraHistory = mkEraHistory genesis
+    eraHistory <- mkEraHistory
     utxo <- Blockfrost.getAddressUtxos address
     let cardanoUTxO = toCardanoUTxO utxo changeAddress
 
@@ -94,7 +95,7 @@ publishHydraScripts projectPath sk = do
  where
   vk = getVerificationKey sk
 
-  vkAddress networkMagic = textAddrOf (toCardanoNetworkMagic networkMagic) vk
+  vkAddress networkMagic = textAddrOf (toCardanoNetworkId networkMagic) vk
 
 scriptTypeToPlutusVersion :: Blockfrost.ScriptType -> Maybe Language
 scriptTypeToPlutusVersion = \case
@@ -168,8 +169,8 @@ unwrapAddress = \case
 textAddrOf :: NetworkId -> VerificationKey PaymentKey -> Text
 textAddrOf networkId vk = unwrapAddress (mkVkAddress @Era networkId vk)
 
-toCardanoNetworkMagic :: Integer -> NetworkId
-toCardanoNetworkMagic = \case
+toCardanoNetworkId :: Integer -> NetworkId
+toCardanoNetworkId = \case
   0 -> Mainnet
   magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
 
@@ -321,29 +322,85 @@ toCardanoGenesisParameters bfGenesis =
     , _genesisSecurityParam
     } = bfGenesis
 
-mkEraHistory :: Blockfrost.Genesis -> EraHistory
-mkEraHistory genesis = EraHistory (mkInterpreter summary)
+mkEraHistory :: BlockfrostClientT IO EraHistory
+mkEraHistory = do
+  eras' <- Blockfrost.getNetworkEras
+  let eras = filter withoutEmptyEra eras'
+  let summary = mkEra <$> eras
+  case nonEmptyFromList summary of
+    Nothing ->
+      liftIO $ throwIO $ BlockfrostError "Failed to create EraHistory."
+    Just s -> pure $ EraHistory (mkInterpreter $ Summary s)
  where
-  Blockfrost.Genesis
-    { _genesisNetworkMagic
-    , _genesisSystemStart
-    , _genesisSlotLength
-    , _genesisEpochLength
-    } = genesis
-
-  summary :: Summary (CardanoEras StandardCrypto)
-  summary =
-    Summary . NonEmptyOne $
-      EraSummary
-        { eraStart = initBound
-        , eraEnd = EraUnbounded
-        , eraParams
-        }
-
-  eraParams =
-    EraParams
-      { eraEpochSize = EpochSize $ fromIntegral _genesisEpochLength
-      , eraSlotLength = mkSlotLength $ fromIntegral _genesisSlotLength
-      , eraSafeZone = UnsafeIndefiniteSafeZone
-      , eraGenesisWin = GenesisWindow 1
+  mkBound Blockfrost.NetworkEraBound{_boundEpoch, _boundSlot, _boundTime} =
+    Bound
+      { boundTime = RelativeTime _boundTime
+      , boundSlot = SlotNo $ fromIntegral _boundSlot
+      , boundEpoch = EpochNo $ fromIntegral _boundEpoch
       }
+  mkEraParams Blockfrost.NetworkEraParameters{_parametersEpochLength, _parametersSlotLength, _parametersSafeZone} =
+    EraParams
+      { eraEpochSize = EpochSize $ fromIntegral _parametersEpochLength
+      , eraSlotLength = mkSlotLength _parametersSlotLength
+      , eraSafeZone = StandardSafeZone _parametersSafeZone
+      , eraGenesisWin = GenesisWindow _parametersSafeZone
+      }
+  mkEra Blockfrost.NetworkEraSummary{_networkEraStart, _networkEraEnd, _networkEraParameters} =
+    EraSummary
+      { eraStart = mkBound _networkEraStart
+      , eraEnd = EraEnd $ mkBound _networkEraEnd
+      , eraParams = mkEraParams _networkEraParameters
+      }
+  withoutEmptyEra
+    Blockfrost.NetworkEraSummary
+      { _networkEraStart = Blockfrost.NetworkEraBound{_boundTime = boundStart}
+      , _networkEraEnd = Blockfrost.NetworkEraBound{_boundTime = boundEnd}
+      } = boundStart == 0 && boundEnd == 0
+
+----------------
+-- Wallet API --
+----------------
+
+-- | Query the Blockfrost API for address UTxO and convert to cardano 'UTxO'.
+queryUTxO :: SigningKey PaymentKey -> NetworkId -> BlockfrostClientT IO UTxO
+queryUTxO sk networkId = do
+  let address = Blockfrost.Address vkAddress
+  utxo <- Blockfrost.getAddressUtxos address
+  let cardanoAddress = mkVkAddress networkId vk
+  pure $ toCardanoUTxO utxo cardanoAddress
+ where
+  vk = getVerificationKey sk
+  vkAddress = textAddrOf networkId vk
+
+-- | Query the Blockfrost API for 'Genesis'
+queryGenesis :: BlockfrostClientT IO Blockfrost.Genesis
+queryGenesis = Blockfrost.getLedgerGenesis
+
+-- | Query the Blockfrost API for 'Genesis' and convert to cardano 'ChainPoint'.
+queryTip :: QueryPoint -> BlockfrostClientT IO ChainPoint
+queryTip queryPoint = do
+  Blockfrost.Block
+    { _blockHeight
+    , _blockHash
+    , _blockSlot
+    } <- case queryPoint of
+    QueryTip -> Blockfrost.getLatestBlock
+    QueryAt point -> do
+      let slot = case point of
+            ChainPointAtGenesis -> 0
+            ChainPoint slotNo _ -> fromIntegral $ unSlotNo slotNo
+      Blockfrost.getBlock (Left slot)
+  let slotAndBlockNumber = do
+        blockSlot <- _blockSlot
+        blockNumber <- _blockHeight
+        pure (blockSlot, blockNumber)
+  case slotAndBlockNumber of
+    Nothing -> pure $ chainTipToChainPoint ChainTipAtGenesis
+    Just (blockSlot, blockNo) -> do
+      let Blockfrost.BlockHash blockHash = _blockHash
+      pure $
+        chainTipToChainPoint $
+          ChainTip
+            (SlotNo $ fromIntegral $ Blockfrost.unSlot blockSlot)
+            (fromString $ T.unpack blockHash)
+            (BlockNo $ fromIntegral blockNo)
