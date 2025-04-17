@@ -86,7 +86,7 @@ queryScriptRegistry projectPath txIds = do
       queryGenesis
     let networkId = toCardanoNetworkId _genesisNetworkMagic
     utxoList <- forM candidates $ \candidateTxIn -> queryUTxOByTxIn networkId candidateTxIn
-    case newScriptRegistry $ UTxO.squash utxoList of
+    case newScriptRegistry $ fold utxoList of
       Left e -> liftIO $ throwIO e
       Right sr -> pure (sr, networkId)
  where
@@ -398,7 +398,7 @@ queryUTxOByTxIn networkId txIn = do
  where
   fromBFUtxo Blockfrost.TransactionUtxos{_transactionUtxosOutputs} = do
     utxoList <- mapM toCardanoUTxO' _transactionUtxosOutputs
-    pure $ UTxO.squash utxoList
+    pure $ fold utxoList
 
   toCardanoUTxO' output@Blockfrost.UtxoOutput{_utxoOutputReferenceScriptHash} = do
     case _utxoOutputReferenceScriptHash of
