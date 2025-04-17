@@ -13,28 +13,58 @@ import Hydra.Cardano.Api (
   toLedgerUTxO,
  )
 import Hydra.Chain.Blockfrost.Client (
-  mkEraHistory,
-  queryGenesis,
+  queryEraHistory,
+  queryGenesisParameters,
+  queryScriptRegistry,
   queryTip,
   queryUTxO,
   runBlockfrostM,
   toCardanoNetworkId,
   toCardanoPParams,
  )
+import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
  )
-import Hydra.Chain.Direct.Wallet (
-  TinyWallet (..),
-  WalletInfoOnChain (..),
-  newTinyWallet,
- )
+import Hydra.Chain.Direct.State (ChainContext (..))
+import Hydra.Chain.Direct.Wallet (TinyWallet, WalletInfoOnChain (..), newTinyWallet)
 import Hydra.Logging (Tracer)
 import Hydra.Node.Util (
   readKeyPair,
  )
 import Hydra.Options (BlockfrostChainConfig (..))
+import Hydra.Tx (Party)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
+
+-- | Build the 'ChainContext' from a 'BlockfrostChainConfig and additional information.
+loadChainContext ::
+  BlockfrostChainConfig ->
+  -- | Hydra party of our hydra node.
+  Party ->
+  IO ChainContext
+loadChainContext config party = do
+  (vk, _) <- readKeyPair cardanoSigningKey
+  prj <- Blockfrost.projectFromFile projectPath
+  runBlockfrostM prj $ do
+    scriptRegistry <- queryScriptRegistry hydraScriptsTxId
+    Blockfrost.Genesis
+      { _genesisNetworkMagic
+      } <-
+      queryGenesisParameters
+    let networkId = toCardanoNetworkId _genesisNetworkMagic
+    pure $
+      ChainContext
+        { networkId
+        , ownVerificationKey = vk
+        , ownParty = party
+        , scriptRegistry
+        }
+ where
+  BlockfrostChainConfig
+    { projectPath
+    , hydraScriptsTxId
+    , cardanoSigningKey
+    } = config
 
 mkTinyWallet ::
   Tracer IO DirectChainLog ->
@@ -44,14 +74,16 @@ mkTinyWallet tracer config = do
   keyPair@(_, sk) <- readKeyPair cardanoSigningKey
   prj <- Blockfrost.projectFromFile projectPath
   runBlockfrostM prj $ do
-    Blockfrost.Genesis{_genesisSystemStart, _genesisNetworkMagic} <- queryGenesis
+    Blockfrost.Genesis{_genesisSystemStart, _genesisNetworkMagic} <- queryGenesisParameters
     let networkId = toCardanoNetworkId _genesisNetworkMagic
-    eraHistory <- mkEraHistory
+    eraHistory <- queryEraHistory
     let queryEpochInfo = pure $ toEpochInfo eraHistory
     -- NOTE: we don't need to provide address here since it is derived from the
     -- keypair but we still want to keep the same wallet api.
     let queryWalletInfo queryPoint _address = runBlockfrostM prj $ do
-          point <- queryTip queryPoint
+          point <- case queryPoint of
+            QueryAt point -> pure point
+            QueryTip -> queryTip
           utxo <- queryUTxO sk networkId
           let walletUTxO = Ledger.unUTxO $ toLedgerUTxO utxo
           let systemStart = SystemStart $ posixSecondsToUTCTime _genesisSystemStart
