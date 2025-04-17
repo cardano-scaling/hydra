@@ -354,7 +354,7 @@ spec = parallel $
           , ["--node-socket", "foo"]
           , ["--mainnet"]
           ]
-          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNodeSocket = "foo", publishNetworkId = Mainnet}}
+          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{nodeSocket = "foo", networkId = Mainnet}}
 
       it "parses with some missing option (2)" $
         mconcat
@@ -362,7 +362,7 @@ spec = parallel $
           , ["--testnet-magic", "42"]
           , ["--cardano-signing-key", "foo"]
           ]
-          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNetworkId = Testnet (NetworkMagic 42)}, publishSigningKey = "foo"}
+          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{networkId = Testnet (NetworkMagic 42)}, publishSigningKey = "foo"}
 
       it "parses with some missing option (3)" $
         mconcat
@@ -370,7 +370,7 @@ spec = parallel $
           , ["--node-socket", "foo"]
           , ["--cardano-signing-key", "foo"]
           ]
-          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNodeSocket = "foo"}, publishSigningKey = "foo"}
+          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{nodeSocket = "foo"}, publishSigningKey = "foo"}
 
       it "should parse using testnet and all options" $
         mconcat
@@ -381,7 +381,7 @@ spec = parallel $
           ]
           `shouldParse` Publish
             defaultPublishOptions
-              { chainBackend = defaultDirectBackend{publishNodeSocket = "foo", publishNetworkId = Testnet (NetworkMagic 42)}
+              { chainBackend = defaultDirectBackend{nodeSocket = "foo", networkId = Testnet (NetworkMagic 42)}
               , publishSigningKey = "bar"
               }
 
@@ -394,7 +394,7 @@ spec = parallel $
           ]
           `shouldParse` Publish
             defaultPublishOptions
-              { chainBackend = defaultDirectBackend{publishNodeSocket = "baz", publishNetworkId = Mainnet}
+              { chainBackend = defaultDirectBackend{nodeSocket = "baz", networkId = Mainnet}
               , publishSigningKey = "crux"
               }
 
