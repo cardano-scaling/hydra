@@ -2,6 +2,7 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
+import Blockfrost.Client qualified as Blockfrost
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -16,6 +17,7 @@ import Hydra.Cardano.Api (
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
@@ -126,6 +128,7 @@ run opts = do
   prepareChainComponent tracer Environment{party, otherParties} = \case
     Offline cfg ->
       pure $ withOfflineChain cfg party otherParties
+    Direct DirectChainConfig{} -> undefined
     Cardano CardanoChainConfig{chainBackend} -> do
       let cfg = undefined
       ctx <- loadChainContext cfg party
@@ -160,6 +163,13 @@ getGlobalsForChain = \case
       >>= newGlobals
   Direct DirectChainConfig{networkId, nodeSocket} ->
     queryGenesisParameters networkId nodeSocket QueryTip
+      >>= newGlobals
+  Cardano CardanoChainConfig{chainBackend} ->
+    case chainBackend of
+      DirectBackend{networkId, nodeSocket} -> queryGenesisParameters networkId nodeSocket QueryTip
+      BlockfrostBackend{projectPath} -> do
+        prj <- Blockfrost.projectFromFile projectPath
+        Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
       >>= newGlobals
 
 data GlobalsTranslationException = GlobalsTranslationException
