@@ -13,7 +13,8 @@ import Hydra.Cardano.Api (
   toLedgerUTxO,
  )
 import Hydra.Chain.Blockfrost.Client (
-  queryGenesis,
+  queryEraHistory,
+  queryGenesisParameters,
   queryScriptRegistry,
   queryTip,
   queryUTxO,
@@ -21,6 +22,7 @@ import Hydra.Chain.Blockfrost.Client (
   toCardanoNetworkId,
   toCardanoPParams,
  )
+import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
  )
@@ -44,14 +46,21 @@ loadChainContext ::
   IO ChainContext
 loadChainContext config party = do
   (vk, _) <- readKeyPair cardanoSigningKey
-  (scriptRegistry, networkId) <- queryScriptRegistry projectPath hydraScriptsTxId
-  pure $
-    ChainContext
-      { networkId
-      , ownVerificationKey = vk
-      , ownParty = party
-      , scriptRegistry
-      }
+  prj <- Blockfrost.projectFromFile projectPath
+  runBlockfrostM prj $ do
+    scriptRegistry <- queryScriptRegistry hydraScriptsTxId
+    Blockfrost.Genesis
+      { _genesisNetworkMagic
+      } <-
+      queryGenesisParameters
+    let networkId = toCardanoNetworkId _genesisNetworkMagic
+    pure $
+      ChainContext
+        { networkId
+        , ownVerificationKey = vk
+        , ownParty = party
+        , scriptRegistry
+        }
  where
   BlockfrostChainConfig
     { projectPath
@@ -67,14 +76,16 @@ mkTinyWallet tracer config = do
   keyPair@(_, sk) <- readKeyPair cardanoSigningKey
   prj <- Blockfrost.projectFromFile projectPath
   runBlockfrostM prj $ do
-    Blockfrost.Genesis{_genesisSystemStart, _genesisNetworkMagic} <- queryGenesis
+    Blockfrost.Genesis{_genesisSystemStart, _genesisNetworkMagic} <- queryGenesisParameters
     let networkId = toCardanoNetworkId _genesisNetworkMagic
-    eraHistory <- mkEraHistory
+    eraHistory <- queryEraHistory
     let queryEpochInfo = pure $ toEpochInfo eraHistory
     -- NOTE: we don't need to provide address here since it is derived from the
     -- keypair but we still want to keep the same wallet api.
     let queryWalletInfo queryPoint _address = runBlockfrostM prj $ do
-          point <- queryTip queryPoint
+          point <- case queryPoint of
+            QueryAt point -> pure point
+            QueryTip -> queryTip
           utxo <- queryUTxO sk networkId
           let walletUTxO = Ledger.unUTxO $ toLedgerUTxO utxo
           let systemStart = SystemStart $ posixSecondsToUTCTime _genesisSystemStart

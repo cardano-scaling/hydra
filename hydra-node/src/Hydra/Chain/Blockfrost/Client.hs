@@ -11,7 +11,7 @@ import Blockfrost.Client (
 import Blockfrost.Client qualified as Blockfrost
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX
-import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic)
+import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisParameters)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.Hash (hashToTextAsHex)
@@ -41,7 +41,6 @@ import Data.SOP.NonEmpty (nonEmptyFromList)
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
-import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.ScriptRegistry (buildScriptPublishingTxs)
 import Hydra.Tx (ScriptRegistry, newScriptRegistry, txId)
 import Money qualified
@@ -72,23 +71,19 @@ runBlockfrostM prj action = do
 --
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
-  (MonadIO m, MonadThrow m) =>
-  FilePath ->
   [TxId] ->
-  m (ScriptRegistry, NetworkId)
-queryScriptRegistry projectPath txIds = do
-  prj <- liftIO $ Blockfrost.projectFromFile projectPath
-  runBlockfrostM prj $ do
-    Blockfrost.Genesis
-      { _genesisNetworkMagic
-      , _genesisSystemStart
-      } <-
-      queryGenesis
-    let networkId = toCardanoNetworkId _genesisNetworkMagic
-    utxoList <- forM candidates $ \candidateTxIn -> queryUTxOByTxIn networkId candidateTxIn
-    case newScriptRegistry $ fold utxoList of
-      Left e -> liftIO $ throwIO e
-      Right sr -> pure (sr, networkId)
+  BlockfrostClientT IO ScriptRegistry
+queryScriptRegistry txIds = do
+  Blockfrost.Genesis
+    { _genesisNetworkMagic
+    , _genesisSystemStart
+    } <-
+    queryGenesisParameters
+  let networkId = toCardanoNetworkId _genesisNetworkMagic
+  utxoList <- forM candidates $ \candidateTxIn -> queryUTxOByTxIn networkId candidateTxIn
+  case newScriptRegistry $ fold utxoList of
+    Left e -> liftIO $ throwIO e
+    Right sr -> pure sr
  where
   candidates = map (\txid -> TxIn txid (TxIx 0)) txIds
 
@@ -105,7 +100,7 @@ publishHydraScripts projectPath sk = do
       { _genesisNetworkMagic = networkMagic
       , _genesisSystemStart = systemStart'
       } <-
-      queryGenesis
+      queryGenesisParameters
     pparams <- toCardanoPParams
     let address = Blockfrost.Address (vkAddress networkMagic)
     let networkId = toCardanoNetworkId networkMagic
@@ -113,7 +108,7 @@ publishHydraScripts projectPath sk = do
     stakePools' <- Blockfrost.listPools
     let stakePools = Set.fromList (toCardanoPoolId <$> stakePools')
     let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
-    eraHistory <- mkEraHistory
+    eraHistory <- queryEraHistory
     utxo <- Blockfrost.getAddressUtxos address
     let cardanoUTxO = toCardanoUTxO utxo changeAddress
 
@@ -351,8 +346,8 @@ toCardanoGenesisParameters bfGenesis =
     , _genesisSecurityParam
     } = bfGenesis
 
-mkEraHistory :: BlockfrostClientT IO EraHistory
-mkEraHistory = do
+queryEraHistory :: BlockfrostClientT IO EraHistory
+queryEraHistory = do
   eras' <- Blockfrost.getNetworkEras
   let eras = filter withoutEmptyEra eras'
   let summary = mkEra <$> eras
@@ -456,22 +451,19 @@ querySystemStart = do
   Blockfrost.Genesis{_genesisSystemStart} <- Blockfrost.getLedgerGenesis
   pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
 
-queryGenesis :: BlockfrostClientT IO Blockfrost.Genesis
-queryGenesis = Blockfrost.getLedgerGenesis
+-- | Query the Blockfrost API for 'Genesis'
+queryGenesisParameters :: BlockfrostClientT IO Blockfrost.Genesis
+queryGenesisParameters = Blockfrost.getLedgerGenesis
 
+-- | Query the Blockfrost API for 'Genesis' and convert to cardano 'ChainPoint'.
 queryTip :: BlockfrostClientT IO ChainPoint
 queryTip = do
   Blockfrost.Block
     { _blockHeight
     , _blockHash
     , _blockSlot
-    } <- case queryPoint of
-    QueryTip -> Blockfrost.getLatestBlock
-    QueryAt point -> do
-      let slot = case point of
-            ChainPointAtGenesis -> 0
-            ChainPoint slotNo _ -> fromIntegral $ unSlotNo slotNo
-      Blockfrost.getBlock (Left slot)
+    } <-
+    Blockfrost.getLatestBlock
   let slotAndBlockNumber = do
         blockSlot <- _blockSlot
         blockNumber <- _blockHeight
