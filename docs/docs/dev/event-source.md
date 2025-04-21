@@ -1,8 +1,31 @@
----
-sidebar_position: 99
+## Event sourcing
+
+The `hydra-node` is an event sourced application. This means that the main logic is processing _inputs_ (also called commands) and produces _events_. These events are saved and loaded to persist application state across restarts. Also, most events are transformed to _outputs_ and can be observed on the `hydra-node` API.
+
+On application startup, the [`hydrate`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Node.html#v:hydrate) function is called to load all events using a given [`EventSource`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Events.html#t:EventSource) and while doing so, re-emits th events to all provided [`EventSink`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Events.html#t:EventSink) instances. The resulting [`HydraNode`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Node.html#t:HydraNode) will then enter the main loop of `hydra-node` and process inputs into state changes and effects via function [`stepHydraNode`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Node.html#v:stepHydraNode). All state changes of a Hydra node are based on [`StateEvent`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Events.html#t:StateEvent) values and consequently get emitted to all `eventSinks` of the `HydraNode` handle. Also, the `eventSource` of the same may be used later to to load events on-demand, for example to produce a history of server outputs.
+
+- TODO: explain `StateEvent` data type and `EventSource` / `EventSink` interfaces
+
+## Default event source and sinks
+
+TODO: explain
+- FileBased source + sink
+- API server as sink
+
+## Extending the node via event sources and sinks
+
+TODO: list / describe examples 
+- UDP sink
+- S3 source and sink
+
+TODO: considerations when implementing a source / sink
+- multi-threading
+- what to test 
+
 ---
 
-# Extend the node with event source and sinks
+TODO: re-use parts as suitable
+
 
 There are certain use cases in which multiple features of the Hydra platform are beneficial. However, interfacing with the entire `hydra node`, particularly with regard to IO, may be impractical. For a use case that requires different persistence requirements than the default Hydra setup, it may initially appear that there are two options available:
 
@@ -33,7 +56,3 @@ Currently, there is no CLI API to toggle which sources and sinks are utilized; t
 - **Event sink construction**. Create an `EventSink e m` object, where `m` denotes the monad (such as IO) in which the event sink operates, and `e` represents the event type. The only field in the `EventSink` record corresponds to the monadic action taken upon a new event. See an example with AWS Kinesis [here](https://github.com/SundaeSwap-finance/hydra/blob/598b20fcee9669a196781f70e02e13779967e470/hydra-node/src/Hydra/Events/AWS/Kinesis.hs#L85).
 
 - **Event source construction**. Construct an `EventSource e m` object, where the encapsulated monadic action produces a list of events `[e]`. An example loading events from AWS Kinesis is available [here](https://github.com/SundaeSwap-finance/hydra/blob/598b20fcee9669a196781f70e02e13779967e470/hydra-node/src/Hydra/Events/AWS/Kinesis.hs#L85). Consider implementing delays to manage the rate of event list construction, as the entire list is replayed at node startup, potentially overwhelming any API if not adequately throttled.
-
-## Offline mode
-
-Hydra also supports an offline mode, which allows for disabling the layer 1 interface (that is, the underlying Cardano blockchain, which Hydra heads use to seed and withdraw funds to). This offline mode makes operation only influenced by the HTTP/WebSocket APIs, and the configured event sinks and sources. While separate from the event sinks and event source functionality, disabling layer 1 interactions allows for further customization, enabling use cases that would otherwise require running and configuring an entire layer 1 private devnet. See offline mode documentation [here](../configuration.md#offline-mode).
