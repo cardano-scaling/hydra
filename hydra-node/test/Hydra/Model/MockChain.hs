@@ -75,7 +75,7 @@ import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect)
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.NodeSpec (mockServer)
-import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Environment (Environment (Environment, participants, party))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
@@ -117,6 +117,7 @@ mockChainAndNetwork tr seedKeys commits = do
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateCommit = simulateCommit nodes
+      , simulateDeposit = simulateDeposit nodes
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
       }
  where
@@ -199,7 +200,7 @@ mockChainAndNetwork tr seedKeys commits = do
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
-  simulateCommit nodes (party, lookupUTxO) = do
+  simulateCommit nodes (party, utxoToCommit) = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
       Nothing -> error "simulateCommit: Could not find matching HydraNode"
@@ -207,19 +208,29 @@ mockChainAndNetwork tr seedKeys commits = do
         MockHydraNode
           { node = HydraNode{oc = Chain{submitTx, draftCommitTx}, nodeState = NodeState{queryHeadState}}
           } -> do
+          -- TODO: draft and submit a deposit if head is already open
           hs <- atomically queryHeadState
           let hId = case hs of
                 Idle IdleState{} -> error "HeadState is Idle: no HeadId to commit"
                 Initial InitialState{headId} -> headId
                 Open OpenState{headId} -> headId
                 Closed ClosedState{headId} -> headId
-              blueprintTx = txSpendingUTxO lookupUTxO
           -- NOTE: We don't need to sign a tx here since the MockChain
           -- doesn't actually validate transactions using a real ledger.
-          eTx <- draftCommitTx hId CommitBlueprintTx{lookupUTxO, blueprintTx}
+          eTx <- draftCommitTx hId (mkSimpleBlueprintTx utxoToCommit)
           case eTx of
             Left e -> throwIO e
             Right tx -> submitTx tx
+
+  simulateDeposit nodes headId utxoToDeposit deadline = do
+    -- XXX: Weird that we need a registered node here and cannot just draft the
+    -- deposit tx directly?
+    readTVarIO nodes >>= \case
+      [] -> error "simulateDeposit: no MockHydraNode"
+      (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
+        draftDepositTx headId (mkSimpleBlueprintTx utxoToDeposit) deadline >>= \case
+          Left e -> throwIO e
+          Right tx -> submitTx tx
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
   closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
