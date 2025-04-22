@@ -67,7 +67,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx)
+import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx, renderEvaluationReport)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
@@ -166,13 +166,13 @@ mockChainAndNetwork tr seedKeys commits = do
                   Nothing -> globalUTxO
                   Just (_, _, blockUTxO) -> blockUTxO
             case applyTransactions slot utxo [tx] of
-              Left (_tx, err) ->
+              Left (_tx, ValidationError{reason}) ->
                 throwSTM . userError . toString $
                   unlines
                     [ "MockChain: Invalid tx submitted"
                     , "Slot: " <> show slot
                     , "Tx: " <> toText (renderTxWithUTxO utxo tx)
-                    , "Error: " <> show err
+                    , "Error: \n\n" <> reason
                     ]
               Right _utxo' ->
                 writeTQueue queue tx
@@ -339,7 +339,7 @@ scriptLedger =
           Left (tx, ValidationError{reason = show err})
         Right report
           | any isLeft report ->
-              Left (tx, ValidationError{reason = show . lefts $ toList report})
+              Left (tx, ValidationError{reason = renderEvaluationReport report})
           | otherwise ->
               applyTransactions slot (adjustUTxO tx utxo) txs
 
