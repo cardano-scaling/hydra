@@ -2,9 +2,36 @@
 
 Additional implementation-specific documentation for the Hydra Head protocol and extensions like incremental decommits.
 
-### Incremental Commits
+## General notes on incremental commits/decommits
 
-#### Deposit flow
+Especially, incremental commit and decommit are additions to the originally researched [Hydra Head protocol](https://eprint.iacr.org/2020/299.pdf) and deserve more explanation how they work under the hood. 
+
+For now these two new additions run sequentially so we are doing one thing at a time, at least for now, while we will think about batching certain actions in the future if the need for that arises.
+
+It is only possible to either commit or decommit - we don't allow snapshots with both fields specified for simplicity. This restriction might be lifted later on - once we are sure this simpler version works nicely.
+
+## Incremental commits
+
+Incremental commits allow anyone to lock up `UTxO` from L1 and make it available on L2 for transacting inside of a running Hydra Head. For a user, the process of doing an incremental commit is very similar to doing a normal commit before the Head is in the `Open` state. From a protocol standpoint though, the process is quite different as it requires users to first lock up funds in a `deposit` transaction before the head can collect it in an `incrementTx`. Should the depositted UTxO not be collected, a user can recover their funds in a `recoverTx`.
+
+```mermaid
+stateDiagram
+    [*] --> Depositted : depositTx
+    Depositted --> Incremented : incrementTx
+    Depositted --> Recovered : recoverTx
+```
+
+### Deposit flow
+
+The nominal case of depositing and later incrementing funds starts with a user request to `POST /commit`, which will draft a `depositTx` analogously what users know from the normal commit workflow.
+
+:::info
+See [commit](./commit.md) for more details about the commit API.
+:::
+
+A successfull API response includes a `depositTx` that needs to be signed and submitted by the user in order to lock the specified `UTxO` at a deposit script address. The `hydra-node` of all participants will observe the deposit transaction and the snapshot leader _should_ request inclusion of the UTxO via a snapshot. With this snapshot an `incrementTx` can be posted that will update the Head state `UTxO` on L1 and upon observing this make the committed `UTxO` available on L2.
+
+The overall sequence diagram of a deposit and later increment across the `hydra-node`:
 
 ```mermaid
 sequenceDiagram
@@ -42,7 +69,35 @@ sequenceDiagram
     Node A -->> Alice: CommitFinalized
 ```
 
-#### Recover flow
+### Tracking deposits
+
+Once a hydra-node observes a deposit transaction it will record the deposit as pending in its local state. There can be many pending deposits but the new Snapshot will include them one by one.
+
+:::info
+Note that any node that posts increment transaction will also pay the fees even if the deposit will not be owned by them on L2.
+:::
+
+Upon observing increment transaction we remove the corresponding deposit from the local pending deposits and the process can start again.
+
+:::note
+Since we can potentially request many deposits, the leader will increment only one of them. While others are stuck in the pending state any new transaction on L2 will take next pending deposit and try to include it in a snapshot.
+:::
+
+### Rollback resistence
+
+In a perfect world the process as explained above would be sufficient. However, the Cardano L1 is evolved using a probabilistic consensus algorithm and [rollbacks](./rollbacks) need to be considered.
+
+Lets consider this example scenario of depositing funds into a head as an L1 transaction trace with L2 snapshots:
+
+![](./deposit-increment.svg)
+
+:::danger
+TODO: explain and introduce
+- Increment rollback -> deposit deadline
+- Increment + deposit rollback -> deposit period
+:::
+
+### Recover flow
 
 ```mermaid
 sequenceDiagram
@@ -56,7 +111,17 @@ sequenceDiagram
 
 ```
 
-### Incremental Decommits
+## Incremental decommits
+
+Incremental decommits allow us to take some L2 `UTxO` and bring it to the L1 while the Head protocol is running.
+
+Users of a Hydra head can request decommits UTxO from L1 by sending a `POST /decommit` request with a so-called **decommit transaction** in the request body. Hydra node validates this transaction by applying it to its local `UTxO` set. If it applies, it will broadcast a `ReqDec` message signalling to other parties that we want to produce a new `Snapshot` that contains the same `UTxO` to decommit. The snapshot leader may request such a snapshot and once it is signed by everyone, any of the participant nodes posts a `decrementTx` that will produce a corresponding output on the L1.
+
+:::info
+The decommit transaction is necessary to prove to the head participants that the decommitted UTxO can be spent by the requestor.
+:::
+
+As the decommit is first decided on the L2 with full consensus and no honest node would approve further spending of funds to be decommitted, we do not need to specially consider rollbacks in this scenario.
 
 ```mermaid
 sequenceDiagram
