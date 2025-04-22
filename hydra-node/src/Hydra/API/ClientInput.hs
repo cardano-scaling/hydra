@@ -15,6 +15,7 @@ data ClientInput tx
   | Decommit {decommitTx :: tx}
   | Close
   | Contest
+  | Reopen
   | Fanout
   | SideLoadSnapshot {snapshot :: ConfirmedSnapshot tx}
   deriving stock (Generic)
@@ -38,6 +39,7 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx t
     Decommit tx -> Decommit <$> shrink tx
     Close -> []
     Contest -> []
+    Reopen -> []
     Fanout -> []
     SideLoadSnapshot sn -> SideLoadSnapshot <$> shrink sn
 

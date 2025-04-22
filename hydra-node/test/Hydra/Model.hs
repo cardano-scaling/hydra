@@ -153,6 +153,7 @@ instance StateModel WorldState where
     Abort :: Party -> Action WorldState ()
     Close :: Party -> Action WorldState ()
     Fanout :: Party -> Action WorldState UTxO
+    Reopen :: Party -> Action WorldState UTxO
     NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
@@ -253,6 +254,8 @@ instance StateModel WorldState where
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
   precondition WorldState{hydraState = Closed{}} (Fanout _) =
+    True
+  precondition WorldState{hydraState} (Reopen _) =
     True
   precondition WorldState{hydraState = Open{}} (CloseWithInitialSnapshot _) =
     True
@@ -358,6 +361,7 @@ instance StateModel WorldState where
         updateWithFanout = \case
           Closed{closedUTxO} -> Final closedUTxO
           _ -> error "unexpected state"
+      Reopen{} -> s
       --
       (NewTx _ tx) ->
         WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
@@ -572,6 +576,8 @@ instance
         performClose party
       Fanout party ->
         performFanout party
+      Reopen party ->
+        performReopen party
       Wait delay ->
         lift $ threadDelay delay
       ObserveConfirmedTx var -> do
@@ -821,6 +827,10 @@ performFanout party = do
     HeadIsFinalized{} -> True
     _otherwise -> False
 
+performReopen :: MonadThrow m => Party -> RunMonad m UTxO
+performReopen party =
+  failure "Failed to perform Reopen"
+
 performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m) => WorldState -> Party -> RunMonad m ()
 performCloseWithInitialSnapshot st party = do
   nodes <- gets nodes
@@ -895,6 +905,7 @@ showFromAction k = \case
   Abort{} -> k
   Close{} -> k
   Fanout{} -> k
+  Reopen{} -> k
   NewTx{} -> k
   Wait{} -> k
   ObserveConfirmedTx{} -> k

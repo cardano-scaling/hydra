@@ -115,6 +115,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Close"
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
+          - $ref: "api.yaml#/components/messages/Reopen"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
 
   /commit:
@@ -426,6 +427,19 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/Fanout"
 
+    Reopen:
+      title: Reopen
+      description: |
+        Reopen a closed head with the latest known snapshot. This effectively moves the head from the Close state back to the Open state. As a result of reopening a head, transactions can be submitted again via NewTx.
+      payload:
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["Reopen"]
+
     SideLoadSnapshot:
       title: SideLoadSnapshot
       description: |
@@ -717,6 +731,7 @@ components:
         - $ref: "api.yaml#/components/schemas/Close"
         - $ref: "api.yaml#/components/schemas/Contest"
         - $ref: "api.yaml#/components/schemas/Fanout"
+        - $ref: "api.yaml#/components/schemas/Reopen"
         - $ref: "api.yaml#/components/schemas/SideLoadSnapshot"
 
     ServerOutput:
@@ -868,6 +883,16 @@ components:
         tag:
           type: string
           enum: ["Fanout"]
+
+    Reopen:
+      title: Reopen
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Reopen"]
 
     SideLoadSnapshot:
       title: SideLoadSnapshot
@@ -1268,6 +1293,7 @@ components:
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/Reopen/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
 
     IgnoredHeadInitializing:
