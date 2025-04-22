@@ -114,7 +114,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
-import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (newTVarIO)
 import Control.Monad.Class.MonadTimer ()
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
@@ -146,7 +145,6 @@ import Hydra.Tx.Party (Party (..), deriveParty)
 import System.IO.Temp (writeSystemTempFile)
 import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
-import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
@@ -161,7 +159,7 @@ import Test.QuickCheck.DynamicLogic (
   withGenQ,
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
-import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
+import Test.QuickCheck.Monadic (PropertyM, assert, monadic', run, stop)
 import Test.QuickCheck.Property ((===))
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -223,31 +221,20 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
   case world of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
       utxo <- run $ lift $ headUTxO node
-      let expectedBalance =
-            Map.fromListWith
-              (<>)
-              [ (unwrapAddress addr, value)
-              | (Payment.CardanoSigningKey sk, value) <- confirmedUTxO
-              , let addr = mkVkAddress testNetworkId (getVerificationKey sk)
-              , valueToLovelace value /= Just 0
-              ]
-      let actualBalance =
-            Map.fromListWith (<>) $
-              [ (unwrapAddress addr, value)
-              | (TxOut addr value _ _) <- Map.elems (UTxO.toMap utxo)
-              , valueToLovelace value /= Just 0
-              ]
-      monitor $
-        counterexample $
-          toString $
-            unlines
-              [ "actualBalance = " <> show actualBalance
-              , "expectedBalance = " <> show expectedBalance
-              , "Difference: (" <> show p <> ") " <> show (Map.difference actualBalance expectedBalance)
-              ]
-      assert (expectedBalance == actualBalance)
+      let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
+      let expected = sorted (toTxOuts confirmedUTxO)
+      let actual = sorted (toList utxo)
+      stop $
+        expected === actual
+          & counterexample ("actual: \n  " <> intercalate "\n  " (map renderTxOut actual))
+          & counterexample ("expected: \n  " <> intercalate "\n  " (map renderTxOut expected))
+          & counterexample ("Incorrect balance for party " <> show p)
     _ -> do
       pure ()
+ where
+  renderTxOut o =
+    toString $
+      serialiseAddress (txOutAddress o) <> ": " <> renderValue (txOutValue o)
 
 propIsDistributive :: (Show b, Eq b, Semigroup a, Semigroup b) => (a -> b) -> a -> a -> Property
 propIsDistributive f x y =
@@ -447,8 +434,3 @@ eventually a = action_ (Wait 10) >> action_ a
 
 action_ :: Action WorldState () -> DL WorldState ()
 action_ = void . action
-
-unwrapAddress :: AddressInEra -> Text
-unwrapAddress = \case
-  ShelleyAddressInEra addr -> serialiseToBech32 addr
-  ByronAddressInEra{} -> error "Byron."
