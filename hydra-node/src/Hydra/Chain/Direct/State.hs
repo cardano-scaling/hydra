@@ -113,6 +113,7 @@ import Hydra.Tx.Observe (
  )
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
+import Hydra.Tx.Reopen (reopenTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Hydra.Tx.Utils (setIncrementalActionMaybe, splitUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture (depositDeadline, testNetworkId)
@@ -174,6 +175,7 @@ data ChainTransition
   | Close
   | Contest
   | Fanout
+  | Reopen
   deriving stock (Eq, Show, Enum, Bounded)
 
 -- | An enumeration of all possible on-chain states of a Hydra Head, where each
@@ -694,6 +696,14 @@ data FanoutTxError
   | BothCommitAndDecommitInFanout
   deriving stock (Show)
 
+data ReopenTxError
+  = CannotFindHeadOutputToReopen
+  | MissingHeadDatumInReopen
+  | WrongDatumInReopen
+  | FailedToConvertFromScriptDataInReopen
+  | BothCommitAndDecommitInReopen
+  deriving stock (Show)
+
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
 -- agreed 'UTxO' set to fan out.
 fanout ::
@@ -732,6 +742,45 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotN
     case datum of
       Head.Closed{} -> pure headUTxO
       _ -> Left WrongDatumInFanout
+
+-- | Construct a reopen transaction based on the 'ClosedState' and off-chain
+-- agreed 'UTxO' set to fan out.
+reopen ::
+  ChainContext ->
+  HeadId ->
+  HeadParameters ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Snapshot UTxO to reopen
+  UTxO ->
+  -- | Snapshot UTxO to commit to reopen
+  Maybe UTxO ->
+  -- | Snapshot UTxO to decommit to reopen
+  Maybe UTxO ->
+  -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
+  SlotNo ->
+  Either ReopenTxError Tx
+reopen ctx headId headParameters spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo = do
+  headUTxO <-
+    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
+      ?> CannotFindHeadOutputToReopen
+  closedThreadUTxO <- checkHeadDatum headUTxO
+  _ <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInReopen
+  pure $ reopenTx networkId scriptRegistry ownVerificationKey headId headParameters utxo utxoToCommit utxoToDecommit closedThreadUTxO deadlineSlotNo
+ where
+  ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
+
+  checkHeadDatum headUTxO@(_, headOutput) = do
+    headDatum <-
+      txOutScriptData (fromCtxUTxOTxOut headOutput) ?> MissingHeadDatumInReopen
+    datum <-
+      fromScriptData headDatum ?> FailedToConvertFromScriptDataInReopen
+
+    case datum of
+      Head.Closed{} -> pure headUTxO
+      _ -> Left WrongDatumInReopen
 
 -- * Helpers
 

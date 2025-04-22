@@ -185,8 +185,7 @@ data Input
       , numberOfDecommitOutputs :: Integer
       }
   | Reopen
-      { numberOfReopenOutputs :: Integer
-      , numberOfCommitOutputs :: Integer
+      { numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
       }
   deriving stock (Generic, Show)

@@ -69,6 +69,7 @@ library
     Hydra.Tx.OnChainId
     Hydra.Tx.Party
     Hydra.Tx.Recover
+    Hydra.Tx.Reopen
     Hydra.Tx.ScriptRegistry
     Hydra.Tx.Snapshot
     Hydra.Tx.Utils

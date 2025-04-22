@@ -1146,6 +1146,8 @@ toOnChainTx now = \case
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
+  ReopenTx{utxo, utxoToCommit, utxoToDecommit} ->
+    OnReopenTx{headId = testHeadId, reopenUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
 
 testContestationPeriod :: ContestationPeriod
 testContestationPeriod = UnsafeContestationPeriod 10

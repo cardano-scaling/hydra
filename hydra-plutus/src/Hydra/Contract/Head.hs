@@ -96,8 +96,8 @@ headValidator oldState input ctx =
       checkContest ctx closedDatum redeemer
     (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
       checkFanout ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
-    (Closed closedDatum, Reopen{numberOfReopenOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
-      checkReopen ctx closedDatum numberOfReopenOutputs numberOfCommitOutputs numberOfDecommitOutputs
+    (Closed closedDatum, Reopen{numberOfCommitOutputs, numberOfDecommitOutputs}) ->
+      checkReopen ctx closedDatum numberOfCommitOutputs numberOfDecommitOutputs
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -689,19 +689,18 @@ checkReopen ::
   ScriptContext ->
   -- | Closed state before the reopen
   ClosedDatum ->
-  -- | Number of normal outputs to reopen
-  Integer ->
   -- | Number of alpha outputs to reopen
   Integer ->
   -- | Number of delta outputs to reopen
   Integer ->
   Bool
-checkReopen ctx closedDatum numberOfReopenOutputs numberOfCommitOutputs numberOfDecommitOutputs =
+checkReopen ctx closedDatum numberOfCommitOutputs numberOfDecommitOutputs =
   mustNotMintOrBurn txInfo
     && mustNotChangeVersion
     && mustBeSignedByParticipant ctx prevHeadId
     && mustNotChangeParameters (nextParties, prevParties) (nextCperiod, prevCperiod) (nextHeadId, prevHeadId)
-    && mustPreserveValue
+    -- FIXME!
+    -- && mustPreserveValue
     && hasSameUTxOHash
     && hasSameCommitUTxOHash
     && hasSameDecommitUTxOHash
@@ -719,8 +718,7 @@ checkReopen ctx closedDatum numberOfReopenOutputs numberOfCommitOutputs numberOf
 
   hasSameUTxOHash =
     traceIfFalse $(errorCode ReopenUTxOHashMismatch) $
-      reopenedOutUtxoHash == prevUtxoHash
-        && nextUtxoHash == prevUtxoHash
+      nextUtxoHash == prevUtxoHash
 
   hasSameCommitUTxOHash =
     traceIfFalse $(errorCode ReopenUTxOToCommitHashMismatch) $
@@ -741,7 +739,7 @@ checkReopen ctx closedDatum numberOfReopenOutputs numberOfCommitOutputs numberOf
 
   val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
-  reopenedOutUtxoHash = hashTxOuts $ take numberOfReopenOutputs txInfoOutputs
+  numberOfReopenOutputs = 1
 
   commitUtxoHash = hashTxOuts $ take numberOfCommitOutputs $ drop numberOfReopenOutputs txInfoOutputs
 

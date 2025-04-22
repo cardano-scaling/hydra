@@ -54,6 +54,7 @@ data ChainObserverLog
   | HeadDecrementTx {headId :: HeadId}
   | HeadCloseTx {headId :: HeadId}
   | HeadFanoutTx {headId :: HeadId}
+  | HeadReopenTx {headId :: HeadId}
   | HeadAbortTx {headId :: HeadId}
   | HeadContestTx {headId :: HeadId}
   | Rollback {point :: ChainPoint}
@@ -72,6 +73,7 @@ logOnChainTx = \case
   OnDecrementTx{headId} -> HeadDecrementTx{headId}
   OnCloseTx{headId} -> HeadCloseTx{headId}
   OnFanoutTx{headId} -> HeadFanoutTx{headId}
+  OnReopenTx{headId} -> HeadReopenTx{headId}
   OnAbortTx{headId} -> HeadAbortTx{headId}
   OnContestTx{headId} -> HeadContestTx{headId}
 

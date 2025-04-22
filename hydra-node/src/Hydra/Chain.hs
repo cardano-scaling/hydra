@@ -86,6 +86,15 @@ data PostChainTx tx
       , contestingSnapshot :: ConfirmedSnapshot tx
       }
   | FanoutTx {utxo :: UTxOType tx, utxoToCommit :: Maybe (UTxOType tx), utxoToDecommit :: Maybe (UTxOType tx), headSeed :: HeadSeed, contestationDeadline :: UTCTime}
+  | ReopenTx
+      { headId :: HeadId
+      , headParameters :: HeadParameters
+      , utxo :: UTxOType tx
+      , utxoToCommit :: Maybe (UTxOType tx)
+      , utxoToDecommit :: Maybe (UTxOType tx)
+      , headSeed :: HeadSeed
+      , contestationDeadline :: UTCTime
+      }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (PostChainTx tx)
@@ -107,6 +116,8 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
     FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
+    ReopenTx{headId, headParameters, utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} ->
+      ReopenTx <$> shrink headId <*> shrink headParameters <*> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
@@ -156,6 +167,7 @@ data OnChainTx tx
       , contestationDeadline :: UTCTime
       }
   | OnFanoutTx {headId :: HeadId, fanoutUTxO :: UTxOType tx}
+  | OnReopenTx {headId :: HeadId, reopenUTxO :: UTxOType tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (OnChainTx tx)
@@ -207,6 +219,7 @@ data PostTxError tx
   | FailedToConstructIncrementTx {failureReason :: Text}
   | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
+  | FailedToConstructReopenTx
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)

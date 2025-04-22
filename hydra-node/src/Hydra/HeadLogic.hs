@@ -1269,6 +1269,54 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
  where
   ClosedState{headId} = closedState
 
+-- | Client request to reopen leads to a reopen transaction on chain using the
+-- latest confirmed snapshot from 'ClosedState'.
+--
+-- __Transition__: 'ClosedState' → 'OpenState'
+onClosedClientReopen ::
+  ClosedState tx ->
+  Outcome tx
+onClosedClientReopen closedState =
+  cause
+    OnChainEffect
+      { postChainTx =
+          ReopenTx
+            { headId
+            , headParameters = parameters
+            , utxo
+            , utxoToCommit =
+                -- NOTE: note that logic is flipped in the commit and decommit case here.
+                if toInteger snapshotVersion == max (toInteger version - 1) 0
+                  then utxoToCommit
+                  else Nothing
+            , utxoToDecommit =
+                if toInteger snapshotVersion == max (toInteger version - 1) 0
+                  then Nothing
+                  else utxoToDecommit
+            , headSeed
+            , contestationDeadline
+            }
+      }
+ where
+  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
+
+  ClosedState{parameters, headId, headSeed, confirmedSnapshot, contestationDeadline, version} = closedState
+
+-- | Observe a reopen transaction by reopening the head state and notifying
+-- clients about it.
+--
+-- __Transition__: 'ClosedState' → 'OpenState'
+onClosedChainReopenTx ::
+  ClosedState tx ->
+  -- | New chain state
+  ChainStateType tx ->
+  UTxOType tx ->
+  Outcome tx
+onClosedChainReopenTx closedState newChainState reopenUTxO =
+  newState HeadOpened{headId, chainState = newChainState, initialUTxO = reopenUTxO}
+ where
+  ClosedState{headId} = closedState
+
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed succesfully. Later, the Node will
 -- 'aggregate' the events, resulting in a new 'HeadState'.
@@ -1362,9 +1410,16 @@ update env ledger st ev = case (st, ev) of
         newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
+  (Closed closedState, ClientInput Reopen) ->
+    onClosedClientReopen closedState
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId, fanoutUTxO}, newChainState})
     | ourHeadId == headId ->
         onClosedChainFanoutTx closedState newChainState fanoutUTxO
+    | otherwise ->
+        Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnReopenTx{headId, reopenUTxO}, newChainState})
+    | ourHeadId == headId ->
+        onClosedChainReopenTx closedState newChainState reopenUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- General
@@ -1423,6 +1478,26 @@ aggregate st = \case
   HeadOpened{chainState, initialUTxO} ->
     case st of
       Initial InitialState{parameters, headId, headSeed} ->
+        Open
+          OpenState
+            { parameters
+            , coordinatedHeadState =
+                CoordinatedHeadState
+                  { localUTxO = initialUTxO
+                  , allTxs = mempty
+                  , localTxs = mempty
+                  , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
+                  , seenSnapshot = NoSeenSnapshot
+                  , pendingDeposits = mempty
+                  , decommitTx = Nothing
+                  , version = 0
+                  }
+            , chainState
+            , headId
+            , headSeed
+            , currentSlot = chainStateSlot chainState
+            }
+      Closed ClosedState{parameters, headId, headSeed} ->
         Open
           OpenState
             { parameters

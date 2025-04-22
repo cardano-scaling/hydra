@@ -155,6 +155,7 @@ spec = do
                       OnCloseTx{} -> Transition.Close
                       OnContestTx{} -> Transition.Contest
                       OnFanoutTx{} -> Transition.Fanout
+                      OnReopenTx{} -> Transition.Reopen
                       OnDepositTx{} -> error "OnDepositTx not expected"
                       OnRecoverTx{} -> error "OnRecoverTx not expected"
               observedTransition `shouldBe` transition

@@ -55,6 +55,7 @@ import Hydra.Chain.Direct.State (
   increment,
   initialize,
   recover,
+  reopen,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Wallet (
@@ -429,6 +430,15 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
           case fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot of
             Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
             Right fanoutTx -> pure fanoutTx
+    ReopenTx{headId, headParameters, utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
+      deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
+      case headSeedToTxIn headSeed of
+        Nothing ->
+          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+        Just seedTxIn ->
+          case reopen ctx headId headParameters spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot of
+            Left _ -> throwIO (FailedToConstructReopenTx @Tx)
+            Right reopenTx -> pure reopenTx
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
