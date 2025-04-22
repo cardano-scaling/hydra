@@ -184,6 +184,11 @@ data Input
       , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
       }
+  | Reopen
+      { numberOfReopenOutputs :: Integer
+      , numberOfCommitOutputs :: Integer
+      , numberOfDecommitOutputs :: Integer
+      }
   deriving stock (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''Input

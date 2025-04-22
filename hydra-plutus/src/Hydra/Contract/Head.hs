@@ -96,6 +96,8 @@ headValidator oldState input ctx =
       checkContest ctx closedDatum redeemer
     (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
       checkFanout ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
+    (Closed closedDatum, Reopen{numberOfReopenOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
+      checkReopen ctx closedDatum numberOfReopenOutputs numberOfCommitOutputs numberOfDecommitOutputs
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -681,6 +683,93 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
           time > contestationDeadline
       _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
 {-# INLINEABLE checkFanout #-}
+
+-- | Verify a reopen transaction.
+checkReopen ::
+  ScriptContext ->
+  -- | Closed state before the reopen
+  ClosedDatum ->
+  -- | Number of normal outputs to reopen
+  Integer ->
+  -- | Number of alpha outputs to reopen
+  Integer ->
+  -- | Number of delta outputs to reopen
+  Integer ->
+  Bool
+checkReopen ctx closedDatum numberOfReopenOutputs numberOfCommitOutputs numberOfDecommitOutputs =
+  mustNotMintOrBurn txInfo
+    && mustNotChangeVersion
+    && mustBeSignedByParticipant ctx prevHeadId
+    && mustNotChangeParameters (nextParties, prevParties) (nextCperiod, prevCperiod) (nextHeadId, prevHeadId)
+    && mustPreserveValue
+    && hasSameUTxOHash
+    && hasSameCommitUTxOHash
+    && hasSameDecommitUTxOHash
+    -- && mustBeValidSnapshot
+    -- && checkSnapshotSignature
+    && afterContestationDeadline
+ where
+  mustNotChangeVersion =
+    traceIfFalse $(errorCode MustNotChangeVersion) $
+      nextVersion == prevVersion
+
+  mustPreserveValue =
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+      val === val'
+
+  hasSameUTxOHash =
+    traceIfFalse $(errorCode ReopenUTxOHashMismatch) $
+      reopenedOutUtxoHash == prevUtxoHash
+        && nextUtxoHash == prevUtxoHash
+
+  hasSameCommitUTxOHash =
+    traceIfFalse $(errorCode ReopenUTxOToCommitHashMismatch) $
+      prevAlphaUTxOHash == commitUtxoHash
+
+  hasSameDecommitUTxOHash =
+    traceIfFalse $(errorCode ReopenUTxOToDecommitHashMismatch) $
+      prevOmegaUTxOHash == decommitUtxoHash
+
+  afterContestationDeadline =
+    case ivFrom (txInfoValidRange txInfo) of
+      LowerBound (Finite time) _ ->
+        traceIfFalse $(errorCode LowerBoundBeforeContestationDeadline) $
+          time > prevContestationDeadline
+      _ -> traceError $(errorCode ReopenNoLowerBoundDefined)
+
+  val' = txOutValue . head $ txInfoOutputs
+
+  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
+  reopenedOutUtxoHash = hashTxOuts $ take numberOfReopenOutputs txInfoOutputs
+
+  commitUtxoHash = hashTxOuts $ take numberOfCommitOutputs $ drop numberOfReopenOutputs txInfoOutputs
+
+  decommitUtxoHash = hashTxOuts $ take numberOfDecommitOutputs $ drop numberOfReopenOutputs txInfoOutputs
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
+
+  TxInfo{txInfoOutputs} = txInfo
+
+  ClosedDatum
+    { utxoHash = prevUtxoHash
+    , alphaUTxOHash = prevAlphaUTxOHash
+    , omegaUTxOHash = prevOmegaUTxOHash
+    , parties = prevParties
+    , headId = prevHeadId
+    , contestationDeadline = prevContestationDeadline
+    , version = prevVersion
+    , contestationPeriod = prevCperiod
+    } = closedDatum
+
+  OpenDatum
+    { utxoHash = nextUtxoHash
+    , parties = nextParties
+    , contestationPeriod = nextCperiod
+    , headId = nextHeadId
+    , version = nextVersion
+    } = decodeHeadOutputOpenDatum ctx
+{-# INLINEABLE checkReopen #-}
 
 --------------------------------------------------------------------------------
 -- Helpers

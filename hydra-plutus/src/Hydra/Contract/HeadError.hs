@@ -50,6 +50,10 @@ data HeadError
   | FanoutNoLowerBoundDefined
   | FanoutUTxOToCommitHashMismatch
   | FanoutUTxOToDecommitHashMismatch
+  | ReopenNoLowerBoundDefined
+  | ReopenUTxOHashMismatch
+  | ReopenUTxOToCommitHashMismatch
+  | ReopenUTxOToDecommitHashMismatch
   | DepositNotSpent
   | DepositInputNotFound
   | HeadInputNotFound
@@ -124,3 +128,8 @@ instance ToErrorCode HeadError where
     FailedCloseUnusedInc -> "H52"
     FailedCloseUsedInc -> "H53"
     FanoutUTxOToCommitHashMismatch -> "H54"
+    -- Reopen
+    ReopenNoLowerBoundDefined -> "H55"
+    ReopenUTxOHashMismatch -> "H56"
+    ReopenUTxOToCommitHashMismatch -> "H57"
+    ReopenUTxOToDecommitHashMismatch -> "H58"
