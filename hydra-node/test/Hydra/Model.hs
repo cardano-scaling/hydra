@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 -- | A /Model/ of the Hydra head Protocol.
 --
@@ -243,24 +242,26 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Idle{idleParties}} (Init p) =
     p `elem` idleParties
-  precondition WorldState{hydraState = Initial{pendingCommits}} (Commit party _) =
+  precondition WorldState{hydraState = Initial{pendingCommits}} Commit{party} =
     party `Map.member` pendingCommits
-  precondition WorldState{hydraState = Initial{commits, pendingCommits}} (Abort party) =
+  precondition WorldState{hydraState = Initial{commits, pendingCommits}} Abort{party} =
     party `Set.member` (Map.keysSet pendingCommits <> Map.keysSet commits)
-  precondition WorldState{hydraState = Open{}} (Close _) =
-    True
-  precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
-    (from tx, value tx) `List.elem` confirmedUTxO offChainState
+  precondition WorldState{hydraState = Open{headParameters}} Close{party} =
+    party `elem` headParameters.parties
+  precondition WorldState{hydraState = Open{headParameters, offChainState}} (NewTx party tx) =
+    party `elem` headParameters.parties
+      && (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ Wait{} =
     True
-  precondition WorldState{hydraState = Open{offChainState}} (Decommit _ tx) =
-    (from tx, value tx) `List.elem` confirmedUTxO offChainState
+  precondition WorldState{hydraState = Open{headParameters, offChainState}} Decommit{party, decommitTx} =
+    party `elem` headParameters.parties
+      && (from decommitTx, value decommitTx) `List.elem` confirmedUTxO offChainState
   precondition WorldState{hydraState = Open{}} (ObserveConfirmedTx _) =
     True
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
-  precondition WorldState{hydraState = Closed{}} (Fanout _) =
-    True
+  precondition WorldState{hydraState = Closed{headParameters}} (Fanout party) =
+    party `elem` headParameters.parties
   precondition WorldState{hydraState = Open{}} (CloseWithInitialSnapshot _) =
     True
   precondition WorldState{hydraState} (RollbackAndForward _) =
@@ -392,30 +393,13 @@ instance StateModel WorldState where
       ObserveHeadIsOpen -> s
       StopTheWorld -> s
 
-  shrinkAction _ctx WorldState{hydraParties} action =
-    case action of
-      seed@Seed{seedKeys, toCommit} ->
-        [ Some seed{seedKeys = seedKeys', toCommit = toCommit'}
-        | seedKeys' <- shrink seedKeys
-        , let toCommit' = Map.filterWithKey (\p _ -> p `elem` (deriveParty . fst <$> seedKeys')) toCommit
-        ]
-      Init{party} ->
-        [Some action | isKnownParty party]
-      Commit{party} ->
-        [Some action | isKnownParty party]
-      Decommit{party} ->
-        [Some action | isKnownParty party]
-      Abort{party} ->
-        [Some action | isKnownParty party]
-      Close{party} ->
-        [Some action | isKnownParty party]
-      (Fanout party) ->
-        [Some action | isKnownParty party]
-      (NewTx party _) ->
-        [Some action | isKnownParty party]
-      _other -> []
-   where
-    isKnownParty p = p `elem` map (deriveParty . fst) hydraParties
+  shrinkAction _ctx _st = \case
+    seed@Seed{seedKeys, toCommit} ->
+      [ Some seed{seedKeys = seedKeys', toCommit = toCommit'}
+      | seedKeys' <- shrink seedKeys
+      , let toCommit' = Map.filterWithKey (\p _ -> p `elem` (deriveParty . fst <$> seedKeys')) toCommit
+      ]
+    _other -> []
 
 instance HasVariables WorldState where
   getAllVariables _ = mempty
