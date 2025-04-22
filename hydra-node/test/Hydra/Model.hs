@@ -152,13 +152,13 @@ instance StateModel WorldState where
       , toCommit :: Uncommitted
       } ->
       Action WorldState ()
+    Init :: {party :: Party} -> Action WorldState ()
+    Commit :: {party :: Party, utxoToCommit :: UTxOType Payment} -> Action WorldState ()
+    Decommit :: {party :: Party, decommitTx :: Payment} -> Action WorldState ()
+    Abort :: {party :: Party} -> Action WorldState ()
+    Close :: {party :: Party} -> Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
-    Init :: Party -> Action WorldState ()
-    Commit :: Party -> UTxOType Payment -> Action WorldState ()
-    Decommit :: Party -> Payment -> Action WorldState ()
-    Abort :: Party -> Action WorldState ()
-    Close :: Party -> Action WorldState ()
     Fanout :: Party -> Action WorldState UTxO
     NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
@@ -392,13 +392,30 @@ instance StateModel WorldState where
       ObserveHeadIsOpen -> s
       StopTheWorld -> s
 
-  shrinkAction _ctx _st = \case
-    seed@Seed{seedKeys, toCommit} ->
-      [ Some seed{seedKeys = seedKeys', toCommit = toCommit'}
-      | seedKeys' <- shrink seedKeys
-      , let toCommit' = Map.filterWithKey (\p _ -> p `elem` (deriveParty . fst <$> seedKeys')) toCommit
-      ]
-    _other -> []
+  shrinkAction _ctx WorldState{hydraParties} action =
+    case action of
+      seed@Seed{seedKeys, toCommit} ->
+        [ Some seed{seedKeys = seedKeys', toCommit = toCommit'}
+        | seedKeys' <- shrink seedKeys
+        , let toCommit' = Map.filterWithKey (\p _ -> p `elem` (deriveParty . fst <$> seedKeys')) toCommit
+        ]
+      Init{party} ->
+        [Some action | isKnownParty party]
+      Commit{party} ->
+        [Some action | isKnownParty party]
+      Decommit{party} ->
+        [Some action | isKnownParty party]
+      Abort{party} ->
+        [Some action | isKnownParty party]
+      Close{party} ->
+        [Some action | isKnownParty party]
+      (Fanout party) ->
+        [Some action | isKnownParty party]
+      (NewTx party _) ->
+        [Some action | isKnownParty party]
+      _other -> []
+   where
+    isKnownParty p = p `elem` map (deriveParty . fst) hydraParties
 
 instance HasVariables WorldState where
   getAllVariables _ = mempty
