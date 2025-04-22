@@ -44,6 +44,7 @@ import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeState, queryHeadState, runHydraNode, waitDelay)
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createMockSourceSink)
+import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
@@ -384,6 +385,7 @@ spec = parallel $ do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   let deadline = arbitrary `generateWith` 42
+                  -- TODO: update this and others below to use simulateDeposit
                   injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
 
@@ -905,7 +907,7 @@ waitUntilMatch nodes predicate = do
       failure $
         toString $
           unlines
-            [ "waitUntilMatch did not match a message within " <> show oneMonth <> ", seen messages:"
+            [ "waitUntilMatch did not match a message within " <> show oneMinute <> ", seen messages:"
             , unlines (show <$> msgs)
             ]
  where
@@ -958,17 +960,19 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   , simulateCommit :: (Party, UTxOType tx) -> m ()
+  , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m ()
   , closeWithInitialSnapshot :: (Party, UTxOType tx) -> m ()
   }
 
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
 dummySimulatedChainNetwork =
   SimulatedChainNetwork
-    { connectNode = \_ -> error "connectNode"
+    { connectNode = error "connectNode"
     , tickThread = error "tickThread"
-    , rollbackAndForward = \_ -> error "rollbackAndForward"
-    , simulateCommit = \_ -> error "simulateCommit"
-    , closeWithInitialSnapshot = \(_, _) -> error "closeWithInitialSnapshot"
+    , rollbackAndForward = error "rollbackAndForward"
+    , simulateCommit = error "simulateCommit"
+    , simulateDeposit = error "simulateDeposit"
+    , closeWithInitialSnapshot = error "closeWithInitialSnapshot"
     }
 
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'

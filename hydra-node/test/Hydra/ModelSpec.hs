@@ -188,6 +188,8 @@ spec = do
   prop "parties contest to wrong closed snapshot" prop_partyContestsToWrongClosedSnapshot
   prop "checkModel" prop_checkModel
 
+-- XXX: This is very similar to prop_HydraModel, where the assertion is
+-- basically a post condition!?
 prop_checkModel :: Property
 prop_checkModel =
   within 30000000 $
@@ -432,5 +434,5 @@ nonConflictingTx st =
 eventually :: Action WorldState () -> DL WorldState ()
 eventually a = action_ (Wait 10) >> action_ a
 
-action_ :: Action WorldState () -> DL WorldState ()
+action_ :: Typeable a => Action WorldState a -> DL WorldState ()
 action_ = void . action

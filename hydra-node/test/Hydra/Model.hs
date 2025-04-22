@@ -52,6 +52,7 @@ import Hydra.BehaviorSpec (
   createTestHydraClient,
   getHeadUTxO,
   shortLabel,
+  waitMatch,
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
@@ -64,6 +65,7 @@ import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (runHydraNode)
+import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
@@ -74,7 +76,7 @@ import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Test.Hydra.Prelude (failure)
 import Test.Hydra.Tx.Gen (genSigningKey)
-import Test.QuickCheck (choose, elements, frequency, oneof, resize, sized, tabulate, vectorOf)
+import Test.QuickCheck (choose, elements, frequency, resize, sized, sublistOf, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
@@ -90,6 +92,9 @@ data WorldState = WorldState
   , hydraState :: GlobalState
   -- ^ Expected consensus state
   -- All nodes should be in the same state.
+  , availableUTxO :: UTxOType Payment
+  -- ^ UTxO available to be committed.
+  -- TODO: merge with Idle.toCommit!?
   }
   deriving stock (Eq, Show)
 
@@ -111,12 +116,14 @@ data GlobalState
       , toCommit :: Uncommitted
       }
   | Initial
-      { headParameters :: HeadParameters
+      { headIdVar :: Var HeadId
+      , headParameters :: HeadParameters
       , commits :: Committed Payment
       , pendingCommits :: Uncommitted
       }
   | Open
-      { headParameters :: HeadParameters
+      { headIdVar :: Var HeadId
+      , headParameters :: HeadParameters
       , offChainState :: OffChainState
       , committed :: Committed Payment
       }
@@ -151,10 +158,11 @@ instance StateModel WorldState where
       , toCommit :: Uncommitted
       } ->
       Action WorldState ()
-    Init :: {party :: Party} -> Action WorldState ()
+    Init :: Party -> Action WorldState HeadId
     Commit :: {party :: Party, utxoToCommit :: UTxOType Payment} -> Action WorldState ()
-    Decommit :: {party :: Party, decommitTx :: Payment} -> Action WorldState ()
     Abort :: {party :: Party} -> Action WorldState ()
+    Deposit :: {headIdVar :: Var HeadId, utxoToDeposit :: UTxOType Payment, deadline :: UTCTime} -> Action WorldState ()
+    Decommit :: {party :: Party, decommitTx :: Payment} -> Action WorldState ()
     Close :: {party :: Party} -> Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
@@ -172,10 +180,11 @@ instance StateModel WorldState where
     WorldState
       { hydraParties = mempty
       , hydraState = Start
+      , availableUTxO = mempty
       }
 
   arbitraryAction :: VarContext -> WorldState -> Gen (Any (Action WorldState))
-  arbitraryAction _ st@WorldState{hydraParties, hydraState} =
+  arbitraryAction _ st@WorldState{hydraParties, hydraState, availableUTxO} =
     case hydraState of
       Start -> fmap Some genSeed
       Idle{} -> Some <$> genInit hydraParties
@@ -184,8 +193,8 @@ instance StateModel WorldState where
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
           ]
-      Open{offChainState = OffChainState{confirmedUTxO}} ->
-        genOpenActions confirmedUTxO
+      Open{headIdVar, offChainState = OffChainState{confirmedUTxO}} ->
+        genOpenActions headIdVar confirmedUTxO
       Closed{} ->
         frequency
           [ (5, genFanout)
@@ -203,23 +212,21 @@ instance StateModel WorldState where
     -- `NewTx` action for example but also want to make sure that after
     -- a 'Decommit' we are not left without any funds so further actions
     -- can be generated.
-    genOpenActions :: UTxOType Payment -> Gen (Any (Action WorldState))
-    genOpenActions confirmedUTxO =
-      if null confirmedUTxO
-        then
-          oneof
-            [ genClose
-            , genRollbackAndForward
-            ]
-        else
-          frequency $
-            [ (10, genNewTx)
-            , (1, genClose)
-            , (1, genRollbackAndForward)
-            ]
-              <> [(2, genDecommit) | length confirmedUTxO > 1]
+    genOpenActions headIdVar confirmedUTxO =
+      frequency $
+        [ (1, genClose)
+        , (1, genRollbackAndForward)
+        ]
+          <> [(10, genNewTx) | not $ null confirmedUTxO]
+          <> [(2, genDecommit) | length confirmedUTxO > 1]
+          <> [(2, genDeposit headIdVar) | not $ null availableUTxO]
 
-    genDecommit :: Gen (Any (Action WorldState))
+    genDeposit headIdVar = do
+      sk <- snd <$> elements hydraParties
+      utxoToDeposit <- sublistOf $ filter ((sk ==) . fst) availableUTxO
+      deadline <- arbitrary -- FIXME: this should be problematic
+      pure $ Some Deposit{headIdVar, utxoToDeposit, deadline}
+
     genDecommit = do
       genPayment st >>= \(party, tx) -> pure . Some $ Decommit party tx
 
@@ -253,6 +260,11 @@ instance StateModel WorldState where
       && (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ Wait{} =
     True
+  precondition WorldState{hydraState = Open{headParameters}} Commit{party} =
+    party `elem` headParameters.parties
+  precondition WorldState{hydraState = Open{headIdVar}, availableUTxO} Deposit{headIdVar = var, utxoToDeposit} =
+    var == headIdVar
+      && all (`elem` availableUTxO) utxoToDeposit
   precondition WorldState{hydraState = Open{headParameters, offChainState}} Decommit{party, decommitTx} =
     party `elem` headParameters.parties
       && (from decommitTx, value decommitTx) `List.elem` confirmedUTxO offChainState
@@ -277,23 +289,23 @@ instance StateModel WorldState where
   precondition _ _ =
     False
 
-  nextState s@WorldState{hydraParties, hydraState} a _var =
+  nextState s@WorldState{hydraState, availableUTxO} a result =
     case a of
       Seed{seedKeys, seedContestationPeriod, toCommit} ->
-        WorldState{hydraParties = seedKeys, hydraState = idleState}
+        s{hydraParties = seedKeys, hydraState = idleState}
        where
         idleState = Idle{idleParties, cardanoKeys, idleContestationPeriod, toCommit}
         idleParties = map (deriveParty . fst) seedKeys
         cardanoKeys = map (getVerificationKey . signingKey . snd) seedKeys
         idleContestationPeriod = seedContestationPeriod
-      --
       Init{} ->
-        WorldState{hydraParties, hydraState = mkInitialState hydraState}
+        s{hydraState = mkInitialState hydraState}
        where
         mkInitialState = \case
           Idle{idleParties, idleContestationPeriod, toCommit} ->
             Initial
-              { headParameters =
+              { headIdVar = result
+              , headParameters =
                   HeadParameters
                     { parties = idleParties
                     , contestationPeriod = idleContestationPeriod
@@ -302,27 +314,11 @@ instance StateModel WorldState where
               , pendingCommits = toCommit
               }
           _ -> error "unexpected state"
-      Decommit _party tx ->
-        WorldState{hydraParties, hydraState = updateWithDecommit hydraState}
-       where
-        updateWithDecommit = \case
-          Open{headParameters, committed, offChainState = OffChainState{confirmedUTxO}} ->
-            Open
-              { headParameters
-              , committed
-              , offChainState =
-                  OffChainState
-                    { confirmedUTxO =
-                        List.delete (from tx, value tx) confirmedUTxO
-                    }
-              }
-          _ -> error "unexpected state"
-      --
       Commit party utxo ->
-        WorldState{hydraParties, hydraState = updateWithCommit hydraState}
+        s{hydraState = updateWithCommit hydraState}
        where
         updateWithCommit = \case
-          Initial{headParameters, commits, pendingCommits} -> updatedState
+          Initial{headIdVar, headParameters, commits, pendingCommits} -> updatedState
            where
             commits' = Map.insert party utxo commits
             pendingCommits' = party `Map.delete` pendingCommits
@@ -330,7 +326,8 @@ instance StateModel WorldState where
               if null pendingCommits'
                 then
                   Open
-                    { headParameters
+                    { headIdVar
+                    , headParameters
                     , committed = commits'
                     , offChainState =
                         OffChainState
@@ -339,50 +336,68 @@ instance StateModel WorldState where
                     }
                 else
                   Initial
-                    { headParameters
+                    { headIdVar
+                    , headParameters
                     , commits = commits'
                     , pendingCommits = pendingCommits'
                     }
           _ -> error "unexpected state"
-      --
       Abort{} ->
-        WorldState{hydraParties, hydraState = updateWithAbort hydraState}
+        s{hydraState = updateWithAbort hydraState}
        where
         updateWithAbort = \case
           Initial{commits} -> Final committedUTxO
            where
             committedUTxO = mconcat $ Map.elems commits
           _ -> Final mempty
-      --
+      Deposit{utxoToDeposit} ->
+        s{hydraState = updateWithIncrementalCommit hydraState}
+       where
+        updateWithIncrementalCommit = \case
+          hs@Open{offChainState = OffChainState{confirmedUTxO}} ->
+            hs
+              { offChainState =
+                  OffChainState{confirmedUTxO = utxoToDeposit <> confirmedUTxO}
+              }
+          _ -> error "unexpected state"
+      Decommit _party tx ->
+        s{hydraState = updateWithDecommit hydraState, availableUTxO = decommitted : availableUTxO}
+       where
+        decommitted = (from tx, value tx)
+
+        updateWithDecommit = \case
+          hs@Open{offChainState = OffChainState{confirmedUTxO}} ->
+            hs
+              { offChainState =
+                  OffChainState{confirmedUTxO = List.delete decommitted confirmedUTxO}
+              }
+          _ -> error "unexpected state"
       Close{} ->
-        WorldState{hydraParties, hydraState = updateWithClose hydraState}
+        s{hydraState = updateWithClose hydraState}
        where
         updateWithClose = \case
           Open{offChainState = OffChainState{confirmedUTxO}, headParameters} -> Closed{headParameters, closedUTxO = confirmedUTxO}
           _ -> error "unexpected state"
       Fanout{} ->
-        WorldState{hydraParties, hydraState = updateWithFanout hydraState}
+        s{hydraState = updateWithFanout hydraState}
        where
         updateWithFanout = \case
           Closed{closedUTxO} -> Final closedUTxO
           _ -> error "unexpected state"
-      --
       (NewTx _ tx) ->
-        WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
+        s{hydraState = updateWithNewTx hydraState}
        where
         updateWithNewTx = \case
-          Open{headParameters, committed, offChainState = OffChainState{confirmedUTxO}} ->
-            Open
-              { headParameters
-              , committed
-              , offChainState =
+          hs@Open{offChainState = OffChainState{confirmedUTxO}} ->
+            hs
+              { offChainState =
                   OffChainState
                     { confirmedUTxO = confirmedUTxO `applyTx` tx
                     }
               }
           _ -> error "unexpected state"
       CloseWithInitialSnapshot _ ->
-        WorldState{hydraParties, hydraState = updateWithClose hydraState}
+        s{hydraState = updateWithClose hydraState}
        where
         updateWithClose = \case
           Open{offChainState = OffChainState{confirmedUTxO}, headParameters} -> Closed{headParameters, closedUTxO = confirmedUTxO}
@@ -437,7 +452,7 @@ genDepositDeadline = do
   n <- choose (1, 200)
   pure $ UnsafeDepositDeadline $ wordToNatural n
 
-genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState ())
+genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState HeadId)
 genInit hydraParties = do
   key <- fst <$> elements hydraParties
   let party = deriveParty key
@@ -565,20 +580,23 @@ instance
     case action of
       Seed{seedKeys, seedContestationPeriod, seedDepositDeadline, toCommit} ->
         seedWorld seedKeys seedContestationPeriod seedDepositDeadline toCommit
-      Commit party utxo ->
-        performCommit party utxo
-      Decommit party tx ->
-        performDecommit party tx
-      NewTx party transaction ->
-        performNewTx party transaction
       Init party ->
         performInit party
+      Commit party utxo ->
+        performCommit party utxo
       Abort party -> do
         performAbort party
+      Deposit headIdVar utxo deadline -> do
+        let headId = lookup headIdVar
+        performDeposit headId utxo deadline
+      Decommit party tx ->
+        performDecommit party tx
       Close party ->
         performClose party
       Fanout party ->
         performFanout party
+      NewTx party transaction ->
+        performNewTx party transaction
       Wait delay ->
         lift $ threadDelay delay
       ObserveConfirmedTx var -> do
@@ -670,8 +688,23 @@ performCommit party paymentUTxO = do
         simulateCommit (party, toRealUTxO paymentUTxO)
         waitUntilMatch (elems nodes) $ \case
           Committed{} -> True
-          CommitRecorded{} -> True
           _ -> False
+
+performDeposit ::
+  (MonadThrow m, MonadTimer m, MonadAsync m) =>
+  HeadId ->
+  [(CardanoSigningKey, Value)] ->
+  UTCTime ->
+  RunMonad m ()
+performDeposit headId utxoToDeposit deadline = do
+  nodes <- gets nodes
+  SimulatedChainNetwork{simulateDeposit} <- gets chain
+  lift $ do
+    simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
+    waitUntilMatch (elems nodes) $ \case
+      -- XXX: This server output is named weirdly
+      CommitRecorded{} -> True
+      _ -> False
 
 performDecommit ::
   (MonadThrow m, MonadTimer m, MonadAsync m, MonadDelay m) =>
@@ -754,19 +787,24 @@ waitForReadyToFanout node = do
 
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
+  actorNode <- getActorNode party
+  lift $ actorNode `send` command
+
+getActorNode :: (MonadSTM m, MonadThrow m) => Party -> RunMonad m (TestHydraClient Tx m)
+getActorNode party = do
   nodes <- gets nodes
   case Map.lookup party nodes of
     Nothing -> throwIO $ UnexpectedParty party
-    Just actorNode -> lift $ actorNode `send` command
+    Just actorNode -> pure actorNode
 
-performInit :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
+performInit :: (MonadSTM m, MonadThrow m) => Party -> RunMonad m HeadId
 performInit party = do
   party `sendsInput` Input.Init
-  nodes <- gets nodes
-  lift $
-    waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      HeadIsInitializing{} -> True
-      _ -> False
+  n <- getActorNode party
+  -- FIXME: need to wait on all nodes here
+  lift . waitMatch n $ \case
+    HeadIsInitializing{headId} -> Just headId
+    _ -> Nothing
 
 performAbort :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
 performAbort party = do
