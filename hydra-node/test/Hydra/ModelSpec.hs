@@ -142,6 +142,8 @@ import Hydra.Model (
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment qualified as Payment
 import Hydra.Tx.Party (Party (..), deriveParty)
+import System.IO.Temp (writeSystemTempFile)
+import System.IO.Unsafe (unsafePerformIO)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
@@ -401,10 +403,15 @@ runRunMonadIOSimGen f = do
         Left ex ->
           counterexample (show ex) False
  where
-  -- NOTE: Print the entire trace when we get an error; large, but aids
-  -- debugging.
   logsOnError tr =
-    counterexample $ toString traceDump
+    -- NOTE: Store trace dump in file when showing the counterexample. Behavior of
+    -- this during shrinking is not 100% confirmed, show the trace directly if you
+    -- want to be sure:
+    --
+    -- counterexample $ toString traceDump
+    counterexample . unsafePerformIO $ do
+      fn <- writeSystemTempFile "io-sim-trace" $ toString traceDump
+      pure $ "IOSim trace stored in: " <> toString fn
    where
     traceDump = printTrace (Proxy :: Proxy (HydraLog Tx)) tr
 
