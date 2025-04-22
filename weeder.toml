@@ -10,7 +10,6 @@ roots = [
  , "traceDebug$"
  , "spy$"
  , "spy'$"
- , "showFromAction$"
  , "redeemer$"
  # toCardanoGenesisParameters will be needed for full blockfrost integration
  , "toCardanoGenesisParameters"
