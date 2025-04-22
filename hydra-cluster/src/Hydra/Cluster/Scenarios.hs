@@ -494,6 +494,98 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
     utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, utxo}
 
+singlePartyReopenClosedHead ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  [TxId] ->
+  IO ()
+singlePartyReopenClosedHead tracer workDir node hydraScriptsTxId =
+  ( `finally`
+      do
+        returnFundsToFaucet tracer node Alice
+        returnFundsToFaucet tracer node AliceFunds
+  )
+    $ do
+      refuelIfNeeded tracer node Alice 55_000_000
+      -- Start hydra-node on chain tip
+      tip <- queryTip networkId nodeSocket
+      contestationPeriod <- fromNominalDiffTime $ 10 * blockTime
+      let depositDeadline = UnsafeDepositDeadline 200
+      aliceChainConfig <-
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+          <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
+      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+        -- Initialize & open head
+        send n1 $ input "Init" []
+        headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+        -- Commit something from external key
+        (walletVk, walletSk) <- keysFor AliceFunds
+        amount <- Coin <$> generate (choose (10_000_000, 50_000_000))
+        utxoToCommit <- seedFromFaucet node walletVk amount (contramap FromFaucet tracer)
+        requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= submitTx node
+
+        waitFor hydraTracer (10 * blockTime) [n1] $
+          output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+        -- self tx #1
+        utxo1 <- getSnapshotUTxO n1
+        tx1 <- mkTransferTx testNetworkId utxo1 walletSk walletVk
+        send n1 $ input "NewTx" ["transaction" .= tx1]
+        confirmedUTxO1 :: UTxO <- waitMatch (200 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $ v ^? key "snapshot" . key "number" == Just (toJSON (1 :: Integer))
+          v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
+
+        -- Close head #1
+        send n1 $ input "Close" []
+        deadline1 <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          guard $ v ^? key "headId" == Just (toJSON headId)
+          v ^? key "contestationDeadline" . _JSON
+        remainingTime1 <- diffUTCTime deadline1 <$> getCurrentTime
+        waitFor hydraTracer (remainingTime1 + 3 * blockTime) [n1] $
+          output "ReadyToFanout" ["headId" .= headId]
+
+        send n1 $ input "Reopen" []
+        waitFor hydraTracer (10 * blockTime) [n1] $
+          output "HeadIsOpen" ["utxo" .= toJSON confirmedUTxO1, "headId" .= headId]
+
+        -- self tx #2
+        utxo2 <- getSnapshotUTxO n1
+        tx2 <- mkTransferTx testNetworkId utxo2 walletSk walletVk
+        send n1 $ input "NewTx" ["transaction" .= tx2]
+        confirmedUTxO2 :: UTxO <- waitMatch (200 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
+          v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
+
+        -- Close head #2
+        send n1 $ input "Close" []
+        deadline2 <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          guard $ v ^? key "headId" == Just (toJSON headId)
+          v ^? key "contestationDeadline" . _JSON
+        remainingTime2 <- diffUTCTime deadline2 <$> getCurrentTime
+        waitFor hydraTracer (remainingTime2 + 3 * blockTime) [n1] $
+          output "ReadyToFanout" ["headId" .= headId]
+
+        send n1 $ input "Fanout" []
+
+        waitForAllMatch (10 * blockTime) [n1] $ checkFanout headId confirmedUTxO2
+      traceRemainingFunds Alice
+      traceRemainingFunds AliceFunds
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+  RunningNode{networkId, nodeSocket, blockTime} = node
+
+  traceRemainingFunds actor = do
+    (actorVk, _) <- keysFor actor
+    utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, utxo}
+
 -- | Open a Hydra Head with only a single participant but some arbitrary UTxO
 -- committed.
 singlePartyOpenAHead ::

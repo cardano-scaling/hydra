@@ -70,6 +70,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCommitsFromExternalTxBlueprint,
   singlePartyCommitsScriptBlueprint,
   singlePartyHeadFullLifeCycle,
+  singlePartyReopenClosedHead,
   singlePartyUsesScriptOnL2,
   singlePartyUsesWithdrawZeroTrick,
   threeNodesNoErrorsOnOpen,
@@ -197,6 +198,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyHeadFullLifeCycle tracer tmpDir node
+      it "reopen closed head" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyReopenClosedHead tracer tmpDir node
       it "can close with long deadline" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
