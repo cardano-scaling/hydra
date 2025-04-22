@@ -394,11 +394,11 @@ instance StateModel WorldState where
       StopTheWorld -> s
 
   shrinkAction _ctx _st = \case
-    seed@Seed{seedKeys, toCommit} ->
-      [ Some seed{seedKeys = seedKeys', toCommit = toCommit'}
-      | seedKeys' <- shrink seedKeys
-      , let toCommit' = Map.filterWithKey (\p _ -> p `elem` (deriveParty . fst <$> seedKeys')) toCommit
-      ]
+    seed@Seed{seedKeys, toCommit} -> do
+      seedKeys' <- shrink seedKeys
+      guard $ length seedKeys' < length seedKeys
+      let toCommit' = Map.filterWithKey (\p _ -> p `elem` (deriveParty . fst <$> seedKeys')) toCommit
+      pure $ Some $ seed{seedKeys = seedKeys', toCommit = toCommit'}
     _other -> []
 
 instance HasVariables WorldState where
