@@ -16,7 +16,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently_)
+import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
@@ -190,7 +190,7 @@ spec = parallel $ do
               -- We expect bob to ignore alice's head which he is not part of
               -- although bob's configuration would includes alice as a
               -- peerconfigured)
-              waitMatch n2 $ \case
+              waitUntilMatch [n2] $ \case
                 IgnoredHeadInitializing{headId, parties} ->
                   guard $ headId == testHeadId && parties == fromList [alice]
                 _ -> Nothing
@@ -266,8 +266,8 @@ spec = parallel $ do
                 -- transaction right away which is the current snapshot policy.
                 waitUntilMatch [n1, n2] $ \case
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
-                    number == 1 && confirmed == [aValidTx 40]
-                  _ -> False
+                    guard $ number == 1 && confirmed == [aValidTx 40]
+                  _ -> Nothing
 
                 -- Expect bob to also snapshot what did "not fit" into the first
                 -- snapshot.
@@ -275,16 +275,16 @@ spec = parallel $ do
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
                     -- NOTE: We sort the confirmed to be clear that the order may
                     -- be freely picked by the leader.
-                    number == 2 && sort confirmed == [aValidTx 41, aValidTx 42]
-                  _ -> False
+                    guard $ number == 2 && sort confirmed == [aValidTx 41, aValidTx 42]
+                  _ -> Nothing
 
                 -- As there are no pending transactions and snapshots anymore
                 -- we expect to continue normally on seeing just another tx.
                 send n1 (NewTx $ aValidTx 44)
                 waitUntilMatch [n1, n2] $ \case
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
-                    number == 3 && confirmed == [aValidTx 44]
-                  _ -> False
+                    guard $ number == 3 && confirmed == [aValidTx 44]
+                  _ -> Nothing
 
       it "depending transactions stay pending and are confirmed in order" $
         shouldRunInSim $
@@ -325,8 +325,8 @@ spec = parallel $ do
                 -- If we wait too long, secondTx will expire
                 threadDelay $ fromIntegral defaultTTL * waitDelay + 1
                 waitUntilMatch [n1, n2] $ \case
-                  TxInvalid{transaction} -> transaction == secondTx
-                  _ -> False
+                  TxInvalid{transaction} -> guard $ transaction == secondTx
+                  _ -> Nothing
 
                 send n1 (NewTx firstTx)
                 waitUntil [n1, n2] $ TxValid testHeadId 1
@@ -356,8 +356,8 @@ spec = parallel $ do
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
                 waitUntilMatch [n1, n2] $ \case
-                  TxInvalid{transaction} -> transaction == tx''
-                  _ -> False
+                  TxInvalid{transaction} -> guard $ transaction == tx''
+                  _ -> Nothing
 
       it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
@@ -389,11 +389,10 @@ spec = parallel $ do
                   injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
 
-                  waitUntilMatch [n1, n2] $
-                    \case
-                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                        maybe False (11 `member`) utxoToCommit
-                      _ -> False
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                      utxoToCommit >>= guard . (11 `member`)
+                    _ -> Nothing
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
@@ -418,22 +417,20 @@ spec = parallel $ do
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
                   waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, deadline}
-                  waitUntilMatch [n1, n2] $
-                    \case
-                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                        maybe False (11 `member`) utxoToCommit
-                      _ -> False
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                      utxoToCommit >>= guard . (11 `member`)
+                    _ -> Nothing
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
                   let normalTx = SimpleTx 3 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
                   waitUntil [n1, n2] $ TxValid testHeadId 3
-                  waitUntilMatch [n1, n2] $
-                    \case
-                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                        maybe False (22 `member`) utxoToCommit
-                      _ -> False
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                      utxoToCommit >>= guard . (22 `member`)
+                    _ -> Nothing
                   waitUntil [n2] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
                   waitUntil [n2] $ CommitFinalized{headId = testHeadId, depositTxId = 2}
                   send n1 Close
@@ -458,8 +455,8 @@ spec = parallel $ do
                   send n2 (NewTx normalTx)
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
                   waitUntilMatch [n1, n2] $ \case
-                    SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
-                    _ -> False
+                    SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> guard $ normalTx `elem` confirmed
+                    _ -> Nothing
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
@@ -479,17 +476,15 @@ spec = parallel $ do
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
 
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
-                  waitUntilMatch [n1] $
-                    \case
-                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                        maybe False (11 `member`) utxoToCommit
-                      _ -> False
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                      utxoToCommit >>= guard . (11 `member`)
+                    _ -> Nothing
 
                   send n1 Close
-                  waitUntilMatch [n1, n2] $
-                    \case
-                      HeadIsClosed{snapshotNumber} -> snapshotNumber == 1
-                      _ -> False
+                  waitUntilMatch [n1, n2] $ \case
+                    HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 1
+                    _ -> Nothing
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2, 11]}
@@ -531,11 +526,10 @@ spec = parallel $ do
                     n2
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline2, newChainState = SimpleChainState{slot = ChainSlot 1}}
                   waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, deadline = deadline2}
-                  waitUntilMatch [n1, n2] $
-                    \case
-                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                        maybe False (111 `member`) utxoToCommit
-                      _ -> False
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                      utxoToCommit >>= guard . (111 `member`)
+                    _ -> Nothing
 
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
@@ -554,11 +548,10 @@ spec = parallel $ do
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
-                  waitUntilMatch [n1, n2] $
-                    \case
-                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                        maybe False (11 `member`) utxoToCommit
-                      _ -> False
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                      utxoToCommit >>= guard . (11 `member`)
+                    _ -> Nothing
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
 
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
@@ -566,11 +559,10 @@ spec = parallel $ do
                   waitUntil [n1, n2] $
                     DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
 
-                  waitUntilMatch [n1] $
-                    \case
-                      SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
-                        maybe False (42 `member`) utxoToDecommit
-                      _ -> False
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
+                      utxoToDecommit >>= guard . (42 `member`)
+                    _ -> Nothing
 
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRef 42}
                   waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
@@ -593,8 +585,8 @@ spec = parallel $ do
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                        maybe False (11 `member`) utxoToCommit
-                      _ -> False
+                        utxoToCommit >>= guard . (11 `member`)
+                      _ -> Nothing
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
 
                   headUTxO <- getHeadUTxO <$> queryState n1
@@ -604,11 +596,10 @@ spec = parallel $ do
                   send n2 (Decommit decommitTx)
                   waitUntil [n1, n2] $
                     DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [88]}
-                  waitUntilMatch [n1, n2] $
-                    \case
-                      SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
-                        maybe False (88 `member`) utxoToDecommit
-                      _ -> False
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
+                      utxoToDecommit >>= guard . (88 `member`)
+                    _ -> Nothing
 
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRefs [88]}
                   waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 88}
@@ -640,11 +631,10 @@ spec = parallel $ do
                   waitUntil [n1, n2] $
                     DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
 
-                  waitUntilMatch [n1] $
-                    \case
-                      SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
-                        maybe False (42 `member`) utxoToDecommit
-                      _ -> False
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
+                      utxoToDecommit >>= guard . (42 `member`)
+                    _ -> Nothing
 
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRefs [42]}
                   waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
@@ -695,8 +685,8 @@ spec = parallel $ do
                   let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
                   waitUntilMatch [n1, n2] $ \case
-                    SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
-                    _ -> False
+                    SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> guard $ normalTx `elem` confirmed
+                    _ -> Nothing
 
                   waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
 
@@ -712,7 +702,7 @@ spec = parallel $ do
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
 
-                  waitMatch n2 $ \case
+                  waitUntilMatch [n2] $ \case
                     HeadIsContested{headId, snapshotNumber} -> guard $ headId == testHeadId && snapshotNumber == 1
                     _ -> Nothing
 
@@ -792,8 +782,8 @@ spec = parallel $ do
               let tx = aValidTx 42
               send n2 (NewTx tx)
               waitUntilMatch [n1, n2] $ \case
-                SnapshotConfirmed{snapshot = Snapshot{number}} -> number == 1
-                _ -> False
+                SnapshotConfirmed{snapshot = Snapshot{number}} -> guard $ number == 1
+                _ -> Nothing
 
               -- Have n1 & n2 observe a close with not the latest snapshot
               let deadline = arbitrary `generateWith` 42
@@ -804,13 +794,13 @@ spec = parallel $ do
               injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
 
               waitUntilMatch [n1, n2] $ \case
-                HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
-                _ -> False
+                HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 0
+                _ -> Nothing
 
               -- Expect n1 to contest with latest snapshot, number 1
               waitUntilMatch [n1, n2] $ \case
-                HeadIsContested{snapshotNumber} -> snapshotNumber == 1
-                _ -> False
+                HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 1
+                _ -> Nothing
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -885,7 +875,7 @@ waitUntil ::
   ServerOutput tx ->
   m ()
 waitUntil nodes expected =
-  waitUntilMatch nodes (== expected)
+  waitUntilMatch nodes $ guard . (expected ==)
 
 -- | Wait for a server output to match some predicate /eventually/. If a client
 -- message is received instead, this fails. This will not wait forever, but for
@@ -894,14 +884,17 @@ waitUntil nodes expected =
 -- since we are having the protocol produce 'Tick' events constantly this would
 -- be fully simulated to the end.
 waitUntilMatch ::
-  (Show (ClientMessage tx), Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
+  (Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m, Eq a, Show a) =>
   [TestHydraClient tx m] ->
-  (ServerOutput tx -> Bool) ->
-  m ()
+  (ServerOutput tx -> Maybe a) ->
+  m a
 waitUntilMatch nodes predicate = do
   seenMsgs <- newTVarIO []
-  timeout oneMonth (forConcurrently_ nodes $ go seenMsgs) >>= \case
-    Just x -> pure x
+  timeout oneMonth (forConcurrently nodes $ go seenMsgs) >>= \case
+    Just [] -> failure "waitUntilMatch no results"
+    Just (x : xs)
+      | all (== x) xs -> pure x
+      | otherwise -> failure . toString $ unlines ["waitUntilMatch encountered inconsistent results:", show (x : xs)]
     Nothing -> do
       msgs <- readTVarIO seenMsgs
       failure $
@@ -911,32 +904,14 @@ waitUntilMatch nodes predicate = do
             , unlines (show <$> msgs)
             ]
  where
-  go seenMsgs n =
-    race_
-      (waitForNextMessage n >>= \msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg)
-      (match seenMsgs n)
-
-  match seenMsgs n = do
+  go seenMsgs n = do
     msg <- waitForNext n
     atomically (modifyTVar' seenMsgs (msg :))
-    unless (predicate msg) $
-      match seenMsgs n
+    case predicate msg of
+      Just x -> pure x
+      Nothing -> go seenMsgs n
 
   oneMonth = 3600 * 24 * 30
-
--- | Wait for an output matching the predicate and extracting some value. This
--- will loop forever until a match has been found.
-waitMatch ::
-  MonadThrow m =>
-  TestHydraClient tx m ->
-  (ServerOutput tx -> Maybe a) ->
-  m a
-waitMatch node predicate =
-  go
- where
-  go = do
-    next <- waitForNext node
-    maybe go pure (predicate next)
 
 -- XXX: The names of the following handles and functions are confusing.
 
