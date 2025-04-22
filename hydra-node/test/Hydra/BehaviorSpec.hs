@@ -907,7 +907,7 @@ waitUntilMatch nodes predicate = do
       failure $
         toString $
           unlines
-            [ "waitUntilMatch did not match a message within " <> show oneMinute <> ", seen messages:"
+            [ "waitUntilMatch did not match a message within " <> show oneMonth <> ", seen messages:"
             , unlines (show <$> msgs)
             ]
  where

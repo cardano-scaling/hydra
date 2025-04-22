@@ -906,29 +906,6 @@ mkMockTxIn (CardanoSigningKey sk) ix =
   -- NOTE: Ugly, works because both binary representations are 32-byte long.
   tid = unsafeDeserialize' (serialize' vk)
 
--- | Bring `Show` instance in scope drawing it from the `Action` type.
---
--- This is a neat trick to provide `show`able results from action in a context where
--- there's no explicit `Show a` instance, eg. in the `monitoring` and `postcondition`
--- functions. We don't have access to an `a` directly because its value depends on
--- type family `Realized`.
-showFromAction :: (Show a => b) -> Action WorldState a -> b
-showFromAction k = \case
-  Seed{} -> k
-  Init{} -> k
-  Commit{} -> k
-  Decommit{} -> k
-  Abort{} -> k
-  Close{} -> k
-  Fanout{} -> k
-  NewTx{} -> k
-  Wait{} -> k
-  ObserveConfirmedTx{} -> k
-  CloseWithInitialSnapshot{} -> k
-  RollbackAndForward{} -> k
-  StopTheWorld -> k
-  ObserveHeadIsOpen -> k
-
 -- | Like '===', but works in PostconditionM.
 (===) :: (Eq a, Show a, Monad m) => a -> a -> PostconditionM m Bool
 x === y = do
