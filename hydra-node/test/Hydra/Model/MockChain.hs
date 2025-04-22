@@ -200,27 +200,14 @@ mockChainAndNetwork tr seedKeys commits = do
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
-  simulateCommit nodes (party, utxoToCommit) = do
+  simulateCommit nodes headId party utxoToCommit = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
       Nothing -> error "simulateCommit: Could not find matching HydraNode"
-      Just
-        MockHydraNode
-          { node = HydraNode{oc = Chain{submitTx, draftCommitTx}, nodeState = NodeState{queryHeadState}}
-          } -> do
-          -- TODO: draft and submit a deposit if head is already open
-          hs <- atomically queryHeadState
-          let hId = case hs of
-                Idle IdleState{} -> error "HeadState is Idle: no HeadId to commit"
-                Initial InitialState{headId} -> headId
-                Open OpenState{headId} -> headId
-                Closed ClosedState{headId} -> headId
-          -- NOTE: We don't need to sign a tx here since the MockChain
-          -- doesn't actually validate transactions using a real ledger.
-          eTx <- draftCommitTx hId (mkSimpleBlueprintTx utxoToCommit)
-          case eTx of
-            Left e -> throwIO e
-            Right tx -> submitTx tx
+      Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftCommitTx}}} ->
+        draftCommitTx headId (mkSimpleBlueprintTx utxoToCommit) >>= \case
+          Left e -> throwIO e
+          Right tx -> submitTx tx
 
   simulateDeposit nodes headId utxoToDeposit deadline = do
     -- XXX: Weird that we need a registered node here and cannot just draft the

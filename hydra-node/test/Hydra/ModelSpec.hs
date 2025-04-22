@@ -306,13 +306,13 @@ headOpensIfAllPartiesCommit = do
   everybodyCommit = do
     WorldState{hydraParties, hydraState} <- getModelStateDL
     case hydraState of
-      Initial{pendingCommits} ->
+      Initial{headIdVar, pendingCommits} ->
         forM_ hydraParties $ \p -> do
           let party = deriveParty (fst p)
           case Map.lookup party pendingCommits of
             Nothing -> pure ()
             Just utxo ->
-              void $ action $ Model.Commit party utxo
+              void $ action $ Model.Commit headIdVar party utxo
       _ -> pure ()
 
 prop_checkConflictFreeLiveness :: Property
@@ -358,7 +358,7 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
  where
   contains0AdaUTxO :: Step WorldState -> Bool
   contains0AdaUTxO = \case
-    _anyVar := (ActionWithPolarity (Model.Commit _anyParty utxos) _) -> any contains0Ada utxos
+    _anyVar := (ActionWithPolarity (Model.Commit _ _anyParty utxos) _) -> any contains0Ada utxos
     _anyVar := (ActionWithPolarity (Model.NewTx _anyParty Payment.Payment{value}) _) -> value == lovelaceToValue 0
     _anyOtherStep -> False
   contains0Ada = (== lovelaceToValue 0) . snd

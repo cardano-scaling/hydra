@@ -158,7 +158,7 @@ instance StateModel WorldState where
       } ->
       Action WorldState ()
     Init :: Party -> Action WorldState HeadId
-    Commit :: {party :: Party, utxoToCommit :: UTxOType Payment} -> Action WorldState ()
+    Commit :: {headIdVar :: Var HeadId, party :: Party, utxoToCommit :: UTxOType Payment} -> Action WorldState ()
     Abort :: {party :: Party} -> Action WorldState ()
     Deposit :: {headIdVar :: Var HeadId, utxoToDeposit :: UTxOType Payment, deadline :: UTCTime} -> Action WorldState ()
     Decommit :: {party :: Party, decommitTx :: Payment} -> Action WorldState ()
@@ -187,9 +187,9 @@ instance StateModel WorldState where
     case hydraState of
       Start -> fmap Some genSeed
       Idle{} -> Some <$> genInit hydraParties
-      Initial{pendingCommits} ->
+      Initial{headIdVar, pendingCommits} ->
         frequency
-          [ (5, genCommit pendingCommits)
+          [ (5, genCommit headIdVar pendingCommits)
           , (1, genAbort)
           ]
       Open{headIdVar, offChainState = OffChainState{confirmedUTxO}} ->
@@ -201,10 +201,9 @@ instance StateModel WorldState where
           ]
       Final{} -> fmap Some genSeed
    where
-    genCommit :: Uncommitted -> Gen (Any (Action WorldState))
-    genCommit pending = do
+    genCommit headIdVar pending = do
       (party, commits) <- elements $ Map.toList pending
-      pure . Some $ Commit party commits
+      pure . Some $ Commit headIdVar party commits
 
     -- NOTE: Some actions depend on confirmed 'UTxO' in the head so
     -- we need to make sure there are funds to spend when generating a
@@ -313,7 +312,7 @@ instance StateModel WorldState where
               , pendingCommits = toCommit
               }
           _ -> error "unexpected state"
-      Commit party utxo ->
+      Commit _ party utxo ->
         s{hydraState = updateWithCommit hydraState}
        where
         updateWithCommit = \case
@@ -581,8 +580,9 @@ instance
         seedWorld seedKeys seedContestationPeriod seedDepositDeadline toCommit
       Init party ->
         performInit party
-      Commit party utxo ->
-        performCommit party utxo
+      Commit headIdVar party utxo -> do
+        let headId = lookup headIdVar
+        performCommit headId party utxo
       Abort party -> do
         performAbort party
       Deposit headIdVar utxo deadline -> do
@@ -674,20 +674,18 @@ seedWorld seedKeys seedCP depositDeadline futureCommits = do
 
 performCommit ::
   (MonadThrow m, MonadTimer m, MonadAsync m) =>
+  HeadId ->
   Party ->
   [(CardanoSigningKey, Value)] ->
   RunMonad m ()
-performCommit party paymentUTxO = do
-  nodes <- gets nodes
+performCommit headId party paymentUTxO = do
   SimulatedChainNetwork{simulateCommit} <- gets chain
-  case Map.lookup party nodes of
-    Nothing -> throwIO $ UnexpectedParty party
-    Just{} ->
-      lift $ do
-        simulateCommit (party, toRealUTxO paymentUTxO)
-        waitUntilMatch (elems nodes) $ \case
-          Committed{} -> Just ()
-          _ -> Nothing
+  nodes <- gets nodes
+  lift $ do
+    simulateCommit headId party (toRealUTxO paymentUTxO)
+    waitUntilMatch (elems nodes) $ \case
+      Committed{} -> Just ()
+      _ -> Nothing
 
 performDeposit ::
   (MonadThrow m, MonadTimer m, MonadAsync m) =>
