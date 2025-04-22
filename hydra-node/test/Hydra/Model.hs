@@ -17,7 +17,6 @@
 -- modelling more complex transactions schemes...
 module Hydra.Model where
 
-import Data.Foldable qualified
 import Hydra.Cardano.Api hiding (utxoFromTx)
 import Hydra.Prelude hiding (Any, label, lookup, toList)
 
@@ -34,6 +33,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
+import Data.Foldable qualified as Foldable
 import Data.List (nub)
 import Data.List qualified as List
 import Data.Map ((!))
@@ -52,7 +52,6 @@ import Hydra.BehaviorSpec (
   createTestHydraClient,
   getHeadUTxO,
   shortLabel,
-  waitMatch,
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
@@ -565,7 +564,7 @@ instance
     case action of
       Fanout{} ->
         case hydraState st of
-          Final{finalUTxO} -> sortTxOuts (toTxOuts finalUTxO) === sortTxOuts (Data.Foldable.toList result)
+          Final{finalUTxO} -> sortTxOuts (toTxOuts finalUTxO) === sortTxOuts (Foldable.toList result)
           _ -> pure False
       _ -> pure True
 
@@ -687,8 +686,8 @@ performCommit party paymentUTxO = do
       lift $ do
         simulateCommit (party, toRealUTxO paymentUTxO)
         waitUntilMatch (elems nodes) $ \case
-          Committed{} -> True
-          _ -> False
+          Committed{} -> Just ()
+          _ -> Nothing
 
 performDeposit ::
   (MonadThrow m, MonadTimer m, MonadAsync m) =>
@@ -703,8 +702,8 @@ performDeposit headId utxoToDeposit deadline = do
     simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
     waitUntilMatch (elems nodes) $ \case
       -- XXX: This server output is named weirdly
-      CommitRecorded{} -> True
-      _ -> False
+      CommitRecorded{} -> Just ()
+      _ -> Nothing
 
 performDecommit ::
   (MonadThrow m, MonadTimer m, MonadAsync m, MonadDelay m) =>
@@ -730,11 +729,10 @@ performDecommit party tx = do
 
   party `sendsInput` Input.Decommit realTx
 
-  lift $ do
-    waitUntilMatch (Map.elems nodes) $ \case
-      DecommitFinalized{distributedUTxO} ->
-        sortTxOuts (Data.Foldable.toList distributedUTxO) == sortTxOuts (Data.Foldable.toList $ utxoFromTx realTx)
-      _ -> False
+  lift . waitUntilMatch (elems nodes) $ \case
+    DecommitFinalized{distributedUTxO} ->
+      guard $ sortTxOuts (Foldable.toList distributedUTxO) == sortTxOuts (Foldable.toList $ utxoFromTx realTx)
+    _ -> Nothing
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) =>
@@ -759,13 +757,12 @@ performNewTx party tx = do
           (mkSimpleTx (i, o) (recipient, value tx) (signingKey $ from tx))
 
   party `sendsInput` Input.NewTx realTx
-  lift $ do
-    waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      SnapshotConfirmed{snapshot = snapshot} ->
-        realTx `elem` Snapshot.confirmed snapshot
-      err@(TxInvalid{}) -> error ("expected tx to be valid: " <> show err)
-      _ -> False
-    pure tx
+  lift . waitUntilMatch (elems nodes) $ \case
+    SnapshotConfirmed{snapshot = snapshot} ->
+      guard $ realTx `elem` Snapshot.confirmed snapshot
+    err@(TxInvalid{}) -> error ("expected tx to be valid: " <> show err)
+    _ -> Nothing
+  pure tx
 
 -- | Wait for the head to be open by searching from the beginning. Note that
 -- there rollbacks or multiple life-cycles of heads are not handled here.
@@ -797,12 +794,11 @@ getActorNode party = do
     Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> pure actorNode
 
-performInit :: (MonadSTM m, MonadThrow m) => Party -> RunMonad m HeadId
+performInit :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m HeadId
 performInit party = do
   party `sendsInput` Input.Init
-  n <- getActorNode party
-  -- FIXME: need to wait on all nodes here
-  lift . waitMatch n $ \case
+  nodes <- gets nodes
+  lift . waitUntilMatch (elems nodes) $ \case
     HeadIsInitializing{headId} -> Just headId
     _ -> Nothing
 
@@ -811,10 +807,9 @@ performAbort party = do
   party `sendsInput` Input.Abort
 
   nodes <- gets nodes
-  lift $
-    waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      HeadIsAborted{} -> True
-      _ -> False
+  lift . waitUntilMatch (elems nodes) $ \case
+    HeadIsAborted{} -> Just ()
+    _ -> Nothing
 
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m ()
 performClose party = do
@@ -823,10 +818,9 @@ performClose party = do
   waitForOpen thisNode
   party `sendsInput` Input.Close
 
-  lift $
-    waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      HeadIsClosed{} -> True
-      _ -> False
+  lift . waitUntilMatch (elems nodes) $ \case
+    HeadIsClosed{} -> Just ()
+    _ -> Nothing
 
 performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
 performFanout party = do
@@ -855,14 +849,14 @@ performCloseWithInitialSnapshot st party = do
   case hydraState st of
     Open{committed} -> do
       SimulatedChainNetwork{closeWithInitialSnapshot} <- gets chain
-      _ <- lift $ closeWithInitialSnapshot (party, toRealUTxO $ foldMap snd $ Map.toList committed)
-      lift $
-        waitUntilMatch (Data.Foldable.toList nodes) $ \case
+      lift $ do
+        _ <- closeWithInitialSnapshot (party, toRealUTxO $ foldMap snd $ Map.toList committed)
+        waitUntilMatch (elems nodes) $ \case
           HeadIsClosed{snapshotNumber} ->
             -- we deliberately wait to see close with the initial snapshot
             -- here to mimic one node not seeing the confirmed tx
-            snapshotNumber == Snapshot.UnsafeSnapshotNumber 0
-          _ -> False
+            guard $ snapshotNumber == Snapshot.UnsafeSnapshotNumber 0
+          _ -> Nothing
     _ -> error "Not in open state"
 
 performRollbackAndForward :: (MonadThrow m, MonadTimer m) => Natural -> RunMonad m ()
