@@ -185,7 +185,7 @@ instance StateModel WorldState where
   arbitraryAction :: VarContext -> WorldState -> Gen (Any (Action WorldState))
   arbitraryAction _ st@WorldState{hydraParties, hydraState, availableUTxO} =
     case hydraState of
-      Start -> fmap Some genSeed
+      Start -> Some <$> genSeed
       Idle{} -> Some <$> genInit hydraParties
       Initial{headIdVar, pendingCommits} ->
         frequency
@@ -199,7 +199,7 @@ instance StateModel WorldState where
           [ (5, genFanout)
           , (1, genRollbackAndForward)
           ]
-      Final{} -> fmap Some genSeed
+      Final{} -> Some <$> genSeed
    where
     genCommit headIdVar pending = do
       (party, commits) <- elements $ Map.toList pending

@@ -16,6 +16,7 @@ import Hydra.Tx (
   SnapshotVersion,
  )
 import Hydra.Tx.Crypto (HydraKey, VerificationKey)
+import Test.QuickCheck (recursivelyShrink)
 
 data LogicError tx
   = UnhandledInput {input :: Input tx, currentHeadState :: HeadState tx}
@@ -23,6 +24,7 @@ data LogicError tx
   | AssertionFailed {message :: Text}
   | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
   | SideLoadSnapshotFailed {sideLoadRequirementFailure :: SideLoadRequirementFailure tx}
+  | InvalidDeposit {depositTxId :: TxIdType tx, deadline :: UTCTime}
   deriving stock (Generic)
 
 instance
@@ -30,17 +32,19 @@ instance
   , Arbitrary (HeadState tx)
   , Arbitrary (RequirementFailure tx)
   , Arbitrary (SideLoadRequirementFailure tx)
+  , Arbitrary (TxIdType tx)
   ) =>
   Arbitrary (LogicError tx)
   where
   arbitrary = genericArbitrary
-  shrink = genericShrink
+  shrink = recursivelyShrink
 
 deriving stock instance
   ( Eq (HeadState tx)
   , Eq (Input tx)
   , Eq (RequirementFailure tx)
   , Eq (SideLoadRequirementFailure tx)
+  , Eq (TxIdType tx)
   ) =>
   Eq (LogicError tx)
 
@@ -49,6 +53,7 @@ deriving stock instance
   , Show (Input tx)
   , Show (RequirementFailure tx)
   , Show (SideLoadRequirementFailure tx)
+  , Show (TxIdType tx)
   ) =>
   Show (LogicError tx)
 
@@ -57,6 +62,7 @@ deriving anyclass instance
   , ToJSON (Input tx)
   , ToJSON (RequirementFailure tx)
   , ToJSON (SideLoadRequirementFailure tx)
+  , ToJSON (TxIdType tx)
   ) =>
   ToJSON (LogicError tx)
 
