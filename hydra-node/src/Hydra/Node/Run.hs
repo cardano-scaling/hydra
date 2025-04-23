@@ -127,16 +127,11 @@ run opts = do
   prepareChainComponent tracer Environment{party, otherParties} = \case
     Offline cfg ->
       pure $ withOfflineChain cfg party otherParties
-    Direct DirectChainConfig{} -> undefined
-    Cardano cardanoCfg@CardanoChainConfig{chainBackend} -> do
-      let cfg = undefined
-      ctx <- loadChainContext cardanoCfg party
+    Direct DirectChainConfig{} -> error "Direct chain config is deprecated"
+    Cardano cfg@CardanoChainConfig{} -> do
+      ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
-      case chainBackend of
-        DirectBackend{} ->
-          pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
-        BlockfrostBackend{} ->
-          pure undefined
+      pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
 
   RunOptions
     { verbosity

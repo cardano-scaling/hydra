@@ -101,7 +101,7 @@ publishHydraScripts projectPath sk = do
       , _genesisSystemStart = systemStart'
       } <-
       queryGenesisParameters
-    pparams <- toCardanoPParams
+    pparams <- queryProtocolParameters
     let address = Blockfrost.Address (vkAddress networkMagic)
     let networkId = toCardanoNetworkId networkMagic
     let changeAddress = mkVkAddress networkId vk
@@ -185,13 +185,13 @@ toCardanoValue = foldMap convertAmount
 
 -- ** Helpers
 
-unwrapAddress :: AddressInEra -> Text
-unwrapAddress = \case
+addressToText :: AddressInEra -> Text
+addressToText = \case
   ShelleyAddressInEra addr -> serialiseToBech32 addr
   ByronAddressInEra{} -> error "Byron."
 
 textAddrOf :: NetworkId -> VerificationKey PaymentKey -> Text
-textAddrOf networkId vk = unwrapAddress (mkVkAddress @Era networkId vk)
+textAddrOf networkId vk = addressToText (mkVkAddress @Era networkId vk)
 
 toCardanoNetworkId :: Integer -> NetworkId
 toCardanoNetworkId = \case
@@ -229,8 +229,8 @@ data BlockfrostConversion
   , minFeeRefScriptCostPerByte :: NonNegativeInterval
   }
 
-toCardanoPParams :: MonadIO m => BlockfrostClientT m (PParams LedgerEra)
-toCardanoPParams = do
+queryProtocolParameters :: MonadIO m => BlockfrostClientT m (PParams LedgerEra)
+queryProtocolParameters = do
   pparams <- Blockfrost.getLatestEpochProtocolParams
   minVersion <- liftIO $ mkVersion $ pparams ^. Blockfrost.protocolMinorVer
   let maxVersion = fromIntegral $ pparams ^. Blockfrost.protocolMajorVer
@@ -436,15 +436,17 @@ queryUTxOByTxIn networkId txIn = do
   TxIn (TxId txHash) _ = txIn
 
 -- | Query the Blockfrost API for address UTxO and convert to cardano 'UTxO'.
-queryUTxO :: SigningKey PaymentKey -> NetworkId -> BlockfrostClientT IO UTxO
-queryUTxO sk networkId = do
-  let address = Blockfrost.Address vkAddress
-  utxo <- Blockfrost.getAddressUtxos address
-  let cardanoAddress = mkVkAddress networkId vk
-  pure $ toCardanoUTxO utxo cardanoAddress
+-- NOTE: We accept the address list here to be compatible with cardano-api but in
+-- fact this is a single address query always.
+queryUTxO :: [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
+queryUTxO addresses = do
+  let addresses' = (\cardanoAddr -> (Blockfrost.Address $ serialiseAddress cardanoAddr, cardanoAddr)) <$> addresses
+  utxoWithAddresses <- mapM utxoForAddress addresses'
+  pure $ foldMap ((<> mempty) . uncurry toCardanoUTxO) utxoWithAddresses
  where
-  vk = getVerificationKey sk
-  vkAddress = textAddrOf networkId vk
+  utxoForAddress (addr, cardanoAddr) = do
+    bfUTxO <- Blockfrost.getAddressUtxos addr
+    pure (bfUTxO, anyAddressInShelleyBasedEra shelleyBasedEra $ toAddressAny cardanoAddr)
 
 querySystemStart :: BlockfrostClientT IO SystemStart
 querySystemStart = do

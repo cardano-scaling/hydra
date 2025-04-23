@@ -8,9 +8,13 @@ import Cardano.Slotting.EpochInfo.API (EpochInfo, hoistEpochInfo)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   EraHistory (..),
+  PaymentCredential (PaymentCredentialByKey),
+  StakeAddressReference (NoStakeAddress),
   SystemStart (..),
+  makeShelleyAddress,
   runExcept,
   toLedgerUTxO,
+  verificationKeyHash,
  )
 import Hydra.Chain.Blockfrost.Client (
   queryEraHistory,
@@ -20,7 +24,7 @@ import Hydra.Chain.Blockfrost.Client (
   queryUTxO,
   runBlockfrostM,
   toCardanoNetworkId,
-  toCardanoPParams,
+  queryProtocolParameters,
  )
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Handlers (
@@ -73,11 +77,12 @@ mkTinyWallet ::
   BlockfrostChainConfig ->
   IO (TinyWallet IO)
 mkTinyWallet tracer config = do
-  keyPair@(_, sk) <- readKeyPair cardanoSigningKey
+  keyPair@(vk, _) <- readKeyPair cardanoSigningKey
   prj <- Blockfrost.projectFromFile projectPath
   runBlockfrostM prj $ do
     Blockfrost.Genesis{_genesisSystemStart, _genesisNetworkMagic} <- queryGenesisParameters
     let networkId = toCardanoNetworkId _genesisNetworkMagic
+    let address = makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
     eraHistory <- queryEraHistory
     let queryEpochInfo = pure $ toEpochInfo eraHistory
     -- NOTE: we don't need to provide address here since it is derived from the
@@ -86,11 +91,11 @@ mkTinyWallet tracer config = do
           point <- case queryPoint of
             QueryAt point -> pure point
             QueryTip -> queryTip
-          utxo <- queryUTxO sk networkId
+          utxo <- queryUTxO [address]
           let walletUTxO = Ledger.unUTxO $ toLedgerUTxO utxo
           let systemStart = SystemStart $ posixSecondsToUTCTime _genesisSystemStart
           pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
-    let querySomePParams = runBlockfrostM prj toCardanoPParams
+    let querySomePParams = runBlockfrostM prj queryProtocolParameters
     liftIO $ newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
  where
   BlockfrostChainConfig{projectPath, cardanoSigningKey} = config

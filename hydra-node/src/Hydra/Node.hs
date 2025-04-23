@@ -11,6 +11,7 @@ module Hydra.Node where
 import Hydra.Prelude
 
 import Blockfrost.Client qualified as Blockfrost
+import Cardano.Api.Consensus (EraMismatch (..))
 import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
@@ -20,9 +21,29 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
-import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), GenesisParameters, NetworkId, ShelleyEra, TxId, getVerificationKey)
+import Hydra.Cardano.Api (
+  Address,
+  AnyCardanoEra (AnyCardanoEra),
+  AsType (AsPaymentKey, AsSigningKey, AsVerificationKey),
+  CardanoEra (..),
+  ChainPoint,
+  EraHistory,
+  GenesisParameters,
+  LedgerEra,
+  NetworkId,
+  PParams,
+  QueryInShelleyBasedEra (QueryProtocolParameters),
+  ShelleyAddr,
+  ShelleyEra,
+  SystemStart (..),
+  TxId,
+  UTxO,
+  getVerificationKey,
+  shelleyBasedEra,
+ )
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -435,6 +456,11 @@ class BackendOps a where
   queryGenesisParameters :: (MonadIO m, MonadThrow m) => a -> m (GenesisParameters ShelleyEra)
   queryScriptRegistry :: (MonadIO m, MonadThrow m) => a -> [TxId] -> m ScriptRegistry
   queryNetworkId :: (MonadIO m, MonadThrow m) => a -> m NetworkId
+  queryTip :: (MonadIO m, MonadThrow m) => a -> m ChainPoint
+  queryUTxO :: (MonadIO m, MonadThrow m) => a -> [Address ShelleyAddr] -> m UTxO
+  queryEraHistory :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m EraHistory
+  querySystemStart :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m SystemStart
+  queryProtocolParameters :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m (PParams LedgerEra)
 
 -- TODO: Perhaps use Reader monad for fetching configuration?
 instance BackendOps ChainBackend where
@@ -458,3 +484,42 @@ instance BackendOps ChainBackend where
       -- TODO: This calls to queryGenesisParameters again, but we only need the network magic
       Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
       pure $ Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+  queryTip = \case
+    DirectBackend{networkId, nodeSocket} ->
+      liftIO $ CardanoClient.queryTip networkId nodeSocket
+    BlockfrostBackend{projectPath} -> do
+      prj <- liftIO $ Blockfrost.projectFromFile projectPath
+      Blockfrost.runBlockfrostM prj Blockfrost.queryTip
+  queryUTxO backend addresses =
+    case backend of
+      DirectBackend{networkId, nodeSocket} ->
+        liftIO $ CardanoClient.queryUTxO networkId nodeSocket CardanoClient.QueryTip addresses
+      BlockfrostBackend{projectPath} -> do
+        prj <- liftIO $ Blockfrost.projectFromFile projectPath
+        Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO addresses
+  queryEraHistory backend queryPoint =
+    case backend of
+      DirectBackend{networkId, nodeSocket} ->
+        liftIO $ CardanoClient.queryEraHistory networkId nodeSocket queryPoint
+      BlockfrostBackend{projectPath} -> do
+        prj <- liftIO $ Blockfrost.projectFromFile projectPath
+        Blockfrost.runBlockfrostM prj Blockfrost.queryEraHistory
+  querySystemStart backend queryPoint =
+    case backend of
+      DirectBackend{networkId, nodeSocket} ->
+        liftIO $ CardanoClient.querySystemStart networkId nodeSocket queryPoint
+      BlockfrostBackend{projectPath} -> do
+        prj <- liftIO $ Blockfrost.projectFromFile projectPath
+        Blockfrost.Genesis{_genesisSystemStart} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+        pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
+  queryProtocolParameters backend queryPoint =
+    case backend of
+      DirectBackend{networkId, nodeSocket} ->
+        liftIO $ CardanoClient.runQueryExpr networkId nodeSocket queryPoint $ do
+          AnyCardanoEra era <- CardanoClient.queryCurrentEraExpr
+          case era of
+            ConwayEra{} -> CardanoClient.queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
+            _ -> liftIO . throwIO $ CardanoClient.QueryEraMismatchException EraMismatch{ledgerEraName = show era, otherEraName = "Conway"}
+      BlockfrostBackend{projectPath} -> do
+        prj <- liftIO $ Blockfrost.projectFromFile projectPath
+        Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters

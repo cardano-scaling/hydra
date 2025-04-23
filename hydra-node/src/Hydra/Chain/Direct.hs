@@ -59,11 +59,7 @@ import Hydra.Chain.CardanoClient (
   QueryException (..),
   QueryPoint (..),
   queryCurrentEraExpr,
-  queryEraHistory,
   queryInShelleyBasedEraExpr,
-  querySystemStart,
-  queryTip,
-  queryUTxO,
   runQueryExpr,
  )
 import Hydra.Chain.Direct.Handlers (
@@ -133,29 +129,24 @@ loadChainContext config party = do
 
 mkTinyWallet ::
   Tracer IO DirectChainLog ->
-  DirectChainConfig ->
+  CardanoChainConfig ->
   IO (TinyWallet IO)
 mkTinyWallet tracer config = do
   keyPair <- readKeyPair cardanoSigningKey
+  networkId <- queryNetworkId chainBackend
   newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
  where
-  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey} = config
+  CardanoChainConfig{chainBackend, cardanoSigningKey} = config
 
-  queryEpochInfo = toEpochInfo <$> queryEraHistory networkId nodeSocket QueryTip
+  queryEpochInfo = toEpochInfo <$> queryEraHistory chainBackend QueryTip
 
-  querySomePParams =
-    runQueryExpr networkId nodeSocket QueryTip $ do
-      AnyCardanoEra era <- queryCurrentEraExpr
-      case era of
-        ConwayEra{} -> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
-        _ -> liftIO . throwIO $ QueryEraMismatchException EraMismatch{ledgerEraName = show era, otherEraName = "Conway"}
-
+  querySomePParams = queryProtocolParameters chainBackend QueryTip
   queryWalletInfo queryPoint address = do
     point <- case queryPoint of
       QueryAt point -> pure point
-      QueryTip -> queryTip networkId nodeSocket
-    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address]
-    systemStart <- querySystemStart networkId nodeSocket QueryTip
+      QueryTip -> queryTip chainBackend
+    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO chainBackend [address]
+    systemStart <- querySystemStart chainBackend QueryTip
     pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
 
   toEpochInfo :: EraHistory -> EpochInfo (Either Text)
