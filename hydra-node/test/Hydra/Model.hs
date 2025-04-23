@@ -698,8 +698,7 @@ performDeposit headId utxoToDeposit deadline = do
   lift $ do
     simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
     waitUntilMatch (elems nodes) $ \case
-      -- XXX: This server output is named weirdly
-      CommitRecorded{} -> Just ()
+      CommitFinalized{} -> Just ()
       _ -> Nothing
 
 performDecommit ::
