@@ -60,6 +60,8 @@ import Hydra.HeadLogic.State (
   ClosedState (..),
   Committed,
   CoordinatedHeadState (..),
+  Deposit (..),
+  DepositStatus (..),
   HeadState (..),
   IdleState (IdleState, chainState),
   InitialState (..),
@@ -340,19 +342,22 @@ onOpenNetworkReqTx env ledger st ttl tx =
           -- spec. Do we really need to store that we have
           -- requested a snapshot? If yes, should update spec.
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx pendingDeposit)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx currentDepositUTxO)
       else outcome
 
   Environment{party} = env
 
   Ledger{applyTransactions} = ledger
 
-  pendingDeposit =
-    case Map.toList pendingDeposits of
-      [] -> Nothing
-      (_, depositUTxO) : _ -> Just depositUTxO
-
-  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx, version, pendingDeposits} = coordinatedHeadState
+  CoordinatedHeadState
+    { localTxs
+    , localUTxO
+    , confirmedSnapshot
+    , seenSnapshot
+    , decommitTx
+    , version
+    , currentDepositUTxO
+    } = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -675,10 +680,11 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    case find (\(_, depositUTxO) -> Just depositUTxO == utxoToCommit) (Map.assocs pendingDeposits) of
-      Just (depositTxId, depositUTxO) ->
+    -- TODO: check status (again)?
+    case find (\(_, Deposit{deposited}) -> Just deposited == utxoToCommit) $ Map.toList pendingDeposits of
+      Just (depositTxId, Deposit{deposited}) ->
         outcome
-          <> newState CommitApproved{headId, utxoToCommit = depositUTxO}
+          <> newState CommitApproved{headId, utxoToCommit = deposited}
           <> cause
             OnChainEffect
               { postChainTx =
@@ -736,15 +742,16 @@ onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
   case Map.lookup recoverTxId pendingDeposits of
     Nothing ->
       Error $ RequireFailed RecoverNotMatchingDeposit
-    Just recoverUTxO ->
+    Just Deposit{deposited} ->
       causes
         [ OnChainEffect
             { postChainTx =
                 RecoverTx
                   { headId
                   , recoverTxId = recoverTxId
-                  , deadline = currentSlot
-                  , recoverUTxO
+                  , -- XXX: Why is this called deadline?
+                    deadline = currentSlot
+                  , recoverUTxO = deposited
                   }
             }
         ]
@@ -928,7 +935,7 @@ onOpenChainDepositTx newChainState headId deposited depositTxId deadline =
 -- snapshots for inclusion.
 onOpenChainTick :: IsTx tx => Environment -> OpenState tx -> UTCTime -> Outcome tx
 onOpenChainTick env st chainTime =
-  withNextDeposit $ \deposited ->
+  withNextDeposit $ \Deposit{deposited} ->
     -- REVIEW: this is not really a wait, but discard?
     -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
     if isNothing decommitTx
@@ -948,9 +955,9 @@ onOpenChainTick env st chainTime =
   -- FIXME: should check deadline + prune
   withNextDeposit cont =
     case toList pendingDeposits of
-      (deposited : _)
+      (d@Deposit{deposited, status} : _)
         -- NOTE: Do not consider empty deposits.
-        | deposited /= mempty -> cont deposited
+        | deposited /= mempty && status == Active -> cont d
       _ -> noop
 
   nextSn = confirmedSn + 1
@@ -1596,7 +1603,7 @@ aggregate st = \case
                       }
             }
       _otherState -> st
-  CommitRecorded{chainState, depositTxId, deposited} -> case st of
+  CommitRecorded{chainState, depositTxId, deposited, deadline} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1604,7 +1611,7 @@ aggregate st = \case
             { chainState
             , coordinatedHeadState =
                 coordinatedHeadState
-                  { pendingDeposits = Map.insert depositTxId deposited pendingDeposits
+                  { pendingDeposits = Map.insert depositTxId Deposit{deposited, deadline, status = Unknown} pendingDeposits
                   }
             }
        where
@@ -1630,7 +1637,8 @@ aggregate st = \case
     case st of
       Open
         os@OpenState{coordinatedHeadState} ->
-          let deposited = fromMaybe mempty (Map.lookup depositTxId existingDeposits)
+          let deposit = Map.lookup depositTxId existingDeposits
+              newUTxO = maybe mempty (\Deposit{deposited} -> deposited) deposit
               pendingDeposits = Map.delete depositTxId existingDeposits
            in Open
                 os
@@ -1642,7 +1650,7 @@ aggregate st = \case
                         , -- NOTE: This must correspond to the just finalized
                           -- depositTxId, but we should not verify this here.
                           currentDepositUTxO = Nothing
-                        , localUTxO = localUTxO <> deposited
+                        , localUTxO = localUTxO <> newUTxO
                         }
                   }
          where

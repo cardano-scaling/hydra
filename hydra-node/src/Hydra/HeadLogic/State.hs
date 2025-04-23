@@ -23,6 +23,7 @@ import Hydra.Tx.Snapshot (
   SnapshotNumber,
   SnapshotVersion,
  )
+import Test.QuickCheck (recursivelyShrink)
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -159,7 +160,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ The latest confirmed snapshot. Spec: S̅
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
-  , pendingDeposits :: Map (TxIdType tx) (UTxOType tx)
+  , pendingDeposits :: Map (TxIdType tx) (Deposit tx)
   -- ^ Pending deposits as observed on chain. TODO: These should be actually
   -- stored outside of the 'HeadState' to allow recovery when a head is not
   -- open.
@@ -215,6 +216,31 @@ seenSnapshotNumber = \case
   LastSeenSnapshot{lastSeen} -> lastSeen
   RequestedSnapshot{lastSeen} -> lastSeen
   SeenSnapshot{snapshot = Snapshot{number}} -> number
+
+-- | A deposit tracked by the protocol. The 'DepositStatus' determines whether
+-- it may be used for an incremental commit or not.
+data Deposit tx = Deposit
+  { deposited :: UTxOType tx
+  , deadline :: UTCTime
+  , status :: DepositStatus
+  }
+  deriving (Generic)
+
+deriving stock instance IsTx tx => Eq (Deposit tx)
+deriving stock instance IsTx tx => Show (Deposit tx)
+deriving anyclass instance IsTx tx => ToJSON (Deposit tx)
+deriving anyclass instance IsTx tx => FromJSON (Deposit tx)
+
+instance ArbitraryIsTx tx => Arbitrary (Deposit tx) where
+  arbitrary = genericArbitrary
+  shrink = recursivelyShrink
+
+data DepositStatus = Unknown | Active | Expired
+  deriving (Generic, Eq, Show, ToJSON, FromJSON)
+
+instance Arbitrary DepositStatus where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 -- ** Closed
 
