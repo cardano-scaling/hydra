@@ -395,9 +395,12 @@ onOpenNetworkReqSn ::
   [TxIdType tx] ->
   -- | Optional decommit transaction of removing funds from the head.
   Maybe tx ->
+  -- | Optional commit of additional funds into the head.
   Maybe (UTxOType tx) ->
   Outcome tx
 onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIncrementUTxO =
+  -- FIXME: must not accept snapshot requests with 'mIncrementUTxO = Just mempty'
+  -- FIXME: only accept commit if a matching deposit with far enough out deadline is known
   -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
@@ -476,8 +479,6 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
       [] -> continue $ mapMaybe (`Map.lookup` allTxs) requestedTxIds
       unseen -> wait $ WaitOnTxs unseen
 
-  -- FIXME: only accept commit if a matching deposit with far enough out
-  -- deadline is known
   requireApplicableCommit activeUTxOAfterDecommit cont =
     case mIncrementUTxO of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
@@ -947,8 +948,10 @@ onOpenChainTick env st chainTime =
   -- FIXME: should check deadline + prune
   withNextDeposit cont =
     case toList pendingDeposits of
-      [] -> noop
-      (deposited : _) -> cont deposited
+      (deposited : _)
+        -- NOTE: Do not consider empty deposits.
+        | deposited /= mempty -> cont deposited
+      _ -> noop
 
   nextSn = confirmedSn + 1
 
