@@ -41,7 +41,6 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
   CardanoChainConfig (..),
-  ChainBackend (..),
   ChainConfig (..),
   DirectChainConfig (..),
   InvalidOptions (..),

@@ -52,8 +52,10 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import Hydra.Chain.Blockfrost.TimeHandle qualified as Blockfrost
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain.Direct.TimeHandle qualified as TimeHandle
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
 import Hydra.HeadLogic (
@@ -461,8 +463,10 @@ class BackendOps a where
   queryEraHistory :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m EraHistory
   querySystemStart :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m SystemStart
   queryProtocolParameters :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m (PParams LedgerEra)
+  queryTimeHandle :: (MonadIO m, MonadThrow m) => a -> m TimeHandle.TimeHandle
 
 -- TODO: Perhaps use Reader monad for fetching configuration?
+-- we could also use a carrier type and define this instance on this type instead
 instance BackendOps ChainBackend where
   queryGenesisParameters = \case
     DirectBackend{networkId, nodeSocket} ->
@@ -523,3 +527,9 @@ instance BackendOps ChainBackend where
       BlockfrostBackend{projectPath} -> do
         prj <- liftIO $ Blockfrost.projectFromFile projectPath
         Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
+  queryTimeHandle = \case
+    DirectBackend{networkId, nodeSocket} ->
+      liftIO $ TimeHandle.queryTimeHandle networkId nodeSocket
+    BlockfrostBackend{projectPath} -> do
+      prj <- liftIO $ Blockfrost.projectFromFile projectPath
+      Blockfrost.runBlockfrostM prj Blockfrost.queryTimeHandle

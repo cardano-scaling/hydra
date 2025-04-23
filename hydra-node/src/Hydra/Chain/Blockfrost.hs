@@ -19,12 +19,12 @@ import Hydra.Cardano.Api (
 import Hydra.Chain.Blockfrost.Client (
   queryEraHistory,
   queryGenesisParameters,
+  queryProtocolParameters,
   queryScriptRegistry,
   queryTip,
   queryUTxO,
   runBlockfrostM,
   toCardanoNetworkId,
-  queryProtocolParameters,
  )
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Handlers (
