@@ -883,7 +883,7 @@ waitUntil nodes expected =
 -- since we are having the protocol produce 'Tick' events constantly this would
 -- be fully simulated to the end.
 waitUntilMatch ::
-  (Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m, Eq a, Show a) =>
+  (Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m, Eq a, Show a, IsChainState tx) =>
   [TestHydraClient tx m] ->
   (ServerOutput tx -> Maybe a) ->
   m a
@@ -903,12 +903,15 @@ waitUntilMatch nodes predicate = do
             , unlines (show <$> msgs)
             ]
  where
-  go seenMsgs (nid, n) = do
-    msg <- waitForNext n
-    atomically (modifyTVar' seenMsgs ((nid, msg) :))
-    case predicate msg of
+  go seenOutputs (nid, n) = do
+    out <-
+      race (waitForNextMessage n) (waitForNext n) >>= \case
+        Left msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg
+        Right out -> pure out
+    atomically (modifyTVar' seenOutputs ((nid, out) :))
+    case predicate out of
       Just x -> pure x
-      Nothing -> go seenMsgs (nid, n)
+      Nothing -> go seenOutputs (nid, n)
 
   oneMonth = 3600 * 24 * 30
 
