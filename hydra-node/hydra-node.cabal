@@ -331,6 +331,7 @@ test-suite tests
     , contra-tracer
     , directory
     , filepath
+    , generic-lens
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
