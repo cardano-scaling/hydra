@@ -23,7 +23,6 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
-  AnyCardanoEra (..),
   BlockInMode (..),
   CardanoEra (..),
   ChainPoint,
@@ -35,9 +34,6 @@ import Hydra.Cardano.Api (
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
-  NetworkId,
-  QueryInShelleyBasedEra (..),
-  SocketPath,
   Tx,
   TxInMode (..),
   TxValidationErrorInCardanoMode,
@@ -56,11 +52,7 @@ import Hydra.Chain (
   currentState,
  )
 import Hydra.Chain.CardanoClient (
-  QueryException (..),
   QueryPoint (..),
-  queryCurrentEraExpr,
-  queryInShelleyBasedEraExpr,
-  runQueryExpr,
  )
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler,
@@ -75,7 +67,6 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
  )
-import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   WalletInfoOnChain (..),
@@ -84,9 +75,8 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node (BackendOps (..))
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (CardanoChainConfig (..), DirectChainConfig (..))
+import Hydra.Options (CardanoChainConfig (..), ChainBackend (..))
 import Hydra.Tx (Party)
-import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
@@ -156,7 +146,7 @@ mkTinyWallet tracer config = do
 
 withDirectChain ::
   Tracer IO DirectChainLog ->
-  DirectChainConfig ->
+  CardanoChainConfig ->
   ChainContext ->
   TinyWallet IO ->
   -- | Chain state loaded from persistence.
@@ -167,12 +157,12 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
+  chainPoint <- maybe (queryTip chainBackend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
 
-  let getTimeHandle = queryTimeHandle networkId nodeSocket
+  let getTimeHandle = queryTimeHandle chainBackend
   localChainState <- newLocalChainState chainStateHistory
   let chainHandle =
         mkChain
@@ -187,18 +177,21 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
   res <-
     race
       ( handle onIOException $
-          connectToLocalNode
-            connectInfo
-            (clientProtocols chainPoint queue handler)
+          case chainBackend of
+            DirectBackend{networkId, nodeSocket} ->
+              connectToLocalNode
+                (connectInfo networkId nodeSocket)
+                (clientProtocols chainPoint queue handler)
+            BlockfrostBackend{} -> undefined
       )
       (action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  DirectChainConfig{networkId, nodeSocket, startChainFrom} = config
+  CardanoChainConfig{chainBackend, startChainFrom} = config
 
-  connectInfo =
+  connectInfo networkId nodeSocket =
     LocalNodeConnectInfo
       { -- REVIEW: This was 432000 before, but all usages in the
         -- cardano-node repository are using this value. This is only
@@ -229,14 +222,10 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
     throwIO $
       ConnectException
         { ioException
-        , nodeSocket
-        , networkId
         }
 
-data ConnectException = ConnectException
+newtype ConnectException = ConnectException
   { ioException :: IOException
-  , nodeSocket :: SocketPath
-  , networkId :: NetworkId
   }
   deriving stock (Show)
 
