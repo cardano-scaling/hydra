@@ -935,7 +935,11 @@ onOpenChainDepositTx newChainState headId deposited depositTxId deadline =
 -- snapshots for inclusion.
 onOpenChainTick :: IsTx tx => Environment -> OpenState tx -> UTCTime -> Outcome tx
 onOpenChainTick env st chainTime =
-  withNextDeposit $ \Deposit{deposited} ->
+  -- TODO: change algorithm:
+  -- - determine new active and new expired
+  -- - emit state change for both
+  -- - pick one of new active to request snapshot
+  withNextActive $ \Deposit{deposited} ->
     -- REVIEW: this is not really a wait, but discard?
     -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
     if isNothing decommitTx
@@ -953,12 +957,18 @@ onOpenChainTick env st chainTime =
         noop
  where
   -- FIXME: should check deadline + prune
-  withNextDeposit cont =
-    case toList pendingDeposits of
+  withNextActive cont =
+    case toList updatedDeposits of
       (d@Deposit{deposited, status} : _)
         -- NOTE: Do not consider empty deposits.
         | deposited /= mempty && status == Active -> cont d
       _ -> noop
+
+  updatedDeposits =
+    flip Map.map pendingDeposits $ \case
+      d@Deposit{deadline}
+        | deadline < chainTime -> d{status = Expired}
+        | otherwise -> d{status = Active}
 
   nextSn = confirmedSn + 1
 

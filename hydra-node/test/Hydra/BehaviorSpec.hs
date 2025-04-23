@@ -384,7 +384,8 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  let deadline = arbitrary `generateWith` 42
+                  -- TODO: make this relative to something
+                  deadline <- addUTCTime 60 <$> getCurrentTime
                   -- TODO: update this and others below to use simulateDeposit
                   injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
@@ -408,7 +409,8 @@ spec = parallel $ do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   let depositUTxO2 = utxoRefs [22]
-                  let deadline = arbitrary `generateWith` 42
+                  -- TODO: make this relative to something
+                  deadline <- addUTCTime 60 <$> getCurrentTime
                   injectChainEvent
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
@@ -445,7 +447,8 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  let deadline = arbitrary `generateWith` 42
+                  -- TODO: make this relative to something
+                  deadline <- addUTCTime 60 <$> getCurrentTime
                   injectChainEvent
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
@@ -469,7 +472,8 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  let deadline = arbitrary `generateWith` 42
+                  -- TODO: make this relative to something
+                  deadline <- addUTCTime 60 <$> getCurrentTime
                   injectChainEvent
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
@@ -495,7 +499,8 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  let deadline = arbitrary `generateWith` 42
+                  -- TODO: make this relative to something
+                  deadline <- addUTCTime 60 <$> getCurrentTime
                   injectChainEvent
                     n2
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
@@ -512,9 +517,9 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  let deadline = arbitrary `generateWith` 42
+                  -- TODO: make this relative to something
+                  deadline <- addUTCTime 60 <$> getCurrentTime
                   let depositUTxO2 = utxoRefs [111]
-                  let deadline2 = arbitrary `generateWith` 42
                   injectChainEvent
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
@@ -523,8 +528,8 @@ spec = parallel $ do
                   waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
                   injectChainEvent
                     n2
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline2, newChainState = SimpleChainState{slot = ChainSlot 1}}
-                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, deadline = deadline2}
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline, newChainState = SimpleChainState{slot = ChainSlot 1}}
+                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, deadline = deadline}
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                       utxoToCommit >>= guard . (111 `member`)
@@ -542,7 +547,8 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  let deadline = arbitrary `generateWith` 42
+                  -- TODO: make this relative to something
+                  deadline <- addUTCTime 60 <$> getCurrentTime
                   injectChainEvent
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
