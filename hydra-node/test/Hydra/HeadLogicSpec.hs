@@ -105,6 +105,7 @@ spec =
               , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
               , pendingDeposits = mempty
+              , currentDepositUTxO = Nothing
               , decommitTx = Nothing
               , version = 0
               }
@@ -900,6 +901,7 @@ spec =
                         , confirmedSnapshot = InitialSnapshot testHeadId $ uncurry UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
                         , pendingDeposits = mempty
+                        , currentDepositUTxO = Nothing
                         , decommitTx = Nothing
                         , version = 0
                         }
@@ -937,6 +939,7 @@ spec =
                       , confirmedSnapshot = InitialSnapshot testHeadId mempty
                       , seenSnapshot = NoSeenSnapshot
                       , pendingDeposits = mempty
+                      , currentDepositUTxO = Nothing
                       , decommitTx = Nothing
                       , version = 0
                       }
@@ -1093,6 +1096,7 @@ inOpenState parties =
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
       , pendingDeposits = mempty
+      , currentDepositUTxO = Nothing
       , decommitTx = Nothing
       , version = 0
       }
