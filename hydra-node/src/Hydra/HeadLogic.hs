@@ -475,6 +475,8 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
       [] -> continue $ mapMaybe (`Map.lookup` allTxs) requestedTxIds
       unseen -> wait $ WaitOnTxs unseen
 
+  -- FIXME: only accept commit if a matching deposit with far enough out
+  -- deadline is known
   requireApplicableCommit activeUTxOAfterDecommit cont =
     case mIncrementUTxO of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
@@ -901,11 +903,8 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
     } = openState
 
 onOpenChainDepositTx ::
-  IsTx tx =>
   ChainStateType tx ->
   HeadId ->
-  Environment ->
-  OpenState tx ->
   -- | Deposited UTxO
   UTxOType tx ->
   -- | Deposit 'TxId'
@@ -913,8 +912,7 @@ onOpenChainDepositTx ::
   -- | Deposit deadline
   UTCTime ->
   Outcome tx
-onOpenChainDepositTx newChainState headId env st deposited depositTxId deadline =
-  -- FIXME: Check deadline before requesting a snapshot (likely in tick handling)
+onOpenChainDepositTx newChainState headId deposited depositTxId deadline =
   newState
     CommitRecorded
       { chainState = newChainState
@@ -923,25 +921,47 @@ onOpenChainDepositTx newChainState headId env st deposited depositTxId deadline 
       , depositTxId
       , deadline
       }
-    <>
-    -- FIXME: move snapshot decision to tick handling and what about 'SnapshotRequestDecided'?
-    waitOnUnresolvedDecommit
-      ( if not snapshotInFlight && isLeader parameters party nextSn
-          then
-            cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
-          else noop
-      )
+
+-- | Process the chain (and time) advancing in an open head.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+--
+-- This is primarily used to track deposits and either drop them or request
+-- snapshots for inclusion.
+onOpenChainTick :: IsTx tx => Environment -> OpenState tx -> UTCTime -> Outcome tx
+onOpenChainTick env st chainTime =
+  -- TODO: wait on pending deposits? Spec: wait 𝑈𝛼 = ∅
+  -- Spec: wait tx𝜔 = ⊥
+  waitOnUnresolvedDecommit $
+    withNextDeposit $ \deposited ->
+      if not snapshotInFlight && isLeader parameters party nextSn
+        then
+          -- XXX: This state update has no equivalence in the
+          -- spec. Do we really need to store that we have
+          -- requested a snapshot? If yes, should update spec.
+          newState SnapshotRequestDecided{snapshotNumber = nextSn}
+            -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, tx𝜔)
+            -- NOTE: txω is always ⊥
+            <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
+        else
+          noop
  where
   waitOnUnresolvedDecommit cont =
     case decommitTx of
-      Nothing -> cont
       Just tx -> wait $ WaitOnUnresolvedDecommit{decommitTx = tx}
+      Nothing -> cont
+
+  -- FIXME: should check deadline + prune
+  withNextDeposit cont =
+    case toList pendingDeposits of
+      [] -> noop
+      (deposited : _) -> cont deposited
 
   nextSn = confirmedSn + 1
 
   Environment{party} = env
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot, seenSnapshot, version, decommitTx} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, confirmedSnapshot, seenSnapshot, version, decommitTx, pendingDeposits} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -1333,10 +1353,13 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, depositTxId, deadline}, newChainState})
-    | ourHeadId == headId -> onOpenChainDepositTx newChainState headId env openState deposited depositTxId deadline
+  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, depositTxId, deadline}, newChainState})
+    | ourHeadId == headId ->
+        newState CommitRecorded{chainState = newChainState, headId, deposited, depositTxId, deadline}
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Open openState@OpenState{}, ChainInput Tick{chainTime}) ->
+    onOpenChainTick env openState chainTime
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
     | ourHeadId == headId -> onOpenChainRecoverTx openState newChainState headId recoveredTxId recoveredUTxO
     | otherwise ->

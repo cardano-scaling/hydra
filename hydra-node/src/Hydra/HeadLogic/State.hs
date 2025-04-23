@@ -160,11 +160,12 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
   , pendingDeposits :: Map (TxIdType tx) (UTxOType tx)
-  -- ^ Pending deposit UTxO. Spec: Uα
+  -- ^ Pending deposits as observed on chain. Spec: Uα
+  -- XXX: Why is this a map?
   , decommitTx :: Maybe tx
   -- ^ Pending decommit transaction. Spec: txω
   , version :: SnapshotVersion
-  -- ^ Last seen open state version. Spec: ̂v
+  -- ^ Last open state version as observed on chain. Spec: ̂v
   }
   deriving stock (Generic)
 
