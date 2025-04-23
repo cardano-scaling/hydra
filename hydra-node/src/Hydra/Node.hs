@@ -22,7 +22,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
-import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), GenesisParameters, ShelleyEra, TxId, getVerificationKey)
+import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), GenesisParameters, NetworkId, ShelleyEra, TxId, getVerificationKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -434,6 +434,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (HydraNodeLog tx) wher
 class BackendOps a where
   queryGenesisParameters :: (MonadIO m, MonadThrow m) => a -> m (GenesisParameters ShelleyEra)
   queryScriptRegistry :: (MonadIO m, MonadThrow m) => a -> [TxId] -> m ScriptRegistry
+  queryNetworkId :: (MonadIO m, MonadThrow m) => a -> m NetworkId
 
 -- TODO: Perhaps use Reader monad for fetching configuration?
 instance BackendOps ChainBackend where
@@ -450,3 +451,10 @@ instance BackendOps ChainBackend where
       BlockfrostBackend{projectPath} -> do
         prj <- liftIO $ Blockfrost.projectFromFile projectPath
         Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry txIds
+  queryNetworkId = \case
+    DirectBackend{networkId} -> pure networkId
+    BlockfrostBackend{projectPath} -> do
+      prj <- liftIO $ Blockfrost.projectFromFile projectPath
+      -- TODO: This calls to queryGenesisParameters again, but we only need the network magic
+      Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+      pure $ Blockfrost.toCardanoNetworkId _genesisNetworkMagic

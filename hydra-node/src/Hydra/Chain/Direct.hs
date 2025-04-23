@@ -85,10 +85,10 @@ import Hydra.Chain.Direct.Wallet (
   WalletInfoOnChain (..),
   newTinyWallet,
  )
-import Hydra.Chain.ScriptRegistry (queryScriptRegistry)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node (BackendOps (..))
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (DirectChainConfig (..))
+import Hydra.Options (CardanoChainConfig (..), DirectChainConfig (..))
 import Hydra.Tx (Party)
 import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
@@ -108,14 +108,15 @@ import Text.Printf (printf)
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
-  DirectChainConfig ->
+  CardanoChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
   -- | The current running era we can use to query the node
   IO ChainContext
 loadChainContext config party = do
   (vk, _) <- readKeyPair cardanoSigningKey
-  scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
+  scriptRegistry <- queryScriptRegistry chainBackend hydraScriptsTxId
+  networkId <- queryNetworkId chainBackend
   pure $
     ChainContext
       { networkId
@@ -124,9 +125,8 @@ loadChainContext config party = do
       , scriptRegistry
       }
  where
-  DirectChainConfig
-    { networkId
-    , nodeSocket
+  CardanoChainConfig
+    { chainBackend
     , hydraScriptsTxId
     , cardanoSigningKey
     } = config
