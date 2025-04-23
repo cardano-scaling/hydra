@@ -935,40 +935,50 @@ onOpenChainDepositTx newChainState headId deposited depositTxId deadline =
 -- snapshots for inclusion.
 onOpenChainTick :: IsTx tx => Environment -> OpenState tx -> UTCTime -> Outcome tx
 onOpenChainTick env st chainTime =
-  -- TODO: change algorithm:
-  -- - determine new active and new expired
-  -- - emit state change for both
-  -- - pick one of new active to request snapshot
-  withNextActive $ \Deposit{deposited} ->
-    -- REVIEW: this is not really a wait, but discard?
-    -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
-    if isNothing decommitTx
-      && isNothing currentDepositUTxO
-      && not snapshotInFlight
-      && isLeader parameters party nextSn
-      then
-        -- XXX: This state update has no equivalence in the
-        -- spec. Do we really need to store that we have
-        -- requested a snapshot? If yes, should update spec.
-        newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
-      else
-        noop
+  -- Determine new active and new expired
+  updateDeposits $ \newActive newExpired ->
+    -- Emit state change for both
+    -- XXX: This is a bit messy
+    (changes (map (uncurry DepositActivated) (Map.toList newActive) ++ map (uncurry DepositExpired) (Map.toList newExpired)) <>) $
+      -- Apply state changes and pick next active to request snapshot
+      -- XXX: This is smelly as we rely on Map <> to override entries (left
+      -- biased). This is also weird because we want to actually apply the state
+      -- change and also to determine the next active.
+      withNextActive (newActive <> newExpired <> pendingDeposits) $ \Deposit{deposited} ->
+        -- REVIEW: this is not really a wait, but discard?
+        -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
+        if isNothing decommitTx
+          && isNothing currentDepositUTxO
+          && not snapshotInFlight
+          && isLeader parameters party nextSn
+          then
+            -- XXX: This state update has no equivalence in the
+            -- spec. Do we really need to store that we have
+            -- requested a snapshot? If yes, should update spec.
+            newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
+          else
+            noop
  where
-  -- FIXME: should check deadline + prune
-  withNextActive cont =
-    case toList updatedDeposits of
-      (d@Deposit{deposited, status} : _)
-        -- NOTE: Do not consider empty deposits.
-        | deposited /= mempty && status == Active -> cont d
-      _ -> noop
+  updateDeposits cont =
+    let (newActive, unchanged) = Map.partition becomesActive pendingDeposits
+        (newExpired, _) = Map.partition becomesExpired unchanged
+     in cont
+          (newActive <&> \d -> d{status = Active})
+          (newExpired <&> \d -> d{status = Expired})
 
-  updatedDeposits =
-    flip Map.map pendingDeposits $ \case
-      d@Deposit{deadline}
-        | deadline < chainTime -> d{status = Expired}
-        | otherwise -> d{status = Active}
+  becomesActive Deposit{status, deadline} =
+    -- FIXME: should check for minimum age and deadline far enough
+    status == Unknown && deadline > chainTime
+
+  becomesExpired Deposit{status, deadline} =
+    status == Active && deadline < chainTime
+
+  withNextActive deposits cont = do
+    -- NOTE: Do not consider empty deposits.
+    let p Deposit{deposited, status} = deposited /= mempty && status == Active
+    maybe noop cont . find p $ toList deposits
 
   nextSn = confirmedSn + 1
 
@@ -1613,7 +1623,7 @@ aggregate st = \case
                       }
             }
       _otherState -> st
-  CommitRecorded{chainState, depositTxId, deposited, deadline} -> case st of
+  CommitRecorded{headId, chainState, depositTxId, deposited, deadline} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1621,7 +1631,33 @@ aggregate st = \case
             { chainState
             , coordinatedHeadState =
                 coordinatedHeadState
-                  { pendingDeposits = Map.insert depositTxId Deposit{deposited, deadline, status = Unknown} pendingDeposits
+                  { pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, deadline, status = Unknown} pendingDeposits
+                  }
+            }
+       where
+        CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
+    _otherState -> st
+  DepositActivated{depositTxId, deposit} -> case st of
+    Open
+      os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { pendingDeposits = Map.singleton depositTxId deposit <> pendingDeposits
+                  }
+            }
+       where
+        CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
+    _otherState -> st
+  DepositExpired{depositTxId, deposit} -> case st of
+    Open
+      os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { pendingDeposits = Map.singleton depositTxId deposit <> pendingDeposits
                   }
             }
        where
@@ -1786,6 +1822,8 @@ aggregateChainStateHistory history = \case
   PartySignedSnapshot{} -> history
   SnapshotConfirmed{} -> history
   CommitRecorded{chainState} -> pushNewState chainState history
+  DepositActivated{} -> history
+  DepositExpired{} -> history
   CommitRecovered{chainState} -> pushNewState chainState history
   CommitFinalized{chainState} -> pushNewState chainState history
   DecommitRecorded{} -> history

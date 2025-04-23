@@ -34,7 +34,7 @@ import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
 import Hydra.HeadLogic.Outcome qualified as StateChanged
-import Hydra.HeadLogic.State (SeenSnapshot (..), seenSnapshotNumber)
+import Hydra.HeadLogic.State (Deposit (..), SeenSnapshot (..), seenSnapshotNumber)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Tx (ConfirmedSnapshot (..), HeadId, IsTx (..), Party, txId)
@@ -240,6 +240,8 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.DecommitApproved{..} -> Just DecommitApproved{..}
     StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
     StateChanged.CommitRecorded{..} -> Just CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline}
+    StateChanged.DepositActivated{} -> Nothing
+    StateChanged.DepositExpired{depositTxId, deposit = Deposit{..}} -> Just DepositExpired{..}
     StateChanged.CommitApproved{..} -> Just CommitApproved{..}
     StateChanged.CommitFinalized{..} -> Just CommitFinalized{..}
     StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}

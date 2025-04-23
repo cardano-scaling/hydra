@@ -9,7 +9,7 @@ import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
-import Hydra.HeadLogic.State (HeadState)
+import Hydra.HeadLogic.State (Deposit, HeadState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Network.Message (Message)
@@ -102,6 +102,8 @@ data StateChanged tx
       , deposited :: UTxOType tx
       , deadline :: UTCTime
       }
+  | DepositActivated {depositTxId :: TxIdType tx, deposit :: Deposit tx}
+  | DepositExpired {depositTxId :: TxIdType tx, deposit :: Deposit tx}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitRecovered
       { chainState :: ChainStateType tx
