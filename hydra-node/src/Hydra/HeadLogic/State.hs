@@ -220,7 +220,8 @@ seenSnapshotNumber = \case
 -- | A deposit tracked by the protocol. The 'DepositStatus' determines whether
 -- it may be used for an incremental commit or not.
 data Deposit tx = Deposit
-  { deposited :: UTxOType tx
+  { headId :: HeadId
+  , deposited :: UTxOType tx
   , deadline :: UTCTime
   , status :: DepositStatus
   }
