@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Implements the Head Protocol's /state machine/ as /pure functions/ in an event sourced manner.
@@ -618,8 +619,8 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                 --         postTx (decrement, v̂, ŝ, η, η𝛼, ηω)
                 & maybePostDecrementTx snapshot multisig
                 -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
-                --         multicast (reqSn, v, ̅S.s + 1, T̂, 𝑈𝛼, txω)
-                & maybeRequestNextSnapshot (number snapshot + 1)
+                -- REVIEW: multicast (reqSn, v, ̅S.s + 1, T̂, S.𝑈𝛼, S.txω)
+                & maybeRequestNextSnapshot snapshot
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -663,12 +664,14 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           RequireFailed $
             InvalidMultisignature{multisig = show multisig, vkeys}
 
-  maybeRequestNextSnapshot nextSn outcome =
+  maybeRequestNextSnapshot previous outcome = do
+    let nextSn = previous.number + 1
     if isLeader parameters party nextSn && not (null localTxs)
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx pendingDeposit)
+          -- TODO: Should also take decommitTx from previous snapshot (until cleared)?
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx previous.utxoToCommit)
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -716,11 +719,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , coordinatedHeadState
     , headId
     } = openState
-
-  pendingDeposit =
-    case Map.toList pendingDeposits of
-      [] -> Nothing
-      (_, depositUTxO) : _ -> Just depositUTxO
 
   CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, pendingDeposits, version} = coordinatedHeadState
 
@@ -934,14 +932,13 @@ onOpenChainTick env st chainTime =
   -- Spec: wait tx𝜔 = ⊥
   waitOnUnresolvedDecommit $
     withNextDeposit $ \deposited ->
-      if not snapshotInFlight && isLeader parameters party nextSn
+      if isNothing previous.utxoToCommit && not snapshotInFlight && isLeader parameters party nextSn
         then
           -- XXX: This state update has no equivalence in the
           -- spec. Do we really need to store that we have
           -- requested a snapshot? If yes, should update spec.
           newState SnapshotRequestDecided{snapshotNumber = nextSn}
-            -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, tx𝜔)
-            -- NOTE: txω is always ⊥
+            -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
             <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
         else
           noop
@@ -963,7 +960,7 @@ onOpenChainTick env st chainTime =
 
   CoordinatedHeadState{localTxs, confirmedSnapshot, seenSnapshot, version, decommitTx, pendingDeposits} = coordinatedHeadState
 
-  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+  previous@Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   OpenState{coordinatedHeadState, parameters} = st
 
@@ -1624,7 +1621,7 @@ aggregate st = \case
     case st of
       Open
         os@OpenState{coordinatedHeadState} ->
-          let newLocalUTxO = fromMaybe mempty (Map.lookup depositTxId existingDeposits)
+          let deposited = fromMaybe mempty (Map.lookup depositTxId existingDeposits)
               pendingDeposits = Map.delete depositTxId existingDeposits
            in Open
                 os
@@ -1633,7 +1630,7 @@ aggregate st = \case
                       coordinatedHeadState
                         { pendingDeposits
                         , version = newVersion
-                        , localUTxO = localUTxO <> newLocalUTxO
+                        , localUTxO = localUTxO <> deposited
                         }
                   }
          where
