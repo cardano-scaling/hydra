@@ -12,8 +12,8 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.md for information about when and how to update these.
 index-state:
-  , hackage.haskell.org 2025-04-12T10:35:52Z
-  , cardano-haskell-packages  2025-04-11T16:42:25Z
+  , hackage.haskell.org 2025-04-22T10:01:33Z
+  , cardano-haskell-packages 2025-04-22T10:01:33Z
 
 packages:
   hydra-prelude
