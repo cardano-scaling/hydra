@@ -890,7 +890,7 @@ waitUntilMatch ::
   m a
 waitUntilMatch nodes predicate = do
   seenMsgs <- newTVarIO []
-  timeout oneMonth (forConcurrently nodes $ go seenMsgs) >>= \case
+  timeout oneMonth (forConcurrently (zip [Node 1 ..] nodes) $ go seenMsgs) >>= \case
     Just [] -> failure "waitUntilMatch no results"
     Just (x : xs)
       | all (== x) xs -> pure x
@@ -900,18 +900,21 @@ waitUntilMatch nodes predicate = do
       failure $
         toString $
           unlines
-            [ "waitUntilMatch did not match a message within " <> show oneMonth <> ", seen messages:"
+            [ "waitUntilMatch did not match a message on all nodes (" <> show (length nodes) <> ") within " <> show oneMonth <> ", seen messages:"
             , unlines (show <$> msgs)
             ]
  where
-  go seenMsgs n = do
+  go seenMsgs (nid, n) = do
     msg <- waitForNext n
-    atomically (modifyTVar' seenMsgs (msg :))
+    atomically (modifyTVar' seenMsgs ((nid, msg) :))
     case predicate msg of
       Just x -> pure x
-      Nothing -> go seenMsgs n
+      Nothing -> go seenMsgs (nid, n)
 
   oneMonth = 3600 * 24 * 30
+
+newtype NodeId = Node Natural
+  deriving (Enum, Show)
 
 -- XXX: The names of the following handles and functions are confusing.
 
