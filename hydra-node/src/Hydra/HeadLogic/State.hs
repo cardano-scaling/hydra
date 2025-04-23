@@ -122,10 +122,9 @@ data OpenState tx = OpenState
   { parameters :: HeadParameters
   , coordinatedHeadState :: CoordinatedHeadState tx
   , chainState :: ChainStateType tx
-  , headSeed :: HeadSeed
   , headId :: HeadId
   , currentSlot :: ChainSlot
-  , currentTime :: UTCTime
+  , headSeed :: HeadSeed
   }
   deriving stock (Generic)
 
@@ -138,7 +137,6 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenSta
   arbitrary =
     OpenState
       <$> arbitrary
-      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary

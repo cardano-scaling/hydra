@@ -914,42 +914,38 @@ onOpenChainDepositTx ::
   UTCTime ->
   Outcome tx
 onOpenChainDepositTx newChainState headId env st deposited depositTxId deadline =
-  checkDeadline $
-    waitOnUnresolvedDecommit $
-      newState
-        CommitRecorded
-          { chainState = newChainState
-          , headId
-          , pendingDeposits = Map.singleton depositTxId deposited
-          , newLocalUTxO = localUTxO <> deposited
-          , utxoToCommit = deposited
-          , pendingDeposit = depositTxId
-          , deadline
-          }
-        <> if not snapshotInFlight && isLeader parameters party nextSn
+  -- FIXME: Check deadline before requesting a snapshot (likely in tick handling)
+  newState
+    CommitRecorded
+      { chainState = newChainState
+      , headId
+      , deposited
+      , depositTxId
+      , deadline
+      }
+    <>
+    -- FIXME: move snapshot decision to tick handling and what about 'SnapshotRequestDecided'?
+    waitOnUnresolvedDecommit
+      ( if not snapshotInFlight && isLeader parameters party nextSn
           then
             cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
           else noop
+      )
  where
-  checkDeadline cont
-    -- FIXME: incorporate deposit period
-    | deadline < currentTime = Error InvalidDeposit{depositTxId, deadline}
-    | otherwise = cont
-
   waitOnUnresolvedDecommit cont =
     case decommitTx of
-      Just tx -> wait $ WaitOnUnresolvedDecommit{decommitTx = tx}
       Nothing -> cont
+      Just tx -> wait $ WaitOnUnresolvedDecommit{decommitTx = tx}
 
   nextSn = confirmedSn + 1
 
   Environment{party} = env
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot, seenSnapshot, version, decommitTx, localUTxO} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, confirmedSnapshot, seenSnapshot, version, decommitTx} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
-  OpenState{coordinatedHeadState, parameters, currentTime} = st
+  OpenState{coordinatedHeadState, parameters} = st
 
   snapshotInFlight = case seenSnapshot of
     NoSeenSnapshot -> False
@@ -971,7 +967,8 @@ onOpenChainRecoverTx st newChainState headId recoveredTxId recoveredUTxO =
       { chainState = newChainState
       , headId
       , recoveredUTxO
-      , newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO
+      , -- FIXME: This should not be needed!
+        newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO
       , recoveredTxId
       }
  where
@@ -1361,9 +1358,9 @@ update env ledger st ev = case (st, ev) of
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainSlot, chainTime})
+  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        changes [HeadIsReadyToFanout{headId}, TickObserved{chainSlot, chainTime}]
+        newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId, fanoutUTxO}, newChainState})
@@ -1374,8 +1371,8 @@ update env ledger st ev = case (st, ev) of
   -- General
   (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
-  (_, ChainInput Tick{chainSlot, chainTime}) ->
-    newState TickObserved{chainSlot, chainTime}
+  (_, ChainInput Tick{chainSlot}) ->
+    newState TickObserved{chainSlot}
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
   (_, ClientInput{clientInput}) ->
@@ -1442,11 +1439,9 @@ aggregate st = \case
                   , version = 0
                   }
             , chainState
-            , headSeed
             , headId
-            , -- XXX: Ideally the HeadOpened event already contains slot + time here
-              currentSlot = chainStateSlot chainState
-            , currentTime = undefined -- FIXME: how to get a UTCTime before 'TickObserved' ?
+            , headSeed
+            , currentSlot = chainStateSlot chainState
             }
       _otherState -> st
   TransactionReceived{tx} ->
@@ -1572,7 +1567,7 @@ aggregate st = \case
                       }
             }
       _otherState -> st
-  CommitRecorded{chainState, pendingDeposits, newLocalUTxO} -> case st of
+  CommitRecorded{chainState, depositTxId, deposited} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1580,12 +1575,11 @@ aggregate st = \case
             { chainState
             , coordinatedHeadState =
                 coordinatedHeadState
-                  { localUTxO = newLocalUTxO
-                  , pendingDeposits = pendingDeposits `Map.union` existingDeposits
+                  { pendingDeposits = Map.insert depositTxId deposited pendingDeposits
                   }
             }
        where
-        CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
+        CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
     _otherState -> st
   CommitApproved{} -> st
   CommitRecovered{chainState, newLocalUTxO, recoveredTxId} -> case st of
@@ -1704,14 +1698,9 @@ aggregate st = \case
       _otherState -> st
   ChainRolledBack{chainState} ->
     setChainState chainState st
-  TickObserved{chainSlot, chainTime} ->
+  TickObserved{chainSlot} ->
     case st of
-      Open ost@OpenState{} ->
-        Open
-          ost
-            { currentSlot = chainSlot
-            , currentTime = chainTime
-            }
+      Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}
       _otherState -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{} -> st

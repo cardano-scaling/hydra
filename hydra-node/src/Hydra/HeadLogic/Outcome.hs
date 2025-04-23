@@ -94,13 +94,12 @@ data StateChanged tx
       }
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | CommitRecorded
+  | -- TODO: Rename to 'DepositRecorded' and record breaking change
+    CommitRecorded
       { chainState :: ChainStateType tx
+      , depositTxId :: TxIdType tx
       , headId :: HeadId
-      , pendingDeposits :: Map (TxIdType tx) (UTxOType tx)
-      , newLocalUTxO :: UTxOType tx
-      , utxoToCommit :: UTxOType tx
-      , pendingDeposit :: TxIdType tx
+      , deposited :: UTxOType tx
       , deadline :: UTCTime
       }
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
@@ -131,7 +130,7 @@ data StateChanged tx
   | HeadIsReadyToFanout {headId :: HeadId}
   | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
   | ChainRolledBack {chainState :: ChainStateType tx}
-  | TickObserved {chainSlot :: ChainSlot, chainTime :: UTCTime}
+  | TickObserved {chainSlot :: ChainSlot}
   | IgnoredHeadInitializing
       { headId :: HeadId
       , contestationPeriod :: ContestationPeriod
@@ -165,7 +164,7 @@ genStateChanged env =
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-    , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitApproved <$> arbitrary <*> arbitrary
     , CommitRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary

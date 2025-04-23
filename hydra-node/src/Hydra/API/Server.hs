@@ -239,7 +239,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
     StateChanged.DecommitApproved{..} -> Just DecommitApproved{..}
     StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
-    StateChanged.CommitRecorded{..} -> Just CommitRecorded{..}
+    StateChanged.CommitRecorded{..} -> Just CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline}
     StateChanged.CommitApproved{..} -> Just CommitApproved{..}
     StateChanged.CommitFinalized{..} -> Just CommitFinalized{..}
     StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}
@@ -261,7 +261,7 @@ mkTimedServerOutputFromStateEvent event =
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
 projectPendingDeposits txIds = \case
-  StateChanged.CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
+  StateChanged.CommitRecorded{depositTxId} -> depositTxId : txIds
   StateChanged.CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
   StateChanged.CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
   _other -> txIds
