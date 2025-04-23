@@ -699,6 +699,10 @@ performDeposit headId utxoToDeposit deadline = do
   lift $ do
     simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
     waitUntilMatch (elems nodes) $ \case
+      -- NOTE: We are fine with only recorded outputs if the utxo is not
+      -- actually adding something. Honest nodes would not try to
+      -- snapshot/increment this.
+      CommitRecorded{} | null utxoToDeposit -> Just ()
       CommitFinalized{} -> Just ()
       _ -> Nothing
 
