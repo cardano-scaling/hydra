@@ -128,9 +128,9 @@ run opts = do
     Offline cfg ->
       pure $ withOfflineChain cfg party otherParties
     Direct DirectChainConfig{} -> undefined
-    Cardano CardanoChainConfig{chainBackend} -> do
+    Cardano cardanoCfg@CardanoChainConfig{chainBackend} -> do
       let cfg = undefined
-      ctx <- loadChainContext cfg party
+      ctx <- loadChainContext cardanoCfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
       case chainBackend of
         DirectBackend{} ->
