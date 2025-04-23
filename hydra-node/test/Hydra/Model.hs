@@ -698,6 +698,10 @@ performDeposit headId utxoToDeposit deadline = do
   SimulatedChainNetwork{simulateDeposit} <- gets chain
   lift $ do
     simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
+    -- TODO: is this a post condition? We could determine whether a deposit was
+    -- picked up or not as result and check our assumption against the model in
+    -- postcondition. For example, it would be depending on current time/slot
+    -- whether a deposit should be ignored or not.
     waitUntilMatch (elems nodes) $ \case
       -- NOTE: We are fine with only recorded outputs if the utxo is not
       -- actually adding something. Honest nodes would not try to
