@@ -117,10 +117,10 @@ import Test.Hydra.Prelude hiding (after)
 import Control.Concurrent.Class.MonadSTM (newTVarIO)
 import Control.Monad.Class.MonadTimer ()
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
-import Data.Data (cast)
 import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Set qualified as Set
+import Data.Typeable (cast)
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
