@@ -2,7 +2,6 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
-import Blockfrost.Client qualified as Blockfrost
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -17,8 +16,7 @@ import Hydra.Cardano.Api (
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
+import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
@@ -28,6 +26,7 @@ import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Node (
+  BackendOps (queryGenesisParameters),
   HydraNode (eventSinks),
   chainStateHistory,
   connect,
@@ -162,15 +161,10 @@ getGlobalsForChain = \case
     loadGenesisFile ledgerGenesisFile
       >>= newGlobals
   Direct DirectChainConfig{networkId, nodeSocket} ->
-    queryGenesisParameters networkId nodeSocket QueryTip
+    CardanoClient.queryGenesisParameters networkId nodeSocket CardanoClient.QueryTip
       >>= newGlobals
   Cardano CardanoChainConfig{chainBackend} ->
-    case chainBackend of
-      DirectBackend{networkId, nodeSocket} -> queryGenesisParameters networkId nodeSocket QueryTip
-      BlockfrostBackend{projectPath} -> do
-        prj <- Blockfrost.projectFromFile projectPath
-        Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
-      >>= newGlobals
+    queryGenesisParameters chainBackend >>= newGlobals
 
 data GlobalsTranslationException = GlobalsTranslationException
   deriving stock (Eq, Show)

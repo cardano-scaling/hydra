@@ -10,6 +10,7 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
+import Blockfrost.Client qualified as Blockfrost
 import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
@@ -21,7 +22,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
-import Hydra.Cardano.Api (getVerificationKey)
+import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), GenesisParameters, ShelleyEra, TxId, getVerificationKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -29,7 +30,10 @@ import Hydra.Chain (
   PostTxError,
   initHistory,
  )
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
 import Hydra.HeadLogic (
   Effect (..),
@@ -89,6 +93,7 @@ initEnvironment options = do
           ownSigningKey <- readFileTextEnvelopeThrow cardanoSigningKey
           otherVerificationKeys <- mapM readFileTextEnvelopeThrow cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
+      Cardano{} -> undefined
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
@@ -421,3 +426,27 @@ data HydraNodeLog tx
 deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
 deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
+
+instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (HydraNodeLog tx) where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+class BackendOps a where
+  queryGenesisParameters :: (MonadIO m, MonadThrow m) => a -> m (GenesisParameters ShelleyEra)
+  queryScriptRegistry :: (MonadIO m, MonadThrow m) => a -> [TxId] -> m ScriptRegistry
+
+-- TODO: Perhaps use Reader monad for fetching configuration?
+instance BackendOps ChainBackend where
+  queryGenesisParameters = \case
+    DirectBackend{networkId, nodeSocket} ->
+      liftIO $ CardanoClient.queryGenesisParameters networkId nodeSocket CardanoClient.QueryTip
+    BlockfrostBackend{projectPath} -> do
+      prj <- liftIO $ Blockfrost.projectFromFile projectPath
+      Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+  queryScriptRegistry backend txIds =
+    case backend of
+      DirectBackend{networkId, nodeSocket} ->
+        ScriptRegistry.queryScriptRegistry networkId nodeSocket txIds
+      BlockfrostBackend{projectPath} -> do
+        prj <- liftIO $ Blockfrost.projectFromFile projectPath
+        Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry txIds
