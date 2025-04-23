@@ -670,8 +670,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          -- TODO: Should also take decommitTx from previous snapshot (until cleared)?
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx previous.utxoToCommit)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx currentDepositUTxO)
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -720,7 +719,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , headId
     } = openState
 
-  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, pendingDeposits, version} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, pendingDeposits, currentDepositUTxO, version} = coordinatedHeadState
 
 -- | Client request to recover deposited UTxO.
 --
@@ -928,26 +927,23 @@ onOpenChainDepositTx newChainState headId deposited depositTxId deadline =
 -- snapshots for inclusion.
 onOpenChainTick :: IsTx tx => Environment -> OpenState tx -> UTCTime -> Outcome tx
 onOpenChainTick env st chainTime =
-  -- TODO: wait on pending deposits? Spec: wait 𝑈𝛼 = ∅
-  -- Spec: wait tx𝜔 = ⊥
-  waitOnUnresolvedDecommit $
-    withNextDeposit $ \deposited ->
-      if isNothing previous.utxoToCommit && not snapshotInFlight && isLeader parameters party nextSn
-        then
-          -- XXX: This state update has no equivalence in the
-          -- spec. Do we really need to store that we have
-          -- requested a snapshot? If yes, should update spec.
-          newState SnapshotRequestDecided{snapshotNumber = nextSn}
-            -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
-            <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
-        else
-          noop
+  withNextDeposit $ \deposited ->
+    -- REVIEW: this is not really a wait, but discard?
+    -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
+    if isNothing decommitTx
+      && isNothing currentDepositUTxO
+      && not snapshotInFlight
+      && isLeader parameters party nextSn
+      then
+        -- XXX: This state update has no equivalence in the
+        -- spec. Do we really need to store that we have
+        -- requested a snapshot? If yes, should update spec.
+        newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
+      else
+        noop
  where
-  waitOnUnresolvedDecommit cont =
-    case decommitTx of
-      Just tx -> wait $ WaitOnUnresolvedDecommit{decommitTx = tx}
-      Nothing -> cont
-
   -- FIXME: should check deadline + prune
   withNextDeposit cont =
     case toList pendingDeposits of
@@ -958,9 +954,17 @@ onOpenChainTick env st chainTime =
 
   Environment{party} = env
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot, seenSnapshot, version, decommitTx, pendingDeposits} = coordinatedHeadState
+  CoordinatedHeadState
+    { localTxs
+    , confirmedSnapshot
+    , seenSnapshot
+    , version
+    , decommitTx
+    , pendingDeposits
+    , currentDepositUTxO
+    } = coordinatedHeadState
 
-  previous@Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   OpenState{coordinatedHeadState, parameters} = st
 
@@ -1455,6 +1459,7 @@ aggregate st = \case
                   , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
                   , pendingDeposits = mempty
+                  , currentDepositUTxO = Nothing
                   , decommitTx = Nothing
                   , version = 0
                   }
@@ -1521,6 +1526,7 @@ aggregate st = \case
                   , localTxs = newLocalTxs
                   , localUTxO = newLocalUTxO
                   , allTxs = foldr Map.delete allTxs requestedTxIds
+                  , currentDepositUTxO = snapshot.utxoToCommit
                   }
             }
        where
@@ -1630,6 +1636,9 @@ aggregate st = \case
                       coordinatedHeadState
                         { pendingDeposits
                         , version = newVersion
+                        , -- NOTE: This must correspond to the just finalized
+                          -- depositTxId, but we should not verify this here.
+                          currentDepositUTxO = Nothing
                         , localUTxO = localUTxO <> deposited
                         }
                   }

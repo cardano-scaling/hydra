@@ -160,8 +160,11 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
   , pendingDeposits :: Map (TxIdType tx) (UTxOType tx)
-  -- ^ Pending deposits as observed on chain. Spec: Uα
-  -- XXX: Why is this a map?
+  -- ^ Pending deposits as observed on chain. TODO: These should be actually
+  -- stored outside of the 'HeadState' to allow recovery when a head is not
+  -- open.
+  , currentDepositUTxO :: Maybe (UTxOType tx)
+  -- ^ Currently processed utxo to incrementally commit. Spec: Uα
   , decommitTx :: Maybe tx
   -- ^ Pending decommit transaction. Spec: txω
   , version :: SnapshotVersion
