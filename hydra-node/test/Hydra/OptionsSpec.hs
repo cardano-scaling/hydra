@@ -1,8 +1,12 @@
+{-# LANGUAGE OverloadedLabels #-}
+
 module Hydra.OptionsSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Control.Lens ((.~))
+import Data.Generics.Labels ()
 import Hydra.Cardano.Api (
   ChainPoint (..),
   NetworkId (..),
@@ -139,27 +143,21 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { networkId = Testnet (NetworkMagic 0)
-                    }
+                  (defaultDirectChainConfig & #networkId .~ Testnet (NetworkMagic 0))
             }
       ["--testnet-magic", "-1"] -- Word32 overflow expected
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { networkId = Testnet (NetworkMagic 4294967295)
-                    }
+                  (defaultDirectChainConfig & #networkId .~ Testnet (NetworkMagic 4294967295))
             }
       ["--testnet-magic", "123"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { networkId = Testnet (NetworkMagic 123)
-                    }
+                  (defaultDirectChainConfig & #networkId .~ Testnet (NetworkMagic 123))
             }
 
     it "parses --mainnet option" $ do
@@ -168,9 +166,7 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { networkId = Mainnet
-                    }
+                  (defaultDirectChainConfig & #networkId .~ Mainnet)
             }
 
     it "parses --contestation-period option as a number of seconds" $ do
@@ -184,18 +180,14 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { contestationPeriod = UnsafeContestationPeriod 1
-                    }
+                  (defaultDirectChainConfig & #contestationPeriod .~ UnsafeContestationPeriod 1)
             }
       ["--contestation-period", "300s"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { contestationPeriod = UnsafeContestationPeriod 300
-                    }
+                  (defaultDirectChainConfig & #contestationPeriod .~ UnsafeContestationPeriod 300)
             }
     it "parses --deposit-deadline option as a number of seconds" $ do
       shouldNotParse ["--deposit-deadline", "abc"]
@@ -208,18 +200,14 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { depositDeadline = UnsafeDepositDeadline 1
-                    }
+                  (defaultDirectChainConfig & #depositDeadline .~ UnsafeDepositDeadline 1)
             }
       ["--deposit-deadline", "300s"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { depositDeadline = UnsafeDepositDeadline 300
-                    }
+                  (defaultDirectChainConfig & #depositDeadline .~ UnsafeDepositDeadline 300)
             }
 
     it "parses --mainnet flag" $ do
@@ -228,9 +216,7 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { networkId = Mainnet
-                    }
+                  (defaultDirectChainConfig & #networkId .~ Mainnet)
             }
 
     it "parses --node-socket as a filepath" $
@@ -239,9 +225,7 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { nodeSocket = "foo.sock"
-                    }
+                  (defaultDirectChainConfig & #nodeSocket .~ "foo.sock")
             }
 
     it "parses --cardano-signing-key option as a filepath" $
@@ -250,9 +234,7 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { cardanoSigningKey = "./alice-cardano.sk"
-                    }
+                  (defaultDirectChainConfig & #cardanoSigningKey .~ "./alice-cardano.sk")
             }
 
     it "parses --cardano-verification-key option as a filepath" $
@@ -261,9 +243,7 @@ spec = parallel $
           defaultRunOptions
             { chainConfig =
                 Direct
-                  defaultDirectChainConfig
-                    { cardanoVerificationKeys = ["./alice-cardano.vk"]
-                    }
+                  (defaultDirectChainConfig & #cardanoVerificationKeys .~ ["./alice-cardano.vk"])
             }
 
     it "parses --ledger-protocol-parameters-file as a filepath" $
