@@ -13,6 +13,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   readTQueue,
   readTVarIO,
+  stateTVar,
   writeTQueue,
   writeTVar,
  )
@@ -449,17 +450,17 @@ spec = parallel $ do
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
-                  injectChainEvent
-                    n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
+                  simulateDeposit chain testHeadId depositUTxO deadline
+                  depositTxId <- waitUntilMatch [n1, n2] $ \case
+                    CommitRecorded{utxoToCommit, pendingDeposit} ->
+                      pendingDeposit <$ guard (11 `member` utxoToCommit)
+                    _ -> Nothing
                   let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> guard $ normalTx `elem` confirmed
                     _ -> Nothing
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
+                  waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, depositTxId}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
@@ -976,6 +977,7 @@ withSimulatedChainAndNetwork action = do
 
 -- | Class to manipulate the chain state by advancing it's slot in
 -- 'simulatedChainAndNetwork'.
+-- TODO: This should not needed anymore
 class IsChainState a => IsChainStateTest a where
   advanceSlot :: ChainStateType a -> ChainStateType a
 
@@ -987,13 +989,14 @@ instance IsChainStateTest SimpleTx where
 -- 'cancel'ed after use. Use 'withSimulatedChainAndNetwork' instead where
 -- possible.
 simulatedChainAndNetwork ::
-  forall m tx.
-  (MonadTime m, MonadDelay m, MonadAsync m, IsChainStateTest tx) =>
-  ChainStateType tx ->
-  m (SimulatedChainNetwork tx m)
+  forall m.
+  (MonadTime m, MonadDelay m, MonadAsync m) =>
+  ChainStateType SimpleTx ->
+  m (SimulatedChainNetwork SimpleTx m)
 simulatedChainAndNetwork initialChainState = do
   history <- newTVarIO []
   nodes <- newTVarIO []
+  nextTxId <- newTVarIO 10000
   localChainState <- newLocalChainState (initHistory initialChainState)
   tickThread <- async $ simulateTicks nodes localChainState
   pure $
@@ -1008,7 +1011,7 @@ simulatedChainAndNetwork initialChainState = do
                         threadDelay blockTime
                         createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
                   , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
-                  , draftDepositTx = \_ -> error "unexpected call to draftIncrementalCommitTx"
+                  , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   }
               mockNetwork = createMockNetwork draftNode nodes
@@ -1020,6 +1023,9 @@ simulatedChainAndNetwork initialChainState = do
       , rollbackAndForward = rollbackAndForward nodes history localChainState
       , simulateCommit = \headId party toCommit ->
           createAndYieldEvent nodes history localChainState $ OnCommitTx{headId, party, committed = toCommit}
+      , simulateDeposit = \headId toDeposit deadline -> do
+          depositTxId <- atomically $ stateTVar nextTxId (\i -> (i, i + 1))
+          createAndYieldEvent nodes history localChainState $ OnDepositTx{headId, deposited = toDeposit, deadline, depositTxId}
       , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
       }
  where
