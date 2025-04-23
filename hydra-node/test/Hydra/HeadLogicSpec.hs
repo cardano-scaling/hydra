@@ -220,6 +220,7 @@ spec =
                       }
                 }
 
+        -- TODO: this semantics is different now
         it "cannot commit while another decommit is pending" $ do
           let decommitTx = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
               s0 = inOpenState' threeParties $ coordinatedHeadState{decommitTx = Just decommitTx}
