@@ -9,44 +9,55 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
+import Blockfrost.Client qualified as Blockfrost
 import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Ledger.Slot (EpochInfo)
+import Cardano.Ledger.Slot (EpochInfo, SlotNo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
 import Control.Concurrent.Class.MonadSTM (
   newEmptyTMVar,
   newTQueueIO,
+  newTVarIO,
   putTMVar,
   readTQueue,
+  readTVarIO,
   takeTMVar,
   writeTQueue,
+  writeTVar,
  )
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
+import Control.Retry (constantDelay, retrying)
+import Data.ByteString.Base16 qualified as Base16
+import Data.Text qualified as T
 import Hydra.Cardano.Api (
-  AnyCardanoEra (..),
+  BlockHeader (..),
   BlockInMode (..),
   CardanoEra (..),
-  ChainPoint,
+  ChainPoint (..),
   ChainTip,
   ConsensusModeParams (..),
   EpochSlots (..),
   EraHistory (EraHistory),
+  Hash,
   IsShelleyBasedEra (..),
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
-  NetworkId,
-  QueryInShelleyBasedEra (..),
-  SocketPath,
+  NetworkId (..),
+  SerialiseAsCBOR (..),
+  SlotNo (..),
   Tx,
   TxInMode (..),
   TxValidationErrorInCardanoMode,
+  UTxO,
   chainTipToChainPoint,
   connectToLocalNode,
   getBlockHeader,
   getBlockTxs,
   getTxBody,
   getTxId,
+  proxyToAsType,
+  serialiseToRawBytes,
   toLedgerUTxO,
  )
 import Hydra.Chain (
@@ -55,16 +66,9 @@ import Hydra.Chain (
   PostTxError (FailedToPostTx, failureReason),
   currentState,
  )
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.CardanoClient (
-  QueryException (..),
   QueryPoint (..),
-  queryCurrentEraExpr,
-  queryEraHistory,
-  queryInShelleyBasedEraExpr,
-  querySystemStart,
-  queryTip,
-  queryUTxO,
-  runQueryExpr,
  )
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler,
@@ -79,18 +83,16 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
  )
-import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   WalletInfoOnChain (..),
   newTinyWallet,
  )
-import Hydra.Chain.ScriptRegistry (queryScriptRegistry)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node (BackendOps (..))
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (DirectChainConfig (..))
+import Hydra.Options (CardanoChainConfig (..), ChainBackend (..))
 import Hydra.Tx (Party)
-import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
@@ -108,14 +110,15 @@ import Text.Printf (printf)
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
-  DirectChainConfig ->
+  CardanoChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
   -- | The current running era we can use to query the node
   IO ChainContext
 loadChainContext config party = do
   (vk, _) <- readKeyPair cardanoSigningKey
-  scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
+  scriptRegistry <- queryScriptRegistry chainBackend hydraScriptsTxId
+  networkId <- queryNetworkId chainBackend
   pure $
     ChainContext
       { networkId
@@ -124,38 +127,32 @@ loadChainContext config party = do
       , scriptRegistry
       }
  where
-  DirectChainConfig
-    { networkId
-    , nodeSocket
+  CardanoChainConfig
+    { chainBackend
     , hydraScriptsTxId
     , cardanoSigningKey
     } = config
 
 mkTinyWallet ::
   Tracer IO DirectChainLog ->
-  DirectChainConfig ->
+  CardanoChainConfig ->
   IO (TinyWallet IO)
 mkTinyWallet tracer config = do
   keyPair <- readKeyPair cardanoSigningKey
+  networkId <- queryNetworkId chainBackend
   newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
  where
-  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey} = config
+  CardanoChainConfig{chainBackend, cardanoSigningKey} = config
 
-  queryEpochInfo = toEpochInfo <$> queryEraHistory networkId nodeSocket QueryTip
+  queryEpochInfo = toEpochInfo <$> queryEraHistory chainBackend QueryTip
 
-  querySomePParams =
-    runQueryExpr networkId nodeSocket QueryTip $ do
-      AnyCardanoEra era <- queryCurrentEraExpr
-      case era of
-        ConwayEra{} -> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
-        _ -> liftIO . throwIO $ QueryEraMismatchException EraMismatch{ledgerEraName = show era, otherEraName = "Conway"}
-
+  querySomePParams = queryProtocolParameters chainBackend QueryTip
   queryWalletInfo queryPoint address = do
     point <- case queryPoint of
       QueryAt point -> pure point
-      QueryTip -> queryTip networkId nodeSocket
-    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address]
-    systemStart <- querySystemStart networkId nodeSocket QueryTip
+      QueryTip -> queryTip chainBackend
+    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO chainBackend [address]
+    systemStart <- querySystemStart chainBackend QueryTip
     pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
 
   toEpochInfo :: EraHistory -> EpochInfo (Either Text)
@@ -165,7 +162,7 @@ mkTinyWallet tracer config = do
 
 withDirectChain ::
   Tracer IO DirectChainLog ->
-  DirectChainConfig ->
+  CardanoChainConfig ->
   ChainContext ->
   TinyWallet IO ->
   -- | Chain state loaded from persistence.
@@ -176,12 +173,12 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
+  chainPoint <- maybe (queryTip chainBackend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
 
-  let getTimeHandle = queryTimeHandle networkId nodeSocket
+  let getTimeHandle = queryTimeHandle chainBackend
   localChainState <- newLocalChainState chainStateHistory
   let chainHandle =
         mkChain
@@ -196,18 +193,39 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
   res <-
     race
       ( handle onIOException $
-          connectToLocalNode
-            connectInfo
-            (clientProtocols chainPoint queue handler)
+          case chainBackend of
+            DirectBackend{networkId, nodeSocket} ->
+              connectToLocalNode
+                (connectInfo networkId nodeSocket)
+                (clientProtocols chainPoint queue handler)
+            BlockfrostBackend{projectPath} -> do
+              prj <- Blockfrost.projectFromFile projectPath
+              blockfrostChainFollow prj chainPoint handler wallet
       )
       (action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  DirectChainConfig{networkId, nodeSocket, startChainFrom} = config
+  CardanoChainConfig{chainBackend, startChainFrom} = config
 
-  connectInfo =
+  blockfrostChainFollow prj chainPoint handler wallet = do
+    Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <- Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
+
+    Blockfrost.Block{_blockHash = (Blockfrost.BlockHash genesisBlockHash)} <-
+      Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 0))
+
+    let blockTime = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
+
+    let blockHash = fromChainPoint chainPoint genesisBlockHash
+
+    void $
+      retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
+        loop tracer prj blockTime handler wallet 1 blockHash
+          `catch` \(ex :: APIBlockfrostError) ->
+            pure $ Left ex
+
+  connectInfo networkId nodeSocket =
     LocalNodeConnectInfo
       { -- REVIEW: This was 432000 before, but all usages in the
         -- cardano-node repository are using this value. This is only
@@ -238,14 +256,121 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
     throwIO $
       ConnectException
         { ioException
-        , nodeSocket
-        , networkId
         }
 
-data ConnectException = ConnectException
+  shouldRetry _ = \case
+    Right{} -> pure False
+    Left err -> pure $ isRetryable err
+
+  retryPolicy blockTime = constantDelay (truncate blockTime * 1000 * 1000)
+
+loop ::
+  (MonadIO m, MonadThrow m, MonadSTM m) =>
+  Tracer IO DirectChainLog ->
+  Blockfrost.Project ->
+  DiffTime ->
+  ChainSyncHandler m ->
+  TinyWallet m ->
+  Integer ->
+  Blockfrost.BlockHash ->
+  m a
+loop tracer prj blockTime handler wallet blockConfirmations current = do
+  next <- rollForward tracer prj handler wallet blockConfirmations current
+  loop tracer prj blockTime handler wallet blockConfirmations next
+
+rollForward ::
+  (MonadIO m, MonadThrow m) =>
+  Tracer IO DirectChainLog ->
+  Blockfrost.Project ->
+  ChainSyncHandler m ->
+  TinyWallet m ->
+  Integer ->
+  Blockfrost.BlockHash ->
+  m Blockfrost.BlockHash
+rollForward tracer prj handler wallet blockConfirmations blockHash = do
+  Blockfrost.Block
+    { _blockHash
+    , _blockConfirmations
+    , _blockNextBlock
+    , _blockHeight
+    , _blockSlot
+    } <-
+    Blockfrost.runBlockfrostM prj $ Blockfrost.getBlock (Right blockHash)
+
+  -- Check if block within the safe zone to be processes
+  when (_blockConfirmations < blockConfirmations) $
+    throwIO (NotEnoughBlockConfirmations _blockHash)
+
+  -- Search block transactions
+  txHashesCBOR <- Blockfrost.runBlockfrostM prj . Blockfrost.allPages $ \p ->
+    Blockfrost.getBlockTxsCBOR' (Right _blockHash) p Blockfrost.def
+
+  -- Convert to cardano-api Tx
+  receivedTxs <- mapM (toTx . (\(Blockfrost.TxHashCBOR (_txHash, cbor)) -> cbor)) txHashesCBOR
+
+  -- Check if block contains a reference to its next
+  nextBlockHash <- maybe (throwIO $ MissingNextBlockHash _blockHash) pure _blockNextBlock
+
+  blockNo <- maybe (throwIO $ MissingBlockNo _blockHash) (pure . fromInteger) _blockHeight
+  let Blockfrost.BlockHash blockHash' = _blockHash
+  let blockHash'' = fromString $ T.unpack blockHash'
+  blockSlot <- maybe (throwIO $ MissingBlockSlot _blockSlot) (pure . fromInteger . Blockfrost.unSlot) _blockSlot
+  let header = BlockHeader (SlotNo blockSlot) blockHash'' blockNo
+  update wallet header receivedTxs
+  -- Observe Hydra transactions
+  onRollForward handler header receivedTxs
+
+  pure nextBlockHash
+
+-- * Helpers
+
+data APIBlockfrostError
+  = BlockfrostError Text
+  | DecodeError Text
+  | NotEnoughBlockConfirmations Blockfrost.BlockHash
+  | MissingBlockNo Blockfrost.BlockHash
+  | MissingBlockSlot (Maybe Blockfrost.Slot)
+  | MissingNextBlockHash Blockfrost.BlockHash
+  deriving (Show, Exception)
+
+isRetryable :: APIBlockfrostError -> Bool
+isRetryable (BlockfrostError _) = True
+isRetryable (DecodeError _) = False
+isRetryable (NotEnoughBlockConfirmations _) = True
+isRetryable (MissingBlockNo _) = True
+isRetryable (MissingBlockSlot _) = True
+isRetryable (MissingNextBlockHash _) = True
+toChainPoint :: Blockfrost.Block -> ChainPoint
+toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
+  ChainPoint slotNo headerHash
+ where
+  slotNo :: SlotNo
+  slotNo = maybe 0 (fromInteger . Blockfrost.unSlot) _blockSlot
+
+  headerHash :: Hash BlockHeader
+  headerHash = fromString . toString $ Blockfrost.unBlockHash _blockHash
+
+fromNetworkMagic :: Integer -> NetworkId
+fromNetworkMagic = \case
+  0 -> Mainnet
+  magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
+
+toTx :: MonadThrow m => Blockfrost.TransactionCBOR -> m Tx
+toTx (Blockfrost.TransactionCBOR txCbor) =
+  case decodeBase16 txCbor of
+    Left decodeErr -> throwIO . DecodeError $ "Bad Base16 Tx CBOR: " <> decodeErr
+    Right bytes ->
+      case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
+        Left deserializeErr -> throwIO . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
+        Right tx -> pure tx
+
+fromChainPoint :: ChainPoint -> Text -> Blockfrost.BlockHash
+fromChainPoint chainPoint genesisBlockHash = case chainPoint of
+  ChainPoint _ headerHash -> Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
+  ChainPointAtGenesis -> Blockfrost.BlockHash genesisBlockHash
+
+newtype ConnectException = ConnectException
   { ioException :: IOException
-  , nodeSocket :: SocketPath
-  , networkId :: NetworkId
   }
   deriving stock (Show)
 
