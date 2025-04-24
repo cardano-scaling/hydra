@@ -154,6 +154,12 @@ defaultDirectBackend =
     , nodeSocket = "node.socket"
     }
 
+defaultCardanoBackend :: ChainBackend
+defaultCardanoBackend =
+  BlockfrostBackend
+    { projectPath = "/home/v0d1ch/code/hydra/blockfrost-project.txt"
+    }
+
 data ChainBackend
   = DirectBackend
       { networkId :: NetworkId
@@ -295,6 +301,7 @@ whichEtcdParser =
 chainConfigParser :: Parser ChainConfig
 chainConfigParser =
   Direct <$> directChainConfigParser
+    <|> Cardano <$> cardanoChainConfigParser
     <|> Offline <$> offlineChainConfigParser
 
 chainBackendParser :: Parser ChainBackend
@@ -406,6 +413,18 @@ data CardanoChainConfig = CardanoChainConfig
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+defaultCardanoChainConfig :: CardanoChainConfig
+defaultCardanoChainConfig =
+  CardanoChainConfig
+    { hydraScriptsTxId = []
+    , cardanoSigningKey = "cardano.sk"
+    , cardanoVerificationKeys = []
+    , startChainFrom = Nothing
+    , contestationPeriod = defaultContestationPeriod
+    , depositDeadline = defaultDepositDeadline
+    , chainBackend = defaultCardanoBackend
+    }
+
 data DirectChainConfig = DirectChainConfig
   { networkId :: NetworkId
   -- ^ Network identifer to which we expect to connect.
@@ -447,6 +466,14 @@ data BlockfrostChainConfig = BlockfrostChainConfig
   -- ^ Identifier of transaction holding the hydra scripts to use.
   }
   deriving stock (Eq, Show, Generic)
+
+defaultBlockfrostChainConfig :: BlockfrostChainConfig
+defaultBlockfrostChainConfig =
+  BlockfrostChainConfig
+    { projectPath = "/home/v0d1ch/code/hydra/blockfrost-project.txt"
+    , hydraScriptsTxId = []
+    , cardanoSigningKey = "cardano.sk"
+    }
 
 instance Arbitrary ChainConfig where
   arbitrary =
@@ -536,6 +563,17 @@ directChainConfigParser =
     <*> optional startChainFromParser
     <*> contestationPeriodParser
     <*> depositPeriodParser
+
+cardanoChainConfigParser :: Parser CardanoChainConfig
+cardanoChainConfigParser =
+  CardanoChainConfig
+    <$> (hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser)
+    <*> cardanoSigningKeyFileParser
+    <*> many cardanoVerificationKeyFileParser
+    <*> optional startChainFromParser
+    <*> contestationPeriodParser
+    <*> depositDeadlineParser
+    <*> chainBackendParser
 
 blockfrostProjectPathParser :: Parser FilePath
 blockfrostProjectPathParser =
