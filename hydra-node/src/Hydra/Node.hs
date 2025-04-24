@@ -118,16 +118,13 @@ initEnvironment options = do
           ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
           otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
-      Direct{} -> undefined
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
     Cardano CardanoChainConfig{contestationPeriod = cp} -> cp
-    Direct{} -> undefined
   depositDeadline = case chainConfig of
     Offline{} -> defaultDepositDeadline
     Cardano CardanoChainConfig{depositDeadline = ddeadline} -> ddeadline
-    Direct{} -> undefined
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p

@@ -5,10 +5,10 @@ import Test.Hydra.Prelude
 
 import Hydra.Node.Run (ConfigurationException, run)
 import Hydra.Options (
+  CardanoChainConfig (..),
   ChainConfig (..),
-  DirectChainConfig (..),
   RunOptions (..),
-  defaultDirectChainConfig,
+  defaultCardanoChainConfig,
   defaultRunOptions,
   genFilePath,
  )
@@ -21,7 +21,7 @@ spec =
     hydraVerificationKeys <- generate $ replicateM 2 (genFilePath "vk")
     run
       defaultRunOptions
-        { chainConfig = Direct defaultDirectChainConfig{cardanoVerificationKeys = cardanoKeys}
+        { chainConfig = Cardano defaultCardanoChainConfig{cardanoVerificationKeys = cardanoKeys}
         , hydraVerificationKeys
         }
       `shouldThrow` aConfigurationException
