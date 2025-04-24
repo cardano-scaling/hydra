@@ -415,11 +415,16 @@ instance StateModel WorldState where
     _other -> []
 
 instance HasVariables WorldState where
-  getAllVariables _ = mempty
+  getAllVariables WorldState{hydraState} = case hydraState of
+    Initial{headIdVar} -> Set.singleton $ Some headIdVar
+    Open{headIdVar} -> Set.singleton $ Some headIdVar
+    _ -> mempty
 
 instance HasVariables (Action WorldState a) where
   getAllVariables = \case
-    ObserveConfirmedTx tx -> Set.singleton (Some tx)
+    Commit{headIdVar} -> Set.singleton $ Some headIdVar
+    Deposit{headIdVar} -> Set.singleton $ Some headIdVar
+    ObserveConfirmedTx tx -> Set.singleton $ Some tx
     _other -> mempty
 
 deriving stock instance Show (Action WorldState a)

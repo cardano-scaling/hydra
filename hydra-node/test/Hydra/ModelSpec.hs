@@ -53,7 +53,7 @@
 --
 -- @@
 --   do action $ Seed {seedKeys = [("8bbc9f32e4faff669ed1561025f243649f1332902aa79ad7e6e6bbae663f332d",CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"})], seedContestationPeriod = 46s, seedDepositDeadline = 50s, toCommit = fromList [(Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"},[(CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList [(AdaAssetId,54862683)])])]}
---      action $ Init (Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"})
+--      var2 <- action $ Init (Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"})
 --      action $ Commit {headIdVar = var2, party = Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, utxoToCommit = [(CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList [(AdaAssetId,54862683)])]}
 --      action $ Decommit {party = Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, decommitTx = Payment { from = CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, to = CardanoSigningKey {signingKey = "0702050602000101050108060302010707060007020308080801060700030306"}, value = valueFromList [(AdaAssetId,54862683)] }}
 --      action $ Deposit {headIdVar = var2, utxoToDeposit = [(CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList [(AdaAssetId,54862683)])], deadline = 1864-06-06 08:24:08.669152896211 UTC}
@@ -62,8 +62,8 @@
 --
 -- Which can be turned into a unit test after resolving most of the imports.
 -- Common pitfalls are incorrect show instances (e.g. the UTCTime in deadline
--- above). Also any variables need to be bound. A working example of the above
--- output would be:
+-- above). Should the variables not be bound correctly, double check
+-- HasVariables instances. A working example of the above output would be:
 --
 -- @@
 --   it "troubleshoot" . withMaxSuccess 1 . flip forAllDL propHydraModel $ do
