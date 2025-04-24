@@ -75,3 +75,21 @@ spec =
         -- Also, does not squash UTxO
         utxoAfter <- queryUTxOFor networkId nodeSocket QueryTip vk
         length utxoAfter `shouldBe` length utxoBefore
+
+      it "squash UTxO if no single suitable output is found" $ \(tracer, node@RunningNode{networkId, nodeSocket}) -> do
+        -- NOTE: Note use 'Faucet' as this has a very big initial amount
+        (vk, _) <- keysFor Alice
+        -- NOTE: 83 ADA is just enough to pay for reference scripts deposits.
+        forM_ [20_000_000, 25_000_000, 20_000_000, 30_000_000, 20_000_000] $ \c -> seedFromFaucet node vk c tracer
+        utxoBefore <- queryUTxOFor networkId nodeSocket QueryTip vk
+
+        void $ publishHydraScriptsAs node Alice
+
+        -- it squashed the UTxO
+        utxoAfter <- queryUTxOFor networkId nodeSocket QueryTip vk
+
+        length utxoAfter `shouldSatisfy` (< length utxoBefore)
+
+        let lovelaceAmtBefore = selectLovelace $ foldMap txOutValue utxoBefore
+        let lovelaceAmtAfter = selectLovelace $ foldMap txOutValue utxoAfter
+        lovelaceAmtAfter `shouldSatisfy` (< lovelaceAmtBefore)
