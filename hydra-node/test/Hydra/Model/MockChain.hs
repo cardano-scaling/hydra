@@ -75,6 +75,7 @@ import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect)
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.NodeSpec (mockServer)
+import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Environment (Environment (Environment, participants, party))
@@ -217,7 +218,7 @@ mockChainAndNetwork tr seedKeys commits = do
       (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
         draftDepositTx headId (mkSimpleBlueprintTx utxoToDeposit) deadline >>= \case
           Left e -> throwIO e
-          Right tx -> submitTx tx
+          Right tx -> submitTx tx $> txId tx
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
   closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
