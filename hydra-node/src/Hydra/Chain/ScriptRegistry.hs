@@ -20,7 +20,6 @@ import Hydra.Cardano.Api (
   SocketPath,
   SystemStart,
   Tx,
-  TxBody,
   TxId,
   TxIn (..),
   TxIx (..),
@@ -118,8 +117,8 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools sta
   flip evalStateT (startUTxO, []) $
     forM scripts $ \script -> do
       (nextUTxO, _) <- get
-      (tx, _, spentUTxO) <- liftIO $ buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script nextUTxO
-      modify' (\(_, existingTxs) -> (pickKeyAddressUTxO $ adjustUTxO tx spentUTxO, tx : existingTxs))
+      tx <- liftIO $ buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script nextUTxO
+      modify' (\(_, existingTxs) -> (pickKeyAddressUTxO $ adjustUTxO tx nextUTxO, tx : existingTxs))
       pure tx
  where
   pickKeyAddressUTxO utxo = maybe mempty UTxO.singleton $ UTxO.findBy (\(_, txOut) -> isKeyAddress (txOutAddress txOut)) utxo
@@ -140,7 +139,7 @@ buildScriptPublishingTx ::
   SigningKey PaymentKey ->
   PlutusScript ->
   UTxO.UTxO ->
-  IO (Tx, TxBody, UTxO.UTxO)
+  IO Tx
 buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script utxo =
   let output = mkScriptTxOut <$> [mkScriptRef script]
       totalDeposit = sum (selectLovelace . txOutValue <$> output)
@@ -151,7 +150,7 @@ buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools chan
         Left e -> throwErrorAsException e
         Right rawTx -> do
           let body = getTxBody rawTx
-          pure (makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body, body, utxoToSpend)
+          pure $ makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
  where
   mkScriptTxOut =
     mkTxOutAutoBalance
