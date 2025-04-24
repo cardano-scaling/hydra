@@ -80,13 +80,18 @@ import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
-import Hydra.Options (
-  ChainBackend (..),
-  ChainConfig (..),
-  RunOptions (..),
-  defaultContestationPeriod,
-  defaultDepositDeadline,
- )
+import Hydra.Options
+    ( ChainBackend(..),
+      ChainConfig(..),
+      RunOptions(..),
+      defaultContestationPeriod,
+      defaultDepositDeadline,
+      CardanoChainConfig(..),
+      ChainBackend(..),
+      ChainConfig(..),
+      RunOptions(..),
+      defaultContestationPeriod,
+      defaultDepositDeadline )
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), ScriptRegistry, deriveParty)
 import Hydra.Tx.Crypto (AsType (AsHydraKey))
 import Hydra.Tx.Environment (Environment (..))
@@ -115,24 +120,24 @@ initEnvironment options = do
   getParticipants =
     case chainConfig of
       Offline{} -> pure []
-      Direct
-        DirectChainConfig
+      Cardano
+        CardanoChainConfig
           { cardanoVerificationKeys
           , cardanoSigningKey
           } -> do
           ownSigningKey <- readFileTextEnvelopeThrow cardanoSigningKey
           otherVerificationKeys <- mapM readFileTextEnvelopeThrow cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
-      Cardano{} -> undefined
+      Direct{} -> undefined
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
-    Direct DirectChainConfig{contestationPeriod = cp} -> cp
-    Cardano{} -> undefined
+    Cardano CardanoChainConfig{contestationPeriod = cp} -> cp
+    Direct{} -> undefined
   depositDeadline = case chainConfig of
     Offline{} -> defaultDepositDeadline
-    Direct DirectChainConfig{depositDeadline = ddeadline} -> ddeadline
-    Cardano{} -> undefined
+    Cardano CardanoChainConfig{depositDeadline = ddeadline} -> ddeadline
+    Direct{} -> undefined
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow p
