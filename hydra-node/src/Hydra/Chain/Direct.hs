@@ -9,6 +9,7 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
+import Blockfrost.Client qualified as Blockfrost
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
@@ -25,7 +26,7 @@ import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
   BlockInMode (..),
   CardanoEra (..),
-  ChainPoint,
+  ChainPoint (..),
   ChainTip,
   ConsensusModeParams (..),
   EpochSlots (..),
@@ -51,6 +52,7 @@ import Hydra.Chain (
   PostTxError (FailedToPostTx, failureReason),
   currentState,
  )
+import Hydra.Chain.Blockfrost qualified as Blockfrost
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
@@ -182,7 +184,9 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
               connectToLocalNode
                 (connectInfo networkId nodeSocket)
                 (clientProtocols chainPoint queue handler)
-            BlockfrostBackend{} -> undefined
+            BlockfrostBackend{projectPath} -> do
+              prj <- Blockfrost.projectFromFile projectPath
+              Blockfrost.blockfrostChainFollow prj chainPoint handler wallet
       )
       (action chainHandle)
   case res of

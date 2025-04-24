@@ -81,8 +81,21 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
-import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
+import Hydra.Options
+    ( ChainBackend(..),
+      ChainConfig(..),
+      RunOptions(..),
+      defaultContestationPeriod,
+      defaultDepositDeadline,
+      CardanoChainConfig(..),
+      ChainBackend(..),
+      ChainConfig(..),
+      RunOptions(..),
+      defaultContestationPeriod,
+      defaultDepositDeadline )
+import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), ScriptRegistry, deriveParty)
+import Hydra.Tx.Crypto (AsType (AsHydraKey))
+import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
@@ -108,23 +121,22 @@ initEnvironment options = do
   getParticipants =
     case chainConfig of
       Offline{} -> pure []
-      Direct
-        DirectChainConfig
+      Cardano
+        CardanoChainConfig
           { cardanoVerificationKeys
           , cardanoSigningKey
           } -> do
           ownSigningKey <- readFileTextEnvelopeThrow cardanoSigningKey
           otherVerificationKeys <- mapM readFileTextEnvelopeThrow cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
-      Cardano{} -> undefined
+      Direct{} -> undefined
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
-    Direct DirectChainConfig{contestationPeriod = cp} -> cp
-
-  depositPeriod = case chainConfig of
-    Offline{} -> defaultDepositPeriod
-    Direct DirectChainConfig{depositPeriod = dp} -> dp
+    Cardano CardanoChainConfig{contestationPeriod = cp} -> cp
+  depositDeadline = case chainConfig of
+    Offline{} -> defaultDepositDeadline
+    Cardano CardanoChainConfig{depositDeadline = ddeadline} -> ddeadline
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow p

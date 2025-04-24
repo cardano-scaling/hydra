@@ -101,6 +101,7 @@ library
   build-depends:
     , aeson
     , base
+    , base16-bytestring
     , blockfrost-client               >=0.9.2.0
     , bytestring
     , cardano-api
@@ -153,6 +154,7 @@ library
     , quickcheck-arbitrary-adt
     , quickcheck-instances
     , resourcet
+    , retry
     , safe-money
     , serialise
     , sop-extras
