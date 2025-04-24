@@ -129,7 +129,6 @@ initEnvironment options = do
           ownSigningKey <- readFileTextEnvelopeThrow cardanoSigningKey
           otherVerificationKeys <- mapM readFileTextEnvelopeThrow cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
-      Direct{} -> undefined
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod

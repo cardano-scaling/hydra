@@ -16,7 +16,6 @@ import Hydra.Cardano.Api (
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
@@ -42,7 +41,6 @@ import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
   CardanoChainConfig (..),
   ChainConfig (..),
-  DirectChainConfig (..),
   InvalidOptions (..),
   LedgerConfig (..),
   OfflineChainConfig (..),
@@ -126,7 +124,6 @@ run opts = do
   prepareChainComponent tracer Environment{party, otherParties} = \case
     Offline cfg ->
       pure $ withOfflineChain cfg party otherParties
-    Direct DirectChainConfig{} -> error "Direct chain config is deprecated"
     Cardano cfg@CardanoChainConfig{} -> do
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
@@ -153,9 +150,6 @@ getGlobalsForChain :: ChainConfig -> IO Globals
 getGlobalsForChain = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
     loadGenesisFile ledgerGenesisFile
-      >>= newGlobals
-  Direct DirectChainConfig{networkId, nodeSocket} ->
-    CardanoClient.queryGenesisParameters networkId nodeSocket CardanoClient.QueryTip
       >>= newGlobals
   Cardano CardanoChainConfig{chainBackend} ->
     queryGenesisParameters chainBackend >>= newGlobals
