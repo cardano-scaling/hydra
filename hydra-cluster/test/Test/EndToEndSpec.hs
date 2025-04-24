@@ -71,6 +71,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCommitsScriptBlueprint,
   singlePartyHeadFullLifeCycle,
   singlePartyUsesScriptOnL2,
+  singlePartyUsesSha512ScriptOnL2,
   singlePartyUsesWithdrawZeroTrick,
   threeNodesNoErrorsOnOpen,
   threeNodesWithMirrorParty,
@@ -222,6 +223,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyUsesWithdrawZeroTrick tracer tmpDir node
+      it "can spend from a script using sha512 on L2" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyUsesSha512ScriptOnL2 tracer tmpDir node
       it "can submit a signed user transaction" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->

@@ -22,34 +22,9 @@ dummyValidatorScript =
             [||
             \ctx ->
               check $ case unsafeFromBuiltinData ctx of
-                ScriptContext{scriptContextScriptInfo = SpendingScript{}} -> "" PlutusTx.Prelude.== sha3_512 ""
-                _ -> False
-            ||]
-        )
-
-dummyMintingScript :: PlutusScript
-dummyMintingScript =
-  PlutusScriptSerialised $
-    serialiseCompiledCode
-      $$( PlutusTx.compile
-            [||
-            \ctx ->
-              check $ case unsafeFromBuiltinData ctx of
-                ScriptContext{scriptContextScriptInfo = MintingScript{}} -> True
-                _ -> False
-            ||]
-        )
-
-dummyRewardingScript :: PlutusScript
-dummyRewardingScript =
-  PlutusScriptSerialised $
-    serialiseCompiledCode
-      $$( PlutusTx.compile
-            [||
-            \ctx ->
-              check $ case unsafeFromBuiltinData ctx of
-                ScriptContext{scriptContextScriptInfo = CertifyingScript{}} -> True
-                ScriptContext{scriptContextScriptInfo = RewardingScript{}} -> True
+                ScriptContext{scriptContextScriptInfo = SpendingScript{}} ->
+                  let x = sha3_512 "aaaaaaaa"
+                   in x PlutusTx.Prelude.== x
                 _ -> False
             ||]
         )

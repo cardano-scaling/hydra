@@ -103,6 +103,7 @@ import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
 import Hydra.Contract.Dummy (dummyRewardingScript)
+import Hydra.Contract.Sha512Example qualified as Sha512
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
@@ -759,6 +760,127 @@ singlePartyUsesWithdrawZeroTrick tracer workDir node hydraScriptsTxId =
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
+singlePartyUsesSha512ScriptOnL2 ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  [TxId] ->
+  IO ()
+singlePartyUsesSha512ScriptOnL2 tracer workDir node hydraScriptsTxId =
+  ( `finally`
+      do
+        returnFundsToFaucet tracer node Alice
+        returnFundsToFaucet tracer node AliceFunds
+  )
+    $ do
+      refuelIfNeeded tracer node Alice 250_000_000
+      let contestationPeriod = UnsafeContestationPeriod 1
+      let depositDeadline = UnsafeDepositDeadline 1
+      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+      let hydraNodeId = 1
+      let hydraTracer = contramap FromHydraNode tracer
+      withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+        send n1 $ input "Init" []
+        headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+        (walletVk, walletSk) <- keysFor AliceFunds
+
+        -- Create money on L1
+        let commitAmount = 100_000_000
+        utxoToCommit <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
+
+        -- Push it into L2
+        requestCommitTx n1 utxoToCommit
+          <&> signTx walletSk >>= \tx -> do
+            submitTx node tx
+
+        -- Check UTxO is present in L2
+        waitFor hydraTracer (10 * blockTime) [n1] $
+          output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+        pparams <- getProtocolParameters n1
+
+        -- Send the UTxO to a script; in preparation for running the script
+        let serializedScript = Sha512.dummyValidatorScript
+        let scriptAddress = mkScriptAddress networkId serializedScript
+        let scriptOutput =
+              mkTxOutAutoBalance
+                pparams
+                scriptAddress
+                (lovelaceToValue 0)
+                (mkTxOutDatumHash ())
+                ReferenceScriptNone
+
+        Right tx <- buildTransactionWithPParams pparams networkId nodeSocket (mkVkAddress networkId walletVk) utxoToCommit [] [scriptOutput]
+
+        let signedL2tx = signTx walletSk tx
+        send n1 $ input "NewTx" ["transaction" .= signedL2tx]
+
+        waitMatch 10 n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $
+            toJSON signedL2tx
+              `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+
+        -- Now, spend the money from the script
+        let scriptWitness =
+              BuildTxWith $
+                ScriptWitness scriptWitnessInCtx $
+                  PlutusScriptWitness
+                    serializedScript
+                    (mkScriptDatum ())
+                    (toScriptData ())
+                    maxTxExecutionUnits
+
+        let txIn = mkTxIn signedL2tx 0
+        let remainder = mkTxIn signedL2tx 1
+
+        let outAmt = foldMap txOutValue (txOuts' tx)
+        let body =
+              defaultTxBodyContent
+                & addTxIns [(txIn, scriptWitness), (remainder, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
+                & addTxInsCollateral [remainder]
+                & addTxOuts [TxOut (mkVkAddress networkId walletVk) outAmt TxOutDatumNone ReferenceScriptNone]
+                & setTxProtocolParams (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
+
+        -- TODO: Instead of using `createAndValidateTransactionBody`, we
+        -- should be able to just construct the Tx with autobalancing via
+        -- `buildTransactionWithBody`. Unfortunately this is broken in the
+        -- version of cardano-api that we presently use; in a future upgrade
+        -- of that library we can try again.
+        -- tx' <- either (failure . show) pure =<< buildTransactionWithBody networkId nodeSocket (mkVkAddress networkId walletVk) body utxoToCommit
+        txBody <- either (failure . show) pure (createAndValidateTransactionBody body)
+
+        let spendTx' = makeSignedTransaction [] txBody
+            spendTx = fromLedgerTx $ recomputeIntegrityHash pparams [PlutusV3] (toLedgerTx spendTx')
+        let signedTx = signTx walletSk spendTx
+
+        send n1 $ input "NewTx" ["transaction" .= signedTx]
+
+        waitMatch 10 n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $
+            toJSON signedTx
+              `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+
+        -- And check that we can close and fanout the head successfully
+        send n1 $ input "Close" []
+        deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          v ^? key "contestationDeadline" . _JSON
+        remainingTime <- diffUTCTime deadline <$> getCurrentTime
+        waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+          output "ReadyToFanout" ["headId" .= headId]
+        send n1 $ input "Fanout" []
+        waitMatch (10 * blockTime) n1 $ \v ->
+          guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+        -- Assert final wallet balance
+        (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+          `shouldReturn` lovelaceToValue commitAmount
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
+
 -- | Compute the integrity hash of a transaction using a list of plutus languages.
 recomputeIntegrityHash ::
   (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) =>
@@ -838,7 +960,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       getSnapshotUTxO n1 `shouldReturn` scriptUTxO <> scriptUTxO'
  where
   prepareScriptPayload lovelaceAmt = do
-    let scriptAddress = mkScriptAddress networkId dummyValidatorScript
+    let scriptAddress = mkScriptAddress networkId Sha512.dummyValidatorScript
     let datumHash = mkTxOutDatumHash ()
     (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue lovelaceAmt)
     let scriptUTxO = UTxO.singleton (scriptIn, scriptOut)
@@ -846,7 +968,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
     let scriptWitness =
           BuildTxWith $
             ScriptWitness scriptWitnessInCtx $
-              mkScriptWitness dummyValidatorScript (mkScriptDatum ()) (toScriptData ())
+              mkScriptWitness Sha512.dummyValidatorScript (mkScriptDatum ()) (toScriptData ())
     let spendingTx =
           unsafeBuildTransaction $
             defaultTxBodyContent
