@@ -387,9 +387,8 @@ spec = parallel $ do
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
-                  -- TODO: update this and others below to use simulateDeposit
-                  injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
+                  depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
 
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -397,7 +396,7 @@ spec = parallel $ do
                     _ -> Nothing
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId}
 
                   headUTxO <- getHeadUTxO <$> queryState n1
                   fromMaybe mempty headUTxO `shouldSatisfy` member 11
@@ -412,21 +411,17 @@ spec = parallel $ do
                   let depositUTxO2 = utxoRefs [22]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
-                  injectChainEvent
-                    n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  injectChainEvent
-                    n2
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
-                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, deadline}
+                  deposit1 <- simulateDeposit chain testHeadId depositUTxO deadline
+                  deposit2 <- simulateDeposit chain testHeadId depositUTxO2 deadline
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = deposit1, deadline}
+                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = deposit2, deadline}
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                       utxoToCommit >>= guard . (11 `member`)
                     _ -> Nothing
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = deposit1}
                   let normalTx = SimpleTx 3 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
                   waitUntil [n1, n2] $ TxValid testHeadId 3
@@ -435,7 +430,7 @@ spec = parallel $ do
                       utxoToCommit >>= guard . (22 `member`)
                     _ -> Nothing
                   waitUntil [n2] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
-                  waitUntil [n2] $ CommitFinalized{headId = testHeadId, depositTxId = 2}
+                  waitUntil [n2] $ CommitFinalized{headId = testHeadId, depositTxId = deposit2}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
@@ -450,10 +445,10 @@ spec = parallel $ do
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
-                  simulateDeposit chain testHeadId depositUTxO deadline
-                  depositTxId <- waitUntilMatch [n1, n2] $ \case
-                    CommitRecorded{utxoToCommit, pendingDeposit} ->
-                      pendingDeposit <$ guard (11 `member` utxoToCommit)
+                  depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
+                  waitUntilMatch [n1, n2] $ \case
+                    CommitRecorded{utxoToCommit} ->
+                      guard (11 `member` utxoToCommit)
                     _ -> Nothing
                   let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
@@ -466,6 +461,7 @@ spec = parallel $ do
                   send n2 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11]}
 
+        -- XXX: This could be a single node test
         it "can close with commit in flight" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
@@ -475,11 +471,8 @@ spec = parallel $ do
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
-                  injectChainEvent
-                    n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
+                  depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
                   waitUntilMatch [n1] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                       utxoToCommit >>= guard . (11 `member`)
@@ -493,6 +486,7 @@ spec = parallel $ do
                   send n2 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2, 11]}
 
+        -- XXX: This could be a single node test
         it "fanout utxo is correct after a commit" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
@@ -502,45 +496,14 @@ spec = parallel $ do
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
-                  injectChainEvent
-                    n2
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
+                  depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
+                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
-        it "can do new deposit once the first one has settled" $
-          shouldRunInSim $ do
-            withSimulatedChainAndNetwork $ \chain ->
-              withHydraNode aliceSk [bob] chain $ \n1 -> do
-                withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
-                  let depositUTxO = utxoRefs [11]
-                  -- TODO: make this relative to something
-                  deadline <- addUTCTime 60 <$> getCurrentTime
-                  let depositUTxO2 = utxoRefs [111]
-                  injectChainEvent
-                    n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
-                  waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = utxoRefs [11]}
-                  waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
-                  injectChainEvent
-                    n2
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline, newChainState = SimpleChainState{slot = ChainSlot 1}}
-                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, deadline = deadline}
-                  waitUntilMatch [n1, n2] $ \case
-                    SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                      utxoToCommit >>= guard . (111 `member`)
-                    _ -> Nothing
-
-                  send n1 Close
-                  waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
-                  send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2, 11, 111]}
-
+        -- XXX: This could be a single node test
         it "multiple commits and decommits in sequence" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
@@ -550,15 +513,13 @@ spec = parallel $ do
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
-                  injectChainEvent
-                    n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
+                  depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                       utxoToCommit >>= guard . (11 `member`)
                     _ -> Nothing
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId}
 
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
                   send n2 (Decommit decommitTx)
@@ -576,6 +537,7 @@ spec = parallel $ do
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2, 11]}
+
         it "commit and decommit same utxo" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
@@ -583,17 +545,14 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  let deadline = arbitrary `generateWith` 42
-                  injectChainEvent
-                    n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
-                  waitUntilMatch [n1, n2] $
-                    \case
-                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                        utxoToCommit >>= guard . (11 `member`)
-                      _ -> Nothing
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
+                  deadline <- addUTCTime 60 <$> getCurrentTime
+                  depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                      utxoToCommit >>= guard . (11 `member`)
+                    _ -> Nothing
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId}
 
                   headUTxO <- getHeadUTxO <$> queryState n1
                   fromMaybe mempty headUTxO `shouldBe` utxoRefs [1, 2, 11]
@@ -947,7 +906,7 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   , simulateCommit :: HeadId -> Party -> UTxOType tx -> m ()
-  , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m ()
+  , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
   , closeWithInitialSnapshot :: (Party, UTxOType tx) -> m ()
   }
 
@@ -1026,6 +985,7 @@ simulatedChainAndNetwork initialChainState = do
       , simulateDeposit = \headId toDeposit deadline -> do
           depositTxId <- atomically $ stateTVar nextTxId (\i -> (i, i + 1))
           createAndYieldEvent nodes history localChainState $ OnDepositTx{headId, deposited = toDeposit, deadline, depositTxId}
+          pure depositTxId
       , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
       }
  where

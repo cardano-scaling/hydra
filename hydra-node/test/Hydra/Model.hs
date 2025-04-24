@@ -697,7 +697,7 @@ performDeposit headId utxoToDeposit deadline = do
   nodes <- gets nodes
   SimulatedChainNetwork{simulateDeposit} <- gets chain
   lift $ do
-    simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
+    txid <- simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
     -- TODO: is this a post condition? We could determine whether a deposit was
     -- picked up or not as result and check our assumption against the model in
     -- postcondition. For example, it would be depending on current time/slot
@@ -707,7 +707,7 @@ performDeposit headId utxoToDeposit deadline = do
       -- actually adding something. Honest nodes would not try to
       -- snapshot/increment this.
       CommitRecorded{} | null utxoToDeposit -> Just ()
-      CommitFinalized{} -> Just ()
+      CommitFinalized{depositTxId} -> guard $ txid == depositTxId
       _ -> Nothing
 
 performDecommit ::
