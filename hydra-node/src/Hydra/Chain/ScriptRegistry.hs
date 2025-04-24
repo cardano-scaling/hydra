@@ -121,7 +121,7 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools sta
       modify' (\(_, existingTxs) -> (pickKeyAddressUTxO $ adjustUTxO tx nextUTxO, tx : existingTxs))
       pure tx
  where
-  pickKeyAddressUTxO utxo = maybe mempty UTxO.singleton $ UTxO.findBy (\(_, txOut) -> isKeyAddress (txOutAddress txOut)) utxo
+  pickKeyAddressUTxO = UTxO.filter (isKeyAddress . txOutAddress)
 
   scripts = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
 
