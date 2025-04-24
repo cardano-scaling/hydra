@@ -5,42 +5,40 @@ module Hydra.Chain.ScriptRegistry where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List ((!!))
 import Hydra.Cardano.Api (
-  AddressInEra,
+  Coin,
+  Era,
   EraHistory,
   Key (..),
   LedgerEra,
   NetworkId,
   PParams,
   PaymentKey,
-  PlutusScript,
   PoolId,
-  ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
   SocketPath,
   SystemStart,
   Tx,
-  TxBody,
+  TxBodyErrorAutoBalance,
   TxId,
   TxIn (..),
   TxIx (..),
   UTxO,
   WitCtx (..),
   examplePlutusScriptAlwaysFails,
-  getTxBody,
-  isKeyAddress,
-  makeShelleyKeyWitness,
-  makeSignedTransaction,
   mkScriptAddress,
   mkScriptRef,
+  mkTxIn,
   mkTxOutAutoBalance,
   mkVkAddress,
   selectLovelace,
-  throwErrorAsException,
-  txOutAddress,
+  toCtxUTxOTxOut,
   txOutValue,
+  txOuts',
   pattern TxOutDatumNone,
  )
+import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
   awaitTransaction,
@@ -54,7 +52,6 @@ import Hydra.Chain.CardanoClient (
   submitTransaction,
  )
 import Hydra.Contract.Head qualified as Head
-import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (txId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
@@ -105,54 +102,56 @@ publishHydraScripts networkId socketPath sk = do
  where
   vk = getVerificationKey sk
 
+-- | Exception raised when building the script publishing transactions.
+data PublishScriptException
+  = FailedToBuildPublishingTx (TxBodyErrorAutoBalance Era)
+  | FailedToFindUTxOToCoverDeposit {totalDeposit :: Coin}
+  deriving (Show)
+  deriving anyclass (Exception)
+
+-- | Builds a chain of script publishing transactions.
+-- Throws: PublishScriptException
 buildScriptPublishingTxs ::
+  MonadThrow m =>
   PParams LedgerEra ->
   SystemStart ->
   NetworkId ->
   EraHistory ->
   Set PoolId ->
+  -- | Outputs that can be spent by signing key.
   UTxO ->
+  -- | Key owning funds to pay deposit and fees.
   SigningKey PaymentKey ->
-  IO [Tx]
-buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools startUTxO sk =
-  flip evalStateT (startUTxO, []) $
-    forM scripts $ \script -> do
-      (nextUTxO, _) <- get
-      (tx, _, spentUTxO) <- liftIO $ buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script nextUTxO
-      modify' (\(_, existingTxs) -> (pickKeyAddressUTxO $ adjustUTxO tx spentUTxO, tx : existingTxs))
-      pure tx
+  m [Tx]
+buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools availableUTxO sk = do
+  startUTxO <- findUTxO
+  go startUTxO scriptOutputs
  where
-  pickKeyAddressUTxO utxo = maybe mempty UTxO.singleton $ UTxO.findBy (\(_, txOut) -> isKeyAddress (txOutAddress txOut)) utxo
+  -- Find a suitable utxo that covers at least the total deposit
+  findUTxO =
+    case UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) availableUTxO of
+      Nothing -> throwIO FailedToFindUTxOToCoverDeposit{totalDeposit}
+      Just (i, o) -> pure $ UTxO.singleton (i, o)
 
-  scripts = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
+  totalDeposit = sum $ selectLovelace . txOutValue <$> scriptOutputs
 
-  vk = getVerificationKey sk
+  scriptOutputs =
+    mkScriptTxOut . mkScriptRef
+      <$> [initialValidatorScript, commitValidatorScript, Head.validatorScript]
 
-  changeAddress = mkVkAddress networkId vk
+  -- Loop over all script outputs to create while re-spending the change output
+  go _ [] = pure []
+  go utxo (out : rest) = do
+    tx <- case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxo [] [out] of
+      Left err -> throwIO $ FailedToBuildPublishingTx err
+      Right tx -> pure $ signTx sk tx
 
-buildScriptPublishingTx ::
-  PParams LedgerEra ->
-  SystemStart ->
-  NetworkId ->
-  EraHistory ->
-  Set PoolId ->
-  AddressInEra ->
-  SigningKey PaymentKey ->
-  PlutusScript ->
-  UTxO.UTxO ->
-  IO (Tx, TxBody, UTxO.UTxO)
-buildScriptPublishingTx pparams systemStart networkId eraHistory stakePools changeAddress sk script utxo =
-  let output = mkScriptTxOut <$> [mkScriptRef script]
-      totalDeposit = sum (selectLovelace . txOutValue <$> output)
-      utxoToSpend =
-        maybe mempty UTxO.singleton $
-          UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
-   in case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend [] output of
-        Left e -> throwErrorAsException e
-        Right rawTx -> do
-          let body = getTxBody rawTx
-          pure (makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body, body, utxoToSpend)
- where
+    let changeOutput = txOuts' tx !! 1
+        utxo' = UTxO.singleton (mkTxIn tx 1, toCtxUTxOTxOut changeOutput)
+    (tx :) <$> go utxo' rest
+
+  changeAddress = mkVkAddress networkId (getVerificationKey sk)
+
   mkScriptTxOut =
     mkTxOutAutoBalance
       pparams
