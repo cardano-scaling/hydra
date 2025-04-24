@@ -708,6 +708,8 @@ performDeposit headId utxoToDeposit deadline = do
       -- snapshot/increment this.
       CommitRecorded{} | null utxoToDeposit -> Just ()
       CommitFinalized{depositTxId} -> guard $ txid == depositTxId
+      -- TODO: need to record the fact of being expired in result to properly update the model
+      DepositExpired{depositTxId} -> guard $ txid == depositTxId
       _ -> Nothing
 
 performDecommit ::

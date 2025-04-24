@@ -944,7 +944,7 @@ onOpenChainTick env st chainTime =
       -- XXX: This is smelly as we rely on Map <> to override entries (left
       -- biased). This is also weird because we want to actually apply the state
       -- change and also to determine the next active.
-      withNextActive (newActive <> newExpired <> pendingDeposits) $ \Deposit{deposited} ->
+      withNextActive (spy' "newActive" newActive <> spy' "newExpired" newExpired <> pendingDeposits) $ \Deposit{deposited} ->
         -- REVIEW: this is not really a wait, but discard?
         -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
         if isNothing decommitTx
@@ -962,7 +962,7 @@ onOpenChainTick env st chainTime =
             noop
  where
   updateDeposits cont =
-    let (newActive, unchanged) = Map.partition becomesActive pendingDeposits
+    let (newActive, unchanged) = Map.partition becomesActive (spy' "pending" pendingDeposits)
         (newExpired, _) = Map.partition becomesExpired unchanged
      in cont
           (newActive <&> \d -> d{status = Active})

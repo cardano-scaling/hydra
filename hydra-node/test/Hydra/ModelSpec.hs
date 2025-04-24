@@ -48,65 +48,31 @@
 --
 -- ** Recording trace failures
 --
--- When a property fails it will dump the sequence of actions leading to the failure.
--- This sequence can be copy/pasted and reused directly as a test against either the `Model` or the implementation
--- as exemplified by the following sample:
+-- When a property fails it will dump the sequence of actions leading to the
+-- failure:
 --
 -- @@
---  it "runs actions against actual nodes" $ do
---    let Actions act =
---          Actions
---            [ Var 1
---                := Seed
---                  { seedKeys =
---                      [ (HydraSigningKey (SignKeyEd25519DSIGN "00000000000000000000000000000000000000000000000000000000000000003b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29"),
---                                          "0100000008030606080507030707000607020508050000020207070508040800")
---                      , (HydraSigningKey (SignKeyEd25519DSIGN "2e00000000000000000000000000000000000000000000000000000000000000264a0707979e0d6691f74b055429b5f318d39c2883bb509310b67424252e9ef2"),
---                                          "0106010101070600040403010600080805020003040508030307080706060608")
---                      , (HydraSigningKey (SignKeyEd25519DSIGN "ed785af0fb0000000000000000000000000000000000000000000000000000001c02babf6d3d51b725db8b72043823d66634b39db74836b1494bdb647073d566"),
---                                          "0000070304040705060101030802010105080806050605070104030603010503")
---                      ]
---                  }
---            , Var 2 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29")},
---                               command = Init{contestationPeriod = -6.413670805613}}
---            , Var 3 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "264a0707979e0d6691f74b055429b5f318d39c2883bb509310b67424252e9ef2")},
---                               command = Commit{Input.utxo = [("0106010101070600040403010600080805020003040508030307080706060608", fromList [(AdaAssetId, 18470954)])]}}
---            , Var 4 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "1c02babf6d3d51b725db8b72043823d66634b39db74836b1494bdb647073d566")},
---                               command = Commit{Input.utxo = [("0000070304040705060101030802010105080806050605070104030603010503", fromList [(AdaAssetId, 19691416)])]}}
---            , Var 5 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29")},
---                               command = Commit{Input.utxo = [("0100000008030606080507030707000607020508050000020207070508040800", fromList [(AdaAssetId, 7003529)])]}}
---            , Var 6
---                := Command
---                  { Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29")}
---                  , command =
---                      NewTx
---                        { Input.transaction =
---                            Payment
---                              { from = "0100000008030606080507030707000607020508050000020207070508040800"
---                              , to = "0106010101070600040403010600080805020003040508030307080706060608"
---                              , value = fromList [(AdaAssetId, 7003529)]
---                              }
---                        }
---                  }
---            ]
---        -- env and model state are unused in perform
---        env = []
+--   do action $ Seed {seedKeys = [("8bbc9f32e4faff669ed1561025f243649f1332902aa79ad7e6e6bbae663f332d",CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"})], seedContestationPeriod = 46s, seedDepositDeadline = 50s, toCommit = fromList [(Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"},[(CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList [(AdaAssetId,54862683)])])]}
+--      action $ Init (Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"})
+--      action $ Commit {headIdVar = var2, party = Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, utxoToCommit = [(CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList [(AdaAssetId,54862683)])]}
+--      action $ Decommit {party = Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, decommitTx = Payment { from = CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, to = CardanoSigningKey {signingKey = "0702050602000101050108060302010707060007020308080801060700030306"}, value = valueFromList [(AdaAssetId,54862683)] }}
+--      action $ Deposit {headIdVar = var2, utxoToDeposit = [(CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList [(AdaAssetId,54862683)])], deadline = 1864-06-06 08:24:08.669152896211 UTC}
+--      pure ()
+-- @@
 --
---        dummyState :: WorldState (IOSim s)
---        dummyState = WorldState{hydraParties = mempty, hydraState = Start}
+-- Which can be turned into a unit test after resolving most of the imports.
+-- Common pitfalls are incorrect show instances (e.g. the UTCTime in deadline
+-- above). Also any variables need to be bound. A working example of the above
+-- output would be:
 --
---        loop [] = pure ()
---        loop ((Var{} := a) : as) = do
---          void $ perform dummyState a (lookUpVar env)
---          loop as
---        tr =
---          runSimTrace $
---            evalStateT
---              (loop act)
---              (Nodes mempty traceInIOSim)
---        traceDump = printTrace (Proxy :: Proxy Tx) tr
---    print traceDump
---    True `shouldBe` True
+-- @@
+--   it "troubleshoot" . withMaxSuccess 1 . flip forAllDL prop_HydraModel $ do
+--     action $ Seed{seedKeys = [("8bbc9f32e4faff669ed1561025f243649f1332902aa79ad7e6e6bbae663f332d", CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"})], seedContestationPeriod = UnsafeContestationPeriod 46, seedDepositDeadline = UnsafeDepositDeadline 50, toCommit = fromList [(Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, [(CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, valueFromList [(AdaAssetId, 54862683)])])]}
+--     var2 <- action $ Init (Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"})
+--     action $ Commit{headIdVar = var2, party = Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, utxoToCommit = [(CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, valueFromList [(AdaAssetId, 54862683)])]}
+--     action $ Decommit{party = Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, decommitTx = Payment{from = CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, to = CardanoSigningKey{signingKey = "0702050602000101050108060302010707060007020308080801060700030306"}, value = valueFromList [(AdaAssetId, 54862683)]}}
+--     action $ Deposit{headIdVar = var2, utxoToDeposit = [(CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, valueFromList [(AdaAssetId, 54862683)])], deadline = read "1864-06-06 08:24:08.669152896211 UTC"}
+--     pure ()
 -- @@
 module Hydra.ModelSpec where
 
@@ -124,7 +90,7 @@ import Data.Typeable (cast)
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
-  Action (ObserveConfirmedTx, ObserveHeadIsOpen, Wait),
+  Action (..),
   GlobalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
@@ -140,6 +106,7 @@ import Hydra.Model (
   toTxOuts,
  )
 import Hydra.Model qualified as Model
+import Hydra.Model.Payment (Payment (..))
 import Hydra.Model.Payment qualified as Payment
 import Hydra.Tx.Party (Party (..), deriveParty)
 import System.IO.Temp (writeSystemTempFile)
