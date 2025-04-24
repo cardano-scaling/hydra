@@ -66,7 +66,7 @@
 -- output would be:
 --
 -- @@
---   it "troubleshoot" . withMaxSuccess 1 . flip forAllDL prop_HydraModel $ do
+--   it "troubleshoot" . withMaxSuccess 1 . flip forAllDL propHydraModel $ do
 --     action $ Seed{seedKeys = [("8bbc9f32e4faff669ed1561025f243649f1332902aa79ad7e6e6bbae663f332d", CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"})], seedContestationPeriod = UnsafeContestationPeriod 46, seedDepositDeadline = UnsafeDepositDeadline 50, toCommit = fromList [(Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, [(CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, valueFromList [(AdaAssetId, 54862683)])])]}
 --     var2 <- action $ Init (Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"})
 --     action $ Commit{headIdVar = var2, party = Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, utxoToCommit = [(CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, valueFromList [(AdaAssetId, 54862683)])]}
@@ -135,30 +135,37 @@ import Test.QuickCheck.StateModel (
   Step ((:=)),
   precondition,
   runActions,
-  stateAfter,
   pattern Actions,
  )
 import Test.Util (printTrace, traceInIOSim)
 
 spec :: Spec
 spec = do
-  -- There cannot be a UTxO with no ADAs
-  -- See https://github.com/input-output-hk/cardano-ledger/blob/master/doc/explanations/min-utxo-mary.rst
-  prop "model should not generate 0 Ada UTxO" $ withMaxSuccess 10000 prop_doesNotGenerate0AdaUTxO
-  prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
-  prop "implementation respects model" prop_HydraModel
-  prop "check conflict-free liveness" prop_checkConflictFreeLiveness
-  prop "check head opens if all participants commit" prop_checkHeadOpensIfAllPartiesCommit
-  prop "fanout contains whole confirmed UTxO" prop_fanoutContainsWholeConfirmedUTxO
-  prop "toRealUTxO is distributive" $ propIsDistributive toRealUTxO
-  prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
-  prop "parties contest to wrong closed snapshot" prop_partyContestsToWrongClosedSnapshot
-  prop "checkModel" prop_checkModel
+  context "modeling" $ do
+    prop "not generate actions with 0 Ada" $ withMaxSuccess 10000 propDoesNotGenerate0AdaUTxO
+    prop "toRealUTxO is distributive" $ propIsDistributive toRealUTxO
+    prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
+  prop "check model" propHydraModel
+  prop "check model balances" propCheckModelBalances
+  context "logic" $ do
+    prop "check conflict-free liveness" $ propDL conflictFreeLiveness
+    prop "check head opens if all participants commit" $ propDL headOpensIfAllPartiesCommit
+    prop "fanout contains whole confirmed UTxO" $ propDL fanoutContainsWholeConfirmedUTxO
+    prop "parties contest to wrong closed snapshot" $ propDL partyContestsToWrongClosedSnapshot
 
--- XXX: This is very similar to prop_HydraModel, where the assertion is
+propDL :: DL WorldState () -> Property
+propDL d = forAllDL d propHydraModel
+
+propHydraModel :: Actions WorldState -> Property
+propHydraModel actions =
+  runIOSimProp $ do
+    _ <- runActions actions
+    assert True
+
+-- XXX: This is very similar to propHydraModel, where the assertion is
 -- basically a post condition!?
-prop_checkModel :: Property
-prop_checkModel =
+propCheckModelBalances :: Property
+propCheckModelBalances =
   within 30000000 $
     forAllShrink arbitrary shrink $ \actions ->
       runIOSimProp $ do
@@ -211,10 +218,6 @@ propIsDistributive f x y =
     & counterexample ("f (x <> y)   " <> show (f (x <> y)))
     & counterexample ("f x <> f y: " <> show (f x <> f y))
 
-prop_partyContestsToWrongClosedSnapshot :: Property
-prop_partyContestsToWrongClosedSnapshot =
-  forAllDL partyContestsToWrongClosedSnapshot prop_HydraModel
-
 -- | Expect to see contestations when trying to close with
 -- an old snapshot
 partyContestsToWrongClosedSnapshot :: DL WorldState ()
@@ -229,10 +232,6 @@ partyContestsToWrongClosedSnapshot = do
       void $ action $ Model.Fanout party
     _ -> pure ()
   action_ Model.StopTheWorld
-
-prop_fanoutContainsWholeConfirmedUTxO :: Property
-prop_fanoutContainsWholeConfirmedUTxO =
-  forAllDL fanoutContainsWholeConfirmedUTxO prop_HydraModel
 
 -- | Given any random walk of the model, if the Head is open a NewTx getting
 -- confirmed must be part of the UTxO after finalization.
@@ -250,10 +249,10 @@ fanoutContainsWholeConfirmedUTxO = do
     _ -> pure ()
   action_ Model.StopTheWorld
 
-prop_checkHeadOpensIfAllPartiesCommit :: Property
-prop_checkHeadOpensIfAllPartiesCommit =
-  within 50000000 $
-    forAllDL headOpensIfAllPartiesCommit prop_HydraModel
+nonConflictingTx :: WorldState -> Quantification (Party, Payment.Payment)
+nonConflictingTx st =
+  withGenQ (genPayment st) (const True) (const [])
+    `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
 
 headOpensIfAllPartiesCommit :: DL WorldState ()
 headOpensIfAllPartiesCommit = do
@@ -282,17 +281,6 @@ headOpensIfAllPartiesCommit = do
               void $ action $ Model.Commit headIdVar party utxo
       _ -> pure ()
 
-prop_checkConflictFreeLiveness :: Property
-prop_checkConflictFreeLiveness =
-  within 50000000 $
-    forAllDL conflictFreeLiveness prop_HydraModel
-
-prop_HydraModel :: Actions WorldState -> Property
-prop_HydraModel actions =
-  runIOSimProp $ do
-    _ <- runActions actions
-    assert True
-
 -- • Conflict-Free Liveness (Head):
 --
 -- In presence of a network adversary, a conflict-free execution satisfies the following condition:
@@ -310,18 +298,11 @@ conflictFreeLiveness = do
     _ -> pure ()
   action_ Model.StopTheWorld
 
-prop_generateTraces :: Actions WorldState -> Property
-prop_generateTraces actions =
-  let Metadata _vars st = stateAfter actions
-   in case actions of
-        Actions [] -> property True
-        Actions _ ->
-          hydraState st /= Start
-            & counterexample ("state: " <> show st)
-
-prop_doesNotGenerate0AdaUTxO :: Actions WorldState -> Bool
-prop_doesNotGenerate0AdaUTxO (Actions actions) =
-  not (any contains0AdaUTxO actions)
+-- There cannot be a UTxO with no ADAs
+-- See https://github.com/input-output-hk/cardano-ledger/blob/master/doc/explanations/min-utxo-mary.rst
+propDoesNotGenerate0AdaUTxO :: Actions WorldState -> Property
+propDoesNotGenerate0AdaUTxO (Actions actions) =
+  property $ not (any contains0AdaUTxO actions)
  where
   contains0AdaUTxO :: Step WorldState -> Bool
   contains0AdaUTxO = \case
@@ -330,11 +311,7 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
     _anyOtherStep -> False
   contains0Ada = (== lovelaceToValue 0) . snd
 
---
-
--- * Utilities for `IOSim`
-
---
+-- * Utilities
 
 -- | Specialised runner similar to <monadicST https://hackage.haskell.org/package/QuickCheck-2.14.3/docs/Test-QuickCheck-Monadic.html#v:monadicST>.
 runIOSimProp :: Testable a => (forall s. PropertyM (RunMonad (IOSim s)) a) -> Property
@@ -392,11 +369,6 @@ runRunMonadIOSimGen f = do
           , chain = dummySimulatedChainNetwork
           }
     runReaderT (runMonad (eval f)) (RunState v)
-
-nonConflictingTx :: WorldState -> Quantification (Party, Payment.Payment)
-nonConflictingTx st =
-  withGenQ (genPayment st) (const True) (const [])
-    `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
 
 eventually :: Action WorldState () -> DL WorldState ()
 eventually a = action_ (Wait 10) >> action_ a
