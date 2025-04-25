@@ -46,7 +46,7 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.SqlLitePersistence (createPersistenceIncremental)
+import Hydra.SqlLitePersistence (withPersistenceIncremental)
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Utils (readJsonFileThrow)
 
@@ -76,43 +76,43 @@ run opts = do
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
-        incPersistence <- createPersistenceIncremental (persistenceDir <> "/state")
-        -- Hydrate with event source and sinks
-        (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incPersistence
-        -- NOTE: Add any custom sink setup code here
-        -- customSink <- createCustomSink
-        let eventSinks =
-              [ filePersistenceSink
-              -- NOTE: Add any custom sinks here
-              -- , customSink
-              ]
-        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventSource eventSinks
-        -- Chain
-        withChain <- prepareChainComponent tracer env chainConfig
-        withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
-          -- API
-          let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
-          withAPIServer apiServerConfig env party eventSource (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
-            -- Network
-            let networkConfiguration =
-                  NetworkConfiguration
-                    { persistenceDir
-                    , signingKey
-                    , otherParties
-                    , listen
-                    , advertise = fromMaybe listen advertise
-                    , peers
-                    , nodeId
-                    }
-            withNetwork
-              (contramap Network tracer)
-              networkConfiguration
-              (wireNetworkInput wetHydraNode)
-              $ \network -> do
-                -- Main loop
-                connect chain network server wetHydraNode
-                  <&> addEventSink apiSink
-                    >>= runHydraNode
+        withPersistenceIncremental (persistenceDir <> "/state") $ \incPersistence -> do
+          -- Hydrate with event source and sinks
+          (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incPersistence
+          -- NOTE: Add any custom sink setup code here
+          -- customSink <- createCustomSink
+          let eventSinks =
+                [ filePersistenceSink
+                -- NOTE: Add any custom sinks here
+                -- , customSink
+                ]
+          wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventSource eventSinks
+          -- Chain
+          withChain <- prepareChainComponent tracer env chainConfig
+          withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
+            -- API
+            let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
+            withAPIServer apiServerConfig env party eventSource (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
+              -- Network
+              let networkConfiguration =
+                    NetworkConfiguration
+                      { persistenceDir
+                      , signingKey
+                      , otherParties
+                      , listen
+                      , advertise = fromMaybe listen advertise
+                      , peers
+                      , nodeId
+                      }
+              withNetwork
+                (contramap Network tracer)
+                networkConfiguration
+                (wireNetworkInput wetHydraNode)
+                $ \network -> do
+                  -- Main loop
+                  connect chain network server wetHydraNode
+                    <&> addEventSink apiSink
+                      >>= runHydraNode
  where
   addEventSink sink node = node{eventSinks = sink : eventSinks node}
 
