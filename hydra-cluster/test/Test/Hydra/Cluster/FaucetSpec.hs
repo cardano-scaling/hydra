@@ -80,7 +80,7 @@ spec =
         -- NOTE: Note use 'Faucet' as this has a very big initial amount
         (vk, _) <- keysFor Alice
         -- NOTE: 83 ADA is just enough to pay for reference scripts deposits.
-        forM_ [20_000_000, 25_000_000, 20_000_000, 30_000_000, 20_000_000] $ \c -> seedFromFaucet node vk c tracer
+        forM_ [20_000_000, 22_000_000, 20_000_000, 23_000_000, 20_000_000] $ \c -> seedFromFaucet node vk c tracer
         utxoBefore <- queryUTxOFor networkId nodeSocket QueryTip vk
 
         void $ publishHydraScriptsAs node Alice

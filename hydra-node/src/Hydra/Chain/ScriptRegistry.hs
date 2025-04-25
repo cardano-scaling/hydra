@@ -4,7 +4,7 @@ module Hydra.Chain.ScriptRegistry where
 
 import Hydra.Prelude
 
-import Cardano.Api (TxOut (..))
+import Cardano.Api (TxOut (..), lovelaceToValue)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((!!))
 import Hydra.Cardano.Api (
@@ -13,7 +13,6 @@ import Hydra.Cardano.Api (
   EraHistory,
   Key (..),
   LedgerEra,
-  Lovelace,
   NetworkId,
   PParams,
   PaymentKey,
@@ -35,14 +34,15 @@ import Hydra.Cardano.Api (
   mkTxOutAutoBalance,
   mkTxOutValue,
   mkVkAddress,
+  renderUTxO,
   selectLovelace,
   toCtxUTxOTxOut,
-  txOutDatum,
   txOutValue,
   txOuts',
   pattern ReferenceScriptNone,
   pattern TxOutDatumNone,
  )
+import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
@@ -98,70 +98,68 @@ publishHydraScripts networkId socketPath sk = do
   systemStart <- querySystemStart networkId socketPath QueryTip
   eraHistory <- queryEraHistory networkId socketPath QueryTip
   stakePools <- queryStakePools networkId socketPath QueryTip
-  txs <- buildHydraScriptTxs pparams systemStart eraHistory stakePools
+  txs <- buildHydraScriptTxs networkId socketPath sk pparams systemStart eraHistory stakePools
   forM txs $ \tx -> do
     submitTransaction networkId socketPath tx
     void $ awaitTransaction networkId socketPath tx
     pure $ txId tx
- where
-  vk = getVerificationKey sk
-  buildHydraScriptTxs pparams systemStart eraHistory stakePools = do
-    utxo <- queryUTxOFor networkId socketPath QueryTip vk
-    buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
-      `catch` \(ex :: PublishScriptException) ->
-        case ex of
-          FailedToBuildPublishingTx _ -> throwIO ex
-          FailedToSquashUTxOToCoverDeposit _ -> throwIO ex
-          FailedToFindUTxOToCoverDeposit totalDeposit -> do
-            let totalUTxOValue = selectLovelace $ foldMap (txOutValue . snd) (UTxO.pairs utxo)
-            if totalUTxOValue < totalDeposit
-              then throwIO ex
-              else do
-                -- XXX: squash the utxo and retry
-                rawSquashUTxOTx <- buildSquashUTxOTx pparams systemStart networkId eraHistory stakePools vk utxo totalDeposit
-                let squashUTxOTx = signTx sk rawSquashUTxOTx
-                submitTransaction networkId socketPath squashUTxOTx
-                void $ awaitTransaction networkId socketPath squashUTxOTx
-                buildHydraScriptTxs pparams systemStart eraHistory stakePools
 
-buildSquashUTxOTx ::
-  (MonadIO m, MonadThrow m) =>
+-- | Query for a suitable UTxO at the Tip to build the hydra scripts publishing transactions.
+--
+-- This is implemented by doing a first attempt with the Tip UTxO.
+-- If it fails because the required deposit amount couldn't be covered by any single output,
+-- we squash the UTxO outputs to create one large enough and retry once.
+--
+-- Can throw at least 'PublishScriptException' on failure.
+buildHydraScriptTxs ::
+  NetworkId ->
+  SocketPath ->
+  SigningKey PaymentKey ->
   PParams LedgerEra ->
   SystemStart ->
-  NetworkId ->
   EraHistory ->
   Set PoolId ->
-  VerificationKey PaymentKey ->
-  UTxO ->
-  Lovelace ->
-  m Tx
-buildSquashUTxOTx pparams systemStart networkId eraHistory stakePools vk utxo targetValue = do
-  let allOutputs = UTxO.pairs utxo
-      nonDatumOutputs = filter (not . hasDatum) allOutputs
-      sortedOutputs = sortedByValue nonDatumOutputs
-      selectedOutputs = selectOutputs [] mempty sortedOutputs
-      squashValue = foldMap (txOutValue . snd) selectedOutputs
-      squashOutput =
-        TxOut
-          changeAddress
-          (mkTxOutValue squashValue)
-          TxOutDatumNone
-          ReferenceScriptNone
-  case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxo [] [squashOutput] of
-    Left err -> throwIO $ FailedToSquashUTxOToCoverDeposit err
-    Right tx -> pure tx
+  IO [Tx]
+buildHydraScriptTxs networkId socketPath sk pparams systemStart eraHistory stakePools = do
+  utxo <- queryUTxOFor networkId socketPath QueryTip vk
+  buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
+    `catch` \(ex :: PublishScriptException) ->
+      case ex of
+        FailedToFindUTxOToCoverDeposit totalDeposit -> do
+          putStrLn ("utxo: " <> renderUTxO utxo)
+          -- XXX: check if there is enough balance to cover the deposit.
+          -- If so, then squash the utxo and retry.
+          let allOutputs = UTxO.pairs utxo
+              -- XXX: leave the smallest output as change
+              squashOutputs = drop 1 $ sortOn (\(_, o) -> selectLovelace (txOutValue o)) allOutputs
+          let totalSquashUTxOValue = selectLovelace $ foldMap (txOutValue . snd) squashOutputs
+          if totalSquashUTxOValue < totalDeposit
+            then throwIO ex
+            else do
+              let
+                squashUTxO = UTxO.fromPairs squashOutputs
+                changeAddress = mkVkAddress networkId vk
+                squashedOutput =
+                  TxOut
+                    changeAddress
+                    (mkTxOutValue $ lovelaceToValue totalDeposit)
+                    TxOutDatumNone
+                    ReferenceScriptNone
+              putStrLn ("squashUTxO: " <> renderUTxO squashUTxO)
+              rawSquashUTxOTx <-
+                case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress squashUTxO [] [squashedOutput] of
+                  Left err -> throwIO $ FailedToSquashUTxOToCoverDeposit err
+                  Right tx -> pure tx
+              let squashUTxOTx = signTx sk rawSquashUTxOTx
+              putStrLn ("squashUTxOTx: " <> renderTx squashUTxOTx)
+              submitTransaction networkId socketPath squashUTxOTx
+              void $ awaitTransaction networkId socketPath squashUTxOTx
+              utxo' <- queryUTxOFor networkId socketPath QueryTip vk
+              putStrLn ("utxo': " <> renderUTxO utxo')
+              buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo' sk
+        _ -> throwIO ex
  where
-  changeAddress = mkVkAddress networkId vk
-  hasDatum (_, o) = txOutDatum o /= TxOutDatumNone
-  sortedByValue = sortOn (\(_, o) -> selectLovelace (txOutValue o))
-  selectOutputs acc total = \case
-    [] -> acc
-    _out | total >= targetValue -> acc
-    (txIn, txOut) : rest
-      | otherwise ->
-          let acc' = (txIn, txOut) : acc
-              total' = total + selectLovelace (txOutValue txOut)
-           in selectOutputs acc' total' rest
+  vk = getVerificationKey sk
 
 -- | Exception raised when building the script publishing transactions.
 data PublishScriptException
