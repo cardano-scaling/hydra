@@ -4,11 +4,9 @@ module Hydra.Chain.ScriptRegistry where
 
 import Hydra.Prelude
 
-import Cardano.Api (TxOut (..), lovelaceToValue)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((!!))
 import Hydra.Cardano.Api (
-  Coin,
   Era,
   EraHistory,
   Key (..),
@@ -32,17 +30,11 @@ import Hydra.Cardano.Api (
   mkScriptRef,
   mkTxIn,
   mkTxOutAutoBalance,
-  mkTxOutValue,
   mkVkAddress,
-  renderUTxO,
-  selectLovelace,
   toCtxUTxOTxOut,
-  txOutValue,
   txOuts',
-  pattern ReferenceScriptNone,
   pattern TxOutDatumNone,
  )
-import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
@@ -98,75 +90,19 @@ publishHydraScripts networkId socketPath sk = do
   systemStart <- querySystemStart networkId socketPath QueryTip
   eraHistory <- queryEraHistory networkId socketPath QueryTip
   stakePools <- queryStakePools networkId socketPath QueryTip
-  txs <- buildHydraScriptTxs networkId socketPath sk pparams systemStart eraHistory stakePools
+  utxo <- queryUTxOFor networkId socketPath QueryTip vk
+  txs <- buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
   forM txs $ \tx -> do
     submitTransaction networkId socketPath tx
     void $ awaitTransaction networkId socketPath tx
     pure $ txId tx
-
--- | Query for a suitable UTxO at the Tip to build the hydra scripts publishing transactions.
---
--- This is implemented by doing a first attempt with the Tip UTxO.
--- If it fails because the required deposit amount couldn't be covered by any single output,
--- we squash the UTxO outputs to create one large enough and retry once.
---
--- Can throw at least 'PublishScriptException' on failure.
-buildHydraScriptTxs ::
-  NetworkId ->
-  SocketPath ->
-  SigningKey PaymentKey ->
-  PParams LedgerEra ->
-  SystemStart ->
-  EraHistory ->
-  Set PoolId ->
-  IO [Tx]
-buildHydraScriptTxs networkId socketPath sk pparams systemStart eraHistory stakePools = do
-  utxo <- queryUTxOFor networkId socketPath QueryTip vk
-  buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
-    `catch` \(ex :: PublishScriptException) ->
-      case ex of
-        FailedToFindUTxOToCoverDeposit totalDeposit -> do
-          putStrLn ("utxo: " <> renderUTxO utxo)
-          -- XXX: check if there is enough balance to cover the deposit.
-          -- If so, then squash the utxo and retry.
-          let allOutputs = UTxO.pairs utxo
-              -- XXX: leave the smallest output as change
-              squashOutputs = drop 1 $ sortOn (\(_, o) -> selectLovelace (txOutValue o)) allOutputs
-          let totalSquashUTxOValue = selectLovelace $ foldMap (txOutValue . snd) squashOutputs
-          if totalSquashUTxOValue < totalDeposit
-            then throwIO ex
-            else do
-              let
-                squashUTxO = UTxO.fromPairs squashOutputs
-                changeAddress = mkVkAddress networkId vk
-                squashedOutput =
-                  TxOut
-                    changeAddress
-                    (mkTxOutValue $ lovelaceToValue totalDeposit)
-                    TxOutDatumNone
-                    ReferenceScriptNone
-              putStrLn ("squashUTxO: " <> renderUTxO squashUTxO)
-              rawSquashUTxOTx <-
-                case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress squashUTxO [] [squashedOutput] of
-                  Left err -> throwIO $ FailedToSquashUTxOToCoverDeposit err
-                  Right tx -> pure tx
-              let squashUTxOTx = signTx sk rawSquashUTxOTx
-              putStrLn ("squashUTxOTx: " <> renderTx squashUTxOTx)
-              submitTransaction networkId socketPath squashUTxOTx
-              void $ awaitTransaction networkId socketPath squashUTxOTx
-              utxo' <- queryUTxOFor networkId socketPath QueryTip vk
-              putStrLn ("utxo': " <> renderUTxO utxo')
-              buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo' sk
-        _ -> throwIO ex
  where
   vk = getVerificationKey sk
 
 -- | Exception raised when building the script publishing transactions.
-data PublishScriptException
-  = FailedToBuildPublishingTx (TxBodyErrorAutoBalance Era)
-  | FailedToSquashUTxOToCoverDeposit (TxBodyErrorAutoBalance Era)
-  | FailedToFindUTxOToCoverDeposit {totalDeposit :: Coin}
-  deriving (Show)
+newtype PublishScriptException
+  = PublishScriptException (TxBodyErrorAutoBalance Era)
+  deriving newtype (Show)
   deriving anyclass (Exception)
 
 -- | Builds a chain of script publishing transactions.
@@ -184,17 +120,8 @@ buildScriptPublishingTxs ::
   SigningKey PaymentKey ->
   m [Tx]
 buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools availableUTxO sk = do
-  startUTxO <- findUTxO
-  go startUTxO scriptOutputs
+  go availableUTxO scriptOutputs
  where
-  -- Find a suitable utxo that covers at least the total deposit
-  findUTxO =
-    case UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) availableUTxO of
-      Nothing -> throwIO FailedToFindUTxOToCoverDeposit{totalDeposit}
-      Just (i, o) -> pure $ UTxO.singleton (i, o)
-
-  totalDeposit = sum $ selectLovelace . txOutValue <$> scriptOutputs
-
   scriptOutputs =
     mkScriptTxOut . mkScriptRef
       <$> [initialValidatorScript, commitValidatorScript, Head.validatorScript]
@@ -203,7 +130,7 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
   go _ [] = pure []
   go utxo (out : rest) = do
     tx <- case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxo [] [out] of
-      Left err -> throwIO $ FailedToBuildPublishingTx err
+      Left err -> throwIO $ PublishScriptException err
       Right tx -> pure $ signTx sk tx
 
     let changeOutput = txOuts' tx !! 1

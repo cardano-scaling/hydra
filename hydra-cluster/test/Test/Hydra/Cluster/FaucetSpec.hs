@@ -63,24 +63,11 @@ spec =
               difference `shouldSatisfy` (< 400_000)
 
     describe "publishHydraScriptsAs" $ do
-      it "selects a suitable output" $ \(tracer, node@RunningNode{networkId, nodeSocket}) -> do
+      it "squash the UTxO to get a suitable output" $ \(tracer, node@RunningNode{networkId, nodeSocket}) -> do
         -- NOTE: Note use 'Faucet' as this has a very big initial amount
         (vk, _) <- keysFor Alice
         -- NOTE: 83 ADA is just enough to pay for reference scripts deposits.
         forM_ [1_000_000, 2_000_000, 83_000_000] $ \c -> seedFromFaucet node vk c tracer
-        utxoBefore <- queryUTxOFor networkId nodeSocket QueryTip vk
-
-        void $ publishHydraScriptsAs node Alice
-
-        -- Also, does not squash UTxO
-        utxoAfter <- queryUTxOFor networkId nodeSocket QueryTip vk
-        length utxoAfter `shouldBe` length utxoBefore
-
-      it "squash UTxO if no single suitable output is found" $ \(tracer, node@RunningNode{networkId, nodeSocket}) -> do
-        -- NOTE: Note use 'Faucet' as this has a very big initial amount
-        (vk, _) <- keysFor Alice
-        -- NOTE: 83 ADA is just enough to pay for reference scripts deposits.
-        forM_ [20_000_000, 22_000_000, 20_000_000, 23_000_000, 20_000_000] $ \c -> seedFromFaucet node vk c tracer
         utxoBefore <- queryUTxOFor networkId nodeSocket QueryTip vk
 
         void $ publishHydraScriptsAs node Alice
