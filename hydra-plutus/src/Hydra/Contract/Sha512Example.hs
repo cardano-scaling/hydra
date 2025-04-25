@@ -14,6 +14,11 @@ import PlutusTx (compile)
 import PlutusTx.Builtins (sha3_512)
 import PlutusTx.Prelude (Eq (..), check)
 
+trivialCheck :: Bool
+trivialCheck =
+  let x = sha3_512 "aaaaaaaa"
+   in x PlutusTx.Prelude.== x
+
 dummyValidatorScript :: PlutusScript
 dummyValidatorScript =
   PlutusScriptSerialised $
@@ -22,9 +27,21 @@ dummyValidatorScript =
             [||
             \ctx ->
               check $ case unsafeFromBuiltinData ctx of
-                ScriptContext{scriptContextScriptInfo = SpendingScript{}} ->
-                  let x = sha3_512 "aaaaaaaa"
-                   in x PlutusTx.Prelude.== x
+                ScriptContext{scriptContextScriptInfo = SpendingScript{}} -> trivialCheck
+                _ -> False
+            ||]
+        )
+
+dummyRewardingScript :: PlutusScript
+dummyRewardingScript =
+  PlutusScriptSerialised $
+    serialiseCompiledCode
+      $$( PlutusTx.compile
+            [||
+            \ctx ->
+              check $ case unsafeFromBuiltinData ctx of
+                ScriptContext{scriptContextScriptInfo = CertifyingScript{}} -> trivialCheck
+                ScriptContext{scriptContextScriptInfo = RewardingScript{}} -> trivialCheck
                 _ -> False
             ||]
         )

@@ -881,6 +881,63 @@ singlePartyUsesSha512ScriptOnL2 tracer workDir node hydraScriptsTxId =
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
+-- | Open a head and run a script using 'Rewarding' script purpose and a zero
+-- lovelace withdrawal.
+singlePartyUsesWithdrawZeroTrickUsingSha512Script :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+singlePartyUsesWithdrawZeroTrickUsingSha512Script tracer workDir node hydraScriptsTxId =
+  -- Seed/return fuel
+  bracket_ (refuelIfNeeded tracer node Alice 250_000_000) (returnFundsToFaucet tracer node Alice) $ do
+    -- Seed/return funds
+    (walletVk, walletSk) <- keysFor AliceFunds
+    bracket
+      (seedFromFaucet node walletVk 100_000_000 (contramap FromFaucet tracer))
+      (\_ -> returnFundsToFaucet tracer node AliceFunds)
+      $ \utxoToCommit -> do
+        -- Start hydra-node and open a head
+        let contestationPeriod = UnsafeContestationPeriod 1
+        let depositDeadline = UnsafeDepositDeadline 1
+        aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+        let hydraNodeId = 1
+        let hydraTracer = contramap FromHydraNode tracer
+        withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+          send n1 $ input "Init" []
+          headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+          requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= submitTx node
+          waitFor hydraTracer (10 * blockTime) [n1] $
+            output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+          -- Prepare a tx that re-spends everything owned by walletVk
+          pparams <- getProtocolParameters n1
+          let change = mkVkAddress networkId walletVk
+          Right tx <- buildTransactionWithPParams pparams networkId nodeSocket change utxoToCommit [] []
+
+          -- Modify the tx to run a script via the withdraw 0 trick
+          let redeemer = toLedgerData $ toScriptData ()
+              exUnits = toLedgerExUnits maxTxExecutionUnits
+              rewardAccount = RewardAccount Testnet (ScriptHashObj scriptHash)
+              scriptHash = hashScript script
+              script = toLedgerScript @_ @Era Sha512.dummyRewardingScript
+          let tx' =
+                fromLedgerTx $
+                  recomputeIntegrityHash pparams [PlutusV3] $
+                    toLedgerTx tx
+                      & bodyTxL . collateralInputsTxBodyL .~ Set.map toLedgerTxIn (UTxO.inputSet utxoToCommit)
+                      & bodyTxL . totalCollateralTxBodyL .~ SJust (foldMap (selectLovelace . txOutValue) utxoToCommit)
+                      & bodyTxL . withdrawalsTxBodyL .~ Withdrawals (Map.singleton rewardAccount 0)
+                      & witsTxL . rdmrsTxWitsL .~ Redeemers (Map.singleton (ConwayRewarding $ AsIx 0) (redeemer, exUnits))
+                      & witsTxL . scriptTxWitsL .~ Map.singleton scriptHash script
+
+          let signedL2tx = signTx walletSk tx'
+          send n1 $ input "NewTx" ["transaction" .= signedL2tx]
+
+          waitMatch 10 n1 $ \v -> do
+            guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+            guard $
+              toJSON signedL2tx
+                `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
+
 -- | Compute the integrity hash of a transaction using a list of plutus languages.
 recomputeIntegrityHash ::
   (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) =>
