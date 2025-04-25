@@ -90,6 +90,7 @@ library
     Hydra.Node.Util
     Hydra.Options
     Hydra.Persistence
+    Hydra.SqlLitePersistence
     Hydra.Utils
 
   other-modules:   Paths_hydra_node
@@ -150,6 +151,7 @@ library
     , safe-money
     , serialise
     , sop-extras
+    , sqlite-simple
     , stm
     , text
     , time
@@ -294,6 +296,7 @@ test-suite tests
     Hydra.OptionsSpec
     Hydra.PartySpec
     Hydra.PersistenceSpec
+    Hydra.SqlLitePersistenceSpec
     Hydra.UtilsSpec
     Paths_hydra_node
     Spec

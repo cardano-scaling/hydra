@@ -34,6 +34,7 @@ newtype EventSource e m = EventSource
 getEvents :: (HasEventId e, MonadUnliftIO m) => EventSource e m -> m [e]
 getEvents EventSource{sourceEvents} = runResourceT $ sourceToList sourceEvents
 
+-- TODO! putEventBatch
 newtype EventSink e m = EventSink
   { putEvent :: HasEventId e => e -> m ()
   -- ^ Send a single event to the event sink.
