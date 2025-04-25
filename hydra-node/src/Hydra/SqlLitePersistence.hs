@@ -5,10 +5,8 @@ module Hydra.SqlLitePersistence where
 import Hydra.Prelude
 
 import Data.Aeson qualified as Aeson
-import Data.Text qualified as T
 import Database.SQLite.Simple (
   Only (..),
-  Query (..),
   execute,
   execute_,
   query_,
@@ -36,17 +34,17 @@ createPersistence ::
   m (Persistence a m)
 createPersistence fp = do
   liftIO $ createDirectoryIfMissing True $ takeDirectory fp
-  let dbName = Query (T.pack $ "\"" <> fp <> "\"")
-
   liftIO $ withConnection fp $ \conn -> do
-    execute_ conn $ "CREATE TABLE IF NOT EXISTS " <> dbName <> " (id INTEGER PRIMARY KEY, msg BLOB)"
-
+    execute_ conn "pragma journal_mode = WAL;"
+    execute_ conn "pragma synchronous = normal;"
+    execute_ conn "pragma journal_size_limit = 6144000;"
+    execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, msg BLOB)"
   pure $
     Persistence
       { save = \a -> liftIO $ withConnection fp $ \conn' ->
-          execute conn' ("INSERT INTO " <> dbName <> " (msg) VALUES (?)") (Only $ Aeson.encode a)
+          execute conn' "INSERT INTO items (msg) VALUES (?)" (Only $ Aeson.encode a)
       , load = liftIO $ withConnection fp $ \conn' -> do
-          r <- query_ conn' ("SELECT msg FROM " <> dbName <> " ORDER BY id DESC LIMIT 1")
+          r <- query_ conn' "SELECT msg FROM items ORDER BY id DESC LIMIT 1"
           case r of
             [] -> pure Nothing
             (Only result : _) -> pure $ Aeson.decode result
@@ -67,17 +65,17 @@ createPersistenceIncremental ::
   m (PersistenceIncremental a m)
 createPersistenceIncremental fp = do
   liftIO $ createDirectoryIfMissing True $ takeDirectory fp
-  let dbName = Query (T.pack $ "\"" <> fp <> "\"")
-
   liftIO $ withConnection fp $ \conn -> do
-    execute_ conn $ "CREATE TABLE IF NOT EXISTS " <> dbName <> " (id INTEGER PRIMARY KEY, msg BLOB)"
-
+    execute_ conn "pragma journal_mode = WAL;"
+    execute_ conn "pragma synchronous = normal;"
+    execute_ conn "pragma journal_size_limit = 6144000;"
+    execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, msg BLOB)"
   pure $
     PersistenceIncremental
       { append = \a -> liftIO $ withConnection fp $ \conn' ->
-          execute conn' ("INSERT INTO " <> dbName <> " (msg) VALUES (?)") (Only $ Aeson.encode a)
+          execute conn' "INSERT INTO items (msg) VALUES (?)" (Only $ Aeson.encode a)
       , loadAll = liftIO $ withConnection fp $ \conn' -> do
-          r <- query_ conn' ("SELECT msg FROM " <> dbName <> " ORDER BY id ASC")
+          r <- query_ conn' "SELECT msg FROM items ORDER BY id ASC"
           pure $ mapMaybe (Aeson.decode . (\(Only b) -> b)) r
       , dropDb = liftIO $ removeFile fp
       }
