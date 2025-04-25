@@ -20,6 +20,7 @@ import Data.IP (IP (IPv4), toIPv4, toIPv4w)
 import Data.Text (unpack)
 import Data.Text qualified as T
 import Data.Version (Version (..), showVersion)
+import Hydra.Arbitrary (reasonablySized)
 import Hydra.Cardano.Api (
   AsType (AsTxId),
   ChainPoint (..),

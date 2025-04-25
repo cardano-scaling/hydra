@@ -6,6 +6,7 @@ import Test.Hydra.Prelude
 import Data.Aeson (Result (..), fromJSON)
 import Data.Aeson.Lens (key)
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.Arbitrary (MinimumSized)
 import Hydra.Cardano.Api (serialiseToTextEnvelope)
 import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
 import Hydra.Ledger.Cardano (Tx)

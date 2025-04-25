@@ -3,8 +3,6 @@ module Test.Hydra.Prelude (
   HUnitFailure (..),
   location,
   failAfter,
-  reasonablySized,
-  ReasonablySized,
   genericCoverTable,
   pickBlind,
   module Test.Hspec,

@@ -19,6 +19,7 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit))
 import Hydra.API.ServerSpec (dummyChainHandle)
+import Hydra.Arbitrary (ReasonablySized)
 import Hydra.Cardano.Api (
   mkTxOutDatumInline,
   modifyTxOutDatum,

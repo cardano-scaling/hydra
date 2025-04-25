@@ -17,6 +17,7 @@ library
   hs-source-dirs:     src
   c-sources:          cbits/revision.c
   exposed-modules:
+    Hydra.Arbitrary
     Hydra.Prelude
     Hydra.Version
 

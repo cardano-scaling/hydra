@@ -5,6 +5,7 @@ import Test.Hydra.Prelude
 
 import Data.Aeson.Lens (key)
 import Hydra.API.ServerOutput (ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
+import Hydra.Arbitrary (MinimumSized, Sized)
 import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
 import Hydra.Ledger.Cardano (Tx)
@@ -17,7 +18,7 @@ import Test.QuickCheck (conjoin, withMaxSuccess)
 
 spec :: Spec
 spec = parallel $ do
-  roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (ServerOutput Tx))
+  roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(Sized 2 (ServerOutput Tx))
 
   prop "matches JSON schema" $
     withMaxSuccess 1 $

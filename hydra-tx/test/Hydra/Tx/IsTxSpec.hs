@@ -14,6 +14,7 @@ import Cardano.Ledger.Api qualified as Ledger
 import Control.Lens ((.~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
+import Hydra.Arbitrary (ReasonablySized)
 import Hydra.Cardano.Api (Tx, UTxO, fromLedgerTx, getTxId, toLedgerTx, pattern Tx)
 import Hydra.Tx.IsTx (txId)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)

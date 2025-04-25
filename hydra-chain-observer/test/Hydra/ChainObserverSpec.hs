@@ -3,6 +3,7 @@ module Hydra.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Hydra.Arbitrary (MinimumSized)
 import Hydra.Cardano.Api (Tx, utxoFromTx)
 import Hydra.Chain (OnChainTx)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)

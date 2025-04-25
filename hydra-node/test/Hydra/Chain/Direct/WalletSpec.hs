@@ -22,6 +22,7 @@ import Control.Tracer (nullTracer)
 import Data.Map.Strict qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
+import Hydra.Arbitrary (reasonablySized)
 import Hydra.Cardano.Api (
   LedgerEra,
   PaymentCredential (PaymentCredentialByKey),

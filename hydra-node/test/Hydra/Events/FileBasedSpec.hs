@@ -9,6 +9,7 @@ import Hydra.Chain.Direct.State ()
 
 import Conduit (runConduitRes, sinkList, (.|))
 import Data.List (zipWith3)
+import Hydra.Arbitrary (MinimumSized)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvents, putEvent)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (StateChanged)
