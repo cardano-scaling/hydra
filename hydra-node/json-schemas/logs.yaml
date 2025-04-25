@@ -1660,6 +1660,18 @@ definitions:
             $ref: "api.yaml#/components/schemas/HeadId"
           snapshotNumber:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
+      - title: "Checkpoint"
+        additionalProperties: false
+        required:
+          - tag
+          - state
+        properties:
+          tag:
+            type: string
+            enum: ["Checkpoint"]
+          state:
+            $ref: "logs.yaml#/definitions/HeadState"
+
   IdleState:
     type: object
     additionalProperties: false
