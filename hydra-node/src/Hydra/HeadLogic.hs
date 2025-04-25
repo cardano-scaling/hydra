@@ -34,6 +34,7 @@ import Hydra.Chain (
   ChainStateHistory,
   OnChainTx (..),
   PostChainTx (..),
+  initHistory,
   pushNewState,
   rollbackHistory,
  )
@@ -68,6 +69,7 @@ import Hydra.HeadLogic.State (
   OpenState (..),
   PendingCommits,
   SeenSnapshot (..),
+  getChainState,
   seenSnapshotNumber,
   setChainState,
  )
@@ -1768,6 +1770,7 @@ aggregate st = \case
       _otherState -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{} -> st
+  Checkpoint state' -> state'
 
 aggregateState ::
   IsChainState tx =>
@@ -1819,3 +1822,4 @@ aggregateChainStateHistory history = \case
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
   LocalStateCleared{} -> history
+  Checkpoint state' -> initHistory $ getChainState state'
