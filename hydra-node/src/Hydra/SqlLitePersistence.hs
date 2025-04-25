@@ -54,6 +54,7 @@ createPersistence fp = do
 -- | Handle to save incrementally and load files to/from db using JSON encoding.
 data PersistenceIncremental a m = PersistenceIncremental
   { append :: ToJSON a => a -> m ()
+  , appendMany :: ToJSON a => [a] -> m ()
   , loadAll :: FromJSON a => m [a]
   , dropDb :: m ()
   }
@@ -74,6 +75,11 @@ createPersistenceIncremental fp = do
     PersistenceIncremental
       { append = \a -> liftIO $ withConnection fp $ \conn' ->
           execute conn' "INSERT INTO items (msg) VALUES (?)" (Only $ Aeson.encode a)
+      , appendMany = \items -> liftIO $ withConnection fp $ \conn' -> do
+          execute_ conn' "BEGIN"
+          forM_ items $ \item ->
+            execute conn' "INSERT INTO items (msg) VALUES (?)" (Only $ Aeson.encode item)
+          execute_ conn' "COMMIT"
       , loadAll = liftIO $ withConnection fp $ \conn' -> do
           r <- query_ conn' "SELECT msg FROM items ORDER BY id ASC"
           pure $ mapMaybe (Aeson.decode . (\(Only b) -> b)) r

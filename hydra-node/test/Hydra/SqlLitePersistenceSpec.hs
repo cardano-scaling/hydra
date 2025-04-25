@@ -44,9 +44,9 @@ spec = do
       loadedValues :: [TestData] <- loadAll
       loadedValues `shouldBe` []
     it "should append and load multiple values" $ do
-      PersistenceIncremental{append, loadAll} <- createPersistenceIncremental testDbPath
+      PersistenceIncremental{appendMany, loadAll} <- createPersistenceIncremental testDbPath
       let testValues = [TestData "A", TestData "B", TestData "C"]
-      mapM_ (liftIO . append) testValues
+      liftIO $ appendMany testValues
       loadedValues <- loadAll
       loadedValues `shouldBe` testValues
     it "should drop the incremental database" $ do
