@@ -3,11 +3,13 @@ module Hydra.API.ServerOutputSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Aeson.Lens (key)
+import Control.Lens (toListOf, (^.))
+import Data.Aeson.Lens (key, values, _Array)
 import Hydra.API.ServerOutput (ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
 import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
 import Hydra.Ledger.Cardano (Tx)
+import Hydra.Utils (readJsonFileThrow)
 import Test.Aeson.GenericSpecs (
   Settings (..),
   defaultSettings,
@@ -18,6 +20,15 @@ import Test.QuickCheck (conjoin, withMaxSuccess)
 spec :: Spec
 spec = parallel $ do
   roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (ServerOutput Tx))
+
+  -- NOTE: Kupo and maybe other downstream projects use this file as a test vector.
+  it "golden SnapshotConfirmed is good" $ do
+    let goldenFile = "golden/ServerOutput/SnapshotConfirmed.json"
+    samples <- readJsonFileThrow pure goldenFile <&> toListOf (key "samples" . values)
+    let isGood s =
+          not . null $ s ^. key "snapshot" . key "confirmed" . _Array
+    unless (any isGood samples) . failure $
+      "None of the samples in " <> show goldenFile <> " contains confirmed transactions"
 
   prop "matches JSON schema" $
     withMaxSuccess 1 $
