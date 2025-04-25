@@ -44,6 +44,7 @@ module Hydra.Network.Etcd where
 import Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
+import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar',
   newTBQueueIO,
@@ -61,6 +62,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Value)
 import Data.Bits ((.|.))
 import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -205,7 +207,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
       $ concat
         [ -- NOTE: Must be used in clusterPeers
           ["--name", show advertise]
-        , ["--data-dir", persistenceDir </> "etcd"]
+        , ["--data-dir", persistenceDir </> "etcd" </> hashToStringAsHex (hashWithSerialiser @SHA256 toCBOR $ BS8.pack clusterPeers)]
         , ["--listen-peer-urls", httpUrl listen]
         , ["--initial-advertise-peer-urls", httpUrl advertise]
         , ["--listen-client-urls", httpUrl clientHost]
