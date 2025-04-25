@@ -4,6 +4,7 @@ module Hydra.SqlLitePersistence where
 
 import Hydra.Prelude
 
+import Conduit (ConduitT, ResourceT, yield)
 import Data.Aeson qualified as Aeson
 import Database.SQLite.Simple (
   Only (..),
@@ -56,6 +57,8 @@ data PersistenceIncremental a m = PersistenceIncremental
   { append :: ToJSON a => a -> m ()
   , appendMany :: ToJSON a => [a] -> m ()
   , loadAll :: FromJSON a => m [a]
+  , source :: FromJSON a => ConduitT () a (ResourceT m) ()
+  -- ^ Stream all elements.
   , dropDb :: m ()
   }
 
@@ -83,5 +86,13 @@ createPersistenceIncremental fp = do
       , loadAll = liftIO $ withConnection fp $ \conn' -> do
           r <- query_ conn' "SELECT msg FROM items ORDER BY id ASC"
           pure $ mapMaybe (Aeson.decode . (\(Only b) -> b)) r
+      , source =
+          liftIO
+            ( withConnection fp $ \conn' ->
+                do
+                  r <- query_ conn' "SELECT msg FROM items ORDER BY id ASC"
+                  pure $ mapMaybe (Aeson.decode . (\(Only b) -> b)) r
+            )
+            >>= mapM_ yield
       , dropDb = liftIO $ removeFile fp
       }
