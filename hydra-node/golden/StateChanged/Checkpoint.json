@@ -1,0 +1,51 @@
+{
+    "samples": [
+        {
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "recordedAt": null,
+                        "spendableUTxO": {
+                            "0001000100010100000001000001000100000101010000010001010001010100#80": {
+                                "address": "addr1qx8huutcd5g0u2gu0ljtprgs7n6v0kjcl3c4rlnewxcm5z7sfz8unq97n9jvp0cts5fl6ljz7kpw0tctq0zxtd00938s2awnhc",
+                                "datum": null,
+                                "datumhash": "7db78ff4217211a2917576fdb68fe0a477237a597cbaac02357089f1b7c12e53",
+                                "inlineDatum": null,
+                                "inlineDatumRaw": null,
+                                "referenceScript": {
+                                    "script": {
+                                        "cborHex": "820501",
+                                        "description": "",
+                                        "type": "SimpleScript"
+                                    },
+                                    "scriptLanguage": "SimpleScriptLanguage"
+                                },
+                                "value": {
+                                    "c8bc8235919ee180bfb554c23272f2039fe8099d10d2b411ca037685": {
+                                        "d745fa26448afb12954472e78cda07a50f1476": 7021196238619351361
+                                    },
+                                    "lovelace": 2948773106183291363
+                                }
+                            }
+                        }
+                    },
+                    "committed": {},
+                    "headId": "00010001000100000101000001000101",
+                    "headSeed": "01010001010000010001000101000101",
+                    "parameters": {
+                        "contestationPeriod": 31536000,
+                        "parties": [
+                            {
+                                "vkey": "db49d252804cba73a6bd2c98682122edf30013a5f52389c50a383c00946c38dc"
+                            }
+                        ]
+                    },
+                    "pendingCommits": []
+                },
+                "tag": "Initial"
+            },
+            "tag": "Checkpoint"
+        }
+    ],
+    "seed": -1287578243
+}
