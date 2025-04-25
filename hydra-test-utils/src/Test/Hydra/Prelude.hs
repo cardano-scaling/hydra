@@ -4,7 +4,7 @@ module Test.Hydra.Prelude (
   location,
   failAfter,
   reasonablySized,
-  ReasonablySized (..),
+  ReasonablySized,
   genericCoverTable,
   pickBlind,
   module Test.Hspec,
