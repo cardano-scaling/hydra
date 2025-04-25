@@ -10,6 +10,8 @@ changes.
 
 ## [0.21.0] - UNRELEASED
 
+- Use sqlite database instead of file based storage
+
 - New metric for counting the number of active peers: `hydra_head_peers_connected`
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network
   - New run-time dependency onto `etcd` binary
