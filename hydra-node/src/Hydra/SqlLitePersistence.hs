@@ -38,7 +38,7 @@ createPersistence fp = do
     execute_ conn "pragma journal_mode = WAL;"
     execute_ conn "pragma synchronous = normal;"
     execute_ conn "pragma journal_size_limit = 6144000;"
-    execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, msg BLOB)"
+    execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, msg BLOB)"
   pure $
     Persistence
       { save = \a -> liftIO $ withConnection fp $ \conn' ->
@@ -70,7 +70,7 @@ createPersistenceIncremental fp = do
     execute_ conn "pragma journal_mode = WAL;"
     execute_ conn "pragma synchronous = normal;"
     execute_ conn "pragma journal_size_limit = 6144000;"
-    execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, msg BLOB)"
+    execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, msg BLOB)"
   pure $
     PersistenceIncremental
       { append = \a -> liftIO $ withConnection fp $ \conn' ->
