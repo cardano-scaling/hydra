@@ -130,7 +130,6 @@ library testlib
     , cardano-ledger-conway:testlib
     , cardano-ledger-core
     , cardano-ledger-mary
-    , cardano-ledger-shelley
     , cardano-strict-containers
     , cborg
     , containers

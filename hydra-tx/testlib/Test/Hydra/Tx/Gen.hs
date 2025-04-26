@@ -9,9 +9,9 @@ import Hydra.Prelude hiding (toList)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Crypto.Hash (hashToBytes)
+import Cardano.Ledger.Api.UTxO qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
-import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
@@ -36,7 +36,7 @@ instance Arbitrary (TxOut CtxUTxO) where
   arbitrary = genTxOut
   shrink txOut = fromLedgerTxOut <$> shrink (toLedgerTxOut txOut)
 
--- | Generate a 'Babbage' era 'TxOut', which may contain arbitrary assets
+-- | Generate a 'Conway' era 'TxOut', which may contain arbitrary assets
 -- addressed to public keys and scripts, as well as datums.
 --
 -- NOTE: This generator does
@@ -73,7 +73,6 @@ genTxOut =
 
   noRefScripts out =
     out{txOutReferenceScript = ReferenceScriptNone}
-
 -- | Generate a 'TxOut' with a byron address. This is usually not supported by
 -- Hydra or Plutus.
 genTxOutByron :: Gen (TxOut ctx)
@@ -114,19 +113,21 @@ shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.pairs (shrinkList shrinkOne)
       | value' <- shrinkValue value
       ]
 
--- | Generate a complete arbitrary UTxO, which may contain arbitrary assets in
--- 'TxOut's addressed to public keys *and* scripts. NOTE: This is not reducing
--- size when generating assets in 'TxOut's, so will end up regularly with 300+
--- assets with generator size 30. NOTE: The Arbitrary TxIn instance from the
--- ledger is producing colliding values, so we replace them.
+-- | Generate a complete arbitrary UTxO, which may contain arbitrary assets
+-- addressed to public keys *and* scripts.
+--
+-- NOTE: This is not reducing size when generating assets in 'TxOut's, so will
+-- end up regularly with 300+ assets with generator size 30.
 genUTxO :: Gen UTxO
 genUTxO = do
   utxoMap <- Map.toList . Ledger.unUTxO <$> arbitrary
+  -- NOTE: The Arbitrary TxIn instance from the ledger is producing colliding
+  -- values, so we replace them.
   fmap UTxO.fromPairs . forM utxoMap $ \(_, o) -> do
     i <- arbitrary
     pure (i, fromLedgerTxOut o)
 
--- | Generate a 'Babbage' era 'UTxO' with given number of outputs. See also
+-- | Generate a 'Conway' era 'UTxO' with given number of outputs. See also
 -- 'genTxOut'.
 genUTxOSized :: Int -> Gen UTxO
 genUTxOSized numUTxO =
