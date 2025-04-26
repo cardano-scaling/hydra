@@ -30,7 +30,8 @@ data PersistenceException
   = PersistenceException String
   | IncorrectAccessException String
   deriving stock (Eq, Show)
-  deriving anyclass (Exception)
+
+instance Exception PersistenceException
 
 -- | Handle to save and load files to/from db using JSON encoding.
 data Persistence a m = Persistence
