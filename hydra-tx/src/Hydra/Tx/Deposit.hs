@@ -1,12 +1,13 @@
 module Hydra.Tx.Deposit where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL, outputsTxBodyL)
 import Control.Lens ((.~), (^.))
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
+import GHC.IsList (toList)
 import Hydra.Cardano.Api
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
@@ -71,6 +72,12 @@ data DepositObservation = DepositObservation
   }
   deriving stock (Show, Eq, Generic)
 
+-- | Observe a deposit transaction by decoding the target head id, deposit
+-- deadline and deposited utxo in the datum.
+--
+-- This includes checking whether
+-- - all inputs of deposited utxo are actually spent,
+-- - the deposit script output actually contains the deposited value.
 observeDepositTx ::
   NetworkId ->
   Tx ->
@@ -79,16 +86,14 @@ observeDepositTx networkId tx = do
   -- TODO: could just use the first output and fail otherwise
   (TxIn depositTxId _, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
   (headId, deposited, deadline) <- observeDepositTxOut (toShelleyNetwork networkId) (toCtxUTxOTxOut depositOut)
-  if all (`elem` txIns' tx) (UTxO.inputSet deposited)
-    then
-      Just
-        DepositObservation
-          { headId
-          , deposited
-          , depositTxId
-          , deadline
-          }
-    else Nothing
+  guard $ all (`elem` txIns' tx) (UTxO.inputSet deposited)
+  pure
+    DepositObservation
+      { headId
+      , deposited
+      , depositTxId
+      , deadline
+      }
 
 observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
 observeDepositTxOut network depositOut = do
@@ -96,8 +101,11 @@ observeDepositTxOut network depositOut = do
     TxOutDatumInline d -> pure d
     _ -> Nothing
   (headCurrencySymbol, deadline, onChainDeposits) <- fromScriptData dat
-  deposit <- do
-    depositedUTxO <- traverse (Commit.deserializeCommit network) onChainDeposits
-    pure . UTxO.fromList $ depositedUTxO
   headId <- currencySymbolToHeadId headCurrencySymbol
+  deposit <- do
+    depositedUTxO <- UTxO.fromList <$> traverse (Commit.deserializeCommit network) onChainDeposits
+    guard $ depositValue `containsValue` foldMap txOutValue depositedUTxO
+    pure depositedUTxO
   pure (headId, deposit, deadline)
+ where
+  depositValue = txOutValue depositOut
