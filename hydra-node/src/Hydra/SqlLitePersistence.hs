@@ -213,8 +213,8 @@ checkRotation ::
   m ()
 checkRotation fpV eventCountV eventLogV Checkpointer{countRate, fileCondition, checkpoint} = do
   -- XXX: every `countRate` events we trigger rotation if needed.
-  eventCount <- nextCount eventCountV
-  when (eventCount > countRate) $ do
+  eventCount' <- nextCount eventCountV
+  when (eventCount' > countRate) $ do
     fp <- readTVarIO fpV
     triggerRotation <- liftIO $ fileCondition fp
     when triggerRotation $ do
@@ -228,6 +228,25 @@ nextCount countV = atomically $ do
   let count' = count + 1
   writeTVar countV count'
   pure count'
+
+rotateEventLog ::
+  (FromJSON a, ToJSON a, MonadIO m, MonadSTM m) =>
+  TVar m FilePath ->
+  TVar m (PersistenceIncremental a IO) ->
+  ([a] -> IO a) ->
+  m ()
+rotateEventLog fpV eventLogV checkpointer = do
+  -- XXX: rotate event log
+  PersistenceIncremental{closeDb, loadAll} <- readTVarIO eventLogV
+  fp' <- rotateFp fpV
+  eventLog' <- createPersistenceIncremental fp'
+  atomically $ writeTVar eventLogV eventLog'
+  -- XXX: append checkpoint
+  liftIO $ do
+    events <- loadAll
+    closeDb
+    checkpoint <- checkpointer events
+    append eventLog' checkpoint
 
 rotateFp :: MonadSTM m => TVar m FilePath -> m FilePath
 rotateFp fpV = atomically $ do
@@ -249,22 +268,3 @@ rotateIndex baseName =
   extractRotationIndex = fromMaybe (0 :: Int) . readMaybe . extractSuffix
   rotationIndex = extractRotationIndex baseName
   extractPrefix = reverse . dropWhile isDigit . reverse
-
-rotateEventLog ::
-  (FromJSON a, ToJSON a, MonadIO m, MonadSTM m) =>
-  TVar m FilePath ->
-  TVar m (PersistenceIncremental a IO) ->
-  ([a] -> IO a) ->
-  m ()
-rotateEventLog fpV eventLogV checkpointer = do
-  -- XXX: rotate event log
-  PersistenceIncremental{closeDb, loadAll} <- readTVarIO eventLogV
-  fp' <- rotateFp fpV
-  eventLog' <- createPersistenceIncremental fp'
-  atomically $ writeTVar eventLogV eventLog'
-  -- XXX: append checkpoint
-  liftIO $ do
-    events <- loadAll
-    closeDb
-    checkpoint <- checkpointer events
-    append eventLog' checkpoint
