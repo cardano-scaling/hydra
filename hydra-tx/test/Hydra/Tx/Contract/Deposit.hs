@@ -1,13 +1,20 @@
+-- | Healthy deposit transactions and mutations
+--
+-- As no Hydra script is run in these transactions, the mutations here should
+-- make the deposit transaction not observed as a valid deposi.
 module Hydra.Tx.Contract.Deposit where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Data.List qualified as List
 import Hydra.Tx (mkHeadId)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Deposit (depositTx)
 import Test.Hydra.Tx.Fixture (depositDeadline, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
+import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
+import Test.Hydra.Tx.Mutation (Mutation (ChangeOutput), SomeMutation (..))
+import Test.QuickCheck (oneof, suchThat)
 
 healthyDepositTx :: (Tx, UTxO)
 healthyDepositTx =
@@ -22,3 +29,19 @@ healthyDepositTx =
 
 healthyDepositUTxO :: UTxO
 healthyDepositUTxO = genUTxOAdaOnlyOfSize 1 `generateWith` 42
+
+data DepositMutation
+  = -- | Change the output value to simulate a deposit where the recorded output
+    -- in the datum does not match the captured value anymore.
+    MutateDepositOutputValue
+  deriving (Show, Bounded, Enum)
+
+genDepositMutation :: (Tx, UTxO) -> Gen SomeMutation
+genDepositMutation (tx, _utxo) =
+  oneof
+    [ SomeMutation [] MutateDepositOutputValue <$> do
+        change <- genValue `suchThat` (/= mempty)
+        pure $ ChangeOutput 0 (depositTxOut & modifyTxOutValue (<> change))
+    ]
+ where
+  depositTxOut = List.head $ txOuts' tx

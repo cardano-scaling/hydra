@@ -21,6 +21,7 @@ import Hydra.Cardano.Api (
   toPlutusTxOut,
   toShelleyNetwork,
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (verifySnapshotSignature)
 import Hydra.Contract.Util qualified as OnChain
@@ -43,12 +44,13 @@ import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
 import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
-import Hydra.Tx.Contract.Deposit (healthyDepositTx)
+import Hydra.Tx.Contract.Deposit (genDepositMutation, healthyDepositTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.Observe (observeDepositTx)
 import PlutusLedgerApi.V3 (fromBuiltin, toBuiltin)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (
@@ -56,9 +58,10 @@ import Test.Hydra.Tx.Gen (
   genUTxOWithSimplifiedAddresses,
   shrinkUTxO,
  )
-import Test.Hydra.Tx.Mutation (propMutation)
+import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation, propMutation)
 import Test.QuickCheck (
   Property,
+  checkCoverage,
   conjoin,
   counterexample,
   forAll,
@@ -122,8 +125,19 @@ spec = parallel $ do
     prop "does not survive random adversarial mutations" $
       propMutation healthyDecrementTx genDecrementMutation
   describe "Deposit" $ do
-    prop "is healthy" $
+    prop "healthy evaluates" $
       propTransactionEvaluates healthyDepositTx
+    prop "healthy observed" $
+      isJust $
+        observeDepositTx testNetworkId (fst healthyDepositTx)
+    prop "mutated not observed" $
+      forAll (genDepositMutation healthyDepositTx) $ \SomeMutation{label, mutation} -> do
+        let (tx, utxo) = healthyDepositTx & applyMutation mutation
+        counterexample ("Mutated transaction: " <> renderTxWithUTxO utxo tx) $
+          property (isNothing $ observeDepositTx testNetworkId tx)
+            & counterexample "Mutated transaction still observed"
+            & genericCoverTable [label]
+            & checkCoverage
   describe "Recover" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyRecoverTx
