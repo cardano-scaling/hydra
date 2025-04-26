@@ -15,7 +15,7 @@ import Hydra.Tx.Deposit (depositTx)
 import Test.Hydra.Tx.Fixture (depositDeadline, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxO)
 import Test.Hydra.Tx.Mutation (Mutation (ChangeOutput), SomeMutation (..))
-import Test.QuickCheck (chooseInteger, elements, oneof)
+import Test.QuickCheck (chooseInteger, elements, oneof, resize)
 
 healthyDepositTx :: (Tx, UTxO)
 healthyDepositTx =
@@ -29,7 +29,7 @@ healthyDepositTx =
       depositDeadline
 
 healthyDepositUTxO :: UTxO
-healthyDepositUTxO = genUTxO `generateWith` 42
+healthyDepositUTxO = resize 3 genUTxO `generateWith` 42
 
 data DepositMutation
   = -- | Change the output value to a subset of the deposited value. This
