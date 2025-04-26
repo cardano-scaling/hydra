@@ -42,13 +42,12 @@ data Persistence a m = Persistence
   , dropDb :: m ()
   }
 
--- FIXME!
 withConn :: TMVar IO Connection -> (Connection -> IO b) -> IO b
 withConn connVar action = do
-  conn' <- atomically $ takeTMVar connVar
-  result <- action conn'
-  atomically $ putTMVar connVar conn'
-  pure result
+  bracket
+    (atomically $ takeTMVar connVar)
+    (atomically . putTMVar connVar)
+    action
 
 createPersistence ::
   MonadIO m =>
@@ -59,6 +58,7 @@ createPersistence fp = do
     createDirectoryIfMissing True $ takeDirectory fp
     conn <- open fp
     execute_ conn "pragma journal_mode = WAL;"
+    execute_ conn "pragma busy_timeout = 5000;"
     execute_ conn "pragma synchronous = normal;"
     execute_ conn "pragma journal_size_limit = 6144000;"
     execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, msg BLOB);"
@@ -102,6 +102,7 @@ createPersistenceIncremental fp = do
     createDirectoryIfMissing True $ takeDirectory fp
     conn <- open fp
     execute_ conn "pragma journal_mode = WAL;"
+    execute_ conn "pragma busy_timeout = 5000;"
     execute_ conn "pragma synchronous = normal;"
     execute_ conn "pragma journal_size_limit = 6144000;"
     execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, msg BLOB);"
