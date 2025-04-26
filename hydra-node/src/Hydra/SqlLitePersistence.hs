@@ -137,6 +137,12 @@ createPersistenceIncremental fp = do
           removeFile fp
       }
 
+data Checkpointer a m = Checkpointer
+  { countRate :: Int
+  , fileCondition :: FilePath -> m Bool
+  , checkpoint :: [a] -> m a
+  }
+
 withPersistenceIncremental ::
   (FromJSON a, ToJSON a) =>
   FilePath ->
@@ -144,14 +150,24 @@ withPersistenceIncremental ::
   (PersistenceIncremental a IO -> IO b) ->
   IO ()
 withPersistenceIncremental fp checkpointer action = do
-  eventLog@PersistenceIncremental{closeDb} <- createRotatedEventLog fp checkpointer
+  eventLog@PersistenceIncremental{closeDb} <- createRotatedEventLog fp checkpointerHandle
   void $ action eventLog
   closeDb
+ where
+  checkpointerHandle =
+    Checkpointer
+      { countRate = 3000
+      , checkpoint = checkpointer
+      , fileCondition = \filePath -> do
+          fileSize <- liftIO $ getFileSize filePath
+          -- XXX: 100MB threshold
+          pure (fileSize > 100 * 1024 * 1024)
+      }
 
 createRotatedEventLog ::
   (FromJSON a, ToJSON a) =>
   FilePath ->
-  ([a] -> IO a) ->
+  Checkpointer a IO ->
   IO (PersistenceIncremental a IO)
 createRotatedEventLog fpInitial checkpointer = do
   fpV <- newTVarIO fpInitial
@@ -191,16 +207,17 @@ checkRotation ::
   TVar m FilePath ->
   TVar m Int ->
   TVar m (PersistenceIncremental a IO) ->
-  ([a] -> IO a) ->
+  Checkpointer a IO ->
   m ()
-checkRotation fpV eventCountV eventLogV checkpointer = do
-  -- XXX: every 3k events we trigger rotation if needed.
+checkRotation fpV eventCountV eventLogV Checkpointer{countRate, fileCondition, checkpoint} = do
+  -- XXX: every `countRate` events we trigger rotation if needed.
   eventCount <- nextCount eventCountV
-  when (eventCount > 3000) $ do
-    triggerRotation <- shouldRotate fpV
+  when (eventCount > countRate) $ do
+    fp <- readTVarIO fpV
+    triggerRotation <- liftIO $ fileCondition fp
     when triggerRotation $ do
-      rotateEventLog fpV eventLogV checkpointer
-    -- XXX: we reset the counter to avoid checking on every new event after 3k.
+      rotateEventLog fpV eventLogV checkpoint
+    -- XXX: we reset the counter to avoid checking on every new event after `countRate`.
     atomically $ writeTVar eventCountV 0
 
 nextCount :: MonadSTM m => TVar m Int -> m Int
@@ -209,13 +226,6 @@ nextCount countV = atomically $ do
   let count' = count + 1
   writeTVar countV count'
   pure count'
-
-shouldRotate :: (MonadIO m, MonadSTM m) => TVar m FilePath -> m Bool
-shouldRotate fpV = do
-  fp <- readTVarIO fpV
-  fileSize <- liftIO $ getFileSize fp
-  -- XXX: 100MB threshold
-  pure (fileSize > 100 * 1024 * 1024)
 
 extractRotationIndex :: FilePath -> Int
 extractRotationIndex fp =
