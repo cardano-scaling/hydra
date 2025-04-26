@@ -6,7 +6,12 @@ import Hydra.Prelude
 
 import Conduit (ConduitT, ResourceT, yield)
 import Control.Concurrent.Class.MonadSTM (
-  MonadSTM (newTMVarIO, putTMVar, takeTMVar),
+  newTMVarIO,
+  newTVarIO,
+  putTMVar,
+  readTVarIO,
+  takeTMVar,
+  writeTVar,
  )
 import Data.Aeson qualified as Aeson
 import Database.SQLite.Simple (
@@ -18,8 +23,8 @@ import Database.SQLite.Simple (
   open,
   query_,
  )
-import System.Directory (createDirectoryIfMissing, removeFile)
-import System.FilePath (takeDirectory)
+import System.Directory (createDirectoryIfMissing, getFileSize, removeFile)
+import System.FilePath (takeBaseName, takeDirectory)
 
 data PersistenceException
   = PersistenceException String
@@ -78,6 +83,7 @@ data PersistenceIncremental a m = PersistenceIncremental
   { append :: ToJSON a => a -> m ()
   , appendMany :: ToJSON a => [a] -> m ()
   , loadAll :: FromJSON a => m [a]
+  , countAll :: m Int
   , source :: FromJSON a => ConduitT () a (ResourceT m) ()
   -- ^ Stream all elements.
   , closeDb :: m ()
@@ -114,6 +120,10 @@ createPersistenceIncremental fp = do
           withConn connVar $ \c -> do
             rows <- query_ c "SELECT msg FROM items ORDER BY id ASC;"
             pure $ mapMaybe (Aeson.decode . (\(Only b) -> b)) rows
+      , countAll = liftIO $
+          withConn connVar $ \c -> do
+            [Only n] <- query_ c "SELECT COUNT(*) FROM items;"
+            pure n
       , source = do
           rows <- liftIO $
             withConn connVar $ \c ->
@@ -127,8 +137,112 @@ createPersistenceIncremental fp = do
           removeFile fp
       }
 
-withPersistenceIncremental :: FilePath -> (PersistenceIncremental a IO -> IO b) -> IO ()
-withPersistenceIncremental fp action = do
-  incPersistence@PersistenceIncremental{closeDb} <- createPersistenceIncremental fp
-  void $ action incPersistence
+withRotatedEventLog ::
+  (FromJSON a, ToJSON a) =>
+  FilePath ->
+  ([a] -> IO a) ->
+  (PersistenceIncremental a IO -> IO b) ->
+  IO ()
+withRotatedEventLog fp checkpointer action = do
+  eventLog@PersistenceIncremental{closeDb} <- createRotatedEventLog fp checkpointer
+  void $ action eventLog
   closeDb
+
+createRotatedEventLog ::
+  (FromJSON a, ToJSON a) =>
+  FilePath ->
+  ([a] -> IO a) ->
+  IO (PersistenceIncremental a IO)
+createRotatedEventLog fpInitial checkpointer = do
+  fpV <- newTVarIO fpInitial
+  eventLogV <- newTVarIO =<< createPersistenceIncremental fpInitial
+  PersistenceIncremental{countAll} <- readTVarIO eventLogV
+  initialCount <- countAll
+  eventCountV <- newTVarIO initialCount
+  pure
+    PersistenceIncremental
+      { append = \e -> do
+          PersistenceIncremental{append = append'} <- readTVarIO eventLogV
+          append' e
+          checkRotation fpV eventCountV eventLogV checkpointer
+      , appendMany = \es -> do
+          PersistenceIncremental{appendMany = appendMany'} <- readTVarIO eventLogV
+          appendMany' es
+          checkRotation fpV eventCountV eventLogV checkpointer
+      , loadAll = do
+          PersistenceIncremental{loadAll = loadAll'} <- readTVarIO eventLogV
+          loadAll'
+      , source = do
+          PersistenceIncremental{source = source'} <- liftIO (readTVarIO eventLogV)
+          source'
+      , countAll = do
+          PersistenceIncremental{countAll = countAll'} <- readTVarIO eventLogV
+          countAll'
+      , closeDb = do
+          PersistenceIncremental{closeDb = closeDb'} <- readTVarIO eventLogV
+          closeDb'
+      , dropDb = do
+          PersistenceIncremental{dropDb = dropDb'} <- readTVarIO eventLogV
+          dropDb'
+      }
+
+checkRotation ::
+  (FromJSON a, ToJSON a, MonadIO m, MonadSTM m) =>
+  TVar m FilePath ->
+  TVar m Int ->
+  TVar m (PersistenceIncremental a IO) ->
+  ([a] -> IO a) ->
+  m ()
+checkRotation fpV eventCountV eventLogV checkpointer = do
+  -- XXX: every 10k events we trigger rotation if needed.
+  eventCount <- nextCount eventCountV
+  when (eventCount > 10000) $ do
+    triggerRotation <- shouldRotate fpV
+    when triggerRotation $ do
+      rotateEventLog fpV eventLogV checkpointer
+    -- XXX: we reset the counter to avoid checking on every new event after 10k.
+    atomically $ writeTVar eventCountV 0
+
+nextCount :: MonadSTM m => TVar m Int -> m Int
+nextCount countV = atomically $ do
+  count <- readTVar countV
+  let count' = count + 1
+  writeTVar countV count'
+  pure count'
+
+shouldRotate :: (MonadIO m, MonadSTM m) => TVar m FilePath -> m Bool
+shouldRotate fpV = do
+  fp <- readTVarIO fpV
+  fileSize <- liftIO $ getFileSize fp
+  -- XXX: 100MB threshold
+  pure (fileSize > 100 * 1024 * 1024)
+
+extractRotationIndex :: FilePath -> Int
+extractRotationIndex fp =
+  let baseName = takeBaseName fp
+      rotationIndex = takeWhile (/= '-') (reverse baseName)
+   in fromMaybe 0 (readMaybe rotationIndex)
+
+rotateFp :: MonadSTM m => TVar m FilePath -> m FilePath
+rotateFp fpV = atomically $ do
+  fp <- readTVar fpV
+  let rotationIndex = extractRotationIndex fp
+  let fp' = fp ++ "-" ++ show rotationIndex ++ ".db"
+  writeTVar fpV fp'
+  pure fp'
+
+rotateEventLog ::
+  (FromJSON a, ToJSON a, MonadIO m, MonadSTM m) =>
+  TVar m FilePath ->
+  TVar m (PersistenceIncremental a IO) ->
+  ([a] -> IO a) ->
+  m ()
+rotateEventLog fpV eventLogV checkpointer = do
+  PersistenceIncremental{closeDb, loadAll} <- readTVarIO eventLogV
+  events <- liftIO loadAll
+  liftIO closeDb
+  fp' <- rotateFp fpV
+  eventLog' <- liftIO $ createPersistenceIncremental fp'
+  checkpoint <- liftIO $ checkpointer events
+  liftIO $ append eventLog' checkpoint
+  atomically $ writeTVar eventLogV eventLog'

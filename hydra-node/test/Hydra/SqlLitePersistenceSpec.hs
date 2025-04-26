@@ -40,15 +40,19 @@ spec = do
   describe "PersistenceIncremental" $ do
     let testDbPath = "test-inc.db"
     it "should return an empty list when no values are stored" $ do
-      PersistenceIncremental{loadAll} <- createPersistenceIncremental testDbPath
+      PersistenceIncremental{loadAll, countAll} <- createPersistenceIncremental testDbPath
       loadedValues :: [TestData] <- loadAll
       loadedValues `shouldBe` []
+      count <- countAll
+      count `shouldBe` 0
     it "should append and load multiple values" $ do
-      PersistenceIncremental{appendMany, loadAll} <- createPersistenceIncremental testDbPath
+      PersistenceIncremental{appendMany, loadAll, countAll} <- createPersistenceIncremental testDbPath
       let testValues = [TestData "A", TestData "B", TestData "C"]
       liftIO $ appendMany testValues
       loadedValues <- loadAll
       loadedValues `shouldBe` testValues
+      count <- countAll
+      count `shouldBe` 3
     it "should drop the incremental database" $ do
       PersistenceIncremental{dropDb} <- createPersistenceIncremental testDbPath
       dropDb

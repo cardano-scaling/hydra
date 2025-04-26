@@ -1,6 +1,6 @@
 module Hydra.Node.Run where
 
-import Hydra.Prelude hiding (fromList)
+import Hydra.Prelude hiding (STM, fromList)
 
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
@@ -20,7 +20,9 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
+import Hydra.Events (StateEvent (..))
 import Hydra.Events.SqlLiteBased (eventPairFromPersistenceIncremental)
+import Hydra.HeadLogic (HeadState (..), IdleState (..), StateChanged (Checkpoint), aggregate)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -46,7 +48,7 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.SqlLitePersistence (withPersistenceIncremental)
+import Hydra.SqlLitePersistence (withRotatedEventLog)
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Utils (readJsonFileThrow)
 
@@ -76,9 +78,9 @@ run opts = do
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
-        withPersistenceIncremental (persistenceDir <> "/state") $ \incPersistence -> do
+        withRotatedEventLog (persistenceDir <> "/state") checkpointer $ \rotatedEventLog -> do
           -- Hydrate with event source and sinks
-          (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incPersistence
+          (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental rotatedEventLog
           -- NOTE: Add any custom sink setup code here
           -- customSink <- createCustomSink
           let eventSinks =
@@ -128,6 +130,18 @@ run opts = do
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
       pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
 
+  initialState = Idle IdleState{chainState = initialChainState}
+  checkpoint = Checkpoint . foldl' aggregate initialState
+  checkpointer events = do
+    now <- getCurrentTime
+    pure
+      StateEvent
+        { eventId = 0
+        , stateChanged =
+            checkpoint $
+              (\StateEvent{stateChanged} -> stateChanged) <$> events
+        , time = now
+        }
   RunOptions
     { verbosity
     , monitoringPort
