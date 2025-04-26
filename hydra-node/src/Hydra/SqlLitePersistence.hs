@@ -14,6 +14,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Data.Aeson qualified as Aeson
+import Data.Char (isDigit)
 import Database.SQLite.Simple (
   Connection,
   Only (..),
@@ -24,7 +25,7 @@ import Database.SQLite.Simple (
   query_,
  )
 import System.Directory (createDirectoryIfMissing, getFileSize, removeFile)
-import System.FilePath (takeBaseName, takeDirectory)
+import System.FilePath (takeBaseName, takeDirectory, takeExtension)
 
 data PersistenceException
   = PersistenceException String
@@ -227,19 +228,26 @@ nextCount countV = atomically $ do
   writeTVar countV count'
   pure count'
 
-extractRotationIndex :: FilePath -> Int
-extractRotationIndex fp =
-  let baseName = takeBaseName fp
-      rotationIndex = takeWhile (/= '-') (reverse baseName)
-   in fromMaybe 0 (readMaybe rotationIndex)
-
 rotateFp :: MonadSTM m => TVar m FilePath -> m FilePath
 rotateFp fpV = atomically $ do
   fp <- readTVar fpV
-  let rotationIndex = extractRotationIndex fp
-  let fp' = fp ++ "-" ++ show rotationIndex ++ ".db"
+  let baseName = takeBaseName fp
+      extension = takeExtension fp
+      baseName' = rotateIndex baseName
+      fp' = baseName' ++ extension
   writeTVar fpV fp'
   pure fp'
+
+rotateIndex :: String -> String
+rotateIndex baseName =
+  if rotationIndex == 0
+    then extractPrefix baseName ++ "-" ++ show (rotationIndex + 1)
+    else extractPrefix baseName ++ show (rotationIndex + 1)
+ where
+  extractSuffix = takeWhile (/= '-') . reverse
+  extractRotationIndex = fromMaybe (0 :: Int) . readMaybe . extractSuffix
+  rotationIndex = extractRotationIndex baseName
+  extractPrefix = reverse . dropWhile isDigit . reverse
 
 rotateEventLog ::
   (FromJSON a, ToJSON a, MonadIO m, MonadSTM m) =>
