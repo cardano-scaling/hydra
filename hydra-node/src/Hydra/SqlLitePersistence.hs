@@ -136,13 +136,13 @@ createPersistenceIncremental fp = do
           removeFile fp
       }
 
-withRotatedEventLog ::
+withPersistenceIncremental ::
   (FromJSON a, ToJSON a) =>
   FilePath ->
   ([a] -> IO a) ->
   (PersistenceIncremental a IO -> IO b) ->
   IO ()
-withRotatedEventLog fp checkpointer action = do
+withPersistenceIncremental fp checkpointer action = do
   eventLog@PersistenceIncremental{closeDb} <- createRotatedEventLog fp checkpointer
   void $ action eventLog
   closeDb

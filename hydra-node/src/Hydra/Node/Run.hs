@@ -48,7 +48,7 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.SqlLitePersistence (withRotatedEventLog)
+import Hydra.SqlLitePersistence (withPersistenceIncremental)
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Utils (readJsonFileThrow)
 
@@ -78,9 +78,9 @@ run opts = do
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
-        withRotatedEventLog (persistenceDir <> "/state") checkpointer $ \rotatedEventLog -> do
+        withPersistenceIncremental (persistenceDir <> "/state") checkpointer $ \incPersistence -> do
           -- Hydrate with event source and sinks
-          (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental rotatedEventLog
+          (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incPersistence
           -- NOTE: Add any custom sink setup code here
           -- customSink <- createCustomSink
           let eventSinks =
