@@ -24,14 +24,16 @@ spec = do
   describe "Persistence" $ do
     let testDbPath = "test.db"
     it "should return Nothing when no value is present" $ do
-      Persistence{load} <- createPersistence testDbPath
+      Persistence{load, closeDb} <- createPersistence testDbPath
       loadedValue :: Maybe TestData <- load
+      closeDb
       loadedValue `shouldBe` Nothing
     it "should save and load data" $ do
-      Persistence{load, save} <- createPersistence testDbPath
+      Persistence{load, save, closeDb} <- createPersistence testDbPath
       let testValue = TestData "Hello, Hydra!"
       liftIO $ save testValue
       loadedValue <- load
+      closeDb
       loadedValue `shouldBe` Just testValue
     it "should drop the database" $ do
       Persistence{dropDb} <- createPersistence testDbPath
@@ -41,18 +43,20 @@ spec = do
   describe "PersistenceIncremental" $ do
     let testDbPath = "test-inc.db"
     it "should return an empty list when no values are stored" $ do
-      PersistenceIncremental{loadAll, countAll} <- createPersistenceIncremental testDbPath
+      PersistenceIncremental{loadAll, countAll, closeDb} <- createPersistenceIncremental testDbPath
       loadedValues :: [TestData] <- loadAll
-      loadedValues `shouldBe` []
       count <- countAll
+      closeDb
+      loadedValues `shouldBe` []
       count `shouldBe` 0
     it "should append and load multiple values" $ do
-      PersistenceIncremental{appendMany, loadAll, countAll} <- createPersistenceIncremental testDbPath
+      PersistenceIncremental{appendMany, loadAll, countAll, closeDb} <- createPersistenceIncremental testDbPath
       let testValues = [TestData "A", TestData "B", TestData "C"]
       liftIO $ appendMany testValues
       loadedValues <- loadAll
-      loadedValues `shouldBe` testValues
       count <- countAll
+      closeDb
+      loadedValues `shouldBe` testValues
       count `shouldBe` 3
     it "should drop the incremental database" $ do
       PersistenceIncremental{dropDb} <- createPersistenceIncremental testDbPath
@@ -71,10 +75,11 @@ spec = do
       let testValues = TestData . show <$> [1 .. totalElements]
       forM_ testValues append
       loadedValues <- loadAll
-      loadedValues `shouldBe` [TestData "123456789", TestData "10"]
+      -- XXX: closes wal and shm files to not be found during `searchEventLogs`
       closeDb
       eventLogs <- searchEventLogs testDbPath
       pruneDb testDbPath
+      loadedValues `shouldBe` [TestData "123456789", TestData "10"]
       length eventLogs `shouldBe` 4
 
 searchEventLogs :: FilePath -> IO [FilePath]
