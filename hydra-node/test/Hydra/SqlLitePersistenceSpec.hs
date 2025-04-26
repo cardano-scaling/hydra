@@ -1,19 +1,20 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Hydra.SqlLitePersistenceSpec where
 
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Hydra.SqlLitePersistence (
+  Checkpointer (..),
   Persistence (..),
   PersistenceIncremental (..),
   createPersistence,
   createPersistenceIncremental,
+  createRotatedEventLog,
  )
-import System.Directory (doesFileExist)
+import System.Directory (doesFileExist, listDirectory, removeFile)
+import System.FilePath (takeBaseName, takeDirectory, (</>))
 
-newtype TestData = TestData {value :: String}
+newtype TestData = TestData {value :: Text}
   deriving newtype (Show, Eq)
   deriving (Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -58,3 +59,38 @@ spec = do
       dropDb
       dbExists <- liftIO $ doesFileExist testDbPath
       dbExists `shouldBe` False
+    it "should rotate event log" $ do
+      let checkpointer =
+            Checkpointer
+              { countRate = 2
+              , fileCondition = const $ pure True
+              , checkpoint = pure . TestData . foldMap value
+              }
+      PersistenceIncremental{append, loadAll, closeDb} <- createRotatedEventLog testDbPath checkpointer
+      let totalElements :: Int = 10
+      let testValues = TestData . show <$> [1 .. totalElements]
+      forM_ testValues append
+      loadedValues <- loadAll
+      loadedValues `shouldBe` [TestData "123456789", TestData "10"]
+      closeDb
+      eventLogs <- searchEventLogs testDbPath
+      pruneDb testDbPath
+      length eventLogs `shouldBe` 4
+
+searchEventLogs :: FilePath -> IO [FilePath]
+searchEventLogs fp = do
+  files <- listDirectory dir
+  let matchingFiles = filter (baseName `isPrefixOf`) files
+  pure matchingFiles
+ where
+  dir = takeDirectory fp
+  baseName = takeBaseName fp
+
+pruneDb :: FilePath -> IO ()
+pruneDb fp = do
+  files <- listDirectory dir
+  let matchingFiles = filter (baseName `isPrefixOf`) files
+  mapM_ (\f -> removeFile (dir </> f)) matchingFiles
+ where
+  dir = takeDirectory fp
+  baseName = takeBaseName fp
