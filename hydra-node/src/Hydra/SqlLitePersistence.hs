@@ -53,14 +53,14 @@ createPersistence ::
   FilePath ->
   m (Persistence a m)
 createPersistence fp = do
-  liftIO $ createDirectoryIfMissing True $ takeDirectory fp
-  conn <- liftIO $ open fp
-  liftIO $ do
+  connVar <- liftIO $ do
+    createDirectoryIfMissing True $ takeDirectory fp
+    conn <- open fp
     execute_ conn "pragma journal_mode = WAL;"
     execute_ conn "pragma synchronous = normal;"
     execute_ conn "pragma journal_size_limit = 6144000;"
     execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, msg BLOB);"
-  connVar <- liftIO $ newTMVarIO conn
+    newTMVarIO conn
   pure $
     Persistence
       { save = \a -> liftIO $ withConn connVar $ \c ->
@@ -94,17 +94,16 @@ createPersistenceIncremental ::
   forall a m.
   MonadIO m =>
   FilePath ->
-  m (PersistenceIncremental a m)
+  m (PersistenceIncremental a IO)
 createPersistenceIncremental fp = do
-  liftIO $ createDirectoryIfMissing True $ takeDirectory fp
-  conn <- liftIO $ open fp
-  liftIO $ do
+  connVar <- liftIO $ do
+    createDirectoryIfMissing True $ takeDirectory fp
+    conn <- open fp
     execute_ conn "pragma journal_mode = WAL;"
     execute_ conn "pragma synchronous = normal;"
     execute_ conn "pragma journal_size_limit = 6144000;"
     execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, msg BLOB);"
-  connVar <- liftIO $ newTMVarIO conn
-  let
+    newTMVarIO conn
   pure $
     PersistenceIncremental
       { append = \a -> liftIO $
@@ -238,11 +237,14 @@ rotateEventLog ::
   ([a] -> IO a) ->
   m ()
 rotateEventLog fpV eventLogV checkpointer = do
+  -- XXX: rotate event log
   PersistenceIncremental{closeDb, loadAll} <- readTVarIO eventLogV
-  events <- liftIO loadAll
-  liftIO closeDb
   fp' <- rotateFp fpV
-  eventLog' <- liftIO $ createPersistenceIncremental fp'
-  checkpoint <- liftIO $ checkpointer events
-  liftIO $ append eventLog' checkpoint
+  eventLog' <- createPersistenceIncremental fp'
   atomically $ writeTVar eventLogV eventLog'
+  -- XXX: append checkpoint
+  liftIO $ do
+    events <- loadAll
+    closeDb
+    checkpoint <- checkpointer events
+    append eventLog' checkpoint
