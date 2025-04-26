@@ -193,13 +193,13 @@ checkRotation ::
   ([a] -> IO a) ->
   m ()
 checkRotation fpV eventCountV eventLogV checkpointer = do
-  -- XXX: every 10k events we trigger rotation if needed.
+  -- XXX: every 3k events we trigger rotation if needed.
   eventCount <- nextCount eventCountV
-  when (eventCount > 10000) $ do
+  when (eventCount > 3000) $ do
     triggerRotation <- shouldRotate fpV
     when triggerRotation $ do
       rotateEventLog fpV eventLogV checkpointer
-    -- XXX: we reset the counter to avoid checking on every new event after 10k.
+    -- XXX: we reset the counter to avoid checking on every new event after 3k.
     atomically $ writeTVar eventCountV 0
 
 nextCount :: MonadSTM m => TVar m Int -> m Int
