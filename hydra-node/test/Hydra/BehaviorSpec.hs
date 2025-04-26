@@ -130,6 +130,8 @@ spec = parallel $ do
             send n1 Fanout
             waitUntil [n1] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRef 1}
 
+  -- XXX: Restructure test suites as it makes more sense to speak about
+  -- features rather than head structure
   describe "Two participant Head" $ do
     it "only opens the head after all nodes committed" $
       shouldRunInSim $ do
@@ -377,7 +379,37 @@ spec = parallel $ do
                 headUTxO <- getHeadUTxO <$> queryState n1
                 fromMaybe mempty headUTxO `shouldBe` utxoRefs [2, 42]
 
-      describe "Commit" $ do
+      describe "Incremental commit" $ do
+        it "deposits with deadline in the past are ignored" $
+          -- TODO: implement
+          -- - single node
+          -- - submit deposit deadline with deadline in past
+          -- - deposit not approved and right away expired
+          pendingWith "not implemented"
+
+        it "deposits with deadline too soon are ignored" $
+          -- TODO: implement
+          -- - single node
+          -- - submit deposit deadline in future, but too close
+          -- - deposit not approved and eventually expired
+          pendingWith "not implemented"
+
+        it "deposits are only processed after settled" $
+          -- TODO: implement
+          -- - single node
+          -- - submit deposit deadline far enough in future
+          -- - recorded right away
+          -- - approved only after deposit period passed
+          pendingWith "not implemented"
+
+        it "commit snapshot only approved when deposit settled" $
+          -- TODO: implement
+          -- - two nodes, one with low deposit period, one with high
+          -- - submit deposit
+          -- - see it recorded by both nodes
+          -- - see it approved only when period of both nodes passed
+          pendingWith "not implemented"
+
         it "requested commits get approved" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
