@@ -42,6 +42,18 @@ data Persistence a m = Persistence
   , dropDb :: m ()
   }
 
+-- TODO! split read-write connection
+createConnectionV :: FilePath -> IO (TMVar IO Connection)
+createConnectionV fp = do
+  createDirectoryIfMissing True $ takeDirectory fp
+  conn <- open fp
+  execute_ conn "PRAGMA journal_mode = WAL;"
+  execute_ conn "PRAGMA busy_timeout = 5000;"
+  execute_ conn "PRAGMA synchronous = normal;"
+  execute_ conn "PRAGMA journal_size_limit = 6144000;"
+  execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, msg BLOB);"
+  newTMVarIO conn
+
 withConn :: TMVar IO Connection -> (Connection -> IO b) -> IO b
 withConn connVar action = do
   bracket
@@ -49,20 +61,19 @@ withConn connVar action = do
     (atomically . putTMVar connVar)
     action
 
+checkpointDb :: FilePath -> IO ()
+checkpointDb fp = do
+  connVar <- liftIO $ createConnectionV fp
+  withConn connVar $ \c ->
+    execute_ c "PRAGMA wal_checkpoint(TRUNCATE);"
+  withConn connVar close
+
 createPersistence ::
   MonadIO m =>
   FilePath ->
   m (Persistence a m)
 createPersistence fp = do
-  connVar <- liftIO $ do
-    createDirectoryIfMissing True $ takeDirectory fp
-    conn <- open fp
-    execute_ conn "pragma journal_mode = WAL;"
-    execute_ conn "pragma busy_timeout = 5000;"
-    execute_ conn "pragma synchronous = normal;"
-    execute_ conn "pragma journal_size_limit = 6144000;"
-    execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, msg BLOB);"
-    newTMVarIO conn
+  connVar <- liftIO $ createConnectionV fp
   pure $
     Persistence
       { save = \a -> liftIO $ withConn connVar $ \c ->
@@ -98,15 +109,7 @@ createPersistenceIncremental ::
   FilePath ->
   m (PersistenceIncremental a IO)
 createPersistenceIncremental fp = do
-  connVar <- liftIO $ do
-    createDirectoryIfMissing True $ takeDirectory fp
-    conn <- open fp
-    execute_ conn "pragma journal_mode = WAL;"
-    execute_ conn "pragma busy_timeout = 5000;"
-    execute_ conn "pragma synchronous = normal;"
-    execute_ conn "pragma journal_size_limit = 6144000;"
-    execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, msg BLOB);"
-    newTMVarIO conn
+  connVar <- liftIO $ createConnectionV fp
   pure $
     PersistenceIncremental
       { append = \a -> liftIO $
@@ -230,6 +233,11 @@ nextCount countV = atomically $ do
   let count' = count + 1
   writeTVar countV count'
 
+-- Rotate the event log to a new database file starting from a checkpoint event,
+-- derived from known history.
+--
+-- Then, perform a WAL checkpoint to flush and truncate the write-ahead log,
+-- ensuring all changes are persisted to the main database file and the WAL file is reset.
 rotateEventLog ::
   (FromJSON a, ToJSON a, MonadIO m, MonadSTM m) =>
   TVar m FilePath ->
@@ -237,17 +245,28 @@ rotateEventLog ::
   ([a] -> IO a) ->
   m ()
 rotateEventLog fpV eventLogV checkpointer = do
-  -- XXX: rotate event log
   PersistenceIncremental{closeDb, loadAll} <- readTVarIO eventLogV
+  fp <- readTVarIO fpV
   fp' <- rotateFp fpV
   eventLog' <- createPersistenceIncremental fp'
-  atomically $ writeTVar eventLogV eventLog'
-  -- XXX: append checkpoint
+  -- XXX: checkpoint on new event log before rotation
   liftIO $ do
-    events <- loadAll
+    history <- loadAll
+    -- FIXME! swap with above
     closeDb
-    checkpoint <- checkpointer events
+    checkpoint <- checkpointer history
     append eventLog' checkpoint
+  -- XXX: rotate event log
+  atomically $ writeTVar eventLogV eventLog'
+  -- XXX: By default, SQLite automatically triggers a checkpoint when the WAL file
+  -- reaches 1000 pages or when the last connection to the database is closed.
+  -- However, in scenarios with custom 'journal_size_limit' settings or
+  -- long-lived connections, relying solely on automatic checkpoints may not
+  -- suffice. Therefore, an explicit 'PRAGMA wal_checkpoint(TRUNCATE);' is
+  -- executed to force a checkpoint and truncate the WAL file, ensuring that
+  -- the WAL does not grow indefinitely and that the database remains
+  -- consistent.
+  liftIO $ checkpointDb fp
 
 rotateFp :: MonadSTM m => TVar m FilePath -> m FilePath
 rotateFp fpV = atomically $ do
