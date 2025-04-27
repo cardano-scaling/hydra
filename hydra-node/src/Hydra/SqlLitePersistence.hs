@@ -23,6 +23,7 @@ import Database.SQLite.Simple (
   execute_,
   open,
   query_,
+  withConnection,
  )
 import System.Directory (createDirectoryIfMissing, getFileSize, removeFile)
 import System.FilePath (takeBaseName, takeDirectory, takeExtension)
@@ -71,10 +72,8 @@ withConn connVar action = do
 
 checkpointDb :: FilePath -> IO ()
 checkpointDb fp = do
-  connVar <- liftIO $ createWriteConnectionV fp
-  withConn connVar $ \c ->
+  withConnection fp $ \c -> do
     execute_ c "PRAGMA wal_checkpoint(TRUNCATE);"
-  withConn connVar close
 
 createPersistence ::
   MonadIO m =>
