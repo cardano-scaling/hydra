@@ -182,10 +182,12 @@ createRotatedEventLog fpInitial checkpointer = do
       { append = \e -> do
           PersistenceIncremental{append = append'} <- readTVarIO eventLogV
           append' e
+          nextCount eventCountV
           checkRotation fpV eventCountV eventLogV checkpointer
       , appendMany = \es -> do
           PersistenceIncremental{appendMany = appendMany'} <- readTVarIO eventLogV
           appendMany' es
+          forM_ es (const $ nextCount eventCountV)
           checkRotation fpV eventCountV eventLogV checkpointer
       , loadAll = do
           PersistenceIncremental{loadAll = loadAll'} <- readTVarIO eventLogV
@@ -213,7 +215,7 @@ checkRotation ::
   m ()
 checkRotation fpV eventCountV eventLogV Checkpointer{countRate, fileCondition, checkpoint} = do
   -- XXX: every `countRate` events we trigger rotation if needed.
-  eventCount' <- nextCount eventCountV
+  eventCount' <- readTVarIO eventCountV
   when (eventCount' > countRate) $ do
     fp <- readTVarIO fpV
     triggerRotation <- liftIO $ fileCondition fp
@@ -222,12 +224,11 @@ checkRotation fpV eventCountV eventLogV Checkpointer{countRate, fileCondition, c
     -- XXX: we reset the counter to avoid checking on every new event after `countRate`.
     atomically $ writeTVar eventCountV 0
 
-nextCount :: MonadSTM m => TVar m Int -> m Int
+nextCount :: MonadSTM m => TVar m Int -> m ()
 nextCount countV = atomically $ do
   count <- readTVar countV
   let count' = count + 1
   writeTVar countV count'
-  pure count'
 
 rotateEventLog ::
   (FromJSON a, ToJSON a, MonadIO m, MonadSTM m) =>

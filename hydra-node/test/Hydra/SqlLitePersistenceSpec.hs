@@ -70,17 +70,19 @@ spec = do
               , fileCondition = const $ pure True
               , checkpoint = pure . TestData . foldMap value
               }
-      PersistenceIncremental{append, loadAll, closeDb} <- createRotatedEventLog testDbPath checkpointer
-      let totalElements :: Int = 10
-      let testValues = TestData . show <$> [1 .. totalElements]
-      forM_ testValues append
-      loadedValues <- loadAll
+      PersistenceIncremental{append, appendMany, loadAll, closeDb} <- createRotatedEventLog testDbPath checkpointer
+      mapM_ append $ TestData . show <$> [1 .. 5 :: Int]
+      loadedValues1 <- loadAll
+      appendMany $ TestData . show <$> [6 .. 9 :: Int]
+      append $ TestData "10"
+      loadedValues2 <- loadAll
       -- XXX: closes wal and shm files to not be found during `searchEventLogs`
       closeDb
       eventLogs <- searchEventLogs testDbPath
       pruneDb testDbPath
-      loadedValues `shouldBe` [TestData "123456789", TestData "10"]
-      length eventLogs `shouldBe` 4
+      loadedValues1 `shouldBe` [TestData "123", TestData "4", TestData "5"]
+      loadedValues2 `shouldBe` [TestData "123456789", TestData "10"]
+      sort eventLogs `shouldBe` sort ["test-inc.db", "test-inc-1.db", "test-inc-2.db"]
 
 searchEventLogs :: FilePath -> IO [FilePath]
 searchEventLogs fp = do
