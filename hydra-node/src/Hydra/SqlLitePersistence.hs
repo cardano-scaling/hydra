@@ -38,13 +38,14 @@ instance Exception PersistenceException
 data Persistence a m = Persistence
   { save :: ToJSON a => a -> m ()
   , load :: FromJSON a => m (Maybe a)
+  , closeWriteDb :: m ()
+  , closeReadDb :: m ()
   , closeDb :: m ()
   , dropDb :: m ()
   }
 
--- TODO! split read-write connection
-createConnectionV :: FilePath -> IO (TMVar IO Connection)
-createConnectionV fp = do
+createWriteConnectionV :: FilePath -> IO (TMVar IO Connection)
+createWriteConnectionV fp = do
   createDirectoryIfMissing True $ takeDirectory fp
   conn <- open fp
   execute_ conn "PRAGMA journal_mode = WAL;"
@@ -52,6 +53,13 @@ createConnectionV fp = do
   execute_ conn "PRAGMA synchronous = normal;"
   execute_ conn "PRAGMA journal_size_limit = 6144000;"
   execute_ conn "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, msg BLOB);"
+  newTMVarIO conn
+
+createReadConnectionV :: FilePath -> IO (TMVar IO Connection)
+createReadConnectionV fp = do
+  createDirectoryIfMissing True $ takeDirectory fp
+  conn <- open fp
+  execute_ conn "PRAGMA query_only = TRUE;"
   newTMVarIO conn
 
 withConn :: TMVar IO Connection -> (Connection -> IO b) -> IO b
@@ -63,7 +71,7 @@ withConn connVar action = do
 
 checkpointDb :: FilePath -> IO ()
 checkpointDb fp = do
-  connVar <- liftIO $ createConnectionV fp
+  connVar <- liftIO $ createWriteConnectionV fp
   withConn connVar $ \c ->
     execute_ c "PRAGMA wal_checkpoint(TRUNCATE);"
   withConn connVar close
@@ -73,21 +81,30 @@ createPersistence ::
   FilePath ->
   m (Persistence a m)
 createPersistence fp = do
-  connVar <- liftIO $ createConnectionV fp
+  connVar <- liftIO $ createWriteConnectionV fp
+  connReadVar <- liftIO $ createReadConnectionV fp
   pure $
     Persistence
       { save = \a -> liftIO $ withConn connVar $ \c ->
           execute c "INSERT INTO items (msg) VALUES (?)" (Only $ Aeson.encode a)
-      , load = liftIO $ withConn connVar $ \c -> do
+      , load = liftIO $ withConn connReadVar $ \c -> do
           r <- query_ c "SELECT msg FROM items ORDER BY id DESC LIMIT 1"
           case r of
             [] -> pure Nothing
             (Only result : _) -> pure $ Aeson.decode result
-      , closeDb =
+      , closeWriteDb =
           liftIO $
             withConn connVar close
+      , closeReadDb =
+          liftIO $
+            withConn connReadVar close
+      , closeDb =
+          liftIO $ do
+            withConn connVar close
+            withConn connReadVar close
       , dropDb = liftIO $ do
           withConn connVar close
+          withConn connReadVar close
           removeFile fp
       }
 
@@ -99,6 +116,8 @@ data PersistenceIncremental a m = PersistenceIncremental
   , countAll :: m Int
   , source :: FromJSON a => ConduitT () a (ResourceT m) ()
   -- ^ Stream all elements.
+  , closeWriteDb :: m ()
+  , closeReadDb :: m ()
   , closeDb :: m ()
   , dropDb :: m ()
   }
@@ -109,7 +128,8 @@ createPersistenceIncremental ::
   FilePath ->
   m (PersistenceIncremental a IO)
 createPersistenceIncremental fp = do
-  connVar <- liftIO $ createConnectionV fp
+  connVar <- liftIO $ createWriteConnectionV fp
+  connReadVar <- liftIO $ createReadConnectionV fp
   pure $
     PersistenceIncremental
       { append = \a -> liftIO $
@@ -122,23 +142,31 @@ createPersistenceIncremental fp = do
               execute c "INSERT INTO items (msg) VALUES (?)" (Only $ Aeson.encode item)
             execute_ c "COMMIT;"
       , loadAll = liftIO $
-          withConn connVar $ \c -> do
+          withConn connReadVar $ \c -> do
             rows <- query_ c "SELECT msg FROM items ORDER BY id ASC;"
             pure $ mapMaybe (Aeson.decode . (\(Only b) -> b)) rows
       , countAll = liftIO $
-          withConn connVar $ \c -> do
+          withConn connReadVar $ \c -> do
             [Only n] <- query_ c "SELECT COUNT(*) FROM items;"
             pure n
       , source = do
           rows <- liftIO $
-            withConn connVar $ \c ->
+            withConn connReadVar $ \c ->
               query_ c "SELECT msg FROM items ORDER BY id ASC;"
           mapM_ (maybe (pure ()) yield . Aeson.decode . (\(Only b) -> b)) rows
-      , closeDb =
+      , closeWriteDb =
           liftIO $
             withConn connVar close
+      , closeReadDb =
+          liftIO $
+            withConn connReadVar close
+      , closeDb =
+          liftIO $ do
+            withConn connVar close
+            withConn connReadVar close
       , dropDb = liftIO $ do
           withConn connVar close
+          withConn connReadVar close
           removeFile fp
       }
 
@@ -201,6 +229,12 @@ createRotatedEventLog fpInitial checkpointer = do
       , countAll = do
           PersistenceIncremental{countAll = countAll'} <- readTVarIO eventLogV
           countAll'
+      , closeWriteDb = do
+          PersistenceIncremental{closeWriteDb = closeWriteDb'} <- readTVarIO eventLogV
+          closeWriteDb'
+      , closeReadDb = do
+          PersistenceIncremental{closeReadDb = closeReadDb'} <- readTVarIO eventLogV
+          closeReadDb'
       , closeDb = do
           PersistenceIncremental{closeDb = closeDb'} <- readTVarIO eventLogV
           closeDb'
@@ -245,15 +279,15 @@ rotateEventLog ::
   ([a] -> IO a) ->
   m ()
 rotateEventLog fpV eventLogV checkpointer = do
-  PersistenceIncremental{closeDb, loadAll} <- readTVarIO eventLogV
+  PersistenceIncremental{loadAll, closeWriteDb, closeReadDb} <- readTVarIO eventLogV
   fp <- readTVarIO fpV
   fp' <- rotateFp fpV
   eventLog' <- createPersistenceIncremental fp'
   -- XXX: checkpoint on new event log before rotation
   liftIO $ do
+    closeWriteDb
     history <- loadAll
-    -- FIXME! swap with above
-    closeDb
+    closeReadDb
     checkpoint <- checkpointer history
     append eventLog' checkpoint
   -- XXX: rotate event log
