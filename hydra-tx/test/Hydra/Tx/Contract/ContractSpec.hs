@@ -44,7 +44,7 @@ import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
 import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
-import Hydra.Tx.Contract.Deposit (genDepositMutation, healthyDepositTx)
+import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
@@ -126,18 +126,19 @@ spec = parallel $ do
       propMutation healthyDecrementTx genDecrementMutation
   describe "Deposit" $ do
     prop "healthy evaluates" $
-      propTransactionEvaluates healthyDepositTx
+      forAll genHealthyDepositTx propTransactionEvaluates
     prop "healthy observed" $
-      isJust $
-        observeDepositTx testNetworkId (fst healthyDepositTx)
+      forAll genHealthyDepositTx $ \(tx, _) ->
+        isJust $ observeDepositTx testNetworkId tx
     prop "mutated not observed" $
-      forAll (genDepositMutation healthyDepositTx) $ \SomeMutation{label, mutation} -> do
-        let (tx, utxo) = healthyDepositTx & applyMutation mutation
-        counterexample ("Mutated transaction: " <> renderTxWithUTxO utxo tx) $
-          property (isNothing $ observeDepositTx testNetworkId tx)
-            & counterexample "Mutated transaction still observed"
-            & genericCoverTable [label]
-            & checkCoverage
+      forAll genHealthyDepositTx $ \(tx, utxo) ->
+        forAll (genDepositMutation (tx, utxo)) $ \SomeMutation{label, mutation} -> do
+          let (tx', utxo') = (tx, utxo) & applyMutation mutation
+          counterexample ("Mutated transaction: " <> renderTxWithUTxO utxo' tx') $
+            property (isNothing $ observeDepositTx testNetworkId tx')
+              & counterexample "Mutated transaction still observed"
+              & genericCoverTable [label]
+              & checkCoverage
   describe "Recover" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyRecoverTx
