@@ -26,14 +26,11 @@ import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.Tx.Contract.Deposit (healthyDepositTx, healthyDepositUTxO)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Deposit qualified as Deposit
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.Increment (
-  incrementTx,
- )
+import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
@@ -43,7 +40,7 @@ import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, depositDeadline, slotLength, systemStart, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxO, genUTxOSized, genValue, genVerificationKey)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -53,7 +50,7 @@ healthyIncrementTx =
  where
   lookupUTxO =
     UTxO.singleton headInput headOutput
-      <> depositUTxO
+      <> healthyDepositUTxO
       <> registryUTxO scriptRegistry
 
   tx =
@@ -64,7 +61,7 @@ healthyIncrementTx =
       parameters
       (headInput, headOutput)
       healthySnapshot
-      depositUTxO
+      healthyDepositUTxO
       (slotNoFromUTCTime systemStart slotLength depositDeadline)
       healthySignature
 
@@ -83,8 +80,8 @@ healthyIncrementTx =
       & addParticipationTokens healthyParticipants
       & modifyTxOutValue (<> foldMap txOutValue healthyUTxO)
 
-depositUTxO :: UTxO
-depositUTxO = utxoFromTx (fst healthyDepositTx)
+healthyDepositUTxO :: UTxO
+healthyDepositUTxO = genUTxO `generateWith` 42
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
@@ -194,8 +191,10 @@ genIncrementMutation (tx, utxo) =
           Head.Increment
             Head.IncrementRedeemer
               { signature = invalidSignature
-              , snapshotNumber = fromIntegral healthySnapshotNumber
-              , increment = toPlutusTxOutRef $ fst $ List.head $ UTxO.toList depositUTxO
+              , snapshotNumber =
+                  fromIntegral healthySnapshotNumber
+              , increment =
+                  toPlutusTxOutRef $ fst $ List.head $ UTxO.toList healthyDepositUTxO
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
