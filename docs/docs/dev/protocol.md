@@ -117,6 +117,18 @@ For `incrementTx`, the input is goverend by the deposit validator which ensures 
 
 For `depositTx`, the inputs may very well be spent by an attacker and an honest `hydra-node` should be cautious in observing a deposit as settled before signing a snapshot that authorizes addition of those funds to the L2 state. To mitigate this, a **deposit period** analogous to the contestation period of close/contest phase is introduced. A valid deposit must record in its datum when it was created and when the deadline shall be (see [specification](./specification.md)). An honest `hydra-node` will only consider deposits that are _older_ than the deposit period and when the deadline is _further out_ than the deposit period. While the deposit period will delay all increments by at least that time, a `hydra-node` can configure the risk it is willing to take using this period. For example: **1 hour** means that roughly after 180 blocks on `mainnet` we would only see a rollback including the `depositTx` with `0.01%` likelihood, assuming a `15%` adversarial stake fairly conservative grinding power. See [this excelent explanation and calculator](https://aiken-lang.org/fundamentals/what-i-wish-i-knew#transaction-latency-vs-finality) in the Aiken docs. 
 
+In summary, a deposit may only be picked up while `Active` in the following deposit life cycle:
+```mermaid
+stateDiagram
+    direction LR
+    [*] --> Inactive : observeDepositTx{depositTime}
+    Inactive --> Active : Tick{chainTime} > depositTime + depositPeriod
+    Active --> Expired : Tick{chainTime} > deadline - depositPeriod
+    Inactive --> Expired : Tick{chainTime} > deadline - depositPeriod
+    Active --> [*] : incrementTx
+    Expired --> [*] : recoverTx
+```
+
 ## Incremental decommits
 
 Incremental decommits allow us to take some L2 `UTxO` and bring it to the L1 while the Head protocol is running.
