@@ -681,6 +681,7 @@ spec =
                   { headId = otherHeadId
                   , deposited = mempty
                   , depositTxId = 1
+                  , created = genUTCTime `generateWith` 41
                   , deadline = genUTCTime `generateWith` 42
                   }
         update bobEnv ledger (inOpenState threeParties) depositOtherHead
