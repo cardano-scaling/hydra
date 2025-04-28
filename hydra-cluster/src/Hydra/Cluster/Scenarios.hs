@@ -107,7 +107,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Options (DirectChainConfig (..), startChainFrom)
+import Hydra.Options (CardanoChainConfig (..), ChainBackend (..), defaultDirectBackend, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
@@ -287,7 +287,7 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
     chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] 2
       -- we delibelately do not start from a chain point here to highlight the
       -- need for persistence
-      <&> modifyConfig (\config -> config{networkId, startChainFrom = Nothing})
+      <&> modifyConfig (\config -> config{startChainFrom = Nothing, chainBackend = defaultDirectBackend{networkId}})
 
   let hydraTracer = contramap FromHydraNode tracer
   headId1 <- withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
@@ -313,12 +313,12 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
   tip <- queryTip networkId nodeSocket
   let contestationPeriod = 2
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
-      <&> modifyConfig (\config -> config{networkId, startChainFrom = Nothing})
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline
+      <&> modifyConfig (\config -> config{startChainFrom = Nothing, chainBackend = defaultDirectBackend{networkId}})
 
   bobChainConfig <-
-    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
-      <&> modifyConfig (\config -> config{networkId, startChainFrom = Nothing})
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositDeadline
+      <&> modifyConfig (\config -> config{startChainFrom = Nothing, chainBackend = defaultDirectBackend{networkId}})
 
   (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
   commitUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 5_000_000 (contramap FromFaucet tracer)
@@ -390,8 +390,8 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
       pure (headId, decommitUTxO)
 
     bobChainConfigFromTip <-
-      chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
-        <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
+      chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositDeadline
+        <&> modifyConfig (\config -> config{startChainFrom = Just tip, chainBackend = defaultDirectBackend{networkId}})
 
     withTempDir "blank-state" $ \tmpDir -> do
       void $ readCreateProcessWithExitCode (proc "cp" ["-r", workDir </> "state-2", tmpDir]) ""
@@ -449,8 +449,8 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
       tip <- queryTip networkId nodeSocket
       contestationPeriod <- CP.fromNominalDiffTime $ 10 * blockTime
       aliceChainConfig <-
-        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
-          <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+          <&> modifyConfig (\config -> config{startChainFrom = Just tip, chainBackend = defaultDirectBackend{networkId}})
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
         -- Initialize & open head
         send n1 $ input "Init" []
@@ -505,8 +505,8 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
     tip <- queryTip networkId nodeSocket
     let contestationPeriod = 100
     aliceChainConfig <-
-      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
-        <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
+      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+        <&> modifyConfig (\config -> config{startChainFrom = Just tip, chainBackend = defaultDirectBackend{networkId}})
 
     (walletVk, walletSk) <- generate genKeyPair
     let keyPath = workDir <> "/wallet.sk"
@@ -960,8 +960,8 @@ canCloseWithLongContestationPeriod tracer workDir node hydraScriptsTxId = do
   tip <- queryTip networkId nodeSocket
   let oneWeek = 60 * 60 * 24 * 7
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] oneWeek
-      <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] oneWeek depositDeadline
+      <&> modifyConfig (\config -> config{startChainFrom = Just tip, chainBackend = defaultDirectBackend{networkId}})
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     -- Initialize & open head

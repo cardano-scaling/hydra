@@ -24,6 +24,7 @@ import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, 
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
 import Data.ByteString qualified as BS
+import Data.Generics.Labels ()
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as Set
@@ -575,10 +576,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \RunningNode{nodeSocket} -> do
             -- NOTE: Deliberately broken configuration so we expect the node to not start.
             let chainConfig =
-                  Direct
-                    defaultDirectChainConfig
-                      { nodeSocket
-                      , cardanoSigningKey = "not-existing.sk"
+                  Cardano
+                    defaultCardanoChainConfig
+                      { cardanoSigningKey = "not-existing.sk"
+                      , chainBackend =
+                          DirectBackend
+                            { networkId = Hydra.Options.networkId defaultDirectBackend
+                            , nodeSocket = nodeSocket
+                            }
                       }
             withHydraNode (contramap FromHydraNode tracer) chainConfig dir 1 aliceSk [] [1] (const $ pure ())
               `shouldThrow` \(e :: SomeException) ->

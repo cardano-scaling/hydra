@@ -1,6 +1,9 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Hydra.Chain.Blockfrost.Client where
+module Hydra.Chain.Blockfrost.Client (
+  module Hydra.Chain.Blockfrost.Client,
+  Blockfrost.projectFromFile,
+) where
 
 import Hydra.Prelude
 

@@ -463,14 +463,6 @@ data BlockfrostChainConfig = BlockfrostChainConfig
   }
   deriving stock (Eq, Show, Generic)
 
-defaultBlockfrostChainConfig :: BlockfrostChainConfig
-defaultBlockfrostChainConfig =
-  BlockfrostChainConfig
-    { projectPath = "/home/v0d1ch/code/hydra/blockfrost-project.txt"
-    , hydraScriptsTxId = []
-    , cardanoSigningKey = "cardano.sk"
-    }
-
 instance Arbitrary ChainConfig where
   arbitrary =
     oneof
