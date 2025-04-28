@@ -464,14 +464,25 @@ spec = parallel $ do
                     DepositExpired{depositTxId} -> guard $ depositTxId == txid
                     _ -> Nothing
 
-        it "deposits are only processed after settled" $
-          -- TODO: implement for
-          -- https://github.com/cardano-scaling/hydra/issues/1951#issuecomment-2809966834
-          -- - single node
-          -- - submit deposit deadline far enough in future
-          -- - recorded right away
-          -- - approved only after deposit period passed
-          pendingWith "not implemented"
+        it "deposits are only processed after settled" $ do
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [] chain $ \n1 -> do
+                openHead chain n1
+                deadline <- newDeadlineFarEnoughFromNow
+                depositTxId <- simulateDeposit chain testHeadId (utxoRef 123) deadline
+                waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = utxoRef 123, pendingDeposit = depositTxId, deadline}
+                -- No approval yet, as the deposit is not settled
+                let waitForApproval =
+                      waitUntilMatch [n1] $ \case
+                        CommitApproved{headId, utxoToCommit} ->
+                          guard (headId == testHeadId && utxoToCommit == utxoRef 123)
+                        _ -> Nothing
+                timeout (realToFrac defaultDepositPeriod) waitForApproval >>= \case
+                  Nothing -> pure ()
+                  Just _ ->
+                    failure "Deposit was approved before deadline expired, which is not expected"
+                waitForApproval
 
         it "commit snapshot only approved when deposit settled" $
           -- TODO: implement for
@@ -1200,12 +1211,12 @@ newDeadlineFarEnoughFromNow =
   addUTCTime (2 * DP.toNominalDiffTime defaultDepositPeriod) <$> getCurrentTime
 
 nothingHappensFor ::
-  (MonadTimer m, MonadThrow m, IsChainState tx) =>
+  (MonadTimer m, MonadThrow m, IsChainState tx, MonadAsync m) =>
   TestHydraClient tx m ->
   NominalDiffTime ->
   m ()
-nothingHappensFor node secs =
-  timeout (realToFrac secs) (waitForNext node) >>= (`shouldBe` Nothing)
+nothingHappensFor TestHydraClient{waitForNext, waitForNextMessage} secs =
+  timeout (realToFrac secs) (race waitForNext waitForNextMessage) >>= (`shouldBe` Nothing)
 
 withHydraNode ::
   forall s a.
