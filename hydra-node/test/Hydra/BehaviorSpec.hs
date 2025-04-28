@@ -62,6 +62,7 @@ import Test.Hydra.Tx.Fixture (
   testHeadId,
   testHeadSeed,
  )
+import Test.QuickCheck (getNegative)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, shouldSatisfy, traceInIOSim)
 
 spec :: Spec
@@ -217,7 +218,7 @@ spec = parallel $ do
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob] chain $ \n1 ->
               withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
+                openHead2 chain n1 n2
 
                 send n1 Close
                 waitForNext n2
@@ -228,7 +229,7 @@ spec = parallel $ do
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob] chain $ \n1 ->
               withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
+                openHead2 chain n1 n2
 
                 send n1 (NewTx (aValidTx 42))
                 waitUntil [n1, n2] $ TxValid testHeadId 42
@@ -238,7 +239,7 @@ spec = parallel $ do
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob] chain $ \n1 ->
               withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
+                openHead2 chain n1 n2
 
                 let tx = aValidTx 42
                 send n1 (NewTx tx)
@@ -256,7 +257,7 @@ spec = parallel $ do
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob] chain $ \n1 ->
               withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
+                openHead2 chain n1 n2
 
                 -- Load the "ingest queue" of the head enough to have still
                 -- pending transactions after a first snapshot request by
@@ -294,7 +295,7 @@ spec = parallel $ do
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob] chain $ \n1 -> do
               withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
+                openHead2 chain n1 n2
                 let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
                 let secondTx = SimpleTx 2 (utxoRef 3) (utxoRef 4)
                 -- Expect secondTx to be valid, but not applicable and stay pending
@@ -320,7 +321,7 @@ spec = parallel $ do
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob] chain $ \n1 -> do
               withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
+                openHead2 chain n1 n2
                 let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
                 let secondTx = SimpleTx 2 (utxoRef 3) (utxoRef 4)
                 -- Expect secondTx to be valid, but not applicable and stay pending
@@ -339,7 +340,7 @@ spec = parallel $ do
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob] chain $ \n1 -> do
               withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
+                openHead2 chain n1 n2
                 let tx' =
                       SimpleTx
                         { txSimpleId = 1
@@ -367,7 +368,7 @@ spec = parallel $ do
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob] chain $ \n1 ->
               withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
+                openHead2 chain n1 n2
                 let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
                 send n1 (NewTx newTx)
 
@@ -380,12 +381,19 @@ spec = parallel $ do
                 fromMaybe mempty headUTxO `shouldBe` utxoRefs [2, 42]
 
       describe "Incremental commit" $ do
-        it "deposits with deadline in the past are ignored" $
-          -- TODO: implement
-          -- - single node
-          -- - submit deposit deadline with deadline in past
-          -- - deposit not approved and right away expired
-          pendingWith "not implemented"
+        prop "deposits with deadline in the past are ignored" $ \seconds ->
+          shouldRunInSim $
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [] chain $ \n1 -> do
+                openHead chain n1
+                deadlineInThePast <- addUTCTime (getNegative seconds) <$> getCurrentTime
+                txid <- simulateDeposit chain testHeadId (utxoRef 123) deadlineInThePast
+                asExpected <- waitUntilMatch [n1] $ \case
+                  DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
+                  CommitApproved{} -> Just False
+                  _ -> Nothing
+                unless asExpected $
+                  failure "Deposit with deadline in the past approved instead of expired"
 
         it "deposits with deadline too soon are ignored" $
           -- TODO: implement
@@ -415,7 +423,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 ->
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
@@ -438,7 +446,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 ->
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   let depositUTxO2 = utxoRefs [22]
                   -- TODO: make this relative to something
@@ -473,7 +481,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 ->
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
@@ -499,7 +507,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
@@ -524,7 +532,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
@@ -541,7 +549,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   -- TODO: make this relative to something
                   deadline <- addUTCTime 60 <$> getCurrentTime
@@ -575,7 +583,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   deadline <- addUTCTime 60 <$> getCurrentTime
                   depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
@@ -610,7 +618,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 ->
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
 
                   let decommitTx = aValidTx 42
                   send n1 (Decommit decommitTx)
@@ -622,7 +630,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 ->
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
                   send n2 (Decommit decommitTx)
                   waitUntil [n1, n2] $
@@ -644,7 +652,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 ->
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 42)
                   send n1 (Decommit{decommitTx = decommitTx1})
                   waitUntil [n1, n2] $
@@ -670,7 +678,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 ->
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
 
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
                   send n2 (Decommit{decommitTx})
@@ -692,7 +700,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
                   send n2 (Decommit{decommitTx})
                   send n1 Close
@@ -710,7 +718,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
                   send n2 (Decommit{decommitTx})
                   waitUntil [n1, n2] $
@@ -729,7 +737,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
-                  openHead chain n1 n2
+                  openHead2 chain n1 n2
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
                   send n2 (Decommit{decommitTx})
                   waitUntil [n1, n2] $
@@ -760,7 +768,7 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead chain n1 n2
+              openHead2 chain n1 n2
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
               waitUntil [n1, n2] $ ReadyToFanout testHeadId
@@ -773,7 +781,7 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead chain n1 n2
+              openHead2 chain n1 n2
 
               -- Perform a transaction to produce the latest snapshot, number 1
               let tx = aValidTx 42
@@ -1251,9 +1259,19 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
 openHead ::
   SimulatedChainNetwork SimpleTx (IOSim s) ->
   TestHydraClient SimpleTx (IOSim s) ->
+  IOSim s ()
+openHead chain n1 = do
+  send n1 Init
+  waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+  simulateCommit chain testHeadId alice (utxoRef 1)
+  waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
+
+openHead2 ::
+  SimulatedChainNetwork SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
   TestHydraClient SimpleTx (IOSim s) ->
   IOSim s ()
-openHead chain n1 n2 = do
+openHead2 chain n1 n2 = do
   send n1 Init
   waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
   simulateCommit chain testHeadId alice (utxoRef 1)
