@@ -46,8 +46,9 @@ import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), conne
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createMockSourceSink)
+import Hydra.Options (defaultContestationPeriod)
 import Hydra.Tx (HeadId)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Hydra.Tx.IsTx (IsTx (..))
@@ -406,7 +407,7 @@ spec = parallel $ do
 
         it "deposits with deadline too soon are ignored" $ do
           -- FIXME: have a separately configurable deposit period
-          let depositPeriod = toNominalDiffTime testContestationPeriod
+          let depositPeriod = toNominalDiffTime defaultContestationPeriod
           -- NOTE: Any deadline between now and deposit period should
           -- eventually result in an expired deposit.
           forAll (chooseEnum (0, depositPeriod)) $ \deadlineDiff ->
@@ -423,6 +424,7 @@ spec = parallel $ do
                   pure $
                     asExpected
                       & counterexample "Deposit with deadline too soon approved instead of expired"
+                      & counterexample ("Deadline: " <> show deadlineTooEarly)
 
         it "deposits are only processed after settled" $
           -- TODO: implement
@@ -447,8 +449,7 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  -- TODO: make this relative to something
-                  deadline <- addUTCTime 60 <$> getCurrentTime
+                  deadline <- newDeadlineFarEnoughFromNow
                   depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
 
@@ -471,8 +472,7 @@ spec = parallel $ do
                   openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   let depositUTxO2 = utxoRefs [22]
-                  -- TODO: make this relative to something
-                  deadline <- addUTCTime 60 <$> getCurrentTime
+                  deadline <- newDeadlineFarEnoughFromNow
                   deposit1 <- simulateDeposit chain testHeadId depositUTxO deadline
                   deposit2 <- simulateDeposit chain testHeadId depositUTxO2 deadline
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = deposit1, deadline}
@@ -505,8 +505,7 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  -- TODO: make this relative to something
-                  deadline <- addUTCTime 60 <$> getCurrentTime
+                  deadline <- newDeadlineFarEnoughFromNow
                   depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
                   waitUntilMatch [n1, n2] $ \case
                     CommitRecorded{utxoToCommit} ->
@@ -531,8 +530,7 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  -- TODO: make this relative to something
-                  deadline <- addUTCTime 60 <$> getCurrentTime
+                  deadline <- newDeadlineFarEnoughFromNow
                   depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
                   waitUntilMatch [n1] $ \case
@@ -556,8 +554,7 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  -- TODO: make this relative to something
-                  deadline <- addUTCTime 60 <$> getCurrentTime
+                  deadline <- newDeadlineFarEnoughFromNow
                   depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
                   waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
                   send n1 Close
@@ -573,8 +570,7 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  -- TODO: make this relative to something
-                  deadline <- addUTCTime 60 <$> getCurrentTime
+                  deadline <- newDeadlineFarEnoughFromNow
                   depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
                   waitUntilMatch [n1, n2] $ \case
@@ -607,7 +603,7 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  deadline <- addUTCTime 60 <$> getCurrentTime
+                  deadline <- newDeadlineFarEnoughFromNow
                   depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
                   waitUntilMatch [n1, n2] $ \case
@@ -1154,22 +1150,23 @@ toOnChainTx now = \case
     OnCloseTx
       { headId = testHeadId
       , snapshotNumber = number (getSnapshot closingSnapshot)
-      , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
+      , contestationDeadline = addUTCTime (toNominalDiffTime defaultContestationPeriod) now
       }
   ContestTx{headId, contestingSnapshot} ->
     OnContestTx
       { headId
       , snapshotNumber = number (getSnapshot contestingSnapshot)
-      , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
+      , contestationDeadline = addUTCTime (toNominalDiffTime defaultContestationPeriod) now
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
 
-testContestationPeriod :: ContestationPeriod
-testContestationPeriod = UnsafeContestationPeriod 3600
-
 testDepositDeadline :: DepositDeadline
 testDepositDeadline = UnsafeDepositDeadline 10
+
+newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
+newDeadlineFarEnoughFromNow =
+  addUTCTime (2 * toNominalDiffTime defaultContestationPeriod) <$> getCurrentTime
 
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>
@@ -1191,7 +1188,7 @@ withHydraNode signingKey otherParties chain action = do
   messages <- atomically newTQueue
   outputHistory <- newTVarIO mempty
   let initialChainState = SimpleChainState{slot = ChainSlot 0}
-  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs messages outputHistory chain testContestationPeriod testDepositDeadline
+  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs messages outputHistory chain defaultContestationPeriod testDepositDeadline
   withAsync (runHydraNode node) $ \_ ->
     action (createTestHydraClient outputs messages outputHistory node)
 
