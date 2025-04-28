@@ -7,7 +7,6 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((!!))
 import Hydra.Cardano.Api (
-  Coin,
   Era,
   EraHistory,
   Key (..),
@@ -32,9 +31,7 @@ import Hydra.Cardano.Api (
   mkTxIn,
   mkTxOutAutoBalance,
   mkVkAddress,
-  selectLovelace,
   toCtxUTxOTxOut,
-  txOutValue,
   txOuts',
   pattern TxOutDatumNone,
  )
@@ -103,10 +100,9 @@ publishHydraScripts networkId socketPath sk = do
   vk = getVerificationKey sk
 
 -- | Exception raised when building the script publishing transactions.
-data PublishScriptException
+newtype PublishScriptException
   = FailedToBuildPublishingTx (TxBodyErrorAutoBalance Era)
-  | FailedToFindUTxOToCoverDeposit {totalDeposit :: Coin}
-  deriving (Show)
+  deriving newtype (Show)
   deriving anyclass (Exception)
 
 -- | Builds a chain of script publishing transactions.
@@ -124,22 +120,14 @@ buildScriptPublishingTxs ::
   SigningKey PaymentKey ->
   m [Tx]
 buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools availableUTxO sk = do
-  startUTxO <- findUTxO
-  go startUTxO scriptOutputs
+  go availableUTxO scriptOutputs
  where
-  -- Find a suitable utxo that covers at least the total deposit
-  findUTxO =
-    case UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) availableUTxO of
-      Nothing -> throwIO FailedToFindUTxOToCoverDeposit{totalDeposit}
-      Just (i, o) -> pure $ UTxO.singleton (i, o)
-
-  totalDeposit = sum $ selectLovelace . txOutValue <$> scriptOutputs
-
   scriptOutputs =
     mkScriptTxOut . mkScriptRef
       <$> [initialValidatorScript, commitValidatorScript, Head.validatorScript]
 
-  -- Loop over all script outputs to create while re-spending the change output
+  -- Loop over all script outputs to create while re-spending the change output.
+  -- Note that we spend the entire UTxO set to cover the deposit scripts, resulting in a squashed UTxO at the end.
   go _ [] = pure []
   go utxo (out : rest) = do
     tx <- case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxo [] [out] of
