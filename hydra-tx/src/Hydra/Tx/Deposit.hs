@@ -31,7 +31,7 @@ depositTx networkId headId commitBlueprintTx deadline =
   fromLedgerTx $
     toLedgerTx blueprintTx
       & addDepositInputs
-      & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut depositOutput)
+      & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId depositUTxO deadline)
       & addMetadata (mkHydraHeadV1TxName "DepositTx") blueprintTx
  where
   addDepositInputs tx =
@@ -44,6 +44,19 @@ depositTx networkId headId commitBlueprintTx deadline =
 
   depositInputs = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> depositInputsList
 
+mkDepositOutput ::
+  NetworkId ->
+  HeadId ->
+  UTxO ->
+  UTCTime ->
+  TxOut ctx
+mkDepositOutput networkId headId depositUTxO deadline =
+  TxOut
+    (depositAddress networkId)
+    depositValue
+    depositDatum
+    ReferenceScriptNone
+ where
   depositValue = foldMap txOutValue depositUTxO
 
   deposits = mapMaybe Commit.serializeCommit $ UTxO.toList depositUTxO
@@ -51,13 +64,6 @@ depositTx networkId headId commitBlueprintTx deadline =
   depositPlutusDatum = Deposit.datum (headIdToCurrencySymbol headId, posixFromUTCTime deadline, deposits)
 
   depositDatum = mkTxOutDatumInline depositPlutusDatum
-
-  depositOutput =
-    TxOut
-      (depositAddress networkId)
-      depositValue
-      depositDatum
-      ReferenceScriptNone
 
 depositAddress :: NetworkId -> AddressInEra
 depositAddress networkId = mkScriptAddress networkId depositValidatorScript

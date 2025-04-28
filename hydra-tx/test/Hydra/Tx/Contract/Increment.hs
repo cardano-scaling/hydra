@@ -14,7 +14,6 @@ import Test.Hydra.Tx.Mutation (
  )
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.List qualified as List
 import Data.Maybe (fromJust)
 import Hydra.Contract.Commit (Commit)
 import Hydra.Contract.Deposit (DepositRedeemer (Claim))
@@ -27,6 +26,7 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Deposit qualified as Deposit
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -50,7 +50,7 @@ healthyIncrementTx =
  where
   lookupUTxO =
     UTxO.singleton headInput headOutput
-      <> healthyDepositUTxO
+      <> depositUTxO
       <> registryUTxO scriptRegistry
 
   tx =
@@ -61,7 +61,7 @@ healthyIncrementTx =
       parameters
       (headInput, headOutput)
       healthySnapshot
-      healthyDepositUTxO
+      depositUTxO
       (slotNoFromUTCTime systemStart slotLength depositDeadline)
       healthySignature
 
@@ -80,8 +80,15 @@ healthyIncrementTx =
       & addParticipationTokens healthyParticipants
       & modifyTxOutValue (<> foldMap txOutValue healthyUTxO)
 
-healthyDepositUTxO :: UTxO
-healthyDepositUTxO = genUTxO `generateWith` 42
+  depositUTxO =
+    UTxO.singleton healthyDepositInput $
+      mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited depositDeadline
+
+healthyDepositInput :: TxIn
+healthyDepositInput = arbitrary `generateWith` 123
+
+healthyDeposited :: UTxO
+healthyDeposited = genUTxO `generateWith` 42
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
@@ -117,7 +124,7 @@ healthySnapshot =
     , number = succ healthySnapshotNumber
     , confirmed = []
     , utxo = healthyUTxO
-    , utxoToCommit = Just healthyDepositUTxO
+    , utxoToCommit = Just healthyDeposited
     , utxoToDecommit = Nothing
     }
 
@@ -190,11 +197,10 @@ genIncrementMutation (tx, utxo) =
         pure $
           Head.Increment
             Head.IncrementRedeemer
-              { signature = invalidSignature
-              , snapshotNumber =
-                  fromIntegral healthySnapshotNumber
-              , increment =
-                  toPlutusTxOutRef $ fst $ List.head $ UTxO.toList healthyDepositUTxO
+              { signature =
+                  invalidSignature
+              , snapshotNumber = fromIntegral healthySnapshotNumber
+              , increment = toPlutusTxOutRef healthyDepositInput
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
