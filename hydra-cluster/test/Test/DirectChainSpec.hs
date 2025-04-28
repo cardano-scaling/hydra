@@ -74,8 +74,8 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, readConfigFile
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (
+  CardanoChainConfig (..),
   ChainConfig (..),
-  DirectChainConfig (..),
   toArgNetworkId,
  )
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
@@ -550,7 +550,7 @@ withDirectChainTest ::
   IO a
 withDirectChainTest tracer config party action = do
   directConfig <- case config of
-    Direct cfg -> pure cfg
+    Cardano cfg -> pure cfg
     otherConfig -> failure $ "unexpected chainConfig: " <> show otherConfig
   ctx <- loadChainContext directConfig party
   eventMVar <- newEmptyTMVarIO
