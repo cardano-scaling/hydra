@@ -24,6 +24,7 @@ import Hydra.Chain.ChainState (
 import Hydra.Chain.Direct.State ()
 import Hydra.HeadLogic.State (SeenSnapshot (..))
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Tx (
   CommitBlueprintTx (..),
   ConfirmedSnapshot,
@@ -31,7 +32,6 @@ import Hydra.Tx (
   UTxOType,
  )
 import Hydra.Tx.DepositDeadline (depositToNominalDiffTime)
-import Hydra.Tx.Environment (Environment (..))
 import Network.HTTP.Types (status200, status400, status404, status500)
 import Network.Wai (
   Application,

@@ -11,6 +11,8 @@ import Cardano.Ledger.BaseTypes qualified as Ledger
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (LedgerEra, SystemStart (..))
 import Hydra.Ledger.Cardano (Globals, LedgerEnv, newLedgerEnv)
+import Hydra.Node.Environment (Environment (..))
+import Hydra.Tx.DepositDeadline (DepositDeadline (..))
 import Test.Hydra.Tx.Fixture as Fixture
 
 -- | Default environment for the L2 ledger using the fixed L1 'pparams' with
@@ -36,3 +38,15 @@ defaultGlobals =
  where
   unsafeBoundRational r =
     fromMaybe (error $ "Could not convert from Rational: " <> show r) $ Ledger.boundRational r
+
+-- | An environment fixture for testing.
+testEnvironment :: Environment
+testEnvironment =
+  Environment
+    { party = alice
+    , signingKey = aliceSk
+    , otherParties = [bob, carol]
+    , contestationPeriod = cperiod
+    , depositDeadline = UnsafeDepositDeadline 20
+    , participants = deriveOnChainId <$> [alice, bob, carol]
+    }

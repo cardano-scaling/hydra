@@ -36,6 +36,7 @@ import Hydra.Node (
   wireClientInput,
   wireNetworkInput,
  )
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
   ChainConfig (..),
@@ -47,7 +48,6 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Utils (readJsonFileThrow)
 
 data ConfigurationException

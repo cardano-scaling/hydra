@@ -83,6 +83,7 @@ library
     Hydra.Network.Message
     Hydra.Node
     Hydra.Node.EmbedTH
+    Hydra.Node.Environment
     Hydra.Node.InputQueue
     Hydra.Node.Network
     Hydra.Node.ParameterMismatch
@@ -188,6 +189,7 @@ library testlib
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx
     , hydra-tx:testlib
     , lens
     , lens-aeson

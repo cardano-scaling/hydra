@@ -37,9 +37,9 @@ import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.State (Deposit (..), SeenSnapshot (..), seenSnapshotNumber)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
+import Hydra.Node.Environment (Environment)
 import Hydra.Tx (ConfirmedSnapshot (..), HeadId, IsTx (..), Party, txId)
 import Hydra.Tx qualified as Tx
-import Hydra.Tx.Environment (Environment)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)

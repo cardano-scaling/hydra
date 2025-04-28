@@ -1,10 +1,11 @@
-module Hydra.Tx.Environment where
+module Hydra.Node.Environment where
 
 import Hydra.Prelude
 
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import Hydra.Tx.DepositDeadline (DepositDeadline)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (HasParty (..), Party, deriveParty)
 
@@ -41,3 +42,8 @@ instance Arbitrary Environment where
 
 instance HasParty Environment where
   getParty = party
+
+-- | Make 'HeadParameters' that are consistent with the given 'Environment'.
+mkHeadParameters :: Environment -> HeadParameters
+mkHeadParameters Environment{party, otherParties, contestationPeriod} =
+  HeadParameters{contestationPeriod, parties = party : otherParties}

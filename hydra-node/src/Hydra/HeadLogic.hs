@@ -77,13 +77,13 @@ import Hydra.Ledger (
  )
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
+import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Tx (
   HeadId,
   HeadSeed,
   IsTx (..),
   TxIdType,
   UTxOType,
-  mkHeadParameters,
   txId,
   utxoFromTx,
   withoutUTxO,
@@ -95,7 +95,6 @@ import Hydra.Tx.Crypto (
   sign,
   verifyMultiSignature,
  )
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
