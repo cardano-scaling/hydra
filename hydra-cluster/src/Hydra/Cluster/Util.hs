@@ -19,7 +19,7 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
  )
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), defaultDirectChainConfig)
+import Hydra.Options (CardanoChainConfig (..), ChainBackend (..), ChainConfig (..), defaultCardanoChainConfig, defaultDirectBackend)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.DepositDeadline (DepositDeadline)
 import Paths_hydra_cluster qualified as Pkg
@@ -86,14 +86,14 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
   forM_ them $ \actor ->
     copyFile actor "vk"
   pure $
-    Direct
-      defaultDirectChainConfig
-        { nodeSocket
-        , hydraScriptsTxId
+    Cardano
+      defaultCardanoChainConfig
+        { hydraScriptsTxId
         , cardanoSigningKey = actorFilePath me "sk"
         , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
         , depositDeadline
+        , chainBackend = defaultDirectBackend{nodeSocket = nodeSocket}
         }
  where
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType
@@ -104,12 +104,15 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
         filePath = actorFilePath actor fileType
     readConfigFile ("credentials" </> fileName) >>= writeFileBS filePath
 
-modifyConfig :: (DirectChainConfig -> DirectChainConfig) -> ChainConfig -> ChainConfig
+modifyConfig :: (CardanoChainConfig -> CardanoChainConfig) -> ChainConfig -> ChainConfig
 modifyConfig fn = \case
-  Direct config -> Direct $ fn config
+  Cardano config -> Cardano $ fn config
   x -> x
 
 setNetworkId :: NetworkId -> ChainConfig -> ChainConfig
 setNetworkId networkId = \case
-  Direct config -> Direct config{networkId}
+  Cardano config@CardanoChainConfig{chainBackend} ->
+    case chainBackend of
+      direct@DirectBackend{} -> Cardano config{chainBackend = direct{networkId = networkId}}
+      _ -> Cardano config
   x -> x
