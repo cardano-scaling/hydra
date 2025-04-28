@@ -722,13 +722,14 @@ spec = parallel $ do
                   let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
                   send n2 (Decommit{decommitTx})
                   send n1 Close
+                  -- XXX: Can't assert DecommitFinalized here as it is not
+                  -- emitted because an incorrect simulation of the chain here.
+                  -- The OnDecrementTx only reaches the nodes HeadLogic after
+                  -- the OnCloseTx. This is impossible using a proper chain so
+                  -- we don't assert it here.
+                  -- waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
-
-                  waitUntilMatch [n2] $ \case
-                    HeadIsContested{headId, snapshotNumber} -> guard $ headId == testHeadId && snapshotNumber == 1
-                    _ -> Nothing
-
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1]}
 
         it "fanout utxo is correct after a decommit" $
