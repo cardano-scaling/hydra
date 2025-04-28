@@ -9,9 +9,9 @@ import Hydra.Prelude hiding (toList)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Crypto.Hash (hashToBytes)
-import Cardano.Ledger.Api.UTxO qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
+import Cardano.Ledger.Mary.Value (MaryValue (..))
 import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
@@ -28,7 +28,7 @@ import Hydra.Tx.Party (Party (..))
 import PlutusTx.Builtins (fromBuiltin)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture qualified as Fixtures
-import Test.QuickCheck (listOf, oneof, scale, shrinkList, shrinkMapBy, suchThat, vector, vectorOf)
+import Test.QuickCheck (listOf, oneof, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 
 -- * TxOut
 
@@ -45,15 +45,14 @@ instance Arbitrary (TxOut CtxUTxO) where
 --  * replace stake pointers with null references as nobody uses that.
 genTxOut :: Gen (TxOut ctx)
 genTxOut =
-  (noRefScripts . noStakeRefPtr <$> gen)
-    `suchThat` notByronAddress
+  (gen `suchThat` notByronAddress)
+    <&> ensureSomeAda . realisticAda . noRefScripts . noStakeRefPtr
  where
   gen =
-    modifyTxOutValue (<> (lovelaceToValue $ Coin 10_000_000))
-      <$> oneof
-        [ fromLedgerTxOut <$> arbitrary
-        , notMultiAsset . fromLedgerTxOut <$> arbitrary
-        ]
+    oneof
+      [ fromLedgerTxOut <$> arbitrary
+      , notMultiAsset . fromLedgerTxOut <$> arbitrary
+      ]
 
   notMultiAsset =
     modifyTxOutValue (lovelaceToValue . selectLovelace)
@@ -61,6 +60,19 @@ genTxOut =
   notByronAddress (TxOut addr _ _ _) = case addr of
     ByronAddressInEra{} -> False
     _ -> True
+
+  realisticAda =
+    -- 45 billion is max supply
+    let oneBillionAda = Coin 1_000_000_000_000_000
+     in modifyTxOutValue $ \v ->
+          let MaryValue c ma = toLedgerValue v
+           in fromLedgerValue (MaryValue (min c oneBillionAda) ma)
+
+  ensureSomeAda = modifyTxOutValue $ \v ->
+    let minLovelace = Coin 2_000_000
+     in if selectLovelace v > minLovelace
+          then v
+          else v <> lovelaceToValue minLovelace
 
   noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
     ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
@@ -114,19 +126,9 @@ shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.toList (shrinkList shrinkOne)
       | value' <- shrinkValue value
       ]
 
--- | Generate a complete arbitrary UTxO, which may contain arbitrary assets
--- addressed to public keys *and* scripts.
---
--- NOTE: This is not reducing size when generating assets in 'TxOut's, so will
--- end up regularly with 300+ assets with generator size 30.
+-- | Generate a 'Conway' era 'UTxO'. See also 'genTxOut'.
 genUTxO :: Gen UTxO
-genUTxO = do
-  utxoMap <- Map.toList . Ledger.unUTxO <$> arbitrary
-  -- NOTE: The Arbitrary TxIn instance from the ledger is producing colliding
-  -- values, so we replace them.
-  fmap UTxO.fromList . forM utxoMap $ \(_, o) -> do
-    i <- arbitrary
-    pure (i, fromLedgerTxOut o)
+genUTxO = sized genUTxOSized
 
 -- | Generate a 'Conway' era 'UTxO' with given number of outputs. See also
 -- 'genTxOut'.
