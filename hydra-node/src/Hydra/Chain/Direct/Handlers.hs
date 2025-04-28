@@ -291,10 +291,10 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         , receivedTxIds = getTxId . getTxBody <$> receivedTxs
         }
 
+    timeHandle <- getTimeHandle
     case chainPointToSlotNo point of
       Nothing -> pure ()
       Just slotNo -> do
-        timeHandle <- getTimeHandle
         case slotToUTCTime timeHandle slotNo of
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
@@ -303,14 +303,14 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             callback (Tick{chainTime = utcTime, chainSlot})
 
     forM_ receivedTxs $
-      maybeObserveSomeTx point >=> \case
+      maybeObserveSomeTx timeHandle point >=> \case
         Nothing -> pure ()
         Just event -> callback event
 
-  maybeObserveSomeTx point tx = atomically $ do
+  maybeObserveSomeTx timeHandle point tx = atomically $ do
     ChainStateAt{spendableUTxO} <- getLatest
     let observation = observeHeadTx networkId spendableUTxO tx
-    case convertObservation observation of
+    case convertObservation timeHandle observation of
       Nothing -> pure Nothing
       Just observedTx -> do
         let newChainState =
@@ -321,8 +321,8 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
 
-convertObservation :: HeadObservation -> Maybe (OnChainTx Tx)
-convertObservation = \case
+convertObservation :: TimeHandle -> HeadObservation -> Maybe (OnChainTx Tx)
+convertObservation TimeHandle{slotToUTCTime} = \case
   NoHeadTx -> Nothing
   Init InitObservation{headId, contestationPeriod, parties, seedTxIn, participants} ->
     pure
@@ -338,8 +338,16 @@ convertObservation = \case
     pure OnCommitTx{headId, party, committed}
   CollectCom CollectComObservation{headId} ->
     pure OnCollectComTx{headId}
-  Deposit DepositObservation{headId, deposited, depositTxId, deadline} ->
-    pure $ OnDepositTx{headId, deposited, depositTxId, deadline = posixToUTCTime deadline}
+  Deposit DepositObservation{headId, depositTxId, deposited, created, deadline} -> do
+    createdTime <- either (const Nothing) Just $ slotToUTCTime created
+    pure $
+      OnDepositTx
+        { headId
+        , depositTxId
+        , deposited
+        , created = createdTime
+        , deadline = posixToUTCTime deadline
+        }
   Recover RecoverObservation{headId, recoveredTxId, recoveredUTxO} ->
     pure OnRecoverTx{headId, recoveredTxId, recoveredUTxO}
   Increment IncrementObservation{headId, newVersion, depositTxId} ->
