@@ -32,6 +32,7 @@ import Hydra.Cardano.Api (
   mkTxOutAutoBalance,
   mkVkAddress,
   toCtxUTxOTxOut,
+  txOutAddress,
   txOuts',
   pattern TxOutDatumNone,
  )
@@ -101,7 +102,7 @@ publishHydraScripts networkId socketPath sk = do
 
 -- | Exception raised when building the script publishing transactions.
 newtype PublishScriptException
-  = PublishScriptException (TxBodyErrorAutoBalance Era)
+  = FailedToBuildPublishingTx (TxBodyErrorAutoBalance Era)
   deriving newtype (Show)
   deriving anyclass (Exception)
 
@@ -120,8 +121,12 @@ buildScriptPublishingTxs ::
   SigningKey PaymentKey ->
   m [Tx]
 buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools availableUTxO sk = do
-  go availableUTxO scriptOutputs
+  go availableUTxOForKey scriptOutputs
  where
+  vk = getVerificationKey sk
+
+  availableUTxOForKey = UTxO.filter ((== mkVkAddress networkId vk) . txOutAddress) availableUTxO
+
   scriptOutputs =
     mkScriptTxOut . mkScriptRef
       <$> [initialValidatorScript, commitValidatorScript, Head.validatorScript]
@@ -130,7 +135,7 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
   go _ [] = pure []
   go utxo (out : rest) = do
     tx <- case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxo [] [out] of
-      Left err -> throwIO $ PublishScriptException err
+      Left err -> throwIO $ FailedToBuildPublishingTx err
       Right tx -> pure $ signTx sk tx
 
     let changeOutput = txOuts' tx !! 1
