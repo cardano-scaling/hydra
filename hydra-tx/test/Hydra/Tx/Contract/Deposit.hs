@@ -14,7 +14,7 @@ import Hydra.Tx.Deposit (depositTx)
 import Test.Hydra.Tx.Fixture (depositDeadline, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOSized)
 import Test.Hydra.Tx.Mutation (Mutation (ChangeOutput), SomeMutation (..))
-import Test.QuickCheck (chooseInteger, elements, oneof)
+import Test.QuickCheck (chooseInteger, elements)
 
 genHealthyDepositTx :: Gen (Tx, UTxO)
 genHealthyDepositTx = do
@@ -39,13 +39,11 @@ data DepositMutation
 
 genDepositMutation :: (Tx, UTxO) -> Gen SomeMutation
 genDepositMutation (tx, _utxo) =
-  oneof
-    [ SomeMutation [] MutateDepositOutputValue <$> do
-        change <- do
-          (asset, Quantity q) <- elements (GHC.toList $ txOutValue depositTxOut)
-          diff <- fromInteger <$> chooseInteger (1, q)
-          pure $ GHC.fromList [(asset, diff)]
-        pure $ ChangeOutput 0 (depositTxOut & modifyTxOutValue (<> negateValue change))
-    ]
+  SomeMutation [] MutateDepositOutputValue <$> do
+    change <- do
+      (asset, Quantity q) <- elements (GHC.toList $ txOutValue depositTxOut)
+      diff <- fromInteger <$> chooseInteger (1, q)
+      pure $ GHC.fromList [(asset, diff)]
+    pure $ ChangeOutput 0 (depositTxOut & modifyTxOutValue (<> negateValue change))
  where
   depositTxOut = List.head $ txOuts' tx

@@ -4,14 +4,6 @@ module Hydra.Tx.Contract.Increment where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
-import Test.Hydra.Tx.Mutation (
-  Mutation (..),
-  SomeMutation (..),
-  addParticipationTokens,
-  modifyInlineDatum,
-  replaceParties,
-  replaceSnapshotVersion,
- )
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
@@ -41,6 +33,14 @@ import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, depositDeadline, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxO, genUTxOSized, genValue, genVerificationKey)
+import Test.Hydra.Tx.Mutation (
+  Mutation (..),
+  SomeMutation (..),
+  addParticipationTokens,
+  modifyInlineDatum,
+  replaceParties,
+  replaceSnapshotVersion,
+ )
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
