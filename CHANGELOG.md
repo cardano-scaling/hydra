@@ -8,9 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.21.0] - UNRELEASED
+## [0.21.0] - 2025-04-28
 
-- New metric for counting the number of active peers: `hydra_head_peers_connected`
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network
   - New run-time dependency onto `etcd` binary
   - The peer network options to `hydra-node` (`--peer`) need to match across the Hydra network.
@@ -27,36 +26,8 @@ changes.
     ETCD_AUTO_COMPACTION_RETENTION=168h
     ```
 
-- Changed default contestation period to 600 seconds and deposit deadline to 3600 seconds.
-
-- Introduce an option to publish hydra scripts using blockfrost.
-
-- Remove checks that rely on hydra-node's local state and trust on-chain data when we observe decrement/recover transactions.
-
-- Fix a bug in increment observation where wrong deposited UTxO was picked up.
-
-- Fix a bug where incremental commits / decommits were not correctly observed after restart of `hydra-node`. This was due to incorrect handling of internal chain state [#1894](https://github.com/cardano-scaling/hydra/pull/1894)
-
-- Fix a bug where decoding `Party` information from chain would crash the node or chain observer.
-  - A problematic transaction will now be ignored and not deemed a valid head protocol transaction.
-  - An example was if the datum would contain CBOR instead of just hex encoded bytes.
-
 - **BREAKING** Enable multi-party, networked "offline" heads by providing an `--offline-head-seed` option to `hydra-node`.
   - Drop `hydra-node offline` as a sub-command. Use `--offline-head-seed` and `--initial-utxo` options to switch to offline mode.
-
-- Add support for "withdraw zero trick" transactions:
-  - Any transaction with a `Rewarding` redeemer for a `Withdrawal` of `0 lovelace`, will be validated as if there would be a corresponding stake `RewardAccount` already registered.
-  - No need to register the script's stake address before.
-
-- Stream historical data from disk in the hydra-node API server.
-
-- Record used and free memory when running `bench-e2e` benchmark.
-
-- Submit observations to a `hydra-explorer` via optional `--explorer` option.
-
-- Add API query (GET /snapshot/last-seen) to fetch the latest seen snapshot by a node and help identify non-cooperating peers.
-
-- Bugfix: HeadFannedOut should always display the observed fanned-out UTxO instead of local confirmed snapshot.
 
 - **BREAKING** API changes
   - API Server does **NOT** serve the event history by default any more. Clients need to add a query parameter `?history=yes` in order to obtain the history.
@@ -66,13 +37,43 @@ changes.
   - Query parameter `?address=..` does **NOT** filter `TxValid` and `TxInvalid` server outputs anymore.
   - Removed the `transaction` from `TxValid` server outputs. Use `SnapshotConfirmed` to determine what transactions got confirmed intead!
 
+- Fix a bug in increment observation where wrong deposited UTxO was picked up.
+
+- Fix a bug where incremental commits / decommits were not correctly observed after restart of `hydra-node`. This was due to incorrect handling of internal chain state [#1894](https://github.com/cardano-scaling/hydra/pull/1894)
+
+- Fix a bug where decoding `Party` information from chain would crash the node or chain observer.
+  - A problematic transaction will now be ignored and not deemed a valid head protocol transaction.
+  - An example was if the datum would contain CBOR instead of just hex encoded bytes.
+
+- Fix a bug on HeadFannedOut as it should always display the observed fanned-out UTxO instead of local confirmed snapshot.
+
+- API Additions
+    - Add query (GET /snapshot/last-seen) to fetch the latest seen snapshot by a node and help identify non-cooperating peers.
+    - Add command (POST /snapshot) to adopt the given snapshot as the latest confirmed.
+      * add new `SideLoadSnapshot` client input.
+      * add new `LocalStateCleared` state changed event.
+      * add new `SnapshotSideLoaded` server output.
+      * add new `SideLoadSnapshotFailed` logic error.
+
+- Changed default contestation period to 600 seconds and deposit deadline to 3600 seconds.
+
+- Add support for "withdraw zero trick" transactions:
+  - Any transaction with a `Rewarding` redeemer for a `Withdrawal` of `0 lovelace`, will be validated as if there would be a corresponding stake `RewardAccount` already registered.
+  - No need to register the script's stake address before.
+
+- Remove checks that rely on hydra-node's local state and trust on-chain data when we observe decrement/recover transactions.
+
+- Publish scripts using blockfrost via new `hydra-node publish-scripts --blockfrost` option.
+
+- New metric for counting the number of active peers: `hydra_head_peers_connected`
+
+- Record used and free memory when running `bench-e2e` benchmark.
+
+- Submit observations to a `hydra-explorer` via optional `--explorer` option.
+
 - Add a list of [clients](https://hydra.family/head-protocol/unstable/docs/clients) to the docs
 
-- Add API command (POST /snapshot) which allows to adopt the given snapshot as the latest confirmed.
-  * add new `SideLoadSnapshot` client input.
-  * add new `LocalStateCleared` state changed event.
-  * add new `SnapshotSideLoaded` server output.
-  * add new `SideLoadSnapshotFailed` logic error.
+- Stream historical data from disk in the hydra-node API server.
 
 ## [0.20.0] - 2025-02-04
 
