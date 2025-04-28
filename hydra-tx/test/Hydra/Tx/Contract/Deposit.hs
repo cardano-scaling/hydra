@@ -8,12 +8,13 @@ import Hydra.Prelude
 
 import Data.List qualified as List
 import GHC.IsList qualified as GHC
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx (mkHeadId)
-import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Deposit (depositTx)
-import Test.Hydra.Tx.Fixture (depositDeadline, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOSized)
-import Test.Hydra.Tx.Mutation (Mutation (ChangeOutput), SomeMutation (..))
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..))
 import Test.QuickCheck (chooseInteger, elements)
 
 genHealthyDepositTx :: Gen (Tx, UTxO)
@@ -21,14 +22,18 @@ genHealthyDepositTx = do
   -- XXX: Ideally we would want to have more arbitrary utxo here, but 'genUTxO'
   -- and other generators yield value quantities that fail to be put into
   -- transaction outputs.
-  healthyDepositUTxO <- genUTxOSized 1
+  toDeposit <- genUTxOSized 1
   let tx =
         depositTx
           testNetworkId
           (mkHeadId testPolicyId)
-          CommitBlueprintTx{blueprintTx = txSpendingUTxO healthyDepositUTxO, lookupUTxO = healthyDepositUTxO}
-          depositDeadline -- TODO: should generate
-  pure (tx, healthyDepositUTxO)
+          (mkSimpleBlueprintTx toDeposit)
+          (SlotNo 1) -- TODO: generate?
+          healthyDeadline -- TODO: generate?
+  pure (tx, toDeposit)
+
+healthyDeadline :: UTCTime
+healthyDeadline = slotNoToUTCTime systemStart slotLength $ SlotNo 10
 
 data DepositMutation
   = -- | Change the output value to a subset of the deposited value. This

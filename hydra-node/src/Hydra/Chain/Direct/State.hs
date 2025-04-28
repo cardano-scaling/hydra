@@ -82,6 +82,7 @@ import Hydra.Tx (
   deriveParty,
   getSnapshot,
   headIdToPolicyId,
+  mkSimpleBlueprintTx,
   partyToChain,
   registryUTxO,
   txInToHeadSeed,
@@ -115,7 +116,7 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Hydra.Tx.Utils (setIncrementalActionMaybe, splitUTxO, verificationKeyToOnChainId)
-import Test.Hydra.Tx.Fixture (depositDeadline, testNetworkId)
+import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
   genScriptRegistry,
@@ -1130,7 +1131,9 @@ genDepositTx numParties = do
   ctx <- genHydraContextFor numParties
   utxo <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . null)
   (_, st@OpenState{headId}) <- genStOpen ctx
-  let tx = depositTx (ctxNetworkId ctx) headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxo, lookupUTxO = utxo} depositDeadline
+  deadline <- arbitrary
+  validBefore <- arbitrary
+  let tx = depositTx (ctxNetworkId ctx) headId (mkSimpleBlueprintTx utxo) validBefore deadline
   pure (ctx, st, utxo <> utxoFromTx tx, tx)
 
 genRecoverTx ::

@@ -22,6 +22,7 @@ import Hydra.Cardano.Api (
   getChainPoint,
   getTxBody,
   getTxId,
+  throwError,
  )
 import Hydra.Chain (
   Chain (..),
@@ -166,21 +167,23 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
             >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
-    , -- Handle that creates a draft commit tx using the user utxo and a _blueprint_ transaction.
-      -- Possible errors are handled at the api server level.
-      draftCommitTx = \headId commitBlueprintTx -> do
+    , draftCommitTx = \headId commitBlueprintTx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
           commit' ctx headId spendableUTxO commitBlueprintTx
-    , -- Handle that creates a draft **deposit** tx using the user utxo and a deadline.
-      -- Possible errors are handled at the api server level.
-      draftDepositTx = \headId commitBlueprintTx deadline -> do
+    , draftDepositTx = \headId commitBlueprintTx deadline -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
-        traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
-          -- TODO: Should we move deposit tx argument verification to `depositTx` function and have Either here?
-          Right (depositTx (networkId ctx) headId commitBlueprintTx deadline)
+        timeHandle <- queryTimeHandle
+        -- XXX: What an error handling mess
+        runExceptT $ do
+          validBefore <- case currentPointInTime timeHandle of
+            -- XXX: We only need the current slot and this would never fail
+            Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
+            Right (s, _) -> pure $ s + 200 -- XXX: configurable and unify with maxGraceTime
+          lift . finalizeTx wallet ctx spendableUTxO lookupUTxO $
+            depositTx (networkId ctx) headId commitBlueprintTx validBefore deadline
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
