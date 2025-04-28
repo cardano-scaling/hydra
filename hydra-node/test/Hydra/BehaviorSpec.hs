@@ -62,7 +62,7 @@ import Test.Hydra.Tx.Fixture (
   testHeadId,
   testHeadSeed,
  )
-import Test.QuickCheck (getNegative)
+import Test.QuickCheck (choose, counterexample, forAll, getNegative, ioProperty)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, shouldSatisfy, traceInIOSim)
 
 spec :: Spec
@@ -382,25 +382,41 @@ spec = parallel $ do
 
       describe "Incremental commit" $ do
         prop "deposits with deadline in the past are ignored" $ \seconds ->
-          shouldRunInSim $
-            withSimulatedChainAndNetwork $ \chain ->
-              withHydraNode aliceSk [] chain $ \n1 -> do
-                openHead chain n1
-                deadlineInThePast <- addUTCTime (getNegative seconds) <$> getCurrentTime
-                txid <- simulateDeposit chain testHeadId (utxoRef 123) deadlineInThePast
-                asExpected <- waitUntilMatch [n1] $ \case
-                  DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
-                  CommitApproved{} -> Just False
-                  _ -> Nothing
-                unless asExpected $
-                  failure "Deposit with deadline in the past approved instead of expired"
+          ioProperty $
+            shouldRunInSim $
+              withSimulatedChainAndNetwork $ \chain ->
+                withHydraNode aliceSk [] chain $ \n1 -> do
+                  openHead chain n1
+                  deadlineInThePast <- addUTCTime (getNegative seconds) <$> getCurrentTime
+                  txid <- simulateDeposit chain testHeadId (utxoRef 123) deadlineInThePast
+                  asExpected <- waitUntilMatch [n1] $ \case
+                    DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
+                    CommitApproved{} -> Just False
+                    _ -> Nothing
+                  pure $
+                    asExpected
+                      & counterexample "Deposit with deadline in the past approved instead of expired"
 
-        it "deposits with deadline too soon are ignored" $
-          -- TODO: implement
-          -- - single node
-          -- - submit deposit deadline in future, but too close
-          -- - deposit not approved and eventually expired
-          pendingWith "not implemented"
+        it "deposits with deadline too soon are ignored" $ do
+          -- TODO: configure / relate to withHydraNode
+          let depositPeriod = 3600
+          -- NOTE: Any deadline between now and deposit period should
+          -- eventually result in an expired deposit.
+          forAll (fromInteger <$> choose (0, depositPeriod)) $ \deadlineDiff ->
+            ioProperty $
+              shouldRunInSim $
+                withSimulatedChainAndNetwork $ \chain ->
+                  withHydraNode aliceSk [] chain $ \n1 -> do
+                    openHead chain n1
+                    deadlineTooEarly <- addUTCTime deadlineDiff <$> getCurrentTime
+                    txid <- simulateDeposit chain testHeadId (utxoRef 123) deadlineTooEarly
+                    asExpected <- waitUntilMatch [n1] $ \case
+                      DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
+                      CommitApproved{} -> Just False
+                      _ -> Nothing
+                    pure $
+                      asExpected
+                        & counterexample "Deposit with deadline too soon approved instead of expired"
 
         it "deposits are only processed after settled" $
           -- TODO: implement
@@ -966,13 +982,13 @@ dummySimulatedChainNetwork =
 -- initial chain state to play back to our test nodes.
 -- NOTE: The simulated network has a block time of 20 (simulated) seconds.
 withSimulatedChainAndNetwork ::
-  (MonadTime m, MonadDelay m, MonadAsync m) =>
-  (SimulatedChainNetwork SimpleTx m -> m ()) ->
-  m ()
-withSimulatedChainAndNetwork action = do
-  chain <- simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0}
-  action chain
-  cancel $ tickThread chain
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m) =>
+  (SimulatedChainNetwork SimpleTx m -> m a) ->
+  m a
+withSimulatedChainAndNetwork =
+  bracket
+    (simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0})
+    (cancel . tickThread)
 
 -- | Class to manipulate the chain state by advancing it's slot in
 -- 'simulatedChainAndNetwork'.
