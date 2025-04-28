@@ -1096,6 +1096,48 @@ threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScripts
       Right _headIsOpen ->
         pure ()
 
+-- | Hydra nodes ABC run on ABC cluster and connect to each other.
+-- Hydra nodes BC shut down.
+-- Hydra nodes BC run on BC cluster and connect to each other.
+-- Hydra nodes BC shut down.
+-- Hydra nodes BC run and connect ABC cluster again.
+nodeCanSupportMultipleEtcdClusters :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+nodeCanSupportMultipleEtcdClusters tracer workDir RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
+  let contestationPeriod = UnsafeContestationPeriod 2
+  let depositDeadline = UnsafeDepositDeadline 50
+
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+  carolChainConfig <-
+    chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod depositDeadline
+      <&> setNetworkId networkId
+
+  let hydraTracer = contramap FromHydraNode tracer
+
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
+
+    bobChainConfig' <-
+      chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Carol] contestationPeriod depositDeadline
+        <&> setNetworkId networkId
+    carolChainConfig' <-
+      chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline
+        <&> setNetworkId networkId
+
+    withHydraNode hydraTracer bobChainConfig' workDir 2 bobSk [carolVk] [2, 3] $ \n2 -> do
+      withHydraNode hydraTracer carolChainConfig' workDir 3 carolSk [bobVk] [2, 3] $ \n3 -> do
+        waitForNodesConnected hydraTracer 30 $ n2 :| [n3]
+
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
+
 -- | Two hydra node setup where Alice is wrongly configured to use Carol's
 -- cardano keys instead of Bob's which will prevent him to be notified the
 -- `HeadIsInitializing` but he should still receive some notification.
