@@ -32,7 +32,6 @@ import Hydra.Cardano.Api (
   mkTxOutAutoBalance,
   mkVkAddress,
   toCtxUTxOTxOut,
-  txOutAddress,
   txOuts',
   pattern TxOutDatumNone,
  )
@@ -121,17 +120,14 @@ buildScriptPublishingTxs ::
   SigningKey PaymentKey ->
   m [Tx]
 buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools availableUTxO sk = do
-  go availableUTxOForKey scriptOutputs
+  go availableUTxO scriptOutputs
  where
-  vk = getVerificationKey sk
-
-  availableUTxOForKey = UTxO.filter ((== mkVkAddress networkId vk) . txOutAddress) availableUTxO
-
   scriptOutputs =
     mkScriptTxOut . mkScriptRef
       <$> [initialValidatorScript, commitValidatorScript, Head.validatorScript]
 
-  -- Loop over all script outputs to create while re-spending the change output
+  -- Loop over all script outputs to create while re-spending the change output.
+  -- Note that we spend the entire UTxO set to cover the deposit scripts, resulting in a squashed UTxO at the end.
   go _ [] = pure []
   go utxo (out : rest) = do
     tx <- case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxo [] [out] of
