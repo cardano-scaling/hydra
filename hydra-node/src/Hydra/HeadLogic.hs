@@ -88,6 +88,7 @@ import Hydra.Tx (
   utxoFromTx,
   withoutUTxO,
  )
+import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Crypto (
   Signature,
   Verified (..),
@@ -961,18 +962,22 @@ onOpenChainTick env st chainTime =
             noop
  where
   updateDeposits cont =
-    let (newActive, unchanged) = Map.partition becomesActive pendingDeposits
-        (newExpired, _) = Map.partition becomesExpired unchanged
+    -- NOTE: Expire before activate
+    let (newExpired, unchanged) = Map.partition becomesExpired pendingDeposits
+        (newActive, _) = Map.partition becomesActive unchanged
      in cont
           (newActive <&> \d -> d{status = Active})
           (newExpired <&> \d -> d{status = Expired})
 
   becomesActive Deposit{status, deadline} =
-    -- FIXME: should check for minimum age and deadline far enough
+    -- FIXME: should check for minimum age
     status /= Active && deadline > chainTime
 
   becomesExpired Deposit{status, deadline} =
-    status /= Expired && deadline < chainTime
+    status /= Expired
+      && chainTime > deadline `minusTime` toNominalDiffTime contestationPeriod
+
+  minusTime time dt = addUTCTime (-dt) time
 
   withNextActive deposits cont = do
     -- NOTE: Do not consider empty deposits.
@@ -981,7 +986,7 @@ onOpenChainTick env st chainTime =
 
   nextSn = confirmedSn + 1
 
-  Environment{party} = env
+  Environment{party, contestationPeriod} = env
 
   CoordinatedHeadState
     { localTxs
