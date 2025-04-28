@@ -62,8 +62,15 @@ import Test.Hydra.Tx.Fixture (
   testHeadId,
   testHeadSeed,
  )
-import Test.QuickCheck (choose, counterexample, forAll, getNegative, ioProperty)
-import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, shouldSatisfy, traceInIOSim)
+import Test.QuickCheck (chooseEnum, counterexample, forAll, getNegative, ioProperty)
+import Test.Util (
+  propRunInSim,
+  shouldBe,
+  shouldNotBe,
+  shouldRunInSim,
+  shouldSatisfy,
+  traceInIOSim,
+ )
 
 spec :: Spec
 spec = parallel $ do
@@ -398,25 +405,24 @@ spec = parallel $ do
                       & counterexample "Deposit with deadline in the past approved instead of expired"
 
         it "deposits with deadline too soon are ignored" $ do
-          -- TODO: configure / relate to withHydraNode
-          let depositPeriod = 3600
+          -- FIXME: have a separately configurable deposit period
+          let depositPeriod = toNominalDiffTime testContestationPeriod
           -- NOTE: Any deadline between now and deposit period should
           -- eventually result in an expired deposit.
-          forAll (fromInteger <$> choose (0, depositPeriod)) $ \deadlineDiff ->
-            ioProperty $
-              shouldRunInSim $
-                withSimulatedChainAndNetwork $ \chain ->
-                  withHydraNode aliceSk [] chain $ \n1 -> do
-                    openHead chain n1
-                    deadlineTooEarly <- addUTCTime deadlineDiff <$> getCurrentTime
-                    txid <- simulateDeposit chain testHeadId (utxoRef 123) deadlineTooEarly
-                    asExpected <- waitUntilMatch [n1] $ \case
-                      DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
-                      CommitApproved{} -> Just False
-                      _ -> Nothing
-                    pure $
-                      asExpected
-                        & counterexample "Deposit with deadline too soon approved instead of expired"
+          forAll (chooseEnum (0, depositPeriod)) $ \deadlineDiff ->
+            propRunInSim $
+              withSimulatedChainAndNetwork $ \chain ->
+                withHydraNode aliceSk [] chain $ \n1 -> do
+                  openHead chain n1
+                  deadlineTooEarly <- addUTCTime deadlineDiff <$> getCurrentTime
+                  txid <- simulateDeposit chain testHeadId (utxoRef 123) deadlineTooEarly
+                  asExpected <- waitUntilMatch [n1] $ \case
+                    DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
+                    CommitApproved{} -> Just False
+                    _ -> Nothing
+                  pure $
+                    asExpected
+                      & counterexample "Deposit with deadline too soon approved instead of expired"
 
         it "deposits are only processed after settled" $
           -- TODO: implement
@@ -1160,7 +1166,7 @@ toOnChainTx now = \case
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
 
 testContestationPeriod :: ContestationPeriod
-testContestationPeriod = UnsafeContestationPeriod 10
+testContestationPeriod = UnsafeContestationPeriod 3600
 
 testDepositDeadline :: DepositDeadline
 testDepositDeadline = UnsafeDepositDeadline 10
