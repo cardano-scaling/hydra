@@ -16,7 +16,7 @@ import CardanoClient (
   submitTx,
   waitForUTxO,
  )
-import CardanoNode (NodeLog, withCardanoNodeDevnet)
+import CardanoNode (NodeLog, withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Lens ((<>~))
@@ -46,6 +46,7 @@ import Hydra.Chain (
   PostTxError (..),
   initHistory,
  )
+import Hydra.Chain.Blockfrost.Client (publishHydraScripts)
 import Hydra.Chain.Direct (
   IntersectionNotFoundException (..),
   loadChainContext,
@@ -63,6 +64,7 @@ import Hydra.Cluster.Faucet (
  )
 import Hydra.Cluster.Fixture (
   Actor (Alice, Bob, Carol, Faucet),
+  KnownNetwork (Preview),
   alice,
   aliceSk,
   bob,
@@ -74,6 +76,7 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (
   CardanoChainConfig (..),
+  ChainBackend (..),
   ChainConfig (..),
   toArgNetworkId,
  )
@@ -306,6 +309,87 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
+          \aliceChain@DirectChainTest{postTx} -> do
+            -- Scenario
+            (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+            someUTxO <- seedFromFaucet node aliceExternalVk 2_000_000 (contramap FromFaucet tracer)
+            someUTxOToCommit <- seedFromFaucet node aliceExternalVk 2_000_000 (contramap FromFaucet tracer)
+            participants <- loadParticipants [Alice]
+            let headParameters = HeadParameters cperiod [alice]
+            postTx $ InitTx{participants, headParameters}
+            (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
+
+            externalCommit node aliceChain aliceExternalSk headId someUTxO
+            aliceChain `observesInTime` OnCommitTx headId alice someUTxO
+
+            postTx $ CollectComTx someUTxO headId headParameters
+            aliceChain `observesInTime` OnCollectComTx{headId}
+            let v = 0
+            let snapshotVersion = 0
+            let snapshot =
+                  Snapshot
+                    { headId
+                    , number = 1
+                    , utxo = someUTxO
+                    , confirmed = []
+                    , utxoToCommit = Just someUTxOToCommit
+                    , utxoToDecommit = Nothing
+                    , version = snapshotVersion
+                    }
+
+            postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
+
+            deadline <-
+              waitMatch aliceChain $ \case
+                Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
+                  | snapshotNumber == 1 -> Just contestationDeadline
+                _ -> Nothing
+            now <- getCurrentTime
+            unless (deadline > now) $
+              failure $
+                "contestationDeadline in the past: " <> show deadline <> ", now: " <> show now
+            delayUntil deadline
+
+            waitMatch aliceChain $ \case
+              Tick t _ | t > deadline -> Just ()
+              _ -> Nothing
+            postTx $
+              FanoutTx
+                { utxo = Snapshot.utxo snapshot
+                , -- if snapshotVersion is not the same as local version, it
+                  -- means we observed a commit so it needs to be fanned-out as well
+                  utxoToCommit = if snapshotVersion /= v then Snapshot.utxoToCommit snapshot else Nothing
+                , utxoToDecommit = Snapshot.utxoToDecommit snapshot
+                , headSeed
+                , contestationDeadline = deadline
+                }
+            let expectedUTxO =
+                  (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
+                    `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
+            aliceChain `observesInTimeSatisfying` \case
+              OnFanoutTx _ finalUTxO ->
+                if UTxO.containsOutputs finalUTxO expectedUTxO
+                  then pure ()
+                  else failure "OnFanoutTx does not contain expected UTxO"
+              _ -> failure "expected OnFanoutTx"
+
+            failAfter 5 $
+              waitForUTxO node expectedUTxO
+
+  it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
+      withCardanoNodeOnKnownNetwork (contramap FromNode tracer) tmp Preview $ \node@RunningNode{networkId, nodeSocket} -> do
+        (_, sk) <- keysFor Faucet
+        let projectPath = "./../blockfrost-project.txt"
+        -- publishi scripts using Blockfrost
+        hydraScriptsTxId <- publishHydraScripts projectPath (spy' "signing key" sk)
+        -- Alice setup
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod ddeadline <&> modifyConfig (\cfg -> cfg{chainBackend = BlockfrostBackend{projectPath = projectPath}})
+        print aliceChainConfig
+
+        (aliceCardanoVk, _) <- keysFor Alice
+        seedFromFaucet_ node aliceCardanoVk 20_000_000 (contramap FromFaucet tracer)
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
