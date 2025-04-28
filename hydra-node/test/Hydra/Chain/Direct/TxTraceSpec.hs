@@ -47,6 +47,7 @@ import Hydra.Chain.Direct.State (ChainContext (..), CloseTxError, ContestTxError
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano (Tx, adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
+import Hydra.ModelSpec (propIsDistributive)
 import Hydra.Tx (CommitBlueprintTx (..))
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
@@ -70,7 +71,7 @@ import Test.Hydra.Tx.Gen (
   genVerificationKey,
  )
 import Test.Hydra.Tx.Mutation (addParticipationTokens)
-import Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty, (===))
+import Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty)
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -92,8 +93,8 @@ import Text.Show (Show (..))
 
 spec :: Spec
 spec = do
-  prop "realWorldModelUTxO preserves addition" $ \u1 u2 ->
-    realWorldModelUTxO (u1 <> u2) === (realWorldModelUTxO u1 <> realWorldModelUTxO u2)
+  prop "realWorldModelUTxO is distributive" $
+    propIsDistributive realWorldModelUTxO
   prop "generates interesting transaction traces" $ \actions ->
     checkCoverage $ coversInterestingActions actions True
   prop "all valid transactions" $
