@@ -58,7 +58,6 @@ library
     Hydra.Tx.Decrement
     Hydra.Tx.Deposit
     Hydra.Tx.DepositDeadline
-    Hydra.Tx.Environment
     Hydra.Tx.Fanout
     Hydra.Tx.HeadId
     Hydra.Tx.HeadParameters

@@ -13,6 +13,7 @@ import Hydra.HeadLogic.State (Deposit, HeadState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Network.Message (Message)
+import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Tx (
   HeadId,
   HeadParameters,
@@ -24,11 +25,9 @@ import Hydra.Tx (
   SnapshotVersion,
   TxIdType,
   UTxOType,
-  mkHeadParameters,
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.QuickCheck (oneof)

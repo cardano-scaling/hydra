@@ -31,16 +31,16 @@ import Hydra.Node (
   hydrate,
   stepHydraNode,
  )
+import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (..))
-import Hydra.Tx.Environment (Environment (..))
-import Hydra.Tx.Environment qualified as Environment
-import Hydra.Tx.HeadParameters (HeadParameters (..), mkHeadParameters)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party, deriveParty)
+import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -51,7 +51,6 @@ import Test.Hydra.Tx.Fixture (
   cperiod,
   ddeadline,
   deriveOnChainId,
-  testEnvironment,
   testHeadId,
   testHeadSeed,
  )

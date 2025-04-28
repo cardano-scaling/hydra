@@ -60,7 +60,7 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
-import Hydra.Tx.Environment (Environment (..))
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..))
