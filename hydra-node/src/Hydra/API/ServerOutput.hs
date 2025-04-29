@@ -191,7 +191,7 @@ data ServerOutput tx
         pendingDeposit :: TxIdType tx
       , deadline :: UTCTime
       }
-  | DepositExpired {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime}
+  | DepositExpired {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
   | -- XXX: Rename to DepositRecovered to be more consistent. But only do this

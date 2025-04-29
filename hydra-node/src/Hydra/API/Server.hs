@@ -241,7 +241,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
     StateChanged.CommitRecorded{..} -> Just CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline}
     StateChanged.DepositActivated{} -> Nothing
-    StateChanged.DepositExpired{depositTxId, deposit = Deposit{..}} -> Just DepositExpired{..}
+    StateChanged.DepositExpired{depositTxId, chainTime, deposit = Deposit{..}} -> Just DepositExpired{..}
     StateChanged.CommitApproved{..} -> Just CommitApproved{..}
     StateChanged.CommitFinalized{..} -> Just CommitFinalized{..}
     StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}

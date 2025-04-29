@@ -939,7 +939,7 @@ onOpenChainTick env st chainTime =
   updateDeposits $ \newActive newExpired ->
     -- Emit state change for both
     -- XXX: This is a bit messy
-    (changes (map (uncurry DepositActivated) (Map.toList newActive) ++ map (uncurry DepositExpired) (Map.toList newExpired)) <>) $
+    ((mkDepositActivated newActive <> mkDepositExpired newExpired) <>) $
       -- Apply state changes and pick next active to request snapshot
       -- XXX: This is smelly as we rely on Map <> to override entries (left
       -- biased). This is also weird because we want to actually apply the state
@@ -984,6 +984,12 @@ onOpenChainTick env st chainTime =
     -- NOTE: Do not consider empty deposits.
     let p Deposit{deposited, status} = deposited /= mempty && status == Active
     maybe noop cont . find p $ toList deposits
+
+  mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    pure DepositActivated{depositTxId, deposit}
+
+  mkDepositExpired m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    pure DepositExpired{depositTxId, chainTime, deposit}
 
   nextSn = confirmedSn + 1
 
