@@ -65,7 +65,7 @@ import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (runHydraNode)
 import Hydra.Tx (HeadId)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -160,7 +160,7 @@ instance StateModel WorldState where
     Init :: Party -> Action WorldState HeadId
     Commit :: {headIdVar :: Var HeadId, party :: Party, utxoToCommit :: UTxOType Payment} -> Action WorldState ()
     Abort :: {party :: Party} -> Action WorldState ()
-    Deposit :: {headIdVar :: Var HeadId, utxoToDeposit :: UTxOType Payment, deadline :: UTCTime} -> Action WorldState ()
+    Deposit :: {headIdVar :: Var HeadId, utxoToDeposit :: UTxOType Payment} -> Action WorldState ()
     Decommit :: {party :: Party, decommitTx :: Payment} -> Action WorldState ()
     Close :: {party :: Party} -> Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
@@ -222,11 +222,7 @@ instance StateModel WorldState where
     genDeposit headIdVar = do
       sk <- snd <$> elements hydraParties
       utxoToDeposit <- sublistOf $ filter ((sk ==) . fst) availableUTxO
-      deadline <- arbitrary -- FIXME: this is problematic: remove
-      -- deadline again from coverage by always submitting
-      -- a far enough in the future deadline when
-      -- performDeposit
-      pure $ Some Deposit{headIdVar, utxoToDeposit, deadline}
+      pure $ Some Deposit{headIdVar, utxoToDeposit}
 
     genDecommit = do
       genPayment st >>= \(party, tx) -> pure . Some $ Decommit party tx
@@ -519,7 +515,7 @@ newtype RunState m = RunState {nodesState :: TVar m (Nodes m)}
 -- We could perhaps getaway with it and just have a type based on `IOSim` monad
 -- but this is cumbersome to write.
 newtype RunMonad m a = RunMonad {runMonad :: ReaderT (RunState m) m a}
-  deriving newtype (Functor, Applicative, Monad, MonadReader (RunState m), MonadThrow)
+  deriving newtype (Functor, Applicative, Monad, MonadReader (RunState m), MonadThrow, MonadTime)
 
 instance MonadTrans RunMonad where
   lift = RunMonad . lift
@@ -593,9 +589,9 @@ instance
         performCommit headId party utxo
       Abort party -> do
         performAbort party
-      Deposit headIdVar utxo deadline -> do
+      Deposit headIdVar utxo -> do
         let headId = lookup headIdVar
-        performDeposit headId utxo deadline
+        performDeposit (hydraState st) headId utxo
       Decommit party tx ->
         performDecommit party tx
       Close party ->
@@ -696,28 +692,28 @@ performCommit headId party paymentUTxO = do
       _ -> Nothing
 
 performDeposit ::
-  (MonadThrow m, MonadTimer m, MonadAsync m) =>
+  (MonadThrow m, MonadTimer m, MonadAsync m, MonadTime m) =>
+  GlobalState ->
   HeadId ->
   [(CardanoSigningKey, Value)] ->
-  UTCTime ->
   RunMonad m ()
-performDeposit headId utxoToDeposit deadline = do
+performDeposit st headId utxoToDeposit = do
   nodes <- gets nodes
   SimulatedChainNetwork{simulateDeposit} <- gets chain
+  let cp = case st of
+        Open{headParameters} -> headParameters.contestationPeriod
+        _ -> error "Not in open state"
+  -- NOTE: We alwayse use a deadline far enough in the future to make sure the
+  -- deposit results in given utxo added.
+  deadline <- addUTCTime (2 * toNominalDiffTime cp) <$> getCurrentTime
   lift $ do
     txid <- simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
-    -- TODO: is this a post condition? We could determine whether a deposit was
-    -- picked up or not as result and check our assumption against the model in
-    -- postcondition. For example, it would be depending on current time/slot
-    -- whether a deposit should be ignored or not.
     waitUntilMatch (elems nodes) $ \case
       -- NOTE: We are fine with only recorded outputs if the utxo is not
       -- actually adding something. Honest nodes would not try to
       -- snapshot/increment this.
       CommitRecorded{} | null utxoToDeposit -> Just ()
       CommitFinalized{depositTxId} -> guard $ txid == depositTxId
-      -- TODO: need to record the fact of being expired in result to properly update the model
-      DepositExpired{depositTxId} -> guard $ txid == depositTxId
       _ -> Nothing
 
 performDecommit ::
