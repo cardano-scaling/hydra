@@ -1002,15 +1002,6 @@ withSimulatedChainAndNetwork =
     (simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0})
     (cancel . tickThread)
 
--- | Class to manipulate the chain state by advancing it's slot in
--- 'simulatedChainAndNetwork'.
--- TODO: This should not needed anymore
-class IsChainState a => IsChainStateTest a where
-  advanceSlot :: ChainStateType a -> ChainStateType a
-
-instance IsChainStateTest SimpleTx where
-  advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
-
 -- | Creates a simulated chain and network to which 'HydraNode's can be
 -- connected to using 'connectNode'. NOTE: The 'tickThread' needs to be
 -- 'cancel'ed after use. Use 'withSimulatedChainAndNetwork' instead where
@@ -1080,6 +1071,8 @@ simulatedChainAndNetwork initialChainState = do
           , newChainState = cs'
           }
     recordAndYieldEvent nodes history chainEvent
+
+  advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
 
   recordAndYieldEvent nodes history chainEvent = do
     ns <- atomically $ do

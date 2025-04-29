@@ -26,6 +26,7 @@ root-instances = [
  , { class = '\.Num$' }
  , { class = '\.Real$' }
  , { class = '\.Integral$' }
+ , { class = '\.IsString$' }
  # unstableMakeIsData creates all Data instances at once, some are unused and
  # so are treated as roots.
  , { module = "Hydra.Contract.Commit", instance = "UnsafeFromData Commit" }
@@ -45,6 +46,4 @@ root-instances = [
  # Orphan instances needed by hydra-explorer
  , { module = "Hydra.Cardano.Api.NetworkId", instance = "Arbitrary NetworkId" }
  , { module = "Hydra.Cardano.Api.NetworkMagic", instance = "Arbitrary NetworkMagic" }
- # Used via OverloadedStrings
- , { module = "Hydra.Tx.HeadId", instance = "IsString HeadSeed" }
  ]
