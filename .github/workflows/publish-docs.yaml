@@ -3,7 +3,7 @@ name: "Publish Docs"
 on:
   workflow_run:
     workflows: ["CI"]
-    branches: [master]
+    branches: ["master", "release"]
     types:
       - completed
 
