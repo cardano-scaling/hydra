@@ -744,6 +744,7 @@ components:
         - $ref: "api.yaml#/components/schemas/DecommitApproved"
         - $ref: "api.yaml#/components/schemas/DecommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecorded"
+        - $ref: "api.yaml#/components/schemas/DepositExpired"
         - $ref: "api.yaml#/components/schemas/CommitApproved"
         - $ref: "api.yaml#/components/schemas/CommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
@@ -1486,6 +1487,37 @@ components:
         pendingDeposit:
           type: string
         deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DepositExpired:
+      title: DepositExpired
+      description: |
+        Deposit for an incremental commit expired and will not be picked up.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - depositTxId
+        - deadline
+        - chainTime
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DepositExpired"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        depositTxId:
+          type: string
+        deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        chainTime:
           $ref: "api.yaml#/components/schemas/UTCTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
