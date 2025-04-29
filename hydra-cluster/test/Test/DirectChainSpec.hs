@@ -385,79 +385,87 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
     withTempDir "hydra-cluster" $ \tmp -> do
       (_, sk) <- keysFor Faucet
       let projectPath = "./../blockfrost-project.txt"
-      -- publish scripts using Blockfrost
-      hydraScriptsTxId <- Blockfrost.publishHydraScripts projectPath (spy' "signing key" sk)
+      prj <- Blockfrost.projectFromFile projectPath
+      Blockfrost.runBlockfrostM prj $ do
+        -- publish scripts using Blockfrost
+        hydraScriptsTxId <- Blockfrost.publishHydraScripts sk
+        print hydraScriptsTxId
 
-      -- Alice setup
-      aliceChainConfig <- chainConfigFor' Alice tmp (Left projectPath) hydraScriptsTxId [] cperiod ddeadline
+        -- Alice setup
+        aliceChainConfig <- liftIO $ chainConfigFor' Alice tmp (Left projectPath) hydraScriptsTxId [] cperiod ddeadline
 
-      (aliceCardanoVk, _) <- keysFor Alice
-      void $ seedFromFaucetBlockfrost projectPath aliceCardanoVk 100_000_000
-      withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-        \aliceChain@DirectChainTest{postTx} -> traceShow "INSIDE" $ do
-          -- Scenario
-          (_, aliceExternalSk) <- generate genKeyPair
-          someUTxO <- seedFromFaucetBlockfrost projectPath aliceCardanoVk 2_000_000
-          someUTxOToCommit <- seedFromFaucetBlockfrost projectPath aliceCardanoVk 2_000_000
-          participants <- loadParticipants [Alice]
-          let headParameters = HeadParameters cperiod [alice]
-          postTx $ InitTx{participants, headParameters}
-          (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
+        (aliceCardanoVk, _) <- liftIO $ keysFor Alice
 
-          let blueprintTx = txSpendingUTxO someUTxO
-          externalCommit' (Left projectPath) aliceChain [aliceExternalSk] headId someUTxO blueprintTx
-          aliceChain `observesInTime` OnCommitTx headId alice someUTxO
+        print "SEEDING"
+        void $ seedFromFaucetBlockfrost aliceCardanoVk 100_000_000
+        someUTxO <- seedFromFaucetBlockfrost aliceCardanoVk 2_000_000
+        someUTxOToCommit <- seedFromFaucetBlockfrost aliceCardanoVk 2_000_000
+        print "AFTER SEEDING"
 
-          postTx $ CollectComTx someUTxO headId headParameters
-          aliceChain `observesInTime` OnCollectComTx{headId}
-          let v = 0
-          let snapshotVersion = 0
-          let snapshot =
-                Snapshot
-                  { headId
-                  , number = 1
-                  , utxo = someUTxO
-                  , confirmed = []
-                  , utxoToCommit = Just someUTxOToCommit
-                  , utxoToDecommit = Nothing
-                  , version = snapshotVersion
+        liftIO $
+          withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
+            \aliceChain@DirectChainTest{postTx} -> traceShow "INSIDE" $ do
+              -- Scenario
+              (_, aliceExternalSk) <- generate genKeyPair
+              participants <- loadParticipants [Alice]
+              let headParameters = HeadParameters cperiod [alice]
+              postTx $ InitTx{participants, headParameters}
+              (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
+
+              let blueprintTx = txSpendingUTxO someUTxO
+              externalCommit' (Left projectPath) aliceChain [aliceExternalSk] headId someUTxO blueprintTx
+              aliceChain `observesInTime` OnCommitTx headId alice someUTxO
+
+              postTx $ CollectComTx someUTxO headId headParameters
+              aliceChain `observesInTime` OnCollectComTx{headId}
+              let v = 0
+              let snapshotVersion = 0
+              let snapshot =
+                    Snapshot
+                      { headId
+                      , number = 1
+                      , utxo = someUTxO
+                      , confirmed = []
+                      , utxoToCommit = Just someUTxOToCommit
+                      , utxoToDecommit = Nothing
+                      , version = snapshotVersion
+                      }
+
+              postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
+
+              deadline <-
+                waitMatch aliceChain $ \case
+                  Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
+                    | snapshotNumber == 1 -> Just contestationDeadline
+                  _ -> Nothing
+              now <- getCurrentTime
+              unless (deadline > now) $
+                failure $
+                  "contestationDeadline in the past: " <> show deadline <> ", now: " <> show now
+              delayUntil deadline
+
+              waitMatch aliceChain $ \case
+                Tick t _ | t > deadline -> Just ()
+                _ -> Nothing
+              postTx $
+                FanoutTx
+                  { utxo = Snapshot.utxo snapshot
+                  , -- if snapshotVersion is not the same as local version, it
+                    -- means we observed a commit so it needs to be fanned-out as well
+                    utxoToCommit = if snapshotVersion /= v then Snapshot.utxoToCommit snapshot else Nothing
+                  , utxoToDecommit = Snapshot.utxoToDecommit snapshot
+                  , headSeed
+                  , contestationDeadline = deadline
                   }
-
-          postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
-
-          deadline <-
-            waitMatch aliceChain $ \case
-              Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
-                | snapshotNumber == 1 -> Just contestationDeadline
-              _ -> Nothing
-          now <- getCurrentTime
-          unless (deadline > now) $
-            failure $
-              "contestationDeadline in the past: " <> show deadline <> ", now: " <> show now
-          delayUntil deadline
-
-          waitMatch aliceChain $ \case
-            Tick t _ | t > deadline -> Just ()
-            _ -> Nothing
-          postTx $
-            FanoutTx
-              { utxo = Snapshot.utxo snapshot
-              , -- if snapshotVersion is not the same as local version, it
-                -- means we observed a commit so it needs to be fanned-out as well
-                utxoToCommit = if snapshotVersion /= v then Snapshot.utxoToCommit snapshot else Nothing
-              , utxoToDecommit = Snapshot.utxoToDecommit snapshot
-              , headSeed
-              , contestationDeadline = deadline
-              }
-          let expectedUTxO =
-                (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
-                  `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
-          aliceChain `observesInTimeSatisfying` \case
-            OnFanoutTx _ finalUTxO ->
-              if UTxO.containsOutputs finalUTxO expectedUTxO
-                then pure ()
-                else failure "OnFanoutTx does not contain expected UTxO"
-            _ -> failure "expected OnFanoutTx"
+              let expectedUTxO =
+                    (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
+                      `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
+              aliceChain `observesInTimeSatisfying` \case
+                OnFanoutTx _ finalUTxO ->
+                  if UTxO.containsOutputs finalUTxO expectedUTxO
+                    then pure ()
+                    else failure "OnFanoutTx does not contain expected UTxO"
+                _ -> failure "expected OnFanoutTx"
 
   -- failAfter 5 $
   --   waitForUTxO node expectedUTxO

@@ -91,34 +91,34 @@ queryScriptRegistry txIds = do
   candidates = map (\txid -> TxIn txid (TxIx 0)) txIds
 
 publishHydraScripts ::
-  -- | The path where the Blockfrost project token hash is stored.
-  FilePath ->
   -- | Keys assumed to hold funds to pay for the publishing transaction.
   SigningKey PaymentKey ->
-  IO [TxId]
-publishHydraScripts projectPath sk = do
-  prj <- Blockfrost.projectFromFile projectPath
-  runBlockfrostM prj $ do
-    Blockfrost.Genesis
-      { _genesisNetworkMagic = networkMagic
-      , _genesisSystemStart = systemStart'
-      } <-
-      queryGenesisParameters
-    pparams <- queryProtocolParameters
-    let address = Blockfrost.Address (vkAddress networkMagic)
-    let networkId = toCardanoNetworkId networkMagic
-    let changeAddress = mkVkAddress networkId vk
-    stakePools' <- Blockfrost.listPools
-    let stakePools = Set.fromList (toCardanoPoolId <$> stakePools')
-    let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
-    eraHistory <- queryEraHistory
-    utxo <- Blockfrost.getAddressUtxos address
-    cardanoUTxO <- toCardanoUTxO utxo changeAddress
+  BlockfrostClientT IO [TxId]
+publishHydraScripts sk = do
+  Blockfrost.Genesis
+    { _genesisNetworkMagic = networkMagic
+    , _genesisSystemStart = systemStart'
+    } <-
+    queryGenesisParameters
+  pparams <- queryProtocolParameters
+  let address = Blockfrost.Address (vkAddress networkMagic)
+  let networkId = toCardanoNetworkId networkMagic
+  let changeAddress = mkVkAddress networkId vk
+  stakePools' <- Blockfrost.listPools
+  let stakePools = Set.fromList (toCardanoPoolId <$> stakePools')
+  let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
+  eraHistory <- queryEraHistory
+  utxo <- Blockfrost.getAddressUtxos address
+  cardanoUTxO <- toCardanoUTxO utxo changeAddress
 
-    txs <- liftIO $ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools cardanoUTxO sk
-    forM txs $ \(tx :: Tx) -> do
-      void $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR tx
-      pure $ txId tx
+  txs <- liftIO $ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools cardanoUTxO sk
+  txIds <- forM txs $ \(tx :: Tx) -> do
+    eRes <- Blockfrost.tryError $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR tx
+    case eRes of
+      Left err -> liftIO $ throwIO $ BlockfrostError $ show err
+      Right _ -> pure $ txId tx
+  forM_ txIds $ \txId' -> awaitTransactionId networkId txId'
+  pure txIds
  where
   vk = getVerificationKey sk
 
@@ -521,30 +521,26 @@ queryTip = do
             (fromString $ T.unpack blockHash)
             (BlockNo $ fromIntegral blockNo)
 
--- | Await until the given transaction is visible on-chain. Returns the UTxO
+-- | Await until the given transaction id is visible on-chain. Returns the UTxO
 -- set produced by that transaction.
 --
 -- Note that this function loops forever; hence, one probably wants to couple it
 -- with a surrounding timeout.
-awaitTransaction ::
-  -- | Blockfrost project path
-  FilePath ->
-  Tx ->
-  IO UTxO
-awaitTransaction projectPath tx = do
-  prj <- Blockfrost.projectFromFile projectPath
-  Blockfrost.Genesis
-    { _genesisNetworkMagic
-    , _genesisSystemStart
-    } <-
-    runBlockfrostM prj queryGenesisParameters
-  let networkId = toCardanoNetworkId _genesisNetworkMagic
-  let ins = keys (UTxO.toMap $ utxoFromTx tx)
-  go prj networkId ins
+awaitTransactionId ::
+  -- | Network id
+  NetworkId ->
+  -- | The transaction ID to watch / await
+  TxId ->
+  BlockfrostClientT IO UTxO
+awaitTransactionId networkId txid = traceShow "AWAIT" $ do
+  go
  where
-  go prj nid inputs = do
-    utxo <- forM inputs $ \input ->
-      runBlockfrostM prj $ queryUTxOByTxIn nid input
-    if null utxo
-      then go prj nid inputs
-      else pure $ fold utxo
+  txIn = TxIn txid (TxIx 0)
+  go = do
+    utxo <- Blockfrost.tryError $ queryUTxOByTxIn networkId txIn
+    case utxo of
+      Left _e -> go
+      Right utxo' ->
+        if null utxo'
+          then go
+          else pure utxo'
