@@ -56,11 +56,11 @@ import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
-import Hydra.Node.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..))
@@ -220,16 +220,6 @@ spec =
                       { otherDecommitTxId = txId decommitTx1
                       }
                 }
-
-        -- TODO: this semantics is different now
-        it "cannot commit while another decommit is pending" $ do
-          let decommitTx = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-              s0 = inOpenState' threeParties $ coordinatedHeadState{decommitTx = Just decommitTx}
-              observeDeposit =
-                observeTx $
-                  OnDepositTx{headId = testHeadId, deposited = utxoRefs [2], depositTxId = 1, deadline = arbitrary `generateWith` 42}
-          update aliceEnv ledger s0 observeDeposit
-            `assertWait` WaitOnUnresolvedDecommit{decommitTx}
 
         it "waits if a requested decommit tx is not (yet) applicable" $ do
           let decommitTx = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
