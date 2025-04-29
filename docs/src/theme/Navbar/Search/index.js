@@ -19,8 +19,15 @@ export default function NavbarSearch({ children, className }) {
           const url = item.url || ''
           const isItemUnstable = url.includes('/head-protocol/unstable/')
           return isUnstable ? isItemUnstable : !isItemUnstable
-        })
+        }).map((item) => ({
+          ...item,
+          url: removeTrailingSlash(item.url),
+        }))
       }}
     />
   )
+}
+
+const removeTrailingSlash = url => {
+  return url.endsWith('/') ? url.slice(0, -1) : url
 }
