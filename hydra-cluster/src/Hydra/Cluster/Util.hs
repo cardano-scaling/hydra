@@ -66,7 +66,20 @@ chainConfigFor ::
   [Actor] ->
   ContestationPeriod ->
   IO ChainConfig
-chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod = do
+chainConfigFor me targetDir nodeSocket = chainConfigFor' me targetDir (Right nodeSocket)
+
+chainConfigFor' ::
+  HasCallStack =>
+  Actor ->
+  FilePath ->
+  Either FilePath SocketPath ->
+  -- | Transaction ids at which Hydra scripts should have been published.
+  [TxId] ->
+  [Actor] ->
+  ContestationPeriod ->
+  DepositDeadline ->
+  IO ChainConfig
+chainConfigFor' me targetDir socketOrProjectPath hydraScriptsTxId them contestationPeriod depositDeadline = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -86,7 +99,10 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
         , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
         , depositDeadline
-        , chainBackend = defaultDirectBackend{nodeSocket = nodeSocket}
+        , chainBackend =
+            case socketOrProjectPath of
+              Left projectPath -> BlockfrostBackend{projectPath}
+              Right nodeSocket -> defaultDirectBackend{nodeSocket = nodeSocket}
         }
  where
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType

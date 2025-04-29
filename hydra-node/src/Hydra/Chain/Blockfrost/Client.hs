@@ -143,7 +143,7 @@ toCardanoUTxO utxos addr = UTxO.fromPairs <$> mapM toEntry utxos
   toEntry :: Blockfrost.AddressUtxo -> BlockfrostClientT IO (TxIn, TxOut CtxUTxO)
   toEntry utxo = do
     txOut <- toCardanoTxOut utxo addr
-    pure $ (toCardanoTxIn utxo, txOut)
+    pure (toCardanoTxIn utxo, txOut)
 
 toCardanoTxIn :: Blockfrost.AddressUtxo -> TxIn
 toCardanoTxIn Blockfrost.AddressUtxo{_addressUtxoTxHash = Blockfrost.TxHash{unTxHash}, _addressUtxoOutputIndex} =
@@ -520,3 +520,31 @@ queryTip = do
             (SlotNo $ fromIntegral $ Blockfrost.unSlot blockSlot)
             (fromString $ T.unpack blockHash)
             (BlockNo $ fromIntegral blockNo)
+
+-- | Await until the given transaction is visible on-chain. Returns the UTxO
+-- set produced by that transaction.
+--
+-- Note that this function loops forever; hence, one probably wants to couple it
+-- with a surrounding timeout.
+awaitTransaction ::
+  -- | Blockfrost project path
+  FilePath ->
+  Tx ->
+  IO UTxO
+awaitTransaction projectPath tx = do
+  prj <- Blockfrost.projectFromFile projectPath
+  Blockfrost.Genesis
+    { _genesisNetworkMagic
+    , _genesisSystemStart
+    } <-
+    runBlockfrostM prj queryGenesisParameters
+  let networkId = toCardanoNetworkId _genesisNetworkMagic
+  let ins = keys (UTxO.toMap $ utxoFromTx tx)
+  go prj networkId ins
+ where
+  go prj nid inputs = do
+    utxo <- forM inputs $ \input ->
+      runBlockfrostM prj $ queryUTxOByTxIn nid input
+    if null utxo
+      then go prj nid inputs
+      else pure $ fold utxo
