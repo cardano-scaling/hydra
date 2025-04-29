@@ -102,7 +102,7 @@ data StateChanged tx
       , deadline :: UTCTime
       }
   | DepositActivated {depositTxId :: TxIdType tx, deposit :: Deposit tx}
-  | DepositExpired {depositTxId :: TxIdType tx, deposit :: Deposit tx}
+  | DepositExpired {depositTxId :: TxIdType tx, chainTime :: UTCTime, deposit :: Deposit tx}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitRecovered
       { chainState :: ChainStateType tx

@@ -703,9 +703,15 @@ performDeposit st headId utxoToDeposit = do
   let cp = case st of
         Open{headParameters} -> headParameters.contestationPeriod
         _ -> error "Not in open state"
-  -- NOTE: We alwayse use a deadline far enough in the future to make sure the
+  -- XXX: The contestation period may be smaller than the block time of the
+  -- mockChainAndNetwork! However, we want to test with small contestation
+  -- periods. Instead we should move the decision of a "deposit period" into
+  -- SeedWorld where we know the network we are on and make that same deposit
+  -- period available on the model.
+  let cp' = max 20 $ toNominalDiffTime cp
+  -- NOTE: We always use a deadline far enough in the future to make sure the
   -- deposit results in given utxo added.
-  deadline <- addUTCTime (2 * toNominalDiffTime cp) <$> getCurrentTime
+  deadline <- addUTCTime (3 * cp') <$> getCurrentTime
   lift $ do
     txid <- simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
     waitUntilMatch (elems nodes) $ \case
