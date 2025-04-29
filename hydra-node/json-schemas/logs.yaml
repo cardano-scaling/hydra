@@ -366,7 +366,7 @@ definitions:
             type: string
             enum: ["SomeHeadObserved"]
           headId:
-            $ref: "logs.yaml#/definitions/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           pubKeyHashes:
             type: array
             items:
@@ -1520,6 +1520,20 @@ definitions:
             $ref: "api.yaml#/components/schemas/UTxO"
           deadline:
             $ref: "api.yaml#/components/schemas/UTCTime"
+      - title: "DepositActivated"
+        additionalProperties: false
+        required:
+          - tag
+          - depositTxId
+          - deposit
+        properties:
+          tag:
+            type: string
+            enum: ["DepositActivated"]
+          depositTxId:
+            $ref: "api.yaml#/components/schemas/TxId"
+          deposit:
+            $ref: "logs.yaml#/definitions/Deposit"
       - title: "DepositRecovered"
         additionalProperties: false
         required:
@@ -1755,6 +1769,25 @@ definitions:
         type: integer
         minimum: 0
 
+  Deposit:
+    type: object
+    additionalProperties: false
+    required:
+      - headId
+      - deposited
+      - deadline
+      - status
+    properties:
+      headId:
+        $ref: "api.yaml#/components/schemas/HeadId"
+      deposited:
+        $ref: "api.yaml#/components/schemas/UTxO"
+      deadline:
+        $ref: "api.yaml#/components/schemas/UTCTime"
+      status:
+        type: string
+        enum: ["Unknown","Active", "Expired"]
+
   CoordinatedHeadState:
     type: object
     additionalProperties: false
@@ -1765,6 +1798,7 @@ definitions:
       - confirmedSnapshot
       - seenSnapshot
       - pendingDeposits
+      - currentDepositUTxO
       - decommitTx
       - version
     properties:
@@ -1786,6 +1820,15 @@ definitions:
         $ref: "api.yaml#/components/schemas/SeenSnapshot"
       pendingDeposits:
         type: object
+        propertyNames:
+          pattern: "^[0-9a-f]{64}$"
+        additionalProperties:
+          $ref: "logs.yaml#/definitions/Deposit"
+      currentDepositUTxO:
+        oneOf:
+          - type: "null"
+          - type: object
+            $ref: "api.yaml#/components/schemas/UTxO"
       decommitTx:
         oneOf:
           - type: "null"
