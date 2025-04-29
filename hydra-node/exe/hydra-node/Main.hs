@@ -36,8 +36,9 @@ main = do
     txIds <- case chainBackend of
       DirectBackend{networkId, nodeSocket} ->
         publishHydraScripts networkId nodeSocket sk
-      BlockfrostBackend{projectPath} ->
-        Blockfrost.publishHydraScripts projectPath sk
+      BlockfrostBackend{projectPath} -> do
+       prj <- Blockfrost.projectFromFile projectPath
+       Blockfrost.runBlockfrostM prj $ Blockfrost.publishHydraScripts sk
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Handle SIGTERM like SIGINT
