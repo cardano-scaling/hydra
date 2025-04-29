@@ -1497,22 +1497,45 @@ definitions:
             $ref: "api.yaml#/components/schemas/Snapshot"
           signatures:
             $ref: "api.yaml#/components/schemas/MultiSignature"
-      - title: "CommitRecorded"
+      - title: "DepositRecorded"
         additionalProperties: false
         required:
           - tag
           - chainState
-          - pendingDeposits
-          - newLocalUTxO
+          - headId
+          - depositTxId
+          - deposited
+          - deadline
         properties:
           tag:
             type: string
-            enum: ["CommitRecorded"]
+            enum: ["DepositRecorded"]
           chainState:
             $ref: "api.yaml#/components/schemas/ChainState"
-          pendingDeposits:
-            type: object
-          newLocalUTxO:
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          depositTxId:
+            $ref: "api.yaml#/components/schemas/TxId"
+          deposited:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          deadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+      - title: "DepositRecovered"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+          - depositTxId
+          - recovered
+        properties:
+          tag:
+            type: string
+            enum: ["DepositRecovered"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+          depositTxId:
+            $ref: "api.yaml#/components/schemas/TxId"
+          recovered:
             $ref: "api.yaml#/components/schemas/UTxO"
       - title: "CommitFinalized"
         additionalProperties: false
@@ -1530,26 +1553,6 @@ definitions:
           newVersion:
             $ref: "api.yaml#/components/schemas/SnapshotVersion"
           depositTxId:
-            type: string
-      - title: "CommitRecovered"
-        additionalProperties: false
-        required:
-          - tag
-          - chainState
-          - recoveredUTxO
-          - newLocalUTxO
-          - recoveredTxId
-        properties:
-          tag:
-            type: string
-            enum: ["CommitRecovered"]
-          chainState:
-            $ref: "api.yaml#/components/schemas/ChainState"
-          recoveredUTxO:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          newLocalUTxO:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          recoveredTxId:
             $ref: "api.yaml#/components/schemas/TxId"
       - title: "DecommitRecorded"
         additionalProperties: false
