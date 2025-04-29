@@ -48,7 +48,7 @@ import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createMockSourceSink)
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Tx (HeadId)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime, toNominalDiffTime)
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Hydra.Tx.IsTx (IsTx (..))
@@ -389,6 +389,9 @@ spec = parallel $ do
                 fromMaybe mempty headUTxO `shouldBe` utxoRefs [2, 42]
 
       describe "Incremental commit" $ do
+        it "deposits with empty utxo are ignored" $
+          pendingWith "TODO"
+
         prop "deposits with deadline in the past are ignored" $ \seconds ->
           ioProperty $
             shouldRunInSim $
@@ -426,12 +429,31 @@ spec = parallel $ do
                       & counterexample "Deposit with deadline too soon approved instead of expired"
                       & counterexample ("Deadline: " <> show deadlineTooEarly)
 
-        it "commit snapshot only approved when deadline not too soon" $
-          -- FIXME: implement
-          -- - two nodes, one with low deposit period, one with high
-          -- - submit deposit where deadline is fine for one node, but not fine for the other
-          -- - see it expired eventually
-          pendingWith "not implemented"
+        it "commit snapshot only approved when deadline not too soon" $ do
+          -- FIXME: cannot simulate this attack using contestation period as
+          -- we need to agree on a consistent CP because of the
+          -- HeadParameters. While this looks good here, it does not prevent
+          -- adversaries to still request snaphshots before that period. So
+          -- a --deposit-period is (1) more configurable and (2) we can use
+          -- it to test this scenario here.
+          pendingWith "need --deposit-period"
+          shouldRunInSim $
+            withSimulatedChainAndNetwork $ \chain -> do
+              cpShort <- fromNominalDiffTime 60
+              cpLong <- fromNominalDiffTime 3600
+              withHydraNode' cpShort aliceSk [bob] chain $ \n1 ->
+                withHydraNode' cpLong bobSk [alice] chain $ \n2 -> do
+                  openHead2 chain n1 n2
+                  -- NOTE: We use a deadline that is okay for alice, but too soon for bob.
+                  deadline <- addUTCTime 600 <$> getCurrentTime
+                  txid <- simulateDeposit chain testHeadId (utxoRef 123) deadline
+                  waitUntilMatch [n1, n2] $ \case
+                    CommitRecorded{utxoToCommit} ->
+                      guard (123 `member` utxoToCommit)
+                    _ -> Nothing
+                  waitUntilMatch [n1, n2] $ \case
+                    DepositExpired{depositTxId} -> guard $ depositTxId == txid
+                    _ -> Nothing
 
         it "deposits are only processed after settled" $
           -- TODO: implement for
@@ -1187,11 +1209,21 @@ withHydraNode ::
   (TestHydraClient SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
 withHydraNode signingKey otherParties chain action = do
+  withHydraNode' defaultContestationPeriod signingKey otherParties chain action
+
+withHydraNode' ::
+  ContestationPeriod ->
+  SigningKey HydraKey ->
+  [Party] ->
+  SimulatedChainNetwork SimpleTx (IOSim s) ->
+  (TestHydraClient SimpleTx (IOSim s) -> IOSim s b) ->
+  IOSim s b
+withHydraNode' cp signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   messages <- atomically newTQueue
   outputHistory <- newTVarIO mempty
   let initialChainState = SimpleChainState{slot = ChainSlot 0}
-  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs messages outputHistory chain defaultContestationPeriod testDepositDeadline
+  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs messages outputHistory chain cp testDepositDeadline
   withAsync (runHydraNode node) $ \_ ->
     action (createTestHydraClient outputs messages outputHistory node)
 
