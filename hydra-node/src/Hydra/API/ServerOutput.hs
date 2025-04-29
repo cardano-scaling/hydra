@@ -182,12 +182,21 @@ data ServerOutput tx
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, distributedUTxO :: UTxOType tx}
-  | -- TODO: Rename and record breaking change
-    CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx, deadline :: UTCTime}
+  | -- XXX: Rename to DepositRecorded following the state events naming. But only
+    -- do this when changing the endpoint also to /commits
+    CommitRecorded
+      { headId :: HeadId
+      , utxoToCommit :: UTxOType tx
+      , -- XXX: Inconsinstent field name
+        pendingDeposit :: TxIdType tx
+      , deadline :: UTCTime
+      }
   | DepositExpired {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
-  | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
+  | -- XXX: Rename to DepositRecovered to be more consistent. But only do this
+    -- when changing the endpoint also to /commits
+    CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | -- | Snapshot was side-loaded, and the included transactions can be considered final.
     -- The local state has been reset, meaning pending transactions were pruned.
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.

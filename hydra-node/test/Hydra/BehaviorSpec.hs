@@ -406,7 +406,7 @@ spec = parallel $ do
                       & counterexample "Deposit with deadline in the past approved instead of expired"
 
         it "deposits with deadline too soon are ignored" $ do
-          -- FIXME: have a separately configurable deposit period
+          -- TODO: have a separately configurable deposit period
           let depositPeriod = toNominalDiffTime defaultContestationPeriod
           -- NOTE: Any deadline between now and deposit period should
           -- eventually result in an expired deposit.
@@ -426,8 +426,16 @@ spec = parallel $ do
                       & counterexample "Deposit with deadline too soon approved instead of expired"
                       & counterexample ("Deadline: " <> show deadlineTooEarly)
 
+        it "commit snapshot only approved when deadline not too soon" $
+          -- FIXME: implement
+          -- - two nodes, one with low deposit period, one with high
+          -- - submit deposit where deadline is fine for one node, but not fine for the other
+          -- - see it expired eventually
+          pendingWith "not implemented"
+
         it "deposits are only processed after settled" $
-          -- TODO: implement
+          -- TODO: implement for
+          -- https://github.com/cardano-scaling/hydra/issues/1951#issuecomment-2809966834
           -- - single node
           -- - submit deposit deadline far enough in future
           -- - recorded right away
@@ -435,7 +443,8 @@ spec = parallel $ do
           pendingWith "not implemented"
 
         it "commit snapshot only approved when deposit settled" $
-          -- TODO: implement
+          -- TODO: implement for
+          -- https://github.com/cardano-scaling/hydra/issues/1951#issuecomment-2809966834
           -- - two nodes, one with low deposit period, one with high
           -- - submit deposit
           -- - see it recorded by both nodes

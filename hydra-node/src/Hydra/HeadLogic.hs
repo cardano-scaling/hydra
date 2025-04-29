@@ -970,7 +970,8 @@ onOpenChainTick env st chainTime =
           (newExpired <&> \d -> d{status = Expired})
 
   becomesActive Deposit{status, deadline} =
-    -- FIXME: should check for minimum age
+    -- TODO: should check for minimum age
+    -- https://github.com/cardano-scaling/hydra/issues/1951#issuecomment-2809966834
     status /= Active && deadline > chainTime
 
   becomesExpired Deposit{status, deadline} =

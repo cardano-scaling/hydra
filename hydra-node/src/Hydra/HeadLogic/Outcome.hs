@@ -96,7 +96,7 @@ data StateChanged tx
       }
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | -- TODO: Rename to 'DepositRecorded' and record breaking change
+  | -- FIXME: Rename to 'DepositRecorded' and record breaking change
     CommitRecorded
       { chainState :: ChainStateType tx
       , depositTxId :: TxIdType tx

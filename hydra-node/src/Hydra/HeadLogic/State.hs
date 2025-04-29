@@ -163,7 +163,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   , pendingDeposits :: Map (TxIdType tx) (Deposit tx)
   -- ^ Pending deposits as observed on chain. TODO: These should be actually
   -- stored outside of the 'HeadState' to allow recovery when a head is not
-  -- open.
+  -- open. See https://github.com/cardano-scaling/hydra/issues/1812
   , currentDepositUTxO :: Maybe (UTxOType tx)
   -- ^ Currently processed utxo to incrementally commit. Spec: Uα
   , decommitTx :: Maybe tx
