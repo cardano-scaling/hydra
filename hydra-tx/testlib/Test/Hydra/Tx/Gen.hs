@@ -9,6 +9,7 @@ import Hydra.Prelude hiding (toList)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Crypto.Hash (hashToBytes)
+import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Mary.Value (MaryValue (..))
@@ -27,6 +28,7 @@ import Hydra.Tx.Crypto (Hash (..))
 import Hydra.Tx.Party (Party (..))
 import PlutusTx.Builtins (fromBuiltin)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
+import Test.Hydra.Tx.Fixture (pparams)
 import Test.Hydra.Tx.Fixture qualified as Fixtures
 import Test.QuickCheck (listOf, oneof, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 
@@ -46,7 +48,8 @@ instance Arbitrary (TxOut CtxUTxO) where
 genTxOut :: Gen (TxOut ctx)
 genTxOut =
   (gen `suchThat` notByronAddress)
-    <&> ensureSomeAda . realisticAda . noRefScripts . noStakeRefPtr
+    >>= realisticAda
+    <&> ensureSomeAda . noRefScripts . noStakeRefPtr
  where
   gen =
     oneof
@@ -61,18 +64,17 @@ genTxOut =
     ByronAddressInEra{} -> False
     _ -> True
 
-  realisticAda =
-    -- 45 billion is max supply
-    let oneBillionAda = Coin 1_000_000_000_000_000
-     in modifyTxOutValue $ \v ->
+  realisticAda o = sized $ \n -> do
+    let maxSupply = 45_000_000_000_000_000
+        realistic = Coin $ maxSupply `div` fromIntegral (max n 1)
+        makeRealistic v =
           let MaryValue c ma = toLedgerValue v
-           in fromLedgerValue (MaryValue (min c oneBillionAda) ma)
+           in fromLedgerValue (MaryValue (min c realistic) ma)
+    pure $
+      modifyTxOutValue makeRealistic o
 
-  ensureSomeAda = modifyTxOutValue $ \v ->
-    let minLovelace = Coin 2_000_000
-     in if selectLovelace v > minLovelace
-          then v
-          else v <> lovelaceToValue minLovelace
+  ensureSomeAda =
+    fromLedgerTxOut . ensureMinCoinTxOut pparams . toLedgerTxOut
 
   noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
     ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
