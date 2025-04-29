@@ -907,26 +907,6 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
     , currentSlot
     } = openState
 
-onOpenChainDepositTx ::
-  ChainStateType tx ->
-  HeadId ->
-  -- | Deposited UTxO
-  UTxOType tx ->
-  -- | Deposit 'TxId'
-  TxIdType tx ->
-  -- | Deposit deadline
-  UTCTime ->
-  Outcome tx
-onOpenChainDepositTx newChainState headId deposited depositTxId deadline =
-  newState
-    DepositRecorded
-      { chainState = newChainState
-      , headId
-      , depositTxId
-      , deposited
-      , deadline
-      }
-
 -- | Process the chain (and time) advancing in an open head.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
