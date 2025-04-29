@@ -187,6 +187,10 @@
               ];
               treefmt = pkgs.treefmt;
             };
+            no-srp = lu.no-srp {
+              src = self;
+              cabal-project-file = ./cabal.project;
+            };
             weeder = hydra-weeder;
           } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) hydraPackageNames);
 
