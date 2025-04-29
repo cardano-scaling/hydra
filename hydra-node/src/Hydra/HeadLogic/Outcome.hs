@@ -93,24 +93,22 @@ data StateChanged tx
       }
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | -- FIXME: Rename to 'DepositRecorded' and record breaking change
-    CommitRecorded
+  | DepositRecorded
       { chainState :: ChainStateType tx
-      , depositTxId :: TxIdType tx
       , headId :: HeadId
+      , depositTxId :: TxIdType tx
       , deposited :: UTxOType tx
       , deadline :: UTCTime
       }
   | DepositActivated {depositTxId :: TxIdType tx, deposit :: Deposit tx}
   | DepositExpired {depositTxId :: TxIdType tx, chainTime :: UTCTime, deposit :: Deposit tx}
-  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitRecovered
+  | DepositRecovered
       { chainState :: ChainStateType tx
       , headId :: HeadId
-      , recoveredUTxO :: UTxOType tx
-      , newLocalUTxO :: UTxOType tx
-      , recoveredTxId :: TxIdType tx
+      , depositTxId :: TxIdType tx
+      , recovered :: UTxOType tx
       }
+  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitFinalized
       { chainState :: ChainStateType tx
       , headId :: HeadId
@@ -165,9 +163,11 @@ genStateChanged env =
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-    , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DepositActivated <$> arbitrary <*> arbitrary
+    , DepositExpired <$> arbitrary <*> arbitrary <*> arbitrary
+    , DepositRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitApproved <$> arbitrary <*> arbitrary
-    , CommitRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DecommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DecommitApproved <$> arbitrary <*> arbitrary <*> arbitrary

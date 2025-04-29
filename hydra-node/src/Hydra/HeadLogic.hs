@@ -919,11 +919,11 @@ onOpenChainDepositTx ::
   Outcome tx
 onOpenChainDepositTx newChainState headId deposited depositTxId deadline =
   newState
-    CommitRecorded
+    DepositRecorded
       { chainState = newChainState
       , headId
-      , deposited
       , depositTxId
+      , deposited
       , deadline
       }
 
@@ -1014,29 +1014,6 @@ onOpenChainTick env st chainTime =
     LastSeenSnapshot{} -> False
     RequestedSnapshot{} -> True
     SeenSnapshot{} -> True
-
-onOpenChainRecoverTx ::
-  IsTx tx =>
-  OpenState tx ->
-  ChainStateType tx ->
-  HeadId ->
-  TxIdType tx ->
-  UTxOType tx ->
-  Outcome tx
-onOpenChainRecoverTx st newChainState headId recoveredTxId recoveredUTxO =
-  newState
-    CommitRecovered
-      { chainState = newChainState
-      , headId
-      , recoveredUTxO
-      , -- FIXME: This should not be needed!
-        newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO
-      , recoveredTxId
-      }
- where
-  OpenState{coordinatedHeadState} = st
-
-  CoordinatedHeadState{localUTxO} = coordinatedHeadState
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
@@ -1395,15 +1372,16 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, depositTxId, deadline}, newChainState})
+  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, deadline}, newChainState})
     | ourHeadId == headId ->
-        newState CommitRecorded{chainState = newChainState, headId, deposited, depositTxId, deadline}
+        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, deadline}
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{}, ChainInput Tick{chainTime}) ->
     onOpenChainTick env openState chainTime
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
-    | ourHeadId == headId -> onOpenChainRecoverTx openState newChainState headId recoveredTxId recoveredUTxO
+  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
@@ -1634,7 +1612,7 @@ aggregate st = \case
                       }
             }
       _otherState -> st
-  CommitRecorded{headId, chainState, depositTxId, deposited, deadline} -> case st of
+  DepositRecorded{chainState, headId, depositTxId, deposited, deadline} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1675,7 +1653,7 @@ aggregate st = \case
         CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
     _otherState -> st
   CommitApproved{} -> st
-  CommitRecovered{chainState, newLocalUTxO, recoveredTxId} -> case st of
+  DepositRecovered{chainState, depositTxId} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1683,12 +1661,11 @@ aggregate st = \case
             { chainState
             , coordinatedHeadState =
                 coordinatedHeadState
-                  { localUTxO = newLocalUTxO
-                  , pendingDeposits = Map.delete recoveredTxId existingDeposits
+                  { pendingDeposits = Map.delete depositTxId pendingDeposits
                   }
             }
        where
-        CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
+        CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
     _otherState -> st
   CommitFinalized{chainState, newVersion, depositTxId} ->
     case st of
@@ -1832,10 +1809,10 @@ aggregateChainStateHistory history = \case
   TransactionReceived{} -> history
   PartySignedSnapshot{} -> history
   SnapshotConfirmed{} -> history
-  CommitRecorded{chainState} -> pushNewState chainState history
+  DepositRecorded{chainState} -> pushNewState chainState history
   DepositActivated{} -> history
   DepositExpired{} -> history
-  CommitRecovered{chainState} -> pushNewState chainState history
+  DepositRecovered{chainState} -> pushNewState chainState history
   CommitFinalized{chainState} -> pushNewState chainState history
   DecommitRecorded{} -> history
   DecommitFinalized{chainState} -> pushNewState chainState history

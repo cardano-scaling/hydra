@@ -1,0 +1,57 @@
+{
+    "samples": [
+        {
+            "chainState": {
+                "recordedAt": {
+                    "blockHash": "0001010001010000000000000001000100010100010001000000000100010101",
+                    "slot": 0,
+                    "tag": "ChainPoint"
+                },
+                "spendableUTxO": {
+                    "0101010100010101010001000000000001000000000000010101010001010101#62": {
+                        "address": "addr_test1xzj50zk3xkvg39q5ezt27s54u2sc6anw2yavceew6ks4n8kmurkd575mvajvyuce9gf04mns4zhpxvupav0xrldxhtrswyj6g9",
+                        "datum": null,
+                        "inlineDatum": {
+                            "constructor": 5,
+                            "fields": [
+                                {
+                                    "int": 4
+                                }
+                            ]
+                        },
+                        "inlineDatumRaw": "d87e9f04ff",
+                        "inlineDatumhash": "27b6f8a0cc598b4aaafe06a37ac38302cda75c6b85469ceedd461c7328cd154f",
+                        "referenceScript": null,
+                        "value": {
+                            "95f0c8a06989b498d7d135560485e737fa19ddea53347bf83e24e271": {
+                                "33": 8411343966592762129
+                            },
+                            "lovelace": 1215420
+                        }
+                    }
+                }
+            },
+            "deadline": "1864-05-09T17:23:15.728959732186Z",
+            "depositTxId": "0000000100000101000100000001000100010100000001000001000001000101",
+            "deposited": {
+                "0001000000000101010000010000000101010000010101010001000101010101#26": {
+                    "address": "addr_test1yz2k8w6seq6jmhwfgq0vdae4pt7ng66emgetrcax4dtgjq0cuag96vd9htu7tuetspw7f45krd9rh0upj7e9jk5w0dzsp0rd68",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "058796b286d6d56d29e25dd69dd01c511ef1e4c0f19e0696b0dd453c": {
+                            "39": 1
+                        },
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "headId": "01000000010100010101000100010001",
+            "tag": "DepositRecorded"
+        }
+    ],
+    "seed": 2079458434
+}
