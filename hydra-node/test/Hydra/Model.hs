@@ -222,7 +222,10 @@ instance StateModel WorldState where
     genDeposit headIdVar = do
       sk <- snd <$> elements hydraParties
       utxoToDeposit <- sublistOf $ filter ((sk ==) . fst) availableUTxO
-      deadline <- arbitrary -- FIXME: this should be problematic
+      deadline <- arbitrary -- FIXME: this is problematic: remove
+      -- deadline again from coverage by always submitting
+      -- a far enough in the future deadline when
+      -- performDeposit
       pure $ Some Deposit{headIdVar, utxoToDeposit, deadline}
 
     genDecommit = do
