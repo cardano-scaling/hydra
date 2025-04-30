@@ -41,9 +41,9 @@ import Hydra.Cluster.Scenarios (
  )
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.Node.DepositPeriod (DepositPeriod (DepositPeriod))
 import Hydra.Tx (HeadId, IsTx (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Tx.DepositPeriod (DepositPeriod (DepositPeriod))
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,

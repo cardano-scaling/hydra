@@ -82,6 +82,7 @@ library
     Hydra.Network.Etcd
     Hydra.Network.Message
     Hydra.Node
+    Hydra.Node.DepositPeriod
     Hydra.Node.EmbedTH
     Hydra.Node.Environment
     Hydra.Node.InputQueue
@@ -189,7 +190,6 @@ library testlib
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
-    , hydra-tx
     , hydra-tx:testlib
     , lens
     , lens-aeson

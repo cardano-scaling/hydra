@@ -64,10 +64,10 @@ import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (runHydraNode)
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey)
-import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
@@ -629,7 +629,7 @@ instance
 
 -- | Deposit period used by all nodes and the 'performDeposit'.
 testDepositPeriod :: DepositPeriod
-testDepositPeriod = DepositPeriod 100
+testDepositPeriod = 100
 
 seedWorld ::
   ( MonadAsync m

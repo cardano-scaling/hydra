@@ -79,9 +79,9 @@ import Hydra.Cluster.Scenarios (
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.Node.DepositPeriod (DepositPeriod (DepositPeriod))
 import Hydra.Options
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Tx.DepositPeriod (DepositPeriod (DepositPeriod))
 import Hydra.Tx.IsTx (txId)
 import HydraNode (
   HydraClient (..),

@@ -57,7 +57,6 @@ library
     Hydra.Tx.Crypto
     Hydra.Tx.Decrement
     Hydra.Tx.Deposit
-    Hydra.Tx.DepositPeriod
     Hydra.Tx.Fanout
     Hydra.Tx.HeadId
     Hydra.Tx.HeadParameters

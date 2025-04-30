@@ -41,10 +41,10 @@ import Hydra.Logging (
   withTracerOutputTo,
  )
 import Hydra.Network (Host)
+import Hydra.Node.DepositPeriod (DepositPeriod (DepositPeriod))
 import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (generateSigningKey)
-import Hydra.Tx.DepositPeriod (DepositPeriod (DepositPeriod))
 import HydraNode (
   HydraClient,
   HydraNodeLog,

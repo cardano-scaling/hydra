@@ -17,9 +17,9 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
  )
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
+import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), defaultDirectChainConfig)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)

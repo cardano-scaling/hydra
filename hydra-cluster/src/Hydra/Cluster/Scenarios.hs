@@ -106,11 +106,11 @@ import Hydra.Contract.Dummy (dummyRewardingScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Options (DirectChainConfig (..), startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),

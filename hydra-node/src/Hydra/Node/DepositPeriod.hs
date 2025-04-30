@@ -1,5 +1,4 @@
--- TODO: move to hydra-node possible?
-module Hydra.Tx.DepositPeriod where
+module Hydra.Node.DepositPeriod where
 
 import Hydra.Prelude
 
