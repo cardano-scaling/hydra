@@ -12,7 +12,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (LedgerEra, SystemStart (..))
 import Hydra.Ledger.Cardano (Globals, LedgerEnv, newLedgerEnv)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Tx.DepositDeadline (DepositDeadline (..))
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Test.Hydra.Tx.Fixture as Fixture
 
 -- | Default environment for the L2 ledger using the fixed L1 'pparams' with
@@ -47,6 +47,6 @@ testEnvironment =
     , signingKey = aliceSk
     , otherParties = [bob, carol]
     , contestationPeriod = cperiod
-    , depositDeadline = UnsafeDepositDeadline 20
+    , depositPeriod = DepositPeriod 20
     , participants = deriveOnChainId <$> [alice, bob, carol]
     }

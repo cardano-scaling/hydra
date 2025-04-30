@@ -151,7 +151,7 @@ healthyDatum =
 data IncrementMutation
   = -- | Move the deadline from the deposit datum back in time
     -- so that the increment upper bound is after the deadline
-    DepositMutateDepositDeadline
+    DepositMutateDepositPeriod
   | -- | Alter the head id
     DepositMutateHeadId
   | -- | Change parties in incrment output datum
@@ -171,7 +171,7 @@ data IncrementMutation
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 genIncrementMutation (tx, utxo) =
   oneof
-    [ SomeMutation (pure $ toErrorCode DepositDeadlineSurpassed) DepositMutateDepositDeadline <$> do
+    [ SomeMutation (pure $ toErrorCode DepositPeriodSurpassed) DepositMutateDepositPeriod <$> do
         let datum =
               txOutDatum $
                 flip modifyInlineDatum (fromCtxUTxOTxOut depositOut) $ \case

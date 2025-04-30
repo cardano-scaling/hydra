@@ -40,7 +40,7 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, readHost, readPort, showHost)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
-import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline), depositFromNominalDiffTime)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadId (AsType (AsHeadSeed), HeadSeed)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
@@ -383,8 +383,7 @@ data DirectChainConfig = DirectChainConfig
   , startChainFrom :: Maybe ChainPoint
   -- ^ Point at which to start following the chain.
   , contestationPeriod :: ContestationPeriod
-  , depositDeadline :: DepositDeadline
-  -- ^ Deadline to detect deposit tx on-chain.
+  , depositPeriod :: DepositPeriod
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -399,7 +398,7 @@ defaultDirectChainConfig =
     , cardanoVerificationKeys = []
     , startChainFrom = Nothing
     , contestationPeriod = defaultContestationPeriod
-    , depositDeadline = defaultDepositDeadline
+    , depositPeriod = defaultDepositPeriod
     }
 
 instance Arbitrary ChainConfig where
@@ -417,7 +416,7 @@ instance Arbitrary ChainConfig where
       cardanoVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
       contestationPeriod <- arbitrary `suchThat` (> UnsafeContestationPeriod 0)
-      depositDeadline <- arbitrary `suchThat` (> UnsafeDepositDeadline 0)
+      depositPeriod <- arbitrary `suchThat` (> DepositPeriod 0)
       pure
         DirectChainConfig
           { networkId
@@ -427,7 +426,7 @@ instance Arbitrary ChainConfig where
           , cardanoVerificationKeys
           , startChainFrom
           , contestationPeriod
-          , depositDeadline
+          , depositPeriod
           }
 
     genOfflineChainConfig = do
@@ -489,7 +488,7 @@ directChainConfigParser =
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
     <*> contestationPeriodParser
-    <*> depositDeadlineParser
+    <*> depositPeriodParser
 
 blockfrostProjectPathParser :: Parser FilePath
 blockfrostProjectPathParser =
@@ -812,9 +811,6 @@ hydraNodeVersion =
 defaultContestationPeriod :: ContestationPeriod
 defaultContestationPeriod = UnsafeContestationPeriod 600
 
-defaultDepositDeadline :: DepositDeadline
-defaultDepositDeadline = UnsafeDepositDeadline 3600
-
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
   option
@@ -834,16 +830,19 @@ contestationPeriodParser =
 
   parseViaDiffTime = auto >>= fromNominalDiffTime
 
-depositDeadlineParser :: Parser DepositDeadline
-depositDeadlineParser =
+defaultDepositPeriod :: DepositPeriod
+defaultDepositPeriod = DepositPeriod 3600
+
+depositPeriodParser :: Parser DepositPeriod
+depositPeriodParser =
   option
-    (parseNatural <|> parseViaDiffTime)
+    (DepositPeriod <$> auto)
     -- FIXME: Make this deposit-period
-    ( long "deposit-deadline"
+    ( long "deposit-period"
         <> metavar "SECONDS"
-        <> value defaultDepositDeadline
+        <> value defaultDepositPeriod
         <> showDefault
-        <> completer (listCompleter ["60", "180", "300"])
+        <> completer (listCompleter ["3600", "7200", "86400"])
         <> help
           -- TODO: explain here and in docs how to use the command line option
           -- (deadline is 2x period out from now, deadline must be 1x further out
@@ -851,10 +850,6 @@ depositDeadlineParser =
           -- deposit's actual deadline for recover.
           "Deadline for detecting the the deposit transaction on-chain expressed in seconds."
     )
- where
-  parseNatural = UnsafeDepositDeadline <$> auto
-
-  parseViaDiffTime = auto >>= depositFromNominalDiffTime
 
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded
@@ -963,14 +958,14 @@ toArgs
           , cardanoVerificationKeys
           , startChainFrom
           , contestationPeriod
-          , depositDeadline
+          , depositPeriod
           } ->
           toArgNetworkId networkId
             <> toArgNodeSocket nodeSocket
             <> ["--hydra-scripts-tx-id", intercalate "," $ toString . serialiseToRawBytesHexText <$> hydraScriptsTxId]
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
-            <> ["--deposit-deadline", show depositDeadline]
+            <> ["--deposit-period", show depositPeriod]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
 

@@ -57,7 +57,7 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
@@ -81,7 +81,7 @@ spec =
             , signingKey = bobSk
             , otherParties = [alice, carol]
             , contestationPeriod = defaultContestationPeriod
-            , depositDeadline = defaultDepositDeadline
+            , depositPeriod = defaultDepositPeriod
             , participants = deriveOnChainId <$> threeParties
             }
         aliceEnv =
@@ -90,7 +90,7 @@ spec =
             , signingKey = aliceSk
             , otherParties = [bob, carol]
             , contestationPeriod = defaultContestationPeriod
-            , depositDeadline = defaultDepositDeadline
+            , depositPeriod = defaultDepositPeriod
             , participants = deriveOnChainId <$> threeParties
             }
 

@@ -83,7 +83,7 @@
                     "c/b.vk"
                 ],
                 "contestationPeriod": 31536000,
-                "depositDeadline": 100,
+                "depositPeriod": 100,
                 "hydraScriptsTxId": [
                     "0b4f405710b5bec99644dd0abcec871ba079e6958a725b94e5a2cabeaef1ed9b",
                     "5e5d8043122e339f4f3f85942dfd69baa5fb3614b3d011a361ea9158273bc1cc",
