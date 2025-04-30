@@ -1357,8 +1357,12 @@ update env ledger st ev = case (st, ev) of
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, deadline}
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{}, ChainInput Tick{chainTime}) ->
-    onOpenChainTick env openState chainTime
+  (Open openState@OpenState{}, ChainInput Tick{chainTime, chainSlot}) ->
+    -- XXX: We originally forgot the normal TickObserved state event here and so
+    -- time did not advance in an open head anymore. This is a hint that we
+    -- should compose event handling better.
+    newState TickObserved{chainSlot}
+      <> onOpenChainTick env openState chainTime
   (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
     | ourHeadId == headId ->
         newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
@@ -1381,9 +1385,10 @@ update env ledger st ev = case (st, ev) of
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime})
+  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState HeadIsReadyToFanout{headId}
+        newState TickObserved{chainSlot}
+          <> newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId, fanoutUTxO}, newChainState})
