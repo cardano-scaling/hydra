@@ -34,7 +34,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Data.Foldable qualified as Foldable
-import Data.List (nub)
+import Data.List (nub, (\\))
 import Data.List qualified as List
 import Data.Map ((!))
 import Data.Map qualified as Map
@@ -347,7 +347,10 @@ instance StateModel WorldState where
             committedUTxO = mconcat $ Map.elems commits
           _ -> Final mempty
       Deposit{utxoToDeposit} ->
-        s{hydraState = updateWithIncrementalCommit hydraState}
+        s
+          { hydraState = updateWithIncrementalCommit hydraState
+          , availableUTxO = availableUTxO \\ utxoToDeposit
+          }
        where
         updateWithIncrementalCommit = \case
           hs@Open{offChainState = OffChainState{confirmedUTxO}} ->
