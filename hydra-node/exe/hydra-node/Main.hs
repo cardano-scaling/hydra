@@ -37,8 +37,8 @@ main = do
       DirectBackend{networkId, nodeSocket} ->
         publishHydraScripts networkId nodeSocket sk
       BlockfrostBackend{projectPath} -> do
-       prj <- Blockfrost.projectFromFile projectPath
-       Blockfrost.runBlockfrostM prj $ Blockfrost.publishHydraScripts sk
+        prj <- Blockfrost.projectFromFile projectPath
+        Blockfrost.runBlockfrostM prj $ Blockfrost.publishHydraScripts sk
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Handle SIGTERM like SIGINT
