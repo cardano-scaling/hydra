@@ -942,21 +942,21 @@ onOpenChainTick env st chainTime =
             noop
  where
   updateDeposits cont =
-    -- NOTE: Expire before activate
-    let (newExpired, unchanged) = Map.partition becomesExpired pendingDeposits
-        (newActive, _) = Map.partition becomesActive unchanged
-     in cont
-          (newActive <&> \d -> d{status = Active})
-          (newExpired <&> \d -> d{status = Expired})
+    uncurry cont $ Map.foldlWithKey updateDeposit (mempty, mempty) pendingDeposits
 
-  becomesActive Deposit{status, deadline} =
+  updateDeposit (newActive, newExpired) depositTxId deposit@Deposit{status} =
+    let newStatus = determineStatus deposit
+        d' = deposit{status = newStatus}
+     in case newStatus of
+          Active | status /= Active -> (Map.insert depositTxId d' newActive, newExpired)
+          Expired | status /= Expired -> (newActive, Map.insert depositTxId d' newExpired)
+          _ -> (newActive, newExpired)
+
+  determineStatus Deposit{deadline}
+    | chainTime > deadline `minusTime` toNominalDiffTime contestationPeriod = Expired
     -- TODO: should check for minimum age
     -- https://github.com/cardano-scaling/hydra/issues/1951#issuecomment-2809966834
-    status /= Active && deadline > chainTime
-
-  becomesExpired Deposit{status, deadline} =
-    status /= Expired
-      && chainTime > deadline `minusTime` toNominalDiffTime contestationPeriod
+    | otherwise = Active
 
   minusTime time dt = addUTCTime (-dt) time
 
@@ -1613,7 +1613,7 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { pendingDeposits = Map.singleton depositTxId deposit <> pendingDeposits
+                  { pendingDeposits = Map.insert depositTxId deposit pendingDeposits
                   }
             }
        where
@@ -1626,7 +1626,7 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { pendingDeposits = Map.singleton depositTxId deposit <> pendingDeposits
+                  { pendingDeposits = Map.insert depositTxId deposit pendingDeposits
                   }
             }
        where
