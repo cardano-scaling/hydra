@@ -103,7 +103,7 @@ mkTinyWallet tracer config = do
           point <- case queryPoint of
             QueryAt point -> pure point
             QueryTip -> queryTip
-          utxo <- queryUTxO [address]
+          utxo <- queryUTxO networkId [address]
           let walletUTxO = Ledger.unUTxO $ toLedgerUTxO utxo
           let systemStart = SystemStart $ posixSecondsToUTCTime _genesisSystemStart
           pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}

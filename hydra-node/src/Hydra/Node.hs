@@ -511,7 +511,13 @@ instance BackendOps ChainBackend where
         liftIO $ CardanoClient.queryUTxO networkId nodeSocket CardanoClient.QueryTip addresses
       BlockfrostBackend{projectPath} -> do
         prj <- liftIO $ Blockfrost.projectFromFile projectPath
-        Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO addresses
+        Blockfrost.Genesis
+          { _genesisNetworkMagic
+          , _genesisSystemStart
+          } <-
+          Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+        let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+        Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO networkId addresses
   queryEraHistory backend queryPoint =
     case backend of
       DirectBackend{networkId, nodeSocket} ->

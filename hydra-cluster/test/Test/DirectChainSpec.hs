@@ -11,17 +11,17 @@ import Cardano.Ledger.Api (bodyTxL, reqSignerHashesTxBodyL)
 import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
-  awaitTransactionId,
   buildAddress,
   queryTip,
   queryUTxO,
   submitTx,
   waitForUTxO,
  )
-import CardanoNode (NodeLog, withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
+import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Lens ((<>~))
+import Data.List qualified as List
 import Data.List.Split (splitWhen)
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
@@ -68,7 +68,6 @@ import Hydra.Cluster.Faucet (
  )
 import Hydra.Cluster.Fixture (
   Actor (Alice, Bob, Carol, Faucet),
-  KnownNetwork (Preview),
   alice,
   aliceSk,
   bob,
@@ -80,7 +79,6 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (
   CardanoChainConfig (..),
-  ChainBackend (..),
   ChainConfig (..),
   toArgNetworkId,
  )
@@ -383,28 +381,35 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      (_, sk) <- keysFor Faucet
+      (vk, sk) <- keysFor Faucet
       let projectPath = "./../blockfrost-project.txt"
       prj <- Blockfrost.projectFromFile projectPath
       Blockfrost.runBlockfrostM prj $ do
+        (aliceCardanoVk, _) <- liftIO $ keysFor Alice
         -- publish scripts using Blockfrost
         hydraScriptsTxId <- Blockfrost.publishHydraScripts sk
-        print hydraScriptsTxId
+
+        Blockfrost.Genesis
+          { _genesisNetworkMagic
+          , _genesisSystemStart
+          } <-
+          Blockfrost.queryGenesisParameters
+
+        let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+        let faucetAddress = buildAddress vk networkId
+        -- wait to see the last txid propagated on the blockfrost network
+        void $ Blockfrost.awaitUTxO networkId [faucetAddress] (List.last hydraScriptsTxId)
 
         -- Alice setup
         aliceChainConfig <- liftIO $ chainConfigFor' Alice tmp (Left projectPath) hydraScriptsTxId [] cperiod ddeadline
 
-        (aliceCardanoVk, _) <- liftIO $ keysFor Alice
-
-        print "SEEDING"
-        void $ seedFromFaucetBlockfrost aliceCardanoVk 100_000_000
+        _ <- seedFromFaucetBlockfrost aliceCardanoVk 100_000_000
         someUTxO <- seedFromFaucetBlockfrost aliceCardanoVk 2_000_000
-        someUTxOToCommit <- seedFromFaucetBlockfrost aliceCardanoVk 2_000_000
-        print "AFTER SEEDING"
+        someUTxOToCommit <- seedFromFaucetBlockfrost aliceCardanoVk 3_000_000
 
         liftIO $
           withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-            \aliceChain@DirectChainTest{postTx} -> traceShow "INSIDE" $ do
+            \aliceChain@DirectChainTest{postTx} -> do
               -- Scenario
               (_, aliceExternalSk) <- generate genKeyPair
               participants <- loadParticipants [Alice]
