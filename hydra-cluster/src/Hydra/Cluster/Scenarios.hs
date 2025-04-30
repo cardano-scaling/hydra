@@ -108,8 +108,9 @@ import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
-import Hydra.Tx.DepositDeadline (DepositDeadline (..))
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.Tx.ContestationPeriod qualified as CP
+import Hydra.Tx.DepositDeadline (DepositDeadline (..), depositFromNominalDiffTime, depositToNominalDiffTime)
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
@@ -453,7 +454,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
       refuelIfNeeded tracer node Alice 55_000_000
       -- Start hydra-node on chain tip
       tip <- queryTip networkId nodeSocket
-      contestationPeriod <- fromNominalDiffTime $ 10 * blockTime
+      contestationPeriod <- CP.fromNominalDiffTime $ 10 * blockTime
       let depositDeadline = UnsafeDepositDeadline 200
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
@@ -1273,10 +1274,9 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
     (`finally` returnFundsToFaucet tracer node Bob) $ do
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
-      -- NOTE: this value is also used to determine the deposit deadline
-      let deadline = 5
-      let contestationPeriod = UnsafeContestationPeriod deadline
-      let depositDeadline = UnsafeDepositDeadline 5
+      -- NOTE: Directly expire deposits
+      contestationPeriod <- CP.fromNominalDiffTime 1
+      depositDeadline <- depositFromNominalDiffTime 1
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline
           <&> setNetworkId networkId
@@ -1306,33 +1306,31 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
         (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` lovelaceToValue commitAmount
 
-        resp <-
+        depositTransaction <-
           parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
             <&> setRequestBodyJSON commitUTxO
               >>= httpJSON
-
-        let depositTransaction = getResponseBody resp :: Tx
+            <&> getResponseBody
 
         let tx = signTx walletSk depositTransaction
-
         submitTx node tx
 
-        waitForAllMatch 10 [n1] $ \v -> do
+        deadline <- waitForAllMatch 10 [n1] $ \v -> do
           guard $ v ^? key "tag" == Just "CommitRecorded"
+          v ^? key "deadline" >>= parseMaybe parseJSON
 
         (selectLovelace . balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` 0
 
         let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
         -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
-        -- NOTE: for some reason threadDelay on MacOS behaves differently than on Linux so we need + 1 here
-        threadDelay $ fromIntegral (deadline * 2 + 1)
+        diff <- realToFrac . diffUTCTime deadline <$> getCurrentTime
+        threadDelay $ diff + 1
 
-        recoverResp <-
+        (`shouldReturn` "OK") $
           parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
             >>= httpJSON
-
-        (getResponseBody recoverResp :: String) `shouldBe` "OK"
+            <&> getResponseBody @String
 
         waitForAllMatch 20 [n1] $ \v -> do
           guard $ v ^? key "tag" == Just "CommitRecovered"
@@ -1370,9 +1368,9 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
     (`finally` returnFundsToFaucet tracer node Bob) $ do
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
-      let deadline = 1
-      let contestationPeriod = UnsafeContestationPeriod deadline
-      let depositDeadline = UnsafeDepositDeadline 1
+      -- NOTE: Directly expire deposits
+      contestationPeriod <- CP.fromNominalDiffTime 1
+      depositDeadline <- depositFromNominalDiffTime 1
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline
           <&> setNetworkId networkId
@@ -1400,50 +1398,49 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
         commitUTxO2 <- seedFromFaucet node walletVk 4_000_000 (contramap FromFaucet tracer)
         commitUTxO3 <- seedFromFaucet node walletVk 3_000_000 (contramap FromFaucet tracer)
 
-        deposited <- flip execStateT [] $ forM [commitUTxO, commitUTxO2, commitUTxO3] $ \utxo -> do
-          resp <-
+        deposited <- forM [commitUTxO, commitUTxO2, commitUTxO3] $ \utxo -> do
+          depositTransaction <-
             parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
               <&> setRequestBodyJSON utxo
                 >>= httpJSON
-
-          let depositTransaction = getResponseBody resp :: Tx
+              <&> getResponseBody
 
           let tx = signTx walletSk depositTransaction
+          let depositTxId = getTxId (getTxBody tx)
 
           liftIO $ submitTx node tx
 
           liftIO $ waitForAllMatch 10 [n1] $ \v ->
             guard $ v ^? key "tag" == Just "CommitRecorded"
 
-          pendingDepositReq <-
+          pendingDeposits <-
             parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/commits")
               >>= httpJSON
+              <&> getResponseBody
 
-          let expectedResponse = getTxId (getTxBody tx)
-          _ <- modify (expectedResponse :)
-          expected <- get
-          let expectedResp = getResponseBody pendingDepositReq :: [TxId]
-          liftIO $ expectedResp `shouldBe` expected
+          liftIO $ pendingDeposits `shouldContain` [depositTxId]
+          pure depositTxId
 
         forM_ deposited $ \deposit -> do
           let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
+          -- XXX: should know the deadline from the query above
           -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
-          threadDelay $ fromIntegral (deadline * 2)
-          recoverResp <-
+          threadDelay $ realToFrac (depositToNominalDiffTime depositDeadline * 2)
+
+          (`shouldReturn` "OK") $
             parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
               >>= httpJSON
-
-          (getResponseBody recoverResp :: String) `shouldBe` "OK"
+              <&> getResponseBody @String
 
           waitForAllMatch 10 [n1] $ \v -> do
             guard $ v ^? key "tag" == Just "CommitRecovered"
 
-        pendingDepositReq <-
+        pendingDeposits :: [TxId] <-
           parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/commits")
             >>= httpJSON
+            <&> getResponseBody
 
-        let expectedResp = getResponseBody pendingDepositReq :: [TxId]
-        expectedResp `shouldBe` []
+        pendingDeposits `shouldBe` []
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
