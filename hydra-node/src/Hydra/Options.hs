@@ -850,18 +850,14 @@ depositPeriodParser :: Parser DepositPeriod
 depositPeriodParser =
   option
     (DepositPeriod <$> auto)
-    -- FIXME: Make this deposit-period
     ( long "deposit-period"
         <> metavar "SECONDS"
         <> value defaultDepositPeriod
         <> showDefault
-        <> completer (listCompleter ["3600", "7200", "86400"])
+        <> completer (listCompleter ["3600", "7200", "43200"])
         <> help
-          -- TODO: explain here and in docs how to use the command line option
-          -- (deadline is 2x period out from now, deadline must be 1x further out
-          -- to pick up a deposit, etc.) and to not rely on this but inspect a
-          -- deposit's actual deadline for recover.
-          "Deadline for detecting the the deposit transaction on-chain expressed in seconds."
+          "Minimum time before deadline to consider deposits. 2 x deposit-period \
+          \is used to set the deadline on any drafted deposit transactions."
     )
 
 data InvalidOptions
