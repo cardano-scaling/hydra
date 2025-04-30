@@ -66,7 +66,7 @@ spec = do
             , confirmedSnapshot = InitialSnapshot testHeadId u0
             , seenSnapshot = NoSeenSnapshot
             , pendingDeposits = mempty
-            , currentDepositUTxO = Nothing
+            , currentDepositTxId = Nothing
             , decommitTx = Nothing
             , version = 0
             }
@@ -210,7 +210,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
         , confirmedSnapshot = sn
         , seenSnapshot
         , pendingDeposits = mempty
-        , currentDepositUTxO = Nothing
+        , currentDepositTxId = Nothing
         , decommitTx = Nothing
         , version
         }

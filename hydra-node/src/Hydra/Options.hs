@@ -851,12 +851,17 @@ depositDeadlineParser :: Parser DepositDeadline
 depositDeadlineParser =
   option
     (parseNatural <|> parseViaDiffTime)
+    -- FIXME: Make this deposit-period
     ( long "deposit-deadline"
         <> metavar "SECONDS"
         <> value defaultDepositDeadline
         <> showDefault
         <> completer (listCompleter ["60", "180", "300"])
         <> help
+          -- TODO: explain here and in docs how to use the command line option
+          -- (deadline is 2x period out from now, deadline must be 1x further out
+          -- to pick up a deposit, etc.) and to not rely on this but inspect a
+          -- deposit's actual deadline for recover.
           "Deadline for detecting the the deposit transaction on-chain expressed in seconds."
     )
  where

@@ -90,6 +90,7 @@ data StateChanged tx
       , requestedTxIds :: [TxIdType tx]
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
+      , newCurrentDepositTxId :: Maybe (TxIdType tx)
       }
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
@@ -160,7 +161,7 @@ genStateChanged env =
     , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
-    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
     , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary

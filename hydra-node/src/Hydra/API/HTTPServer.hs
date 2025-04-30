@@ -244,7 +244,7 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
   deposit headId commitBlueprint = do
-    deadline <- addUTCTime (depositToNominalDiffTime depositDeadline) <$> getCurrentTime
+    deadline <- addUTCTime (2 * depositToNominalDiffTime depositDeadline) <$> getCurrentTime
     draftDepositTx headId commitBlueprint deadline <&> \case
       Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx

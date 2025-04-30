@@ -105,7 +105,7 @@ spec =
               , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
               , pendingDeposits = mempty
-              , currentDepositUTxO = Nothing
+              , currentDepositTxId = Nothing
               , decommitTx = Nothing
               , version = 0
               }
@@ -269,7 +269,7 @@ spec =
 
           let s1 = update aliceEnv ledger s0 reqDecEvent
 
-          let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', incrementUTxO = Nothing}
+          let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', depositTxId = Nothing}
           s1 `hasEffect` NetworkEffect reqSn
 
       describe "Tracks Transaction Ids" $ do
@@ -891,7 +891,7 @@ spec =
                         , confirmedSnapshot = InitialSnapshot testHeadId $ uncurry UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
                         , pendingDeposits = mempty
-                        , currentDepositUTxO = Nothing
+                        , currentDepositTxId = Nothing
                         , decommitTx = Nothing
                         , version = 0
                         }
@@ -929,7 +929,7 @@ spec =
                       , confirmedSnapshot = InitialSnapshot testHeadId mempty
                       , seenSnapshot = NoSeenSnapshot
                       , pendingDeposits = mempty
-                      , currentDepositUTxO = Nothing
+                      , currentDepositTxId = Nothing
                       , decommitTx = Nothing
                       , version = 0
                       }
@@ -1086,7 +1086,7 @@ inOpenState parties =
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
       , pendingDeposits = mempty
-      , currentDepositUTxO = Nothing
+      , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
       }

@@ -19,7 +19,8 @@ data Environment = Environment
   , -- XXX: Improve naming
     participants :: [OnChainId]
   , contestationPeriod :: ContestationPeriod
-  , depositDeadline :: DepositDeadline
+  , -- FIXME: Make this a depositPeriod
+    depositDeadline :: DepositDeadline
   }
   deriving stock (Show, Eq)
 

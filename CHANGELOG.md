@@ -27,6 +27,7 @@ changes.
     future. To make sure a deposit is picked up ensure that `--deposit-deadline`
     is longer than `--contestation-period`.
   - **BREAKING** This required a change to the persisted events of `hydra-node`.
+  - **BREAKING** Change to the `ReqSn` message in the Hydra network protocol
   - Added `DepositExpired` for when a deposit was deemed expired.
 
 ## [0.21.0] - 2025-04-28

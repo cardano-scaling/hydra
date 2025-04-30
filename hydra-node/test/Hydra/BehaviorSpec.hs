@@ -46,11 +46,11 @@ import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), conne
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createMockSourceSink)
-import Hydra.Options (defaultContestationPeriod)
+import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Tx (HeadId)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime, toNominalDiffTime)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
-import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
+import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline), depositFromNominalDiffTime, depositToNominalDiffTime)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
@@ -390,7 +390,21 @@ spec = parallel $ do
 
       describe "Incremental commit" $ do
         it "deposits with empty utxo are ignored" $
-          pendingWith "TODO"
+          ioProperty $
+            shouldRunInSim $
+              withSimulatedChainAndNetwork $ \chain ->
+                withHydraNode aliceSk [] chain $ \n1 -> do
+                  openHead chain n1
+                  deadline <- newDeadlineFarEnoughFromNow
+                  txid <- simulateDeposit chain testHeadId mempty deadline
+                  -- NOTE: Deposit is not picked up and eventually expires
+                  asExpected <- waitUntilMatch [n1] $ \case
+                    DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
+                    CommitApproved{} -> Just False
+                    _ -> Nothing
+                  pure $
+                    asExpected
+                      & counterexample "Deposit with empty utxo approved instead of expired"
 
         prop "deposits with deadline in the past are ignored" $ \seconds ->
           ioProperty $
@@ -430,19 +444,12 @@ spec = parallel $ do
                       & counterexample ("Deadline: " <> show deadlineTooEarly)
 
         it "commit snapshot only approved when deadline not too soon" $ do
-          -- FIXME: cannot simulate this attack using contestation period as
-          -- we need to agree on a consistent CP because of the
-          -- HeadParameters. While this looks good here, it does not prevent
-          -- adversaries to still request snaphshots before that period. So
-          -- a --deposit-period is (1) more configurable and (2) we can use
-          -- it to test this scenario here.
-          pendingWith "need --deposit-period"
           shouldRunInSim $
             withSimulatedChainAndNetwork $ \chain -> do
-              cpShort <- fromNominalDiffTime 60
-              cpLong <- fromNominalDiffTime 3600
-              withHydraNode' cpShort aliceSk [bob] chain $ \n1 ->
-                withHydraNode' cpLong bobSk [alice] chain $ \n2 -> do
+              dpShort <- depositFromNominalDiffTime 60
+              dpLong <- depositFromNominalDiffTime 3600
+              withHydraNode' dpShort aliceSk [bob] chain $ \n1 ->
+                withHydraNode' dpLong bobSk [alice] chain $ \n2 -> do
                   openHead2 chain n1 n2
                   -- NOTE: We use a deadline that is okay for alice, but too soon for bob.
                   deadline <- addUTCTime 600 <$> getCurrentTime
@@ -482,7 +489,7 @@ spec = parallel $ do
                   let depositUTxO = utxoRefs [11]
                   deadline <- newDeadlineFarEnoughFromNow
                   depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
+                  waitUntil [n1, n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
 
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -1191,7 +1198,7 @@ testDepositDeadline = UnsafeDepositDeadline 10
 
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 newDeadlineFarEnoughFromNow =
-  addUTCTime (2 * toNominalDiffTime defaultContestationPeriod) <$> getCurrentTime
+  addUTCTime (2 * depositToNominalDiffTime defaultDepositDeadline) <$> getCurrentTime
 
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>
@@ -1209,21 +1216,33 @@ withHydraNode ::
   (TestHydraClient SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
 withHydraNode signingKey otherParties chain action = do
-  withHydraNode' defaultContestationPeriod signingKey otherParties chain action
+  withHydraNode' defaultDepositDeadline signingKey otherParties chain action
 
 withHydraNode' ::
-  ContestationPeriod ->
+  DepositDeadline ->
   SigningKey HydraKey ->
   [Party] ->
   SimulatedChainNetwork SimpleTx (IOSim s) ->
   (TestHydraClient SimpleTx (IOSim s) -> IOSim s b) ->
   IOSim s b
-withHydraNode' cp signingKey otherParties chain action = do
+withHydraNode' dp signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   messages <- atomically newTQueue
   outputHistory <- newTVarIO mempty
   let initialChainState = SimpleChainState{slot = ChainSlot 0}
-  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs messages outputHistory chain cp testDepositDeadline
+  node <-
+    createHydraNode
+      traceInIOSim
+      simpleLedger
+      initialChainState
+      signingKey
+      otherParties
+      outputs
+      messages
+      outputHistory
+      chain
+      defaultContestationPeriod
+      dp
   withAsync (runHydraNode node) $ \_ ->
     action (createTestHydraClient outputs messages outputHistory node)
 
