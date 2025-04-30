@@ -66,7 +66,6 @@ import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAd
 import Hydra.Node (runHydraNode)
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -112,7 +111,7 @@ data GlobalState
   | Idle
       { idleParties :: [Party]
       , cardanoKeys :: [VerificationKey PaymentKey]
-      , idleContestationPeriod :: ContestationPeriod
+      , contestationPeriod :: ContestationPeriod
       , toCommit :: Uncommitted
       }
   | Initial
@@ -153,8 +152,7 @@ instance StateModel WorldState where
   data Action WorldState a where
     Seed ::
       { seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]
-      , seedContestationPeriod :: ContestationPeriod
-      , seedDepositPeriod :: DepositPeriod
+      , contestationPeriod :: ContestationPeriod
       , toCommit :: Uncommitted
       } ->
       Action WorldState ()
@@ -216,7 +214,8 @@ instance StateModel WorldState where
         [ (1, genClose)
         , (1, genRollbackAndForward)
         ]
-          <> [(10, genNewTx) | not $ null confirmedUTxO]
+          -- XXX: if using > 0 we could run into a new tx not having utxo available situation?
+          <> [(10, genNewTx) | length confirmedUTxO > 1]
           <> [(2, genDecommit) | length confirmedUTxO > 1]
           <> [(2, genDeposit headIdVar) | not $ null availableUTxO]
 
@@ -289,24 +288,23 @@ instance StateModel WorldState where
 
   nextState s@WorldState{hydraState, availableUTxO} a result =
     case a of
-      Seed{seedKeys, seedContestationPeriod, toCommit} ->
+      Seed{seedKeys, contestationPeriod, toCommit} ->
         s{hydraParties = seedKeys, hydraState = idleState}
        where
-        idleState = Idle{idleParties, cardanoKeys, idleContestationPeriod, toCommit}
+        idleState = Idle{idleParties, cardanoKeys, contestationPeriod, toCommit}
         idleParties = map (deriveParty . fst) seedKeys
         cardanoKeys = map (getVerificationKey . signingKey . snd) seedKeys
-        idleContestationPeriod = seedContestationPeriod
       Init{} ->
         s{hydraState = mkInitialState hydraState}
        where
         mkInitialState = \case
-          Idle{idleParties, idleContestationPeriod, toCommit} ->
+          Idle{idleParties, contestationPeriod, toCommit} ->
             Initial
               { headIdVar = result
               , headParameters =
                   HeadParameters
                     { parties = idleParties
-                    , contestationPeriod = idleContestationPeriod
+                    , contestationPeriod = contestationPeriod
                     }
               , commits = mempty
               , pendingCommits = toCommit
@@ -435,10 +433,9 @@ deriving stock instance Eq (Action WorldState a)
 genSeed :: Gen (Action WorldState ())
 genSeed = do
   seedKeys <- resize maximumNumberOfParties partyKeys
-  seedContestationPeriod <- genContestationPeriod
-  seedDepositPeriod <- genDepositPeriod
+  contestationPeriod <- genContestationPeriod
   toCommit <- mconcat <$> mapM genToCommit seedKeys
-  pure $ Seed{seedKeys, seedContestationPeriod, seedDepositPeriod, toCommit}
+  pure $ Seed{seedKeys, contestationPeriod, toCommit}
 
 genToCommit :: (SigningKey HydraKey, CardanoSigningKey) -> Gen (Map Party [(CardanoSigningKey, Value)])
 genToCommit (hk, ck) = do
@@ -449,11 +446,6 @@ genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod = do
   n <- choose (1, 200)
   pure $ UnsafeContestationPeriod $ wordToNatural n
-
-genDepositPeriod :: Gen DepositPeriod
-genDepositPeriod = do
-  n <- choose (1, 200)
-  pure $ DepositPeriod $ fromInteger n
 
 genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState HeadId)
 genInit hydraParties = do
@@ -581,8 +573,8 @@ instance
 
   perform st action lookup = do
     case action of
-      Seed{seedKeys, seedContestationPeriod, seedDepositPeriod, toCommit} ->
-        seedWorld seedKeys seedContestationPeriod seedDepositPeriod toCommit
+      Seed{seedKeys, contestationPeriod, toCommit} ->
+        seedWorld seedKeys contestationPeriod toCommit
       Init party ->
         performInit party
       Commit headIdVar party utxo -> do
@@ -592,7 +584,7 @@ instance
         performAbort party
       Deposit headIdVar utxo -> do
         let headId = lookup headIdVar
-        performDeposit (hydraState st) headId utxo
+        performDeposit headId utxo
       Decommit party tx ->
         performDecommit party tx
       Close party ->
@@ -626,6 +618,10 @@ instance
 
 -- ** Performing actions
 
+-- | Deposit period used by all nodes and the 'performDeposit'.
+testDepositPeriod :: DepositPeriod
+testDepositPeriod = DepositPeriod 100
+
 seedWorld ::
   ( MonadAsync m
   , MonadTimer m
@@ -638,10 +634,9 @@ seedWorld ::
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->
-  DepositPeriod ->
   Uncommitted ->
   RunMonad m ()
-seedWorld seedKeys seedCP depositDeadline futureCommits = do
+seedWorld seedKeys seedCP futureCommits = do
   tr <- gets logger
 
   mockChain@SimulatedChainNetwork{tickThread} <-
@@ -659,7 +654,19 @@ seedWorld seedKeys seedCP depositDeadline futureCommits = do
       labelTQueueIO messages ("messages-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
       labelTVarIO outputHistory ("history-" <> shortLabel hsk)
-      node <- createHydraNode (contramap Node tr) ledger initialChainState hsk otherParties outputs messages outputHistory mockChain seedCP depositDeadline
+      node <-
+        createHydraNode
+          (contramap Node tr)
+          ledger
+          initialChainState
+          hsk
+          otherParties
+          outputs
+          messages
+          outputHistory
+          mockChain
+          seedCP
+          testDepositPeriod
       let testClient = createTestHydraClient outputs messages outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode node
       link nodeThread
@@ -694,25 +701,15 @@ performCommit headId party paymentUTxO = do
 
 performDeposit ::
   (MonadThrow m, MonadTimer m, MonadAsync m, MonadTime m) =>
-  GlobalState ->
   HeadId ->
   [(CardanoSigningKey, Value)] ->
   RunMonad m ()
-performDeposit st headId utxoToDeposit = do
+performDeposit headId utxoToDeposit = do
   nodes <- gets nodes
   SimulatedChainNetwork{simulateDeposit} <- gets chain
-  let cp = case st of
-        Open{headParameters} -> headParameters.contestationPeriod
-        _ -> error "Not in open state"
-  -- XXX: The contestation period may be smaller than the block time of the
-  -- mockChainAndNetwork! However, we want to test with small contestation
-  -- periods. Instead we should move the decision of a "deposit period" into
-  -- SeedWorld where we know the network we are on and make that same deposit
-  -- period available on the model.
-  let cp' = max 20 $ CP.toNominalDiffTime cp
   -- NOTE: We always use a deadline far enough in the future to make sure the
   -- deposit results in given utxo added.
-  deadline <- addUTCTime (3 * cp') <$> getCurrentTime
+  deadline <- addUTCTime (3 * toNominalDiffTime testDepositPeriod) <$> getCurrentTime
   lift $ do
     txid <- simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
     waitUntilMatch (elems nodes) $ \case
@@ -765,7 +762,7 @@ performNewTx party tx = do
 
   (i, o) <-
     lift (waitForUTxOToSpend mempty (from tx) (value tx) thisNode) >>= \case
-      Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
+      Left u -> failure $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
       Right ok -> pure ok
 
   let realTx =
