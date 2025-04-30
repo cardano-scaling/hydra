@@ -42,7 +42,6 @@ import Hydra.Cluster.Scenarios (
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Tx (HeadId, IsTx (..))
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
@@ -259,7 +258,7 @@ scenarioSetup tracer tmpDir action = do
 
     let firstNodeId = 1
     hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-    let contestationPeriod = UnsafeContestationPeriod 2
+    let contestationPeriod = 2
     let hydraTracer = contramap FromHydraNode tracer
     withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
       let [n1, n2, n3] = toList nodes

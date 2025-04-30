@@ -79,7 +79,6 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.IsTx (txId)
 import HydraNode (
   HydraClient (..),
@@ -303,7 +302,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               let firstNodeId = clusterIx * 3
 
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              let contestationPeriod = UnsafeContestationPeriod 2
+              let contestationPeriod = 2
               let hydraTracer = contramap FromHydraNode tracer
               withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
                 waitForNodesConnected hydraTracer 20 nodes
@@ -373,7 +372,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
-            let contestationPeriod = UnsafeContestationPeriod 10
+            let contestationPeriod = 10
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] contestationPeriod
             let nodeId = 1
@@ -410,7 +409,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             tip <- queryTip networkId nodeSocket
             let startFromTip = modifyConfig $ \x -> x{startChainFrom = Just tip}
-            let contestationPeriod = UnsafeContestationPeriod 10
+            let contestationPeriod = 10
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [Bob] contestationPeriod <&> startFromTip
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [Alice] contestationPeriod <&> startFromTip
 
@@ -510,7 +509,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
-              let contestationPeriod = UnsafeContestationPeriod 10
+              let contestationPeriod = 10
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] contestationPeriod
               bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
@@ -545,7 +544,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             let hydraTracer = contramap FromHydraNode tracer
-            let contestationPeriod = UnsafeContestationPeriod 10
+            let contestationPeriod = 10
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod
             bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod
             carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod
@@ -583,7 +582,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            let contestationPeriod = UnsafeContestationPeriod 100
+            let contestationPeriod = 100
             aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod
 
             -- XXX: Need to do something in 'action' otherwise always green?
@@ -595,7 +594,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            let contestationPeriod = UnsafeContestationPeriod 100
+            let contestationPeriod = 100
             aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod
 
             -- XXX: Need to do something in 'action' otherwise always green?
@@ -612,7 +611,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             refuelIfNeeded tracer node Alice 100_000_000
-            let contestationPeriod = UnsafeContestationPeriod 2
+            let contestationPeriod = 2
             aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod
             withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \n1 -> do
               send n1 $ input "Init" []
@@ -625,7 +624,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> [TxId] -> IO ()
 timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
-  let contestationPeriod = UnsafeContestationPeriod 2
+  let contestationPeriod = 2
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] contestationPeriod
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
@@ -695,7 +694,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
       hydraKeys = [aliceSk, bobSk, carolSk]
 
   let firstNodeId = clusterIx * 3
-  let contestationPeriod = UnsafeContestationPeriod 2
+  let contestationPeriod = 2
   let hydraTracer = contramap FromHydraNode tracer
   withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
     let [n1, n2, n3] = toList nodes

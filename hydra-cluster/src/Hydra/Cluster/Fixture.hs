@@ -27,7 +27,7 @@ bobVk = getVerificationKey bobSk
 carolVk = getVerificationKey carolSk
 
 cperiod :: ContestationPeriod
-cperiod = UnsafeContestationPeriod 10
+cperiod = 10
 
 -- NOTE: This is hard-coded and needs to correspond to the initial funds set in
 -- the genesis-shelley.json file.

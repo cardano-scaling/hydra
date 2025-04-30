@@ -75,7 +75,7 @@ import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Test.Hydra.Prelude (failure)
 import Test.Hydra.Tx.Gen (genSigningKey)
-import Test.QuickCheck (choose, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
+import Test.QuickCheck (choose, chooseEnum, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
@@ -452,9 +452,8 @@ genToCommit (hk, ck) = do
   pure $ Map.singleton (deriveParty hk) [(ck, value)]
 
 genContestationPeriod :: Gen ContestationPeriod
-genContestationPeriod = do
-  n <- choose (1, 200)
-  pure $ UnsafeContestationPeriod $ wordToNatural n
+genContestationPeriod =
+  chooseEnum (1, 200)
 
 genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState HeadId)
 genInit hydraParties = do
