@@ -911,8 +911,7 @@ newFanoutTx actor utxo pendingCommit pendingDecommit = do
       (if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit)
       deadline
  where
-  CP.UnsafeContestationPeriod contestationPeriod = Fixture.cperiod
-  deadline = SlotNo $ fromIntegral contestationPeriod * fromIntegral (length allActors)
+  deadline = SlotNo $ fromIntegral Fixture.cperiod * fromIntegral (length allActors)
 
 -- | Cardano payment keys for 'alice', 'bob', and 'carol'.
 alicePVk, bobPVk, carolPVk :: VerificationKey PaymentKey

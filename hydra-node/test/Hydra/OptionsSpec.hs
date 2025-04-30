@@ -35,7 +35,6 @@ import Hydra.Options (
   toArgs,
   validateRunOptions,
  )
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
@@ -173,29 +172,20 @@ spec = parallel $
             }
 
     it "parses --contestation-period option as a number of seconds" $ do
+      let defaultWithContestationPeriod contestationPeriod =
+            Run
+              defaultRunOptions
+                { chainConfig = Direct defaultDirectChainConfig{contestationPeriod}
+                }
       shouldNotParse ["--contestation-period", "abc"]
       shouldNotParse ["--contestation-period", "s"]
       shouldNotParse ["--contestation-period", "-1"]
       shouldNotParse ["--contestation-period", "0s"]
       shouldNotParse ["--contestation-period", "00s"]
-      ["--contestation-period", "1s"]
-        `shouldParse` Run
-          defaultRunOptions
-            { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { contestationPeriod = UnsafeContestationPeriod 1
-                    }
-            }
-      ["--contestation-period", "300s"]
-        `shouldParse` Run
-          defaultRunOptions
-            { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { contestationPeriod = UnsafeContestationPeriod 300
-                    }
-            }
+      ["--contestation-period", "1s"] `shouldParse` defaultWithContestationPeriod 1
+      shouldNotParse ["--contestation-period", "-1s"]
+      ["--contestation-period", "300s"] `shouldParse` defaultWithContestationPeriod 300
+
     it "parses --deposit-period option as a number of seconds" $ do
       let defaultWithDepositPeriod depositPeriod =
             Run

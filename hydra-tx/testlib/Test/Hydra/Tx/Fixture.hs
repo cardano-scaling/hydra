@@ -83,7 +83,7 @@ testHeadParameters =
     }
 
 cperiod :: ContestationPeriod
-cperiod = UnsafeContestationPeriod 4
+cperiod = 4
 
 -- * Cardano tx utilities
 

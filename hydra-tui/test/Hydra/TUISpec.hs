@@ -44,13 +44,13 @@ import Hydra.Network (Host (..))
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import HydraNode (HydraClient (HydraClient, hydraNodeId), HydraNodeLog, withHydraNode)
 import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
 tuiContestationPeriod :: ContestationPeriod
-tuiContestationPeriod = UnsafeContestationPeriod 10
+tuiContestationPeriod = 10
 
 spec :: Spec
 spec = do

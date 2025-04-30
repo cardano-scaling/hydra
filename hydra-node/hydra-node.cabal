@@ -275,7 +275,6 @@ test-suite tests
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.TxTraceSpec
     Hydra.Chain.Direct.WalletSpec
-    Hydra.ContestationPeriodSpec
     Hydra.CryptoSpec
     Hydra.Events.FileBasedSpec
     Hydra.HeadLogicSnapshotSpec

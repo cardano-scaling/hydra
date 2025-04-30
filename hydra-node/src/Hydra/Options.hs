@@ -39,7 +39,7 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Hydra.Tx.HeadId (HeadSeed)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
@@ -79,7 +79,7 @@ import Options.Applicative (
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
-import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
+import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
 
 data Command
   = Run RunOptions
@@ -428,8 +428,8 @@ instance Arbitrary ChainConfig where
       cardanoSigningKey <- genFilePath "sk"
       cardanoVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
-      contestationPeriod <- arbitrary `suchThat` (> UnsafeContestationPeriod 0)
-      depositPeriod <- arbitrary `suchThat` (> DepositPeriod 0)
+      contestationPeriod <- arbitrary
+      depositPeriod <- arbitrary
       pure
         DirectChainConfig
           { networkId
@@ -822,12 +822,12 @@ hydraNodeVersion =
         <|> Just unknownVersion
 
 defaultContestationPeriod :: ContestationPeriod
-defaultContestationPeriod = UnsafeContestationPeriod 600
+defaultContestationPeriod = 600
 
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
   option
-    (parseNatural <|> parseViaDiffTime)
+    (auto >>= fromNominalDiffTime)
     ( long "contestation-period"
         <> metavar "SECONDS"
         <> value defaultContestationPeriod
@@ -838,10 +838,6 @@ contestationPeriodParser =
           \ If this value is not in sync with other participants hydra-node will ignore the initial tx.\
           \ Additionally, this value needs to make sense compared to the current network we are running."
     )
- where
-  parseNatural = UnsafeContestationPeriod <$> auto
-
-  parseViaDiffTime = auto >>= fromNominalDiffTime
 
 defaultDepositPeriod :: DepositPeriod
 defaultDepositPeriod = DepositPeriod 3600
