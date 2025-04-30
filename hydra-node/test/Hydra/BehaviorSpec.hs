@@ -1194,9 +1194,6 @@ toOnChainTx now = \case
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
 
-testDepositPeriod :: DepositPeriod
-testDepositPeriod = DepositPeriod 10
-
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 newDeadlineFarEnoughFromNow =
   addUTCTime (2 * DP.toNominalDiffTime defaultDepositPeriod) <$> getCurrentTime
