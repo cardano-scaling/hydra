@@ -12,7 +12,7 @@ import Text.Show (Show (..))
 -- | A positive, non-zero number of seconds.
 newtype ContestationPeriod = UnsafeContestationPeriod Natural
   deriving stock (Eq, Ord)
-  deriving newtype (ToJSON, FromJSON)
+  deriving newtype (Num, ToJSON, FromJSON)
 
 instance Show ContestationPeriod where
   show (UnsafeContestationPeriod s) = show s <> "s"

@@ -181,17 +181,16 @@ oneOfThreeNodesStopsForAWhile tracer workDir cardanoNode hydraScriptsTxId = do
   seedFromFaucet_ cardanoNode carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
   let contestationPeriod = UnsafeContestationPeriod 1
-  let depositPeriod = DepositPeriod 10
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod depositPeriod
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod
       <&> setNetworkId networkId
 
   bobChainConfig <-
-    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod depositPeriod
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod
       <&> setNetworkId networkId
 
   carolChainConfig <-
-    chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod depositPeriod
+    chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod
       <&> setNetworkId networkId
 
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
@@ -255,13 +254,12 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
   let contestationPeriod = UnsafeContestationPeriod 1
-  let depositPeriod = DepositPeriod 200
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositPeriod
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
       <&> setNetworkId networkId
 
   bobChainConfig <-
-    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositPeriod
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
       <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
@@ -287,9 +285,8 @@ restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [Tx
 restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
   refuelIfNeeded tracer cardanoNode Alice 100_000_000
   let contestationPeriod = UnsafeContestationPeriod 2
-  let depositPeriod = DepositPeriod 200
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
       -- we delibelately do not start from a chain point here to highlight the
       -- need for persistence
       <&> modifyConfig (\config -> config{networkId, startChainFrom = Nothing})
@@ -317,14 +314,12 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
   let contestationPeriod = UnsafeContestationPeriod 2
-  let deadline = 10
-  let depositPeriod = DepositPeriod deadline
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositPeriod
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
       <&> modifyConfig (\config -> config{networkId, startChainFrom = Nothing})
 
   bobChainConfig <-
-    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositPeriod
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
       <&> modifyConfig (\config -> config{networkId, startChainFrom = Nothing})
 
   (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
@@ -397,7 +392,7 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
       pure (headId, decommitUTxO)
 
     bobChainConfigFromTip <-
-      chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositPeriod
+      chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
         <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
 
     withTempDir "blank-state" $ \tmpDir -> do
@@ -455,9 +450,8 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
       -- Start hydra-node on chain tip
       tip <- queryTip networkId nodeSocket
       contestationPeriod <- CP.fromNominalDiffTime $ 10 * blockTime
-      let depositPeriod = DepositPeriod 200
       aliceChainConfig <-
-        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
           <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
         -- Initialize & open head
@@ -512,9 +506,8 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
     -- Start hydra-node on chain tip
     tip <- queryTip networkId nodeSocket
     let contestationPeriod = UnsafeContestationPeriod 100
-    let depositPeriod = DepositPeriod 200
     aliceChainConfig <-
-      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
         <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
 
     (walletVk, walletSk) <- generate genKeyPair
@@ -553,8 +546,7 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
     $ do
       refuelIfNeeded tracer node Alice 25_000_000
       let contestationPeriod = UnsafeContestationPeriod 100
-      let depositPeriod = DepositPeriod 200
-      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
       let hydraNodeId = 1
       let hydraTracer = contramap FromHydraNode tracer
       withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -598,8 +590,7 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
     $ do
       refuelIfNeeded tracer node Alice 250_000_000
       let contestationPeriod = UnsafeContestationPeriod 1
-      let depositPeriod = DepositPeriod 1
-      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
       let hydraNodeId = 1
       let hydraTracer = contramap FromHydraNode tracer
       withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -718,8 +709,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir node hydraScriptsTxId =
       $ \utxoToCommit -> do
         -- Start hydra-node and open a head
         let contestationPeriod = UnsafeContestationPeriod 1
-        let depositPeriod = DepositPeriod 1
-        aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+        aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
         let hydraNodeId = 1
         let hydraTracer = contramap FromHydraNode tracer
         withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -787,8 +777,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 20_000_000
     let contestationPeriod = UnsafeContestationPeriod 100
-    let depositPeriod = DepositPeriod 200
-    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     (_, walletSk) <- keysFor AliceFunds
@@ -873,8 +862,7 @@ persistenceCanLoadWithEmptyCommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 20_000_000
     let contestationPeriod = UnsafeContestationPeriod 100
-    let depositPeriod = DepositPeriod 200
-    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     headId <- withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -912,8 +900,7 @@ singlePartyCommitsFromExternalTxBlueprint tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 20_000_000
     let contestationPeriod = UnsafeContestationPeriod 100
-    let depositPeriod = DepositPeriod 200
-    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     (someExternalVk, someExternalSk) <- generate genKeyPair
@@ -974,9 +961,8 @@ canCloseWithLongContestationPeriod tracer workDir node hydraScriptsTxId = do
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
   let oneWeek = UnsafeContestationPeriod (60 * 60 * 24 * 7)
-  let depositPeriod = DepositPeriod 200
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] oneWeek depositPeriod
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] oneWeek
       <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
@@ -1011,8 +997,7 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     let contestationPeriod = UnsafeContestationPeriod 100
-    let depositPeriod = DepositPeriod 200
-    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [hydraNodeId] $ \_ -> do
@@ -1104,17 +1089,16 @@ threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScripts
 -- Hydra nodes BC run and connect ABC cluster again.
 nodeCanSupportMultipleEtcdClusters :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 nodeCanSupportMultipleEtcdClusters tracer workDir RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
-  let contestationPeriod = UnsafeContestationPeriod 2
-  let depositPeriod = DepositPeriod 50
+  let contestationPeriod = 2
 
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod depositPeriod
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod
       <&> setNetworkId networkId
   bobChainConfig <-
-    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod depositPeriod
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod
       <&> setNetworkId networkId
   carolChainConfig <-
-    chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod depositPeriod
+    chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod
       <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
@@ -1125,10 +1109,10 @@ nodeCanSupportMultipleEtcdClusters tracer workDir RunningNode{networkId, nodeSoc
         waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
 
     bobChainConfig' <-
-      chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Carol] contestationPeriod depositPeriod
+      chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Carol] contestationPeriod
         <&> setNetworkId networkId
     carolChainConfig' <-
-      chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositPeriod
+      chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
         <&> setNetworkId networkId
 
     waitForNodesDisconnected hydraTracer 60 $ n1 :| []
@@ -1150,9 +1134,8 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
   (carolCardanoVk, _) <- keysFor Carol
 
   let contestationPeriod = UnsafeContestationPeriod 2
-  let depositPeriod = DepositPeriod 200
-  aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Carol] contestationPeriod depositPeriod
-  bobChainConfig <- chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositPeriod
+  aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Carol] contestationPeriod
+  bobChainConfig <- chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
 
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
@@ -1185,12 +1168,11 @@ canCommit tracer workDir node hydraScriptsTxId =
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
       let contestationPeriod = UnsafeContestationPeriod 20
-      let depositPeriod = DepositPeriod 200
       aliceChainConfig <-
-        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositPeriod
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
       bobChainConfig <-
-        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositPeriod
+        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
@@ -1275,12 +1257,11 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
       refuelIfNeeded tracer node Bob 30_000_000
       -- NOTE: Directly expire deposits
       contestationPeriod <- CP.fromNominalDiffTime 1
-      let depositPeriod = DepositPeriod 1
       aliceChainConfig <-
-        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositPeriod
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
       bobChainConfig <-
-        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositPeriod
+        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         headId <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
@@ -1369,13 +1350,15 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
       refuelIfNeeded tracer node Bob 30_000_000
       -- NOTE: Directly expire deposits
       contestationPeriod <- CP.fromNominalDiffTime 1
-      let depositPeriod = DepositPeriod 1
+      let depositPeriod = 1
       aliceChainConfig <-
-        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositPeriod
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
+            . modifyConfig (\c -> c{depositPeriod})
       bobChainConfig <-
-        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositPeriod
+        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId
+            . modifyConfig (\c -> c{depositPeriod})
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         _ <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
@@ -1453,9 +1436,8 @@ canDecommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 30_000_000
     let contestationPeriod = UnsafeContestationPeriod 1
-    let depositPeriod = DepositPeriod 200
     aliceChainConfig <-
-      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositPeriod
+      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
         <&> setNetworkId networkId
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Initialize & open head
@@ -1556,15 +1538,14 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
   seedFromFaucet_ cardanoNode carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
   let contestationPeriod = UnsafeContestationPeriod 1
-  let depositPeriod = DepositPeriod 200
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod depositPeriod
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod
       <&> setNetworkId networkId
   bobChainConfig <-
-    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod depositPeriod
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod
       <&> setNetworkId networkId
   carolChainConfig <-
-    chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod depositPeriod
+    chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod
       <&> setNetworkId networkId
 
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
@@ -1681,13 +1662,11 @@ threeNodesWithMirrorParty tracer workDir cardanoNode@RunningNode{nodeSocket, net
   seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
   let contestationPeriod = UnsafeContestationPeriod 1
-  let depositPeriod = DepositPeriod 200
-
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositPeriod
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
       <&> setNetworkId networkId
   bobChainConfig <-
-    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositPeriod
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
       <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
