@@ -46,11 +46,13 @@ import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), conne
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createMockSourceSink)
-import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
-import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline), depositFromNominalDiffTime, depositToNominalDiffTime)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
@@ -423,8 +425,7 @@ spec = parallel $ do
                       & counterexample "Deposit with deadline in the past approved instead of expired"
 
         it "deposits with deadline too soon are ignored" $ do
-          -- TODO: have a separately configurable deposit period
-          let depositPeriod = toNominalDiffTime defaultContestationPeriod
+          let depositPeriod = DP.toNominalDiffTime defaultDepositPeriod
           -- NOTE: Any deadline between now and deposit period should
           -- eventually result in an expired deposit.
           forAll (chooseEnum (0, depositPeriod)) $ \deadlineDiff ->
@@ -446,8 +447,8 @@ spec = parallel $ do
         it "commit snapshot only approved when deadline not too soon" $ do
           shouldRunInSim $
             withSimulatedChainAndNetwork $ \chain -> do
-              dpShort <- depositFromNominalDiffTime 60
-              dpLong <- depositFromNominalDiffTime 3600
+              let dpShort = DepositPeriod 60
+              let dpLong = DepositPeriod 3600
               withHydraNode' dpShort aliceSk [bob] chain $ \n1 ->
                 withHydraNode' dpLong bobSk [alice] chain $ \n2 -> do
                   openHead2 chain n1 n2
@@ -1182,23 +1183,23 @@ toOnChainTx now = \case
     OnCloseTx
       { headId = testHeadId
       , snapshotNumber = number (getSnapshot closingSnapshot)
-      , contestationDeadline = addUTCTime (toNominalDiffTime defaultContestationPeriod) now
+      , contestationDeadline = addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) now
       }
   ContestTx{headId, contestingSnapshot} ->
     OnContestTx
       { headId
       , snapshotNumber = number (getSnapshot contestingSnapshot)
-      , contestationDeadline = addUTCTime (toNominalDiffTime defaultContestationPeriod) now
+      , contestationDeadline = addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) now
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
 
-testDepositDeadline :: DepositDeadline
-testDepositDeadline = UnsafeDepositDeadline 10
+testDepositPeriod :: DepositPeriod
+testDepositPeriod = DepositPeriod 10
 
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 newDeadlineFarEnoughFromNow =
-  addUTCTime (2 * depositToNominalDiffTime defaultDepositDeadline) <$> getCurrentTime
+  addUTCTime (2 * DP.toNominalDiffTime defaultDepositPeriod) <$> getCurrentTime
 
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>
@@ -1216,10 +1217,10 @@ withHydraNode ::
   (TestHydraClient SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
 withHydraNode signingKey otherParties chain action = do
-  withHydraNode' defaultDepositDeadline signingKey otherParties chain action
+  withHydraNode' defaultDepositPeriod signingKey otherParties chain action
 
 withHydraNode' ::
-  DepositDeadline ->
+  DepositPeriod ->
   SigningKey HydraKey ->
   [Party] ->
   SimulatedChainNetwork SimpleTx (IOSim s) ->
@@ -1275,9 +1276,9 @@ createHydraNode ::
   TVar m [ServerOutput tx] ->
   SimulatedChainNetwork tx m ->
   ContestationPeriod ->
-  DepositDeadline ->
+  DepositPeriod ->
   m (HydraNode tx m)
-createHydraNode tracer ledger chainState signingKey otherParties outputs messages outputHistory chain cp depositDeadline = do
+createHydraNode tracer ledger chainState signingKey otherParties outputs messages outputHistory chain cp dp = do
   (eventSource, eventSink) <- createMockSourceSink
   let apiSink =
         EventSink
@@ -1321,7 +1322,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
       , otherParties
       , contestationPeriod = cp
       , participants
-      , depositDeadline
+      , depositPeriod = dp
       }
   party = deriveParty signingKey
 

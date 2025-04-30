@@ -65,9 +65,10 @@ import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (runHydraNode)
 import Hydra.Tx (HeadId)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
+import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (HydraKey)
-import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
@@ -153,7 +154,7 @@ instance StateModel WorldState where
     Seed ::
       { seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]
       , seedContestationPeriod :: ContestationPeriod
-      , seedDepositDeadline :: DepositDeadline
+      , seedDepositPeriod :: DepositPeriod
       , toCommit :: Uncommitted
       } ->
       Action WorldState ()
@@ -435,9 +436,9 @@ genSeed :: Gen (Action WorldState ())
 genSeed = do
   seedKeys <- resize maximumNumberOfParties partyKeys
   seedContestationPeriod <- genContestationPeriod
-  seedDepositDeadline <- genDepositDeadline
+  seedDepositPeriod <- genDepositPeriod
   toCommit <- mconcat <$> mapM genToCommit seedKeys
-  pure $ Seed{seedKeys, seedContestationPeriod, seedDepositDeadline, toCommit}
+  pure $ Seed{seedKeys, seedContestationPeriod, seedDepositPeriod, toCommit}
 
 genToCommit :: (SigningKey HydraKey, CardanoSigningKey) -> Gen (Map Party [(CardanoSigningKey, Value)])
 genToCommit (hk, ck) = do
@@ -449,10 +450,10 @@ genContestationPeriod = do
   n <- choose (1, 200)
   pure $ UnsafeContestationPeriod $ wordToNatural n
 
-genDepositDeadline :: Gen DepositDeadline
-genDepositDeadline = do
+genDepositPeriod :: Gen DepositPeriod
+genDepositPeriod = do
   n <- choose (1, 200)
-  pure $ UnsafeDepositDeadline $ wordToNatural n
+  pure $ DepositPeriod $ fromInteger n
 
 genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState HeadId)
 genInit hydraParties = do
@@ -580,8 +581,8 @@ instance
 
   perform st action lookup = do
     case action of
-      Seed{seedKeys, seedContestationPeriod, seedDepositDeadline, toCommit} ->
-        seedWorld seedKeys seedContestationPeriod seedDepositDeadline toCommit
+      Seed{seedKeys, seedContestationPeriod, seedDepositPeriod, toCommit} ->
+        seedWorld seedKeys seedContestationPeriod seedDepositPeriod toCommit
       Init party ->
         performInit party
       Commit headIdVar party utxo -> do
@@ -637,7 +638,7 @@ seedWorld ::
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->
-  DepositDeadline ->
+  DepositPeriod ->
   Uncommitted ->
   RunMonad m ()
 seedWorld seedKeys seedCP depositDeadline futureCommits = do
@@ -708,7 +709,7 @@ performDeposit st headId utxoToDeposit = do
   -- periods. Instead we should move the decision of a "deposit period" into
   -- SeedWorld where we know the network we are on and make that same deposit
   -- period available on the model.
-  let cp' = max 20 $ toNominalDiffTime cp
+  let cp' = max 20 $ CP.toNominalDiffTime cp
   -- NOTE: We always use a deadline far enough in the future to make sure the
   -- deposit results in given utxo added.
   deadline <- addUTCTime (3 * cp') <$> getCurrentTime

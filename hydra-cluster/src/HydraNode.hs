@@ -29,7 +29,7 @@ import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
-import Hydra.Tx.DepositDeadline (DepositDeadline)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
@@ -285,10 +285,11 @@ withHydraCluster ::
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   ContestationPeriod ->
-  DepositDeadline ->
+  -- TODO: needed?
+  DepositPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline action = do
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod depositPeriod action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -319,7 +320,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
                 , cardanoSigningKey
                 , cardanoVerificationKeys
                 , contestationPeriod
-                , depositDeadline
+                , depositPeriod
                 }
       withHydraNode
         tracer

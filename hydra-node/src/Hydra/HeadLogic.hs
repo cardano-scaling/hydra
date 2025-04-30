@@ -95,7 +95,7 @@ import Hydra.Tx.Crypto (
   sign,
   verifyMultiSignature,
  )
-import Hydra.Tx.DepositDeadline (depositToNominalDiffTime)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
@@ -958,7 +958,7 @@ onOpenChainTick env st chainTime =
           _ -> (newActive, newExpired)
 
   determineStatus Deposit{deadline}
-    | chainTime > deadline `minusTime` depositToNominalDiffTime depositPeriod = Expired
+    | chainTime > deadline `minusTime` toNominalDiffTime depositPeriod = Expired
     -- TODO: should check for minimum age
     -- https://github.com/cardano-scaling/hydra/issues/1951#issuecomment-2809966834
     | otherwise = Active
@@ -978,7 +978,7 @@ onOpenChainTick env st chainTime =
 
   nextSn = confirmedSn + 1
 
-  Environment{party, depositDeadline = depositPeriod} = env
+  Environment{party, depositPeriod} = env
 
   CoordinatedHeadState
     { localTxs

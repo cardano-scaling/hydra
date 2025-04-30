@@ -4,10 +4,10 @@ import Hydra.Prelude
 
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey, SigningKey)
-import Hydra.Tx.DepositDeadline (DepositDeadline)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Party (HasParty (..), Party, deriveParty)
+import Hydra.Tx.Party (HasParty (..), Party)
 
 data Environment = Environment
   { party :: Party
@@ -19,27 +19,13 @@ data Environment = Environment
   , -- XXX: Improve naming
     participants :: [OnChainId]
   , contestationPeriod :: ContestationPeriod
-  , -- FIXME: Make this a depositPeriod
-    depositDeadline :: DepositDeadline
+  , depositPeriod :: DepositPeriod
   }
-  deriving stock (Show, Eq)
+  deriving stock (Generic, Show, Eq)
 
 instance Arbitrary Environment where
-  arbitrary = do
-    signingKey <- arbitrary
-    otherParties <- arbitrary
-    participants <- arbitrary
-    contestationPeriod <- arbitrary
-    depositDeadline <- arbitrary
-    pure $
-      Environment
-        { signingKey
-        , party = deriveParty signingKey
-        , otherParties
-        , contestationPeriod
-        , participants
-        , depositDeadline
-        }
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 instance HasParty Environment where
   getParty = party
