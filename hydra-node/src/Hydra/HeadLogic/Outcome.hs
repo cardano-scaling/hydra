@@ -102,7 +102,7 @@ data StateChanged tx
       , created :: UTCTime
       , deadline :: UTCTime
       }
-  | DepositActivated {depositTxId :: TxIdType tx, deposit :: Deposit tx}
+  | DepositActivated {depositTxId :: TxIdType tx, chainTime :: UTCTime, deposit :: Deposit tx}
   | DepositExpired {depositTxId :: TxIdType tx, chainTime :: UTCTime, deposit :: Deposit tx}
   | DepositRecovered
       { chainState :: ChainStateType tx
@@ -166,8 +166,8 @@ genStateChanged env =
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-    , DepositActivated <$> arbitrary <*> arbitrary
     , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DepositActivated <$> arbitrary <*> arbitrary <*> arbitrary
     , DepositExpired <$> arbitrary <*> arbitrary <*> arbitrary
     , DepositRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitApproved <$> arbitrary <*> arbitrary

@@ -980,7 +980,7 @@ onOpenChainTick env st chainTime =
     maybe noop (cont . fst) . find p $ Map.toList deposits
 
   mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
-    pure DepositActivated{depositTxId, deposit}
+    pure DepositActivated{depositTxId, chainTime, deposit}
 
   mkDepositExpired m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
     pure DepositExpired{depositTxId, chainTime, deposit}
