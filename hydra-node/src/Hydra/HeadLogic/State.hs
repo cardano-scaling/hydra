@@ -231,6 +231,7 @@ seenSnapshotNumber = \case
 data Deposit tx = Deposit
   { headId :: HeadId
   , deposited :: UTxOType tx
+  , created :: UTCTime
   , deadline :: UTCTime
   , status :: DepositStatus
   }
@@ -245,7 +246,7 @@ instance ArbitraryIsTx tx => Arbitrary (Deposit tx) where
   arbitrary = genericArbitrary
   shrink = recursivelyShrink
 
-data DepositStatus = Unknown | Active | Expired
+data DepositStatus = Inactive | Active | Expired
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
 instance Arbitrary DepositStatus where

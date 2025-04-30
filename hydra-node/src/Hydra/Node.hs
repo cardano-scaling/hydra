@@ -40,10 +40,10 @@ import Hydra.HeadLogic (
   IdleState (..),
   Input (..),
   Outcome (..),
+  TTL,
   aggregate,
   aggregateChainStateHistory,
   aggregateState,
-  defaultTTL,
  )
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
@@ -312,9 +312,13 @@ stepHydraNode node = do
 
   HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
 
--- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
+-- | The maximum number of times to re-enqueue a 'Wait' outcome.
+defaultTTL :: TTL
+defaultTTL = 10000
+
+-- | The time to wait between re-enqueuing a 'Wait' outcome
 waitDelay :: DiffTime
-waitDelay = 0.1
+waitDelay = 1
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextInput ::

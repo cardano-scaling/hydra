@@ -99,6 +99,7 @@ data StateChanged tx
       , headId :: HeadId
       , depositTxId :: TxIdType tx
       , deposited :: UTxOType tx
+      , created :: UTCTime
       , deadline :: UTCTime
       }
   | DepositActivated {depositTxId :: TxIdType tx, deposit :: Deposit tx}
@@ -165,8 +166,8 @@ genStateChanged env =
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-    , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DepositActivated <$> arbitrary <*> arbitrary
+    , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DepositExpired <$> arbitrary <*> arbitrary <*> arbitrary
     , DepositRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitApproved <$> arbitrary <*> arbitrary
@@ -232,6 +233,7 @@ data WaitReason tx
   | WaitOnNotApplicableDecommitTx {notApplicableReason :: DecommitInvalidReason tx}
   | WaitOnUnresolvedCommit {commitUTxO :: UTxOType tx}
   | WaitOnUnresolvedDecommit {decommitTx :: tx}
+  | WaitOnDepositActivation {depositTxId :: TxIdType tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (WaitReason tx)
