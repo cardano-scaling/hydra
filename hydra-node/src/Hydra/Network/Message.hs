@@ -34,7 +34,7 @@ data Message tx
       , snapshotNumber :: SnapshotNumber
       , transactionIds :: [TxIdType tx]
       , decommitTx :: Maybe tx
-      , incrementUTxO :: Maybe (UTxOType tx)
+      , depositTxId :: Maybe (TxIdType tx)
       }
   | AckSn
       { signed :: Signature (Snapshot tx)

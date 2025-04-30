@@ -205,7 +205,7 @@ spec = parallel $ do
             sn1 = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
             inputs =
               inputsToOpenHead
-                <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, incrementUTxO = Nothing, decommitTx = Nothing}
+                <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, depositTxId = Nothing, decommitTx = Nothing}
                    , receiveMessageFrom alice $ AckSn (sign aliceSk sn1) 1
                    , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1
                    , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
@@ -227,7 +227,7 @@ spec = parallel $ do
             inputs =
               inputsToOpenHead
                 <> [ receiveMessageFrom bob AckSn{signed = sigBob, snapshotNumber = 1}
-                   , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, incrementUTxO = Nothing}
+                   , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
                    ]
         (node, getNetworkEvents) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod ddeadline inputs
@@ -262,7 +262,7 @@ spec = parallel $ do
                 inputsToOpenHead
                   <> [ receiveMessageFrom bob ReqTx{transaction = tx1}
                      , receiveMessageFrom bob ReqTx{transaction = tx2}
-                     , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, incrementUTxO = Nothing}
+                     , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, depositTxId = Nothing}
                      ]
           (node, getNetworkEvents) <-
             testHydraNode tracer bobSk [alice, carol] cperiod ddeadline inputs
