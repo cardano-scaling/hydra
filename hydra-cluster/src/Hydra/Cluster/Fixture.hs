@@ -10,7 +10,7 @@ import Hydra.Cardano.Api qualified as Api
 import Hydra.Tx (Party, deriveParty)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
-import Hydra.Tx.DepositPeriod (DepositPeriod (..))
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
 
 alice, bob, carol :: Party
 alice = deriveParty aliceSk

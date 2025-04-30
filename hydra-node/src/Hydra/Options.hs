@@ -39,8 +39,8 @@ import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, readHost, readPort, showHost)
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
-import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadId (AsType (AsHeadSeed), HeadSeed)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
