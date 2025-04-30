@@ -313,9 +313,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               let contestationPeriod = UnsafeContestationPeriod 2
-              let depositPeriod = DepositPeriod 20
               let hydraTracer = contramap FromHydraNode tracer
-              withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositPeriod $ \nodes -> do
+              withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
                 waitForNodesConnected hydraTracer 20 nodes
                 let [n1, n2, n3] = toList nodes
 
@@ -714,9 +713,8 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
 
   let firstNodeId = clusterIx * 3
   let contestationPeriod = UnsafeContestationPeriod 2
-  let depositPeriod = DepositPeriod 20
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositPeriod $ \nodes -> do
+  withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
     let [n1, n2, n3] = toList nodes
     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 

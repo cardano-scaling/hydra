@@ -1066,9 +1066,8 @@ threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScripts
       hydraKeys = [aliceSk, bobSk, carolSk]
 
   let contestationPeriod = UnsafeContestationPeriod 2
-  let depositPeriod = DepositPeriod 50
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraCluster hydraTracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositPeriod $ \clients -> do
+  withHydraCluster hydraTracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \clients -> do
     let leader = head clients
     waitForNodesConnected hydraTracer 20 clients
 
