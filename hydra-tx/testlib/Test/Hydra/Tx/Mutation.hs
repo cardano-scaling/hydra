@@ -182,7 +182,7 @@ import Test.QuickCheck.Instances ()
 -- structurally valid and having passed "level 1" checks.
 propMutation :: (Tx, UTxO) -> ((Tx, UTxO) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation, expectedErrors} ->
+  forAll (genMutation (tx, utxo)) $ \SomeMutation{label, mutation, expectedErrors} ->
     (tx, utxo)
       & applyMutation mutation
       & propTransactionFailsPhase2 expectedErrors
