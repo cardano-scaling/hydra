@@ -191,7 +191,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
             )
             initialUTxO
-            [1 .. (100 :: Integer)]
+            [1 .. (200 :: Integer)]
 
         -- Measure restart time
         t0 <- getCurrentTime
@@ -209,9 +209,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           let diff = diffUTCTime t2 t1
           pure diff
 
-        -- XXX: check for a 10% enhancement
-        let factor = 90 / 100
-        diff2 `shouldSatisfy` (< diff1 * factor)
+        unless (diff2 < diff1 * 0.9) $
+          failure $
+            "Expected to start up 10% quicker than original " <> show diff1 <> ", but it took " <> show diff2
 
     it "supports multi-party networked heads" $ \tracer -> do
       withClusterTempDir $ \tmpDir -> do
