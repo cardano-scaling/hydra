@@ -13,6 +13,7 @@ import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
   ShelleyEra,
   SystemStart (..),
+  Tx,
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
@@ -23,6 +24,8 @@ import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
+import Hydra.Events.Rotation (newRotatedEventStore)
+import Hydra.HeadLogic (aggregate)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -79,13 +82,15 @@ run opts = do
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
-        incPersistence <- createPersistenceIncremental (persistenceDir <> "/state")
         -- Hydrate with event source and sinks
-        (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incPersistence
+        (eventSource, eventSink) <-
+          newRotatedEventStore (undefined opts) (undefined $ aggregate @Tx)
+            =<< eventPairFromPersistenceIncremental
+            =<< createPersistenceIncremental (persistenceDir <> "/state")
         -- NOTE: Add any custom sink setup code here
         -- customSink <- createCustomSink
         let eventSinks =
-              [ filePersistenceSink
+              [ eventSink
               -- NOTE: Add any custom sinks here
               -- , customSink
               ]
