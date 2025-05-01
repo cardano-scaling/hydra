@@ -100,26 +100,10 @@ evaluateTx' ::
   Either EvaluationError EvaluationReport
 evaluateTx' maxUnits tx utxo = do
   let pparams' = pparams & ppMaxTxExUnitsL .~ toLedgerExUnits maxUnits
-  case result (LedgerProtocolParameters pparams') of
-    Left txValidityError -> Left $ TransactionInvalid txValidityError
-    Right report
-      -- Check overall budget when all individual scripts evaluated
-      | all isRight report -> checkBudget maxUnits report
-      | otherwise -> Right report
+  checkBudget maxUnits $ result $ LedgerProtocolParameters pparams'
  where
-  result ::
-    LedgerProtocolParameters UTxO.Era ->
-    Either
-      (TransactionValidityError UTxO.Era)
-      ( Map
-          ScriptWitnessIndex
-          ( Either
-              ScriptExecutionError
-              ExecutionUnits
-          )
-      )
   result pparams' =
-    (fmap . fmap . fmap) snd $
+    (fmap . fmap) snd $
       evaluateTransactionExecutionUnits
         cardanoEra
         systemStart

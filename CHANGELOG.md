@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## Unreleased
+
+* **BREAKING** Update scripts to plutus 1.45.0.0.
+
 ## [0.21.0] - 2025-04-28
 
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network

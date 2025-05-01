@@ -18,7 +18,7 @@ import PlutusLedgerApi.V3 (
   Redeemer (Redeemer),
   TxOutRef,
  )
-import PlutusTx (fromData, toBuiltinData, toData)
+import PlutusTx (fromData, toData)
 import PlutusTx qualified
 import Prelude qualified as Haskell
 
