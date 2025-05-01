@@ -89,6 +89,7 @@ import HydraNode (
   getSnapshotUTxO,
   input,
   output,
+  prepareHydraNode,
   requestCommitTx,
   send,
   waitFor,
@@ -97,6 +98,7 @@ import HydraNode (
   waitMatch,
   withHydraCluster,
   withHydraNode,
+  withPreparedHydraNode,
  )
 import System.Directory (removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
@@ -199,8 +201,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           pure diff
 
         -- Measure restart after rotation
+        options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] [] id
+        let options' = options{persistenceRotateAfter = Just 10}
         t1 <- getCurrentTime
-        diff2 <- withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] [] $ \_ -> do
+        diff2 <- withPreparedHydraNode (contramap FromHydraNode tracer) tmpDir 1 options' $ \_ -> do
           t2 <- getCurrentTime
           let diff = diffUTCTime t2 t1
           pure diff
