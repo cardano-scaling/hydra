@@ -398,6 +398,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
       , hydraSigningKey
       , hydraVerificationKeys
       , persistenceDir = stateDir
+      , persistenceRotateAfter = Nothing
       , chainConfig
       , ledgerConfig =
           CardanoLedgerConfig
@@ -517,6 +518,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                 , hydraSigningKey
                 , hydraVerificationKeys
                 , persistenceDir = stateDir
+                , persistenceRotateAfter = Nothing
                 , chainConfig
                 , ledgerConfig =
                     CardanoLedgerConfig

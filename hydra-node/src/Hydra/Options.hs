@@ -183,6 +183,7 @@ data RunOptions = RunOptions
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
   , persistenceDir :: FilePath
+  , persistenceRotateAfter :: Maybe Natural
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   }
@@ -209,6 +210,7 @@ instance Arbitrary RunOptions where
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
     persistenceDir <- genDirPath
+    persistenceRotateAfter <- arbitrary
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     pure $
@@ -226,6 +228,7 @@ instance Arbitrary RunOptions where
         , hydraSigningKey
         , hydraVerificationKeys
         , persistenceDir
+        , persistenceRotateAfter
         , chainConfig
         , ledgerConfig
         }
@@ -249,6 +252,7 @@ defaultRunOptions =
     , hydraSigningKey = "hydra.sk"
     , hydraVerificationKeys = []
     , persistenceDir = "./"
+    , persistenceRotateAfter = Nothing
     , chainConfig = Direct defaultDirectChainConfig
     , ledgerConfig = defaultLedgerConfig
     }
@@ -272,6 +276,7 @@ runOptionsParser =
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
     <*> persistenceDirParser
+    <*> optional persistenceRotateAfterParser
     <*> chainConfigParser
     <*> ledgerConfigParser
 
@@ -776,6 +781,16 @@ persistenceDirParser =
           \Do not edit these files manually!"
     )
 
+persistenceRotateAfterParser :: Parser Natural
+persistenceRotateAfterParser =
+  option
+    auto
+    ( long "persistence-rotate-after"
+        <> metavar "NATURAL"
+        <> help
+          "The number of Hydra events to trigger rotation (default: no rotation)"
+    )
+
 hydraNodeCommand :: ParserInfo Command
 hydraNodeCommand =
   info
@@ -901,6 +916,7 @@ toArgs
     , hydraSigningKey
     , hydraVerificationKeys
     , persistenceDir
+    , persistenceRotateAfter
     , chainConfig
     , ledgerConfig
     } =
@@ -917,6 +933,7 @@ toArgs
       <> concatMap toArgPeer peers
       <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
       <> ["--persistence-dir", persistenceDir]
+      <> maybe [] (\rotateAfter -> ["--persistence-rotate-after", show rotateAfter]) persistenceRotateAfter
       <> argsChainConfig chainConfig
       <> argsLedgerConfig
    where
