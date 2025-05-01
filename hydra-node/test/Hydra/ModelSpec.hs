@@ -118,6 +118,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (newTVarIO)
 import Control.Monad.Class.MonadTimer ()
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
+import Data.Data (cast)
 import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Set qualified as Set
@@ -144,6 +145,7 @@ import Hydra.Model.Payment qualified as Payment
 import Hydra.Tx.Party (Party (..), deriveParty)
 import System.IO.Temp (writeSystemTempFile)
 import System.IO.Unsafe (unsafePerformIO)
+import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
@@ -399,7 +401,12 @@ runRunMonadIOSimGen f = do
       case traceResult False tr of
         Right a -> property a
         Left (FailureException (SomeException ex)) ->
-          counterexample (show ex) False
+          case cast ex of
+            Just (HUnitFailure loc reason) ->
+              False
+                & counterexample (formatFailureReason reason)
+                & counterexample ("Location: " <> maybe "unknown" prettySrcLoc loc)
+            Nothing -> counterexample (show ex) False
         Left ex ->
           counterexample (show ex) False
  where
