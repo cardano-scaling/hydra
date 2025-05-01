@@ -524,6 +524,12 @@ instance Exception RunException
 -- the fence.
 type instance Realized (RunMonad m) a = a
 
+-- NOTE: Sort `[TxOut]` by the address and values. We want to make
+-- sure that the fanout outputs match what we had in the open Head
+-- exactly.
+sortTxOuts :: [TxOut ctx] -> [TxOut ctx]
+sortTxOuts = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
+
 instance
   ( MonadAsync m
   , MonadFork m
@@ -544,12 +550,7 @@ instance
     case action of
       Fanout{} ->
         case hydraState st of
-          Final{finalUTxO} -> do
-            -- NOTE: Sort `[TxOut]` by the address and values. We want to make
-            -- sure that the fanout outputs match what we had in the open Head
-            -- exactly.
-            let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
-            sorted (toTxOuts finalUTxO) === sorted (Data.Foldable.toList result)
+          Final{finalUTxO} -> sortTxOuts (toTxOuts finalUTxO) === sortTxOuts (Data.Foldable.toList result)
           _ -> pure False
       _ -> pure True
 
@@ -698,7 +699,8 @@ performDecommit party tx = do
 
   lift $ do
     waitUntilMatch (Map.elems nodes) $ \case
-      DecommitFinalized{} -> True
+      DecommitFinalized{distributedUTxO} ->
+        sortTxOuts (Data.Foldable.toList distributedUTxO) == sortTxOuts (Data.Foldable.toList $ utxoFromTx realTx)
       _ -> False
 
 performNewTx ::
