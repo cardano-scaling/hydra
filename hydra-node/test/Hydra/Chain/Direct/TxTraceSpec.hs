@@ -785,7 +785,7 @@ confirmedSnapshot modelSnapshot@ModelSnapshot{number} =
 -- | UTxO of the open head on-chain. NOTE: This uses fixtures for headId, parties, and cperiod.
 openHeadUTxO :: UTxO
 openHeadUTxO =
-  UTxO.singleton (headTxIn, openHeadTxOut)
+  UTxO.singleton headTxIn openHeadTxOut
     <> registryUTxO testScriptRegistry
  where
   headTxIn = arbitrary `generateWith` 42

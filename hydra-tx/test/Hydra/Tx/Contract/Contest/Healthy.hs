@@ -52,7 +52,7 @@ healthyContestTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyClosedHeadTxIn, healthyClosedHeadTxOut)
+    UTxO.singleton healthyClosedHeadTxIn healthyClosedHeadTxOut
       <> registryUTxO scriptRegistry
 
   tx =

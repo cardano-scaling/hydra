@@ -841,7 +841,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
     let scriptAddress = mkScriptAddress networkId dummyValidatorScript
     let datumHash = mkTxOutDatumHash ()
     (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue lovelaceAmt)
-    let scriptUTxO = UTxO.singleton (scriptIn, scriptOut)
+    let scriptUTxO = UTxO.singleton scriptIn scriptOut
 
     let scriptWitness =
           BuildTxWith $

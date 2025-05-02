@@ -893,10 +893,10 @@ spec =
                   { parameters = HeadParameters defaultContestationPeriod threeParties
                   , coordinatedHeadState =
                       CoordinatedHeadState
-                        { localUTxO = UTxO.singleton utxo
+                        { localUTxO = uncurry UTxO.singleton utxo
                         , allTxs = mempty
                         , localTxs = [expiringTransaction]
-                        , confirmedSnapshot = InitialSnapshot testHeadId $ UTxO.singleton utxo
+                        , confirmedSnapshot = InitialSnapshot testHeadId $ uncurry UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
                         , pendingDeposits = mempty
                         , decommitTx = Nothing

@@ -130,16 +130,13 @@ genUTxO = do
 -- 'genTxOut'.
 genUTxOSized :: Int -> Gen UTxO
 genUTxOSized numUTxO =
-  fold <$> vectorOf numUTxO (UTxO.singleton <$> gen)
+  fold <$> vectorOf numUTxO gen
  where
-  gen = (,) <$> arbitrary <*> genTxOut
+  gen = UTxO.singleton <$> arbitrary <*> genTxOut
 
 -- | Genereate a 'UTxO' with a single entry using given 'TxOut' generator.
 genUTxO1 :: Gen (TxOut CtxUTxO) -> Gen UTxO
-genUTxO1 gen = do
-  txIn <- arbitrary
-  txOut <- gen
-  pure $ UTxO.singleton (txIn, txOut)
+genUTxO1 gen = UTxO.singleton <$> arbitrary <*> gen
 
 -- | Generate utxos owned by the given cardano key.
 genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
@@ -152,9 +149,9 @@ genUTxOFor vk = do
 -- | Generate a fixed size UTxO with ada-only outputs.
 genUTxOAdaOnlyOfSize :: Int -> Gen UTxO
 genUTxOAdaOnlyOfSize numUTxO =
-  fold <$> vectorOf numUTxO (UTxO.singleton <$> gen)
+  fold <$> vectorOf numUTxO gen
  where
-  gen = (,) <$> arbitrary <*> (genTxOutAdaOnly =<< arbitrary)
+  gen = UTxO.singleton <$> arbitrary <*> (genTxOutAdaOnly =<< arbitrary)
 
 -- | Generate a single UTXO owned by 'vk'.
 genOneUTxOFor :: VerificationKey PaymentKey -> Gen UTxO

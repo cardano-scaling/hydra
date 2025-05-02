@@ -64,7 +64,7 @@ healthyAbortTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyHeadInput, toCtxUTxOTxOut headOutput)
+    UTxO.singleton healthyHeadInput (toCtxUTxOTxOut headOutput)
       <> UTxO (Map.fromList healthyInitials)
       <> UTxO (Map.fromList (map (\(i, o, _) -> (i, o)) healthyCommits))
       <> registryUTxO scriptRegistry

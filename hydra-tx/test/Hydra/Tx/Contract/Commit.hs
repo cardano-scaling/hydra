@@ -41,7 +41,7 @@ healthyCommitTx =
   (tx', lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut)
+    UTxO.singleton healthyInitialTxIn (toCtxUTxOTxOut healthyInitialTxOut)
       <> healthyCommittedUTxO
       <> registryUTxO scriptRegistry
 

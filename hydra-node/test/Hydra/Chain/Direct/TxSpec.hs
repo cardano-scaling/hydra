@@ -148,7 +148,7 @@ spec =
                 let blueprintBody = toLedgerTx blueprintTx ^. bodyTxL
                 let commitTxBody = toLedgerTx createdTx ^. bodyTxL
                 let spendableUTxO =
-                      UTxO.singleton (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut)
+                      UTxO.singleton healthyInitialTxIn (toCtxUTxOTxOut healthyInitialTxOut)
                         <> lookupUTxO
                         <> registryUTxO scriptRegistry
 
@@ -254,7 +254,7 @@ genBlueprintTxWithUTxO =
   addSomeReferenceInputs (utxo, txbody) = do
     txout <- genTxOutWithReferenceScript
     txin <- arbitrary
-    pure (utxo <> UTxO.singleton (txin, txout), txbody & addTxInsReference [txin])
+    pure (utxo <> UTxO.singleton txin txout, txbody & addTxInsReference [txin])
 
   addValidityRange (utxo, txbody) = do
     (start, end) <- arbitrary

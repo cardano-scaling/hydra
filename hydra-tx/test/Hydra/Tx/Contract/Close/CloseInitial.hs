@@ -80,7 +80,7 @@ healthyCloseInitialTx =
 
   lookupUTxO :: UTxO' (TxOut CtxUTxO)
   lookupUTxO =
-    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut initialDatum)
+    UTxO.singleton healthyOpenHeadTxIn (healthyOpenHeadTxOut initialDatum)
       <> registryUTxO scriptRegistry
 
   scriptRegistry = genScriptRegistry `generateWith` 42
