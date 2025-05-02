@@ -168,6 +168,7 @@ hydrate ::
   Environment ->
   Ledger tx ->
   ChainStateType tx ->
+  -- TODO! replace by EventStore
   EventSource (StateEvent tx) m ->
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
