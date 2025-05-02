@@ -90,7 +90,11 @@ spec = parallel $ do
         forAllShrink (listOf1 $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             let genSinks = elements [mockSink, failingSink]
-                failingSink = EventSink{putEvent = \_ -> failure "failing sink called"}
+                failingSink =
+                  EventSink
+                    { putEvent = \_ -> failure "failing putEvent sink called"
+                    , rotate = \_ _ -> failure "failing rotate sink called"
+                    }
             forAllBlind (listOf genSinks) $ \sinks ->
               testHydrate (mockSource someEvents) (sinks <> [failingSink])
                 `shouldThrow` \(_ :: HUnitFailure) -> True
@@ -342,7 +346,7 @@ mockChain =
     }
 
 mockSink :: Monad m => EventSink a m
-mockSink = EventSink{putEvent = const $ pure ()}
+mockSink = EventSink{putEvent = const $ pure (), rotate = const . const $ pure ()}
 
 mockSource :: Monad m => [a] -> EventSource a m
 mockSource events =
@@ -353,7 +357,9 @@ mockSource events =
 createRecordingSink :: IO (EventSink a IO, IO [a])
 createRecordingSink = do
   (putEvent, getAll) <- messageRecorder
-  pure (EventSink{putEvent}, getAll)
+  pure (EventSink{putEvent, rotate}, getAll)
+ where
+  rotate = const . const $ pure ()
 
 createMockSourceSink :: MonadLabelledSTM m => m (EventSource a m, EventSink a m)
 createMockSourceSink = do
@@ -369,7 +375,7 @@ createMockSourceSink = do
         EventSink
           { putEvent = \x ->
               atomically $ modifyTVar tvar (<> [x])
-          , rotate = \logId checkpoint ->
+          , rotate = \_ checkpoint ->
               atomically $ writeTVar tvar [checkpoint]
           }
   pure (source, sink)
@@ -452,6 +458,7 @@ recordServerOutputs node = do
               case mkTimedServerOutputFromStateEvent event of
                 Nothing -> pure ()
                 Just TimedServerOutput{output} -> record $ Left output
+          , rotate = const . const $ pure ()
           }
   pure
     ( node{eventSinks = apiSink : eventSinks node, server = Server{sendMessage = record . Right}}
