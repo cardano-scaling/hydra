@@ -6,7 +6,7 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO, writeTVar)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
@@ -371,6 +371,8 @@ createMockSourceSink = do
         EventSink
           { putEvent = \x ->
               atomically $ modifyTVar tvar (<> [x])
+          , rotate = \logId checkpoint ->
+              atomically $ writeTVar tvar [checkpoint]
           }
   pure (source, sink)
 
