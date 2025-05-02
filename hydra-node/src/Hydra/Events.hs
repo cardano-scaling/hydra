@@ -37,14 +37,14 @@ newtype EventSource e m = EventSource
 getEvents :: (HasEventId e, MonadUnliftIO m) => EventSource e m -> m [e]
 getEvents EventSource{sourceEvents} = runResourceT $ sourceToList sourceEvents
 
+type LogId = Natural
+
 data EventSink e m = EventSink
   { putEvent :: HasEventId e => e -> m ()
   -- ^ Send a single event to the event sink.
-  , rotate :: LogId -> m ()
-  -- ^ Rotate existing events into a given log id and start a new log.
+  , rotate :: LogId -> e -> m ()
+  -- ^ Rotate existing events into a given log id and start a new log from given e.
   }
-
-data LogId
 
 -- | Put a list of events to a list of event sinks in a round-robin fashion.
 putEventsToSinks :: (Monad m, HasEventId e) => [EventSink e m] -> [e] -> m ()

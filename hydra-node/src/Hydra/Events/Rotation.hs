@@ -1,7 +1,8 @@
 module Hydra.Events.Rotation where
 
-import Control.Concurrent.Class.MonadSTM (newTVarIO)
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId)
+import Conduit (MonadUnliftIO)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
+import Hydra.Events (EventSink (..), EventSource (..), HasEventId, LogId, getEvents)
 import Hydra.Prelude
 
 newtype RotationConfig = RotateAfter Natural
@@ -12,38 +13,58 @@ type EventStore e m = (EventSource e m, EventSink e m)
 type Checkpointer e = [e] -> e
 
 -- | Creates an event store that rotates according to given config and 'Checkpointer'.
--- FIXME: this is not rotating obviously
 newRotatedEventStore ::
-  (HasEventId e, MonadSTM m) =>
-  RotationConfig -> Checkpointer e -> EventStore e m -> m (EventStore e m)
-newRotatedEventStore config checkpoint eventStore = do
+  (HasEventId e, MonadSTM m, MonadUnliftIO m) =>
+  RotationConfig ->
+  Checkpointer e ->
+  LogId ->
+  EventStore e m ->
+  m (EventStore e m)
+newRotatedEventStore config checkpointer logId eventStore = do
+  logIdV <- newTVarIO logId
   -- Rules for any event store:
   -- - sourceEvents will be called in the beginning of the application and whenever the api server wans to load history
   --   -> might be called multiple times!!
   -- - putEvent will be called on application start with all events returned by sourceEvents and during processing
-  numberOfEvents <- newTVarIO 0
+  currentEvents <- getEvents eventSource
+  -- FIXME! if currentEvents >= rotateAfterX then rotate!
+  let currentNumberOfEvents = length currentEvents
+  numberOfEventsV <- newTVarIO (toInteger currentNumberOfEvents)
   pure
     ( EventSource
         { sourceEvents = rotatedSourceEvents
         }
     , EventSink
-        { putEvent = rotatedPutEvent numberOfEvents
+        { putEvent = rotatedPutEvent logIdV numberOfEventsV
         , -- NOTE: Don't allow rotation on-demand
-          rotate = const $ pure ()
+          rotate = const . const $ pure ()
         }
     )
  where
+  RotateAfter rotateAfterX = config
   -- TODO: if this turns out to be equal to sourceEvents, then the whole algorithm can just work on each 'EventSink'
-  rotatedSourceEvents = do
-    undefined sourceEvents
+  rotatedSourceEvents = sourceEvents eventSource
 
-  rotatedPutEvent numberOfEvents event = do
-    -- TODO: bump up numberOfEvents
-    undefined putEvent
-    -- TODO: sometimes rotate
-    undefined rotate
-    -- TODO: then clear numberOfEvents
-    -- TODO: write checkpoint into sink (or make rotate take a checkpoint)
-    pure ()
+  rotatedPutEvent logIdV numberOfEventsV event = do
+    putEvent event
+    -- XXX: bump numberOfEvents
+    numberOfEvents' <- atomically $ do
+      numberOfEvents <- readTVar numberOfEventsV
+      let numberOfEvents' = numberOfEvents + 1
+      writeTVar numberOfEventsV numberOfEvents'
+      pure numberOfEvents'
+    -- XXX: check rotation
+    when (numberOfEvents' >= toInteger rotateAfterX) $ do
+      -- XXX: build checkpoint event
+      history <- getEvents eventSource
+      let checkpoint = checkpointer history
+      -- XXX: rotate with checkpoint
+      currentLogId <- readTVarIO logIdV
+      let currentLogId' = currentLogId + 1
+      rotate currentLogId' checkpoint
+      -- XXX: clear numberOfEvents + bump logId
+      atomically $ do
+        writeTVar numberOfEventsV 0
+        writeTVar logIdV currentLogId'
 
-  (EventSource{sourceEvents}, EventSink{putEvent, rotate}) = eventStore
+  (eventSource, EventSink{putEvent, rotate}) = eventStore
