@@ -86,6 +86,7 @@ import Cardano.Api.Experimental as X (UnsignedTx (..))
 import Cardano.Api.Ledger as X (
   PParams,
  )
+import Cardano.Api.Orphans ()
 import Cardano.Api.Shelley as X (
   AcquiringFailure (..),
   Hash (HeaderHash),
@@ -126,8 +127,6 @@ import Hydra.Cardano.Api.BlockHeader as Extras
 import Hydra.Cardano.Api.ChainPoint as Extras
 import Hydra.Cardano.Api.ExecutionUnits as Extras
 import Hydra.Cardano.Api.Hash as Extras
-import Hydra.Cardano.Api.NetworkId ()
-import Hydra.Cardano.Api.NetworkMagic ()
 import Hydra.Cardano.Api.PolicyId as Extras
 import Hydra.Cardano.Api.ReferenceScript as Extras
 import Hydra.Cardano.Api.ScriptData as Extras

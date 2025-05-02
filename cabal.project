@@ -16,6 +16,7 @@ index-state:
   , cardano-haskell-packages 2025-04-29T20:52:57Z
 
 packages:
+  cardano-api-orphans
   hydra-prelude
   hydra-cardano-api
   hydra-test-utils
