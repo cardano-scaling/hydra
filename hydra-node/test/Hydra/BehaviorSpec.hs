@@ -1285,6 +1285,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
                 Just TimedServerOutput{output} -> atomically $ do
                   writeTQueue outputs output
                   modifyTVar' outputHistory (output :)
+          , rotate = const . const $ pure ()
           }
   -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
   let headState = Idle IdleState{chainState}
