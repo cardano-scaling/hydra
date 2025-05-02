@@ -60,7 +60,7 @@ observeRecoverTx networkId utxo tx = do
   dat <- txOutScriptData $ fromCtxUTxOTxOut depositOut
   (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat :: Maybe Deposit.DepositDatum
   deposits <- do
-    depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
+    depositedUTxO <- traverse (Commit.deserializeCommit (toShelleyNetwork networkId)) onChainDeposits
     pure $ UTxO.fromList depositedUTxO
   headId <- fmap mkHeadId . fromPlutusCurrencySymbol $ headCurrencySymbol
   let depositOuts = fromCtxUTxOTxOut . snd <$> UTxO.toList deposits

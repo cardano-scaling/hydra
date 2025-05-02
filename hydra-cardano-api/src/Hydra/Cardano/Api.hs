@@ -110,7 +110,6 @@ import Cardano.Api.UTxO (
   UTxO' (..),
  )
 import Cardano.Ledger.Coin as X (Coin (..))
-import Hydra.Cardano.Api.Network as X (networkIdToNetwork)
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
@@ -149,6 +148,7 @@ import Cardano.Api qualified
 import Cardano.Api.Shelley qualified
 import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.BaseTypes as X (Network)
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Keys qualified as Ledger
 import Data.ByteString.Short (ShortByteString)

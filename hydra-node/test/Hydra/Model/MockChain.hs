@@ -3,7 +3,7 @@
 
 module Hydra.Model.MockChain where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (Network)
 import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO qualified as UTxO

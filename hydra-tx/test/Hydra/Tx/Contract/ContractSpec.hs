@@ -19,8 +19,8 @@ import Hydra.Cardano.Api (
   serialiseToRawBytesHexText,
   toLedgerTxOut,
   toPlutusTxOut,
+  toShelleyNetwork,
  )
-import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (verifySnapshotSignature)
 import Hydra.Contract.Util qualified as OnChain
@@ -169,7 +169,7 @@ prop_serializingCommitRoundtrip :: Property
 prop_serializingCommitRoundtrip =
   forAllBlind (List.head . UTxO.toList <$> genUTxOSized 1) $ \singleUTxO ->
     let serialized = Commit.serializeCommit singleUTxO
-        deserialized = serialized >>= Commit.deserializeCommit (networkIdToNetwork testNetworkId)
+        deserialized = serialized >>= Commit.deserializeCommit (toShelleyNetwork testNetworkId)
      in case deserialized of
           Just actual -> actual === singleUTxO
           Nothing ->

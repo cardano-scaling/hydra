@@ -41,9 +41,9 @@ import Hydra.Cardano.Api (
   isScriptTxOut,
   modifyTxOutValue,
   negateValue,
-  networkIdToNetwork,
   selectAsset,
   selectLovelace,
+  toShelleyNetwork,
   txIns',
   txOutScriptData,
   txOutValue,
@@ -568,7 +568,7 @@ recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
       spendableUTxO
       ?> CannotFindDepositOutputToRecover{depositTxId = depositedTxId}
   (headId', deposited, _deadline) <-
-    observeDepositTxOut (networkIdToNetwork networkId) depositedOut
+    observeDepositTxOut (toShelleyNetwork networkId) depositedOut
       ?> CannotFindDepositedOutputToRecover{depositedTxId = depositedTxId}
   if headId /= headId'
     then Left InvalidHeadIdInRecover{headId}
