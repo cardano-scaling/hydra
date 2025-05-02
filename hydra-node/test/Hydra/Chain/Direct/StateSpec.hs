@@ -423,7 +423,7 @@ genCommitTxMutation utxo tx =
       UTxO.find (isScriptTxOut initialValidatorScript) resolvedInputs
 
   resolvedInputs =
-    UTxO.fromPairs $
+    UTxO.fromList $
       mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
 
   initialRedeemer =

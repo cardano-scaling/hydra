@@ -127,7 +127,7 @@ genCommitMutation (tx, _utxo) =
                   (party, mCommit, toPlutusCurrencySymbol otherHeadId)
         pure $ ChangeOutput 0 $ mutateHeadId commitTxOut
     , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
-        let totalValueMinusOneLovelace = negateValue (lovelaceToValue 1) <> txOutValue healthyInitialTxOut <> foldMap (txOutValue . snd) (UTxO.pairs healthyCommittedUTxO)
+        let totalValueMinusOneLovelace = negateValue (lovelaceToValue 1) <> txOutValue healthyInitialTxOut <> foldMap (txOutValue . snd) (UTxO.toList healthyCommittedUTxO)
         pure $ commitTxOut{txOutValue = totalValueMinusOneLovelace}
     , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= aCommittedOutputValue)
@@ -138,7 +138,7 @@ genCommitMutation (tx, _utxo) =
         let mutatedOutput = modifyTxOutAddress (const mutatedAddress) aCommittedTxOut
         pure $ ChangeInput aCommittedTxIn mutatedOutput Nothing
     , SomeMutation (map toErrorCode [MismatchCommittedTxOutInDatum, MissingCommittedTxOutInOutputDatum]) RecordAllCommittedUTxO <$> do
-        (removedTxIn, removedTxOut) <- elements $ UTxO.pairs healthyCommittedUTxO
+        (removedTxIn, removedTxOut) <- elements $ UTxO.toList healthyCommittedUTxO
         -- Leave out not-committed value
         let mutatedCommitTxOut = modifyTxOutValue (\v -> negateValue (txOutValue removedTxOut) <> v) commitTxOut
         pure $
@@ -173,7 +173,7 @@ genCommitMutation (tx, _utxo) =
 
   allComittedTxIn = UTxO.inputSet healthyCommittedUTxO & toList
 
-  (aCommittedTxIn, aCommittedTxOut) = List.head $ UTxO.pairs healthyCommittedUTxO
+  (aCommittedTxIn, aCommittedTxOut) = List.head $ UTxO.toList healthyCommittedUTxO
 
   aCommittedAddress = txOutAddress aCommittedTxOut
 

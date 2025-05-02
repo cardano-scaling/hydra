@@ -195,7 +195,7 @@ genIncrementMutation (tx, utxo) =
             Head.IncrementRedeemer
               { signature = invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
-              , increment = toPlutusTxOutRef $ fst $ List.head $ UTxO.pairs depositUTxO
+              , increment = toPlutusTxOutRef $ fst $ List.head $ UTxO.toList depositUTxO
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
@@ -220,4 +220,4 @@ genIncrementMutation (tx, utxo) =
     fromJust $
       find
         (\(_, TxOut address _ _ _) -> address == Deposit.depositAddress testNetworkId)
-        (UTxO.pairs (resolveInputsUTxO utxo tx))
+        (UTxO.toList (resolveInputsUTxO utxo tx))

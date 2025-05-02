@@ -182,7 +182,7 @@ genAbortMutation (tx, utxo) =
             (toPlutusCurrencySymbol $ headPolicyId testSeedInput)
             (toPlutusTxOutRef testSeedInput)
     , SomeMutation (pure $ toErrorCode BurntTokenNumberMismatch) DropCollectedInput <$> do
-        let abortableInputs = UTxO.pairs $ UTxO.filter (not . isHeadOutput) (resolveInputsUTxO utxo tx)
+        let abortableInputs = UTxO.toList $ UTxO.filter (not . isHeadOutput) (resolveInputsUTxO utxo tx)
         (toDropTxIn, toDropTxOut) <- elements abortableInputs
         pure $
           Changes

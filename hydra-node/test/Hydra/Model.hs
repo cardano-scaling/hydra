@@ -848,7 +848,7 @@ toTxOuts payments =
 -- 'TxIn' on the real cardano domain.
 toRealUTxO :: UTxOType Payment -> UTxOType Tx
 toRealUTxO paymentUTxO =
-  UTxO.fromPairs $
+  UTxO.fromList $
     [ (mkMockTxIn sk ix, mkTxOut sk val)
     | (sk, vals) <- Map.toList skMap
     , (ix, val) <- zip [0 ..] vals
@@ -918,7 +918,7 @@ waitForUTxOToSpend utxo key value node = go 100
     n -> do
       u <- headUTxO node
       if u /= mempty
-        then case find matchPayment (UTxO.pairs u) of
+        then case find matchPayment (UTxO.toList u) of
           Nothing -> go (n - 1)
           Just (txIn, txOut) -> pure $ Right (txIn, txOut)
         else go (n - 1)

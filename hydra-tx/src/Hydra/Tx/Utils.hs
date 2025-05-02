@@ -66,9 +66,9 @@ headTokensFromValue headTokenScript v =
 -- is useful to pick a UTxO to decommit.
 splitUTxO :: UTxO -> (UTxO, UTxO)
 splitUTxO utxo =
-  case UTxO.pairs utxo of
+  case UTxO.toList utxo of
     [] -> (mempty, mempty)
-    (u : us) -> (UTxO.fromPairs us, UTxO.singleton u)
+    (u : us) -> (UTxO.fromList us, UTxO.singleton u)
 
 adaOnly :: TxOut CtxUTxO -> TxOut CtxUTxO
 adaOnly = \case

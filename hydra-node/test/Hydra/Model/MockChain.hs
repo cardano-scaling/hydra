@@ -6,7 +6,7 @@ module Hydra.Model.MockChain where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
-import Cardano.Api.UTxO (fromPairs)
+import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   MonadSTM (newTVarIO, writeTVar),
@@ -122,7 +122,7 @@ mockChainAndNetwork tr seedKeys commits = do
  where
   initialUTxO = seedUTxO <> commits <> registryUTxO scriptRegistry
 
-  seedUTxO = fromPairs [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
+  seedUTxO = UTxO.fromList [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
 
   seedInput = genTxIn `generateWith` 42
 

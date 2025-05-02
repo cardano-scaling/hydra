@@ -21,7 +21,7 @@ import Data.Text qualified as Text
 -- | Get a human-readable pretty text representation of a UTxO.
 renderUTxO :: IsString str => UTxO -> str
 renderUTxO =
-  fromString . Text.unpack . Text.intercalate "\n" . fmap UTxO.render . UTxO.pairs
+  fromString . Text.unpack . Text.intercalate "\n" . fmap UTxO.render . UTxO.toList
 
 -- | Construct a UTxO from a transaction. This constructs artificial `TxIn`
 -- (a.k.a output reference) from the transaction itself, zipping them to the
@@ -38,7 +38,7 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
 -- | Resolve tx inputs in a given UTxO
 resolveInputsUTxO :: UTxO -> Tx Era -> UTxO
 resolveInputsUTxO utxo tx =
-  UTxO.fromPairs $
+  UTxO.fromList $
     mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
 
 -- * Type Conversions

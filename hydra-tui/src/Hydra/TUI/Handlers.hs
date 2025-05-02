@@ -195,7 +195,7 @@ handleHydraEventsInfo = \case
       "Decommit approved and submitted to Cardano "
         <> show decommitTxId
         <> " "
-        <> foldMap UTxO.render (UTxO.pairs utxoToDecommit)
+        <> foldMap UTxO.render (UTxO.toList utxoToDecommit)
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitFinalized{distributedUTxO}}) ->
     report Success time $
       "Decommit finalized "
@@ -212,17 +212,17 @@ handleHydraEventsInfo = \case
         <> " deposit tx id "
         <> show pendingDeposit
         <> "and pending for approval "
-        <> foldMap UTxO.render (UTxO.pairs utxoToCommit)
+        <> foldMap UTxO.render (UTxO.toList utxoToCommit)
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitApproved{utxoToCommit}}) ->
     report Success time $
       "Commit approved and submitted to Cardano "
-        <> foldMap UTxO.render (UTxO.pairs utxoToCommit)
+        <> foldMap UTxO.render (UTxO.toList utxoToCommit)
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitRecovered{recoveredTxId, recoveredUTxO}}) ->
     report Success time $
       "Commit recovered "
         <> show recoveredTxId
         <> " "
-        <> foldMap UTxO.render (UTxO.pairs recoveredUTxO)
+        <> foldMap UTxO.render (UTxO.toList recoveredUTxO)
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitFinalized{depositTxId}}) ->
     report Success time $
       "Commit finalized "

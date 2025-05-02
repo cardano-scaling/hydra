@@ -14,7 +14,6 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder
 
-import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Rules (
   FailureDescription (..),
@@ -242,8 +241,8 @@ adjustUTxO tx utxo =
       consumed = txIns' tx
       produced =
         toCtxUTxOTxOut
-          <$> fromPairs ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
-      utxo' = fromPairs $ filter (\(txin, _) -> txin `notElem` consumed) $ pairs utxo
+          <$> UTxO.fromList ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
+      utxo' = UTxO.fromList $ filter (\(txin, _) -> txin `notElem` consumed) $ UTxO.toList utxo
    in utxo' <> produced
 
 -- * Generators
