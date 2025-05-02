@@ -34,7 +34,7 @@ instance FromJSONKey Party where
    where
     partyFromHexText :: MonadFail m => Text -> m Party
     partyFromHexText t =
-      case deserialiseFromRawBytesHex (AsVerificationKey AsHydraKey) (encodeUtf8 t) of
+      case deserialiseFromRawBytesHex (encodeUtf8 t) of
         Left err -> fail $ "failed to decode Party: " <> show err
         Right vkey -> pure $ Party{vkey}
 

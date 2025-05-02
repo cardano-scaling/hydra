@@ -49,7 +49,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness), (depositIn, depositWitness)]
-      & addTxInsReference [headScriptRef]
+      & addTxInsReference [headScriptRef] mempty
       & addTxOuts [headOutput']
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityUpperBound (TxValidityUpperBound upperValiditySlot)

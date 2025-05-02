@@ -51,7 +51,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
         unsafeBuildTransaction $
           defaultTxBodyContent
             & addTxIns ((headInput, headWitness) : initialInputs <> commitInputs)
-            & addTxInsReference ([headScriptRef, initialScriptRef] <> [commitScriptRef | not $ null commitInputs])
+            & addTxInsReference ([headScriptRef, initialScriptRef] <> [commitScriptRef | not $ null commitInputs]) mempty
             & addTxOuts reimbursedOutputs
             & burnTokens headTokenScript Burn headTokens
             & addTxExtraKeyWits [verificationKeyHash vk]

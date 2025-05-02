@@ -6,8 +6,6 @@ import Hydra.Prelude
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
-  AsType (AsPaymentKey, AsSigningKey),
-  HasTypeProxy (AsType),
   Key (VerificationKey, getVerificationKey),
   NetworkId,
   PaymentKey,
@@ -45,14 +43,11 @@ keysFor actor = do
   bs <- readConfigFile ("credentials" </> actorName actor <.> "sk")
   let res =
         first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs)
-          >>= deserialiseFromTextEnvelope asSigningKey
+          >>= deserialiseFromTextEnvelope
   case res of
     Left err ->
       fail $ "cannot decode text envelope from '" <> show bs <> "', error: " <> show err
     Right sk -> pure (getVerificationKey sk, sk)
- where
-  asSigningKey :: AsType (SigningKey PaymentKey)
-  asSigningKey = AsSigningKey AsPaymentKey
 
 -- | Create and save new signing key at the provided path.
 -- NOTE: Uses 'TextEnvelope' format.

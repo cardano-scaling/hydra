@@ -22,7 +22,7 @@ data Pixel = Pixel
 
 paintPixel :: NetworkId -> FilePath -> Host -> Connection -> Pixel -> IO ()
 paintPixel networkId signingKeyPath host cnx pixel = do
-  sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) signingKeyPath
+  sk <- readFileTextEnvelopeThrow signingKeyPath
   let myAddress = mkVkAddress networkId $ getVerificationKey sk
   flushQueue
   mHeadUTxO <- requestHeadUTxO host
