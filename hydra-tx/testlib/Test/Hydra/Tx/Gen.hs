@@ -105,7 +105,7 @@ instance Arbitrary UTxO where
   arbitrary = genUTxO
 
 shrinkUTxO :: UTxO -> [UTxO]
-shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.pairs (shrinkList shrinkOne)
+shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.toList (shrinkList shrinkOne)
  where
   shrinkOne :: (TxIn, TxOut CtxUTxO) -> [(TxIn, TxOut CtxUTxO)]
   shrinkOne (i, o) = case o of
@@ -122,7 +122,7 @@ shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.pairs (shrinkList shrinkOne)
 genUTxO :: Gen UTxO
 genUTxO = do
   utxoMap <- Map.toList . Ledger.unUTxO <$> arbitrary
-  fmap UTxO.fromPairs . forM utxoMap $ \(_, o) -> do
+  fmap UTxO.fromList . forM utxoMap $ \(_, o) -> do
     i <- arbitrary
     pure (i, fromLedgerTxOut o)
 
@@ -170,7 +170,7 @@ genOneUTxOFor vk = do
 -- for backward-compatibility and obscure features.
 genUTxOWithSimplifiedAddresses :: Gen UTxO
 genUTxOWithSimplifiedAddresses =
-  UTxO.fromPairs <$> listOf genEntry
+  UTxO.fromList <$> listOf genEntry
  where
   genEntry = (,) <$> genTxIn <*> genTxOut
 

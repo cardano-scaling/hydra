@@ -167,7 +167,7 @@ spec = parallel $ do
 
 prop_serializingCommitRoundtrip :: Property
 prop_serializingCommitRoundtrip =
-  forAllBlind (List.head . UTxO.pairs <$> genUTxOSized 1) $ \singleUTxO ->
+  forAllBlind (List.head . UTxO.toList <$> genUTxOSized 1) $ \singleUTxO ->
     let serialized = Commit.serializeCommit singleUTxO
         deserialized = serialized >>= Commit.deserializeCommit (networkIdToNetwork testNetworkId)
      in case deserialized of
@@ -189,7 +189,7 @@ prop_consistentOnAndOffChainHashOfTxOuts =
               (\ix o -> transTxOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
               [0 ..]
               txOuts
-        txOuts = map snd . sortOn fst $ UTxO.pairs utxo
+        txOuts = map snd . sortOn fst $ UTxO.toList utxo
      in (hashUTxO @Tx utxo === fromBuiltin (OnChain.hashTxOuts plutusTxOuts))
           & counterexample ("Plutus: " <> show plutusTxOuts)
           & counterexample ("Ledger: " <> show txOuts)
@@ -197,7 +197,7 @@ prop_consistentOnAndOffChainHashOfTxOuts =
 prop_consistentHashPreSerializedCommits :: Property
 prop_consistentHashPreSerializedCommits =
   forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
-    let unsortedUTxOPairs = UTxO.pairs utxo
+    let unsortedUTxOPairs = UTxO.toList utxo
         toFanoutTxOuts = mapMaybe (toPlutusTxOut . snd) $ sortOn fst unsortedUTxOPairs
         serializedCommits = mapMaybe Commit.serializeCommit unsortedUTxOPairs
         hashedCommits = OnChain.hashPreSerializedCommits serializedCommits
@@ -219,7 +219,7 @@ prop_hashingCaresAboutOrderingOfTxOuts =
                 (\ix o -> transTxOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
                 [0 ..]
                 txOuts
-          txOuts = snd <$> UTxO.pairs utxo
+          txOuts = snd <$> UTxO.toList utxo
        in forAll (shuffle plutusTxOuts) $ \shuffledTxOuts ->
             (shuffledTxOuts /= plutusTxOuts) ==>
               let hashed = OnChain.hashTxOuts plutusTxOuts

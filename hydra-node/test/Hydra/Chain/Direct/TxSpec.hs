@@ -241,7 +241,7 @@ genBlueprintTxWithUTxO =
       ( utxo <> utxoToSpend
       , txbody
           & addTxIns
-            ( UTxO.pairs $
+            ( UTxO.toList $
                 ( \_ ->
                     BuildTxWith $
                       ScriptWitness ScriptWitnessForSpending $

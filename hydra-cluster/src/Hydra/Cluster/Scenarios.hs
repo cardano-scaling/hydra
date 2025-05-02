@@ -364,7 +364,7 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
       let aliceAddress = mkVkAddress networkId aliceCardanoVk
 
       decommitTx <- do
-        let (i, o) = List.head $ UTxO.pairs commitUTxO
+        let (i, o) = List.head $ UTxO.toList commitUTxO
         either (failure . show) pure $
           mkSimpleTx (i, o) (aliceAddress, txOutValue o) aliceCardanoSk
 
@@ -928,7 +928,7 @@ singlePartyCommitsFromExternalTxBlueprint tracer workDir node hydraScriptsTxId =
               (lovelaceToValue $ Coin 2_000_000)
               TxOutDatumNone
               ReferenceScriptNone
-      buildTransaction networkId nodeSocket someAddress utxoToCommit (fst <$> UTxO.pairs someUTxO) [someOutput] >>= \case
+      buildTransaction networkId nodeSocket someAddress utxoToCommit (fst <$> UTxO.toList someUTxO) [someOutput] >>= \case
         Left e -> failure $ show e
         Right tx -> do
           let unsignedTx = makeSignedTransaction [] $ getTxBody tx
@@ -1028,7 +1028,7 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
               TxOutDatumNone
               ReferenceScriptNone
       -- prepare fully balanced tx body
-      buildTransaction networkId nodeSocket bobsAddress bobUTxO (fst <$> UTxO.pairs bobUTxO) [carolsOutput] >>= \case
+      buildTransaction networkId nodeSocket bobsAddress bobUTxO (fst <$> UTxO.toList bobUTxO) [carolsOutput] >>= \case
         Left e -> failure $ show e
         Right tx -> do
           let unsignedTx = makeSignedTransaction [] $ getTxBody tx
@@ -1435,7 +1435,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
       -- Decommit the single commitUTxO by creating a fully "respending" decommit transaction
       let walletAddress = mkVkAddress networkId walletVk
       decommitTx <- do
-        let (i, o) = List.head $ UTxO.pairs commitUTxO
+        let (i, o) = List.head $ UTxO.toList commitUTxO
         either (failure . show) pure $
           mkSimpleTx (i, o) (walletAddress, txOutValue o) walletSk
 

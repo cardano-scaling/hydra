@@ -67,7 +67,7 @@ depositScriptUTxO :: UTxO
 depositScriptUTxO = utxoFromTx depositTransaction
 
 depositTxIn :: TxIn
-(depositTxIn, _) = List.head $ UTxO.pairs depositScriptUTxO
+(depositTxIn, _) = List.head $ UTxO.toList depositScriptUTxO
 
 data RecoverMutation
   = -- | Move the deposit deadline further so that the recover lower bound is
@@ -84,7 +84,7 @@ genRecoverMutation (tx, utxo) =
   oneof
     [ SomeMutation (pure $ toErrorCode DepositDeadlineNotReached) MutateDepositDeadline <$> do
         -- Could also use depositTxIn/Out directly but this way we can be sure that the depositTxIn/Out are in the UTxO
-        let (depositIn, depositOut@(TxOut addr val _ rscript)) = List.head $ UTxO.pairs (resolveInputsUTxO utxo tx)
+        let (depositIn, depositOut@(TxOut addr val _ rscript)) = List.head $ UTxO.toList (resolveInputsUTxO utxo tx)
         let n = POSIX.posixSecondsToUTCTime $ realToFrac $ (arbitrary :: Gen Milli) `generateWith` 42
         let datum =
               txOutDatum $

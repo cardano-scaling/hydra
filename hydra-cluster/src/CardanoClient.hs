@@ -72,7 +72,7 @@ waitForUTxO ::
   UTxO ->
   IO ()
 waitForUTxO node utxo =
-  forM_ (snd <$> UTxO.pairs utxo) forEachUTxO
+  forM_ (snd <$> UTxO.toList utxo) forEachUTxO
  where
   RunningNode{networkId, nodeSocket} = node
 

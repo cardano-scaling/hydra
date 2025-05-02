@@ -110,7 +110,7 @@ toCardanoPoolId (Blockfrost.PoolId textPoolId) =
     Right pool -> pool
 
 toCardanoUTxO :: [Blockfrost.AddressUtxo] -> AddressInEra -> UTxO' (TxOut CtxUTxO)
-toCardanoUTxO utxos addr = UTxO.fromPairs (toEntry <$> utxos)
+toCardanoUTxO utxos addr = UTxO.fromList (toEntry <$> utxos)
  where
   toEntry :: Blockfrost.AddressUtxo -> (TxIn, TxOut CtxUTxO)
   toEntry utxo = (toCardanoTxIn utxo, toCardanoTxOut utxo addr)

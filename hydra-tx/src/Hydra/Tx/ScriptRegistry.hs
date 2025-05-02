@@ -79,7 +79,7 @@ newScriptRegistry =
 --     newScriptRegistry (registryUTxO r) === Just r
 registryUTxO :: ScriptRegistry -> UTxO
 registryUTxO scriptRegistry =
-  UTxO.fromPairs [initialReference, commitReference, headReference]
+  UTxO.fromList [initialReference, commitReference, headReference]
  where
   ScriptRegistry
     { initialReference

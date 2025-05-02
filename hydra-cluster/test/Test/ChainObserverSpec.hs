@@ -76,7 +76,7 @@ spec = do
                 decommitTx <-
                   either (failure . show) pure $
                     mkSimpleTx
-                      (List.head $ UTxO.pairs commitUTxO)
+                      (List.head $ UTxO.toList commitUTxO)
                       (walletAddress, lovelaceToValue 2_000_000)
                       walletSk
 

@@ -91,7 +91,7 @@ findTxOutByScript ::
   PlutusScript lang ->
   Maybe (TxIn, TxOut CtxUTxO Era)
 findTxOutByScript utxo script =
-  List.find matchScript (UTxO.pairs utxo)
+  List.find matchScript (UTxO.toList utxo)
  where
   version = plutusScriptVersion @lang
   matchScript = \case

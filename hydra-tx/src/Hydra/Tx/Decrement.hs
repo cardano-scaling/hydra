@@ -127,7 +127,7 @@ observeDecrementTx utxo tx = do
                         toCtxUTxOTxOut <$> txOuts' tx
                           & drop 1 -- NOTE: Head output must be in first position
                           & take (fromIntegral numberOfDecommitOutputs)
-                   in UTxO.fromPairs $ zip inputs outputs
+                   in UTxO.fromList $ zip inputs outputs
               }
         _ -> Nothing
     _ -> Nothing
