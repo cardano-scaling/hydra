@@ -58,6 +58,7 @@ library
     Hydra.Contract.Initial
     Hydra.Contract.InitialError
     Hydra.Contract.MintAction
+    Hydra.Contract.Sha512Example
     Hydra.Contract.Util
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party

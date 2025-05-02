@@ -11,7 +11,7 @@ concurrency:
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "hydra/sha512"]
     tags: [ "*.*.*" ]
   workflow_dispatch:
     inputs:
