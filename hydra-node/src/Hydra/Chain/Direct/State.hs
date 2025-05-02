@@ -278,7 +278,7 @@ instance Arbitrary OpenState where
 
 instance HasKnownUTxO OpenState where
   getKnownUTxO st =
-    UTxO.singleton openThreadUTxO
+    uncurry UTxO.singleton openThreadUTxO
    where
     OpenState
       { openThreadOutput = OpenThreadOutput{openThreadUTxO}
@@ -293,7 +293,7 @@ data ClosedState = ClosedState
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
-    UTxO.singleton closedThreadUTxO
+    uncurry UTxO.singleton closedThreadUTxO
    where
     ClosedState
       { closedThreadOutput = ClosedThreadOutput{closedThreadUTxO}
@@ -483,7 +483,7 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
     Just deposit
       | null deposit ->
           Left SnapshotIncrementUTxOIsNull
-      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut)) upperValiditySlot sigs
+      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton depositedIn depositedOut) upperValiditySlot sigs
  where
   Snapshot{utxoToCommit} = sn
 

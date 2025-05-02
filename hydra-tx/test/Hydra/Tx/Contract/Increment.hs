@@ -52,7 +52,7 @@ healthyIncrementTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (headInput, headOutput)
+    UTxO.singleton headInput headOutput
       <> depositUTxO
       <> registryUTxO scriptRegistry
 

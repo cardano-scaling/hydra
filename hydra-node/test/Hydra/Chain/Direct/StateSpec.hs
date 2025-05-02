@@ -182,7 +182,7 @@ spec = parallel $ do
 
         let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
         (mutation, cex, expected) <- pickBlind $ genInitTxMutation seedInput tx
-        let utxo = UTxO.singleton (seedInput, seedTxOut)
+        let utxo = UTxO.singleton seedInput seedTxOut
         let (tx', utxo') = applyMutation mutation (tx, utxo)
 
             originalIsObserved = property $ isRight (observeInitTx tx)
@@ -601,7 +601,7 @@ forAllInit action =
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
         let tx = initialize cctx seedIn (ctxParticipants ctx) (ctxHeadParameters ctx)
-            utxo = UTxO.singleton (seedIn, seedOut) <> getKnownUTxO cctx
+            utxo = UTxO.singleton seedIn seedOut <> getKnownUTxO cctx
          in action utxo tx
               & classify
                 (null (ctxVerificationKeys ctx))

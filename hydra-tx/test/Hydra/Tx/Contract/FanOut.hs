@@ -34,7 +34,7 @@ healthyFanoutTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (headInput, headOutput)
+    UTxO.singleton headInput headOutput
       <> registryUTxO scriptRegistry
 
   tx =

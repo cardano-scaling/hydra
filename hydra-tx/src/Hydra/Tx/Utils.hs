@@ -68,7 +68,7 @@ splitUTxO :: UTxO -> (UTxO, UTxO)
 splitUTxO utxo =
   case UTxO.toList utxo of
     [] -> (mempty, mempty)
-    (u : us) -> (UTxO.fromList us, UTxO.singleton u)
+    ((u, o) : us) -> (UTxO.fromList us, UTxO.singleton u o)
 
 adaOnly :: TxOut CtxUTxO -> TxOut CtxUTxO
 adaOnly = \case

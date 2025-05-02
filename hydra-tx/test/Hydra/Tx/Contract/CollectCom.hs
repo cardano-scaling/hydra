@@ -74,7 +74,7 @@ healthyCollectComTx =
   committedUTxO = foldMap committed $ Map.elems healthyCommits
 
   lookupUTxO =
-    UTxO.singleton (healthyHeadTxIn, healthyHeadTxOut)
+    UTxO.singleton healthyHeadTxIn healthyHeadTxOut
       <> UTxO commitOutputs
       <> registryUTxO scriptRegistry
 

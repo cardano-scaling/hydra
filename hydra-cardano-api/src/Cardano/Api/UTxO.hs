@@ -49,8 +49,8 @@ fromList :: [(TxIn, out)] -> UTxO' out
 fromList = UTxO . Map.fromList
 
 -- | Create a 'UTxO' from a single unspent transaction output.
-singleton :: (TxIn, out) -> UTxO' out
-singleton (i, o) = UTxO $ Map.singleton i o
+singleton :: TxIn -> out -> UTxO' out
+singleton i o = UTxO $ Map.singleton i o
 
 -- | Find an 'out' for a given 'TxIn'.
 resolve :: TxIn -> UTxO' out -> Maybe out

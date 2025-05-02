@@ -367,7 +367,7 @@ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
         EvKey KEsc [] -> put OpenHome
         EvKey KEnter [] -> do
           let utxoSelected = formState i
-          let commitUTxO = UTxO.singleton utxoSelected
+          let commitUTxO = uncurry UTxO.singleton utxoSelected
           liftIO $ externalCommit hydraClient commitUTxO
           put OpenHome
         _ -> zoom selectingUTxOToIncrementFormL $ handleFormEvent (VtyEvent e)

@@ -85,7 +85,7 @@ computeInitCost = do
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
     seedOutput <- genOutput =<< arbitrary
-    let utxo = UTxO.singleton (seedInput, seedOutput)
+    let utxo = UTxO.singleton seedInput seedOutput
     pure (initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx), utxo)
 
 computeCommitCost :: Gen [(NumUTxO, TxSize, MemUnit, CpuUnit, Coin)]

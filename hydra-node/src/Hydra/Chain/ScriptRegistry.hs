@@ -135,7 +135,7 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
       Right tx -> pure $ signTx sk tx
 
     let changeOutput = txOuts' tx !! 1
-        utxo' = UTxO.singleton (mkTxIn tx 1, toCtxUTxOTxOut changeOutput)
+        utxo' = UTxO.singleton (mkTxIn tx 1) (toCtxUTxOTxOut changeOutput)
     (tx :) <$> go utxo' rest
 
   changeAddress = mkVkAddress networkId (getVerificationKey sk)
