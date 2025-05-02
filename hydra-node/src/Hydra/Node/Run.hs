@@ -13,7 +13,6 @@ import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
   ShelleyEra,
   SystemStart (..),
-  Tx,
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
@@ -23,9 +22,10 @@ import Hydra.Chain.Cardano (withCardanoChain)
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
+import Hydra.Events (StateEvent (..))
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
-import Hydra.Events.Rotation (newRotatedEventStore)
-import Hydra.HeadLogic (aggregate)
+import Hydra.Events.Rotation (RotationConfig (..), newRotatedEventStore)
+import Hydra.HeadLogic (HeadState (..), IdleState (..), StateChanged (..), aggregate)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -84,7 +84,7 @@ run opts = do
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         (eventSource, eventSink) <-
-          newRotatedEventStore (undefined opts) (undefined $ aggregate @Tx)
+          prepareEventStore
             =<< eventPairFromPersistenceIncremental
             =<< createPersistenceIncremental (persistenceDir <> "/state")
         -- NOTE: Add any custom sink setup code here
@@ -133,10 +133,31 @@ run opts = do
     Offline cfg -> pure $ withOfflineChain cfg party otherParties
     Cardano cfg -> pure $ withCardanoChain (contramap DirectChain tracer) cfg party
 
+  prepareEventStore eventStore = do
+    case RotateAfter <$> persistenceRotateAfter of
+      Nothing ->
+        pure eventStore
+      Just rotationConfig -> do
+        now <- getCurrentTime
+        let initialState = Idle IdleState{chainState = initialChainState}
+        let checkpoint events =
+              StateEvent
+                { -- FIXME!
+                  eventId = 0
+                , stateChanged =
+                    Checkpoint . foldl' aggregate initialState $
+                      (\StateEvent{stateChanged} -> stateChanged) <$> events
+                , time = now
+                }
+        -- FIXME!
+        let logId = 0
+        newRotatedEventStore rotationConfig checkpoint logId eventStore
+
   RunOptions
     { verbosity
     , monitoringPort
     , persistenceDir
+    , persistenceRotateAfter
     , chainConfig
     , ledgerConfig
     , listen
