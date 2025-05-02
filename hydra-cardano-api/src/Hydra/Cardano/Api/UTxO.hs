@@ -2,12 +2,11 @@ module Hydra.Cardano.Api.UTxO where
 
 import Hydra.Cardano.Api.Prelude hiding (fromLedgerUTxO)
 import Hydra.Cardano.Api.TxId (toLedgerTxId)
-import Hydra.Cardano.Api.TxIn (fromLedgerTxIn, toLedgerTxIn, txIns')
-import Hydra.Cardano.Api.TxOut (fromLedgerTxOut, toLedgerTxOut)
+import Hydra.Cardano.Api.TxIn (txIns')
 
+import Cardano.Api.Tx.UTxO qualified as Api.UTxO
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (outputsTxBodyL)
-import Cardano.Ledger.Babbage.TxBody qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Cardano.Ledger.TxIn qualified as Ledger
@@ -44,23 +43,7 @@ resolveInputsUTxO utxo tx =
 -- * Type Conversions
 
 toLedgerUTxO :: UTxO -> Ledger.UTxO LedgerEra
-toLedgerUTxO =
-  Ledger.UTxO . Map.foldMapWithKey fn . UTxO.toMap
- where
-  fn ::
-    TxIn ->
-    TxOut CtxUTxO Era ->
-    Map Ledger.TxIn (Ledger.BabbageTxOut LedgerEra)
-  fn i o =
-    Map.singleton (toLedgerTxIn i) (toLedgerTxOut o)
+toLedgerUTxO = Api.UTxO.toShelleyUTxO shelleyBasedEra . UTxO.toApi
 
 fromLedgerUTxO :: Ledger.UTxO LedgerEra -> UTxO
-fromLedgerUTxO =
-  UTxO . Map.foldMapWithKey fn . Ledger.unUTxO
- where
-  fn ::
-    Ledger.TxIn ->
-    Ledger.BabbageTxOut LedgerEra ->
-    Map TxIn (TxOut CtxUTxO Era)
-  fn i o =
-    Map.singleton (fromLedgerTxIn i) (fromLedgerTxOut o)
+fromLedgerUTxO = UTxO.fromApi . Api.UTxO.fromShelleyUTxO shelleyBasedEra
