@@ -53,7 +53,7 @@ All API server outputs and the `hydra-node` state are preserved on disk. The per
 
 ### Logging
 
-The Hydra node logs all internal side effects as JSON-formatted messages to its _standard output_ stream. The log format adheres to a documented [JSON schema](https://raw.githubusercontent.com/input-output-hk/hydra/master/hydra-node/json-schemas/logs.yaml), following the principles outlined in [ADR-9](/adr/9).
+The Hydra node logs all internal side effects as JSON-formatted messages to its _standard output_ stream.
 
 ### Monitoring
 

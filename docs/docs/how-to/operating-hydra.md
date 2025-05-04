@@ -21,7 +21,7 @@ This setup includes a [docker-compose.yaml](https://github.com/cardano-scaling/h
 
 ## Logs
 
-Following the principles outlined in [ADR-9](/adr/9), the `hydra-node` emits [JSON](https://json.org) formatted logs to the `stdout` stream, with one log item per line. These log entries conform to a specific [JSON schema](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/json-schemas/logs.yaml). We deliberately maintain the logging mechanism simple and non-configurable to facilitate the integration of Hydra logs into broader log analysis infrastructures, including custom ELK stacks, third-party services, or Docker sidecars.
+Following the principles outlined in [ADR-9](/adr/9), the `hydra-node` emits [JSON](https://json.org) formatted logs to the `stdout` stream, with one log item per line.
 
 ## Monitoring
 

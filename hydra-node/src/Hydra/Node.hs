@@ -57,7 +57,6 @@ import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..),
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Crypto (AsType (AsHydraKey))
 import Hydra.Tx.Environment (Environment (..))
-import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
@@ -422,7 +421,3 @@ data HydraNodeLog tx
 deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
 deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
-
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (HydraNodeLog tx) where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
