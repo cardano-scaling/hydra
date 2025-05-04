@@ -28,7 +28,3 @@ data HydraLog tx
 deriving stock instance Eq (HydraNodeLog tx) => Eq (HydraLog tx)
 deriving stock instance Show (HydraNodeLog tx) => Show (HydraLog tx)
 deriving anyclass instance ToJSON (HydraNodeLog tx) => ToJSON (HydraLog tx)
-
-instance Arbitrary (HydraNodeLog tx) => Arbitrary (HydraLog tx) where
-  arbitrary = genericArbitrary
-  shrink = genericShrink

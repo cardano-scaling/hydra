@@ -21,6 +21,3 @@ data ParamMismatch
   | SavedNetworkPartiesInconsistent {numberOfParties :: Int}
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
-
-instance Arbitrary ParamMismatch where
-  arbitrary = genericArbitrary
