@@ -64,10 +64,10 @@ import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (runHydraNode)
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey)
-import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
@@ -75,7 +75,7 @@ import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Test.Hydra.Prelude (failure)
 import Test.Hydra.Tx.Gen (genSigningKey)
-import Test.QuickCheck (choose, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
+import Test.QuickCheck (choose, chooseEnum, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
@@ -452,9 +452,8 @@ genToCommit (hk, ck) = do
   pure $ Map.singleton (deriveParty hk) [(ck, value)]
 
 genContestationPeriod :: Gen ContestationPeriod
-genContestationPeriod = do
-  n <- choose (1, 200)
-  pure $ UnsafeContestationPeriod $ wordToNatural n
+genContestationPeriod =
+  chooseEnum (1, 200)
 
 genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState HeadId)
 genInit hydraParties = do
@@ -628,7 +627,7 @@ instance
 
 -- | Deposit period used by all nodes and the 'performDeposit'.
 testDepositPeriod :: DepositPeriod
-testDepositPeriod = DepositPeriod 100
+testDepositPeriod = 100
 
 seedWorld ::
   ( MonadAsync m

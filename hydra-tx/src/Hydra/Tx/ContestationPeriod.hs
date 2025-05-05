@@ -9,13 +9,34 @@ import Hydra.Data.ContestationPeriod qualified as OnChain
 import Test.QuickCheck (choose, oneof)
 import Text.Show (Show (..))
 
--- | A positive, non-zero number of seconds.
+-- | A positive, non-zero number of seconds. Use 'fromInteger' on positive
+-- literals, 'fromEnum' via [1..] syntax or 'fromNominalDiffTime' to create
+-- values of unknown sign.
 newtype ContestationPeriod = UnsafeContestationPeriod Natural
   deriving stock (Eq, Ord)
-  deriving newtype (ToJSON, FromJSON)
+  deriving newtype (Real, Integral, ToJSON, FromJSON)
 
 instance Show ContestationPeriod where
   show (UnsafeContestationPeriod s) = show s <> "s"
+
+instance Enum ContestationPeriod where
+  toEnum i
+    | i > 0 = UnsafeContestationPeriod $ toEnum i
+    | otherwise = error $ "ContestationPeriod.toEnum: non-zero integer " <> toText (show i)
+
+  fromEnum (UnsafeContestationPeriod n) = fromEnum n
+
+instance Num ContestationPeriod where
+  fromInteger i
+    | i > 0 = UnsafeContestationPeriod $ fromInteger i
+    | otherwise = error $ "ContestationPeriod.fromInteger: non-zero integer " <> toText (show i)
+
+  (+) (UnsafeContestationPeriod a) (UnsafeContestationPeriod b) = UnsafeContestationPeriod (a + b)
+  (-) (UnsafeContestationPeriod a) (UnsafeContestationPeriod b) = UnsafeContestationPeriod (a - b)
+  (*) (UnsafeContestationPeriod a) (UnsafeContestationPeriod b) = UnsafeContestationPeriod (a * b)
+  negate (UnsafeContestationPeriod a) = UnsafeContestationPeriod (negate a)
+  abs (UnsafeContestationPeriod a) = UnsafeContestationPeriod (abs a)
+  signum (UnsafeContestationPeriod a) = UnsafeContestationPeriod (signum a)
 
 instance Arbitrary ContestationPeriod where
   arbitrary = do

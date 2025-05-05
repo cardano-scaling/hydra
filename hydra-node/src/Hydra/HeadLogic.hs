@@ -77,6 +77,7 @@ import Hydra.Ledger (
  )
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Tx (
   HeadId,
@@ -95,7 +96,6 @@ import Hydra.Tx.Crypto (
   sign,
   verifyMultiSignature,
  )
-import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
