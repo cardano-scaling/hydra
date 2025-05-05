@@ -57,6 +57,7 @@ Accepted
 
 - Using `etcd` as-is adds a run-time dependency onto that binary.
   - Docker image users should not see any different UX
+  - We can ship the binary through `hydra-node`.
 
 - Introspectability network as the `etcd` cluster is queriable could improve debugging experience
 

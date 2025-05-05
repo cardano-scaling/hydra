@@ -14,7 +14,9 @@ changes.
 
 - Fix tutorial usage of `cardano-cli` and include download of `etcd`.
 
-* **BREAKING** Update scripts to plutus 1.45.0.0.
+- Remove runtime dependency to `etcd` by embedding and shipping it with `hydra-node`.
+
+- **BREAKING** Update scripts to plutus 1.45.0.0.
 
 ## [0.21.0] - 2025-04-28
 

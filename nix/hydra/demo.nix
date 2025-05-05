@@ -46,7 +46,6 @@
       hydra-node-alice = {
         command = pkgs.writeShellApplication {
           name = "hydra-node-alice";
-          runtimeInputs = [ pkgs.etcd ];
           checkPhase = ""; # not shellcheck and choke on sourcing .env
           text = ''
             # (Re-)Export all variables from .env
@@ -78,7 +77,6 @@
       hydra-node-bob = {
         command = pkgs.writeShellApplication {
           name = "hydra-node-bob";
-          runtimeInputs = [ pkgs.etcd ];
           checkPhase = ""; # not shellcheck and choke on sourcing .env
           text = ''
             # (Re-)Export all variables from .env
@@ -110,7 +108,6 @@
       hydra-node-carol = {
         command = pkgs.writeShellApplication {
           name = "hydra-node-carol";
-          runtimeInputs = [ pkgs.etcd ];
           checkPhase = ""; # not shellcheck and choke on sourcing .env
           text = ''
             # (Re-)Export all variables from .env
