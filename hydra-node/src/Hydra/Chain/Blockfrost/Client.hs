@@ -125,8 +125,8 @@ publishHydraScripts sk = do
 queryProtocolParameters :: MonadIO m => BlockfrostClientT m (PParams LedgerEra)
 queryProtocolParameters = do
   pparams <- Blockfrost.getLatestEpochProtocolParams
-  minVersion <- liftIO $ mkVersion $ pparams ^. Blockfrost.protocolMinorVer
-  let maxVersion = fromIntegral $ pparams ^. Blockfrost.protocolMajorVer
+  let minVersion = fromIntegral $ pparams ^. Blockfrost.protocolMinorVer
+  maxVersion <- liftIO $ mkVersion $ pparams ^. Blockfrost.protocolMajorVer
   let results = do
         a0 <- boundRational (pparams ^. Blockfrost.a0)
         rho <- boundRational (pparams ^. Blockfrost.rho)
@@ -174,7 +174,7 @@ queryProtocolParameters = do
           & ppA0L .~ a0
           & ppRhoL .~ rho
           & ppTauL .~ tau
-          & ppProtocolVersionL .~ ProtVer minVersion maxVersion
+          & ppProtocolVersionL .~ ProtVer maxVersion minVersion
           & ppMinPoolCostL .~ fromIntegral (pparams ^. Blockfrost.minPoolCost)
           & ppCoinsPerUTxOByteL .~ CoinPerByte (fromIntegral (pparams ^. Blockfrost.coinsPerUtxoSize))
           & ppCostModelsL .~ convertCostModels (pparams ^. Blockfrost.costModels)
@@ -441,7 +441,8 @@ queryEraHistory = do
     Blockfrost.NetworkEraSummary
       { _networkEraStart = Blockfrost.NetworkEraBound{_boundTime = boundStart}
       , _networkEraEnd = Blockfrost.NetworkEraBound{_boundTime = boundEnd}
-      } = boundStart == 0 && boundEnd == 0
+      , _networkEraParameters
+      } = boundStart /= 0 && boundEnd /= 0
 
 -- | Query the Blockfrost API to get the 'UTxO' for 'TxIn' and convert to cardano 'UTxO'.
 queryUTxOByTxIn :: NetworkId -> TxIn -> BlockfrostClientT IO UTxO
@@ -504,30 +505,6 @@ queryTip = do
             (SlotNo $ fromIntegral $ Blockfrost.unSlot blockSlot)
             (fromString $ T.unpack blockHash)
             (BlockNo $ fromIntegral blockNo)
-
--- | Await until the given transaction id is visible on-chain. Returns the UTxO
--- set produced by that transaction.
---
--- Note that this function loops forever; hence, one probably wants to couple it
--- with a surrounding timeout.
-awaitTransactionId ::
-  -- | Network id
-  NetworkId ->
-  -- | The transaction ID to watch / await
-  TxId ->
-  BlockfrostClientT IO UTxO
-awaitTransactionId networkId txid = do
-  go
- where
-  txIn = TxIn txid (TxIx 0)
-  go = do
-    utxo <- Blockfrost.tryError $ queryUTxOByTxIn networkId txIn
-    case utxo of
-      Left _e -> go
-      Right utxo' ->
-        if null utxo'
-          then go
-          else pure utxo'
 
 -- | Await for specific UTxO at address - the one that is produced by the given 'TxId'.
 awaitUTxO ::
