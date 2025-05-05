@@ -75,7 +75,7 @@ import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Test.Hydra.Prelude (failure)
 import Test.Hydra.Tx.Gen (genSigningKey)
-import Test.QuickCheck (choose, elements, frequency, resize, sized, sublistOf, tabulate, vectorOf)
+import Test.QuickCheck (choose, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
@@ -91,9 +91,10 @@ data WorldState = WorldState
   , hydraState :: GlobalState
   -- ^ Expected consensus state
   -- All nodes should be in the same state.
-  , availableUTxO :: UTxOType Payment
-  -- ^ UTxO available to be committed.
-  -- TODO: merge with Idle.toCommit!?
+  , availableToDeposit :: UTxOType Payment
+  -- ^ UTxO available to be committed incrementally. NOTE: We must not add UTxO
+  -- we decommitted to this as the 'Payment' transaction model results in
+  -- non-unique transaction ids when running the model.
   }
   deriving stock (Eq, Show)
 
@@ -154,6 +155,7 @@ instance StateModel WorldState where
       { seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]
       , contestationPeriod :: ContestationPeriod
       , toCommit :: Uncommitted
+      , additionalUTxO :: UTxOType Payment
       } ->
       Action WorldState ()
     Init :: Party -> Action WorldState HeadId
@@ -178,11 +180,11 @@ instance StateModel WorldState where
     WorldState
       { hydraParties = mempty
       , hydraState = Start
-      , availableUTxO = mempty
+      , availableToDeposit = mempty
       }
 
   arbitraryAction :: VarContext -> WorldState -> Gen (Any (Action WorldState))
-  arbitraryAction _ st@WorldState{hydraParties, hydraState, availableUTxO} =
+  arbitraryAction _ st@WorldState{hydraParties, hydraState, availableToDeposit} =
     case hydraState of
       Start -> Some <$> genSeed
       Idle{} -> Some <$> genInit hydraParties
@@ -217,11 +219,11 @@ instance StateModel WorldState where
           -- XXX: if using > 0 we could run into a new tx not having utxo available situation?
           <> [(10, genNewTx) | length confirmedUTxO > 1]
           <> [(2, genDecommit) | length confirmedUTxO > 1]
-          <> [(2, genDeposit headIdVar) | not $ null availableUTxO]
+          <> [(2, genDeposit headIdVar) | not $ null availableToDeposit]
 
     genDeposit headIdVar = do
       sk <- snd <$> elements hydraParties
-      utxoToDeposit <- sublistOf $ filter ((sk ==) . fst) availableUTxO
+      utxoToDeposit <- sublistOf $ filter ((sk ==) . fst) availableToDeposit
       pure $ Some Deposit{headIdVar, utxoToDeposit}
 
     genDecommit = do
@@ -259,9 +261,9 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Open{headParameters}} Commit{party} =
     party `elem` headParameters.parties
-  precondition WorldState{hydraState = Open{headIdVar}, availableUTxO} Deposit{headIdVar = var, utxoToDeposit} =
+  precondition WorldState{hydraState = Open{headIdVar}, availableToDeposit} Deposit{headIdVar = var, utxoToDeposit} =
     var == headIdVar
-      && all (`elem` availableUTxO) utxoToDeposit
+      && all (`elem` availableToDeposit) utxoToDeposit
   precondition WorldState{hydraState = Open{headParameters, offChainState}} Decommit{party, decommitTx} =
     party `elem` headParameters.parties
       && (from decommitTx, value decommitTx) `List.elem` confirmedUTxO offChainState
@@ -286,7 +288,7 @@ instance StateModel WorldState where
   precondition _ _ =
     False
 
-  nextState s@WorldState{hydraState, availableUTxO} a result =
+  nextState s@WorldState{hydraState, availableToDeposit} a result =
     case a of
       Seed{seedKeys, contestationPeriod, toCommit} ->
         s{hydraParties = seedKeys, hydraState = idleState}
@@ -349,7 +351,7 @@ instance StateModel WorldState where
       Deposit{utxoToDeposit} ->
         s
           { hydraState = updateWithIncrementalCommit hydraState
-          , availableUTxO = availableUTxO \\ utxoToDeposit
+          , availableToDeposit = availableToDeposit \\ utxoToDeposit
           }
        where
         updateWithIncrementalCommit = \case
@@ -360,7 +362,7 @@ instance StateModel WorldState where
               }
           _ -> error "unexpected state"
       Decommit _party tx ->
-        s{hydraState = updateWithDecommit hydraState, availableUTxO = decommitted : availableUTxO}
+        s{hydraState = updateWithDecommit hydraState}
        where
         decommitted = (from tx, value tx)
 
@@ -438,7 +440,11 @@ genSeed = do
   seedKeys <- resize maximumNumberOfParties partyKeys
   contestationPeriod <- genContestationPeriod
   toCommit <- mconcat <$> mapM genToCommit seedKeys
-  pure $ Seed{seedKeys, contestationPeriod, toCommit}
+  additionalUTxO <- listOf $ do
+    sk <- snd <$> elements seedKeys
+    value <- genAdaValue
+    pure (sk, value)
+  pure $ Seed{seedKeys, contestationPeriod, toCommit, additionalUTxO}
 
 genToCommit :: (SigningKey HydraKey, CardanoSigningKey) -> Gen (Map Party [(CardanoSigningKey, Value)])
 genToCommit (hk, ck) = do
