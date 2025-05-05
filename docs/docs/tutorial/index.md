@@ -45,14 +45,22 @@ that you have a good version of jq with this command:
 
 ```shell
 mkdir -p bin
+
 hydra_version=0.21.0
-cardano_node_version=10.1.4
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-x86_64-linux-${hydra_version}.zip
 unzip -d bin hydra-x86_64-linux-${hydra_version}.zip
+
+cardano_node_version=10.1.4
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux.tar.gz
 tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./bin/cardano-node ./bin/cardano-cli
 tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./share/preprod --strip-components=3
+
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
+
+etcd_version=v3.5.21
+curl -L https://github.com/etcd-io/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz \
+  | tar xz -C bin --strip-components=1
+
 chmod +x bin/*
 ```
 
@@ -61,14 +69,23 @@ chmod +x bin/*
 
 ```shell
 mkdir -p bin
+
 hydra_version=0.21.0
-cardano_node_version=10.1.4
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-aarch64-darwin-${hydra_version}.zip
 unzip -d bin hydra-aarch64-darwin-${hydra_version}.zip
+
+cardano_node_version=10.1.4
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-macos.tar.gz
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz ./share/preprod --strip-components=3
+
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
+
+etcd_version=v3.5.21
+curl -L -O https://github.com/etcd-io/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-darwin-arm64.zip
+unzip -d bin etcd-${etcd_version}-darwin-arm64.zip
+mv bin/etcd-${etcd_version}-darwin-arm64/* bin
+
 chmod +x bin/*
 ```
 
@@ -283,7 +300,7 @@ cardano-cli query utxo \
 
 # Build a Tx to send funds from `alice-funds` to the others who need them: bob
 # funds and nodes.
-cardano-cli transaction build \
+cardano-cli latest transaction build \
     $(cat alice-funds-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
     --change-address $(cat credentials/alice-funds.addr) \
     --tx-out $(cat credentials/bob-funds.addr)+1000000000 \
@@ -291,12 +308,12 @@ cardano-cli transaction build \
     --tx-out $(cat credentials/alice-node.addr)+1000000000 \
     --out-file tx.json
 
-cardano-cli transaction sign \
+cardano-cli latest transaction sign \
   --tx-file tx.json \
   --signing-key-file credentials/alice-funds.sk \
   --out-file tx-signed.json
 
-cardano-cli transaction submit --tx-file tx-signed.json
+cardano-cli latest transaction submit --tx-file tx-signed.json
 ```
 :::
 
@@ -513,12 +530,12 @@ curl -X POST 127.0.0.1:4001/commit \
   --data @alice-commit-utxo.json \
   > alice-commit-tx.json
 
-cardano-cli transaction sign \
+cardano-cli latest transaction sign \
   --tx-file alice-commit-tx.json \
   --signing-key-file credentials/alice-funds.sk \
   --out-file alice-commit-tx-signed.json
 
-cardano-cli transaction submit --tx-file alice-commit-tx-signed.json
+cardano-cli latest transaction submit --tx-file alice-commit-tx-signed.json
 ```
 
 </TabItem>
@@ -533,12 +550,12 @@ curl -X POST 127.0.0.1:4002/commit \
   --data @bob-commit-utxo.json \
   > bob-commit-tx.json
 
-cardano-cli transaction sign \
+cardano-cli latest transaction sign \
   --tx-file bob-commit-tx.json \
   --signing-key-file credentials/bob-funds.sk \
   --out-file bob-commit-tx-signed.json
 
-cardano-cli transaction submit --tx-file bob-commit-tx-signed.json
+cardano-cli latest transaction submit --tx-file bob-commit-tx-signed.json
 ```
 
 </TabItem>
@@ -551,7 +568,7 @@ If you don't want to commit any funds and only want to receive on layer 2, you c
 
 ```shell
 curl -X POST 127.0.0.1:4002/commit --data "{}" > bob-commit-tx.json
-cardano-cli transaction submit --tx-file bob-commit-tx.json
+cardano-cli latest transaction submit --tx-file bob-commit-tx.json
 ```
 </details>
 
@@ -593,7 +610,7 @@ Next, similar to the Cardano layer 1, build a transaction using the `cardano-cli
 
 ```shell
 LOVELACE=1000000
-cardano-cli transaction build-raw \
+cardano-cli latest transaction build-raw \
   --tx-in $(jq -r 'to_entries[0].key' < utxo.json) \
   --tx-out $(cat credentials/bob-funds.addr)+${LOVELACE} \
   --tx-out $(cat credentials/alice-funds.addr)+$(jq "to_entries[0].value.value.lovelace - ${LOVELACE}" < utxo.json) \
@@ -606,7 +623,7 @@ Note that we need to use the `build-raw` version because the client cannot (yet?
 Before submission, we need to sign the transaction to authorize spending `alice`'s funds:
 
 ```shell
-cardano-cli transaction sign \
+cardano-cli latest transaction sign \
   --tx-body-file tx.json \
   --signing-key-file credentials/alice-funds.sk \
   --out-file tx-signed.json
@@ -683,18 +700,18 @@ cardano-cli query utxo \
   --address $(cat credentials/alice-funds.addr) \
   --out-file alice-return-utxo.json
 
-cardano-cli transaction build \
+cardano-cli latest transaction build \
   $(cat alice-return-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
   --change-address addr_test1qqr585tvlc7ylnqvz8pyqwauzrdu0mxag3m7q56grgmgu7sxu2hyfhlkwuxupa9d5085eunq2qywy7hvmvej456flknswgndm3 \
   --out-file alice-return-tx.json
 
-cardano-cli transaction sign \
+cardano-cli latest transaction sign \
   --tx-file alice-return-tx.json \
   --signing-key-file credentials/alice-node.sk \
   --signing-key-file credentials/alice-funds.sk \
   --out-file alice-return-tx-signed.json
 
-cardano-cli transaction submit --tx-file alice-return-tx-signed.json
+cardano-cli latest transaction submit --tx-file alice-return-tx-signed.json
 ```
 
 </TabItem>
@@ -706,18 +723,18 @@ cardano-cli query utxo \
   --address $(cat credentials/bob-funds.addr) \
   --out-file bob-return-utxo.json
 
-cardano-cli transaction build \
+cardano-cli latest transaction build \
   $(cat bob-return-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
   --change-address addr_test1qqr585tvlc7ylnqvz8pyqwauzrdu0mxag3m7q56grgmgu7sxu2hyfhlkwuxupa9d5085eunq2qywy7hvmvej456flknswgndm3 \
   --out-file bob-return-tx.json
 
-cardano-cli transaction sign \
+cardano-cli latest transaction sign \
   --tx-file bob-return-tx.json \
   --signing-key-file credentials/bob-node.sk \
   --signing-key-file credentials/bob-funds.sk \
   --out-file bob-return-tx-signed.json
 
-cardano-cli transaction submit --tx-file bob-return-tx-signed.json
+cardano-cli latest transaction submit --tx-file bob-return-tx-signed.json
 ```
 
 </TabItem>

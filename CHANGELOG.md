@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## Unreleased
+## [0.22.0] - UNRELEASED
+
+- Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
+
+- Fix tutorial usage of `cardano-cli` and include download of `etcd`.
 
 * **BREAKING** Update scripts to plutus 1.45.0.0.
 
