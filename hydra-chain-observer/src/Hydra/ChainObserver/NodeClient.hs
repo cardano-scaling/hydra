@@ -13,11 +13,10 @@ import Hydra.Cardano.Api (
   UTxO,
  )
 import Hydra.Cardano.Api.Prelude (TxId)
-import Hydra.Chain (OnChainTx (..))
 import Hydra.Contract (ScriptInfo)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Tx.HeadId (HeadId (..))
-import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
+import Hydra.Tx.Observe (AbortObservation (..), CloseObservation (..), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), DepositObservation (..), FanoutObservation (..), HeadObservation (..), IncrementObservation (..), InitObservation (..), RecoverObservation (..), observeHeadTx)
 
 type ObserverHandler m = [ChainObservation] -> m ()
 
@@ -25,7 +24,11 @@ data ChainObservation
   = ChainObservation
   { point :: ChainPoint
   , blockNo :: BlockNo
-  , observedTx :: Maybe (OnChainTx Tx)
+  , -- FIXME: This breaks the explorer interface. Either move 'HeadObservation'
+    -- into similar form, or create a new similar type. Cannot use 'OnChainTx'
+    -- from hydra-node as that contains converted time and requires a
+    -- 'TimeHandle' to create.
+    observed :: HeadObservation
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -61,19 +64,20 @@ data ChainObserverLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
-logOnChainTx :: OnChainTx Tx -> ChainObserverLog
-logOnChainTx = \case
-  OnInitTx{headId} -> HeadInitTx{headId}
-  OnCommitTx{headId} -> HeadCommitTx{headId}
-  OnCollectComTx{headId} -> HeadCollectComTx{headId}
-  OnIncrementTx{headId} -> HeadIncrementTx{headId}
-  OnDepositTx{headId} -> HeadDepositTx{headId}
-  OnRecoverTx{headId} -> HeadRecoverTx{headId}
-  OnDecrementTx{headId} -> HeadDecrementTx{headId}
-  OnCloseTx{headId} -> HeadCloseTx{headId}
-  OnFanoutTx{headId} -> HeadFanoutTx{headId}
-  OnAbortTx{headId} -> HeadAbortTx{headId}
-  OnContestTx{headId} -> HeadContestTx{headId}
+logObservation :: HeadObservation -> Maybe ChainObserverLog
+logObservation = \case
+  NoHeadTx -> Nothing
+  Init InitObservation{headId} -> Just HeadInitTx{headId}
+  Commit CommitObservation{headId} -> Just HeadCommitTx{headId}
+  Abort AbortObservation{headId} -> Just HeadAbortTx{headId}
+  CollectCom CollectComObservation{headId} -> Just HeadCollectComTx{headId}
+  Deposit DepositObservation{headId} -> Just HeadDepositTx{headId}
+  Recover RecoverObservation{headId} -> Just HeadRecoverTx{headId}
+  Increment IncrementObservation{headId} -> Just HeadIncrementTx{headId}
+  Decrement DecrementObservation{headId} -> Just HeadDecrementTx{headId}
+  Close CloseObservation{headId} -> Just HeadCloseTx{headId}
+  Contest ContestObservation{headId} -> Just HeadContestTx{headId}
+  Fanout FanoutObservation{headId} -> Just HeadFanoutTx{headId}
 
 observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe HeadObservation)
 observeTx networkId utxo tx =

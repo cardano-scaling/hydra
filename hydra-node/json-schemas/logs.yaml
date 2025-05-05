@@ -1192,7 +1192,7 @@ definitions:
           tag:
             type: string
             enum: ["NoMatchingDeposit"]
-      - title: "RequestedDepositNotActive"
+      - title: "RequestedDepositExpired"
         description: >-
           Received a snapshot request for a deposit that is not active (yet or anymore).
         additionalProperties: false
@@ -1201,7 +1201,7 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["RequestedDepositNotActive"]
+            enum: ["RequestedDepositExpired"]
 
   SideLoadRequirementFailure:
       oneOf:
@@ -1802,7 +1802,7 @@ definitions:
         $ref: "api.yaml#/components/schemas/UTCTime"
       status:
         type: string
-        enum: ["Unknown","Active", "Expired"]
+        enum: ["Inactive", "Active", "Expired"]
 
   CoordinatedHeadState:
     type: object

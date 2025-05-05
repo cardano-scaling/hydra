@@ -463,23 +463,48 @@ spec = parallel $ do
                     DepositExpired{depositTxId} -> guard $ depositTxId == txid
                     _ -> Nothing
 
-        it "deposits are only processed after settled" $
-          -- TODO: implement for
-          -- https://github.com/cardano-scaling/hydra/issues/1951#issuecomment-2809966834
-          -- - single node
-          -- - submit deposit deadline far enough in future
-          -- - recorded right away
-          -- - approved only after deposit period passed
-          pendingWith "not implemented"
+        it "deposits are only processed after settled" $ do
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [] chain $ \n1 -> do
+                openHead chain n1
+                deadline <- newDeadlineFarEnoughFromNow
+                depositTxId <- simulateDeposit chain testHeadId (utxoRef 123) deadline
+                waitUntilMatch [n1] $ \case
+                  CommitRecorded{pendingDeposit} -> guard (pendingDeposit == depositTxId)
+                  _ -> Nothing
+                -- No approval yet, as the deposit is not settled
+                let waitForApproval = waitUntilMatch [n1] $ \case
+                      CommitApproved{utxoToCommit} -> guard (utxoToCommit == utxoRef 123)
+                      _ -> Nothing
+                timeout (fromIntegral defaultDepositPeriod) waitForApproval >>= \case
+                  Nothing -> pure ()
+                  Just _ -> failure "Deposit was approved before deadline expired"
+                -- Now it should get approved
+                waitForApproval
 
         it "commit snapshot only approved when deposit settled" $
-          -- TODO: implement for
-          -- https://github.com/cardano-scaling/hydra/issues/1951#issuecomment-2809966834
-          -- - two nodes, one with low deposit period, one with high
-          -- - submit deposit
-          -- - see it recorded by both nodes
-          -- - see it approved only when period of both nodes passed
-          pendingWith "not implemented"
+          shouldRunInSim $
+            withSimulatedChainAndNetwork $ \chain -> do
+              let dpShort = DepositPeriod 60
+              let dpLong = DepositPeriod 1200
+              withHydraNode' dpShort aliceSk [bob] chain $ \n1 ->
+                withHydraNode' dpLong bobSk [alice] chain $ \n2 -> do
+                  openHead2 chain n1 n2
+                  deadline <- newDeadlineFarEnoughFromNow
+                  txid <- simulateDeposit chain testHeadId (utxoRef 123) deadline
+                  waitUntilMatch [n1, n2] $ \case
+                    CommitRecorded{pendingDeposit} -> guard (pendingDeposit == txid)
+                    _ -> Nothing
+                  -- No approval yet, as the deposit is not settled
+                  let waitForApproval = waitUntilMatch [n1, n2] $ \case
+                        CommitApproved{utxoToCommit} -> guard (utxoToCommit == utxoRef 123)
+                        _ -> Nothing
+                  timeout (fromIntegral dpLong) waitForApproval >>= \case
+                    Nothing -> pure ()
+                    Just _ -> failure "Deposit was approved before all deposit periods passed"
+                  -- Now it should get approved
+                  waitForApproval
 
         it "requested commits get approved" $
           shouldRunInSim $ do
@@ -1072,8 +1097,10 @@ simulatedChainAndNetwork initialChainState = do
       , simulateCommit = \headId party toCommit ->
           createAndYieldEvent nodes history localChainState $ OnCommitTx{headId, party, committed = toCommit}
       , simulateDeposit = \headId toDeposit deadline -> do
+          created <- getCurrentTime
           depositTxId <- atomically $ stateTVar nextTxId (\i -> (i, i + 1))
-          createAndYieldEvent nodes history localChainState $ OnDepositTx{headId, deposited = toDeposit, deadline, depositTxId}
+          createAndYieldEvent nodes history localChainState $
+            OnDepositTx{headId, deposited = toDeposit, created, deadline, depositTxId}
           pure depositTxId
       , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
       }
@@ -1196,15 +1223,15 @@ toOnChainTx now = \case
 
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 newDeadlineFarEnoughFromNow =
-  addUTCTime (2 * DP.toNominalDiffTime defaultDepositPeriod) <$> getCurrentTime
+  addUTCTime (3 * DP.toNominalDiffTime defaultDepositPeriod) <$> getCurrentTime
 
 nothingHappensFor ::
-  (MonadTimer m, MonadThrow m, IsChainState tx) =>
+  (MonadTimer m, MonadThrow m, IsChainState tx, MonadAsync m) =>
   TestHydraClient tx m ->
   NominalDiffTime ->
   m ()
-nothingHappensFor node secs =
-  timeout (realToFrac secs) (waitForNext node) >>= (`shouldBe` Nothing)
+nothingHappensFor TestHydraClient{waitForNext, waitForNextMessage} secs =
+  timeout (realToFrac secs) (race waitForNext waitForNextMessage) >>= (`shouldBe` Nothing)
 
 withHydraNode ::
   forall s a.
