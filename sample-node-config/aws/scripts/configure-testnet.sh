@@ -42,19 +42,25 @@ echo "export GENESIS_VERIFICATION_KEY_URL=$GENESIS_VERIFICATION_KEY_URL" >> ~/.b
 export GENESIS_VERIFICATION_KEY=$(wget -q -O - $GENESIS_VERIFICATION_KEY_URL)
 echo "export GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY" >> ~/.bash_env
 
+export ANCILLARY_VERIFICATION_KEY_URL=$(jq -r .$NETWORK.mithril.ancillaryVerificationKeyURL ~/scripts/configure.json)
+echo "export GENESIS_VERIFICATION_KEY_URL=$GENESIS_VERIFICATION_KEY_URL" >> ~/.bash_env
+
+export ANCILLARY_VERIFICATION_KEY=$(wget -q -O - $ANCILLARY_VERIFICATION_KEY_URL)
+echo "export ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY" >> ~/.bash_env
+
 export SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/artifact/snapshots | jq -r '.[0].digest')
 echo "export SNAPSHOT_DIGEST=$SNAPSHOT_DIGEST" >> ~/.bash_env
 
 mithril_client () {
-  docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
+  docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
 }
 
 echo "Restoring snapshot $SNAPSHOT_DIGEST"
 # Show detailed information about a snapshot
-mithril_client snapshot show $SNAPSHOT_DIGEST
+mithril_client --origin-tag HYDRA snapshot show $SNAPSHOT_DIGEST
 # Download the given snapshot and verify the certificate
 # This downloads and restores a snapshot
-mithril_client snapshot download $SNAPSHOT_DIGEST
+mithril_client --origin-tag HYDRA snapshot download $SNAPSHOT_DIGEST
 
 # FIXME
 # mv -f ./$NETWORK/${SNAPSHOT_DIGEST}/db network/
