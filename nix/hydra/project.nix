@@ -82,5 +82,9 @@ pkgs.haskell-nix.project {
       packages.proto-lens-protobuf-types.components.library.build-tools = [ pkgs.protobuf ];
       packages.proto-lens-etcd.components.library.build-tools = [ pkgs.protobuf ];
     }
+    # Add etcd as build dependency of hydra-node (template haskell embedding not tracked by cabal)
+    {
+      packages.hydra-node.components.library.build-tools = [ pkgs.etcd ];
+    }
   ];
 }

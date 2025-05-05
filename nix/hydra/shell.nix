@@ -62,7 +62,7 @@ let
     pkgs.secp256k1
     pkgs.xz
     pkgs.zlib
-    pkgs.etcd # Run-time dependency of hydra-node
+    pkgs.etcd # Build-time dependency (static binary to be embedded)
   ]
   ++
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [

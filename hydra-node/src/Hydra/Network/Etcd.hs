@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 -- | Implements a Hydra network component using [etcd](https://etcd.io/).
@@ -11,8 +12,8 @@
 -- very introspectable, while it would also support features like TLS or service
 -- discovery.
 --
--- The component starts and configures an `etcd` instance and connects to it
--- using a GRPC client. We can only write and read from the cluster while
+-- The component installs, starts and configures an `etcd` instance and connects
+-- to it using a GRPC client. We can only write and read from the cluster while
 -- connected to the majority cluster.
 --
 -- Broadcasting is implemented using @put@ to some well-known key, while message
@@ -58,6 +59,7 @@ import Control.Lens ((^.), (^..))
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Value)
+import Data.Bits ((.|.))
 import Data.ByteString qualified as BS
 import Data.List ((\\))
 import Data.List qualified as List
@@ -72,6 +74,7 @@ import Hydra.Network (
   NetworkConfiguration (..),
   ProtocolVersion,
  )
+import Hydra.Node.EmbedTH (embedExecutable)
 import Network.GRPC.Client (
   Address (..),
   ConnParams (..),
@@ -95,8 +98,9 @@ import Network.GRPC.Etcd (
  )
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
-import System.FilePath ((</>))
+import System.FilePath (takeDirectory, (</>))
 import System.IO.Error (isDoesNotExistError)
+import System.Posix (ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
 import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
   Process,
@@ -124,6 +128,7 @@ withEtcdNetwork ::
   NetworkConfiguration ->
   NetworkComponent IO msg msg ()
 withEtcdNetwork tracer protocolVersion config callback action = do
+  installEtcd etcdBinPath
   -- TODO: fail if cluster config / members do not match --peer
   -- configuration? That would be similar to the 'acks' persistence
   -- bailing out on loading.
@@ -187,6 +192,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         Left err -> traceWith tracer FailedToDecodeLog{log = decodeUtf8 bs, reason = show err}
         Right v -> traceWith tracer $ EtcdLog{etcd = v}
 
+  etcdBinPath = persistenceDir </> "bin" </> "etcd"
+
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
@@ -195,7 +202,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
     setEnv (Map.toList $ envVars <> defaultEnv)
       . setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
       . setStderr createPipe
-      . proc "etcd"
+      . proc etcdBinPath
       $ concat
         [ -- NOTE: Must be used in clusterPeers
           ["--name", show advertise]
@@ -230,6 +237,13 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
 
   NetworkConfiguration{persistenceDir, listen, advertise, peers} = config
+
+-- | Install the embeded 'etcd' binary to given file path.
+installEtcd :: FilePath -> IO ()
+installEtcd fp = do
+  createDirectoryIfMissing True (takeDirectory fp)
+  BS.writeFile fp $(embedExecutable "etcd")
+  setFileMode fp (ownerReadMode .|. ownerWriteMode .|. ownerExecuteMode)
 
 -- | Check and write version on etcd cluster. This will retry until we are on a
 -- majority cluster and succeed. If the version does not match a corresponding
