@@ -14,7 +14,7 @@
       url = "github:homotopic/lint-utils";
       inputs.nixpkgs.follows = "haskellNix/nixpkgs";
     };
-    mithril.url = "github:input-output-hk/mithril/2450.0";
+    mithril.url = "github:input-output-hk/mithril/2517.1";
     mithril-unstable.url = "github:input-output-hk/mithril/unstable";
     nixpkgs.follows = "haskellNix/nixpkgs";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
