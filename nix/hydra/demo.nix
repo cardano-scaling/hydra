@@ -58,6 +58,7 @@
               --monitoring-port 6001 \
               --peer 127.0.0.1:5002 \
               --peer 127.0.0.1:5003 \
+              --peer 127.0.0.1:5004 \
               --hydra-signing-key ${self}/demo/alice.sk \
               --hydra-verification-key ${self}/demo/bob.vk \
               --hydra-verification-key ${self}/demo/carol.vk \
@@ -69,6 +70,39 @@
               --testnet-magic 42 \
               --node-socket devnet/node.socket \
               --persistence-dir devnet/persistence/alice \
+              --contestation-period 3
+          '';
+        };
+        ready_log_line = "NodeIsLeader";
+        depends_on."seed-devnet".condition = "process_completed";
+      };
+      hydra-node-alice-mirror = {
+        command = pkgs.writeShellApplication {
+          name = "hydra-node-alice-mirror";
+          runtimeInputs = [ pkgs.etcd ];
+          checkPhase = ""; # not shellcheck and choke on sourcing .env
+          text = ''
+            # (Re-)Export all variables from .env
+            set -a; source .env; set +a
+            ${hydra-node}/bin/hydra-node \
+              --node-id 1-1 \
+              --listen 127.0.0.1:5004 \
+              --api-port 4004 \
+              --monitoring-port 6001 \
+              --peer 127.0.0.1:5001 \
+              --peer 127.0.0.1:5002 \
+              --peer 127.0.0.1:5003 \
+              --hydra-signing-key ${self}/demo/alice.sk \
+              --hydra-verification-key ${self}/demo/bob.vk \
+              --hydra-verification-key ${self}/demo/carol.vk \
+              --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
+              --cardano-signing-key devnet/credentials/alice.sk \
+              --cardano-verification-key devnet/credentials/bob.vk \
+              --cardano-verification-key devnet/credentials/carol.vk \
+              --ledger-protocol-parameters devnet/protocol-parameters.json \
+              --testnet-magic 42 \
+              --node-socket devnet/node.socket \
+              --persistence-dir devnet/persistence/alice-mirror \
               --contestation-period 3
           '';
         };
@@ -90,6 +124,7 @@
             --monitoring-port 6002 \
             --peer 127.0.0.1:5001 \
             --peer 127.0.0.1:5003 \
+            --peer 127.0.0.1:5004 \
             --hydra-signing-key ${self}/demo/bob.sk \
             --hydra-verification-key ${self}/demo/alice.vk \
             --hydra-verification-key ${self}/demo/carol.vk \
@@ -122,6 +157,7 @@
             --monitoring-port 6003 \
             --peer 127.0.0.1:5001 \
             --peer 127.0.0.1:5002 \
+            --peer 127.0.0.1:5004 \
             --hydra-signing-key ${self}/demo/carol.sk \
             --hydra-verification-key ${self}/demo/alice.vk \
             --hydra-verification-key ${self}/demo/bob.vk \
