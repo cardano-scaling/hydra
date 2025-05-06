@@ -197,7 +197,7 @@ observeCommitTx networkId utxo tx = do
   -- the commit into the datum (+ changing the hashing strategy of
   -- collect/fanout)
   committed <- do
-    committedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainCommits
+    committedUTxO <- traverse (Commit.deserializeCommit (toShelleyNetwork networkId)) onChainCommits
     pure . UTxO.fromList $ committedUTxO
 
   policyId <- fromPlutusCurrencySymbol headId

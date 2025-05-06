@@ -8,9 +8,8 @@ import PlutusTx.Prelude
 
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.ByteString.Lazy (fromStrict, toStrict)
-import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
+import Hydra.Cardano.Api (CtxUTxO, Network, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import Hydra.Cardano.Api qualified as OffChain
-import Hydra.Cardano.Api.Network (Network)
 import Hydra.Data.Party (Party)
 import PlutusLedgerApi.V3 (
   CurrencySymbol,

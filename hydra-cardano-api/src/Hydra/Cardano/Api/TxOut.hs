@@ -7,11 +7,11 @@ import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
+import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Data.List qualified as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
-import Hydra.Cardano.Api.Network (Network)
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
 import PlutusLedgerApi.V3 (OutputDatum (..), fromBuiltin)
@@ -159,7 +159,7 @@ toLedgerTxOut =
 fromPlutusTxOut ::
   forall era.
   IsBabbageBasedEra era =>
-  Network ->
+  Ledger.Network ->
   Plutus.TxOut ->
   Maybe (TxOut CtxUTxO era)
 fromPlutusTxOut network out = do

@@ -8,7 +8,6 @@ import Control.Lens ((.~), (^.))
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Hydra.Cardano.Api
-import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
@@ -79,7 +78,7 @@ observeDepositTx ::
 observeDepositTx networkId tx = do
   -- TODO: could just use the first output and fail otherwise
   (TxIn depositTxId _, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
-  (headId, deposited, deadline) <- observeDepositTxOut (networkIdToNetwork networkId) (toCtxUTxOTxOut depositOut)
+  (headId, deposited, deadline) <- observeDepositTxOut (toShelleyNetwork networkId) (toCtxUTxOTxOut depositOut)
   if all (`elem` txIns' tx) (UTxO.inputSet deposited)
     then
       Just
