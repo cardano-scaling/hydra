@@ -64,6 +64,8 @@ curl -L https://github.com/etcd-io/etcd/releases/download/${etcd_version}/etcd-$
 chmod +x bin/*
 ```
 
+Finally, verify your node installation by running `./bin/hydra-node --help`
+
 </TabItem>
 <TabItem value="macos" label="Mac OS aarch64">
 
@@ -88,6 +90,16 @@ mv bin/etcd-${etcd_version}-darwin-arm64/* bin
 
 chmod +x bin/*
 ```
+
+Finally, verify your node installation by running `./bin/hydra-node --help`
+
+:::info
+Recent versions of MacOS block unverified binaries to protect your system.
+
+> *Apple cannot verify that "hydra-node" is free of malware that may harm your Mac or compromise your privacy.*
+
+To proceed, you’ll need to allow it manually in the **Privacy & Security** section of your system settings.
+:::
 
 </TabItem>
 </Tabs>
