@@ -318,13 +318,13 @@ spec = parallel $ do
 
 -- | Add given list of inputs to the 'InputQueue'. This is returning the node to
 -- allow for chaining with 'runToCompletion'.
-primeWith :: Monad m => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+primeWith :: Monad m => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
 primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}} = do
   forM_ inputs enqueue
   pure node
 
 -- | Convert a 'DraftHydraNode' to a 'HydraNode' by providing mock implementations.
-notConnect :: MonadThrow m => DraftHydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+notConnect :: MonadThrow m => DraftHydraNode tx m -> m (HydraNode tx m)
 notConnect =
   connect mockChain mockNetwork mockServer
 
@@ -334,11 +334,11 @@ mockServer =
     { sendMessage = \_ -> pure ()
     }
 
-mockNetwork :: Monad m => Network m (Message SimpleTx)
+mockNetwork :: Monad m => Network m (Message tx)
 mockNetwork =
   Network{broadcast = \_ -> pure ()}
 
-mockChain :: MonadThrow m => Chain SimpleTx m
+mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
     { postTx = \_ -> pure ()
