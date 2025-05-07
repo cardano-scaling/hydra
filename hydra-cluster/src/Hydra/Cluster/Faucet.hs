@@ -33,7 +33,7 @@ import Hydra.Chain.ScriptRegistry (
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
-import Hydra.Tx (balance)
+import Hydra.Tx (balance, txId)
 
 data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
@@ -122,7 +122,7 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
   let stakePools = Set.fromList (Blockfrost.toCardanoPoolId <$> stakePools')
   let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
   eraHistory <- Blockfrost.queryEraHistory
-  foundUTxO <- findFaucetUTxO' networkId changeAddress lovelace
+  foundUTxO <- findUTxO networkId changeAddress lovelace
   case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId faucetVk) foundUTxO [] [theOutput] of
     Left e -> liftIO $ throwIO $ FaucetFailedToBuildTx{reason = e}
     Right tx -> do
@@ -130,9 +130,11 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
       eResult <- Blockfrost.tryError $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR signedTx
       case eResult of
         Left err -> liftIO $ throwIO $ FaucetBlockfrostError{blockFrostError = show err}
-        Right _ -> Blockfrost.awaitUTxO networkId [changeAddress] (getTxId $ getTxBody signedTx)
+        Right _ -> do
+          void $ Blockfrost.awaitUTxO networkId [changeAddress] (txId signedTx)
+          Blockfrost.awaitUTxO networkId [receivingAddress] (txId signedTx)
  where
-  findFaucetUTxO' networkId address lovelace' = do
+  findUTxO networkId address lovelace' = do
     faucetUTxO <- Blockfrost.queryUTxO networkId [address]
     let foundUTxO = UTxO.find (\o -> (selectLovelace . txOutValue) o >= lovelace') faucetUTxO
     when (isNothing foundUTxO) $
