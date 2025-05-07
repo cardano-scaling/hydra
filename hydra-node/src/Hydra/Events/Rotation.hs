@@ -1,12 +1,13 @@
 module Hydra.Events.Rotation where
 
+import Hydra.Prelude
+
 import Conduit (MonadUnliftIO)
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId, LogId, StateEvent (..), getEvents)
 import Hydra.HeadLogic (StateChanged (Checkpoint), aggregate)
 import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
-import Hydra.Prelude
 
 newtype RotationConfig = RotateAfter Natural
 
@@ -83,8 +84,7 @@ prepareRotatedEventStore rotationConfig initialChainState eventStore = do
   let initialState = Idle IdleState{chainState = initialChainState}
   let checkpointer events =
         StateEvent
-          { -- FIXME!
-            eventId = 0
+          { eventId = maybe 0 (succ . last) (nonEmpty $ (\StateEvent{eventId} -> eventId) <$> events)
           , stateChanged =
               Checkpoint . foldl' aggregate initialState $
                 (\StateEvent{stateChanged} -> stateChanged) <$> events
