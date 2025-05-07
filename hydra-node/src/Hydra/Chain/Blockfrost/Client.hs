@@ -108,8 +108,25 @@ publishHydraScripts sk = do
   let stakePools = Set.fromList (toCardanoPoolId <$> stakePools')
   let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
   eraHistory <- queryEraHistory
+  -- addressUTxO <- Blockfrost.getAddressUtxos address
   addressUTxO <- Blockfrost.getAddressUtxos address
-  cardanoUTxO <- toCardanoUTxO networkId addressUTxO
+
+  cardanoUTxO <-
+    foldMapM
+      ( \Blockfrost.AddressUtxo
+           { Blockfrost._addressUtxoAddress
+           , Blockfrost._addressUtxoTxHash = Blockfrost.TxHash{unTxHash}
+           , Blockfrost._addressUtxoOutputIndex
+           , Blockfrost._addressUtxoAmount
+           , Blockfrost._addressUtxoBlock
+           , Blockfrost._addressUtxoDataHash
+           , Blockfrost._addressUtxoInlineDatum
+           , Blockfrost._addressUtxoReferenceScriptHash
+           } ->
+            let txin = toCardanoTxIn unTxHash _addressUtxoOutputIndex
+             in toCardanoUTxO' networkId txin _addressUtxoAddress _addressUtxoReferenceScriptHash _addressUtxoDataHash _addressUtxoAmount _addressUtxoInlineDatum
+      )
+      addressUTxO
 
   txs <- liftIO $ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools cardanoUTxO sk
   forM txs $ \(tx :: Tx) -> do
@@ -212,35 +229,15 @@ queryProtocolParameters = do
 
 -- ** Helpers
 
-toCardanoUTxO :: NetworkId -> [Blockfrost.AddressUtxo] -> BlockfrostClientT IO (UTxO' (TxOut CtxUTxO))
-toCardanoUTxO networkId utxos = UTxO.fromList <$> mapM toEntry utxos
- where
-  toEntry :: Blockfrost.AddressUtxo -> BlockfrostClientT IO (TxIn, TxOut CtxUTxO)
-  toEntry utxo = do
-    let addrTxt = Blockfrost.unAddress $ Blockfrost._addressUtxoAddress utxo
-    let datumHash = Blockfrost.unDatumHash <$> Blockfrost._addressUtxoDataHash utxo
-    let inlineDatum = Blockfrost._scriptDatumCborCbor . Blockfrost.unInlineDatum <$> Blockfrost._addressUtxoInlineDatum utxo
-    val <- toCardanoValue $ Blockfrost._addressUtxoAmount utxo
-    plutusScript <- maybe (pure Nothing) (queryScript . Blockfrost.unScriptHash) (Blockfrost._addressUtxoReferenceScriptHash utxo)
-    txOut <- toCardanoTxOut networkId addrTxt val datumHash inlineDatum plutusScript
-    let Blockfrost.AddressUtxo{_addressUtxoTxHash = Blockfrost.TxHash{unTxHash}, _addressUtxoOutputIndex} = utxo
-    pure (toCardanoTxIn unTxHash _addressUtxoOutputIndex, txOut)
-
--- TODO: unify with the above 'toCardanoUTxO'
-toCardanoUTxO' :: NetworkId -> TxIn -> Blockfrost.UtxoOutput -> BlockfrostClientT IO (UTxO' (TxOut ctx))
-toCardanoUTxO' networkId txIn output@Blockfrost.UtxoOutput{_utxoOutputReferenceScriptHash, _utxoOutputAmount, _utxoOutputInlineDatum} = do
-  let addrTxt = Blockfrost.unAddress $ Blockfrost._utxoOutputAddress output
-  let datumHash = Blockfrost.unDatumHash <$> Blockfrost._utxoOutputDataHash output
-  let inlineDatum = Blockfrost._scriptDatumCborCbor . Blockfrost.unInlineDatum <$> Blockfrost._utxoOutputInlineDatum output
-  val <- toCardanoValue _utxoOutputAmount
-  mPlutusScript <- maybe (pure Nothing) (queryScript . Blockfrost.unScriptHash) _utxoOutputReferenceScriptHash
-  case mPlutusScript of
-    Nothing -> do
-      o <- toCardanoTxOut networkId addrTxt val datumHash inlineDatum Nothing
-      pure $ UTxO.singleton txIn o
-    Just plutusScript -> do
-      o <- toCardanoTxOut networkId addrTxt val datumHash inlineDatum (Just plutusScript)
-      pure $ UTxO.singleton txIn o
+toCardanoUTxO' :: NetworkId -> TxIn -> Blockfrost.Address -> Maybe Blockfrost.ScriptHash -> Maybe Blockfrost.DatumHash -> [Blockfrost.Amount] -> Maybe Blockfrost.InlineDatum -> BlockfrostClientT IO (UTxO' (TxOut ctx))
+toCardanoUTxO' networkId txIn address scriptHash datumHash amount inlineDatum = do
+  let addrTxt = Blockfrost.unAddress address
+  let datumHash' = Blockfrost.unDatumHash <$> datumHash
+  let inlineDatum' = Blockfrost._scriptDatumCborCbor . Blockfrost.unInlineDatum <$> inlineDatum
+  val <- toCardanoValue amount
+  plutusScript <- maybe (pure Nothing) (queryScript . Blockfrost.unScriptHash) scriptHash
+  o <- toCardanoTxOut networkId addrTxt val datumHash' inlineDatum' plutusScript
+  pure $ UTxO.singleton txIn o
 
 scriptTypeToPlutusVersion :: Blockfrost.ScriptType -> Maybe Language
 scriptTypeToPlutusVersion = \case
@@ -447,13 +444,13 @@ queryEraHistory = do
 -- | Query the Blockfrost API to get the 'UTxO' for 'TxIn' and convert to cardano 'UTxO'.
 queryUTxOByTxIn :: NetworkId -> TxIn -> BlockfrostClientT IO UTxO
 queryUTxOByTxIn networkId txIn = do
-  bfUTxO <- Blockfrost.getTxUtxos (Blockfrost.TxHash $ hashToTextAsHex txHash)
-  fromBFUtxo bfUTxO
+  Blockfrost.TransactionUtxos{_transactionUtxosOutputs} <- Blockfrost.getTxUtxos (Blockfrost.TxHash $ hashToTextAsHex txHash)
+  foldMapM
+    ( \Blockfrost.UtxoOutput{_utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} ->
+        toCardanoUTxO' networkId txIn _utxoOutputAddress _utxoOutputReferenceScriptHash _utxoOutputDataHash _utxoOutputAmount _utxoOutputInlineDatum
+    )
+    _transactionUtxosOutputs
  where
-  fromBFUtxo Blockfrost.TransactionUtxos{_transactionUtxosOutputs} = do
-    utxoList <- mapM (toCardanoUTxO' networkId txIn) _transactionUtxosOutputs
-    pure $ fold utxoList
-
   TxIn (TxId txHash) _ = txIn
 
 queryScript :: Text -> BlockfrostClientT IO (Maybe PlutusScript)
@@ -474,9 +471,24 @@ queryScript scriptHashTxt = do
 -- fact this is a single address query always.
 queryUTxO :: NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
 queryUTxO networkId addresses = do
-  let addresses' = Blockfrost.Address . serialiseAddress <$> addresses
-  utxoWithAddresses <- mapM Blockfrost.getAddressUtxos addresses'
-  foldMapM (toCardanoUTxO networkId) utxoWithAddresses
+  let address' = Blockfrost.Address . serialiseAddress $ List.head addresses
+  utxoWithAddresses <- Blockfrost.getAddressUtxos address'
+
+  foldMapM
+    ( \Blockfrost.AddressUtxo
+         { Blockfrost._addressUtxoAddress
+         , Blockfrost._addressUtxoTxHash = Blockfrost.TxHash{unTxHash}
+         , Blockfrost._addressUtxoOutputIndex
+         , Blockfrost._addressUtxoAmount
+         , Blockfrost._addressUtxoBlock
+         , Blockfrost._addressUtxoDataHash
+         , Blockfrost._addressUtxoInlineDatum
+         , Blockfrost._addressUtxoReferenceScriptHash
+         } ->
+          let txin = toCardanoTxIn unTxHash _addressUtxoOutputIndex
+           in toCardanoUTxO' networkId txin _addressUtxoAddress _addressUtxoReferenceScriptHash _addressUtxoDataHash _addressUtxoAmount _addressUtxoInlineDatum
+    )
+    utxoWithAddresses
 
 -- | Query the Blockfrost API for 'Genesis'
 queryGenesisParameters :: BlockfrostClientT IO Blockfrost.Genesis
@@ -519,11 +531,11 @@ awaitUTxO networkId addresses txid = do
   go
  where
   go = do
-    utxo <- Blockfrost.tryError $ queryUTxO networkId addresses
+    utxo <- Blockfrost.tryError $ queryUTxO networkId (spy' "address" addresses)
     case utxo of
-      Left _e -> go
+      Left _e -> liftIO (threadDelay 1) >> go
       Right utxo' ->
-        let wantedUTxO = UTxO.fromList $ List.filter (\(TxIn txid' _, _) -> txid' == txid) (UTxO.toList utxo')
-         in if null wantedUTxO
-              then go
+        let wantedUTxO = UTxO.fromList $ List.filter (\(TxIn txid' _, _) -> spy' "got txId'" txid' == spy' "expected" txid) (UTxO.toList utxo')
+         in if null (spy' "wanted utxo" wantedUTxO)
+              then liftIO (threadDelay 1) >> go
               else pure utxo'
