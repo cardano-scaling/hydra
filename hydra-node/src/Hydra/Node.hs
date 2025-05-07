@@ -33,6 +33,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
+import Hydra.Events.Rotation (EventStore)
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
@@ -168,11 +169,11 @@ hydrate ::
   Environment ->
   Ledger tx ->
   ChainStateType tx ->
-  -- TODO! replace by EventStore
-  EventSource (StateEvent tx) m ->
+  EventStore (StateEvent tx) m ->
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
-hydrate tracer env ledger initialChainState eventSource eventSinks = do
+hydrate tracer env ledger initialChainState (eventSource, eventSink) eventSinks = do
+  let allSinks = eventSink : eventSinks
   traceWith tracer LoadingState
   (lastEventId, (headState, chainStateHistory)) <-
     runConduitRes $
@@ -189,7 +190,7 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   traceWith tracer ReplayingState
   runConduitRes $
-    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
+    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks allSinks [e])
 
   nodeState <- createNodeState (getLast lastEventId) headState
   inputQueue <- createInputQueue
@@ -201,12 +202,13 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
       , nodeState
       , inputQueue
       , eventSource
-      , eventSinks
+      , eventSinks = allSinks
       , chainStateHistory
       }
  where
   initialState = Idle IdleState{chainState = initialChainState}
 
+  -- REVIEW!
   recoverHeadStateC =
     mapC stateChanged
       .| getZipSink
