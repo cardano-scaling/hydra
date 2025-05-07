@@ -5,6 +5,7 @@ import Hydra.Prelude
 import Blockfrost.Client qualified as Blockfrost
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Slotting.EpochInfo.API (EpochInfo, hoistEpochInfo)
+import Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue)
 import Control.Retry (constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
@@ -13,12 +14,16 @@ import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
   EraHistory (..),
+  Hash,
   PaymentCredential (PaymentCredentialByKey),
+  SerialiseAsCBOR (serialiseToCBOR),
   SlotNo (..),
   StakeAddressReference (NoStakeAddress),
   SystemStart (..),
   Tx,
   deserialiseFromCBOR,
+  getTxBody,
+  getTxId,
   makeShelleyAddress,
   proxyToAsType,
   runExcept,
@@ -26,6 +31,7 @@ import Hydra.Cardano.Api (
   toLedgerUTxO,
   verificationKeyHash,
  )
+import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Blockfrost.Client (
   queryEraHistory,
   queryGenesisParameters,
@@ -44,7 +50,7 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.State (ChainContext (..))
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
-import Hydra.Logging (Tracer)
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.Util (
   readKeyPair,
  )
@@ -117,8 +123,22 @@ mkTinyWallet tracer config = do
     hoistEpochInfo (first show . runExcept) $
       Consensus.interpreterToEpochInfo interpreter
 
-blockfrostChainFollow :: (MonadIO m, MonadCatch m, MonadSTM m) => Blockfrost.Project -> ChainPoint -> ChainSyncHandler m -> TinyWallet m -> m ()
-blockfrostChainFollow prj chainPoint handler wallet = do
+blockfrostChain ::
+  (MonadIO m, MonadCatch m, MonadAsync m) =>
+  Tracer IO DirectChainLog ->
+  TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) ->
+  Blockfrost.Project ->
+  ChainPoint ->
+  ChainSyncHandler m ->
+  TinyWallet m ->
+  m ()
+blockfrostChain tracer queue prj chainPoint handler wallet =
+  race_
+    (blockfrostChainFollow tracer prj chainPoint handler wallet)
+    (liftIO $ Blockfrost.runBlockfrost prj $ blockfrostSubmissionClient tracer queue)
+
+blockfrostChainFollow :: (MonadIO m, MonadCatch m, MonadSTM m) => Tracer IO DirectChainLog -> Blockfrost.Project -> ChainPoint -> ChainSyncHandler m -> TinyWallet m -> m ()
+blockfrostChainFollow tracer prj chainPoint handler wallet = do
   Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <- Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
 
   Blockfrost.Block{_blockHash = (Blockfrost.BlockHash genesisBlockHash)} <-
@@ -130,7 +150,7 @@ blockfrostChainFollow prj chainPoint handler wallet = do
 
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
-      loop prj blockTime handler wallet 1 blockHash
+      loop tracer prj blockTime handler wallet 1 blockHash
         `catch` \(ex :: APIBlockfrostError) ->
           pure $ Left ex
  where
@@ -142,6 +162,7 @@ blockfrostChainFollow prj chainPoint handler wallet = do
 
 loop ::
   (MonadIO m, MonadThrow m, MonadSTM m) =>
+  Tracer IO DirectChainLog ->
   Blockfrost.Project ->
   DiffTime ->
   ChainSyncHandler m ->
@@ -149,20 +170,21 @@ loop ::
   Integer ->
   Blockfrost.BlockHash ->
   m a
-loop prj blockTime handler wallet blockConfirmations current = do
-  next <- rollForward prj handler wallet blockConfirmations current
-  loop prj blockTime handler wallet blockConfirmations next
+loop tracer prj blockTime handler wallet blockConfirmations current = do
+  next <- rollForward tracer prj handler wallet blockConfirmations current
+  loop tracer prj blockTime handler wallet blockConfirmations next
 
 rollForward ::
   (MonadIO m, MonadThrow m) =>
+  Tracer IO DirectChainLog ->
   Blockfrost.Project ->
   ChainSyncHandler m ->
   TinyWallet m ->
   Integer ->
   Blockfrost.BlockHash ->
   m Blockfrost.BlockHash
-rollForward prj handler wallet blockConfirmations blockHash = do
-  Blockfrost.Block
+rollForward tracer prj handler wallet blockConfirmations blockHash = do
+  block@Blockfrost.Block
     { _blockHash
     , _blockConfirmations
     , _blockNextBlock
@@ -185,6 +207,11 @@ rollForward prj handler wallet blockConfirmations blockHash = do
   -- Check if block contains a reference to its next
   nextBlockHash <- maybe (throwIO $ MissingNextBlockHash _blockHash) pure _blockNextBlock
 
+  let receivedTxIds = getTxId . getTxBody <$> receivedTxs
+  let point = toChainPoint block
+
+  liftIO $ traceWith tracer RolledForward{point, receivedTxIds}
+
   blockNo <- maybe (throwIO $ MissingBlockNo _blockHash) (pure . fromInteger) _blockHeight
   let Blockfrost.BlockHash blockHash' = _blockHash
   let blockHash'' = fromString $ T.unpack blockHash'
@@ -195,6 +222,38 @@ rollForward prj handler wallet blockConfirmations blockHash = do
 
   onRollForward handler header receivedTxs
   pure nextBlockHash
+
+blockfrostSubmissionClient ::
+  Tracer IO DirectChainLog ->
+  TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) ->
+  Blockfrost.BlockfrostClientT IO ()
+blockfrostSubmissionClient tracer queue =
+  bfClient
+ where
+  bfClient :: Blockfrost.BlockfrostClientT IO ()
+  bfClient = do
+    (tx, response) <- liftIO $ atomically $ readTQueue queue
+    let txId = getTxId $ getTxBody tx
+    liftIO $ traceWith tracer PostingTx{txId}
+    res <- Blockfrost.tryError $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR tx
+    case res of
+      Left err -> do
+        let postTxError = FailedToPostTx{failureReason = show err}
+        liftIO $ traceWith tracer PostingFailed{tx, postTxError}
+      Right _ -> do
+        liftIO $ traceWith tracer PostedTx{txId}
+        liftIO $ atomically (putTMVar response Nothing)
+        bfClient
+
+toChainPoint :: Blockfrost.Block -> ChainPoint
+toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
+  ChainPoint slotNo headerHash
+ where
+  slotNo :: SlotNo
+  slotNo = maybe 0 (fromInteger . Blockfrost.unSlot) _blockSlot
+
+  headerHash :: Hash BlockHeader
+  headerHash = fromString . toString $ Blockfrost.unBlockHash _blockHash
 
 -- * Helpers
 
