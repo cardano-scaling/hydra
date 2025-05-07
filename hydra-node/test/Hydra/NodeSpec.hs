@@ -14,6 +14,7 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
+import Hydra.Events.Rotation (EventStore)
 import Hydra.HeadLogic (Input (..))
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
@@ -70,8 +71,7 @@ spec = parallel $ do
           \someEvents -> do
             (mockSink1, getMockSinkEvents1) <- createRecordingSink
             (mockSink2, getMockSinkEvents2) <- createRecordingSink
-
-            void $ testHydrate (mockSource someEvents) [mockSink1, mockSink2]
+            void $ testHydrate (mockEventStore someEvents) [mockSink1, mockSink2]
 
             getMockSinkEvents1 `shouldReturn` someEvents
             getMockSinkEvents2 `shouldReturn` someEvents
@@ -81,7 +81,7 @@ spec = parallel $ do
           \someEvents -> do
             (sink, getSinkEvents) <- createRecordingSink
 
-            void $ testHydrate (mockSource someEvents) [sink]
+            void $ testHydrate (mockEventStore someEvents) [sink]
 
             seenEvents <- getSinkEvents
             getEventId <$> seenEvents `shouldBe` getEventId <$> someEvents
@@ -96,7 +96,7 @@ spec = parallel $ do
                     , rotate = \_ _ -> failure "failing rotate sink called"
                     }
             forAllBlind (listOf genSinks) $ \sinks ->
-              testHydrate (mockSource someEvents) (sinks <> [failingSink])
+              testHydrate (mockEventStore someEvents) (sinks <> [failingSink])
                 `shouldThrow` \(_ :: HUnitFailure) -> True
 
       it "checks head state" $ \testHydrate ->
@@ -111,7 +111,7 @@ spec = parallel $ do
                       <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
                       <*> pure now
               forAllShrink genEvent shrink $ \incompatibleEvent ->
-                testHydrate (mockSource [incompatibleEvent]) []
+                testHydrate (mockEventStore [incompatibleEvent]) []
                   `shouldThrow` \(_ :: ParameterMismatch) -> True
 
   describe "stepHydraNode" $ do
@@ -120,7 +120,7 @@ spec = parallel $ do
         (mockSink1, getMockSinkEvents1) <- createRecordingSink
         (mockSink2, getMockSinkEvents2) <- createRecordingSink
 
-        testHydrate (mockSource []) [mockSink1, mockSink2]
+        testHydrate (mockEventStore []) [mockSink1, mockSink2]
           >>= notConnect
           >>= primeWith inputsToOpenHead
           >>= runToCompletion
@@ -140,7 +140,7 @@ spec = parallel $ do
         forAllShrinkBlind genInputs shrink $ \someInputs ->
           idempotentIOProperty $ do
             (sink, getSinkEvents) <- createRecordingSink
-            testHydrate (mockSource []) [sink]
+            testHydrate (mockEventStore []) [sink]
               >>= notConnect
               >>= primeWith someInputs
               >>= runToCompletion
@@ -157,9 +157,9 @@ spec = parallel $ do
 
       it "can continue after re-hydration" $ \testHydrate ->
         failAfter 1 $ do
-          (eventSource, eventSink) <- createMockSourceSink
+          eventStore <- createMockSourceSink
 
-          testHydrate eventSource [eventSink]
+          testHydrate eventStore []
             >>= notConnect
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
@@ -170,7 +170,7 @@ spec = parallel $ do
           (recordingSink, getRecordedEvents) <- createRecordingSink
 
           (node, getServerOutputs) <-
-            testHydrate eventSource [eventSink, recordingSink]
+            testHydrate eventStore [recordingSink]
               >>= notConnect
               >>= primeWith [reqTx]
               >>= recordServerOutputs
@@ -350,6 +350,13 @@ mockChain =
 mockSink :: Monad m => EventSink a m
 mockSink = EventSink{putEvent = const $ pure (), rotate = const . const $ pure ()}
 
+mockEventStore :: Monad m => [a] -> EventStore a m
+mockEventStore events =
+  (eventSource, eventSink)
+ where
+  eventSource = mockSource events
+  eventSink = mockSink
+
 mockSource :: Monad m => [a] -> EventSource a m
 mockSource events =
   EventSource
@@ -426,7 +433,8 @@ testHydraNode ::
   [Input SimpleTx] ->
   m (HydraNode SimpleTx m)
 testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
-  hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} (mockSource []) []
+  let eventStore = mockEventStore []
+  hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} eventStore []
     >>= notConnect
     >>= primeWith inputs
  where

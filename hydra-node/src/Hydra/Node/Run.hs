@@ -22,10 +22,8 @@ import Hydra.Chain.Cardano (withCardanoChain)
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.Events (StateEvent (..))
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
-import Hydra.Events.Rotation (RotationConfig (..), newRotatedEventStore)
-import Hydra.HeadLogic (HeadState (..), IdleState (..), StateChanged (..), aggregate)
+import Hydra.Events.Rotation (RotationConfig (..), prepareRotatedEventStore)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -83,18 +81,15 @@ run opts = do
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
-        (eventSource, eventSink) <-
+        eventStore@(eventSource, _) <-
           prepareEventStore
             =<< eventPairFromPersistenceIncremental
             =<< createPersistenceIncremental (persistenceDir <> "/state")
         -- NOTE: Add any custom sink setup code here
         -- customSink <- createCustomSink
-        let eventSinks =
-              [ eventSink
-              -- NOTE: Add any custom sinks here
-              -- , customSink
-              ]
-        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventSource eventSinks
+        -- NOTE: Add any customSink here
+        let eventSinks = []
+        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
@@ -138,20 +133,7 @@ run opts = do
       Nothing ->
         pure eventStore
       Just rotationConfig -> do
-        now <- getCurrentTime
-        let initialState = Idle IdleState{chainState = initialChainState}
-        let checkpoint events =
-              StateEvent
-                { -- FIXME!
-                  eventId = 0
-                , stateChanged =
-                    Checkpoint . foldl' aggregate initialState $
-                      (\StateEvent{stateChanged} -> stateChanged) <$> events
-                , time = now
-                }
-        -- FIXME!
-        let logId = 0
-        newRotatedEventStore rotationConfig checkpoint logId eventStore
+        prepareRotatedEventStore rotationConfig initialChainState eventStore
 
   RunOptions
     { verbosity
