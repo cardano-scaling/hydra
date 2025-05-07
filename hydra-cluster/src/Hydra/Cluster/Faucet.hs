@@ -139,7 +139,7 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
       liftIO $
         throwIO $
           FaucetHasNotEnoughFunds{faucetUTxO}
-    pure $ maybe mempty UTxO.singleton foundUTxO
+    pure $ maybe mempty (uncurry UTxO.singleton) foundUTxO
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
