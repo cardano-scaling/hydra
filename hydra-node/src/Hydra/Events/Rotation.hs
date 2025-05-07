@@ -81,15 +81,19 @@ prepareRotatedEventStore ::
   m (EventStore (StateEvent tx) m)
 prepareRotatedEventStore rotationConfig initialChainState eventStore = do
   now <- getCurrentTime
-  let initialState = Idle IdleState{chainState = initialChainState}
-  let checkpointer events =
-        StateEvent
-          { eventId = maybe 0 (succ . last) (nonEmpty $ (\StateEvent{eventId} -> eventId) <$> events)
-          , stateChanged =
-              Checkpoint . foldl' aggregate initialState $
-                (\StateEvent{stateChanged} -> stateChanged) <$> events
-          , time = now
-          }
+  let checkpointer = newChechpointer initialChainState now
   -- FIXME!
   let logId = 0
   newRotatedEventStore rotationConfig checkpointer logId eventStore
+
+newChechpointer :: IsChainState tx => ChainStateType tx -> UTCTime -> Checkpointer (StateEvent tx)
+newChechpointer initialChainState time events =
+  StateEvent
+    { eventId = maybe 0 (succ . last) (nonEmpty $ (\StateEvent{eventId} -> eventId) <$> events)
+    , stateChanged =
+        Checkpoint . foldl' aggregate initialState $
+          (\StateEvent{stateChanged} -> stateChanged) <$> events
+    , time
+    }
+ where
+  initialState = Idle IdleState{chainState = initialChainState}
