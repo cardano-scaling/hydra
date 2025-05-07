@@ -583,7 +583,3 @@ data EtcdLog
   | MatchingProtocolVersion {version :: ProtocolVersion}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
-
-instance Arbitrary EtcdLog where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
