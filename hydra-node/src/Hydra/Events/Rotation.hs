@@ -2,7 +2,10 @@ module Hydra.Events.Rotation where
 
 import Conduit (MonadUnliftIO)
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId, LogId, getEvents)
+import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Events (EventSink (..), EventSource (..), HasEventId, LogId, StateEvent (..), getEvents)
+import Hydra.HeadLogic (StateChanged (Checkpoint), aggregate)
+import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
 import Hydra.Prelude
 
 newtype RotationConfig = RotateAfter Natural
@@ -68,3 +71,25 @@ newRotatedEventStore config checkpointer logId eventStore = do
         writeTVar logIdV currentLogId'
 
   (eventSource, EventSink{putEvent, rotate}) = eventStore
+
+prepareRotatedEventStore ::
+  (IsChainState tx, MonadTime m, MonadSTM m, MonadUnliftIO m) =>
+  RotationConfig ->
+  ChainStateType tx ->
+  EventStore (StateEvent tx) m ->
+  m (EventStore (StateEvent tx) m)
+prepareRotatedEventStore rotationConfig initialChainState eventStore = do
+  now <- getCurrentTime
+  let initialState = Idle IdleState{chainState = initialChainState}
+  let checkpointer events =
+        StateEvent
+          { -- FIXME!
+            eventId = 0
+          , stateChanged =
+              Checkpoint . foldl' aggregate initialState $
+                (\StateEvent{stateChanged} -> stateChanged) <$> events
+          , time = now
+          }
+  -- FIXME!
+  let logId = 0
+  newRotatedEventStore rotationConfig checkpointer logId eventStore
