@@ -177,7 +177,7 @@ queryProtocolParameters = do
           & ppProtocolVersionL .~ ProtVer maxVersion minVersion
           & ppMinPoolCostL .~ fromIntegral (pparams ^. Blockfrost.minPoolCost)
           & ppCoinsPerUTxOByteL .~ CoinPerByte (fromIntegral (pparams ^. Blockfrost.coinsPerUtxoSize))
-          & ppCostModelsL .~ convertCostModels (pparams ^. Blockfrost.costModels)
+          & ppCostModelsL .~ convertCostModels (pparams ^. Blockfrost.costModelsRaw)
           & ppPricesL .~ Prices priceMemory priceSteps
           & ppMaxTxExUnitsL .~ ExUnits (fromIntegral $ Blockfrost.unQuantity $ pparams ^. Blockfrost.maxTxExMem) (fromIntegral $ Blockfrost.unQuantity $ pparams ^. Blockfrost.maxTxExSteps)
           & ppMaxBlockExUnitsL .~ ExUnits (fromIntegral $ Blockfrost.unQuantity $ pparams ^. Blockfrost.maxBlockExMem) (fromIntegral $ Blockfrost.unQuantity $ pparams ^. Blockfrost.maxBlockExSteps)
@@ -194,16 +194,16 @@ queryProtocolParameters = do
           & ppDRepActivityL .~ EpochInterval (fromIntegral $ Blockfrost.unQuantity drepActivity)
           & ppMinFeeRefScriptCostPerByteL .~ minFeeRefScriptCostPerByte
  where
-  convertCostModels :: Blockfrost.CostModels -> CostModels
+  convertCostModels :: Blockfrost.CostModelsRaw -> CostModels
   convertCostModels costModels =
-    let costModelsMap = Blockfrost.unCostModels costModels
+    let costModelsMap = Blockfrost.unCostModelsRaw costModels
      in foldMap
           ( (mempty <>)
               . ( \(scriptType, v) ->
                     case scriptTypeToPlutusVersion scriptType of
                       Nothing -> mempty
                       Just plutusScript ->
-                        case mkCostModel plutusScript (fromIntegral <$> Map.elems v) of
+                        case mkCostModel plutusScript (fromIntegral <$> v) of
                           Left _ -> mempty
                           Right costModel -> mkCostModels $ Map.singleton plutusScript costModel
                 )
@@ -213,7 +213,7 @@ queryProtocolParameters = do
 -- ** Helpers
 
 toCardanoUTxO :: NetworkId -> [Blockfrost.AddressUtxo] -> BlockfrostClientT IO (UTxO' (TxOut CtxUTxO))
-toCardanoUTxO networkId utxos = UTxO.fromPairs <$> mapM toEntry utxos
+toCardanoUTxO networkId utxos = UTxO.fromList <$> mapM toEntry utxos
  where
   toEntry :: Blockfrost.AddressUtxo -> BlockfrostClientT IO (TxIn, TxOut CtxUTxO)
   toEntry utxo = do
@@ -237,10 +237,10 @@ toCardanoUTxO' networkId txIn output@Blockfrost.UtxoOutput{_utxoOutputReferenceS
   case mPlutusScript of
     Nothing -> do
       o <- toCardanoTxOut networkId addrTxt val datumHash inlineDatum Nothing
-      pure $ UTxO.singleton (txIn, o)
+      pure $ UTxO.singleton txIn o
     Just plutusScript -> do
       o <- toCardanoTxOut networkId addrTxt val datumHash inlineDatum (Just plutusScript)
-      pure $ UTxO.singleton (txIn, o)
+      pure $ UTxO.singleton txIn o
 
 scriptTypeToPlutusVersion :: Blockfrost.ScriptType -> Maybe Language
 scriptTypeToPlutusVersion = \case
@@ -523,7 +523,7 @@ awaitUTxO networkId addresses txid = do
     case utxo of
       Left _e -> go
       Right utxo' ->
-        let wantedUTxO = UTxO.fromPairs $ List.filter (\(TxIn txid' _, _) -> txid' == txid) (UTxO.pairs utxo')
+        let wantedUTxO = UTxO.fromList $ List.filter (\(TxIn txid' _, _) -> txid' == txid) (UTxO.toList utxo')
          in if null wantedUTxO
               then go
               else pure utxo'
