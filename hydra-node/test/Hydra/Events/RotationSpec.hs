@@ -23,7 +23,22 @@ spec = do
     -- lets configure a rotated event store that rotates after x events
     -- forall y > 0: put x*y events
     -- load all events returns a suffix of put events with length <= x
-    prop "rotates after configured number of events" $ pendingWith "TODO"
+    prop "rotates after configured number of events" $
+      \(Positive x, Positive y) -> do
+        let rotationConfig = RotateAfter x
+        mockEventStore <- createMockSourceSink
+        let logId = 0
+        rotatingEventStore <- newRotatedEventStore rotationConfig trivialCheckpoint logId mockEventStore
+        let (eventSource, EventSink{putEvent}) = rotatingEventStore
+        let totalEvents = toInteger x * y
+        let events = TrivialEvent . fromInteger <$> [1 .. totalEvents]
+        forM_ events putEvent
+        currentHistory <- getEvents eventSource
+        let rotatedElements = fromInteger totalEvents
+        let expectRotated = take rotatedElements events
+        let expectRemaining = drop rotatedElements events
+        let expectedCurrentHistory = trivialCheckpoint expectRotated : expectRemaining
+        expectedCurrentHistory `shouldBe` currentHistory
 
     -- forall y. y > 0 && y < x: put x+y events (= ensures rotation)
     -- load one event === checkpoint of first x of events
