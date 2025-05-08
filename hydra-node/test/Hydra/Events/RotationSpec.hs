@@ -28,11 +28,11 @@ spec = parallel $ do
         failAfter 1 $ do
           now <- getCurrentTime
           let initialChainState = SimpleChainState{slot = ChainSlot 0}
-          let checkpointer = newChechpointer initialChainState now
+          let checkpointer = mkChechpointer initialChainState now
           let logId = 0
           let rotationConfig = RotateAfter 4
           eventStore <- createMockSourceSink
-          rotatingEventStore <- newRotatedEventStore rotationConfig checkpointer logId eventStore
+          rotatingEventStore <- mkRotatedEventStore rotationConfig checkpointer logId eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWith inputsToOpenHead
@@ -55,7 +55,7 @@ spec = parallel $ do
           toInteger (length unrotatedHistory) `shouldBe` totalEvents
           let logId = 0
           let rotationConfig = RotateAfter x
-          (rotatedEventSource, _) <- newRotatedEventStore rotationConfig trivialCheckpoint logId eventStore
+          (rotatedEventSource, _) <- mkRotatedEventStore rotationConfig trivialCheckpoint logId eventStore
           rotatedHistory <- getEvents rotatedEventSource
           length rotatedHistory `shouldBe` 1
 
@@ -68,7 +68,7 @@ spec = parallel $ do
         let rotationConfig = RotateAfter x
         mockEventStore <- createMockSourceSink
         let logId = 0
-        rotatingEventStore <- newRotatedEventStore rotationConfig trivialCheckpoint logId mockEventStore
+        rotatingEventStore <- mkRotatedEventStore rotationConfig trivialCheckpoint logId mockEventStore
         let (eventSource, EventSink{putEvent}) = rotatingEventStore
         let totalEvents = toInteger x * y
         let events = TrivialEvent . fromInteger <$> [1 .. totalEvents]
@@ -88,7 +88,7 @@ spec = parallel $ do
           let rotationConfig = RotateAfter x
           mockEventStore <- createMockSourceSink
           let logId = 0
-          rotatingEventStore <- newRotatedEventStore rotationConfig trivialCheckpoint logId mockEventStore
+          rotatingEventStore <- mkRotatedEventStore rotationConfig trivialCheckpoint logId mockEventStore
           let (eventSource, EventSink{putEvent}) = rotatingEventStore
           let totalEvents = toInteger x + toInteger y
           let events = TrivialEvent . fromInteger <$> [1 .. totalEvents]
