@@ -4,17 +4,43 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.List qualified as List
+import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Events (EventSink (..), HasEventId (..), getEvents)
 import Hydra.Events.Rotation
-import Hydra.NodeSpec (createMockSourceSink)
+import Hydra.Ledger.Simple (SimpleChainState (..), simpleLedger)
+import Hydra.Logging (showLogsOnFailure)
+import Hydra.Node (hydrate)
+import Hydra.NodeSpec (createMockSourceSink, inputsToOpenHead, notConnect, primeWith, runToCompletion)
+import Test.Hydra.Tx.Fixture (testEnvironment)
 import Test.QuickCheck (Positive (..), (==>))
 import Test.QuickCheck.Instances.Natural ()
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   describe "Node" $ do
-    it "rotates while running" $ pendingWith "TODO"
-    it "consistent state after restarting with rotation" $ pendingWith "TODO"
+    -- Set up a hydrate function with fixtures curried
+    let setupHydrate action =
+          showLogsOnFailure "NodeSpec" $ \tracer -> do
+            let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0}
+            action testHydrate
+    around setupHydrate $ do
+      it "rotates while running" $ \testHydrate -> do
+        failAfter 1 $ do
+          now <- getCurrentTime
+          let initialChainState = SimpleChainState{slot = ChainSlot 0}
+          let checkpointer = newChechpointer initialChainState now
+          let logId = 0
+          let rotationConfig = RotateAfter 4
+          eventStore <- createMockSourceSink
+          rotatingEventStore <- newRotatedEventStore rotationConfig checkpointer logId eventStore
+          testHydrate rotatingEventStore []
+            >>= notConnect
+            >>= primeWith inputsToOpenHead
+            >>= runToCompletion
+          rotatedHistory <- getEvents (fst rotatingEventStore)
+          length rotatedHistory `shouldBe` 2
+      it "consistent state after restarting with rotation" $ \_testHydrate -> do
+        pendingWith "TODO"
     prop "a rotated an non rotated node have consistent state" $ pendingWith "TODO"
 
   describe "Rotation algorithm" $ do
