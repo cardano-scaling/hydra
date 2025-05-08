@@ -162,6 +162,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                       Nothing -> pure ()
                       Just timedOutput -> do
                         atomically $ writeTChan responseChannel (Left timedOutput)
+                , rotate = const . const $ pure ()
                 }
             , Server{sendMessage = atomically . writeTChan responseChannel . Right}
             )
