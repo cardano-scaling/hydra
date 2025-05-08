@@ -4,7 +4,6 @@ This tutorial demonstrates how to use `hydra-node` on Cardano's `preprod` testin
 
 This setup follows the [basic Hydra head](/topologies/basic) topology, establishing the 'green' Hydra head between `X` and `Y` as shown below:
 
-
 ![](../../topologies/basic/basic-hydra-head.jpg)
 
 ## Prerequisites
@@ -37,8 +36,8 @@ that you have a good version of jq with this command:
   && echo "jq ok" \
   || echo "bad: please upgrade jq"
 ```
-:::
 
+:::
 
 <Tabs queryString="system">
 <TabItem value="linux" label="Linux x86-64">
@@ -112,6 +111,7 @@ Next, set various environment variables to simplify command execution. Ensure ea
 ```shell
 export PATH=$(pwd)/bin:$PATH
 export GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
+export ANCILLARY_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey 2> /dev/null)
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
 export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
 export CARDANO_NODE_NETWORK_ID=1
@@ -123,6 +123,7 @@ export CARDANO_NODE_NETWORK_ID=1
 ```shell
 export PATH=$(pwd)/bin:$PATH
 export GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
+export ANCILLARY_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey 2> /dev/null)
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
 export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
 export CARDANO_NODE_NETWORK_ID=1
@@ -142,6 +143,7 @@ export DYLD_FALLBACK_LIBRARY_PATH=$(pwd)/bin
 - Building from source is always an option.
 
 Please check out each project's GitHub pages for more options.
+
 </details>
 
 ## Step 1. Connect to Cardano
@@ -150,9 +152,8 @@ The Hydra Head protocol requires a connection to Cardano layer 1 to verify and p
 
 Download the latest blockchain snapshot using `mithril-client` configured for the `preprod` network:
 
-
 ```shell
-mithril-client cardano-db download latest
+mithril-client --origin-tag HYDRA cardano-db download latest --include-ancillary
 ```
 
 <details>
@@ -217,7 +218,6 @@ source <(cardano-cli --bash-completion-script cardano-cli)
 ## Step 2. Prepare keys and funding
 
 First, generate Cardano key pairs and addresses for both participants to identify the `hydra-node` and manage funds on layer 1:
-
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -327,6 +327,7 @@ cardano-cli latest transaction sign \
 
 cardano-cli latest transaction submit --tx-file tx-signed.json
 ```
+
 :::
 
 You can check the balance of your addresses via:
@@ -381,7 +382,6 @@ If you are collaborating with another individual, exchange the verification (pub
 
 Before launching the `hydra-node`, it's crucial to establish and communicate each participant's network connectivity details. This includes the IP addresses and ports where `Alice` and `Bob's` nodes will be reachable for layer 2 network interactions. For this tutorial, we're using placeholder IP addresses and ports, which should be replaced with your actual network details:
 
-
 <!-- TODO: can we make peers configurable via some text input? -->
 
 Alice: <code>127.0.0.1:5001</code>
@@ -389,7 +389,6 @@ Alice: <code>127.0.0.1:5001</code>
 Bob: <code>127.0.0.1:5001</code>
 
 The next step involves configuring the protocol parameters for the ledger within our Hydra head. For the purposes of this tutorial, we'll modify the default Cardano layer 1 parameters to eliminate transaction fees, simplifying test interactions:
-
 
 ```
 cardano-cli query protocol-parameters \
@@ -399,7 +398,6 @@ cardano-cli query protocol-parameters \
 
 This command adjusts the fees and pricing mechanisms to zero, ensuring that transactions within the Hydra head incur no costs.
 
-
 In summary, the Hydra head participants exchanged and agreed on:
 
 - IP addresses and the port on which their `hydra-node` will run
@@ -407,12 +405,9 @@ In summary, the Hydra head participants exchanged and agreed on:
 - A Cardano verification key to identify them on the blockchain
 - Protocol parameters to use in the Hydra head.
 
-
 ## Step 3. Start the Hydra node
 
-
 Scripts are pre-published for all [released](https://github.com/cardano-scaling/hydra/releases) HYDRA_VERSIONs of the `hydra-node` and common Cardano networks. Consult the [user manual](../docs/configuration#reference-scripts) for guidance on publishing your own scripts.
-
 
 Start the `hydra-node` using these parameters:
 
@@ -510,11 +505,10 @@ as well. For example, to run the TUI for Alice:
 ```
 hydra-tui -k credentials/alice-funds.sk
 ```
+
 :::
 
-
 ## Step 4. Open a Hydra head
-
 
 Using the `jq` enhanced `websocat` session, we can now communicate with the `hydra-node` through its WebSocket API on the terminal. This is a duplex connection and we can just insert commands directly.
 
@@ -582,6 +576,7 @@ If you don't want to commit any funds and only want to receive on layer 2, you c
 curl -X POST 127.0.0.1:4002/commit --data "{}" > bob-commit-tx.json
 cardano-cli latest transaction submit --tx-file bob-commit-tx.json
 ```
+
 </details>
 
 After you've prepared your transactions, the `hydra-node` will find all UTXOs associated with the funds key and create a draft of the commit transaction. You'll then sign this transaction using the funds key and submit it to the Cardano layer 1 network.
@@ -592,16 +587,13 @@ When both parties, `alice` and `bob`, have committed, the Hydra head will open a
 
 The head is now operational and ready for further activities.
 
-
 ## Step 5. Use the Hydra head
 
 In this step, we'll demonstrate a basic transaction between `alice` and `bob` using the Hydra head. Hydra Head operates as an isomorphic protocol, meaning that functionalities available on the Cardano layer 1 network are also available on the layer 2 network. This compatibility allows us to use familiar tools like `cardano-cli` for transaction creation within the head.
 
 In this example, we will transfer 10 ada from Alice to Bob. Adjust the transaction amount based on the balances previously committed to the head.
 
-
 First, we need to select a UTXO to spend. We can find a UTXO by referring to the `utxo` field in the most recent `HeadIsOpen` or `SnapshotConfirmed` messages. Alternatively, we can query the current UTXO set directly from the API:
-
 
 ```shell
 curl -s 127.0.0.1:4001/snapshot/utxo | jq
@@ -653,7 +645,6 @@ The transaction will be validated by both `hydra-node`s and either result in a
 
 🎉 Congratulations, you just processed your first Cardano transaction off-chain
 in a Hydra head!
-
 
 ## Step 6. Closing the Hydra head
 

@@ -25,13 +25,16 @@ downloadLatestSnapshotTo :: Tracer IO MithrilLog -> KnownNetwork -> FilePath -> 
 downloadLatestSnapshotTo tracer network directory = do
   traceWith tracer StartSnapshotDownload{network, directory}
   genesisKey <- parseRequest genesisKeyURL >>= httpBS <&> getResponseBody
+  ancillaryKey <- parseRequest ancillaryKeyURL >>= httpBS <&> getResponseBody
   let cmd =
         setStderr createPipe $
           proc mithrilExe $
             concat
-              [ ["--aggregator-endpoint", aggregatorEndpoint]
+              [ ["--origin-tag", "HYDRA"]
+              , ["--aggregator-endpoint", aggregatorEndpoint]
               , ["cardano-db", "download", "latest"]
               , ["--genesis-verification-key", decodeUtf8 genesisKey]
+              , ["--ancillary-verification-key", decodeUtf8 ancillaryKey]
               , ["--download-dir", directory]
               , ["--json"]
               ]
@@ -60,6 +63,12 @@ downloadLatestSnapshotTo tracer network directory = do
     Preproduction -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
     Preview -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
     Sanchonet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey"
+
+  ancillaryKeyURL = case network of
+    Mainnet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
+    Preproduction -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
+    Preview -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
+    Sanchonet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/ancillary.vkey"
 
   aggregatorEndpoint = case network of
     Mainnet -> "https://aggregator.release-mainnet.api.mithril.network/aggregator"
