@@ -31,9 +31,11 @@ newRotatedEventStore config checkpointer logId eventStore = do
   --   -> might be called multiple times!!
   -- - putEvent will be called on application start with all events returned by sourceEvents and during processing
   currentEvents <- getEvents eventSource
-  -- FIXME! if currentEvents >= rotateAfterX then rotate!
-  let currentNumberOfEvents = length currentEvents
-  numberOfEventsV <- newTVarIO (toInteger currentNumberOfEvents)
+  let currentNumberOfEvents = toInteger $ length currentEvents
+  numberOfEventsV <- newTVarIO currentNumberOfEvents
+  -- XXX: check rotation on startup
+  when (currentNumberOfEvents >= toInteger rotateAfterX) $ do
+    rotateEventLog logIdV numberOfEventsV
   pure
     ( EventSource
         { sourceEvents = rotatedSourceEvents
@@ -59,17 +61,20 @@ newRotatedEventStore config checkpointer logId eventStore = do
       pure numberOfEvents'
     -- XXX: check rotation
     when (numberOfEvents' >= toInteger rotateAfterX) $ do
-      -- XXX: build checkpoint event
-      history <- getEvents eventSource
-      let checkpoint = checkpointer history
-      -- XXX: rotate with checkpoint
-      currentLogId <- readTVarIO logIdV
-      let currentLogId' = currentLogId + 1
-      rotate currentLogId' checkpoint
-      -- XXX: clear numberOfEvents + bump logId
-      atomically $ do
-        writeTVar numberOfEventsV 0
-        writeTVar logIdV currentLogId'
+      rotateEventLog logIdV numberOfEventsV
+
+  rotateEventLog logIdV numberOfEventsV = do
+    -- XXX: build checkpoint event
+    history <- getEvents eventSource
+    let checkpoint = checkpointer history
+    -- XXX: rotate with checkpoint
+    currentLogId <- readTVarIO logIdV
+    let currentLogId' = currentLogId + 1
+    rotate currentLogId' checkpoint
+    -- XXX: clear numberOfEvents + bump logId
+    atomically $ do
+      writeTVar numberOfEventsV 0
+      writeTVar logIdV currentLogId'
 
   (eventSource, EventSink{putEvent, rotate}) = eventStore
 

@@ -13,12 +13,26 @@ import Test.QuickCheck.Instances.Natural ()
 spec :: Spec
 spec = do
   describe "Node" $ do
-    it "rotates on startup" $ pendingWith "TODO"
     it "rotates while running" $ pendingWith "TODO"
     it "consistent state after restarting with rotation" $ pendingWith "TODO"
     prop "a rotated an non rotated node have consistent state" $ pendingWith "TODO"
 
   describe "Rotation algorithm" $ do
+    prop "rotates on startup" $
+      \(Positive x, Positive y) ->
+        (y > x) ==> do
+          eventStore@(eventSource, eventSink) <- createMockSourceSink
+          let totalEvents = toInteger y
+          let events = TrivialEvent <$> [1 .. fromInteger totalEvents]
+          mapM_ (putEvent eventSink) events
+          unrotatedHistory <- getEvents eventSource
+          toInteger (length unrotatedHistory) `shouldBe` totalEvents
+          let logId = 0
+          let rotationConfig = RotateAfter x
+          (rotatedEventSource, _) <- newRotatedEventStore rotationConfig trivialCheckpoint logId eventStore
+          rotatedHistory <- getEvents rotatedEventSource
+          length rotatedHistory `shouldBe` 1
+
     -- given some event store (source + sink)
     -- lets configure a rotated event store that rotates after x events
     -- forall y > 0: put x*y events
