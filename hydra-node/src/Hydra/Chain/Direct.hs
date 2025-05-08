@@ -186,7 +186,7 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
                 (clientProtocols chainPoint queue handler)
             BlockfrostBackend{projectPath} -> do
               prj <- Blockfrost.projectFromFile projectPath
-              forever $ Blockfrost.blockfrostChain tracer queue prj chainPoint handler wallet
+              Blockfrost.blockfrostChain tracer queue prj chainPoint handler wallet
       )
       (action chainHandle)
   case res of
