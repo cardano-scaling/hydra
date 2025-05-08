@@ -17,14 +17,14 @@ type EventStore e m = (EventSource e m, EventSink e m)
 type Checkpointer e = [e] -> e
 
 -- | Creates an event store that rotates according to given config and 'Checkpointer'.
-newRotatedEventStore ::
+mkRotatedEventStore ::
   (HasEventId e, MonadSTM m, MonadUnliftIO m) =>
   RotationConfig ->
   Checkpointer e ->
   LogId ->
   EventStore e m ->
   m (EventStore e m)
-newRotatedEventStore config checkpointer logId eventStore = do
+mkRotatedEventStore config checkpointer logId eventStore = do
   logIdV <- newTVarIO logId
   -- Rules for any event store:
   -- - sourceEvents will be called in the beginning of the application and whenever the api server wans to load history
@@ -86,13 +86,13 @@ prepareRotatedEventStore ::
   m (EventStore (StateEvent tx) m)
 prepareRotatedEventStore rotationConfig initialChainState eventStore = do
   now <- getCurrentTime
-  let checkpointer = newChechpointer initialChainState now
+  let checkpointer = mkChechpointer initialChainState now
   -- FIXME!
   let logId = 0
-  newRotatedEventStore rotationConfig checkpointer logId eventStore
+  mkRotatedEventStore rotationConfig checkpointer logId eventStore
 
-newChechpointer :: IsChainState tx => ChainStateType tx -> UTCTime -> Checkpointer (StateEvent tx)
-newChechpointer initialChainState time events =
+mkChechpointer :: IsChainState tx => ChainStateType tx -> UTCTime -> Checkpointer (StateEvent tx)
+mkChechpointer initialChainState time events =
   StateEvent
     { eventId = maybe 0 (succ . last) (nonEmpty $ (\StateEvent{eventId} -> eventId) <$> events)
     , stateChanged =
