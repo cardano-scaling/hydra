@@ -84,7 +84,7 @@ queryScriptRegistry txIds = do
     } <-
     queryGenesisParameters
   let networkId = toCardanoNetworkId _genesisNetworkMagic
-  utxoList <- forM candidates $ \candidateTxIn -> queryUTxOByTxIn networkId candidateTxIn
+  utxoList <- forM candidates $ \(TxIn (TxId candidateHash) _) -> queryUTxOByTxIn networkId $ hashToTextAsHex candidateHash
   case newScriptRegistry $ fold utxoList of
     Left e -> liftIO $ throwIO e
     Right sr -> pure sr
@@ -124,7 +124,7 @@ publishHydraScripts sk = do
            , Blockfrost._addressUtxoReferenceScriptHash
            } ->
             let txin = toCardanoTxIn unTxHash _addressUtxoOutputIndex
-             in toCardanoUTxO' networkId txin _addressUtxoAddress _addressUtxoReferenceScriptHash _addressUtxoDataHash _addressUtxoAmount _addressUtxoInlineDatum
+             in toCardanoUTxO networkId txin _addressUtxoAddress _addressUtxoReferenceScriptHash _addressUtxoDataHash _addressUtxoAmount _addressUtxoInlineDatum
       )
       addressUTxO
 
@@ -229,8 +229,8 @@ queryProtocolParameters = do
 
 -- ** Helpers
 
-toCardanoUTxO' :: NetworkId -> TxIn -> Blockfrost.Address -> Maybe Blockfrost.ScriptHash -> Maybe Blockfrost.DatumHash -> [Blockfrost.Amount] -> Maybe Blockfrost.InlineDatum -> BlockfrostClientT IO (UTxO' (TxOut ctx))
-toCardanoUTxO' networkId txIn address scriptHash datumHash amount inlineDatum = do
+toCardanoUTxO :: NetworkId -> TxIn -> Blockfrost.Address -> Maybe Blockfrost.ScriptHash -> Maybe Blockfrost.DatumHash -> [Blockfrost.Amount] -> Maybe Blockfrost.InlineDatum -> BlockfrostClientT IO (UTxO' (TxOut ctx))
+toCardanoUTxO networkId txIn address scriptHash datumHash amount inlineDatum = do
   let addrTxt = Blockfrost.unAddress address
   let datumHash' = Blockfrost.unDatumHash <$> datumHash
   let inlineDatum' = Blockfrost._scriptDatumCborCbor . Blockfrost.unInlineDatum <$> inlineDatum
@@ -335,6 +335,9 @@ toCardanoAddress addrTxt =
 
 textAddrOf :: NetworkId -> VerificationKey PaymentKey -> Text
 textAddrOf networkId vk = addressToText (mkVkAddress @Era networkId vk)
+
+toTxHash :: TxId -> Text
+toTxHash (TxId hash) = hashToTextAsHex hash
 
 toCardanoNetworkId :: Integer -> NetworkId
 toCardanoNetworkId = \case
@@ -442,16 +445,21 @@ queryEraHistory = do
       } = boundStart /= 0 && boundEnd /= 0
 
 -- | Query the Blockfrost API to get the 'UTxO' for 'TxIn' and convert to cardano 'UTxO'.
-queryUTxOByTxIn :: NetworkId -> TxIn -> BlockfrostClientT IO UTxO
-queryUTxOByTxIn networkId txIn = do
-  Blockfrost.TransactionUtxos{_transactionUtxosOutputs} <- Blockfrost.getTxUtxos (Blockfrost.TxHash $ hashToTextAsHex txHash)
-  foldMapM
-    ( \Blockfrost.UtxoOutput{_utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} ->
-        toCardanoUTxO' networkId txIn _utxoOutputAddress _utxoOutputReferenceScriptHash _utxoOutputDataHash _utxoOutputAmount _utxoOutputInlineDatum
-    )
-    _transactionUtxosOutputs
+queryUTxOByTxIn :: NetworkId -> Text -> BlockfrostClientT IO UTxO
+queryUTxOByTxIn networkId txHash = go (100 :: Int)
  where
-  TxIn (TxId txHash) _ = txIn
+  go 0 = liftIO $ throwIO $ BlockfrostError $ "Failed to get UTxO for tx hash: " <> txHash
+  go n = do
+    res <- Blockfrost.tryError $ Blockfrost.getTxUtxos (Blockfrost.TxHash txHash)
+    case res of
+      Left _e -> liftIO (threadDelay 1) >> go (n - 1)
+      Right Blockfrost.TransactionUtxos{_transactionUtxosInputs, _transactionUtxosOutputs} ->
+        foldMapM
+          ( \Blockfrost.UtxoOutput{_utxoOutputOutputIndex, _utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} ->
+              let txIn = toCardanoTxIn txHash _utxoOutputOutputIndex
+               in toCardanoUTxO networkId txIn _utxoOutputAddress _utxoOutputReferenceScriptHash _utxoOutputDataHash _utxoOutputAmount _utxoOutputInlineDatum
+          )
+          _transactionUtxosOutputs
 
 queryScript :: Text -> BlockfrostClientT IO (Maybe PlutusScript)
 queryScript scriptHashTxt = do
@@ -472,7 +480,7 @@ queryScript scriptHashTxt = do
 queryUTxO :: NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
 queryUTxO networkId addresses = do
   let address' = Blockfrost.Address . serialiseAddress $ List.head addresses
-  utxoWithAddresses <- Blockfrost.getAddressUtxos address'
+  utxoWithAddresses <- Blockfrost.getAddressUtxos' address' (Blockfrost.paged 1 1) Blockfrost.desc
 
   foldMapM
     ( \Blockfrost.AddressUtxo
@@ -486,7 +494,7 @@ queryUTxO networkId addresses = do
          , Blockfrost._addressUtxoReferenceScriptHash
          } ->
           let txin = toCardanoTxIn unTxHash _addressUtxoOutputIndex
-           in toCardanoUTxO' networkId txin _addressUtxoAddress _addressUtxoReferenceScriptHash _addressUtxoDataHash _addressUtxoAmount _addressUtxoInlineDatum
+           in toCardanoUTxO networkId txin _addressUtxoAddress _addressUtxoReferenceScriptHash _addressUtxoDataHash _addressUtxoAmount _addressUtxoInlineDatum
     )
     utxoWithAddresses
 
@@ -526,16 +534,19 @@ awaitUTxO ::
   [Address ShelleyAddr] ->
   -- | Last transaction ID to await
   TxId ->
+  -- | Number of seconds to wait
+  Int ->
   BlockfrostClientT IO UTxO
-awaitUTxO networkId addresses txid = do
-  go
+awaitUTxO networkId addresses txid i = do
+  go i
  where
-  go = do
-    utxo <- Blockfrost.tryError $ queryUTxO networkId (spy' "address" addresses)
+  go 0 = liftIO $ throwIO $ BlockfrostError $ "Timeout waiting for UTxO from Blockfrost. Relevant txid: " <> T.pack (show txid)
+  go n = do
+    utxo <- Blockfrost.tryError $ queryUTxO networkId addresses
     case utxo of
-      Left _e -> liftIO (threadDelay 1) >> go
+      Left _e -> liftIO (threadDelay 1) >> go (n - 1)
       Right utxo' ->
-        let wantedUTxO = UTxO.fromList $ List.filter (\(TxIn txid' _, _) -> spy' "got txId'" txid' == spy' "expected" txid) (UTxO.toList utxo')
-         in if null (spy' "wanted utxo" wantedUTxO)
-              then liftIO (threadDelay 1) >> go
+        let wantedUTxO = UTxO.fromList $ List.filter (\(TxIn txid' _, _) -> txid' == txid) (UTxO.toList utxo')
+         in if null wantedUTxO
+              then liftIO (threadDelay 1) >> go (n - 1)
               else pure utxo'
