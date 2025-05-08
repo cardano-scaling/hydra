@@ -131,8 +131,8 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
       case eResult of
         Left err -> liftIO $ throwIO $ FaucetBlockfrostError{blockFrostError = show err}
         Right _ -> do
-          void $ Blockfrost.awaitUTxO networkId [changeAddress] (txId signedTx)
-          Blockfrost.awaitUTxO networkId [receivingAddress] (txId signedTx)
+          void $ Blockfrost.awaitUTxO networkId [changeAddress] (txId signedTx) 100
+          Blockfrost.awaitUTxO networkId [receivingAddress] (txId signedTx) 100
  where
   findUTxO networkId address lovelace' = do
     faucetUTxO <- Blockfrost.queryUTxO networkId [address]

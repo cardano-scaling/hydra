@@ -32,6 +32,7 @@ import Hydra.Cardano.Api (
   TxOut,
   UTxO',
   fromLedgerTx,
+  getVerificationKey,
   lovelaceToValue,
   serialiseToCBOR,
   signTx,
@@ -398,14 +399,14 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
         let faucetAddress = buildAddress vk networkId
         -- wait to see the last txid propagated on the blockfrost network
-        void $ Blockfrost.awaitUTxO networkId [faucetAddress] (List.last hydraScriptsTxId)
+        void $ Blockfrost.awaitUTxO networkId [faucetAddress] (List.last hydraScriptsTxId) 100
 
         -- Alice setup
         aliceChainConfig <- liftIO $ chainConfigFor' Alice tmp (Left projectPath) hydraScriptsTxId [] cperiod ddeadline
 
-        _ <- seedFromFaucetBlockfrost aliceCardanoVk 100_000_000
-        someUTxO <- seedFromFaucetBlockfrost aliceCardanoVk 2_000_000
-        someUTxOToCommit <- seedFromFaucetBlockfrost aliceCardanoVk 3_000_000
+        _ <- seedFromFaucetBlockfrost aliceCardanoVk 50_000_000
+        someUTxO <- seedFromFaucetBlockfrost aliceCardanoVk 7_000_000
+        someUTxOToCommit <- seedFromFaucetBlockfrost aliceCardanoVk 8_000_000
 
         liftIO $
           withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
@@ -649,17 +650,17 @@ withDirectChainTest ::
   (DirectChainTest Tx IO -> IO a) ->
   IO a
 withDirectChainTest tracer config party action = do
-  directConfig <- case config of
+  configuration <- case config of
     Cardano cfg -> pure cfg
     otherConfig -> failure $ "unexpected chainConfig: " <> show otherConfig
-  ctx <- loadChainContext directConfig party
+  ctx <- loadChainContext configuration party
   eventMVar <- newEmptyTMVarIO
 
   let callback event = atomically $ putTMVar eventMVar event
 
-  wallet <- mkTinyWallet tracer directConfig
+  wallet <- mkTinyWallet tracer configuration
 
-  withDirectChain tracer directConfig ctx wallet (initHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
+  withDirectChain tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
     action
       DirectChainTest
         { postTx
@@ -735,11 +736,22 @@ externalCommit' projectPathOrNode hydraClient externalSks headId utxoToCommit bl
     Left projectPath -> do
       prj <- Blockfrost.projectFromFile projectPath
       void $
-        Blockfrost.runBlockfrostM prj $
-          Blockfrost.submitTx $
-            Blockfrost.CBORString $
-              fromStrict $
-                serialiseToCBOR signedTx
+        Blockfrost.runBlockfrostM prj $ do
+          void $
+            Blockfrost.submitTx $
+              Blockfrost.CBORString $
+                fromStrict $
+                  serialiseToCBOR signedTx
+
+          let externalVks = getVerificationKey <$> externalSks
+
+          Blockfrost.Genesis
+            { _genesisNetworkMagic
+            , _genesisSystemStart
+            } <-
+            Blockfrost.queryGenesisParameters
+          let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+          void $ Blockfrost.queryUTxOByTxIn networkId (Blockfrost.toTxHash $ txId signedTx)
     Right node -> submitTx node signedTx
  where
   everybodySigns tx' [] = tx'

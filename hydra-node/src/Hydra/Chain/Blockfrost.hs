@@ -133,9 +133,10 @@ blockfrostChain ::
   TinyWallet m ->
   m ()
 blockfrostChain tracer queue prj chainPoint handler wallet =
-  race_
-    (blockfrostChainFollow tracer prj chainPoint handler wallet)
-    (liftIO $ Blockfrost.runBlockfrost prj $ blockfrostSubmissionClient tracer queue)
+  forever $
+    race_
+      (blockfrostChainFollow tracer prj chainPoint handler wallet)
+      (liftIO $ Blockfrost.runBlockfrost prj $ blockfrostSubmissionClient tracer queue)
 
 blockfrostChainFollow :: (MonadIO m, MonadCatch m, MonadSTM m) => Tracer IO DirectChainLog -> Blockfrost.Project -> ChainPoint -> ChainSyncHandler m -> TinyWallet m -> m ()
 blockfrostChainFollow tracer prj chainPoint handler wallet = do
