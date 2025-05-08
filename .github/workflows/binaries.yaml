@@ -6,13 +6,14 @@ on:
     branches:
     - master
     - release
+    - aarch64-linux
     tags:
     - "*.*.*"
 
 jobs:
-  build-linux:
+  build-x86_64-linux:
     name: "Build for x86_64-linux"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -46,9 +47,45 @@ jobs:
         name: hydra-x86_64-linux-${{ env.VERSION }} # automatically zips
         path: out/*
 
+  build-aarch64-linux:
+    name: "Build for aarch64-linux"
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: 🕵 Determine version
+      run: |
+        # NOTE: For some reason the fetched tags on checkout are not effective
+        # and we need to refetch with --force for git describe.
+        git fetch --tags --force
+        echo "VERSION=$(git describe --always HEAD)" | tee "$GITHUB_ENV"
+
+    - name: ❄ Build static executables
+      # Produces static ELF binary for using MuslC which includes all needed
+      # libraries statically linked into it.
+      run: |
+        nix build .#release-static
+        # XXX: Why unzip https://github.com/actions/upload-artifact/issues/39
+        unzip result/*.zip -d out
+
+    - name: 💾 Upload executables
+      uses: actions/upload-artifact@v4
+      with:
+        name: hydra-aarch64-linux-${{ env.VERSION }} # automatically zips
+        path: out/*
+
   build-macos:
     name: "Build for aarch64-darwin"
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
