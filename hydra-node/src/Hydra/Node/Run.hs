@@ -20,7 +20,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
+import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.Events.Rotation (RotationConfig (..), prepareRotatedEventStore)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
@@ -80,8 +80,7 @@ run opts = do
         -- Hydrate with event source and sinks
         eventStore@(eventSource, _) <-
           prepareEventStore
-            =<< eventPairFromPersistenceIncremental
-            =<< createPersistenceIncremental (persistenceDir <> "/state")
+            =<< mkFileBasedEventStore (persistenceDir <> "/state") createPersistenceIncremental
         -- NOTE: Add any custom sink setup code here
         -- customSink <- createCustomSink
         -- NOTE: Add any customSink here
