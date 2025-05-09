@@ -10,7 +10,7 @@ import Hydra.Chain.Direct.State ()
 import Conduit (runConduitRes, sinkList, (.|))
 import Data.List (zipWith3)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvents, putEvent)
-import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
+import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.HeadLogic (StateChanged)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -31,7 +31,7 @@ spec = do
     roundtripAndGoldenSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(MinimumSized (StateEvent Tx)))
     roundtripAndGoldenADTSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(MinimumSized (StateChanged Tx)))
 
-  describe "eventPairFromPersistenceIncremental" $ do
+  describe "mkFileBasedEventStore" $ do
     prop "can stream events" $
       forAllShrink genContinuousEvents shrink $ \events ->
         ioProperty $
@@ -82,8 +82,7 @@ spec = do
             forM_ events append
             -- Load and store events through the event source interface
             (src, EventSink{putEvent}) <-
-              eventPairFromPersistenceIncremental
-                =<< createPersistenceIncremental (tmpDir <> "/data")
+              mkFileBasedEventStore (tmpDir <> "/data") createPersistenceIncremental
             loadedEvents <- getEvents src
             -- Store all loaded events like the node would do
             forM_ loadedEvents putEvent
@@ -97,6 +96,5 @@ genContinuousEvents =
 withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
 withEventSourceAndSink action =
   withTempDir "hydra-persistence" $ \tmpDir -> do
-    persistence <- createPersistenceIncremental (tmpDir <> "/data")
-    (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
+    (eventSource, eventSink) <- mkFileBasedEventStore (tmpDir <> "/data") createPersistenceIncremental
     action eventSource eventSink

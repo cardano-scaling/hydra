@@ -6,17 +6,20 @@ module Hydra.Events.FileBased where
 import Hydra.Prelude
 
 import Conduit (mapMC, (.|))
-import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
+import Hydra.Events.Rotation (EventStore)
 import Hydra.Persistence (PersistenceIncremental (..))
 
--- | A basic file based event source and sink defined using an
+-- | A basic file based event source and sink defined using a rotated
 -- 'PersistenceIncremental' handle.
-eventPairFromPersistenceIncremental ::
-  (ToJSON e, FromJSON e, HasEventId e, MonadSTM m) =>
-  PersistenceIncremental e m ->
-  m (EventSource e m, EventSink e m)
-eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
+mkFileBasedEventStore ::
+  (ToJSON e, FromJSON e, HasEventId e) =>
+  FilePath ->
+  (FilePath -> IO (PersistenceIncremental e IO)) ->
+  IO (EventStore e IO)
+mkFileBasedEventStore fp mkPersistenceIncremental = do
+  persistenceV <- newTVarIO =<< mkPersistenceIncremental fp
   eventIdV <- newTVarIO Nothing
   let
     getLastSeenEventId = readTVar eventIdV
@@ -25,8 +28,9 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
       writeTVar eventIdV (Just $ getEventId evt)
 
     -- Keep track of the last seen event id when loading
-    sourceEvents =
-      source
+    sourceEvents = do
+      persistence <- liftIO (readTVarIO persistenceV)
+      source persistence
         .| mapMC
           ( \event -> lift . atomically $ do
               setLastSeenEventId event
@@ -42,7 +46,14 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
           | otherwise -> pure ()
 
     store e = do
-      append e
+      persistence <- readTVarIO persistenceV
+      append persistence e
       atomically $ setLastSeenEventId e
 
-  pure (EventSource{sourceEvents}, EventSink{putEvent})
+    rotate nextLogId checkpointEvt = do
+      let fp' = fp <> "-" <> show nextLogId
+      persistence' <- mkPersistenceIncremental fp'
+      append persistence' checkpointEvt
+      atomically $ writeTVar persistenceV persistence'
+
+  pure (EventSource{sourceEvents}, EventSink{putEvent, rotate})
