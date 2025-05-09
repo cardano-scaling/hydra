@@ -60,6 +60,14 @@ setChainState chainState = \case
   Open st -> Open st{chainState}
   Closed st -> Closed st{chainState}
 
+-- | Get the chain state in any 'HeadState'.
+getChainState :: HeadState tx -> ChainStateType tx
+getChainState = \case
+  Idle IdleState{chainState} -> chainState
+  Initial InitialState{chainState} -> chainState
+  Open OpenState{chainState} -> chainState
+  Closed ClosedState{chainState} -> chainState
+
 -- | Get the head parameters in any 'HeadState'.
 getHeadParameters :: HeadState tx -> Maybe HeadParameters
 getHeadParameters = \case
