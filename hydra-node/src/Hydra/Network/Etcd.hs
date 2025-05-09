@@ -128,12 +128,12 @@ withEtcdNetwork ::
   NetworkConfiguration ->
   NetworkComponent IO msg msg ()
 withEtcdNetwork tracer protocolVersion config callback action = do
-  installEtcd etcdBinPath
+  etcdBinPath <- getEtcdBinary persistenceDir useSystemEtcd
   -- TODO: fail if cluster config / members do not match --peer
   -- configuration? That would be similar to the 'acks' persistence
   -- bailing out on loading.
   envVars <- Map.fromList <$> getEnvironment
-  withProcessInterrupt (etcdCmd envVars) $ \p -> do
+  withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
         -- XXX: cleanup reconnecting through policy if other threads fail
@@ -192,12 +192,10 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         Left err -> traceWith tracer FailedToDecodeLog{log = decodeUtf8 bs, reason = show err}
         Right v -> traceWith tracer $ EtcdLog{etcd = v}
 
-  etcdBinPath = persistenceDir </> "bin" </> "etcd"
-
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
-  etcdCmd envVars =
+  etcdCmd etcdBinPath envVars =
     -- NOTE: We map prefers the left; so we need to mappend default at the end.
     setEnv (Map.toList $ envVars <> defaultEnv)
       . setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
@@ -236,7 +234,15 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
 
-  NetworkConfiguration{persistenceDir, listen, advertise, peers} = config
+  NetworkConfiguration{persistenceDir, listen, advertise, peers, useSystemEtcd} = config
+
+-- | Return the path of the etcd binary. Will either install it first, or just
+-- assume there is one available on the system path.
+getEtcdBinary :: FilePath -> Bool -> IO FilePath
+getEtcdBinary _ True = pure "etcd"
+getEtcdBinary persistenceDir False =
+  let path = persistenceDir </> "bin" </> "etcd"
+   in installEtcd path >> pure path
 
 -- | Install the embeded 'etcd' binary to given file path.
 installEtcd :: FilePath -> IO ()

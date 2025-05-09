@@ -75,6 +75,7 @@ import Options.Applicative (
   short,
   showDefault,
   strOption,
+  switch,
   value,
  )
 import Options.Applicative.Builder (str)
@@ -185,6 +186,7 @@ data RunOptions = RunOptions
   , persistenceDir :: FilePath
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
+  , useSystemEtcd :: Bool
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -211,6 +213,7 @@ instance Arbitrary RunOptions where
     persistenceDir <- genDirPath
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
+    useSystemEtcd <- arbitrary
     pure $
       RunOptions
         { verbosity
@@ -228,6 +231,7 @@ instance Arbitrary RunOptions where
         , persistenceDir
         , chainConfig
         , ledgerConfig
+        , useSystemEtcd
         }
 
   shrink = genericShrink
@@ -251,6 +255,7 @@ defaultRunOptions =
     , persistenceDir = "./"
     , chainConfig = Direct defaultDirectChainConfig
     , ledgerConfig = defaultLedgerConfig
+    , useSystemEtcd = False
     }
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
@@ -274,6 +279,14 @@ runOptionsParser =
     <*> persistenceDirParser
     <*> chainConfigParser
     <*> ledgerConfigParser
+    <*> useSystemEtcdParser
+
+useSystemEtcdParser :: Parser Bool
+useSystemEtcdParser =
+  switch
+    ( long "use-system-etcd"
+        <> help "Use the `etcd` binary found on the path instead of the embedded one."
+    )
 
 chainConfigParser :: Parser ChainConfig
 chainConfigParser =

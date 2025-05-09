@@ -54,6 +54,7 @@ spec = do
                       , peers = []
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
+                      , useSystemEtcd = False
                       }
               (recordingCallback, waitNext, _) <- newRecordingCallback
               withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
@@ -213,6 +214,7 @@ setup2Peers tmp = do
             , peers = [bobHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
+            , useSystemEtcd = False
             }
       , bobConfig =
           NetworkConfiguration
@@ -223,6 +225,7 @@ setup2Peers tmp = do
             , peers = [aliceHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
+            , useSystemEtcd = False
             }
       }
 
@@ -249,6 +252,7 @@ setup3Peers tmp = do
             , peers = [bobHost, carolHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
+            , useSystemEtcd = False
             }
       , bobConfig =
           NetworkConfiguration
@@ -259,6 +263,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, carolHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
+            , useSystemEtcd = False
             }
       , carolConfig =
           NetworkConfiguration
@@ -269,6 +274,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, bobHost]
             , nodeId = "carol"
             , persistenceDir = tmp </> "carol"
+            , useSystemEtcd = False
             }
       }
 
