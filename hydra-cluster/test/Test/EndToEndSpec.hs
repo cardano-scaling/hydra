@@ -190,6 +190,57 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             waitMatch 10 bobNode $ \v -> do
               guard $ v ^? key "tag" == Just "SnapshotConfirmed"
 
+    it "supports multiple etcd clusters" $ \tracer -> do
+      withClusterTempDir $ \tmpDir -> do
+        (aliceCardanoVk, _) <- keysFor Alice
+        (bobCardanoVk, _) <- keysFor Bob
+        (carolCardanoVk, _) <- keysFor Carol
+
+        initialUTxO <- generate $ do
+          a <- genUTxOFor aliceCardanoVk
+          b <- genUTxOFor bobCardanoVk
+          c <- genUTxOFor carolCardanoVk
+          pure $ a <> b <> c
+
+        initialUTxO' <- generate $ do
+          b <- genUTxOFor bobCardanoVk
+          c <- genUTxOFor carolCardanoVk
+          pure $ b <> c
+
+        Aeson.encodeFile (tmpDir </> "utxo.json") initialUTxO
+        Aeson.encodeFile (tmpDir </> "utxo2.json") initialUTxO'
+
+        let offlineConfig =
+              Offline
+                OfflineChainConfig
+                  { offlineHeadSeed = "test"
+                  , initialUTxOFile = tmpDir </> "utxo.json"
+                  , ledgerGenesisFile = Nothing
+                  }
+
+        let offlineConfig' =
+              Offline
+                OfflineChainConfig
+                  { offlineHeadSeed = "test2"
+                  , initialUTxOFile = tmpDir </> "utxo2.json"
+                  , ledgerGenesisFile = Nothing
+                  }
+
+        let hydraTracer = contramap FromHydraNode tracer
+
+        withHydraNode hydraTracer offlineConfig tmpDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+          withHydraNode hydraTracer offlineConfig tmpDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+            withHydraNode hydraTracer offlineConfig tmpDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+              waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
+
+          withHydraNode hydraTracer offlineConfig' tmpDir 2 bobSk [carolVk] [2, 3] $ \n2 -> do
+            withHydraNode hydraTracer offlineConfig' tmpDir 3 carolSk [bobVk] [2, 3] $ \n3 -> do
+              waitForNodesConnected hydraTracer 30 $ n2 :| [n3]
+
+          withHydraNode hydraTracer offlineConfig tmpDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+            withHydraNode hydraTracer offlineConfig tmpDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+              waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
+
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer -> do
