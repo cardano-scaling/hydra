@@ -71,6 +71,8 @@ data NetworkConfiguration = NetworkConfiguration
   -- ^ Addresses and ports of remote peers.
   , nodeId :: NodeId
   -- ^ This node's id.
+  , useSystemEtcd :: Bool
+  -- ^ Whether to use the system etcd (on the path) or the embedded one.
   }
 
 -- ** IP (Orphans)
