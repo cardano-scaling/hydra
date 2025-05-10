@@ -1,0 +1,461 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | A data-type to keep track of reference Hydra scripts published on-chain,</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- and needed to construct transactions leveraging reference inputs.</span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Chain.ScriptRegistry</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.List.html"><span class="hs-identifier">Data.List</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.List.html#%21%21"><span class="hs-operator">(!!)</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><span class="hs-identifier">Era</span></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><span class="hs-identifier">EraHistory</span></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier">Key</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-identifier">LedgerEra</span></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier">NetworkId</span></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier">PParams</span></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">PaymentKey</span></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="hs-identifier">PoolId</span></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><span class="hs-identifier">SigningKey</span></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><span class="hs-identifier">SocketPath</span></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier">SystemStart</span></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="hs-identifier">Tx</span></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-identifier">TxBodyErrorAutoBalance</span></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier">TxId</span></span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><span class="hs-identifier">TxIn</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><span class="hs-identifier">TxIx</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-identifier">WitCtx</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-identifier">examplePlutusScriptAlwaysFails</span></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-identifier">mkScriptAddress</span></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="hs-identifier">mkScriptRef</span></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><span class="hs-identifier">mkTxIn</span></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-identifier">mkTxOutAutoBalance</span></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier">mkVkAddress</span></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier">toCtxUTxOTxOut</span></span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><span class="hs-identifier">txOuts'</span></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-keyword">pattern</span><span> </span><span class="annot"><span class="hs-identifier">TxOutDatumNone</span></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">signTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html"><span class="hs-identifier">Hydra.Chain.CardanoClient</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#QueryPoint"><span class="hs-identifier">QueryPoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#awaitTransaction"><span class="hs-identifier">awaitTransaction</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#buildTransactionWithPParams%27"><span class="hs-identifier">buildTransactionWithPParams'</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#queryEraHistory"><span class="hs-identifier">queryEraHistory</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#queryProtocolParameters"><span class="hs-identifier">queryProtocolParameters</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#queryStakePools"><span class="hs-identifier">queryStakePools</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-46"></span><span>  </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#querySystemStart"><span class="hs-identifier">querySystemStart</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#queryUTxOByTxIn"><span class="hs-identifier">queryUTxOByTxIn</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#queryUTxOFor"><span class="hs-identifier">queryUTxOFor</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#submitTransaction"><span class="hs-identifier">submitTransaction</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-50"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.Head</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Head</span></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Plutus</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">commitValidatorScript</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">initialValidatorScript</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">txId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.ScriptRegistry</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ScriptRegistry</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">newScriptRegistry</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- | Query for 'TxIn's in the search for outputs containing all the reference</span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- scripts of the 'ScriptRegistry'.</span><span>
+</span><span id="line-58"></span><span class="hs-comment">--</span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- This is implemented by repeated querying until we have all necessary</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- reference scripts as we do only know the transaction id, not the indices.</span><span>
+</span><span id="line-61"></span><span class="hs-comment">--</span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- Can throw at least 'NewScriptRegistryException' on failure.</span><span>
+</span><span id="line-63"></span><span id="local-6989586621680455294"><span class="annot"><a href="Hydra.Chain.ScriptRegistry.html#queryScriptRegistry"><span class="hs-identifier hs-type">queryScriptRegistry</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-64"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680455294"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680455294"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-comment">-- | cardano-node's network identifier.</span><span>
+</span><span id="line-66"></span><span>  </span><span class="hs-comment">-- A combination of network discriminant + magic number.</span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Filepath to the cardano-node's domain socket</span></span><span>
+</span><span id="line-69"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SocketPath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-70"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><a href="#local-6989586621680455294"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptRegistry</span></span></span><span>
+</span><span id="line-72"></span><span id="queryScriptRegistry"><span class="annot"><span class="annottext">queryScriptRegistry :: forall (m :: * -&gt; *).
+(MonadIO m, MonadThrow m) =&gt;
+NetworkId -&gt; SocketPath -&gt; [TxId] -&gt; m ScriptRegistry
+</span><a href="Hydra.Chain.ScriptRegistry.html#queryScriptRegistry"><span class="hs-identifier hs-var hs-var">queryScriptRegistry</span></a></span></span><span> </span><span id="local-6989586621680455453"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455453"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621680455454"><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680455454"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621680455455"><span class="annot"><span class="annottext">[TxId]
+</span><a href="#local-6989586621680455455"><span class="hs-identifier hs-var">txIds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621680455456"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680455456"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTxO -&gt; m UTxO
+forall a. IO a -&gt; m a
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO UTxO -&gt; m UTxO) -&gt; IO UTxO -&gt; m UTxO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; QueryPoint -&gt; [TxIn] -&gt; IO UTxO
+</span><a href="Hydra.Chain.CardanoClient.html#queryUTxOByTxIn"><span class="hs-identifier hs-var">queryUTxOByTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455453"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680455454"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621680455459"><span class="hs-identifier hs-var">candidates</span></a></span><span>
+</span><span id="line-74"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Either NewScriptRegistryException ScriptRegistry
+</span><span class="hs-identifier hs-var">newScriptRegistry</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680455456"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621680455460"><span class="annot"><span class="annottext">NewScriptRegistryException
+</span><a href="#local-6989586621680455460"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NewScriptRegistryException -&gt; m ScriptRegistry
+forall e a. Exception e =&gt; e -&gt; m a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">NewScriptRegistryException
+</span><a href="#local-6989586621680455460"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680455462"><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="#local-6989586621680455462"><span class="hs-identifier hs-var">sr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ScriptRegistry -&gt; m ScriptRegistry
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="#local-6989586621680455462"><span class="hs-identifier hs-var">sr</span></a></span><span>
+</span><span id="line-77"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-78"></span><span>  </span><span id="local-6989586621680455459"><span class="annot"><span class="annottext">candidates :: [TxIn]
+</span><a href="#local-6989586621680455459"><span class="hs-identifier hs-var hs-var">candidates</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TxId -&gt; TxIn) -&gt; [TxId] -&gt; [TxIn]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621680455463"><span class="annot"><span class="annottext">TxId
+</span><a href="#local-6989586621680455463"><span class="hs-identifier hs-var">txid</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxId -&gt; TxIx -&gt; TxIn
+</span><span class="hs-identifier hs-var">TxIn</span></span><span> </span><span class="annot"><span class="annottext">TxId
+</span><a href="#local-6989586621680455463"><span class="hs-identifier hs-var">txid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word -&gt; TxIx
+</span><span class="hs-identifier hs-var">TxIx</span></span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[TxId]
+</span><a href="#local-6989586621680455455"><span class="hs-identifier hs-var">txIds</span></a></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="annot"><a href="Hydra.Chain.ScriptRegistry.html#publishHydraScripts"><span class="hs-identifier hs-type">publishHydraScripts</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-81"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Expected network discriminant.</span></span><span>
+</span><span id="line-82"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-83"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Path to the cardano-node's domain socket</span></span><span>
+</span><span id="line-84"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SocketPath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-85"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Keys assumed to hold funds to pay for the publishing transaction.</span></span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-87"></span><span>  </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span><span class="hs-special">]</span><span>
+</span><span id="line-88"></span><span id="publishHydraScripts"><span class="annot"><span class="annottext">publishHydraScripts :: NetworkId -&gt; SocketPath -&gt; SigningKey PaymentKey -&gt; IO [TxId]
+</span><a href="Hydra.Chain.ScriptRegistry.html#publishHydraScripts"><span class="hs-identifier hs-var hs-var">publishHydraScripts</span></a></span></span><span> </span><span id="local-6989586621680455466"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455466"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621680455467"><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680455467"><span class="hs-identifier hs-var">socketPath</span></a></span></span><span> </span><span id="local-6989586621680455468"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621680455468"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-89"></span><span>  </span><span id="local-6989586621680455469"><span class="annot"><span class="annottext">PParams ConwayEra
+</span><a href="#local-6989586621680455469"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; QueryPoint -&gt; IO (PParams LedgerEra)
+</span><a href="Hydra.Chain.CardanoClient.html#queryProtocolParameters"><span class="hs-identifier hs-var">queryProtocolParameters</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455466"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680455467"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span>
+</span><span id="line-90"></span><span>  </span><span id="local-6989586621680455470"><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680455470"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; QueryPoint -&gt; IO SystemStart
+</span><a href="Hydra.Chain.CardanoClient.html#querySystemStart"><span class="hs-identifier hs-var">querySystemStart</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455466"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680455467"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span>
+</span><span id="line-91"></span><span>  </span><span id="local-6989586621680455471"><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621680455471"><span class="hs-identifier hs-var">eraHistory</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; QueryPoint -&gt; IO EraHistory
+</span><a href="Hydra.Chain.CardanoClient.html#queryEraHistory"><span class="hs-identifier hs-var">queryEraHistory</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455466"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680455467"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span>
+</span><span id="line-92"></span><span>  </span><span id="local-6989586621680455472"><span class="annot"><span class="annottext">Set PoolId
+</span><a href="#local-6989586621680455472"><span class="hs-identifier hs-var">stakePools</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; QueryPoint -&gt; IO (Set PoolId)
+</span><a href="Hydra.Chain.CardanoClient.html#queryStakePools"><span class="hs-identifier hs-var">queryStakePools</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455466"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680455467"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span>
+</span><span id="line-93"></span><span>  </span><span id="local-6989586621680455473"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680455473"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NetworkId
+-&gt; SocketPath
+-&gt; QueryPoint
+-&gt; VerificationKey PaymentKey
+-&gt; IO UTxO
+</span><a href="Hydra.Chain.CardanoClient.html#queryUTxOFor"><span class="hs-identifier hs-var">queryUTxOFor</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455466"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680455467"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621680455474"><span class="hs-identifier hs-var">vk</span></a></span><span>
+</span><span id="line-94"></span><span>  </span><span id="local-6989586621680455475"><span class="annot"><span class="annottext">[Tx]
+</span><a href="#local-6989586621680455475"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+-&gt; SystemStart
+-&gt; NetworkId
+-&gt; EraHistory
+-&gt; Set PoolId
+-&gt; UTxO
+-&gt; SigningKey PaymentKey
+-&gt; IO [Tx]
+forall (m :: * -&gt; *).
+MonadThrow m =&gt;
+PParams LedgerEra
+-&gt; SystemStart
+-&gt; NetworkId
+-&gt; EraHistory
+-&gt; Set PoolId
+-&gt; UTxO
+-&gt; SigningKey PaymentKey
+-&gt; m [Tx]
+</span><a href="Hydra.Chain.ScriptRegistry.html#buildScriptPublishingTxs"><span class="hs-identifier hs-var">buildScriptPublishingTxs</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra
+PParams LedgerEra
+</span><a href="#local-6989586621680455469"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680455470"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455466"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621680455471"><span class="hs-identifier hs-var">eraHistory</span></a></span><span> </span><span class="annot"><span class="annottext">Set PoolId
+</span><a href="#local-6989586621680455472"><span class="hs-identifier hs-var">stakePools</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680455473"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621680455468"><span class="hs-identifier hs-var">sk</span></a></span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><span class="annottext">[Tx] -&gt; (Tx -&gt; IO TxId) -&gt; IO [TxId]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Traversable.html#forM"><span class="hs-identifier hs-var">forM</span></a></span><span> </span><span class="annot"><span class="annottext">[Tx]
+</span><a href="#local-6989586621680455475"><span class="hs-identifier hs-var">txs</span></a></span><span> </span><span class="annot"><span class="annottext">((Tx -&gt; IO TxId) -&gt; IO [TxId]) -&gt; (Tx -&gt; IO TxId) -&gt; IO [TxId]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680455478"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621680455478"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-96"></span><span>    </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; Tx -&gt; IO ()
+</span><a href="Hydra.Chain.CardanoClient.html#submitTransaction"><span class="hs-identifier hs-var">submitTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455466"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680455467"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621680455478"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-97"></span><span>    </span><span class="annot"><span class="annottext">IO UTxO -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(IO UTxO -&gt; IO ()) -&gt; IO UTxO -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; Tx -&gt; IO UTxO
+</span><a href="Hydra.Chain.CardanoClient.html#awaitTransaction"><span class="hs-identifier hs-var">awaitTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455466"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680455467"><span class="hs-identifier hs-var">socketPath</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621680455478"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-98"></span><span>    </span><span class="annot"><span class="annottext">TxId -&gt; IO TxId
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(TxId -&gt; IO TxId) -&gt; TxId -&gt; IO TxId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; TxIdType Tx
+forall tx. IsTx tx =&gt; tx -&gt; TxIdType tx
+</span><span class="hs-identifier hs-var">txId</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621680455478"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-99"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-100"></span><span>  </span><span id="local-6989586621680455474"><span class="annot"><span class="annottext">vk :: VerificationKey PaymentKey
+</span><a href="#local-6989586621680455474"><span class="hs-identifier hs-var hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; VerificationKey PaymentKey
+forall keyrole.
+(Key keyrole, HasTypeProxy keyrole) =&gt;
+SigningKey keyrole -&gt; VerificationKey keyrole
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621680455468"><span class="hs-identifier hs-var">sk</span></a></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="annot"><span class="hs-comment">-- | Exception raised when building the script publishing transactions.</span></span><span>
+</span><span id="line-103"></span><span class="hs-keyword">newtype</span><span> </span><span id="PublishScriptException"><span class="annot"><a href="Hydra.Chain.ScriptRegistry.html#PublishScriptException"><span class="hs-identifier hs-var">PublishScriptException</span></a></span></span><span>
+</span><span id="line-104"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="FailedToBuildPublishingTx"><span class="annot"><a href="Hydra.Chain.ScriptRegistry.html#FailedToBuildPublishingTx"><span class="hs-identifier hs-var">FailedToBuildPublishingTx</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxBodyErrorAutoBalance</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680455483"><span id="local-6989586621680455488"><span id="local-6989586621680455492"><span class="annot"><span class="annottext">Int -&gt; PublishScriptException -&gt; ShowS
+[PublishScriptException] -&gt; ShowS
+PublishScriptException -&gt; String
+(Int -&gt; PublishScriptException -&gt; ShowS)
+-&gt; (PublishScriptException -&gt; String)
+-&gt; ([PublishScriptException] -&gt; ShowS)
+-&gt; Show PublishScriptException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; PublishScriptException -&gt; ShowS
+showsPrec :: Int -&gt; PublishScriptException -&gt; ShowS
+$cshow :: PublishScriptException -&gt; String
+show :: PublishScriptException -&gt; String
+$cshowList :: [PublishScriptException] -&gt; ShowS
+showList :: [PublishScriptException] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680455502"><span id="local-6989586621680455506"><span id="local-6989586621680455509"><span class="annot"><span class="annottext">Show PublishScriptException
+Typeable PublishScriptException
+(Typeable PublishScriptException, Show PublishScriptException) =&gt;
+(PublishScriptException -&gt; SomeException)
+-&gt; (SomeException -&gt; Maybe PublishScriptException)
+-&gt; (PublishScriptException -&gt; String)
+-&gt; Exception PublishScriptException
+SomeException -&gt; Maybe PublishScriptException
+PublishScriptException -&gt; String
+PublishScriptException -&gt; SomeException
+forall e.
+(Typeable e, Show e) =&gt;
+(e -&gt; SomeException)
+-&gt; (SomeException -&gt; Maybe e) -&gt; (e -&gt; String) -&gt; Exception e
+$ctoException :: PublishScriptException -&gt; SomeException
+toException :: PublishScriptException -&gt; SomeException
+$cfromException :: SomeException -&gt; Maybe PublishScriptException
+fromException :: SomeException -&gt; Maybe PublishScriptException
+$cdisplayException :: PublishScriptException -&gt; String
+displayException :: PublishScriptException -&gt; String
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Exception</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="hs-comment">-- | Builds a chain of script publishing transactions.</span><span>
+</span><span id="line-109"></span><span class="hs-comment">-- Throws: PublishScriptException</span><span>
+</span><span id="line-110"></span><span id="local-6989586621680455329"><span class="annot"><a href="Hydra.Chain.ScriptRegistry.html#buildScriptPublishingTxs"><span class="hs-identifier hs-type">buildScriptPublishingTxs</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680455329"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-112"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">LedgerEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-113"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SystemStart</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-114"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-115"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">EraHistory</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-116"></span><span>  </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PoolId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-117"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Outputs that can be spent by signing key.</span></span><span>
+</span><span id="line-118"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-119"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Key owning funds to pay deposit and fees.</span></span><span>
+</span><span id="line-120"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-121"></span><span>  </span><span class="annot"><a href="#local-6989586621680455329"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">]</span></span><span>
+</span><span id="line-122"></span><span id="buildScriptPublishingTxs"><span class="annot"><span class="annottext">buildScriptPublishingTxs :: forall (m :: * -&gt; *).
+MonadThrow m =&gt;
+PParams LedgerEra
+-&gt; SystemStart
+-&gt; NetworkId
+-&gt; EraHistory
+-&gt; Set PoolId
+-&gt; UTxO
+-&gt; SigningKey PaymentKey
+-&gt; m [Tx]
+</span><a href="Hydra.Chain.ScriptRegistry.html#buildScriptPublishingTxs"><span class="hs-identifier hs-var hs-var">buildScriptPublishingTxs</span></a></span></span><span> </span><span id="local-6989586621680455540"><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621680455540"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span id="local-6989586621680455541"><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680455541"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span id="local-6989586621680455542"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455542"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621680455543"><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621680455543"><span class="hs-identifier hs-var">eraHistory</span></a></span></span><span> </span><span id="local-6989586621680455544"><span class="annot"><span class="annottext">Set PoolId
+</span><a href="#local-6989586621680455544"><span class="hs-identifier hs-var">stakePools</span></a></span></span><span> </span><span id="local-6989586621680455545"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680455545"><span class="hs-identifier hs-var">availableUTxO</span></a></span></span><span> </span><span id="local-6989586621680455546"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621680455546"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-123"></span><span>  </span><span class="annot"><span class="annottext">UTxO -&gt; [TxOut CtxTx] -&gt; m [Tx]
+</span><a href="#local-6989586621680455547"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680455545"><span class="hs-identifier hs-var">availableUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621680455548"><span class="hs-identifier hs-var">scriptOutputs</span></a></span><span>
+</span><span id="line-124"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-125"></span><span>  </span><span id="local-6989586621680455548"><span class="annot"><span class="annottext">scriptOutputs :: [TxOut CtxTx]
+</span><a href="#local-6989586621680455548"><span class="hs-identifier hs-var hs-var">scriptOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-126"></span><span>    </span><span class="annot"><span class="annottext">ReferenceScript Era -&gt; TxOut CtxTx
+</span><a href="#local-6989586621680455549"><span class="hs-identifier hs-var">mkScriptTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">(ReferenceScript Era -&gt; TxOut CtxTx)
+-&gt; (PlutusScript PlutusScriptV3 -&gt; ReferenceScript Era)
+-&gt; PlutusScript PlutusScriptV3
+-&gt; TxOut CtxTx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3 -&gt; ReferenceScript Era
+forall lang.
+IsPlutusScriptLanguage lang =&gt;
+PlutusScript lang -&gt; ReferenceScript Era
+</span><span class="hs-identifier hs-var">mkScriptRef</span></span><span>
+</span><span id="line-127"></span><span>      </span><span class="annot"><span class="annottext">(PlutusScript PlutusScriptV3 -&gt; TxOut CtxTx)
+-&gt; [PlutusScript PlutusScriptV3] -&gt; [TxOut CtxTx]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><span class="hs-identifier hs-var">initialValidatorScript</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><span class="hs-identifier hs-var">commitValidatorScript</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><span class="hs-identifier hs-var">Head.validatorScript</span></span><span class="hs-special">]</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span>  </span><span class="hs-comment">-- Loop over all script outputs to create while re-spending the change output.</span><span>
+</span><span id="line-130"></span><span>  </span><span class="hs-comment">-- Note that we spend the entire UTxO set to cover the deposit scripts, resulting in a squashed UTxO at the end.</span><span>
+</span><span id="line-131"></span><span>  </span><span id="local-6989586621680455547"><span class="annot"><span class="annottext">go :: UTxO -&gt; [TxOut CtxTx] -&gt; m [Tx]
+</span><a href="#local-6989586621680455547"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Tx] -&gt; m [Tx]
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-132"></span><span>  </span><span class="annot"><a href="#local-6989586621680455547"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span id="local-6989586621680455553"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680455553"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680455554"><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621680455554"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span id="local-6989586621680455555"><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621680455555"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-133"></span><span>    </span><span id="local-6989586621680455556"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621680455556"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+-&gt; SystemStart
+-&gt; EraHistory
+-&gt; Set PoolId
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx]
+-&gt; Either (TxBodyErrorAutoBalance Era) Tx
+</span><a href="Hydra.Chain.CardanoClient.html#buildTransactionWithPParams%27"><span class="hs-identifier hs-var">buildTransactionWithPParams'</span></a></span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621680455540"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680455541"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621680455543"><span class="hs-identifier hs-var">eraHistory</span></a></span><span> </span><span class="annot"><span class="annottext">Set PoolId
+</span><a href="#local-6989586621680455544"><span class="hs-identifier hs-var">stakePools</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621680455557"><span class="hs-identifier hs-var">changeAddress</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680455553"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621680455554"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-134"></span><span>      </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621680455558"><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621680455558"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PublishScriptException -&gt; m Tx
+forall e a. Exception e =&gt; e -&gt; m a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">(PublishScriptException -&gt; m Tx) -&gt; PublishScriptException -&gt; m Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era -&gt; PublishScriptException
+</span><a href="Hydra.Chain.ScriptRegistry.html#FailedToBuildPublishingTx"><span class="hs-identifier hs-var">FailedToBuildPublishingTx</span></a></span><span> </span><span class="annot"><span class="annottext">TxBodyErrorAutoBalance Era
+</span><a href="#local-6989586621680455558"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><span id="line-135"></span><span>      </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680455559"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621680455559"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; m Tx
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx -&gt; m Tx) -&gt; Tx -&gt; m Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; Tx -&gt; Tx
+forall era.
+IsShelleyBasedEra era =&gt;
+SigningKey PaymentKey -&gt; Tx era -&gt; Tx era
+</span><span class="hs-identifier hs-var">signTx</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621680455546"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621680455559"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680455560"><span class="annot"><span class="annottext">changeOutput :: TxOut CtxTx
+</span><a href="#local-6989586621680455560"><span class="hs-identifier hs-var hs-var">changeOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx]
+forall era. Tx era -&gt; [TxOut CtxTx era]
+</span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621680455556"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx] -&gt; Int -&gt; TxOut CtxTx
+forall a. HasCallStack =&gt; [a] -&gt; Int -&gt; a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.List.html#%21%21"><span class="hs-operator hs-var">!!</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-138"></span><span>        </span><span id="local-6989586621680455561"><span class="annot"><span class="annottext">utxo' :: UTxO
+</span><a href="#local-6989586621680455561"><span class="hs-identifier hs-var hs-var">utxo'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era) -&gt; UTxO
+forall out. (TxIn, out) -&gt; UTxO' out
+</span><span class="hs-identifier hs-var">UTxO.singleton</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; Word -&gt; TxIn
+forall era. Tx era -&gt; Word -&gt; TxIn
+</span><span class="hs-identifier hs-var">mkTxIn</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621680455556"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; TxOut CtxUTxO Era
+forall era. TxOut CtxTx era -&gt; TxOut CtxUTxO era
+</span><span class="hs-identifier hs-var">toCtxUTxOTxOut</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621680455560"><span class="hs-identifier hs-var">changeOutput</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621680455556"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="hs-glyph">:</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">([Tx] -&gt; [Tx]) -&gt; m [Tx] -&gt; m [Tx]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; [TxOut CtxTx] -&gt; m [Tx]
+</span><a href="#local-6989586621680455547"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680455561"><span class="hs-identifier hs-var">utxo'</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621680455555"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span>  </span><span id="local-6989586621680455557"><span class="annot"><span class="annottext">changeAddress :: AddressInEra
+</span><a href="#local-6989586621680455557"><span class="hs-identifier hs-var hs-var">changeAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra
+forall era.
+IsShelleyBasedEra era =&gt;
+NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455542"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; VerificationKey PaymentKey
+forall keyrole.
+(Key keyrole, HasTypeProxy keyrole) =&gt;
+SigningKey keyrole -&gt; VerificationKey keyrole
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621680455546"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span>  </span><span id="local-6989586621680455549"><span class="annot"><span class="annottext">mkScriptTxOut :: ReferenceScript Era -&gt; TxOut CtxTx
+</span><a href="#local-6989586621680455549"><span class="hs-identifier hs-var hs-var">mkScriptTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-144"></span><span>    </span><span class="annot"><span class="annottext">PParams LedgerEra
+-&gt; AddressInEra
+-&gt; Value
+-&gt; TxOutDatum CtxTx Era
+-&gt; ReferenceScript Era
+-&gt; TxOut CtxTx
+</span><span class="hs-identifier hs-var">mkTxOutAutoBalance</span></span><span>
+</span><span id="line-145"></span><span>      </span><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621680455540"><span class="hs-identifier hs-var">pparams</span></a></span><span>
+</span><span id="line-146"></span><span>      </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621680455563"><span class="hs-identifier hs-var">unspendableScriptAddress</span></a></span><span>
+</span><span id="line-147"></span><span>      </span><span class="annot"><span class="annottext">Value
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-148"></span><span>      </span><span class="annot"><span class="annottext">TxOutDatum CtxTx Era
+forall ctx. TxOutDatum ctx
+</span><span class="hs-identifier hs-var">TxOutDatumNone</span></span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span>  </span><span id="local-6989586621680455563"><span class="annot"><span class="annottext">unspendableScriptAddress :: AddressInEra
+</span><a href="#local-6989586621680455563"><span class="hs-identifier hs-var hs-var">unspendableScriptAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-151"></span><span>    </span><span class="annot"><span class="annottext">NetworkId -&gt; PlutusScript PlutusScriptV1 -&gt; AddressInEra
+forall lang era.
+(IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
+NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkScriptAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680455542"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">(PlutusScript PlutusScriptV1 -&gt; AddressInEra)
+-&gt; PlutusScript PlutusScriptV1 -&gt; AddressInEra
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">WitCtx WitCtxTxIn -&gt; PlutusScript PlutusScriptV1
+forall witctx. WitCtx witctx -&gt; PlutusScript PlutusScriptV1
+</span><span class="hs-identifier hs-var">examplePlutusScriptAlwaysFails</span></span><span> </span><span class="annot"><span class="annottext">WitCtx WitCtxTxIn
+</span><span class="hs-identifier hs-var">WitCtxTxIn</span></span><span>
+</span><span id="line-152"></span></pre></body></html>

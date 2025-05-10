@@ -1,0 +1,114 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.Environment</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html"><span class="hs-identifier">Hydra.Tx.ContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier">ContestationPeriod</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.Crypto.html"><span class="hs-identifier">Hydra.Tx.Crypto</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.Crypto.html#HydraKey"><span class="hs-identifier">HydraKey</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SigningKey</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.DepositDeadline.html"><span class="hs-identifier">Hydra.Tx.DepositDeadline</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.DepositDeadline.html#DepositDeadline"><span class="hs-identifier">DepositDeadline</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.OnChainId.html"><span class="hs-identifier">Hydra.Tx.OnChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier">OnChainId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html"><span class="hs-identifier">Hydra.Tx.Party</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.Party.html#HasParty"><span class="hs-identifier">HasParty</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier">Party</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#deriveParty"><span class="hs-identifier">deriveParty</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">data</span><span> </span><span id="Environment"><span class="annot"><a href="Hydra.Tx.Environment.html#Environment"><span class="hs-identifier hs-var">Environment</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Environment"><span class="annot"><a href="Hydra.Tx.Environment.html#Environment"><span class="hs-identifier hs-var">Environment</span></a></span></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Aparty%3AEnvironment"><span class="annot"><span class="annottext">Environment -&gt; Party
+</span><a href="Hydra.Tx.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ This is the p_i from the paper</span></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- XXX: In the long run we would not want to keep the signing key in memory,</span><span>
+</span><span id="line-15"></span><span>    </span><span class="hs-comment">-- i.e. have an 'Effect' for signing or so.</span><span>
+</span><span id="line-16"></span><span>    </span><span id="%24sel%3AsigningKey%3AEnvironment"><span class="annot"><span class="annottext">Environment -&gt; SigningKey HydraKey
+</span><a href="Hydra.Tx.Environment.html#%24sel%3AsigningKey%3AEnvironment"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Crypto.html#HydraKey"><span class="hs-identifier hs-type">HydraKey</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AotherParties%3AEnvironment"><span class="annot"><span class="annottext">Environment -&gt; [Party]
+</span><a href="Hydra.Tx.Environment.html#%24sel%3AotherParties%3AEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- XXX: Improve naming</span><span>
+</span><span id="line-19"></span><span>    </span><span id="%24sel%3Aparticipants%3AEnvironment"><span class="annot"><span class="annottext">Environment -&gt; [OnChainId]
+</span><a href="Hydra.Tx.Environment.html#%24sel%3Aparticipants%3AEnvironment"><span class="hs-identifier hs-var hs-var">participants</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-type">OnChainId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcontestationPeriod%3AEnvironment"><span class="annot"><span class="annottext">Environment -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.Environment.html#%24sel%3AcontestationPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AdepositDeadline%3AEnvironment"><span class="annot"><span class="annottext">Environment -&gt; DepositDeadline
+</span><a href="Hydra.Tx.Environment.html#%24sel%3AdepositDeadline%3AEnvironment"><span class="hs-identifier hs-var hs-var">depositDeadline</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.DepositDeadline.html#DepositDeadline"><span class="hs-identifier hs-type">DepositDeadline</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679430646"><span id="local-6989586621679430662"><span id="local-6989586621679430666"><span class="annot"><span class="annottext">Int -&gt; Environment -&gt; ShowS
+[Environment] -&gt; ShowS
+Environment -&gt; String
+(Int -&gt; Environment -&gt; ShowS)
+-&gt; (Environment -&gt; String)
+-&gt; ([Environment] -&gt; ShowS)
+-&gt; Show Environment
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; Environment -&gt; ShowS
+showsPrec :: Int -&gt; Environment -&gt; ShowS
+$cshow :: Environment -&gt; String
+show :: Environment -&gt; String
+$cshowList :: [Environment] -&gt; ShowS
+showList :: [Environment] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430671"><span id="local-6989586621679430685"><span class="annot"><span class="annottext">Environment -&gt; Environment -&gt; Bool
+(Environment -&gt; Environment -&gt; Bool)
+-&gt; (Environment -&gt; Environment -&gt; Bool) -&gt; Eq Environment
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: Environment -&gt; Environment -&gt; Bool
+== :: Environment -&gt; Environment -&gt; Bool
+$c/= :: Environment -&gt; Environment -&gt; Bool
+/= :: Environment -&gt; Environment -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679430692"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-26"></span><span>  </span><span id="local-6989586621679430717"><span class="annot"><span class="annottext">arbitrary :: Gen Environment
+</span><a href="#local-6989586621679430717"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-27"></span><span>    </span><span id="local-6989586621679430719"><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679430719"><span class="hs-identifier hs-var">signingKey</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (SigningKey HydraKey)
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-28"></span><span>    </span><span id="local-6989586621679430720"><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679430720"><span class="hs-identifier hs-var">otherParties</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [Party]
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-29"></span><span>    </span><span id="local-6989586621679430721"><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="#local-6989586621679430721"><span class="hs-identifier hs-var">participants</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [OnChainId]
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-30"></span><span>    </span><span id="local-6989586621679430722"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679430722"><span class="hs-identifier hs-var">contestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen ContestationPeriod
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-31"></span><span>    </span><span id="local-6989586621679430723"><span class="annot"><span class="annottext">DepositDeadline
+</span><a href="#local-6989586621679430723"><span class="hs-identifier hs-var">depositDeadline</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen DepositDeadline
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">Environment -&gt; Gen Environment
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Environment -&gt; Gen Environment) -&gt; Environment -&gt; Gen Environment
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-33"></span><span>      </span><span class="annot"><a href="Hydra.Tx.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span>
+</span><span id="line-34"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+$sel:signingKey:Environment :: SigningKey HydraKey
+signingKey :: SigningKey HydraKey
+</span><a href="Hydra.Tx.Environment.html#%24sel%3AsigningKey%3AEnvironment"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span><span>
+</span><span id="line-35"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:party:Environment :: Party
+</span><a href="Hydra.Tx.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party
+</span><a href="Hydra.Tx.Party.html#deriveParty"><span class="hs-identifier hs-var">deriveParty</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679430719"><span class="hs-identifier hs-var">signingKey</span></a></span><span>
+</span><span id="line-36"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Party]
+$sel:otherParties:Environment :: [Party]
+otherParties :: [Party]
+</span><a href="Hydra.Tx.Environment.html#%24sel%3AotherParties%3AEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span><span>
+</span><span id="line-37"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+$sel:contestationPeriod:Environment :: ContestationPeriod
+contestationPeriod :: ContestationPeriod
+</span><a href="Hydra.Tx.Environment.html#%24sel%3AcontestationPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span><span>
+</span><span id="line-38"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[OnChainId]
+$sel:participants:Environment :: [OnChainId]
+participants :: [OnChainId]
+</span><a href="Hydra.Tx.Environment.html#%24sel%3Aparticipants%3AEnvironment"><span class="hs-identifier hs-var hs-var">participants</span></a></span><span>
+</span><span id="line-39"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">DepositDeadline
+$sel:depositDeadline:Environment :: DepositDeadline
+depositDeadline :: DepositDeadline
+</span><a href="Hydra.Tx.Environment.html#%24sel%3AdepositDeadline%3AEnvironment"><span class="hs-identifier hs-var hs-var">depositDeadline</span></a></span><span>
+</span><span id="line-40"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#HasParty"><span class="hs-identifier hs-type">HasParty</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-43"></span><span>  </span><span id="local-6989586621679430727"><span class="annot"><span class="annottext">getParty :: Environment -&gt; Party
+</span><a href="#local-6989586621679430727"><span class="hs-identifier hs-var hs-var hs-var hs-var">getParty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment -&gt; Party
+</span><a href="Hydra.Tx.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var">party</span></a></span><span>
+</span><span id="line-44"></span></pre></body></html>
