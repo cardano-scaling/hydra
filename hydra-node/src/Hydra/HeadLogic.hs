@@ -103,9 +103,6 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 
-defaultTTL :: TTL
-defaultTTL = 10000
-
 onConnectionEvent :: Network.Connectivity -> Outcome tx
 onConnectionEvent = \case
   Network.NetworkConnected ->
@@ -496,8 +493,8 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mDe
           Nothing -> Error $ RequireFailed NoMatchingDeposit
           Just Deposit{status, deposited}
             -- TODO: this needs to go into the spec!
-            -- FIXME: we may need to wait quite long here and the wait mechanism
-            -- right now has low ttl (more geared toward L2 waits)
+            -- XXX: We may need to wait quite long here and this makes losing
+            -- the 'ReqSn' due to a restart (fail-recovery) quite likely
             | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
             | otherwise ->

@@ -36,14 +36,14 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainSta
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), OpenState (..), defaultTTL)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), OpenState (..))
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeState, queryHeadState, runHydraNode, waitDelay)
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeState, defaultTTL, queryHeadState, runHydraNode, waitDelay)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.Environment (Environment (..))
@@ -487,8 +487,10 @@ spec = parallel $ do
         it "commit snapshot only approved when deposit settled" $
           shouldRunInSim $
             withSimulatedChainAndNetwork $ \chain -> do
+              -- NOTE: Only a maximum difference of 600 seconds is handled by the HeadLogic. See
+              -- https://hydra.family/head-protocol/unstable/docs/known-issues/#deposit-periods
               let dpShort = DepositPeriod 60
-              let dpLong = DepositPeriod 1200
+              let dpLong = DepositPeriod 600
               withHydraNode' dpShort aliceSk [bob] chain $ \n1 ->
                 withHydraNode' dpLong bobSk [alice] chain $ \n2 -> do
                   openHead2 chain n1 n2

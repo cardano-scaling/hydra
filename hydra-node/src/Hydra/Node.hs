@@ -314,11 +314,11 @@ stepHydraNode node = do
 
 -- | The maximum number of times to re-enqueue a 'Wait' outcome.
 defaultTTL :: TTL
-defaultTTL = 10000
+defaultTTL = 6000
 
--- | The time to wait between re-enqueuing a 'Wait' outcome
+-- | The time to wait between re-enqueuing a 'Wait' outcome.
 waitDelay :: DiffTime
-waitDelay = 1
+waitDelay = 0.1
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextInput ::
