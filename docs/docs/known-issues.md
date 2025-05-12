@@ -57,6 +57,10 @@ Note that, as with any adjustments of this kind, it is good practice to make a b
 
 There is a hard-coded limit on the **mainnet** where only up to 100 ada can be committed into the Hydra head. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on the mainnet.
 
+### Deposit periods
+
+The `--deposit-period` allows an individual `hydra-node` operator to decide how long they want a deposit to have settled at least. However, differences bigger than [`defaultTTL * waitDelay`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Node.html#v:waitDelay) (currently 10 minutes) result in non-approved snapshots. This is due to the way the `HeadLogic` is implemented and snapshot requests are not retried currently. See [hydra#1999](https://github.com/cardano-scaling/hydra/issues/1999) for more context.
+
 ### Known bugs
 
 Refer to the project repository issue tracker for [known issues](https://github.com/cardano-scaling/hydra/issues?q=is%3Aissue+is%3Aopen+label%3A%22bug+%3Abug%3A%22). If you discover any security-relevant problems, please follow our [security policy](https://github.com/cardano-scaling/hydra?tab=security-ov-file#readme).

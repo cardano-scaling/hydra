@@ -46,7 +46,6 @@ import Hydra.HeadLogic (
   WaitReason (..),
   aggregateState,
   cause,
-  defaultTTL,
   update,
  )
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
@@ -56,6 +55,7 @@ import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
+import Hydra.Node (defaultTTL)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Prelude qualified as Prelude
