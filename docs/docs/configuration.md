@@ -44,7 +44,7 @@ The contestation period (CP) is an important protocol parameter, defined in seco
 hydra-node --contestation-period 1200s
 ```
 
-The contestation period is used in to set the **contestation deadline**. That is, after `Close`, all participants have at minimum `CP` to submit a `Contest` transaction. The `hydra-node` does that automatically if it sees a closed state not be the latest it knows.
+The contestation period is used to set the **contestation deadline**. That is, after `Close`, all participants have at minimum `CP` to submit a `Contest` transaction. The `hydra-node` does that automatically if it sees a closed state not be the latest it knows.
 
 :::important Consistent contestation period
 
