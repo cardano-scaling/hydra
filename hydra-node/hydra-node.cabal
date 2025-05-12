@@ -82,6 +82,7 @@ library
     Hydra.Network.Etcd
     Hydra.Network.Message
     Hydra.Node
+    Hydra.Node.EmbedTH
     Hydra.Node.InputQueue
     Hydra.Node.Network
     Hydra.Node.ParameterMismatch
@@ -118,6 +119,7 @@ library
     , crypton
     , data-default
     , directory
+    , file-embed
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3
@@ -150,10 +152,12 @@ library
     , serialise
     , sop-extras
     , stm
+    , template-haskell
     , text
     , time
     , transformers
     , typed-process
+    , unix
     , unliftio
     , wai
     , wai-cors

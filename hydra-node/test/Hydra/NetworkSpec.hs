@@ -21,6 +21,7 @@ import Hydra.Network (
   Network (..),
   NetworkCallback (..),
   ProtocolVersion (..),
+  WhichEtcd (..),
  )
 import Hydra.Network.Etcd (withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
@@ -54,6 +55,7 @@ spec = do
                       , peers = []
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
+                      , whichEtcd = EmbeddedEtcd
                       }
               (recordingCallback, waitNext, _) <- newRecordingCallback
               withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
@@ -213,6 +215,7 @@ setup2Peers tmp = do
             , peers = [bobHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
+            , whichEtcd = EmbeddedEtcd
             }
       , bobConfig =
           NetworkConfiguration
@@ -223,6 +226,7 @@ setup2Peers tmp = do
             , peers = [aliceHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
+            , whichEtcd = EmbeddedEtcd
             }
       }
 
@@ -249,6 +253,7 @@ setup3Peers tmp = do
             , peers = [bobHost, carolHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
+            , whichEtcd = EmbeddedEtcd
             }
       , bobConfig =
           NetworkConfiguration
@@ -259,6 +264,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, carolHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
+            , whichEtcd = EmbeddedEtcd
             }
       , carolConfig =
           NetworkConfiguration
@@ -269,6 +275,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, bobHost]
             , nodeId = "carol"
             , persistenceDir = tmp </> "carol"
+            , whichEtcd = EmbeddedEtcd
             }
       }
 

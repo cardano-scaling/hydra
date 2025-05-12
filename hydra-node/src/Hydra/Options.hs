@@ -38,7 +38,7 @@ import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, readHost, readPort, showHost)
+import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline), depositFromNominalDiffTime)
 import Hydra.Tx.HeadId (AsType (AsHeadSeed), HeadSeed)
@@ -185,6 +185,7 @@ data RunOptions = RunOptions
   , persistenceDir :: FilePath
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
+  , whichEtcd :: WhichEtcd
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -211,6 +212,7 @@ instance Arbitrary RunOptions where
     persistenceDir <- genDirPath
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
+    whichEtcd <- arbitrary
     pure $
       RunOptions
         { verbosity
@@ -228,6 +230,7 @@ instance Arbitrary RunOptions where
         , persistenceDir
         , chainConfig
         , ledgerConfig
+        , whichEtcd
         }
 
   shrink = genericShrink
@@ -251,6 +254,7 @@ defaultRunOptions =
     , persistenceDir = "./"
     , chainConfig = Direct defaultDirectChainConfig
     , ledgerConfig = defaultLedgerConfig
+    , whichEtcd = EmbeddedEtcd
     }
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
@@ -274,6 +278,16 @@ runOptionsParser =
     <*> persistenceDirParser
     <*> chainConfigParser
     <*> ledgerConfigParser
+    <*> whichEtcdParser
+
+whichEtcdParser :: Parser WhichEtcd
+whichEtcdParser =
+  flag
+    EmbeddedEtcd
+    SystemEtcd
+    ( long "use-system-etcd"
+        <> help "Use the `etcd` binary found on the path instead of the embedded one."
+    )
 
 chainConfigParser :: Parser ChainConfig
 chainConfigParser =
@@ -903,6 +917,7 @@ toArgs
     , persistenceDir
     , chainConfig
     , ledgerConfig
+    , whichEtcd
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -910,6 +925,7 @@ toArgs
       <> maybe [] (\h -> ["--advertise", showHost h]) advertise
       <> ["--api-host", show apiHost]
       <> toArgApiPort apiPort
+      <> toWhichEtcd whichEtcd
       <> maybe [] (\cert -> ["--tls-cert", cert]) tlsCertPath
       <> maybe [] (\key -> ["--tls-key", key]) tlsKeyPath
       <> ["--hydra-signing-key", hydraSigningKey]
@@ -921,6 +937,11 @@ toArgs
       <> argsLedgerConfig
    where
     (NodeId nId) = nodeId
+
+    toWhichEtcd = \case
+      SystemEtcd -> ["--use-system-etcd"]
+      EmbeddedEtcd -> []
+
     isVerbose = \case
       Quiet -> ["--quiet"]
       _ -> []
