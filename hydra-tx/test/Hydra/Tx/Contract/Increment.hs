@@ -32,7 +32,7 @@ import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, depositDeadline, slotLength, systemStart, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxO, genUTxOSized, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -88,7 +88,7 @@ healthyDepositInput :: TxIn
 healthyDepositInput = arbitrary `generateWith` 123
 
 healthyDeposited :: UTxO
-healthyDeposited = genUTxO `generateWith` 42
+healthyDeposited = genUTxOSized 3 `generateWith` 42
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
