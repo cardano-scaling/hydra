@@ -462,7 +462,3 @@ data DirectChainLog
   | Wallet TinyWalletLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
-
-instance Arbitrary DirectChainLog where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
