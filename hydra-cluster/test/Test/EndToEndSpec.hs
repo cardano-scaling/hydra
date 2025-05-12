@@ -60,6 +60,7 @@ import Hydra.Cluster.Scenarios (
   checkFanout,
   headIsInitializingWith,
   initWithWrongKeys,
+  nodeCanSupportMultipleEtcdClusters,
   nodeReObservesOnChainTxs,
   oneOfThreeNodesStopsForAWhile,
   persistenceCanLoadWithEmptyCommit,
@@ -281,6 +282,13 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               publishHydraScriptsAs node Faucet
                 >>= threeNodesNoErrorsOnOpen tracer tmpDir node
+
+      it "node can support multiple etcd clusters" $ \tracer ->
+        failAfter 60 $
+          withClusterTempDir $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+              publishHydraScriptsAs node Faucet
+                >>= nodeCanSupportMultipleEtcdClusters tracer tmpDir node
 
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $

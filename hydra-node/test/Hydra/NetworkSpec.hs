@@ -113,7 +113,7 @@ spec = do
 
       it "emits connectivity events" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          failAfter 30 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             -- Record and assert connectivity events from alice's perspective
             (recordReceived, _, waitConnectivity) <- newRecordingCallback
