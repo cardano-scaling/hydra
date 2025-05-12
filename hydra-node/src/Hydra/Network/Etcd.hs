@@ -73,6 +73,7 @@ import Hydra.Network (
   NetworkComponent,
   NetworkConfiguration (..),
   ProtocolVersion,
+  WhichEtcd (..),
  )
 import Hydra.Node.EmbedTH (embedExecutable)
 import Network.GRPC.Client (
@@ -128,7 +129,7 @@ withEtcdNetwork ::
   NetworkConfiguration ->
   NetworkComponent IO msg msg ()
 withEtcdNetwork tracer protocolVersion config callback action = do
-  etcdBinPath <- getEtcdBinary persistenceDir useSystemEtcd
+  etcdBinPath <- getEtcdBinary persistenceDir whichEtcd
   -- TODO: fail if cluster config / members do not match --peer
   -- configuration? That would be similar to the 'acks' persistence
   -- bailing out on loading.
@@ -234,13 +235,13 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
 
-  NetworkConfiguration{persistenceDir, listen, advertise, peers, useSystemEtcd} = config
+  NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
 
 -- | Return the path of the etcd binary. Will either install it first, or just
 -- assume there is one available on the system path.
-getEtcdBinary :: FilePath -> Bool -> IO FilePath
-getEtcdBinary _ True = pure "etcd"
-getEtcdBinary persistenceDir False =
+getEtcdBinary :: FilePath -> WhichEtcd -> IO FilePath
+getEtcdBinary _ SystemEtcd = pure "etcd"
+getEtcdBinary persistenceDir EmbeddedEtcd =
   let path = persistenceDir </> "bin" </> "etcd"
    in installEtcd path >> pure path
 

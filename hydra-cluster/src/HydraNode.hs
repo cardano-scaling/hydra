@@ -23,7 +23,7 @@ import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (.
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.HeadLogic.State (SeenSnapshot)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
-import Hydra.Network (Host (Host), NodeId (NodeId))
+import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
 import Hydra.Network qualified as Network
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
@@ -399,6 +399,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
       , hydraVerificationKeys
       , persistenceDir = stateDir
       , chainConfig
+      , whichEtcd = EmbeddedEtcd
       , ledgerConfig =
           CardanoLedgerConfig
             { cardanoLedgerProtocolParametersFile
@@ -518,6 +519,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                 , hydraVerificationKeys
                 , persistenceDir = stateDir
                 , chainConfig
+                , whichEtcd = EmbeddedEtcd
                 , ledgerConfig =
                     CardanoLedgerConfig
                       { cardanoLedgerProtocolParametersFile

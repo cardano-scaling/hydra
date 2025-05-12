@@ -103,7 +103,7 @@ run opts = do
                     , advertise = fromMaybe listen advertise
                     , peers
                     , nodeId
-                    , useSystemEtcd
+                    , whichEtcd
                     }
             withNetwork
               (contramap Network tracer)
@@ -143,7 +143,7 @@ run opts = do
     , apiPort
     , tlsCertPath
     , tlsKeyPath
-    , useSystemEtcd
+    , whichEtcd
     } = opts
 
 getGlobalsForChain :: ChainConfig -> IO Globals
