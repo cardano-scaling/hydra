@@ -8,7 +8,7 @@ tags: [Accepted]
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -25,11 +25,9 @@ _Therefore_
 Hydra node provides a very simplified logging mechanism whereby:
 * All logs are emitted as JSON-encoded structures providing some metadata (timestamp, threadId) around well-defined data
 * Each _log entry_ is written to the `hydra-node` process' _stdout_ port, one line per entry
-* The definition of the logged items is considered to be part of the public AγPI of the Hydra node
 
 **Note**: Proper redaction of sensitive information contained in log entries should still be handled in the code.
 
 ## Consequences
 
-* The schema of the logged items should be properly documented in a JSON schema, just like we do for client side API
-* It is the responsibility of the node operator to consume the logs and process them
+* It is the responsibility of the node operator to filter severity or otherwise post-process the logs
