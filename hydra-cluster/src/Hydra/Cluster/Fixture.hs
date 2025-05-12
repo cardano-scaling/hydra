@@ -30,6 +30,9 @@ carolVk = getVerificationKey carolSk
 cperiod :: ContestationPeriod
 cperiod = UnsafeContestationPeriod 10
 
+blockfrostcperiod :: ContestationPeriod
+blockfrostcperiod = UnsafeContestationPeriod 200
+
 ddeadline :: DepositDeadline
 ddeadline = UnsafeDepositDeadline 100
 
