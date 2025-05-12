@@ -461,10 +461,6 @@ deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
 deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
 
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (HydraNodeLog tx) where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 class BackendOps a where
   queryGenesisParameters :: (MonadIO m, MonadThrow m) => a -> m (GenesisParameters ShelleyEra)
   queryScriptRegistry :: (MonadIO m, MonadThrow m) => a -> [TxId] -> m ScriptRegistry
