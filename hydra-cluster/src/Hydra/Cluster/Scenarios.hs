@@ -127,6 +127,7 @@ import HydraNode (
   waitFor,
   waitForAllMatch,
   waitForNodesConnected,
+  waitForNodesDisconnected,
   waitMatch,
   withHydraCluster,
   withHydraNode,
@@ -1129,6 +1130,8 @@ nodeCanSupportMultipleEtcdClusters tracer workDir RunningNode{networkId, nodeSoc
     carolChainConfig' <-
       chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline
         <&> setNetworkId networkId
+
+    waitForNodesDisconnected hydraTracer 60 $ n1 :| []
 
     withHydraNode hydraTracer bobChainConfig' workDir 2 bobSk [carolVk] [2, 3] $ \n2 -> do
       withHydraNode hydraTracer carolChainConfig' workDir 3 carolSk [bobVk] [2, 3] $ \n3 -> do

@@ -605,6 +605,11 @@ waitForNodesConnected tracer delay clients =
   waitFor tracer delay (toList clients) $
     output "NetworkConnected" []
 
+waitForNodesDisconnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesDisconnected tracer delay clients =
+  waitFor tracer delay (toList clients) $
+    output "NetworkDisconnected" []
+
 data HydraNodeLog
   = HydraNodeCommandSpec {cmd :: Text}
   | NodeStarted {nodeId :: Int}
