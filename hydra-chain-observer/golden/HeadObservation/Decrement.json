@@ -1,0 +1,25 @@
+{
+    "samples": [
+        {
+            "contents": {
+                "distributedUTxO": {
+                    "0001010001010001010100000000000101000101010000000100010101000000#75": {
+                        "address": "addr_test1yr646tc0wrnknxjxwjgam3ydx9utx7vl0lwcxnrugezha7lr8dlnk9ux8tex7yq6st9fmqrn2x8lm4wpmu5q82ya27xsfr9atn",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 969750
+                        }
+                    }
+                },
+                "headId": "00010101010100010001000101000100",
+                "newVersion": 1
+            },
+            "tag": "Decrement"
+        }
+    ],
+    "seed": -42086792
+}

@@ -141,6 +141,7 @@ library testlib
     , lens
     , plutus-ledger-api
     , QuickCheck
+    , quickcheck-arbitrary-adt
     , quickcheck-instances
 
   ghc-options:     -haddock

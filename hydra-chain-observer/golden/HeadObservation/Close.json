@@ -1,0 +1,13 @@
+{
+    "samples": [
+        {
+            "contents": {
+                "contestationDeadline": "1864-05-09T16:36:20.863221450315Z",
+                "headId": "00010000000000010101010101000101",
+                "snapshotNumber": 1
+            },
+            "tag": "Close"
+        }
+    ],
+    "seed": 79452280
+}
