@@ -48,6 +48,11 @@ data RecoverObservation = RecoverObservation
   , recoveredUTxO :: UTxO
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary RecoverObservation where
+  arbitrary = undefined -- TODO: Arbitrary TxId and UTxO
+  shrink = undefined -- TODO: Arbitrary TxId and UTxO
 
 observeRecoverTx ::
   NetworkId ->

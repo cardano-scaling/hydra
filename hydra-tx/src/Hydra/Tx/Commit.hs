@@ -155,6 +155,11 @@ data CommitObservation = CommitObservation
   , headId :: HeadId
   }
   deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary CommitObservation where
+  arbitrary = undefined -- TODO: Arbitrary UTxO in hydra-tx
+  shrink = undefined -- TODO: Arbitrary UTxO in hydra-tx
 
 -- | Identify a commit tx by:
 --

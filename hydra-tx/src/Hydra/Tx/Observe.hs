@@ -51,19 +51,11 @@ data HeadObservation
   | Contest ContestObservation
   | Fanout FanoutObservation
   deriving stock (Eq, Show, Generic)
-
-instance ToJSON HeadObservation where
-  -- TODO: implement explorer compatible JSON instance
-  toJSON = undefined
-
-instance FromJSON HeadObservation where
-  -- TODO: implement explorer compatible JSON instance
-  parseJSON = undefined
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary HeadObservation where
-  -- TODO: implement arbitrary instance
-  arbitrary = undefined
-  shrink = undefined
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation

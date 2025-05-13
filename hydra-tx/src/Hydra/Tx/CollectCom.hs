@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Hydra.Tx.CollectCom where
@@ -99,6 +100,15 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
 
 newtype UTxOHash = UTxOHash ByteString
   deriving stock (Eq, Show, Generic)
+  deriving (ToJSON, FromJSON) via (UsingRawBytesHex UTxOHash)
+
+instance HasTypeProxy UTxOHash where
+  data AsType UTxOHash = AsUTxOHash
+  proxyToAsType _ = AsUTxOHash
+
+instance SerialiseAsRawBytes UTxOHash where
+  serialiseToRawBytes (UTxOHash bytes) = bytes
+  deserialiseFromRawBytes _ = Right . UTxOHash
 
 instance Arbitrary UTxOHash where
   arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary
@@ -108,6 +118,11 @@ data CollectComObservation = CollectComObservation
   , utxoHash :: UTxOHash
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary CollectComObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 -- | Identify a collectCom tx by lookup up the input spending the Head output
 -- and decoding its redeemer.
