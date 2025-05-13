@@ -4,14 +4,20 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.List qualified as List
+import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.Events (EventSink (..), HasEventId (..), getEvents)
+import Hydra.Data.ContestationPeriod (addContestationPeriod)
+import Hydra.Events (EventSink (..), HasEventId (..), StateEvent (..), getEvents)
 import Hydra.Events.Rotation
+import Hydra.HeadLogic (HeadState (..), StateChanged (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), simpleLedger)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Node (hydrate)
-import Hydra.NodeSpec (createMockSourceSink, inputsToOpenHead, notConnect, primeWith, runToCompletion)
-import Test.Hydra.Tx.Fixture (testEnvironment)
+import Hydra.NodeSpec (createMockSourceSink, inputsToOpenHead, notConnect, observationInput, primeWith, runToCompletion)
+import Hydra.Plutus.Extras (posixFromUTCTime, posixToUTCTime)
+import Hydra.Tx.ContestationPeriod (toChain)
+import Test.Hydra.Node.Fixture (testHeadId)
+import Test.Hydra.Tx.Fixture (cperiod, testEnvironment)
 import Test.QuickCheck (Positive (..))
 import Test.QuickCheck.Instances.Natural ()
 
@@ -39,8 +45,29 @@ spec = parallel $ do
             >>= runToCompletion
           rotatedHistory <- getEvents (fst rotatingEventStore)
           length rotatedHistory `shouldBe` 2
-      it "consistent state after restarting with rotation" $ \_testHydrate -> do
-        pendingWith "TODO"
+      it "consistent state after restarting with rotation" $ \testHydrate -> do
+        failAfter 1 $ do
+          now <- getCurrentTime
+          let initialChainState = SimpleChainState{slot = ChainSlot 0}
+          let checkpointer = mkChechpointer initialChainState now
+          let logId = 0
+          let rotationConfig = RotateAfter 4
+          eventStore <- createMockSourceSink
+          rotatingEventStore <- newRotatedEventStore rotationConfig checkpointer logId eventStore
+          testHydrate rotatingEventStore []
+            >>= notConnect
+            >>= primeWith inputsToOpenHead
+            >>= runToCompletion
+          let contestationDeadline = addContestationPeriod (posixFromUTCTime now) (toChain cperiod)
+          let closeInput = observationInput $ OnCloseTx testHeadId 0 (posixToUTCTime contestationDeadline)
+          testHydrate rotatingEventStore []
+            >>= notConnect
+            >>= primeWith [closeInput]
+            >>= runToCompletion
+          [StateEvent{stateChanged}] <- getEvents (fst rotatingEventStore)
+          case stateChanged of
+            Checkpoint{state = Closed{}} -> pure ()
+            _ -> fail ("unexpected: " <> show stateChanged)
     prop "a rotated an non rotated node have consistent state" $ pendingWith "TODO"
 
   describe "Rotation algorithm" $ do
