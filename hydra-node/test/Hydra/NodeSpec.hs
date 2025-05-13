@@ -398,19 +398,19 @@ inputsToOpenHead =
   , observationInput $ OnCollectComTx testHeadId
   ]
  where
-  observationInput :: OnChainTx SimpleTx -> Input SimpleTx
-  observationInput observedTx =
-    ChainInput
-      { chainEvent =
-          Observation
-            { observedTx
-            , newChainState = SimpleChainState{slot = ChainSlot 0}
-            }
-      }
-
   parties = [alice, bob, carol]
   headParameters = HeadParameters cperiod parties
   participants = deriveOnChainId <$> parties
+
+observationInput :: OnChainTx SimpleTx -> Input SimpleTx
+observationInput observedTx =
+  ChainInput
+    { chainEvent =
+        Observation
+          { observedTx
+          , newChainState = SimpleChainState{slot = ChainSlot 0}
+          }
+    }
 
 runToCompletion ::
   IsChainState tx =>
