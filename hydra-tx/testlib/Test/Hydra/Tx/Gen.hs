@@ -19,17 +19,14 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Close (OpenThreadOutput)
 import Hydra.Tx.Crypto (Hash (..))
+import Hydra.Tx.Observe (HeadObservation)
 import Hydra.Tx.Party (Party (..))
-import PlutusTx.Builtins (fromBuiltin)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture (pparams)
-import Test.Hydra.Tx.Fixture qualified as Fixtures
 import Test.QuickCheck (listOf, oneof, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 
 -- * TxOut
@@ -274,18 +271,3 @@ shrinkValue =
 
 genHash :: Gen ByteString
 genHash = BS.pack <$> vector 32
-
--- | Generates value such that:
--- - alters between policy id we use in test fixtures with a random one.
--- - mixing arbitrary token names with 'hydraHeadV1'
--- - excluding 0 for quantity to mimic minting/burning
-genMintedOrBurnedValue :: Gen Value
-genMintedOrBurnedValue = do
-  policyId <-
-    oneof
-      [ headPolicyId <$> arbitrary
-      , pure Fixtures.testPolicyId
-      ]
-  tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
-  quantity <- arbitrary `suchThat` (/= 0)
-  pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]
