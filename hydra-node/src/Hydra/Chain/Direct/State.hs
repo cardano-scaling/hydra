@@ -69,6 +69,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
+import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
@@ -267,7 +268,7 @@ instance HasKnownUTxO InitialState where
       } = st
 
 data OpenState = OpenState
-  { openThreadOutput :: OpenThreadOutput
+  { openUTxO :: UTxO
   , headId :: HeadId
   , seedTxIn :: TxIn
   , openUtxoHash :: UTxOHash
@@ -282,12 +283,8 @@ instance Arbitrary OpenState where
   shrink = genericShrink
 
 instance HasKnownUTxO OpenState where
-  getKnownUTxO st =
-    uncurry UTxO.singleton openThreadUTxO
-   where
-    OpenState
-      { openThreadOutput = OpenThreadOutput{openThreadUTxO}
-      } = st
+  getKnownUTxO OpenState{openUTxO} =
+    openUTxO
 
 data ClosedState = ClosedState
   { closedThreadOutput :: ClosedThreadOutput
@@ -849,14 +846,12 @@ observeCollect ::
 observeCollect st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCollectComTx utxo tx
-  let CollectComObservation{threadOutput = threadOutput, headId = collectComHeadId, utxoHash} = observation
+  let CollectComObservation{headId = collectComHeadId, utxoHash} = observation
   guard (headId == collectComHeadId)
-  -- REVIEW: is it enough to pass here just the 'openThreadUTxO' or we need also
-  -- the known utxo (getKnownUTxO st)?
   let event = OnCollectComTx{headId}
   let st' =
         OpenState
-          { openThreadOutput = threadOutput
+          { openUTxO = adjustUTxO tx utxo
           , headId
           , seedTxIn
           , openUtxoHash = utxoHash
