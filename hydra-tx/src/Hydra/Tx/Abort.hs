@@ -108,10 +108,6 @@ newtype AbortObservation = AbortObservation {headId :: HeadId}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary AbortObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
 observeAbortTx ::

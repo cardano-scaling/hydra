@@ -82,10 +82,6 @@ data FanoutObservation = FanoutObservation
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary FanoutObservation where
-  arbitrary = undefined -- TODO: Arbitrary UTxO in hydra
-  shrink = undefined -- TODO: Arbitrary UTxO in hydra-tx
-
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeFanoutTx ::

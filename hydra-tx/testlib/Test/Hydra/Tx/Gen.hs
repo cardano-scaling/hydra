@@ -20,10 +20,11 @@ import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import Hydra.Plutus.Orphans ()
 import Hydra.Tx (ScriptRegistry (..))
-import Hydra.Tx.Close (OpenThreadOutput)
+import Hydra.Tx.Close (CloseObservation, OpenThreadOutput)
 import Hydra.Tx.Crypto (Hash (..))
-import Hydra.Tx.Observe (HeadObservation)
+import Hydra.Tx.Observe (AbortObservation, CollectComObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.Party (Party (..))
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture (pparams)
@@ -271,3 +272,53 @@ shrinkValue =
 
 genHash :: Gen ByteString
 genHash = BS.pack <$> vector 32
+
+-- * Observations
+
+instance Arbitrary HeadObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary InitObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary AbortObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary CommitObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary CollectComObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary DepositObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary RecoverObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary IncrementObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary DecrementObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary CloseObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary ContestObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary FanoutObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink

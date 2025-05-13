@@ -158,10 +158,6 @@ data CloseObservation = CloseObservation
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary CloseObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeCloseTx ::
