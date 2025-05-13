@@ -10,7 +10,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
-import Hydra.Plutus.Extras.Time (posixFromUTCTime)
+import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
 import Hydra.Tx (
   ConfirmedSnapshot (..),
   HeadId,
@@ -153,9 +153,9 @@ data ClosedThreadOutput = ClosedThreadOutput
   deriving stock (Eq, Show, Generic)
 
 data CloseObservation = CloseObservation
-  { threadOutput :: ClosedThreadOutput
-  , headId :: HeadId
+  { headId :: HeadId
   , snapshotNumber :: SnapshotNumber
+  , contestationDeadline :: UTCTime
   }
   deriving stock (Show, Eq, Generic)
 
@@ -174,8 +174,8 @@ observeCloseTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open Head.OpenDatum{parties}, Head.Close{}) -> do
-      (newHeadInput, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+    (Head.Open Head.OpenDatum{}, Head.Close{}) -> do
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       (closeContestationDeadline, onChainSnapshotNumber) <- case fromScriptData newHeadDatum of
         Just (Head.Closed Head.ClosedDatum{contestationDeadline, snapshotNumber}) ->
@@ -183,14 +183,8 @@ observeCloseTx utxo tx = do
         _ -> Nothing
       pure
         CloseObservation
-          { threadOutput =
-              ClosedThreadOutput
-                { closedThreadUTxO = (newHeadInput, newHeadOutput)
-                , closedParties = parties
-                , closedContestationDeadline = closeContestationDeadline
-                , closedContesters = []
-                }
-          , headId
+          { headId
           , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
+          , contestationDeadline = posixToUTCTime closeContestationDeadline
           }
     _ -> Nothing

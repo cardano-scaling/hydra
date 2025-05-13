@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module TxCost where
 
@@ -36,7 +37,6 @@ import Hydra.Chain.Direct.State (
   genStClosed,
   genStInitial,
   genStOpen,
-  getContestationDeadline,
   getKnownUTxO,
   initialize,
   observeClose,
@@ -203,7 +203,7 @@ computeContestCost = do
     (closedSnapshotNumber, _, _, _, stClosed@ClosedState{headId}) <- genStClosed ctx utxo mempty mempty
     cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot headId 0 (succ closedSnapshotNumber) utxo Nothing mempty (ctxHydraSigningKeys ctx)
-    pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+    pointInTime <- genPointInTimeBefore stClosed.contestationDeadline
     let cp = ctxContestationPeriod ctx
     let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
     pure (unsafeContest cctx contestUtxo headId cp 0 snapshot pointInTime, contestUtxo)
@@ -270,7 +270,7 @@ computeFanOutCost = do
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
     let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
         stClosed = snd . fromJust $ observeClose stOpen closeTx
-        deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
+        deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
         utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
     pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo mempty mempty deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 

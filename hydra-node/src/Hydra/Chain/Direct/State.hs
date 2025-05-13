@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Contains the a stateful interface to transaction construction and observation.
@@ -287,19 +288,16 @@ instance HasKnownUTxO OpenState where
     openUTxO
 
 data ClosedState = ClosedState
-  { closedThreadOutput :: ClosedThreadOutput
+  { closedUTxO :: UTxO
   , headId :: HeadId
   , seedTxIn :: TxIn
+  , contestationDeadline :: UTCTime
   }
   deriving stock (Eq, Show, Generic)
 
 instance HasKnownUTxO ClosedState where
-  getKnownUTxO st =
-    uncurry UTxO.singleton closedThreadUTxO
-   where
-    ClosedState
-      { closedThreadOutput = ClosedThreadOutput{closedThreadUTxO}
-      } = st
+  getKnownUTxO ClosedState{closedUTxO} =
+    closedUTxO
 
 -- * Constructing transactions
 
@@ -874,20 +872,20 @@ observeClose ::
 observeClose st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCloseTx utxo tx
-  let CloseObservation{threadOutput, headId = closeObservationHeadId, snapshotNumber} = observation
+  let CloseObservation{headId = closeObservationHeadId, snapshotNumber, contestationDeadline} = observation
   guard (headId == closeObservationHeadId)
-  let ClosedThreadOutput{closedContestationDeadline} = threadOutput
   let event =
         OnCloseTx
           { headId = closeObservationHeadId
           , snapshotNumber
-          , contestationDeadline = posixToUTCTime closedContestationDeadline
+          , contestationDeadline
           }
   let st' =
         ClosedState
-          { closedThreadOutput = threadOutput
+          { closedUTxO = adjustUTxO tx utxo
           , headId
           , seedTxIn
+          , contestationDeadline
           }
   pure (event, st')
  where
@@ -1232,7 +1230,7 @@ genContestTx = do
   someUtxo <- genUTxO1 genTxOut
   let (confirmedUTxO', utxoToDecommit') = splitUTxO someUtxo
   contestSnapshot <- genConfirmedSnapshot headId version (succ $ number $ getSnapshot confirmed) confirmedUTxO' Nothing (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
-  contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+  contestPointInTime <- genPointInTimeBefore stClosed.contestationDeadline
   pure (ctx, closePointInTime, stClosed, mempty, unsafeContest cctx utxo headId cp version contestSnapshot contestPointInTime)
 
 genFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
@@ -1252,16 +1250,11 @@ genFanoutTx numParties = do
   let stClosed@ClosedState{seedTxIn} = snd $ fromJust $ observeClose stOpen txClose
   let toFanout = utxo $ getSnapshot confirmed
   let toCommit = utxoToCommit $ getSnapshot confirmed
-  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (stClosed.contestationDeadline)
   let spendableUTxO = getKnownUTxO stClosed
   -- if local version is not matching the snapshot version we **should** fanout commit utxo
   let finalToCommit = if openVersion /= version then toCommit else Nothing
   pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing deadlineSlotNo)
-
-getContestationDeadline :: ClosedState -> UTCTime
-getContestationDeadline
-  ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
-    posixToUTCTime closedContestationDeadline
 
 genStOpen ::
   HydraContext ->
