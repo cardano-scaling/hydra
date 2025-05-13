@@ -148,8 +148,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
 -- * Observation
 
 data ContestObservation = ContestObservation
-  { contestedThreadOutput :: (TxIn, TxOut CtxUTxO)
-  , headId :: HeadId
+  { headId :: HeadId
   , snapshotNumber :: SnapshotNumber
   , contestationDeadline :: UTCTime
   , contesters :: [Plutus.PubKeyHash]
@@ -172,13 +171,12 @@ observeContestTx utxo tx = do
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Closed Head.ClosedDatum{}, Head.Contest{}) -> do
-      (newHeadInput, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       let (onChainSnapshotNumber, contestationDeadline, contesters) = decodeDatum newHeadDatum
       pure
         ContestObservation
-          { contestedThreadOutput = (newHeadInput, newHeadOutput)
-          , headId
+          { headId
           , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
           , contestationDeadline = posixToUTCTime contestationDeadline
           , contesters
