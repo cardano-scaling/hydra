@@ -73,7 +73,6 @@ import Hydra.Tx (
   headSeedToTxIn,
   txInToHeadSeed,
  )
-import Hydra.Tx.Close (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
 import Hydra.Tx.Observe (
@@ -354,14 +353,8 @@ convertObservation TimeHandle{slotToUTCTime} = \case
     pure OnIncrementTx{headId, newVersion, depositTxId}
   Decrement DecrementObservation{headId, newVersion, distributedUTxO} ->
     pure OnDecrementTx{headId, newVersion, distributedUTxO}
-  -- XXX: Needing ClosedThreadOutput feels weird here
-  Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
-    pure
-      OnCloseTx
-        { headId
-        , snapshotNumber
-        , contestationDeadline = posixToUTCTime closedContestationDeadline
-        }
+  Close CloseObservation{headId, snapshotNumber, contestationDeadline} ->
+    pure OnCloseTx{headId, snapshotNumber, contestationDeadline}
   Contest ContestObservation{contestationDeadline, headId, snapshotNumber} ->
     pure OnContestTx{contestationDeadline, headId, snapshotNumber}
   Fanout FanoutObservation{headId, fanoutUTxO} ->
