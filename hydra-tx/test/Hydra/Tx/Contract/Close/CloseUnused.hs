@@ -16,8 +16,7 @@ import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (Snapshot (..), hashUTxO, mkHeadId, registryUTxO)
-import Hydra.Tx.Close (closeTx)
-import Hydra.Tx.Close (OpenThreadOutput (..))
+import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
   healthyCloseUpperBoundPointInTime,
@@ -33,6 +32,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthySplitUTxOToDecommit,
   somePartyCardanoVerificationKey,
  )
+import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snapshot
@@ -43,7 +43,6 @@ import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genHash,
-  genMintedOrBurnedValue,
   genScriptRegistry,
   genValue,
   genVerificationKey,

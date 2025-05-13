@@ -140,7 +140,6 @@ library testlib
     , hydra-tx
     , lens
     , plutus-ledger-api
-    , plutus-tx
     , QuickCheck
     , quickcheck-instances
 
