@@ -21,6 +21,8 @@ import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
 
+import Hydra.Plutus.Orphans ()
+
 -- * Construction
 
 data ClosedThreadOutput = ClosedThreadOutput
@@ -154,16 +156,7 @@ data ContestObservation = ContestObservation
   , contesters :: [Plutus.PubKeyHash]
   }
   deriving stock (Show, Eq, Generic)
-
-instance ToJSON ContestObservation where
-  toJSON = undefined -- TODO: ToJSON PubKeyHash?
-
-instance FromJSON ContestObservation where
-  parseJSON = undefined -- TODO: FromJSON PubKeyHash?
-
-instance Arbitrary ContestObservation where
-  arbitrary = undefined -- TODO: Arbitrary PubKeyHash
-  shrink = undefined -- TODO: Arbitrary PubKeyHash
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
