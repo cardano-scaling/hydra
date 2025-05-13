@@ -8,6 +8,7 @@ import Hydra.Prelude
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
+import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
@@ -24,16 +25,21 @@ import Hydra.Tx (
   headIdToCurrencySymbol,
   headReference,
  )
-import Hydra.Tx.CollectCom (OpenThreadOutput (..))
 import Hydra.Tx.Crypto (toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
-import PlutusLedgerApi.V1.Crypto qualified as Plutus
-import PlutusLedgerApi.V1.Time qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
 
 type PointInTime = (SlotNo, UTCTime)
+
+-- | Representation of the Head output after a CollectCom transaction.
+data OpenThreadOutput = OpenThreadOutput
+  { openThreadUTxO :: (TxIn, TxOut CtxUTxO)
+  , openContestationPeriod :: OnChain.ContestationPeriod
+  , openParties :: [OnChain.Party]
+  }
+  deriving stock (Eq, Show, Generic)
 
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.
@@ -143,14 +149,6 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
 
 -- * Observation
-
-data ClosedThreadOutput = ClosedThreadOutput
-  { closedThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , closedParties :: [OnChain.Party]
-  , closedContestationDeadline :: Plutus.POSIXTime
-  , closedContesters :: [Plutus.PubKeyHash]
-  }
-  deriving stock (Eq, Show, Generic)
 
 data CloseObservation = CloseObservation
   { headId :: HeadId
