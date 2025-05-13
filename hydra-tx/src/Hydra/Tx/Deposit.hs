@@ -83,6 +83,16 @@ data DepositObservation = DepositObservation
   }
   deriving stock (Show, Eq, Generic)
 
+instance ToJSON DepositObservation where
+  toJSON = undefined -- TODO: ToJSON POSIXTime?
+
+instance FromJSON DepositObservation where
+  parseJSON = undefined -- TODO: FromJSON POSIXTime?
+
+instance Arbitrary DepositObservation where
+  arbitrary = undefined -- TODO: Arbitrary TxId and UTxO
+  shrink = undefined -- TODO: Arbitrary TxId and UTxO
+
 -- | Observe a deposit transaction by decoding the target head id, deposit
 -- deadline and deposited utxo in the datum.
 --

@@ -7,10 +7,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.MintAction (MintAction (..))
-import Hydra.Ledger.Cardano.Builder (
-  burnTokens,
-  unsafeBuildTransaction,
- )
+import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
@@ -78,8 +75,16 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
 
 -- * Observation
 
-data FanoutObservation = FanoutObservation {headId :: HeadId, fanoutUTxO :: UTxO}
+data FanoutObservation = FanoutObservation
+  { headId :: HeadId
+  , fanoutUTxO :: UTxO
+  }
   deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary FanoutObservation where
+  arbitrary = undefined -- TODO: Arbitrary UTxO in hydra
+  shrink = undefined -- TODO: Arbitrary UTxO in hydra-tx
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
