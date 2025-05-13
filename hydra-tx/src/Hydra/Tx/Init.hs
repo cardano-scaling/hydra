@@ -93,6 +93,11 @@ data InitObservation = InitObservation
     participants :: [OnChainId]
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary InitObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 data NotAnInitReason
   = NoHeadOutput

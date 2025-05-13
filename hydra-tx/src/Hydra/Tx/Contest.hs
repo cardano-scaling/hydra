@@ -155,6 +155,16 @@ data ContestObservation = ContestObservation
   }
   deriving stock (Show, Eq, Generic)
 
+instance ToJSON ContestObservation where
+  toJSON = undefined -- TODO: ToJSON PubKeyHash?
+
+instance FromJSON ContestObservation where
+  parseJSON = undefined -- TODO: FromJSON PubKeyHash?
+
+instance Arbitrary ContestObservation where
+  arbitrary = undefined -- TODO: Arbitrary PubKeyHash
+  shrink = undefined -- TODO: Arbitrary PubKeyHash
+
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeContestTx ::

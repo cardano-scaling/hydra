@@ -99,6 +99,11 @@ data DecrementObservation = DecrementObservation
   , distributedUTxO :: UTxO
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary DecrementObservation where
+  arbitrary = undefined -- TODO: Arbitrary UTxO in hydra-tx
+  shrink = undefined -- TODO: Arbitrary UTxO in hydra-tx
 
 observeDecrementTx ::
   UTxO ->
