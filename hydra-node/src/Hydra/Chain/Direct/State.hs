@@ -10,6 +10,7 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
@@ -806,6 +807,9 @@ observeInit _ctx _allVerificationKeys tx = do
 -- ** InitialState transitions
 
 -- | Observe an commit transition using a 'InitialState' and 'observeCommitTx'.
+-- NOTE: This function is a bit fragile as it assumes commit output on first
+-- output whilte the underlying observeCommitTx could deal with commit outputs
+-- at any index. Only use this function in tests and benchmarks.
 observeCommit ::
   ChainContext ->
   InitialState ->
@@ -814,7 +818,7 @@ observeCommit ::
 observeCommit ctx st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCommitTx networkId utxo tx
-  let CommitObservation{commitOutput, party, committed, headId = commitHeadId} = observation
+  let CommitObservation{party, committed, headId = commitHeadId} = observation
   guard $ commitHeadId == headId
   let event = OnCommitTx{headId, party, committed}
   let st' =
@@ -824,7 +828,7 @@ observeCommit ctx st tx = do
               -- remove all it's inputs from our tracked initials
               filter ((`notElem` txIns' tx) . fst) initialInitials
           , initialCommits =
-              commitOutput : initialCommits
+              (mkTxIn tx 0, toCtxUTxOTxOut $ List.head (txOuts' tx)) : initialCommits
           }
   pure (event, st')
  where
