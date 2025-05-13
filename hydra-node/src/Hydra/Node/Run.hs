@@ -6,6 +6,7 @@ import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff,
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
+import Data.List (maximum, stripPrefix)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (
@@ -20,6 +21,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
+import Hydra.Events (LogId)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.Events.Rotation (RotationConfig (..), mkChechpointer, newRotatedEventStore)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
@@ -50,6 +52,8 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (readJsonFileThrow)
+import System.Directory (listDirectory)
+import System.FilePath (takeFileName)
 
 data ConfigurationException
   = -- XXX: this is not used
@@ -78,9 +82,11 @@ run opts = do
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
+        logId <- getLatestLogId persistenceDir "state"
+        let stateDir = persistenceDir <> "/state" <> "-" <> show logId
         eventStore@(eventSource, _) <-
-          prepareEventStore
-            =<< mkFileBasedEventStore (persistenceDir <> "/state") createPersistenceIncremental
+          prepareEventStore logId
+            =<< mkFileBasedEventStore stateDir createPersistenceIncremental
         -- NOTE: Add any custom sink setup code here
         -- customSink <- createCustomSink
         -- NOTE: Add any customSink here
@@ -128,15 +134,13 @@ run opts = do
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
       pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
 
-  prepareEventStore eventStore = do
+  prepareEventStore logId eventStore = do
     case RotateAfter <$> persistenceRotateAfter of
       Nothing ->
         pure eventStore
       Just rotationConfig -> do
         now <- getCurrentTime
         let checkpointer = mkChechpointer initialChainState now
-        -- FIXME!
-        let logId = 0
         newRotatedEventStore rotationConfig checkpointer logId eventStore
 
   RunOptions
@@ -210,3 +214,15 @@ newGlobals genesisParameters = do
   -- NOTE: uses fixed epoch info for our L2 ledger
   epochInfo = fixedEpochInfo protocolParamEpochLength slotLength
   slotLength = mkSlotLength protocolParamSlotLength
+
+-- \| Get the highest LogId from given persisted event logs directory.
+-- Assumes filenames are in the format "state-<logId>"
+getLatestLogId :: FilePath -> String -> IO LogId
+getLatestLogId stateDir filePrefix = do
+  files <- listDirectory stateDir
+  let logIds = mapMaybe (extractLogId . takeFileName) files
+  pure $ if null logIds then 0 else maximum logIds
+ where
+  extractLogId :: [Char] -> Maybe LogId
+  extractLogId fname =
+    stripPrefix (filePrefix <> "-") fname >>= readMaybe
