@@ -322,14 +322,8 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 convertObservation :: TimeHandle -> HeadObservation -> Maybe (OnChainTx Tx)
 convertObservation TimeHandle{slotToUTCTime} = \case
   NoHeadTx -> Nothing
-  Init InitObservation{headId, contestationPeriod, parties, seedTxIn, participants} ->
-    pure
-      OnInitTx
-        { headId
-        , headSeed = txInToHeadSeed seedTxIn
-        , headParameters = HeadParameters{contestationPeriod, parties}
-        , participants
-        }
+  Init InitObservation{headId, headSeed, headParameters, participants} ->
+    pure OnInitTx{headId, headSeed, headParameters, participants}
   Abort AbortObservation{headId} ->
     pure OnAbortTx{headId}
   Commit CommitObservation{headId, party, committed} ->
