@@ -53,10 +53,6 @@ data HeadObservation
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary HeadObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
 observeHeadTx networkId utxo tx =

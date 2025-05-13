@@ -120,10 +120,6 @@ data CollectComObservation = CollectComObservation
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary CollectComObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 -- | Identify a collectCom tx by lookup up the input spending the Head output
 -- and decoding its redeemer.
 observeCollectComTx ::

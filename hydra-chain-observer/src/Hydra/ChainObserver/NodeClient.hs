@@ -16,7 +16,21 @@ import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Contract (ScriptInfo)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Tx.HeadId (HeadId (..))
-import Hydra.Tx.Observe (AbortObservation (..), CloseObservation (..), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), DepositObservation (..), FanoutObservation (..), HeadObservation (..), IncrementObservation (..), InitObservation (..), RecoverObservation (..), observeHeadTx)
+import Hydra.Tx.Observe (
+  AbortObservation (..),
+  CloseObservation (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  DecrementObservation (..),
+  DepositObservation (..),
+  FanoutObservation (..),
+  HeadObservation (..),
+  IncrementObservation (..),
+  InitObservation (..),
+  RecoverObservation (..),
+  observeHeadTx,
+ )
 
 type ObserverHandler m = [ChainObservation] -> m ()
 

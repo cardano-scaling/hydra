@@ -115,10 +115,6 @@ data IncrementObservation = IncrementObservation
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary IncrementObservation where
-  arbitrary = undefined -- TODO: Arbitrary TxId
-  shrink = undefined -- TODO: Arbitrary TxId
-
 observeIncrementTx ::
   UTxO ->
   Tx ->
