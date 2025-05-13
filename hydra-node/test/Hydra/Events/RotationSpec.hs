@@ -37,6 +37,7 @@ spec = parallel $ do
           let initialChainState = SimpleChainState{slot = ChainSlot 0}
           let checkpointer = mkChechpointer initialChainState now
           let logId = 0
+          -- XXX: this is hardcoded to ensure we get a checkpoint + a single event at the end
           let rotationConfig = RotateAfter 4
           eventStore <- createMockSourceSink
           rotatingEventStore <- newRotatedEventStore rotationConfig checkpointer logId eventStore
@@ -52,7 +53,8 @@ spec = parallel $ do
           let initialChainState = SimpleChainState{slot = ChainSlot 0}
           let checkpointer = mkChechpointer initialChainState now
           let logId = 0
-          let rotationConfig = RotateAfter 4
+          -- XXX: this is hardcoded to ensure we get a single checkpoint event at the end
+          let rotationConfig = RotateAfter 3
           eventStore <- createMockSourceSink
           rotatingEventStore <- newRotatedEventStore rotationConfig checkpointer logId eventStore
           testHydrate rotatingEventStore []
