@@ -39,14 +39,17 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   isScriptTxOut,
+  mkTxIn,
   modifyTxOutValue,
   negateValue,
   selectAsset,
   selectLovelace,
+  toCtxUTxOTxOut,
   toShelleyNetwork,
   txIns',
   txOutScriptData,
   txOutValue,
+  txOuts',
   txSpendingUTxO,
   pattern ByronAddressInEra,
   pattern ShelleyAddressInEra,
@@ -106,7 +109,7 @@ import Hydra.Tx.Observe (
   CollectComObservation (..),
   CommitObservation (..),
   InitObservation (..),
-  NotAnInitReason,
+  NotAnInitReason (..),
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
@@ -763,7 +766,9 @@ observeInit ::
   Either NotAnInitReason (OnChainTx Tx, InitialState)
 observeInit _ctx _allVerificationKeys tx = do
   observation <- observeInitTx tx
-  pure (toEvent observation, toState observation)
+  headOut <- head <$> nonEmpty (txOuts' tx) ?> NoHeadOutput
+  let initialThreadUTxO = (mkTxIn tx 0, toCtxUTxOTxOut headOut)
+  pure (toEvent observation, toState initialThreadUTxO observation)
  where
   toEvent InitObservation{contestationPeriod, parties, headId, seedTxIn, participants} =
     OnInitTx
@@ -773,7 +778,7 @@ observeInit _ctx _allVerificationKeys tx = do
       , participants
       }
 
-  toState InitObservation{initialThreadUTxO, parties, contestationPeriod, initials, headId, seedTxIn} =
+  toState initialThreadUTxO InitObservation{parties, contestationPeriod, headId, seedTxIn} =
     InitialState
       { initialThreadOutput =
           InitialThreadOutput
@@ -786,6 +791,17 @@ observeInit _ctx _allVerificationKeys tx = do
       , headId
       , seedTxIn
       }
+
+  indexedOutputs = zip [0 ..] (txOuts' tx)
+
+  initialOutputs = filter (isInitial . snd) indexedOutputs
+
+  initials =
+    map
+      (bimap (mkTxIn tx) toCtxUTxOTxOut)
+      initialOutputs
+
+  isInitial = isScriptTxOut initialValidatorScript
 
 -- ** InitialState transitions
 
