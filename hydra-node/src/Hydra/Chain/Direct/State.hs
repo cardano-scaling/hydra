@@ -87,6 +87,7 @@ import Hydra.Tx (
   deriveParty,
   getSnapshot,
   headIdToPolicyId,
+  headSeedToTxIn,
   mkSimpleBlueprintTx,
   partyToChain,
   registryUTxO,
@@ -765,26 +766,21 @@ observeInit _ctx _allVerificationKeys tx = do
   let initialThreadUTxO = (mkTxIn tx 0, toCtxUTxOTxOut headOut)
   pure (toEvent observation, toState initialThreadUTxO observation)
  where
-  toEvent InitObservation{contestationPeriod, parties, headId, seedTxIn, participants} =
-    OnInitTx
-      { headId
-      , headSeed = txInToHeadSeed seedTxIn
-      , headParameters = HeadParameters{contestationPeriod, parties}
-      , participants
-      }
+  toEvent InitObservation{headParameters, headId, headSeed, participants} =
+    OnInitTx{headId, headSeed, headParameters, participants}
 
-  toState initialThreadUTxO InitObservation{parties, contestationPeriod, headId, seedTxIn} =
+  toState initialThreadUTxO InitObservation{headParameters, headId, headSeed} =
     InitialState
       { initialThreadOutput =
           InitialThreadOutput
             { initialThreadUTxO
-            , initialParties = partyToChain <$> parties
-            , initialContestationPeriod = toChain contestationPeriod
+            , initialParties = partyToChain <$> headParameters.parties
+            , initialContestationPeriod = toChain headParameters.contestationPeriod
             }
       , initialInitials = initials
       , initialCommits = mempty
       , headId
-      , seedTxIn
+      , seedTxIn = fromJust $ headSeedToTxIn headSeed
       }
 
   indexedOutputs = zip [0 ..] (txOuts' tx)
