@@ -21,7 +21,7 @@ import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
-import Hydra.Events.Rotation (RotationConfig (..), mkChechpointer, mkRotatedEventStore)
+import Hydra.Events.Rotation (RotationConfig (..), mkChechpointer, newRotatedEventStore)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -137,7 +137,7 @@ run opts = do
         let checkpointer = mkChechpointer initialChainState now
         -- FIXME!
         let logId = 0
-        mkRotatedEventStore rotationConfig checkpointer logId eventStore
+        newRotatedEventStore rotationConfig checkpointer logId eventStore
 
   RunOptions
     { verbosity
