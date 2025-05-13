@@ -27,7 +27,7 @@ import Hydra.Tx (
   signatures,
  )
 import Hydra.Tx.Close (closeTx)
-import Hydra.Tx.CollectCom (OpenThreadOutput (..))
+import Hydra.Tx.Close (OpenThreadOutput (..))
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
   healthyCloseUTxOHash,

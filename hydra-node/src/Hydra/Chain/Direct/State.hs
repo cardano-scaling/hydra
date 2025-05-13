@@ -95,10 +95,10 @@ import Hydra.Tx (
   utxoFromTx,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)
-import Hydra.Tx.Close (ClosedThreadOutput (..), PointInTime, closeTx)
-import Hydra.Tx.CollectCom (OpenThreadOutput (..), UTxOHash, collectComTx)
+import Hydra.Tx.Close (OpenThreadOutput (..), PointInTime, closeTx)
+import Hydra.Tx.CollectCom (UTxOHash, collectComTx)
 import Hydra.Tx.Commit (commitTx)
-import Hydra.Tx.Contest (contestTx)
+import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
@@ -1250,7 +1250,7 @@ genFanoutTx numParties = do
   let stClosed@ClosedState{seedTxIn} = snd $ fromJust $ observeClose stOpen txClose
   let toFanout = utxo $ getSnapshot confirmed
   let toCommit = utxoToCommit $ getSnapshot confirmed
-  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (stClosed.contestationDeadline)
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
   let spendableUTxO = getKnownUTxO stClosed
   -- if local version is not matching the snapshot version we **should** fanout commit utxo
   let finalToCommit = if openVersion /= version then toCommit else Nothing

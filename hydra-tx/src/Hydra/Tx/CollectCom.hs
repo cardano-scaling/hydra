@@ -11,11 +11,7 @@ import Data.ByteString qualified as BS
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Builder (
-  unsafeBuildTransaction,
- )
+import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
 import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
@@ -100,14 +96,6 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
     toScriptData $ Commit.redeemer Commit.ViaCollectCom
 
 -- * Observation
-
--- | Representation of the Head output after a CollectCom transaction.
-data OpenThreadOutput = OpenThreadOutput
-  { openThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , openContestationPeriod :: OnChain.ContestationPeriod
-  , openParties :: [OnChain.Party]
-  }
-  deriving stock (Eq, Show, Generic)
 
 newtype UTxOHash = UTxOHash ByteString
   deriving stock (Eq, Show, Generic)
