@@ -20,6 +20,7 @@ import Test.Hydra.Node.Fixture (testHeadId)
 import Test.Hydra.Tx.Fixture (cperiod, testEnvironment)
 import Test.QuickCheck (Positive (..))
 import Test.QuickCheck.Instances.Natural ()
+import Test.QuickCheck.Monadic (monadicIO, run)
 
 spec :: Spec
 spec = parallel $ do
@@ -64,11 +65,43 @@ spec = parallel $ do
             >>= notConnect
             >>= primeWith [closeInput]
             >>= runToCompletion
-          [StateEvent{stateChanged}] <- getEvents (fst rotatingEventStore)
-          case stateChanged of
+          [checkpoint] <- getEvents (fst rotatingEventStore)
+          case stateChanged checkpoint of
             Checkpoint{state = Closed{}} -> pure ()
-            _ -> fail ("unexpected: " <> show stateChanged)
-    prop "a rotated an non rotated node have consistent state" $ pendingWith "TODO"
+            _ -> fail ("unexpected: " <> show checkpoint)
+    prop "a rotated and non-rotated node have consistent state" $
+      monadicIO . run $
+        setupHydrate $ \testHydrate -> do
+          -- XXX: prepare inputs
+          now <- getCurrentTime
+          let contestationDeadline = addContestationPeriod (posixFromUTCTime now) (toChain cperiod)
+          let closeInput = observationInput $ OnCloseTx testHeadId 0 (posixToUTCTime contestationDeadline)
+          let inputs = inputsToOpenHead ++ [closeInput]
+          failAfter 1 $
+            do
+              -- XXX: run rotated event store with prepared inputs
+              let initialChainState = SimpleChainState{slot = ChainSlot 0}
+              let checkpointer = mkChechpointer initialChainState now
+              let logId = 0
+              -- XXX: this is hardcoded to ensure we get a single checkpoint event at the end
+              let rotationConfig = RotateAfter 3
+              eventStore <- createMockSourceSink
+              rotatingEventStore <- newRotatedEventStore rotationConfig checkpointer logId eventStore
+              testHydrate rotatingEventStore []
+                >>= notConnect
+                >>= primeWith inputs
+                >>= runToCompletion
+              -- XXX: run non-rotated event store with prepared inputs
+              eventStore' <- createMockSourceSink
+              testHydrate eventStore' []
+                >>= notConnect
+                >>= primeWith inputs
+                >>= runToCompletion
+              -- XXX: aggregating stored events should yield consistent states
+              [checkpoint] <- getEvents (fst rotatingEventStore)
+              events' <- getEvents (fst eventStore')
+              let checkpoint' = checkpointer events'
+              checkpoint `shouldBe` checkpoint'
 
   describe "Rotation algorithm" $ do
     prop "rotates on startup" $
