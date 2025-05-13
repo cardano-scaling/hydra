@@ -116,8 +116,7 @@ instance Arbitrary UTxOHash where
   arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary
 
 data CollectComObservation = CollectComObservation
-  { threadOutput :: OpenThreadOutput
-  , headId :: HeadId
+  { headId :: HeadId
   , utxoHash :: UTxOHash
   }
   deriving stock (Show, Eq, Generic)
@@ -137,19 +136,13 @@ observeCollectComTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Initial{parties, contestationPeriod}, Head.CollectCom) -> do
-      (newHeadInput, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+    (Head.Initial{}, Head.CollectCom) -> do
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       utxoHash <- UTxOHash <$> decodeUtxoHash newHeadDatum
       pure
         CollectComObservation
-          { threadOutput =
-              OpenThreadOutput
-                { openThreadUTxO = (newHeadInput, newHeadOutput)
-                , openParties = parties
-                , openContestationPeriod = contestationPeriod
-                }
-          , headId
+          { headId
           , utxoHash
           }
     _ -> Nothing
