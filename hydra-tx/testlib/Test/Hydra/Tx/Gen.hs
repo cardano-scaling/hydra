@@ -29,6 +29,7 @@ import Hydra.Tx.Party (Party (..))
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture (pparams)
 import Test.QuickCheck (listOf, oneof, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
 
 -- * TxOut
 
@@ -278,6 +279,8 @@ genHash = BS.pack <$> vector 32
 instance Arbitrary HeadObservation where
   arbitrary = genericArbitrary
   shrink = genericShrink
+
+deriving instance ToADTArbitrary HeadObservation
 
 instance Arbitrary InitObservation where
   arbitrary = genericArbitrary

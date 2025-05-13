@@ -1,0 +1,25 @@
+{
+    "samples": [
+        {
+            "contents": {
+                "headId": "00000101010000000001000001010000",
+                "recoveredTxId": "0100000000010000000001010100010100010000000001010100010001000001",
+                "recoveredUTxO": {
+                    "0001010100010101010101000000010100000100000001010100010001000100#73": {
+                        "address": "addr_test1yzh3q8gjqkw4p0glj8x3jy8qd4r0phvlgvtzr48hh6733gc2l27j8w74ml6h84nvvg9kflmyf2vlzrsfsz9z9plkj0js9xj4ac",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 969750
+                        }
+                    }
+                }
+            },
+            "tag": "Recover"
+        }
+    ],
+    "seed": 608710449
+}

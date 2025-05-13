@@ -1,0 +1,32 @@
+{
+    "samples": [
+        {
+            "contents": {
+                "created": 1,
+                "deadline": "1864-05-08T16:51:30.641030324892Z",
+                "depositTxId": "0100000101010100000100010001010000010000010001000100010001000001",
+                "deposited": {
+                    "0101010101010001000001000101000000000001000001000100010101000001#77": {
+                        "address": "addr_test1zzzfcy9nkga0w2r3dymzzcaagcshdnzyn4294nlg9xtzjuwpd03y8c63pxlkkj4drua7dmyscdzgqlcl4rj579tqegxq64vhrj",
+                        "datum": null,
+                        "inlineDatum": {
+                            "int": 2
+                        },
+                        "inlineDatumRaw": "02",
+                        "inlineDatumhash": "bb30a42c1e62f0afda5f0a4e8a562f7a13a24cea00ee81917b86b89e801314aa",
+                        "referenceScript": null,
+                        "value": {
+                            "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                                "1c873faeb76513ccc29f2042b4": 1
+                            },
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                },
+                "headId": "01000001000100010000010001000100"
+            },
+            "tag": "Deposit"
+        }
+    ],
+    "seed": -318608161
+}

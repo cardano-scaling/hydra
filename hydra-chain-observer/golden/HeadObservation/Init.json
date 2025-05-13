@@ -1,0 +1,19 @@
+{
+    "samples": [
+        {
+            "contents": {
+                "contestationPeriod": 86400,
+                "headId": "00010100010000010100010000010101",
+                "participants": [],
+                "parties": [
+                    {
+                        "vkey": "5812ac30bace5e1ff86a0266a7f4a3a9c39dfabdeaa1e96935419c41f9d0d8db"
+                    }
+                ],
+                "seedTxIn": "0001000000010100010100000001000101000101010001000101000000010101#89"
+            },
+            "tag": "Init"
+        }
+    ],
+    "seed": 108192842
+}

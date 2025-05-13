@@ -1,0 +1,30 @@
+{
+    "samples": [
+        {
+            "contents": {
+                "committed": {
+                    "0100000100010101000001000101000100000101000101010101000101010001#12": {
+                        "address": "addr_test1qpfn44tunq748zr49hl3df72sfr9kdfftted63688fsy32cq2cu73f3w6zmcymn0l5hacesderc50xnlsqlhlu3cs9sq283ffd",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                                "648aadbe434ec7032d0780c0a8ae1c7c944dc5c4f6af0488d5ffea4311ed": 1
+                            },
+                            "lovelace": 1254210
+                        }
+                    }
+                },
+                "headId": "00010000000100000000010101000100",
+                "party": {
+                    "vkey": "d325647fe10dcf0843f789bcdf5cb64dc817c35fdd1e08a37b2294be30e49714"
+                }
+            },
+            "tag": "Commit"
+        }
+    ],
+    "seed": 705119426
+}
