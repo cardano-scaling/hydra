@@ -78,19 +78,6 @@ mkRotatedEventStore config checkpointer logId eventStore = do
 
   (eventSource, EventSink{putEvent, rotate}) = eventStore
 
-prepareRotatedEventStore ::
-  (IsChainState tx, MonadTime m, MonadSTM m, MonadUnliftIO m) =>
-  RotationConfig ->
-  ChainStateType tx ->
-  EventStore (StateEvent tx) m ->
-  m (EventStore (StateEvent tx) m)
-prepareRotatedEventStore rotationConfig initialChainState eventStore = do
-  now <- getCurrentTime
-  let checkpointer = mkChechpointer initialChainState now
-  -- FIXME!
-  let logId = 0
-  mkRotatedEventStore rotationConfig checkpointer logId eventStore
-
 mkChechpointer :: IsChainState tx => ChainStateType tx -> UTCTime -> Checkpointer (StateEvent tx)
 mkChechpointer initialChainState time events =
   StateEvent
