@@ -1,5 +1,6 @@
 module Hydra.Tx.Deposit where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -9,11 +10,10 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import GHC.IsList (toList)
-import Hydra.Cardano.Api
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
-import Hydra.Plutus.Extras.Time (posixFromUTCTime)
+import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
 import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (POSIXTime)
@@ -79,19 +79,10 @@ data DepositObservation = DepositObservation
   , depositTxId :: TxId
   , deposited :: UTxO
   , created :: SlotNo
-  , deadline :: POSIXTime
+  , deadline :: UTCTime
   }
   deriving stock (Show, Eq, Generic)
-
-instance ToJSON DepositObservation where
-  toJSON = undefined -- TODO: ToJSON POSIXTime?
-
-instance FromJSON DepositObservation where
-  parseJSON = undefined -- TODO: FromJSON POSIXTime?
-
-instance Arbitrary DepositObservation where
-  arbitrary = undefined -- TODO: Arbitrary TxId and UTxO
-  shrink = undefined -- TODO: Arbitrary TxId and UTxO
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Observe a deposit transaction by decoding the target head id, deposit
 -- deadline and deposited utxo in the datum.
@@ -116,7 +107,7 @@ observeDepositTx networkId tx = do
       , depositTxId = txId tx
       , deposited
       , created
-      , deadline
+      , deadline = posixToUTCTime deadline
       }
  where
   spendsAll = all (`elem` txIns' tx) . UTxO.inputSet
