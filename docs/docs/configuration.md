@@ -148,7 +148,7 @@ Many protocol parameters are irrelevant in the Hydra context (eg, there is no tr
 
 ### Fuel v funds
 
-Transactions driving the head lifecycle (`Init`, `Abort`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `--hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
+Transactions driving the head lifecycle (`Init`, `Abort`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
 
 Consequently, sending some ada to the address of this 'internal wallet' is required. To get the address for the Cardano keys as generated above, one can use, for example, the `cardano-cli`:
 
