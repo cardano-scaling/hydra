@@ -95,7 +95,6 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (initialValidatorScript)
-import Hydra.Plutus.Extras.Time (posixToUTCTime)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Observe (
@@ -540,7 +539,7 @@ prop_incrementObservesCorrectUTxO = monadicIO $ do
     Nothing -> assertWith False "Deposit not observed"
     Just DepositObservation{depositTxId = depositedTxId, deadline} -> do
       cctx <- pickBlind $ pickChainContext ctx
-      let slotNo = slotNoFromUTCTime systemStart slotLength (posixToUTCTime deadline)
+      let slotNo = slotNoFromUTCTime systemStart slotLength deadline
       let version = 0
       let openUTxO = getKnownUTxO st
       -- NOTE: Use second deposit utxo deliberately here to test that the
