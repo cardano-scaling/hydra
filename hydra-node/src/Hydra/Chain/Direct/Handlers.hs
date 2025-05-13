@@ -65,7 +65,6 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
@@ -339,14 +338,7 @@ convertObservation TimeHandle{slotToUTCTime} = \case
     pure OnCollectComTx{headId}
   Deposit DepositObservation{headId, depositTxId, deposited, created, deadline} -> do
     createdTime <- either (const Nothing) Just $ slotToUTCTime created
-    pure $
-      OnDepositTx
-        { headId
-        , depositTxId
-        , deposited
-        , created = createdTime
-        , deadline = posixToUTCTime deadline
-        }
+    pure $ OnDepositTx{headId, depositTxId, deposited, created = createdTime, deadline}
   Recover RecoverObservation{headId, recoveredTxId, recoveredUTxO} ->
     pure OnRecoverTx{headId, recoveredTxId, recoveredUTxO}
   Increment IncrementObservation{headId, newVersion, depositTxId} ->

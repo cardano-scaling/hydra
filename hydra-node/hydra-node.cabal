@@ -134,7 +134,6 @@ library
     , http-types
     , hydra-cardano-api
     , hydra-plutus
-    , hydra-plutus-extras
     , hydra-prelude
     , hydra-tx
     , hydra-tx:testlib
@@ -370,7 +369,6 @@ test-suite tests
     , hydra-node:examples
     , hydra-node:testlib
     , hydra-plutus
-    , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils
     , hydra-tx

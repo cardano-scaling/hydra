@@ -74,7 +74,6 @@ import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
-import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   ConfirmedSnapshot (..),
@@ -1155,7 +1154,7 @@ genRecoverTx = do
   (_, _, depositedUTxO, txDeposit) <- genDepositTx maximumNumberOfParties
   let DepositObservation{deposited, deadline} =
         fromJust $ observeDepositTx testNetworkId txDeposit
-  let slotNo = slotNoFromUTCTime systemStart slotLength (posixToUTCTime deadline)
+  let slotNo = slotNoFromUTCTime systemStart slotLength deadline
   slotNo' <- arbitrary
   let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited (slotNo + slotNo')
   pure (depositedUTxO, tx)
@@ -1168,7 +1167,7 @@ genIncrementTx numParties = do
   let openUTxO = getKnownUTxO st
   let version = 0
   snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
-  let slotNo = slotNoFromUTCTime systemStart slotLength (posixToUTCTime deadline)
+  let slotNo = slotNoFromUTCTime systemStart slotLength deadline
   pure
     ( cctx
     , st
