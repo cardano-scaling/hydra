@@ -23,7 +23,7 @@ spec = do
       withMaxSuccess 3 $
         forAllShrink genContinuousEvents shrink $ \events ->
           ioProperty $ do
-            bracket (newS3EventStore bucketName) (const $ cleanup bucketName) $ \(source, sink) -> do
+            withS3EventStore bucketName $ \(source, sink) -> do
               -- TODO: DRY with FiledBasedSpec -> create propEventsCompleteness
               forM_ events (putEvent sink)
               loadedEvents <- getEvents source
@@ -33,7 +33,7 @@ spec = do
       withMaxSuccess 3 $
         forAllShrink (sublistOf =<< genContinuousEvents) shrink $ \events ->
           ioProperty $ do
-            bracket (newS3EventStore bucketName) (const $ cleanup bucketName) $ \(source, sink) -> do
+            withS3EventStore bucketName $ \(source, sink) -> do
               -- TODO: DRY with FiledBasedSpec -> create propEventsCompleteness
               forM_ events (putEvent sink)
               loadedEvents <- getEvents source
@@ -43,7 +43,7 @@ spec = do
       withMaxSuccess 3 $
         forAllShrink genContinuousEvents shrink $ \events ->
           ioProperty $ do
-            bracket (newS3EventStore bucketName) (const $ cleanup bucketName) $ \(source, sink) -> do
+            withS3EventStore bucketName $ \(source, sink) -> do
               -- TODO: DRY with FiledBasedSpec -> create propEventsCompleteness
               -- Put some events
               forM_ events (putEvent sink)
@@ -57,6 +57,9 @@ spec = do
 
     it "supports multiple instances" $ const True
  where
+  withS3EventStore bucketName =
+    bracket (newS3EventStore bucketName) (const $ cleanup bucketName)
+
   -- See https://hackage.haskell.org/package/amazonka-2.0/docs/Amazonka-Auth.html#v:fromKeysEnv
   --
   -- Also provides the BucketName to tests. We are using 'fromString' to avoid the
