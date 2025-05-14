@@ -22,6 +22,8 @@ changes.
 - Hydra will now store etcd cluster information on the filesystem in directories content-addressed
   by the cluster configuration.
 
+- Add `UDP` and `S3` examples for `EventSource` and `EventSink` implementations to `hydra-node:examples`.
+
 ## [0.21.0] - 2025-04-28
 
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network
