@@ -24,7 +24,6 @@ spec = do
         forAllShrink genContinuousEvents shrink $ \events ->
           ioProperty $ do
             withS3EventStore bucketName $ \(source, sink) -> do
-              -- TODO: DRY with FiledBasedSpec -> create propEventsCompleteness
               forM_ events (putEvent sink)
               loadedEvents <- getEvents source
               pure $ loadedEvents === events
@@ -34,7 +33,6 @@ spec = do
         forAllShrink (sublistOf =<< genContinuousEvents) shrink $ \events ->
           ioProperty $ do
             withS3EventStore bucketName $ \(source, sink) -> do
-              -- TODO: DRY with FiledBasedSpec -> create propEventsCompleteness
               forM_ events (putEvent sink)
               loadedEvents <- getEvents source
               pure $ loadedEvents === events
@@ -44,7 +42,6 @@ spec = do
         forAllShrink genContinuousEvents shrink $ \events ->
           ioProperty $ do
             withS3EventStore bucketName $ \(source, sink) -> do
-              -- TODO: DRY with FiledBasedSpec -> create propEventsCompleteness
               -- Put some events
               forM_ events (putEvent sink)
               loadedEvents <- getEvents source
@@ -53,9 +50,24 @@ spec = do
               allEvents <- getEvents source
               pure $ allEvents === loadedEvents
 
-    it "allows concurrent usage" $ const True
+    it "allows concurrent usage" $ \bucketName -> do
+      withS3EventStore bucketName $ \(source, sink) -> do
+        concurrently_
+          (putEvent sink 123)
+          (putEvent sink 456)
+        getEvents source `shouldReturn` [123, 456 :: EventId]
 
-    it "supports multiple instances" $ const True
+    it "supports multiple instances" $ \bucketName ->
+      finally (cleanup bucketName) $ do
+        (source1, sink1) <- newS3EventStore bucketName
+        (source2, sink2) <- newS3EventStore bucketName
+        putEvent sink1 123
+        putEvent sink2 123
+        putEvent sink2 456
+        events1 <- getEvents source1
+        events2 <- getEvents source2
+        events1 `shouldBe` events2
+        events1 `shouldBe` [123, 456 :: EventId]
  where
   withS3EventStore bucketName =
     bracket (newS3EventStore bucketName) (const $ cleanup bucketName)
