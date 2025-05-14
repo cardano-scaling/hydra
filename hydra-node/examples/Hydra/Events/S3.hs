@@ -7,8 +7,20 @@ import Amazonka qualified as AWS
 import Amazonka.S3 qualified as AWS
 import Amazonka.S3 qualified as S3
 import Amazonka.S3.Lens qualified as AWS
-import Conduit (MonadResource, concatC, concatMapC, mapC, mapMC, sinkLazy, sinkList, yieldMany, (.|))
-import Control.Lens (view, (^.))
+import Conduit (
+  MonadResource,
+  concatC,
+  concatMapC,
+  mapC,
+  mapMC,
+  mapM_C,
+  runConduitRes,
+  sinkLazy,
+  sinkList,
+  yieldMany,
+  (.|),
+ )
+import Control.Lens (view)
 import Data.Aeson qualified as Aeson
 import Data.List (stripPrefix)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId, getEventId)
@@ -55,16 +67,15 @@ getEvent env bucketName eventId = do
 -- | Delete all event objects from given the bucket.
 purgeEvents :: AWS.Env -> AWS.BucketName -> IO ()
 purgeEvents env bucketName = do
-  -- TODO: pagination
-  allObjects <- AWS.runResourceT . AWS.send env $ AWS.newListObjects bucketName
-  case allObjects ^. AWS.listObjectsResponse_contents of
-    Nothing -> pure ()
-    Just os ->
-      forM_ os $ \object -> do
-        -- TODO: remove log
-        putTextLn $ "deleting " <> show (object ^. AWS.object_key)
-        void . AWS.runResourceT . AWS.send env $
-          S3.newDeleteObject bucketName (object ^. AWS.object_key)
+  runConduitRes $
+    AWS.paginate env (AWS.newListObjects bucketName)
+      .| concatMapC (view AWS.listObjectsResponse_contents)
+      .| concatC
+      .| mapC (view AWS.object_key)
+      .| mapM_C deleteObject
+ where
+  deleteObject k =
+    void . AWS.send env $ S3.newDeleteObject bucketName k
 
 -- | Get the object key for a given event (id).
 toObjectKey :: HasEventId e => e -> AWS.ObjectKey
