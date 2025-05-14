@@ -4,7 +4,6 @@ module Hydra.Chain.Blockfrost.TimeHandle where
 
 import Hydra.Prelude
 
-import Blockfrost.Client qualified as Blockfrost
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
@@ -12,6 +11,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
 import Hydra.Chain.Blockfrost.Client (queryEraHistory, queryGenesisParameters, queryTip)
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
 
 -- | Query node for system start and era history before constructing a

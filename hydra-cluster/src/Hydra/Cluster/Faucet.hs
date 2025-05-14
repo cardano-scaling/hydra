@@ -4,7 +4,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Blockfrost.Client qualified as Blockfrost
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),

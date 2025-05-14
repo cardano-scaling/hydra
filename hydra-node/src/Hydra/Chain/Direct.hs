@@ -9,7 +9,6 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Blockfrost.Client qualified as Blockfrost
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
@@ -53,6 +52,7 @@ import Hydra.Chain (
   currentState,
  )
 import Hydra.Chain.Blockfrost qualified as Blockfrost
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
