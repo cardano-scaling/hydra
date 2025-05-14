@@ -38,7 +38,7 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
 resolveInputsUTxO :: UTxO -> Tx Era -> UTxO
 resolveInputsUTxO utxo tx =
   UTxO.fromList $
-    mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
+    mapMaybe (\txIn -> (txIn,) <$> UTxO.resolveTxIn txIn utxo) (txIns' tx)
 
 -- * Type Conversions
 

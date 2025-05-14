@@ -317,7 +317,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
             ConwayVoting i -> unAsIx i
             ConwayProposing i -> unAsIx i
           txIn = Set.elemAt (fromIntegral k) ledgerInputs -- NOTE: calls 'error' if out of bounds
-       in case UTxO.resolve (fromLedgerTxIn txIn) utxo of
+       in case UTxO.resolveTxIn (fromLedgerTxIn txIn) utxo of
             Nothing -> error $ "txIn not resolvable: " <> show txIn
             Just o -> o
 

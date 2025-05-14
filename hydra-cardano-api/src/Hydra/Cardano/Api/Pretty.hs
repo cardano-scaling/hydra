@@ -72,7 +72,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
       Api.TxInsCollateral refInputs -> refInputs
 
   prettyTxIn i =
-    case UTxO.resolve i utxo of
+    case UTxO.resolveTxIn i utxo of
       Nothing -> T.unpack $ renderTxIn i
       Just o ->
         T.unpack (renderTxIn i)

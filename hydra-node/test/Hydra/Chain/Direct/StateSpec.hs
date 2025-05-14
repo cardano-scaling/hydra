@@ -424,7 +424,7 @@ genCommitTxMutation utxo tx =
 
   resolvedInputs =
     UTxO.fromList $
-      mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
+      mapMaybe (\txIn -> (txIn,) <$> UTxO.resolveTxIn txIn utxo) (txIns' tx)
 
   initialRedeemer =
     fromMaybe (error "not found redeemer") $
