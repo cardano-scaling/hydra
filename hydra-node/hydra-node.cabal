@@ -297,6 +297,7 @@ test-suite tests
     Hydra.Chain.Direct.WalletSpec
     Hydra.CryptoSpec
     Hydra.Events.FileBasedSpec
+    Hydra.Events.S3Spec
     Hydra.Events.UDPSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
@@ -328,6 +329,7 @@ test-suite tests
   type:               exitcode-stdio-1.0
   build-depends:
     , aeson
+    , amazonka
     , base
     , bytestring
     , cardano-api:gen
