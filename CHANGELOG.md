@@ -19,6 +19,9 @@ changes.
 
 - **BREAKING** Update scripts to plutus 1.45.0.0.
 
+- Hydra will now store etcd cluster information on the filesystem in directories content-addressed
+  by the cluster configuration.
+
 ## [0.21.0] - 2025-04-28
 
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network
