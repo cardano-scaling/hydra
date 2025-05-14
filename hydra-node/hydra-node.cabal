@@ -207,6 +207,18 @@ library testlib
     , versions
     , yaml
 
+library examples
+  import:          project-config
+  visibility:      public
+  hs-source-dirs:  examples
+  exposed-modules: Hydra.Events.UDP
+  build-depends:
+    , aeson
+    , hydra-node
+    , hydra-prelude
+    , network
+    , network-udp
+
 executable hydra-node
   import:         project-config
   hs-source-dirs: exe/hydra-node
@@ -284,6 +296,7 @@ test-suite tests
     Hydra.Chain.Direct.WalletSpec
     Hydra.CryptoSpec
     Hydra.Events.FileBasedSpec
+    Hydra.Events.UDPSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchemaSpec
@@ -343,6 +356,7 @@ test-suite tests
     , HUnit
     , hydra-cardano-api
     , hydra-node
+    , hydra-node:examples
     , hydra-node:testlib
     , hydra-plutus
     , hydra-plutus-extras
@@ -355,6 +369,7 @@ test-suite tests
     , lens
     , lens-aeson
     , network-simple-wss
+    , network-udp
     , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
     , QuickCheck

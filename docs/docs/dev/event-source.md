@@ -8,9 +8,9 @@ On application startup, the [`hydrate`](https://hydra.family/head-protocol/haddo
 
 ## Default event source and sinks
 
-TODO: explain
-- FileBased source + sink
-- API server as sink
+The default event source and sink used by the `hydra-node` is `FileBased`, which uses an append-only plain JSON file to persist events in a file name `state`. This single file is located in the `hydra-node` persistence directory, which is specified by the `--persistence-dir` command line option. 
+
+As explained in the consequences of [ADR29](https://hydra.family/head-protocol/adr/29), the API server of the `hydra-node` is also an event sink, which means that all events are sent to the API server and may be further submitted as [`ServerOutput`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) to clients of the API server. See [`mkTimedServerOutputFromStateEvent`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-API-Server.html#v:mkTimedServerOutputFromStateEvent) for which events are mapped to server outputs.
 
 ## Extending the node via event sources and sinks
 
@@ -21,6 +21,23 @@ TODO: list / describe examples
 TODO: considerations when implementing a source / sink
 - multi-threading
 - what to test 
+
+### What to test
+
+- [ ] Event store (sink + source)
+  - [ ] Completeness: Any events stored by `putEvent` are returned by `getEvents`/`sourceEvents`
+    - [ ] For continuous, non-continuous and sequences of duplicate events
+  - [ ] Concurrent use of `putEvent` and `sourceEvents` is possible
+
+- [ ] Event sink only
+  - [ ] Whether `putEvent` results in desired effect
+  - [ ] Concurrent use of `putEvent` is possible
+  
+- [ ] Event source only
+  - [ ] Whether previously "primed" events are loaded by `sourceEvents`
+  - [ ] Concurrent use of `sourceEvents` is possible
+  
+- [ ] General: allocated resources are released (use with/bracket pattern)
 
 ---
 
