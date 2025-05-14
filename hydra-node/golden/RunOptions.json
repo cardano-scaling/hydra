@@ -8,33 +8,45 @@
             },
             "apiPort": 28651,
             "chainConfig": {
-                "cardanoSigningKey": "c.sk",
-                "cardanoVerificationKeys": [
-                    "b/a/a.vk",
-                    "a/a/a.vk",
-                    "b/b/c.vk",
-                    "b/b.vk",
-                    "a/c/a.vk"
-                ],
-                "contestationPeriod": 11010,
-                "depositPeriod": 130,
-                "hydraScriptsTxId": [
-                    "88e381408dcd681c0f0bbd894c5202feede5c8790dbdff3a5de50b2fdeca0396",
-                    "52aea27bb01d5f1c3fdccde7d40f8d743cc397c0d1d810bfb1d96fd3ac934f09",
-                    "7ac013be0386ba006230e2f5ca7cba3cd6ffa141482090295316040a44f3baad",
-                    "9511f25390a2a1fb31ea3b0dc50a2cba229454bf91ac39a7d0f6c418531bd6cf"
-                ],
-                "networkId": {
-                    "magic": 17173,
-                    "tag": "Testnet"
+                "cardanoSigningKey": "a/a/a/b/b.sk",
+                "cardanoVerificationKeys": [],
+                "chainBackend": {
+                    "contents": {
+                        "projectPath": "blockfrost-project.txt"
+                    },
+                    "tag": "Blockfrost"
                 },
-                "nodeSocket": "c/b/c/b.socket",
+                "contestationPeriod": 43200,
+                "depositDeadline": 74,
+                "hydraScriptsTxId": [
+                    "0e7aa6a6b04903b07ee1c14b892dd41d79fcdb8d5150b379ee395e6fccd7ac94",
+                    "678a8fe9a4d9bae4beb9f04f3514a0ac4934a30213ad0e78adc386c8a3b40b6a",
+                    "4f87ef0eca6edfa9b58e9657b935ddce502c16cda64ce65076c458d130a28c06",
+                    "a6b6665b1d9c137c6660853971dc262f2a8eddf3c70e82c4558d08c1e9b4db42",
+                    "58085cd8f00178d12570caccff88b923545149b01201bee706e31ccd08b6b2fe",
+                    "f3f9c62b1702dc857bef7126f1c54ac2aea79610732b2840230abadfa37d3aac",
+                    "18b9f8f934bb1f85f37d12e1edadb8129deda7872fe472c7ede651ac4a72cc3a",
+                    "d0dbb06db756fee9a2e502cbd78f867bddea7dc1f0646fef43b0b5703ec3ed8d",
+                    "0016e2344ed38c643a727109e50d3461fa78d16931a3b5ab2b205b9039704b5c",
+                    "762283fe2ce87f27d30eff1f4dcb3b7fd3cd0e217e4b07f9f5db523cf2237a7f",
+                    "948cd38b0c12e73abfe7d9a650da29f7e6ae44b1b618c63f397786df046e413b",
+                    "ae16749c9326938539e93175b1195536bbf0f3c76ebb2b4811a35d82452384dc",
+                    "264bf4ac74f4e6db1bf61902ed1f0048f9bda859fec530fedee48fb3f9419bbc",
+                    "64b169ab192befd1223eadf5bcdd3f3729b4c45f4a5990ece3092a0e7bf052ec",
+                    "bca83bd1e872336dc73837a6c6a9eb40e71ef73dff765e4edc9207eef7eb28b2",
+                    "be269d5552683c9c1270083dfe3fc1131083dd4c99bae89762eb7151e722c232",
+                    "e8b34d73a29bf255f038c65c26ce1066d29e8d081d293ea4124a1ba841ddba9f",
+                    "18a22e4400bb478fec5dcad29b32aabd00b822aa721dccf8c9821354aabea153",
+                    "d0bafe586ebb838b9f8f8bb533892be0cb740a68d6f2b77b9f2d4f2c9ce08464",
+                    "b6fa856a9c21da5be600bda4da3b31dbbe213b0fe97f62340551e465fea3d963",
+                    "a726aedba74a0dc5f3ead4dc662fac9dfe1e566f88a9f7b9ebe7bf47e569df39"
+                ],
                 "startChainFrom": {
-                    "blockHash": "e91d38ce75292b953dff607a22049f145e2a863af3b699fef80282e3302fe26d",
-                    "slot": 7277012,
+                    "blockHash": "5702e13b130dbed8ed57778d585530ec0cb93ba9c6d3898201d2b4455ebe915b",
+                    "slot": 5009519,
                     "tag": "ChainPoint"
                 },
-                "tag": "DirectChainConfig"
+                "tag": "CardanoChainConfig"
             },
             "hydraSigningKey": "b/c/b/b/a/b.sk",
             "hydraVerificationKeys": [
@@ -81,27 +93,54 @@
             },
             "apiPort": 21824,
             "chainConfig": {
-                "cardanoSigningKey": "c/c/a.sk",
+                "cardanoSigningKey": "a/c/b/b/a.sk",
                 "cardanoVerificationKeys": [
-                    "a/c/c.vk"
+                    "b/c.vk",
+                    "a.vk"
                 ],
-                "contestationPeriod": 43200,
-                "depositPeriod": 276,
-                "hydraScriptsTxId": [
-                    "78f200fbf81bfd7f6f811d34087e6cd06a72bf807244916d98692af49a975333",
-                    "99eb953e33a038bd0439480eb9127808b4c75c38a4d2da1ea037bb519edf42ed",
-                    "83e830b4dd023557bcca04ca01e0e38bffea112a768122eec3539adfd61d3647",
-                    "f72387516313f58c624c1f2ebeafba9179b689a0f92b2b57e68d1c8e69adeb61",
-                    "a6af8d534b0c444f7e66399f6bbdf43c913a4e7804439da219570654d7be09d3",
-                    "c9f4fc68734893b785feec5285339e2e4646dabc5d12b98ba97f9163a28715b7"
-                ],
-                "networkId": {
-                    "magic": 20635,
-                    "tag": "Testnet"
+                "chainBackend": {
+                    "contents": {
+                        "projectPath": "blockfrost-project.txt"
+                    },
+                    "tag": "Blockfrost"
                 },
-                "nodeSocket": "a.socket",
-                "startChainFrom": null,
-                "tag": "DirectChainConfig"
+                "contestationPeriod": 14376,
+                "depositDeadline": 50,
+                "hydraScriptsTxId": [
+                    "1e09c30835b4d9070d62bb8505e2106719ffbf105c23e75e4e379f6625612756",
+                    "2641215eaa36ece3f69185f5f644e1385ac059aa38be5a76a66c694e5bb7bba4",
+                    "5c796e5b056c8a47ad48618218666564e812e2277f0f8584d7a027ce5821a5a0",
+                    "ea799e2c11eddd91e20d6f8b3bfd04dec50e54e2ad4abb670b5c645052577199",
+                    "024dd49a3ae6e881687470f83f4b998ae295a5f45715b998221f3d417f4d61d4",
+                    "ebb13371fb1ad63b77536db1a168bb8ce54f7a3debe914cf6d8bc00d54569293",
+                    "3b53c6281bc55a9e7a192596033b34a269a2fa86eeb4fdec771583a6139e70ac",
+                    "b992d156fbffed03f1173785879a5b808ff258036c5d84f5eff504a739c82c22",
+                    "5f40dc565b3f8108807d25cfb634e8f0bd7bd0bb5efd521aa4967f5d1b305b10",
+                    "1de6202d37fab7ee92701b497a4ef47e87461df9c3b20d8164f82432ba89fe4e",
+                    "9a10ec4fe426dd305f269469f8eaa056dd6a271699de01f85a3e93d2fbcd67f5",
+                    "694f7445f9b79cc9c8d56ac4338a5a6afa870e3f0d4fdda301e23e916584d9b9",
+                    "c4ff5441482915986ecfffb0eecb2482330b7334d0880484822ff224f33b24b6",
+                    "c5258c2d860e958ecb625213ee9e1bae52f0c9725abecc810cb744f6a6e8ada1",
+                    "b6671b03d3c186e42b90d89696e183d5bc5919a1d4f9308a59478064c7a67e98",
+                    "95089a85cd18f405c24091010f4ee33e4d2810a9e93673c4f5bd46edb676edbb",
+                    "c43d56956ce60c476b1d7f51db5881d30537e8e03d00c77be4061aac4a9b4818",
+                    "0e7bd45b909a1a8963a172a48008ea7b12fb5743e05aff1f04c6fa24ffe5c1aa",
+                    "914698975ed6ff23d96775b312fafa934d3f399aa0a8d65bd73ac843663691a2",
+                    "38af4dd9b6f510ce4f95d57be6e8ee48d2e25bc2ef1f742f8d0b5108bb3de270",
+                    "ad7ac94171b87bf6dc5d324ecf04c017f8938a7db23c5d2562d0368083cd5206",
+                    "0c9683f19950e2c8e4b702bf52462a9ab69c3950de9b17682c4292e18b827663",
+                    "df802067115ec7c645fc2b6452dc16f9b30e4e2ca0be731d8848bd8ef6fc2d58",
+                    "86098f61a91f487bf0a3dffdd272e1ef17cd92bf3bb0e0ac2e27f517345ccd19",
+                    "793a7453ede4356c6a7de54622ac95957a3aa5411c8e2eaf6e27a565b32bc912",
+                    "ad2ae5dbddf0e10df0bf197ea200c1d7fcc2dc804225f6216d980daef0458292",
+                    "730d5e78988044a2eb119b693e30663b4ebc2b9f1e34fc19716c2fcecdf2034e"
+                ],
+                "startChainFrom": {
+                    "blockHash": "94d85c82a657c59dfa2ec73e33a198fe18675723520e373ef26753b9cf690eb7",
+                    "slot": 13175187,
+                    "tag": "ChainPoint"
+                },
+                "tag": "CardanoChainConfig"
             },
             "hydraSigningKey": "a/c/b.sk",
             "hydraVerificationKeys": [],
@@ -143,34 +182,30 @@
             },
             "apiPort": 9075,
             "chainConfig": {
-                "cardanoSigningKey": "c/a/a.sk",
+                "cardanoSigningKey": "b/c/b.sk",
                 "cardanoVerificationKeys": [
-                    "c/b/c.vk",
-                    "a/c/b.vk",
-                    "a/c/a.vk",
-                    "b/c/a.vk"
+                    "a.vk",
+                    "c/c.vk"
                 ],
-                "contestationPeriod": 86400,
-                "depositPeriod": 127,
-                "hydraScriptsTxId": [
-                    "d24e0f81e846d16c252517b3ded6dfaa6113dcb21e2126061ccc06777e2ac0a9",
-                    "b7867e38c9bacf628b1381aa846cbbf8eee9d12d63ae8c8eaa21787181518d0d",
-                    "f1a3037acfcdf078a9dc396067e94a76f2ba9f83a18f5ae80884bdc66fc26d66",
-                    "a6933ec59bd6fadbba45ee28724284d118eec905a33c925a5a292b7d7a5c0bed",
-                    "15e1f608e89afd1f2964f9cf1e297151328f523bcc36efbcf4f9d7cfd85fdfc3",
-                    "727ad1baf77c1c62b6c24beeadb8092911ec067c1f53b9ba001b64e7ff05c90a",
-                    "edfccbe82c9ab63213d77d24e068880034fd0d5a8cc95e0bdafec4c4e7e0a3b1",
-                    "9beda0aed3eb215bac64481fb46651c05192c919e3824915e012c5426be6052e",
-                    "261a72d1046c0d90a27845f074f4e91c40a689af6ed140f1fa209b19919a47c9",
-                    "53f2c7a61b5c88851d4c36e769454bb427266dd44c66974ec180f2a784cfe31f"
-                ],
-                "networkId": {
-                    "magic": 5794,
-                    "tag": "Testnet"
+                "chainBackend": {
+                    "contents": {
+                        "networkId": {
+                            "magic": 42,
+                            "tag": "Testnet"
+                        },
+                        "nodeSocket": "node.socket"
+                    },
+                    "tag": "Direct"
                 },
-                "nodeSocket": "c.socket",
+                "contestationPeriod": 31536000,
+                "depositDeadline": 214,
+                "hydraScriptsTxId": [
+                    "9ed39761f06f5004ead6a765de1962dfa0efd70df42c6bc1e168735368af2f80",
+                    "4823f8d21a11fbd5a357b6cdb37c33699fc3bbbab64d30cc2bb9297574db21c4",
+                    "58a4be58620e1670b93b693bbe64991860853d805304c5f64f141d9eda59819a"
+                ],
                 "startChainFrom": null,
-                "tag": "DirectChainConfig"
+                "tag": "CardanoChainConfig"
             },
             "hydraSigningKey": "c/c/c/c.sk",
             "hydraVerificationKeys": [
@@ -226,38 +261,57 @@
             },
             "apiPort": 6700,
             "chainConfig": {
-                "cardanoSigningKey": "c/c/a/b/a/b.sk",
+                "cardanoSigningKey": "a/a/b/b.sk",
                 "cardanoVerificationKeys": [
-                    "c/b.vk",
-                    "c.vk",
-                    "c/a.vk"
+                    "b/c/b.vk",
+                    "b/b.vk",
+                    "c/b/a.vk",
+                    "a.vk",
+                    "b.vk"
                 ],
-                "contestationPeriod": 2592000,
-                "depositPeriod": 80,
-                "hydraScriptsTxId": [
-                    "83683fb93e6b35eea8ab0979be707b0a7870dd6a3a929abb9a24438b884a8703",
-                    "fdbc1cdcdd654a2e0985407b71e5ae5cb4754358628ce5e46b1f29c22e96041b",
-                    "d2f518bf1a2ad88b10609952e70a864ea52b0d87c016a3a74a8805e4ddf1c0e1",
-                    "4e52a122265ccfd49c01ee46419b2166897fefcd072e714aeb5f474c92bd2d2d",
-                    "1122a671449c6503361f6d9121d064514621ae789c831b0edc73eac97a7127ad",
-                    "80561210ca02e94224c845c9bb5c40613de695db9a03090ace1c6f1666bd63dd",
-                    "edf610eb3d58df02c0061afb84f7caf217eaeb38420586da7d39b396a27e5fb5",
-                    "a1f0ae57e88098fb1679c2fdad95950ee86292847a35b6102a36d1f623aaa489",
-                    "9410f9c50a546e7c4f47482a7e79a8a81781d67d815db97d746f7265c22bdd5d",
-                    "52c58d65dd811c16b1405ff46ac9dbda460bc314fcd8e9a0588f1129d3d3a3f9",
-                    "965e84d7dadc652379b5ebc56b4a5796626fa32a05fd526ea3996c4a346fa6d5"
-                ],
-                "networkId": {
-                    "magic": 25749,
-                    "tag": "Testnet"
+                "chainBackend": {
+                    "contents": {
+                        "projectPath": "blockfrost-project.txt"
+                    },
+                    "tag": "Blockfrost"
                 },
-                "nodeSocket": "c/c/c/b/b/c.socket",
+                "contestationPeriod": 604800,
+                "depositDeadline": 116,
+                "hydraScriptsTxId": [
+                    "2faf8248f026c26067bc554e9b0ceb7502339b6f9eded057df4789b531362850",
+                    "e7b3193074581b48b62417594b5486c92177f85894c65c362b4f8ad56b5ab5d5",
+                    "ec116ae19c16e2da02d86686a270ecf74b085ee7b9ddc62ebe0fee8cec788515",
+                    "f4ef991778e0b09f0541696874ed38a574150216797641c457de01c137e58135",
+                    "83c45a23261bead208ac337fd08618cd7cc9643162fea52f9bfa8b47864c2ba9",
+                    "af6173618ec8aae13e0f5be910360590900896cc8d6fba72a5fc7320e80feccc",
+                    "97cd731320b643516ef22b76b3640ad0b82566fdd6ce513bc040bd67e901336f",
+                    "f7b76ad72419ea8707b2bb71daa83f3c527ffbd25bc75a1ec685706783223f4f",
+                    "6b9b7b91175f6e8acec1aed8c15dc63c4846fc21a86d6c19c496ba5186006a91",
+                    "a1959dd3e727d729b2c7fd39ac49769b86ae7f59009b070f4e69aa705171893b",
+                    "2c72d3465bac3b72a28294c9f3ce10746cc84168a1248a7e26ede2d7954ce540",
+                    "224722dc77f020674b28a72cd731a3819a0fb705b958b31d6b08fd5ef8dca5d0",
+                    "1b7aa8ede553c2635ef90a0e78c83102bebf89d73e08ceb7a9224ac256cf2682",
+                    "114b492592f36d4e24f5dee2516c9e213b8e17a19a08f53ed2a2b1a12176f7e7",
+                    "3a4d68eab3767b3b23d688dd313c46a64ce6b3b8ff534758e876463407ec105f",
+                    "3f2e3cc420f30cab99de792042ff9b4f12d8e8f27e47fd723d363fcc5c29bde8",
+                    "28e51bfd2cb07894356bcfa04daeefd5004b39b7bec461aa13735514eceab300",
+                    "35020154112f611278f9cab32b6fe4efde328c3498a797bc46e0fac241095eb1",
+                    "7cf8199036ae9dab07238f7405229b05bd2df529c6e931ac06928230170ef1aa",
+                    "6b8ff7474ea0d34c38082dff7871d5dd78920c8a6a511401d73b651a92135c33",
+                    "9f686f28173a577de3e0825626fbe154f74f928b7163b381c10b96fb046812ba",
+                    "caa735ce52ef8f160f30b3b441c1d796221fb79b2cd32fc53ec1799bcd1ace0b",
+                    "8d9f48ed2f859d008dc2badb6ba401181a3141803dcf93559b42271865f80ed8",
+                    "a1cfbf9f239791cec968ef524bf3b66bc3e879f23da83506c0101ed8f7f2e140",
+                    "52bfcc65798358a9943cd6662db1ffed0ceb526b8ae11dbdc87756d2190a3171",
+                    "73416de2ed66464c773d535d8aca39de485b325a907d3e01477e75211dba6be6",
+                    "6750cb84d4fa9cd4475ed3db55d5ced12aeb2305afd7c7f4c58273659f34904f"
+                ],
                 "startChainFrom": {
-                    "blockHash": "339fd8d359095560ebaaffa0d782854b6fd38f641ec178562871a75b1778f94a",
-                    "slot": 4949497,
+                    "blockHash": "f4dddbb1b9c60c5606a7f4a837be9a4e11a93b3fa9344b3d052c684470ca445b",
+                    "slot": 14872327,
                     "tag": "ChainPoint"
                 },
-                "tag": "DirectChainConfig"
+                "tag": "CardanoChainConfig"
             },
             "hydraSigningKey": "b/c/b/b/b.sk",
             "hydraVerificationKeys": [

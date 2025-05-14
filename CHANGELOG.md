@@ -49,7 +49,7 @@ changes.
     ETCD_AUTO_COMPACTION_RETENTION=168h
     ```
 
-- Enable blockfrost integration for hydra-node internal wallet queries.
+- Enable blockfrost integration for hydra-node.
 
 - Changed default contestation period to 600 seconds and deposit deadline to 3600 seconds.
 
