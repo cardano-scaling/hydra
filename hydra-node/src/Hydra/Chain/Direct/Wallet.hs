@@ -450,6 +450,3 @@ data TinyWalletLog
 
 deriving anyclass instance ToJSON TinyWalletLog
 
-instance Arbitrary TinyWalletLog where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
