@@ -143,34 +143,42 @@ data PublishOptions = PublishOptions
 defaultPublishOptions :: PublishOptions
 defaultPublishOptions =
   PublishOptions
-    { chainBackend = defaultDirectBackend
+    { chainBackend = Direct defaultDirectBackend
     , publishSigningKey = "cardano.sk"
     }
 
-defaultDirectBackend :: ChainBackend
+defaultDirectBackend :: DirectBackend
 defaultDirectBackend =
   DirectBackend
     { networkId = Testnet (NetworkMagic 42)
     , nodeSocket = "node.socket"
     }
 
-defaultCardanoBackend :: ChainBackend
+defaultCardanoBackend :: BlockfrostBackend
 defaultCardanoBackend =
   BlockfrostBackend
     { projectPath = "/home/v0d1ch/code/hydra/blockfrost-project.txt"
     }
 
 data ChainBackend
-  = DirectBackend
-      { networkId :: NetworkId
-      -- ^ Network identifer to which we expect to connect.
-      , nodeSocket :: SocketPath
-      -- ^ Path to a domain socket used to connect to the server.
-      }
-  | BlockfrostBackend
-      { projectPath :: FilePath
-      -- ^ Path to the blockfrost project file
-      }
+  = Direct DirectBackend
+  | Blockfrost BlockfrostBackend
+  deriving stock (Generic, Show, Eq)
+  deriving anyclass (ToJSON, FromJSON)
+
+data DirectBackend = DirectBackend
+  { networkId :: NetworkId
+  -- ^ Network identifer to which we expect to connect.
+  , nodeSocket :: SocketPath
+  -- ^ Path to a domain socket used to connect to the server.
+  }
+  deriving stock (Generic, Show, Eq)
+  deriving anyclass (ToJSON, FromJSON)
+
+newtype BlockfrostBackend = BlockfrostBackend
+  { projectPath :: FilePath
+  -- ^ Path to the blockfrost project file
+  }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -307,13 +315,15 @@ chainBackendParser :: Parser ChainBackend
 chainBackendParser = directBackendParser <|> blockfrostBackendParser
  where
   directBackendParser =
-    DirectBackend
-      <$> networkIdParser
-      <*> nodeSocketParser
+    fmap Direct $
+      DirectBackend
+        <$> networkIdParser
+        <*> nodeSocketParser
 
   blockfrostBackendParser =
-    BlockfrostBackend
-      <$> blockfrostProjectPathParser
+    fmap Blockfrost $
+      BlockfrostBackend
+        <$> blockfrostProjectPathParser
 
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
@@ -418,39 +428,7 @@ defaultCardanoChainConfig =
     , startChainFrom = Nothing
     , contestationPeriod = defaultContestationPeriod
     , depositDeadline = defaultDepositDeadline
-    , chainBackend = defaultCardanoBackend
-    }
-
-data DirectChainConfig = DirectChainConfig
-  { networkId :: NetworkId
-  -- ^ Network identifer to which we expect to connect.
-  , nodeSocket :: SocketPath
-  -- ^ Path to a domain socket used to connect to the server.
-  , hydraScriptsTxId :: [TxId]
-  -- ^ Identifier of transaction holding the hydra scripts to use.
-  , cardanoSigningKey :: FilePath
-  -- ^ Path to the cardano signing key of the internal wallet.
-  , cardanoVerificationKeys :: [FilePath]
-  -- ^ Paths to other node's verification keys.
-  , startChainFrom :: Maybe ChainPoint
-  -- ^ Point at which to start following the chain.
-  , contestationPeriod :: ContestationPeriod
-  , depositPeriod :: DepositPeriod
-  }
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-defaultDirectChainConfig :: DirectChainConfig
-defaultDirectChainConfig =
-  DirectChainConfig
-    { networkId = Testnet (NetworkMagic 42)
-    , nodeSocket = "node.socket"
-    , hydraScriptsTxId = []
-    , cardanoSigningKey = "cardano.sk"
-    , cardanoVerificationKeys = []
-    , startChainFrom = Nothing
-    , contestationPeriod = defaultContestationPeriod
-    , depositPeriod = defaultDepositPeriod
+    , chainBackend = Direct defaultDirectBackend
     }
 
 data BlockfrostChainConfig = BlockfrostChainConfig
@@ -477,7 +455,7 @@ instance Arbitrary ChainConfig where
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
       contestationPeriod <- arbitrary
       depositPeriod <- arbitrary
-      chainBackend <- oneof [pure defaultDirectBackend, pure defaultCardanoBackend]
+      chainBackend <- oneof [pure $ Direct defaultDirectBackend, pure $ Blockfrost defaultCardanoBackend]
       pure
         CardanoChainConfig
           { hydraScriptsTxId
@@ -592,7 +570,7 @@ nodeSocketParser =
   strOption
     ( long "node-socket"
         <> metavar "FILE"
-        <> value defaultCardanoChainConfig.chainBackend.nodeSocket
+        <> value "node.socket"
         <> showDefault
         <> help
           "Filepath to local unix domain socket used to communicate with \
@@ -1018,9 +996,9 @@ toArgs
           , chainBackend
           } ->
           ( case chainBackend of
-              BlockfrostBackend{projectPath} ->
+              Blockfrost BlockfrostBackend{projectPath} ->
                 ["--blockfrost", projectPath]
-              DirectBackend{networkId, nodeSocket} ->
+              Direct DirectBackend{networkId, nodeSocket} ->
                 toArgNetworkId networkId
                   <> toArgNodeSocket nodeSocket
           )

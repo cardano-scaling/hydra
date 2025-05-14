@@ -77,7 +77,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node (BackendOps (..))
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (CardanoChainConfig (..), ChainBackend (..))
+import Hydra.Options (BlockfrostBackend (..), CardanoChainConfig (..), ChainBackend (..), DirectBackend (..))
 import Hydra.Tx (Party)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
@@ -180,11 +180,11 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
     race
       ( handle onIOException $
           case chainBackend of
-            DirectBackend{networkId, nodeSocket} ->
+            Direct DirectBackend{networkId, nodeSocket} ->
               connectToLocalNode
                 (connectInfo networkId nodeSocket)
                 (clientProtocols chainPoint queue handler)
-            BlockfrostBackend{projectPath} -> do
+            Blockfrost BlockfrostBackend{projectPath} -> do
               prj <- Blockfrost.projectFromFile projectPath
               Blockfrost.blockfrostChain tracer queue prj chainPoint handler wallet
       )

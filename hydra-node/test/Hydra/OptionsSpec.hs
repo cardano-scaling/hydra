@@ -17,10 +17,12 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Network (Host (Host))
 import Hydra.Options (
+  BlockfrostBackend (..),
   CardanoChainConfig (..),
   ChainBackend (..),
   ChainConfig (..),
   Command (..),
+  DirectBackend (..),
   GenerateKeyPair (GenerateKeyPair),
   InvalidOptions (..),
   LedgerConfig (..),
@@ -143,10 +145,11 @@ spec = parallel $
                 Cardano
                   ( defaultCardanoChainConfig
                       & #chainBackend
-                        .~ DirectBackend
-                          { networkId = Testnet (NetworkMagic 0)
-                          , nodeSocket = nodeSocket defaultDirectBackend
-                          }
+                        .~ Direct
+                          DirectBackend
+                            { networkId = Testnet (NetworkMagic 0)
+                            , nodeSocket = nodeSocket defaultDirectBackend
+                            }
                   )
             }
       ["--testnet-magic", "-1"] -- Word32 overflow expected
@@ -156,10 +159,11 @@ spec = parallel $
                 Cardano
                   ( defaultCardanoChainConfig
                       & #chainBackend
-                        .~ DirectBackend
-                          { networkId = Testnet (NetworkMagic 4294967295)
-                          , nodeSocket = nodeSocket defaultDirectBackend
-                          }
+                        .~ Direct
+                          DirectBackend
+                            { networkId = Testnet (NetworkMagic 4294967295)
+                            , nodeSocket = nodeSocket defaultDirectBackend
+                            }
                   )
             }
       ["--testnet-magic", "123"]
@@ -169,10 +173,11 @@ spec = parallel $
                 Cardano
                   ( defaultCardanoChainConfig
                       & #chainBackend
-                        .~ DirectBackend
-                          { networkId = Testnet (NetworkMagic 123)
-                          , nodeSocket = nodeSocket defaultDirectBackend
-                          }
+                        .~ Direct
+                          DirectBackend
+                            { networkId = Testnet (NetworkMagic 123)
+                            , nodeSocket = nodeSocket defaultDirectBackend
+                            }
                   )
             }
 
@@ -184,10 +189,11 @@ spec = parallel $
                 Cardano
                   ( defaultCardanoChainConfig
                       & #chainBackend
-                        .~ DirectBackend
-                          { networkId = Mainnet
-                          , nodeSocket = nodeSocket defaultDirectBackend
-                          }
+                        .~ Direct
+                          DirectBackend
+                            { networkId = Mainnet
+                            , nodeSocket = nodeSocket defaultDirectBackend
+                            }
                   )
             }
 
@@ -246,10 +252,11 @@ spec = parallel $
                 Cardano
                   ( defaultCardanoChainConfig
                       & #chainBackend
-                        .~ DirectBackend
-                          { networkId = Mainnet
-                          , nodeSocket = nodeSocket defaultDirectBackend
-                          }
+                        .~ Direct
+                          DirectBackend
+                            { networkId = Mainnet
+                            , nodeSocket = nodeSocket defaultDirectBackend
+                            }
                   )
             }
 
@@ -261,10 +268,11 @@ spec = parallel $
                 Cardano
                   ( defaultCardanoChainConfig
                       & #chainBackend
-                        .~ DirectBackend
-                          { networkId = networkId defaultDirectBackend
-                          , nodeSocket = "foo.sock"
-                          }
+                        .~ Direct
+                          DirectBackend
+                            { networkId = networkId defaultDirectBackend
+                            , nodeSocket = "foo.sock"
+                            }
                   )
             }
 
@@ -377,10 +385,11 @@ spec = parallel $
           `shouldParse` Publish
             ( defaultPublishOptions
                 & #chainBackend
-                  .~ DirectBackend
-                    { networkId = Mainnet
-                    , nodeSocket = "foo"
-                    }
+                  .~ Direct
+                    DirectBackend
+                      { networkId = Mainnet
+                      , nodeSocket = "foo"
+                      }
             )
 
       it "parses with some missing option (2)" $
@@ -389,7 +398,7 @@ spec = parallel $
           , ["--testnet-magic", "42"]
           , ["--cardano-signing-key", "foo"]
           ]
-          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{networkId = Testnet (NetworkMagic 42)}, publishSigningKey = "foo"}
+          `shouldParse` Publish defaultPublishOptions{chainBackend = Direct defaultDirectBackend{networkId = Testnet (NetworkMagic 42)}, publishSigningKey = "foo"}
 
       it "parses with some missing option (3)" $
         mconcat
@@ -397,7 +406,7 @@ spec = parallel $
           , ["--node-socket", "foo"]
           , ["--cardano-signing-key", "foo"]
           ]
-          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{nodeSocket = "foo"}, publishSigningKey = "foo"}
+          `shouldParse` Publish defaultPublishOptions{chainBackend = Direct defaultDirectBackend{nodeSocket = "foo"}, publishSigningKey = "foo"}
 
       it "should parse using testnet and all options" $
         mconcat
@@ -408,7 +417,7 @@ spec = parallel $
           ]
           `shouldParse` Publish
             defaultPublishOptions
-              { chainBackend = defaultDirectBackend{nodeSocket = "foo", networkId = Testnet (NetworkMagic 42)}
+              { chainBackend = Direct defaultDirectBackend{nodeSocket = "foo", networkId = Testnet (NetworkMagic 42)}
               , publishSigningKey = "bar"
               }
 
@@ -421,7 +430,7 @@ spec = parallel $
           ]
           `shouldParse` Publish
             defaultPublishOptions
-              { chainBackend = defaultDirectBackend{nodeSocket = "baz", networkId = Mainnet}
+              { chainBackend = Direct defaultDirectBackend{nodeSocket = "baz", networkId = Mainnet}
               , publishSigningKey = "crux"
               }
 
@@ -433,9 +442,10 @@ spec = parallel $
           `shouldParse` Publish
             ( PublishOptions
                 { chainBackend =
-                    BlockfrostBackend
-                      { projectPath = "baz"
-                      }
+                    Blockfrost
+                      BlockfrostBackend
+                        { projectPath = "baz"
+                        }
                 , publishSigningKey = "cardano.sk"
                 }
             )
