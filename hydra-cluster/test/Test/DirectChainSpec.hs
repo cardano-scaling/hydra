@@ -33,7 +33,6 @@ import Hydra.Cardano.Api (
   UTxO',
   fromLedgerTx,
   lovelaceToValue,
-  serialiseToCBOR,
   signTx,
   toLedgerKeyHash,
   toLedgerTx,
@@ -730,11 +729,7 @@ externalCommit' projectPathOrNode hydraClient externalSks headId utxoToCommit bl
       prj <- Blockfrost.projectFromFile projectPath
       void $
         Blockfrost.runBlockfrostM prj $ do
-          void $
-            Blockfrost.submitTx $
-              Blockfrost.CBORString $
-                fromStrict $
-                  serialiseToCBOR signedTx
+          void $ Blockfrost.submitTransaction signedTx
 
           Blockfrost.Genesis
             { _genesisNetworkMagic

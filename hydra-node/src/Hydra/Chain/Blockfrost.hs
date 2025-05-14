@@ -16,7 +16,6 @@ import Hydra.Cardano.Api (
   EraHistory (..),
   Hash,
   PaymentCredential (PaymentCredentialByKey),
-  SerialiseAsCBOR (serialiseToCBOR),
   SlotNo (..),
   StakeAddressReference (NoStakeAddress),
   SystemStart (..),
@@ -240,7 +239,7 @@ blockfrostSubmissionClient prj tracer queue = bfClient
     (tx, response) <- atomically $ readTQueue queue
     let txId = getTxId $ getTxBody tx
     traceWith tracer PostingTx{txId}
-    res <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR tx
+    res <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj $ Blockfrost.submitTransaction tx
     case res of
       Left err -> do
         let postTxError = FailedToPostTx{failureReason = show err}
