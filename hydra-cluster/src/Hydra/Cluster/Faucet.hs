@@ -127,7 +127,7 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
     Left e -> liftIO $ throwIO $ FaucetFailedToBuildTx{reason = e}
     Right tx -> do
       let signedTx = signTx faucetSk tx
-      eResult <- Blockfrost.tryError $ Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict $ serialiseToCBOR signedTx
+      eResult <- Blockfrost.tryError $ Blockfrost.submitTransaction signedTx
       case eResult of
         Left err -> liftIO $ throwIO $ FaucetBlockfrostError{blockFrostError = show err}
         Right _ -> do
