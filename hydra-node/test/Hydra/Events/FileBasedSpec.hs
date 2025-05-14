@@ -38,6 +38,7 @@ spec = do
           withEventSourceAndSink $ \EventSource{sourceEvents} EventSink{putEvent} -> do
             -- Put some events
             forM_ events putEvent
+            -- XXX: Should assert while streaming
             streamedEvents <- runConduitRes $ sourceEvents .| sinkList
             pure $
               streamedEvents === events
