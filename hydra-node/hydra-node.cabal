@@ -211,9 +211,14 @@ library examples
   import:          project-config
   visibility:      public
   hs-source-dirs:  examples
-  exposed-modules: Hydra.Events.UDP
+  exposed-modules:
+    Hydra.Events.S3
+    Hydra.Events.UDP
+
   build-depends:
     , aeson
+    , amazonka
+    , amazonka-s3
     , hydra-node
     , hydra-prelude
     , network
