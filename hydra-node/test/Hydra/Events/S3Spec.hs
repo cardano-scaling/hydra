@@ -8,7 +8,7 @@ import Amazonka qualified as AWS
 import Amazonka.Auth qualified as AWS
 import Hydra.Events (EventId, EventSink (..), getEvents)
 import Hydra.Events.S3 (fromObjectKey, newS3EventStore, purgeEvents, toObjectKey)
-import Test.QuickCheck (chooseBoundedIntegral, counterexample, forAllShrink, ioProperty, sized, withMaxSuccess, (===))
+import Test.QuickCheck (chooseBoundedIntegral, counterexample, forAllShrink, ioProperty, sized, sublistOf, withMaxSuccess, (===))
 
 spec :: Spec
 spec = do
@@ -29,9 +29,29 @@ spec = do
               loadedEvents <- getEvents source
               pure $ loadedEvents === events
 
-    it "handles non-continous events" $ const True
+    it "handles non-continous events" $ \bucketName ->
+      withMaxSuccess 3 $
+        forAllShrink (sublistOf =<< genContinuousEvents) shrink $ \events ->
+          ioProperty $ do
+            bracket (newS3EventStore bucketName) (const $ cleanup bucketName) $ \(source, sink) -> do
+              -- TODO: DRY with FiledBasedSpec -> create propEventsCompleteness
+              forM_ events (putEvent sink)
+              loadedEvents <- getEvents source
+              pure $ loadedEvents === events
 
-    it "handles duplicate events" $ const True
+    it "handles duplicate events" $ \bucketName ->
+      withMaxSuccess 3 $
+        forAllShrink genContinuousEvents shrink $ \events ->
+          ioProperty $ do
+            bracket (newS3EventStore bucketName) (const $ cleanup bucketName) $ \(source, sink) -> do
+              -- TODO: DRY with FiledBasedSpec -> create propEventsCompleteness
+              -- Put some events
+              forM_ events (putEvent sink)
+              loadedEvents <- getEvents source
+              -- Put the loaded events again (as the node would do)
+              forM_ loadedEvents (putEvent sink)
+              allEvents <- getEvents source
+              pure $ allEvents === loadedEvents
 
     it "allows concurrent usage" $ const True
 
