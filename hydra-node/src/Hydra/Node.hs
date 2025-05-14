@@ -208,7 +208,6 @@ hydrate tracer env ledger initialChainState (eventSource, eventSink) eventSinks 
  where
   initialState = Idle IdleState{chainState = initialChainState}
 
-  -- REVIEW!
   recoverHeadStateC =
     mapC stateChanged
       .| getZipSink
