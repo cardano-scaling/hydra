@@ -166,7 +166,6 @@ test-suite tests
     , containers
     , directory
     , filepath
-    , generic-lens
     , hspec
     , hspec-golden-aeson
     , hydra-cardano-api

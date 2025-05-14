@@ -24,7 +24,6 @@ import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, 
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
 import Data.ByteString qualified as BS
-import Data.Generics.Labels ()
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as Set
