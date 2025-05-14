@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Conduit (mapMC, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
+import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..), LogId)
 import Hydra.Events.Rotation (EventStore)
 import Hydra.Persistence (PersistenceIncremental (..))
 
@@ -16,10 +16,11 @@ import Hydra.Persistence (PersistenceIncremental (..))
 mkFileBasedEventStore ::
   (ToJSON e, FromJSON e, HasEventId e) =>
   FilePath ->
+  LogId ->
   (FilePath -> IO (PersistenceIncremental e IO)) ->
   IO (EventStore e IO)
-mkFileBasedEventStore fp mkPersistenceIncremental = do
-  persistenceV <- newTVarIO =<< mkPersistenceIncremental fp
+mkFileBasedEventStore fp logId mkPersistenceIncremental = do
+  persistenceV <- newTVarIO =<< mkPersistenceIncremental (fp <> "-" <> show logId)
   eventIdV <- newTVarIO Nothing
   let
     getLastSeenEventId = readTVar eventIdV
