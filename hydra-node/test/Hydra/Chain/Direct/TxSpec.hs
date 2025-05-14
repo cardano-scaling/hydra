@@ -254,7 +254,7 @@ genBlueprintTxWithUTxO =
   addSomeReferenceInputs (utxo, txbody) = do
     txout <- genTxOutWithReferenceScript
     txin <- arbitrary
-    pure (utxo <> UTxO.singleton txin txout, txbody & addTxInsReference [txin])
+    pure (utxo <> UTxO.singleton txin txout, txbody & addTxInsReference [txin] mempty)
 
   addValidityRange (utxo, txbody) = do
     (start, end) <- arbitrary

@@ -105,7 +105,7 @@ scriptTypeToPlutusVersion = \case
 
 toCardanoPoolId :: Blockfrost.PoolId -> Hash StakePoolKey
 toCardanoPoolId (Blockfrost.PoolId textPoolId) =
-  case deserialiseFromRawBytesHex (AsHash AsStakePoolKey) (encodeUtf8 textPoolId) of
+  case deserialiseFromRawBytesHex (encodeUtf8 textPoolId) of
     Left err -> error (show err)
     Right pool -> pool
 
@@ -117,7 +117,7 @@ toCardanoUTxO utxos addr = UTxO.fromList (toEntry <$> utxos)
 
 toCardanoTxIn :: Blockfrost.AddressUtxo -> TxIn
 toCardanoTxIn Blockfrost.AddressUtxo{_addressUtxoTxHash = Blockfrost.TxHash{unTxHash}, _addressUtxoOutputIndex} =
-  case deserialiseFromRawBytesHex AsTxId (encodeUtf8 unTxHash) of
+  case deserialiseFromRawBytesHex (encodeUtf8 unTxHash) of
     Left err -> error (show err)
     Right txid -> TxIn txid (TxIx (fromIntegral _addressUtxoOutputIndex))
 
@@ -130,7 +130,7 @@ toCardanoTxOut addrUTxO addr =
 
 toCardanoPolicyId :: Text -> PolicyId
 toCardanoPolicyId pid =
-  case deserialiseFromRawBytesHex AsPolicyId (encodeUtf8 pid) of
+  case deserialiseFromRawBytesHex (encodeUtf8 pid) of
     Left err -> error (show err)
     Right p -> p
 

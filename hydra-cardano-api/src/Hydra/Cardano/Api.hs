@@ -145,6 +145,7 @@ import Hydra.Cardano.Api.Value as Extras
 import Hydra.Cardano.Api.Witness as Extras
 
 import Cardano.Api qualified
+import Cardano.Api.Internal.Tx.Body (TxInsReferenceDatums)
 import Cardano.Api.Shelley qualified
 import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
@@ -372,7 +373,7 @@ type TxBodyContent buidl = Cardano.Api.TxBodyContent buidl Era
 pattern TxBodyContent ::
   TxIns buidl ->
   TxInsCollateral ->
-  TxInsReference ->
+  TxInsReference buidl ->
   [TxOut CtxTx] ->
   TxTotalCollateral Era ->
   TxReturnCollateral CtxTx Era ->
@@ -501,19 +502,19 @@ type TxIns buidl = [(TxIn, BuildTxWith buidl (Cardano.Api.Witness WitCtxTxIn Era
 
 -- ** TxInsReference
 
-type TxInsReference = Cardano.Api.TxInsReference Era
+type TxInsReference buidl = Cardano.Api.TxInsReference buidl Era
 {-# COMPLETE TxInsReferenceNone, TxInsReference #-}
 
-pattern TxInsReferenceNone :: TxInsReference
+pattern TxInsReferenceNone :: TxInsReference buidl
 pattern TxInsReferenceNone <-
   Cardano.Api.TxInsReferenceNone
   where
     TxInsReferenceNone =
       Cardano.Api.TxInsReferenceNone
 
-pattern TxInsReference :: [TxIn] -> TxInsReference
-pattern TxInsReference{txInsReference'} <-
-  Cardano.Api.TxInsReference _ txInsReference'
+pattern TxInsReference :: [TxIn] -> TxInsReferenceDatums buidl -> TxInsReference buidl
+pattern TxInsReference{txInsReference', scriptData} <-
+  Cardano.Api.TxInsReference _ txInsReference' scriptData
   where
     TxInsReference =
       Cardano.Api.TxInsReference babbageBasedEra

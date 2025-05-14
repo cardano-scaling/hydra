@@ -60,7 +60,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
   referenceInputs =
     case txInsReference content of
       Api.TxInsReferenceNone -> []
-      Api.TxInsReference refInputs -> refInputs
+      Api.TxInsReference refInputs _ -> refInputs
 
   collateralInputLines =
     "== COLLATERAL INPUTS (" <> show (length collateralInputs) <> ")"

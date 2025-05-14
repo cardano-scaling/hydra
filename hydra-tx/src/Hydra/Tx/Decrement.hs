@@ -43,7 +43,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef]
+      & addTxInsReference [headScriptRef] mempty
       & addTxOuts (headOutput' : map fromCtxUTxOTxOut decommitOutputs)
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DecrementTx")

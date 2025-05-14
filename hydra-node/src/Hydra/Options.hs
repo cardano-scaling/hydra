@@ -21,7 +21,6 @@ import Data.Text (unpack)
 import Data.Text qualified as T
 import Data.Version (Version (..), showVersion)
 import Hydra.Cardano.Api (
-  AsType (AsTxId),
   ChainPoint (..),
   File (..),
   NetworkId (..),
@@ -41,7 +40,7 @@ import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline), depositFromNominalDiffTime)
-import Hydra.Tx.HeadId (AsType (AsHeadSeed), HeadSeed)
+import Hydra.Tx.HeadId (HeadSeed)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
   Parser,
@@ -465,7 +464,7 @@ offlineChainConfigParser =
 offlineHeadSeedParser :: Parser HeadSeed
 offlineHeadSeedParser =
   option
-    (eitherReader $ left show . deserialiseFromRawBytesHex AsHeadSeed . BSC.pack)
+    (eitherReader $ left show . deserialiseFromRawBytesHex . BSC.pack)
     ( long "offline-head-seed"
         <> metavar "HEX"
         <> help "Offline mode: Hexadecimal seed bytes to derive the offline head id from. Needs to be consistent across the hydra-node instances."
@@ -746,7 +745,7 @@ startChainFromParser =
           slotNo <- SlotNo <$> readMaybe (toString slotNoTxt)
           headerHash <-
             either (const Nothing) Just $
-              deserialiseFromRawBytesHex (proxyToAsType Proxy) (encodeUtf8 headerHashTxt)
+              deserialiseFromRawBytesHex (encodeUtf8 headerHashTxt)
           pure $ ChainPoint slotNo headerHash
         _emptyOrSingularList ->
           Nothing
@@ -763,12 +762,12 @@ hydraScriptsTxIdsParser =
           \sub-command to publish scripts yourself."
     )
  where
-  parseFromHex = mapM (deserialiseFromRawBytesHex AsTxId)
+  parseFromHex = mapM deserialiseFromRawBytesHex
 
 hydraScriptsTxIdParser :: Parser TxId
 hydraScriptsTxIdParser =
   option
-    (eitherReader $ left show . deserialiseFromRawBytesHex AsTxId . BSC.pack)
+    (eitherReader $ left show . deserialiseFromRawBytesHex . BSC.pack)
     ( long "hydra-scripts-tx-id"
         <> metavar "TXID"
         <> help

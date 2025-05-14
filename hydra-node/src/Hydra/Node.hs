@@ -21,7 +21,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
-import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
+import Hydra.Cardano.Api (getVerificationKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -55,7 +55,6 @@ import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
-import Hydra.Tx.Crypto (AsType (AsHydraKey))
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
@@ -64,7 +63,7 @@ import Hydra.Tx.Utils (verificationKeyToOnChainId)
 -- | Intialize the 'Environment' from command line options.
 initEnvironment :: RunOptions -> IO Environment
 initEnvironment options = do
-  sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
+  sk <- readFileTextEnvelopeThrow hydraSigningKey
   otherParties <- mapM loadParty hydraVerificationKeys
   participants <- getParticipants
   pure $
@@ -87,8 +86,8 @@ initEnvironment options = do
           { cardanoVerificationKeys
           , cardanoSigningKey
           } -> do
-          ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
-          otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
+          ownSigningKey <- readFileTextEnvelopeThrow cardanoSigningKey
+          otherVerificationKeys <- mapM readFileTextEnvelopeThrow cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
 
   contestationPeriod = case chainConfig of
@@ -99,7 +98,7 @@ initEnvironment options = do
     Direct DirectChainConfig{depositDeadline = ddeadline} -> ddeadline
 
   loadParty p =
-    Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
+    Party <$> readFileTextEnvelopeThrow p
 
   RunOptions
     { hydraSigningKey
