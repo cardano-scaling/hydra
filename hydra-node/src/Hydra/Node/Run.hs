@@ -86,10 +86,9 @@ run opts = do
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         logId <- getLatestLogId persistenceDir "state"
-        let stateDir = persistenceDir <> "/state" <> "-" <> show logId
         eventStore@(eventSource, _) <-
           prepareEventStore logId
-            =<< mkFileBasedEventStore stateDir createPersistenceIncremental
+            =<< mkFileBasedEventStore (persistenceDir <> "/state") logId createPersistenceIncremental
         -- NOTE: Add any custom sink setup code here
         -- customSink <- createCustomSink
         -- NOTE: Add any customSink here
