@@ -219,6 +219,7 @@ library examples
     , aeson
     , amazonka
     , amazonka-s3
+    , base
     , conduit
     , hydra-node
     , hydra-prelude
