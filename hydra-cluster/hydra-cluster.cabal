@@ -86,7 +86,6 @@ library
     , aeson
     , async
     , base                   >=4.7 && <5
-    , blockfrost-client
     , bytestring
     , cardano-ledger-alonzo
     , cardano-ledger-api
@@ -162,7 +161,6 @@ test-suite tests
     , aeson
     , async
     , base                >=4.7 && <5
-    , blockfrost-client
     , bytestring
     , cardano-ledger-api
     , containers

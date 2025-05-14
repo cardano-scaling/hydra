@@ -2,7 +2,6 @@ module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
 
-import Blockfrost.Client qualified as Blockfrost
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Slotting.EpochInfo.API (EpochInfo, hoistEpochInfo)
 import Control.Concurrent.Class.MonadSTM (newTVarIO, putTMVar, readTQueue, readTVarIO, writeTVar)

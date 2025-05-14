@@ -10,7 +10,6 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Blockfrost.Client qualified as Blockfrost
 import Cardano.Api.Consensus (EraMismatch (..))
 import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.Class.MonadSTM (
