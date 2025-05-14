@@ -34,6 +34,8 @@ changes.
 
 - Fix head status in post abort greetings output.
 
+- Add `UDP` and `S3` examples for `EventSource` and `EventSink` implementations to `hydra-node:examples`.
+
 ## [0.21.0] - 2025-04-28
 
 - New metric for counting the number of active peers: `hydra_head_peers_connected`
