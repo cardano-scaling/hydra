@@ -17,7 +17,7 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
  )
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
-import Hydra.Options (CardanoChainConfig (..), ChainBackend (..), ChainConfig (..), defaultCardanoChainConfig, defaultDirectBackend)
+import Hydra.Options (BlockfrostBackend (..), CardanoChainConfig (..), ChainBackend (..), ChainConfig (..), DirectBackend (..), defaultCardanoChainConfig, defaultDirectBackend)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
@@ -101,8 +101,8 @@ chainConfigFor' me targetDir socketOrProjectPath hydraScriptsTxId them contestat
         , depositDeadline
         , chainBackend =
             case socketOrProjectPath of
-              Left projectPath -> BlockfrostBackend{projectPath}
-              Right nodeSocket -> defaultDirectBackend{nodeSocket = nodeSocket}
+              Left projectPath -> Blockfrost BlockfrostBackend{projectPath}
+              Right nodeSocket -> Direct defaultDirectBackend{nodeSocket = nodeSocket}
         }
  where
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType
@@ -122,6 +122,6 @@ setNetworkId :: NetworkId -> ChainConfig -> ChainConfig
 setNetworkId networkId = \case
   Cardano config@CardanoChainConfig{chainBackend} ->
     case chainBackend of
-      direct@DirectBackend{} -> Cardano config{chainBackend = direct{networkId = networkId}}
+      Direct direct@DirectBackend{} -> Cardano config{chainBackend = Direct direct{networkId = networkId}}
       _ -> Cardano config
   x -> x

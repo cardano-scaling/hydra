@@ -32,7 +32,6 @@ import Hydra.Cardano.Api (
   TxOut,
   UTxO',
   fromLedgerTx,
-  getVerificationKey,
   lovelaceToValue,
   serialiseToCBOR,
   signTx,
@@ -51,7 +50,6 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct (
   IntersectionNotFoundException (..),
   loadChainContext,
@@ -423,7 +421,6 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           postTx $ CollectComTx someUTxO headId headParameters
           aliceChain `observesInTime'` OnCollectComTx{headId}
 
-          let v = 0
           let snapshotVersion = 0
           let snapshot =
                 Snapshot
@@ -693,12 +690,12 @@ observesInTimeSatisfying' DirectChainTest{waitCallback} waitTime check =
       _TickOrRollback ->
         go
 
-waitMatch :: IsChainState tx => DirectChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
+waitMatch :: DirectChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
 waitMatch DirectChainTest{waitCallback} match = go
  where
   go = do
     a <- waitCallback
-    maybe go pure (match $ spy' "seen event: " a)
+    maybe go pure (match a)
 
 delayUntil :: (MonadDelay m, MonadTime m) => UTCTime -> m ()
 delayUntil target = do

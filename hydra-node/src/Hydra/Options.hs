@@ -154,10 +154,10 @@ defaultDirectBackend =
     , nodeSocket = "node.socket"
     }
 
-defaultCardanoBackend :: BlockfrostBackend
-defaultCardanoBackend =
+defaultBlockfrostBackend :: BlockfrostBackend
+defaultBlockfrostBackend =
   BlockfrostBackend
-    { projectPath = "/home/v0d1ch/code/hydra/blockfrost-project.txt"
+    { projectPath = "blockfrost-project.txt"
     }
 
 data ChainBackend
@@ -455,7 +455,7 @@ instance Arbitrary ChainConfig where
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
       contestationPeriod <- arbitrary
       depositPeriod <- arbitrary
-      chainBackend <- oneof [pure $ Direct defaultDirectBackend, pure $ Blockfrost defaultCardanoBackend]
+      chainBackend <- oneof [pure $ Direct defaultDirectBackend, pure $ Blockfrost defaultBlockfrostBackend]
       pure
         CardanoChainConfig
           { hydraScriptsTxId

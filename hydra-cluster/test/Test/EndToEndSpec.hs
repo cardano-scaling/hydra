@@ -580,10 +580,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     defaultCardanoChainConfig
                       { cardanoSigningKey = "not-existing.sk"
                       , chainBackend =
-                          DirectBackend
-                            { networkId = Hydra.Options.networkId defaultDirectBackend
-                            , nodeSocket = nodeSocket
-                            }
+                          Direct
+                            DirectBackend
+                              { networkId = Hydra.Options.networkId defaultDirectBackend
+                              , nodeSocket = nodeSocket
+                              }
                       }
             withHydraNode (contramap FromHydraNode tracer) chainConfig dir 1 aliceSk [] [1] (const $ pure ())
               `shouldThrow` \(e :: SomeException) ->
