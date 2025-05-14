@@ -28,7 +28,6 @@ import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId, getE
 -- | Create a new event source and sink that stores events in AWS S3.
 newS3EventStore :: (HasEventId e, ToJSON e, FromJSON e) => AWS.BucketName -> IO (EventSource e IO, EventSink e IO)
 newS3EventStore bucketName = do
-  -- TODO: nothing to clean up?
   env <- AWS.newEnv AWS.discover
   pure
     ( EventSource{sourceEvents = sourceEvents env}
