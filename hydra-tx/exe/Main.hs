@@ -29,7 +29,7 @@ main =
       eitherDecodeFileStrict utxoFilePath >>= \case
         Left err -> die $ "failed to parse provided UTXO file! " <> err
         Right (utxo :: UTxO) -> do
-          case UTxO.resolve (TxIn recoverTxId (TxIx 0)) utxo of
+          case UTxO.resolveTxIn (TxIn recoverTxId (TxIx 0)) utxo of
             Nothing -> die "failed to resolve deposited UTxO with provided TxIn"
             Just depositedTxOut -> do
               case observeDepositTxOut network depositedTxOut of

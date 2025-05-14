@@ -128,7 +128,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     mkScriptAddress networkId commitValidatorScript
 
   utxoToCommit =
-    UTxO.fromList $ mapMaybe (\txin -> (txin,) <$> UTxO.resolve txin lookupUTxO) committedTxIns
+    UTxO.fromList $ mapMaybe (\txin -> (txin,) <$> UTxO.resolveTxIn txin lookupUTxO) committedTxIns
 
   commitValue =
     txOutValue out <> foldMap txOutValue utxoToCommit

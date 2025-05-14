@@ -53,8 +53,8 @@ singleton :: TxIn -> out -> UTxO' out
 singleton i o = UTxO $ Map.singleton i o
 
 -- | Find an 'out' for a given 'TxIn'.
-resolve :: TxIn -> UTxO' out -> Maybe out
-resolve k = Map.lookup k . toMap
+resolveTxIn :: TxIn -> UTxO' out -> Maybe out
+resolveTxIn k = Map.lookup k . toMap
 
 -- | Turn a 'UTxO' into a list of pairs.
 toList :: UTxO' out -> [(TxIn, out)]
