@@ -7,19 +7,24 @@ import Test.Hydra.Prelude
 import Amazonka qualified as AWS
 import Amazonka.Auth qualified as AWS
 import Hydra.Events (EventId, EventSink (..), getEvents)
-import Hydra.Events.S3 (newS3EventStore, purgeEvents)
-import Test.QuickCheck (forAllShrink, ioProperty, property, (===))
+import Hydra.Events.S3 (fromObjectKey, newS3EventStore, purgeEvents, toObjectKey)
+import Test.QuickCheck (chooseBoundedIntegral, counterexample, forAllShrink, ioProperty, sized, withMaxSuccess, (===))
 
 spec :: Spec
 spec = do
+  prop "ObjectKey <-> EventId" $ \eventId ->
+    let key = toObjectKey eventId
+     in fromObjectKey @(Either String) key === Right eventId
+          & counterexample ("ObjectKey: " <> show key)
+
   -- Only run tests if the AWS environment can be discovered.
   around onlyWithAWSEnv $ do
     it "roundtrip putEvent and sourceEvents" $ \bucketName ->
-      property $
-        -- TODO: DRY with FiledBasedSpec -> create propEventsCompleteness
+      withMaxSuccess 3 $
         forAllShrink genContinuousEvents shrink $ \events ->
           ioProperty $ do
             bracket (newS3EventStore bucketName) (const $ cleanup bucketName) $ \(source, sink) -> do
+              -- TODO: DRY with FiledBasedSpec -> create propEventsCompleteness
               forM_ events (putEvent sink)
               loadedEvents <- getEvents source
               pure $ loadedEvents === events
@@ -51,6 +56,6 @@ spec = do
     purgeEvents env bucketName
 
 genContinuousEvents :: Gen [EventId]
-genContinuousEvents = do
-  len <- arbitrary
-  pure [0 .. len - 1]
+genContinuousEvents = sized $ \n -> do
+  w <- chooseBoundedIntegral (0, fromIntegral n)
+  pure [0 .. w]

@@ -7,10 +7,11 @@ import Amazonka qualified as AWS
 import Amazonka.S3 qualified as AWS
 import Amazonka.S3 qualified as S3
 import Amazonka.S3.Lens qualified as AWS
-import Conduit (concatC, concatMapC, mapC, mapMC, sinkLazy, (.|))
+import Conduit (MonadResource, concatC, concatMapC, mapC, mapMC, sinkLazy, sinkList, yieldMany, (.|))
 import Control.Lens (view, (^.))
 import Data.Aeson qualified as Aeson
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId, getEventId)
+import Data.List (stripPrefix)
+import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId, getEventId)
 
 -- | Create a new event source and sink that stores events in AWS S3.
 newS3EventStore :: (HasEventId e, ToJSON e, FromJSON e) => AWS.BucketName -> IO (EventSource e IO, EventSink e IO)
@@ -24,29 +25,34 @@ newS3EventStore bucketName = do
  where
   putEvent env e = do
     let body = AWS.toBody (Aeson.encode e)
-    void $ AWS.runResourceT $ AWS.send env (S3.newPutObject bucketName (objectKey e) body)
+    let req = S3.newPutObject bucketName (toObjectKey e) body
+    void $ AWS.runResourceT $ AWS.send env req
 
   sourceEvents env = do
-    AWS.paginate env (AWS.newListObjects bucketName)
-      .| concatMapC (^. AWS.listObjectsResponse_contents)
-      .| concatC
-      .| mapC (^. AWS.object_key)
-      .| mapMC (getEvent env)
+    -- Fetch all object keys from the bucket
+    objectKeys <-
+      AWS.paginate env (AWS.newListObjects bucketName)
+        .| concatMapC (view AWS.listObjectsResponse_contents)
+        .| concatC
+        .| mapC (view AWS.object_key)
+        .| sinkList
+    -- Parse all keys into event ids to sort them
+    eventIds <- mapM fromObjectKey objectKeys
+    yieldMany (sort eventIds)
+      .| mapMC (getEvent env bucketName)
 
-  getEvent env k = do
-    body <-
-      AWS.send env (AWS.newGetObject bucketName k)
-        <&> view AWS.getObjectResponse_body
-    bytes <- AWS.sinkBody body sinkLazy
-    case Aeson.eitherDecode bytes of
-      Left err ->
-        fail $ "Failed to decode event: " <> show err
-      Right e -> pure e
+-- | Fetch a single event from the bucket.
+getEvent :: (MonadFail m, MonadResource m, FromJSON e) => AWS.Env -> AWS.BucketName -> EventId -> m e
+getEvent env bucketName eventId = do
+  let req = AWS.newGetObject bucketName (toObjectKey eventId)
+  body <- AWS.send env req <&> view AWS.getObjectResponse_body
+  bytes <- AWS.sinkBody body sinkLazy
+  case Aeson.eitherDecode bytes of
+    Left err ->
+      fail $ "Failed to decode event: " <> show err
+    Right e -> pure e
 
-objectKey :: HasEventId e => e -> AWS.ObjectKey
-objectKey e = fromString $ "events/" <> show (getEventId e)
-
--- | Delete all event objects from given S3 bucket.
+-- | Delete all event objects from given the bucket.
 purgeEvents :: AWS.Env -> AWS.BucketName -> IO ()
 purgeEvents env bucketName = do
   -- TODO: pagination
@@ -59,3 +65,14 @@ purgeEvents env bucketName = do
         putTextLn $ "deleting " <> show (object ^. AWS.object_key)
         void . AWS.runResourceT . AWS.send env $
           S3.newDeleteObject bucketName (object ^. AWS.object_key)
+
+-- | Get the object key for a given event (id).
+toObjectKey :: HasEventId e => e -> AWS.ObjectKey
+toObjectKey e =
+  fromString $ "events/" <> show (getEventId e)
+
+-- | Try to parse an event id from given object key.
+fromObjectKey :: MonadFail m => AWS.ObjectKey -> m EventId
+fromObjectKey (AWS.ObjectKey k) = do
+  str <- maybe (fail "Wrong prefix") pure $ stripPrefix "events/" (toString k)
+  maybe (fail "Failed to parse event id") pure $ readMaybe str
