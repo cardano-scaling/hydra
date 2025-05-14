@@ -210,8 +210,10 @@ library examples
     , aeson
     , amazonka
     , amazonka-s3
+    , conduit
     , hydra-node
     , hydra-prelude
+    , lens
     , network
     , network-udp
     , resourcet
