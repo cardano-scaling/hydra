@@ -218,6 +218,7 @@ library examples
     , hydra-prelude
     , network
     , network-udp
+    , resourcet
 
 executable hydra-node
   import:         project-config
@@ -377,6 +378,7 @@ test-suite tests
     , quickcheck-instances
     , regex-tdfa
     , req
+    , resourcet
     , silently
     , temporary
     , text
