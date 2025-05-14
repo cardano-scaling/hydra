@@ -78,11 +78,12 @@ spec = do
       forAllShrink genContinuousEvents shrink $ \events -> do
         ioProperty $ do
           withTempDir "hydra-persistence" $ \tmpDir -> do
-            PersistenceIncremental{append} <- createPersistenceIncremental (tmpDir <> "/data")
+            let logId = 0
+            PersistenceIncremental{append} <- createPersistenceIncremental (tmpDir <> "/data" <> "-" <> show logId)
             forM_ events append
             -- Load and store events through the event source interface
             (src, EventSink{putEvent}) <-
-              mkFileBasedEventStore (tmpDir <> "/data") createPersistenceIncremental
+              mkFileBasedEventStore (tmpDir <> "/data") logId createPersistenceIncremental
             loadedEvents <- getEvents src
             -- Store all loaded events like the node would do
             forM_ loadedEvents putEvent
@@ -96,5 +97,6 @@ genContinuousEvents =
 withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
 withEventSourceAndSink action =
   withTempDir "hydra-persistence" $ \tmpDir -> do
-    (eventSource, eventSink) <- mkFileBasedEventStore (tmpDir <> "/data") createPersistenceIncremental
+    let logId = 0
+    (eventSource, eventSink) <- mkFileBasedEventStore (tmpDir <> "/data") logId createPersistenceIncremental
     action eventSource eventSink
