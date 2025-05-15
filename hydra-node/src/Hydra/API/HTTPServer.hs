@@ -24,14 +24,14 @@ import Hydra.Chain.ChainState (
 import Hydra.Chain.Direct.State ()
 import Hydra.HeadLogic.State (SeenSnapshot (..))
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node.DepositPeriod (toNominalDiffTime)
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Tx (
   CommitBlueprintTx (..),
   ConfirmedSnapshot,
   IsTx (..),
   UTxOType,
  )
-import Hydra.Tx.DepositDeadline (depositToNominalDiffTime)
-import Hydra.Tx.Environment (Environment (..))
 import Network.HTTP.Types (status200, status400, status404, status500)
 import Network.Wai (
   Application,
@@ -244,7 +244,7 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
   deposit headId commitBlueprint = do
-    deadline <- addUTCTime (depositToNominalDiffTime depositDeadline) <$> getCurrentTime
+    deadline <- addUTCTime (2 * toNominalDiffTime depositPeriod) <$> getCurrentTime
     draftDepositTx headId commitBlueprint deadline <&> \case
       Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
@@ -261,8 +261,10 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
           _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx
+
   Chain{draftCommitTx, draftDepositTx} = directChain
-  Environment{depositDeadline} = env
+
+  Environment{depositPeriod} = env
 
 -- | Handle request to recover a pending deposit.
 handleRecoverCommitUtxo ::

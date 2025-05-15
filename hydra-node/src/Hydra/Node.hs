@@ -50,12 +50,12 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
@@ -73,7 +73,7 @@ initEnvironment options = do
       , otherParties
       , participants
       , contestationPeriod
-      , depositDeadline
+      , depositPeriod
       }
  where
   -- XXX: This is mostly a cardano-specific initialization step of loading
@@ -93,9 +93,10 @@ initEnvironment options = do
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
     Direct DirectChainConfig{contestationPeriod = cp} -> cp
-  depositDeadline = case chainConfig of
-    Offline{} -> defaultDepositDeadline
-    Direct DirectChainConfig{depositDeadline = ddeadline} -> ddeadline
+
+  depositPeriod = case chainConfig of
+    Offline{} -> defaultDepositPeriod
+    Direct DirectChainConfig{depositPeriod = dp} -> dp
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow p

@@ -35,8 +35,6 @@ import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStar
 import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
-import Hydra.Tx.DepositDeadline (DepositDeadline (..))
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
@@ -76,18 +74,6 @@ deriveOnChainId Party{vkey} =
  where
   bytes = serialiseToRawBytes $ verificationKeyHash vkey
 
--- | An environment fixture for testing.
-testEnvironment :: Environment
-testEnvironment =
-  Environment
-    { party = alice
-    , signingKey = aliceSk
-    , otherParties = [bob, carol]
-    , contestationPeriod = cperiod
-    , depositDeadline = UnsafeDepositDeadline 20
-    , participants = deriveOnChainId <$> [alice, bob, carol]
-    }
-
 -- | Head parameters fixture for testing.
 testHeadParameters :: HeadParameters
 testHeadParameters =
@@ -97,10 +83,7 @@ testHeadParameters =
     }
 
 cperiod :: ContestationPeriod
-cperiod = UnsafeContestationPeriod 4
-
-ddeadline :: DepositDeadline
-ddeadline = UnsafeDepositDeadline 20
+cperiod = 4
 
 -- * Cardano tx utilities
 

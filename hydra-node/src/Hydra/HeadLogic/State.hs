@@ -23,6 +23,7 @@ import Hydra.Tx.Snapshot (
   SnapshotNumber,
   SnapshotVersion,
  )
+import Test.QuickCheck (recursivelyShrink)
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -159,12 +160,17 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ The latest confirmed snapshot. Spec: S̅
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
-  , pendingDeposits :: Map (TxIdType tx) (UTxOType tx)
-  -- ^ Pending deposit UTxO. Spec: Uα
+  , pendingDeposits :: Map (TxIdType tx) (Deposit tx)
+  -- ^ Pending deposits as observed on chain. TODO: These should be actually
+  -- stored outside of the 'HeadState' to allow recovery when a head is not
+  -- open. See https://github.com/cardano-scaling/hydra/issues/1812
+  , currentDepositTxId :: Maybe (TxIdType tx)
+  -- ^ Current/next deposit to incrementally commit. Spec: Uα
+  -- TODO: update in spec: Uα -> tx^#α
   , decommitTx :: Maybe tx
   -- ^ Pending decommit transaction. Spec: txω
   , version :: SnapshotVersion
-  -- ^ Last seen open state version. Spec: ̂v
+  -- ^ Last open state version as observed on chain. Spec: ̂v
   }
   deriving stock (Generic)
 
@@ -211,6 +217,32 @@ seenSnapshotNumber = \case
   LastSeenSnapshot{lastSeen} -> lastSeen
   RequestedSnapshot{lastSeen} -> lastSeen
   SeenSnapshot{snapshot = Snapshot{number}} -> number
+
+-- | A deposit tracked by the protocol. The 'DepositStatus' determines whether
+-- it may be used for an incremental commit or not.
+data Deposit tx = Deposit
+  { headId :: HeadId
+  , deposited :: UTxOType tx
+  , deadline :: UTCTime
+  , status :: DepositStatus
+  }
+  deriving (Generic)
+
+deriving stock instance IsTx tx => Eq (Deposit tx)
+deriving stock instance IsTx tx => Show (Deposit tx)
+deriving anyclass instance IsTx tx => ToJSON (Deposit tx)
+deriving anyclass instance IsTx tx => FromJSON (Deposit tx)
+
+instance ArbitraryIsTx tx => Arbitrary (Deposit tx) where
+  arbitrary = genericArbitrary
+  shrink = recursivelyShrink
+
+data DepositStatus = Unknown | Active | Expired
+  deriving (Generic, Eq, Show, ToJSON, FromJSON)
+
+instance Arbitrary DepositStatus where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 -- ** Closed
 

@@ -13,17 +13,13 @@ import Data.Set ((\\))
 import Data.Set qualified as Set
 import GHC.IsList (IsList (..))
 import Hydra.Tx.IsTx (IsTx (..))
-import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose)
 import Prelude qualified
 
 -- NOTE: New type wrapper to add Ord and Eq instances to signing keys
 newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
-
-instance Show CardanoSigningKey where
-  show CardanoSigningKey{signingKey} =
-    show . mkVkAddress @Era testNetworkId . getVerificationKey $ signingKey
+  deriving (Show)
 
 instance Eq CardanoSigningKey where
   CardanoSigningKey ska == CardanoSigningKey skb =

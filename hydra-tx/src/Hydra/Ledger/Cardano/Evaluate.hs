@@ -58,7 +58,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
@@ -355,7 +355,7 @@ propTransactionFailsEvaluation (tx, lookupUTxO) =
 -- is not higher than the cp.
 -- Returned slots are tx validity bounds
 genValidityBoundsFromContestationPeriod :: ContestationPeriod -> Gen (SlotNo, (SlotNo, UTCTime))
-genValidityBoundsFromContestationPeriod (UnsafeContestationPeriod cpSeconds) = do
+genValidityBoundsFromContestationPeriod cpSeconds = do
   startSlot@(SlotNo start) <- SlotNo <$> arbitrary
   let end = start + fromIntegral cpSeconds
   endSlot <- SlotNo <$> chooseWord64 (start, end)

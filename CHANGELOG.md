@@ -22,6 +22,14 @@ changes.
 - Hydra will now store etcd cluster information on the filesystem in directories content-addressed
   by the cluster configuration.
 
+- **BREAKING** Fixed observation of deposit transactions:
+  - Correctly ignore deposits with deadlines in the past or too soon in the future.
+  - Replaced `--deposit-deadline` with `--deposit-period`.
+  - To make sure a deposit is picked up ensure that `--deposit-period` is longer than `--contestation-period`.
+  - Change persisted events of `hydra-node`.
+  - Change to the `ReqSn` message in the Hydra network protocol
+  - Added `DepositExpired` for when a deposit was deemed expired.
+
 ## [0.21.0] - 2025-04-28
 
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network

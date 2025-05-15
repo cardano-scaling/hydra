@@ -4,17 +4,8 @@ module Hydra.Tx.Contract.Increment where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
-import Test.Hydra.Tx.Mutation (
-  Mutation (..),
-  SomeMutation (..),
-  addParticipationTokens,
-  modifyInlineDatum,
-  replaceParties,
-  replaceSnapshotVersion,
- )
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.List qualified as List
 import Data.Maybe (fromJust)
 import Hydra.Contract.Commit (Commit)
 import Hydra.Contract.Deposit (DepositRedeemer (Claim))
@@ -26,14 +17,12 @@ import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.Tx.Contract.Deposit (healthyDepositTx, healthyDepositUTxO)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Deposit qualified as Deposit
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.Increment (
-  incrementTx,
- )
+import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
@@ -44,6 +33,14 @@ import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, depositDeadline, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
+import Test.Hydra.Tx.Mutation (
+  Mutation (..),
+  SomeMutation (..),
+  addParticipationTokens,
+  modifyInlineDatum,
+  replaceParties,
+  replaceSnapshotVersion,
+ )
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -83,8 +80,15 @@ healthyIncrementTx =
       & addParticipationTokens healthyParticipants
       & modifyTxOutValue (<> foldMap txOutValue healthyUTxO)
 
-depositUTxO :: UTxO
-depositUTxO = utxoFromTx (fst healthyDepositTx)
+  depositUTxO =
+    UTxO.singleton healthyDepositInput $
+      mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited depositDeadline
+
+healthyDepositInput :: TxIn
+healthyDepositInput = arbitrary `generateWith` 123
+
+healthyDeposited :: UTxO
+healthyDeposited = genUTxOSized 3 `generateWith` 42
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
@@ -120,7 +124,7 @@ healthySnapshot =
     , number = succ healthySnapshotNumber
     , confirmed = []
     , utxo = healthyUTxO
-    , utxoToCommit = Just healthyDepositUTxO
+    , utxoToCommit = Just healthyDeposited
     , utxoToDecommit = Nothing
     }
 
@@ -145,7 +149,7 @@ healthyDatum =
 data IncrementMutation
   = -- | Move the deadline from the deposit datum back in time
     -- so that the increment upper bound is after the deadline
-    DepositMutateDepositDeadline
+    DepositMutateDepositPeriod
   | -- | Alter the head id
     DepositMutateHeadId
   | -- | Change parties in incrment output datum
@@ -165,7 +169,7 @@ data IncrementMutation
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 genIncrementMutation (tx, utxo) =
   oneof
-    [ SomeMutation (pure $ toErrorCode DepositDeadlineSurpassed) DepositMutateDepositDeadline <$> do
+    [ SomeMutation (pure $ toErrorCode DepositPeriodSurpassed) DepositMutateDepositPeriod <$> do
         let datum =
               txOutDatum $
                 flip modifyInlineDatum (fromCtxUTxOTxOut depositOut) $ \case
@@ -193,9 +197,10 @@ genIncrementMutation (tx, utxo) =
         pure $
           Head.Increment
             Head.IncrementRedeemer
-              { signature = invalidSignature
+              { signature =
+                  invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
-              , increment = toPlutusTxOutRef $ fst $ List.head $ UTxO.toList depositUTxO
+              , increment = toPlutusTxOutRef healthyDepositInput
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)

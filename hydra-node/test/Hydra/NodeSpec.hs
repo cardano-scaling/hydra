@@ -31,16 +31,15 @@ import Hydra.Node (
   hydrate,
   stepHydraNode,
  )
+import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
-import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
-import Hydra.Tx.DepositDeadline (DepositDeadline (..))
-import Hydra.Tx.Environment (Environment (..))
-import Hydra.Tx.Environment qualified as Environment
-import Hydra.Tx.HeadParameters (HeadParameters (..), mkHeadParameters)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party, deriveParty)
+import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -49,9 +48,7 @@ import Test.Hydra.Tx.Fixture (
   carol,
   carolSk,
   cperiod,
-  ddeadline,
   deriveOnChainId,
-  testEnvironment,
   testHeadId,
   testHeadSeed,
  )
@@ -195,7 +192,7 @@ spec = parallel $ do
                    , receiveMessage ReqTx{transaction = tx3}
                    ]
         (node, getNetworkEvents) <-
-          testHydraNode tracer aliceSk [bob, carol] cperiod ddeadline inputs
+          testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
         getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing]
@@ -206,7 +203,7 @@ spec = parallel $ do
             sn1 = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
             inputs =
               inputsToOpenHead
-                <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, incrementUTxO = Nothing, decommitTx = Nothing}
+                <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, depositTxId = Nothing, decommitTx = Nothing}
                    , receiveMessageFrom alice $ AckSn (sign aliceSk sn1) 1
                    , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1
                    , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
@@ -214,7 +211,7 @@ spec = parallel $ do
                    ]
 
         (node, getNetworkEvents) <-
-          testHydraNode tracer bobSk [alice, carol] cperiod ddeadline inputs
+          testHydraNode tracer bobSk [alice, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
 
@@ -228,10 +225,10 @@ spec = parallel $ do
             inputs =
               inputsToOpenHead
                 <> [ receiveMessageFrom bob AckSn{signed = sigBob, snapshotNumber = 1}
-                   , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, incrementUTxO = Nothing}
+                   , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
                    ]
         (node, getNetworkEvents) <-
-          testHydraNode tracer aliceSk [bob, carol] cperiod ddeadline inputs
+          testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
         getNetworkEvents `shouldReturn` [AckSn{signed = sigAlice, snapshotNumber = 1}]
@@ -240,7 +237,7 @@ spec = parallel $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let inputs = [ClientInput Init]
         (node, getServerOutputs) <-
-          testHydraNode tracer aliceSk [bob, carol] cperiod ddeadline inputs
+          testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= throwExceptionOnPostTx NoSeedInput
             >>= recordServerOutputs
 
@@ -263,10 +260,10 @@ spec = parallel $ do
                 inputsToOpenHead
                   <> [ receiveMessageFrom bob ReqTx{transaction = tx1}
                      , receiveMessageFrom bob ReqTx{transaction = tx2}
-                     , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, incrementUTxO = Nothing}
+                     , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, depositTxId = Nothing}
                      ]
           (node, getNetworkEvents) <-
-            testHydraNode tracer bobSk [alice, carol] cperiod ddeadline inputs
+            testHydraNode tracer bobSk [alice, carol] cperiod inputs
               >>= recordNetwork
           runToCompletion node
           getNetworkEvents `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
@@ -278,7 +275,7 @@ spec = parallel $ do
             , signingKey = aliceSk
             , otherParties = [bob]
             , contestationPeriod = defaultContestationPeriod
-            , depositDeadline = defaultDepositDeadline
+            , depositPeriod = defaultDepositPeriod
             , participants = error "should not be recorded in head state"
             }
         headState = inInitialState [alice, bob]
@@ -290,7 +287,7 @@ spec = parallel $ do
     it "throws exception given contestation period differs" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let invalidPeriodEnv =
-              defaultEnv{Environment.contestationPeriod = UnsafeContestationPeriod 42}
+              defaultEnv{Environment.contestationPeriod = 42}
         checkHeadState tracer invalidPeriodEnv headState
           `shouldThrow` \(_ :: ParameterMismatch) -> True
 
@@ -416,10 +413,9 @@ testHydraNode ::
   SigningKey HydraKey ->
   [Party] ->
   ContestationPeriod ->
-  DepositDeadline ->
   [Input SimpleTx] ->
   m (HydraNode SimpleTx m)
-testHydraNode tracer signingKey otherParties contestationPeriod depositDeadline inputs = do
+testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
   hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} (mockSource []) []
     >>= notConnect
     >>= primeWith inputs
@@ -430,7 +426,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod depositDeadline 
       , signingKey
       , otherParties
       , contestationPeriod
-      , depositDeadline
+      , depositPeriod = defaultDepositPeriod
       , participants
       }
 

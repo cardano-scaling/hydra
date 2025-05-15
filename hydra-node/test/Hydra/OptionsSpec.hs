@@ -35,8 +35,6 @@ import Hydra.Options (
   toArgs,
   validateRunOptions,
  )
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Tx.DepositDeadline (DepositDeadline (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
@@ -174,53 +172,34 @@ spec = parallel $
             }
 
     it "parses --contestation-period option as a number of seconds" $ do
+      let defaultWithContestationPeriod contestationPeriod =
+            Run
+              defaultRunOptions
+                { chainConfig = Direct defaultDirectChainConfig{contestationPeriod}
+                }
       shouldNotParse ["--contestation-period", "abc"]
       shouldNotParse ["--contestation-period", "s"]
       shouldNotParse ["--contestation-period", "-1"]
       shouldNotParse ["--contestation-period", "0s"]
       shouldNotParse ["--contestation-period", "00s"]
-      ["--contestation-period", "1s"]
-        `shouldParse` Run
-          defaultRunOptions
-            { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { contestationPeriod = UnsafeContestationPeriod 1
-                    }
-            }
-      ["--contestation-period", "300s"]
-        `shouldParse` Run
-          defaultRunOptions
-            { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { contestationPeriod = UnsafeContestationPeriod 300
-                    }
-            }
-    it "parses --deposit-deadline option as a number of seconds" $ do
-      shouldNotParse ["--deposit-deadline", "abc"]
-      shouldNotParse ["--deposit-deadline", "s"]
-      shouldNotParse ["--deposit-deadline", "-1"]
-      shouldNotParse ["--deposit-deadline", "0s"]
-      shouldNotParse ["--deposit-deadline", "00s"]
-      ["--deposit-deadline", "1s"]
-        `shouldParse` Run
-          defaultRunOptions
-            { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { depositDeadline = UnsafeDepositDeadline 1
-                    }
-            }
-      ["--deposit-deadline", "300s"]
-        `shouldParse` Run
-          defaultRunOptions
-            { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { depositDeadline = UnsafeDepositDeadline 300
-                    }
-            }
+      ["--contestation-period", "1s"] `shouldParse` defaultWithContestationPeriod 1
+      shouldNotParse ["--contestation-period", "-1s"]
+      ["--contestation-period", "300s"] `shouldParse` defaultWithContestationPeriod 300
+
+    it "parses --deposit-period option as a number of seconds" $ do
+      let defaultWithDepositPeriod depositPeriod =
+            Run
+              defaultRunOptions
+                { chainConfig = Direct defaultDirectChainConfig{depositPeriod}
+                }
+      shouldNotParse ["--deposit-period", "abc"]
+      shouldNotParse ["--deposit-period", "s"]
+      shouldNotParse ["--deposit-period", "-1"]
+      ["--deposit-period", "0s"] `shouldParse` defaultWithDepositPeriod 0
+      ["--deposit-period", "00s"] `shouldParse` defaultWithDepositPeriod 0
+      ["--deposit-period", "1s"] `shouldParse` defaultWithDepositPeriod 1
+      ["--deposit-period", "-1s"] `shouldParse` defaultWithDepositPeriod (-1)
+      ["--deposit-period", "300s"] `shouldParse` defaultWithDepositPeriod 300
 
     it "parses --mainnet flag" $ do
       ["--mainnet"]

@@ -26,20 +26,20 @@ pub type Redeemer {
 }
 
 type DepositError {
-  DepositDeadlineSurpassed
+  DepositPeriodSurpassed
   DepositNoUpperBoundDefined
   DepositNoLowerBoundDefined
-  DepositDeadlineNotReached
+  DepositPeriodNotReached
   IncorrectDepositHash
   WrongHeadIdInDepositDatum
 }
 
 fn toErrorCode(err: DepositError) -> String {
   when err is {
-    DepositDeadlineSurpassed -> @"D01"
+    DepositPeriodSurpassed -> @"D01"
     DepositNoUpperBoundDefined -> @"D02"
     DepositNoLowerBoundDefined -> @"D03"
-    DepositDeadlineNotReached -> @"D04"
+    DepositPeriodNotReached -> @"D04"
     IncorrectDepositHash -> @"D05"
     WrongHeadIdInDepositDatum -> @"D06"
   }
@@ -60,12 +60,12 @@ validator deposit {
          check_head_id(datum.head_id, currencySymbol),
        ) &&
        traceIfFalse(
-          toErrorCode(DepositDeadlineSurpassed),
+          toErrorCode(DepositPeriodSurpassed),
           before_deadline(self.validity_range, datum.deadline),
         )
       Recover(n) ->
         traceIfFalse(
-          toErrorCode(DepositDeadlineNotReached),
+          toErrorCode(DepositPeriodNotReached),
           after_deadline(self.validity_range, datum.deadline),
         ) && recover_outputs(n, datum.commits, self.outputs)
     }

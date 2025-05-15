@@ -82,7 +82,9 @@ library
     Hydra.Network.Etcd
     Hydra.Network.Message
     Hydra.Node
+    Hydra.Node.DepositPeriod
     Hydra.Node.EmbedTH
+    Hydra.Node.Environment
     Hydra.Node.InputQueue
     Hydra.Node.Network
     Hydra.Node.ParameterMismatch
@@ -273,7 +275,6 @@ test-suite tests
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.TxTraceSpec
     Hydra.Chain.Direct.WalletSpec
-    Hydra.ContestationPeriodSpec
     Hydra.CryptoSpec
     Hydra.Events.FileBasedSpec
     Hydra.HeadLogicSnapshotSpec

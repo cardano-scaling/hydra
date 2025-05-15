@@ -67,17 +67,18 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx)
+import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx, renderEvaluationReport)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect)
+import Hydra.Node.Environment (Environment (Environment, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.NodeSpec (mockServer)
-import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import Hydra.Tx (txId)
+import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey)
-import Hydra.Tx.Environment (Environment (Environment, participants, party))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
@@ -117,6 +118,7 @@ mockChainAndNetwork tr seedKeys commits = do
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateCommit = simulateCommit nodes
+      , simulateDeposit = simulateDeposit nodes
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
       }
  where
@@ -165,13 +167,13 @@ mockChainAndNetwork tr seedKeys commits = do
                   Nothing -> globalUTxO
                   Just (_, _, blockUTxO) -> blockUTxO
             case applyTransactions slot utxo [tx] of
-              Left (_tx, err) ->
+              Left (_tx, ValidationError{reason}) ->
                 throwSTM . userError . toString $
                   unlines
                     [ "MockChain: Invalid tx submitted"
                     , "Slot: " <> show slot
                     , "Tx: " <> toText (renderTxWithUTxO utxo tx)
-                    , "Error: " <> show err
+                    , "Error: \n\n" <> reason
                     ]
               Right _utxo' ->
                 writeTQueue queue tx
@@ -199,27 +201,24 @@ mockChainAndNetwork tr seedKeys commits = do
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
-  simulateCommit nodes (party, lookupUTxO) = do
+  simulateCommit nodes headId party utxoToCommit = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
       Nothing -> error "simulateCommit: Could not find matching HydraNode"
-      Just
-        MockHydraNode
-          { node = HydraNode{oc = Chain{submitTx, draftCommitTx}, nodeState = NodeState{queryHeadState}}
-          } -> do
-          hs <- atomically queryHeadState
-          let hId = case hs of
-                Idle IdleState{} -> error "HeadState is Idle: no HeadId to commit"
-                Initial InitialState{headId} -> headId
-                Open OpenState{headId} -> headId
-                Closed ClosedState{headId} -> headId
-              blueprintTx = txSpendingUTxO lookupUTxO
-          -- NOTE: We don't need to sign a tx here since the MockChain
-          -- doesn't actually validate transactions using a real ledger.
-          eTx <- draftCommitTx hId CommitBlueprintTx{lookupUTxO, blueprintTx}
-          case eTx of
-            Left e -> throwIO e
-            Right tx -> submitTx tx
+      Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftCommitTx}}} ->
+        draftCommitTx headId (mkSimpleBlueprintTx utxoToCommit) >>= \case
+          Left e -> throwIO e
+          Right tx -> submitTx tx
+
+  simulateDeposit nodes headId utxoToDeposit deadline = do
+    -- XXX: Weird that we need a registered node here and cannot just draft the
+    -- deposit tx directly?
+    readTVarIO nodes >>= \case
+      [] -> error "simulateDeposit: no MockHydraNode"
+      (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
+        draftDepositTx headId (mkSimpleBlueprintTx utxoToDeposit) deadline >>= \case
+          Left e -> throwIO e
+          Right tx -> submitTx tx $> txId tx
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
   closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
@@ -341,7 +340,7 @@ scriptLedger =
           Left (tx, ValidationError{reason = show err})
         Right report
           | any isLeft report ->
-              Left (tx, ValidationError{reason = show . lefts $ toList report})
+              Left (tx, ValidationError{reason = renderEvaluationReport report})
           | otherwise ->
               applyTransactions slot (adjustUTxO tx utxo) txs
 

@@ -17,7 +17,7 @@
                     "a/c/a.vk"
                 ],
                 "contestationPeriod": 11010,
-                "depositDeadline": 130,
+                "depositPeriod": 130,
                 "hydraScriptsTxId": [
                     "88e381408dcd681c0f0bbd894c5202feede5c8790dbdff3a5de50b2fdeca0396",
                     "52aea27bb01d5f1c3fdccde7d40f8d743cc397c0d1d810bfb1d96fd3ac934f09",
@@ -86,7 +86,7 @@
                     "a/c/c.vk"
                 ],
                 "contestationPeriod": 43200,
-                "depositDeadline": 276,
+                "depositPeriod": 276,
                 "hydraScriptsTxId": [
                     "78f200fbf81bfd7f6f811d34087e6cd06a72bf807244916d98692af49a975333",
                     "99eb953e33a038bd0439480eb9127808b4c75c38a4d2da1ea037bb519edf42ed",
@@ -151,7 +151,7 @@
                     "b/c/a.vk"
                 ],
                 "contestationPeriod": 86400,
-                "depositDeadline": 127,
+                "depositPeriod": 127,
                 "hydraScriptsTxId": [
                     "d24e0f81e846d16c252517b3ded6dfaa6113dcb21e2126061ccc06777e2ac0a9",
                     "b7867e38c9bacf628b1381aa846cbbf8eee9d12d63ae8c8eaa21787181518d0d",
@@ -233,7 +233,7 @@
                     "c/a.vk"
                 ],
                 "contestationPeriod": 2592000,
-                "depositDeadline": 80,
+                "depositPeriod": 80,
                 "hydraScriptsTxId": [
                     "83683fb93e6b35eea8ab0979be707b0a7870dd6a3a929abb9a24438b884a8703",
                     "fdbc1cdcdd654a2e0985407b71e5ae5cb4754358628ce5e46b1f29c22e96041b",

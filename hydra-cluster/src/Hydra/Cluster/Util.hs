@@ -19,7 +19,6 @@ import Hydra.Cardano.Api (
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), defaultDirectChainConfig)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import Hydra.Tx.DepositDeadline (DepositDeadline)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
@@ -66,9 +65,8 @@ chainConfigFor ::
   [TxId] ->
   [Actor] ->
   ContestationPeriod ->
-  DepositDeadline ->
   IO ChainConfig
-chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod depositDeadline = do
+chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -88,7 +86,6 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
         , cardanoSigningKey = actorFilePath me "sk"
         , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
-        , depositDeadline
         }
  where
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType

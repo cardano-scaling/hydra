@@ -28,7 +28,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
 import System.FilePath ((</>))
-import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGoldenADTSpecsWithSettings)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
 import Test.QuickCheck (Property, (===))
@@ -189,7 +189,8 @@ spec = do
 
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
-    roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
+
+    roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(Message SimpleTx)
 
 lo :: IsString s => s
 lo = "127.0.0.1"

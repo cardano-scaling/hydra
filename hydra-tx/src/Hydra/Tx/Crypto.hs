@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingVia #-}
+
 -- | Hydra multi-signature credentials and cryptographic primitives used to sign
 -- and verify snapshots (or any messages) within the Hydra protocol.
 --
@@ -15,6 +17,8 @@ module Hydra.Tx.Crypto (
   -- * Hydra specifics
   Hash (HydraKeyHash),
   AsType (AsHydraKey),
+  SigningKey (HydraSigningKey),
+  VerificationKey (HydraVerificationKey),
   module Hydra.Tx.Crypto,
 ) where
 
@@ -31,14 +35,15 @@ import Cardano.Crypto.DSIGN (
   genKeyDSIGN,
   hashVerKeyDSIGN,
   rawDeserialiseSigDSIGN,
+  rawDeserialiseSignKeyDSIGN,
   rawDeserialiseVerKeyDSIGN,
   rawSerialiseSigDSIGN,
+  rawSerialiseSignKeyDSIGN,
   rawSerialiseVerKeyDSIGN,
   seedSizeDSIGN,
   signDSIGN,
   verifyDSIGN,
  )
-import Cardano.Crypto.DSIGN qualified as Crypto
 import Cardano.Crypto.Hash (Blake2b_256, SHA256, castHash, hashFromBytes, hashToBytes)
 import Cardano.Crypto.Hash qualified as Crypto
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
@@ -49,7 +54,7 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import Hydra.Cardano.Api (
-  AsType (AsHash, AsVerificationKey),
+  AsType (..),
   HasTextEnvelope (..),
   HasTypeProxy (..),
   Hash,
@@ -57,6 +62,7 @@ import Hydra.Cardano.Api (
   SerialiseAsCBOR,
   SerialiseAsRawBytes (..),
   SerialiseAsRawBytesError (..),
+  UsingRawBytesHex (..),
   serialiseToRawBytesHexText,
  )
 import Hydra.Contract.HeadState qualified as OnChain
@@ -93,20 +99,17 @@ instance Key HydraKey where
   -- Hydra verification key, which can be used to 'verify' signed messages.
   newtype VerificationKey HydraKey
     = HydraVerificationKey (VerKeyDSIGN Ed25519DSIGN)
-    deriving stock (Eq, Show, Ord)
+    deriving stock (Eq, Ord)
+    deriving (Show, IsString) via UsingRawBytesHex (VerificationKey HydraKey)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
 
   -- Hydra signing key which can be used to 'sign' messages and 'aggregate'
   -- multi-signatures or 'deriveVerificationKey'.
-  --
-  -- REVIEW: Maybe rewrite Show instance to /not/ expose secret, eg. 8 bytes
-  -- from the hash of the key? Although both, cardano-api and
-  -- cardano-crypto-class are both deriving this and thus showing secret key
-  -- material as well.
   newtype SigningKey HydraKey
     = HydraSigningKey (SignKeyDSIGN Ed25519DSIGN)
-    deriving stock (Eq, Show)
+    deriving stock (Eq, Ord)
+    deriving (Show, IsString) via UsingRawBytesHex (SigningKey HydraKey)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
 
@@ -135,6 +138,16 @@ instance HasTextEnvelope (SigningKey HydraKey) where
   textEnvelopeType _ =
     "HydraSigningKey_"
       <> fromString (algorithmNameDSIGN (Proxy :: Proxy Ed25519DSIGN))
+
+instance SerialiseAsRawBytes (SigningKey HydraKey) where
+  serialiseToRawBytes (HydraSigningKey sk) =
+    rawSerialiseSignKeyDSIGN sk
+
+  deserialiseFromRawBytes (AsSigningKey AsHydraKey) bs =
+    maybe
+      (Left (SerialiseAsRawBytesError "invalid length when deserializing SigningKey HydraKey"))
+      (Right . HydraSigningKey)
+      (rawDeserialiseSignKeyDSIGN bs)
 
 instance Arbitrary (VerificationKey HydraKey) where
   arbitrary = getVerificationKey <$> arbitrary
