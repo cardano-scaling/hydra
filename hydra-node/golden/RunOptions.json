@@ -17,8 +17,8 @@
                     "a/a.vk",
                     "a.vk"
                 ],
-                "contestationPeriod": 63003,
-                "depositDeadline": 139,
+                "contestationPeriod": 2592000,
+                "depositPeriod": 13867,
                 "hydraScriptsTxId": [
                     "43caaaa6fd798f735f1168e3f53e90d05e59ccbba9b471bf66196af4d0dfeb5b",
                     "d41b65258a9f9abeb408c01ffbfb799acd2a3757436dbf9e7e639febcc4798ec",
@@ -145,8 +145,8 @@
                     "a/c.vk",
                     "b/a/c.vk"
                 ],
-                "contestationPeriod": 34869,
-                "depositDeadline": 74,
+                "contestationPeriod": 604800,
+                "depositPeriod": 69551,
                 "hydraScriptsTxId": [
                     "dcea3d0665d134ee47f09ce9f07f88260ab8ab38d6e73b3d509b3de9e9aacef0",
                     "2ac28c3a9445c8f2f04d6af1bd6fb0b79968a350abffccc1153791804d337c36",
@@ -270,8 +270,8 @@
                     "a/b.vk",
                     "a.vk"
                 ],
-                "contestationPeriod": 2592000,
-                "depositDeadline": 105,
+                "contestationPeriod": 86400,
+                "depositPeriod": 40424,
                 "hydraScriptsTxId": [
                     "3dd9f6aca80845d3bcadbba52a58be1e583fc9f63474bd3d971b9aaf5b117be6",
                     "3480cd30b91a7777bfe295cc023cf5d66bf9970c40b795d3b5c569415389d79b",
