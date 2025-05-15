@@ -402,7 +402,7 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
 
     withTempDir "blank-state" $ \tmpDir -> do
       void $ readCreateProcessWithExitCode (proc "cp" ["-r", workDir </> "state-2", tmpDir]) ""
-      void $ readCreateProcessWithExitCode (proc "rm" ["-rf", tmpDir </> "state-2" </> "state"]) ""
+      void $ readCreateProcessWithExitCode (proc "rm" ["-rf", tmpDir </> "state-2" </> "state-*"]) ""
       void $ readCreateProcessWithExitCode (proc "rm" ["-rf", tmpDir </> "state-2" </> "last-known-revision"]) ""
       withHydraNode hydraTracer bobChainConfigFromTip tmpDir 2 bobSk [aliceVk] [1] $ \n2 -> do
         -- Also expect to see past server outputs replayed
@@ -878,7 +878,7 @@ persistenceCanLoadWithEmptyCommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer (10 * blockTime) [n1] $
         output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
       pure headId
-    let persistenceState = workDir </> "state-" <> show hydraNodeId </> "state"
+    let persistenceState = workDir </> "state-" <> show hydraNodeId </> "state-0"
     stateContents <- readFileBS persistenceState
     let headOpened = BSC.pack $ List.last (List.lines $ BSC.unpack stateContents)
     case headOpened ^? key "stateChanged" . key "tag" . _String of
