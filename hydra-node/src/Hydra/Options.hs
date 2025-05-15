@@ -154,12 +154,6 @@ defaultDirectBackend =
     , nodeSocket = "node.socket"
     }
 
-defaultBlockfrostBackend :: BlockfrostBackend
-defaultBlockfrostBackend =
-  BlockfrostBackend
-    { projectPath = "blockfrost-project.txt"
-    }
-
 data ChainBackend
   = Direct DirectBackend
   | Blockfrost BlockfrostBackend
@@ -455,7 +449,12 @@ instance Arbitrary ChainConfig where
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
       contestationPeriod <- arbitrary `suchThat` (> UnsafeContestationPeriod 0)
       depositDeadline <- arbitrary `suchThat` (> UnsafeDepositDeadline 0)
-      chainBackend <- oneof [pure $ Direct defaultDirectBackend, pure $ Blockfrost defaultBlockfrostBackend]
+      chainBackend <-
+        oneof
+          [ pure $ Direct defaultDirectBackend
+          , pure $ Blockfrost BlockfrostBackend{projectPath = "blockfrost-project.txt"}
+          ]
+
       pure
         CardanoChainConfig
           { hydraScriptsTxId
@@ -570,7 +569,7 @@ nodeSocketParser =
   strOption
     ( long "node-socket"
         <> metavar "FILE"
-        <> value "node.socket"
+        <> value defaultDirectBackend.nodeSocket
         <> showDefault
         <> help
           "Filepath to local unix domain socket used to communicate with \

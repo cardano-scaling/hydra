@@ -16,7 +16,8 @@ import Hydra.Cardano.Api (
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
+import Hydra.Chain.Backend (BackendOps (queryGenesisParameters))
+import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withCardanoChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
@@ -25,7 +26,6 @@ import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Node (
-  BackendOps (queryGenesisParameters),
   HydraNode (eventSinks),
   chainStateHistory,
   connect,
@@ -127,7 +127,7 @@ run opts = do
     Cardano cfg@CardanoChainConfig{} -> do
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
-      pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
+      pure $ withCardanoChain (contramap DirectChain tracer) cfg ctx wallet
 
   RunOptions
     { verbosity

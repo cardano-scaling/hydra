@@ -32,6 +32,7 @@ import Hydra.Cardano.Api (
   UTxO',
   fromLedgerTx,
   lovelaceToValue,
+  serialiseToRawBytesHexText,
   signTx,
   toLedgerKeyHash,
   toLedgerTx,
@@ -52,7 +53,7 @@ import Hydra.Chain.Direct (
   IntersectionNotFoundException (..),
   loadChainContext,
   mkTinyWallet,
-  withDirectChain,
+  withCardanoChain,
  )
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.State (initialChainState)
@@ -645,7 +646,7 @@ withDirectChainTest tracer config party action = do
 
   wallet <- mkTinyWallet tracer configuration
 
-  withDirectChain tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
+  withCardanoChain tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
     action
       DirectChainTest
         { postTx
@@ -737,7 +738,7 @@ externalCommit' projectPathOrNode hydraClient externalSks headId utxoToCommit bl
             } <-
             Blockfrost.queryGenesisParameters
           let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-          void $ Blockfrost.queryUTxOByTxIn networkId (Blockfrost.toTxHash $ txId signedTx)
+          void $ Blockfrost.queryUTxOByTxIn networkId (serialiseToRawBytesHexText $ txId signedTx)
     Right node -> submitTx node signedTx
  where
   everybodySigns tx' [] = tx'

@@ -329,6 +329,13 @@ spec = parallel $
             { chainConfig = Cardano defaultCardanoChainConfig{hydraScriptsTxId = toList txIds}
             }
 
+    it "parses --blockfrost successfully" $
+      ["--blockfrost", "blockfrost-project.txt"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig = Cardano (defaultCardanoChainConfig & #chainBackend .~ Blockfrost (BlockfrostBackend "blockfrost-project.txt"))
+            }
+
     it "switches to offline mode when using --offline-head-seed and --initial-utxo" $
       mconcat
         [ ["--offline-head-seed", "0100"]

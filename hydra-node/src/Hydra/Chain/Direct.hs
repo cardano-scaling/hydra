@@ -51,6 +51,7 @@ import Hydra.Chain (
   PostTxError (FailedToPostTx, failureReason),
   currentState,
  )
+import Hydra.Chain.Backend (BackendOps (..))
 import Hydra.Chain.Blockfrost qualified as Blockfrost
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.CardanoClient (
@@ -69,13 +70,13 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
  )
+import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   WalletInfoOnChain (..),
   newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node (BackendOps (..))
 import Hydra.Node.Util (readKeyPair)
 import Hydra.Options (BlockfrostBackend (..), CardanoChainConfig (..), ChainBackend (..), DirectBackend (..))
 import Hydra.Tx (Party)
@@ -146,7 +147,7 @@ mkTinyWallet tracer config = do
     hoistEpochInfo (first show . runExcept) $
       Consensus.interpreterToEpochInfo interpreter
 
-withDirectChain ::
+withCardanoChain ::
   Tracer IO DirectChainLog ->
   CardanoChainConfig ->
   ChainContext ->
@@ -154,7 +155,7 @@ withDirectChain ::
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx wallet chainStateHistory callback action = do
+withCardanoChain tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newTQueueIO
