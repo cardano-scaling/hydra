@@ -1,32 +1,28 @@
 {
     "samples": [
         {
-            "contents": {
-                "created": 1,
-                "deadline": "1864-05-08T16:51:30.641030324892Z",
-                "depositTxId": "0100000101010100000100010001010000010000010001000100010001000001",
-                "deposited": {
-                    "0101010101010001000001000101000000000001000001000100010101000001#77": {
-                        "address": "addr_test1zzzfcy9nkga0w2r3dymzzcaagcshdnzyn4294nlg9xtzjuwpd03y8c63pxlkkj4drua7dmyscdzgqlcl4rj579tqegxq64vhrj",
-                        "datum": null,
-                        "inlineDatum": {
-                            "int": 2
+            "created": 2,
+            "deadline": "1864-05-08T21:30:49.741168139182Z",
+            "depositTxId": "0001000101000001000101010001000100010101000001010101010001010000",
+            "deposited": {
+                "0000000100000100000001010000000100000101000100010100010101000001#77": {
+                    "address": "addr_test1wq2sanl5gljpl8k57jn5xe4cfpqpfp7hg6mvc30wkavmw0ghvtc9t",
+                    "datum": null,
+                    "datumhash": "23b3a1b9f154a100b23f05628949814c7f67f4bb16aada9f26ea7fc8ce87d70d",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
+                            "38": 6296757045175851393
                         },
-                        "inlineDatumRaw": "02",
-                        "inlineDatumhash": "bb30a42c1e62f0afda5f0a4e8a562f7a13a24cea00ee81917b86b89e801314aa",
-                        "referenceScript": null,
-                        "value": {
-                            "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
-                                "1c873faeb76513ccc29f2042b4": 1
-                            },
-                            "lovelace": 45000000000000000
-                        }
+                        "lovelace": 45000000000000000
                     }
-                },
-                "headId": "01000001000100010000010001000100"
+                }
             },
+            "headId": "00000101010000000000010100010000",
             "tag": "Deposit"
         }
     ],
-    "seed": -318608161
+    "seed": 992512099
 }

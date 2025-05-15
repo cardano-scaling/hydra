@@ -26,8 +26,6 @@ spec =
     -- NOTE: Detect regressions in interface to hydra-explorer
     let settings = defaultSettings{sampleSize = 1}
     roundtripAndGoldenSpecsWithSettings settings $ Proxy @ChainObservation
-    -- FIXME: Update API and make explorer backwards compatible
-    roundtripAndGoldenADTSpecsWithSettings settings $ Proxy @(MinimumSized (OnChainTx Tx))
     roundtripAndGoldenADTSpecsWithSettings settings $ Proxy @(MinimumSized HeadObservation)
 
     prop "All valid transitions for all possible states can be observed." $

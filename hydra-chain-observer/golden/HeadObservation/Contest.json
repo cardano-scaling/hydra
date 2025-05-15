@@ -1,19 +1,12 @@
 {
     "samples": [
         {
-            "contents": {
-                "contestationDeadline": "1864-05-10T20:41:05.767736856083Z",
-                "contesters": [
-                    {
-                        "keyHash": "",
-                        "tag": "PubKeyHash"
-                    }
-                ],
-                "headId": "00010101000100010100000001010101",
-                "snapshotNumber": 1
-            },
+            "contestationDeadline": "1864-05-10T15:54:11.743918769287Z",
+            "contesters": [],
+            "headId": "00010100000001010100000100000100",
+            "snapshotNumber": 1,
             "tag": "Contest"
         }
     ],
-    "seed": 1324609115
+    "seed": -871640901
 }
