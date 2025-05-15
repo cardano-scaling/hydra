@@ -28,6 +28,12 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
 import System.FilePath ((</>))
+import System.Process.Typed (
+  ExitCode (ExitSuccess),
+  proc,
+  startProcess,
+  waitExitCode,
+ )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
@@ -41,6 +47,31 @@ spec = do
   describe "Etcd" $
     around (showLogsOnFailure "NetworkSpec") $ do
       let v1 = ProtocolVersion 1
+
+      it "doesn't lose the lease during autocompaction" $ \tracer -> do
+        failAfter 20 $
+          withTempDir "test-etcd" $ \tmp -> do
+            withFreePort $ \port -> do
+              let config =
+                    NetworkConfiguration
+                      { listen = Host lo port
+                      , advertise = Host lo port
+                      , signingKey = aliceSk
+                      , otherParties = []
+                      , peers = []
+                      , nodeId = "alice"
+                      , persistenceDir = tmp </> "alice"
+                      , whichEtcd = EmbeddedEtcd
+                      }
+              (recordingCallback, waitNext, _) <- newRecordingCallback
+              withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
+                let m :: Text
+                    m = "asdf"
+                forM_ [1 .. 1000 :: Int] $ \i -> do
+                  broadcast n m
+                  waitNext `shouldReturn` m
+                  when (i `mod` 100 == 0) $ runCompaction port i
+                error "Failure just to see the logs."
 
       it "broadcasts to self" $ \tracer -> do
         failAfter 5 $
@@ -190,6 +221,23 @@ spec = do
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
     roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
+
+-- runCompaction :: PortNumber -> IO ()
+runCompaction port rev = do
+  -- TODO: Capture output
+  process <-
+    startProcess $
+      proc
+        "etcdctl"
+        [ "compact"
+        , show rev
+        , "--endpoints"
+        , ":" <> show port
+        ]
+
+  exitCode <- waitExitCode process
+  when (exitCode /= ExitSuccess) $
+    error "Couldn't run etcdctl"
 
 lo :: IsString s => s
 lo = "127.0.0.1"
