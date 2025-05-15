@@ -29,6 +29,8 @@ import Blockfrost.Client (
   unSlot,
  )
 import Blockfrost.Client qualified as Blockfrost
+import Cardano.Chain.Genesis (mainnetProtocolMagicId)
+import Cardano.Crypto.ProtocolMagic (ProtocolMagicId (..))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX
 import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisParameters)
@@ -61,7 +63,6 @@ import Data.SOP.NonEmpty (nonEmptyFromList)
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
-import Hydra.Chain.ScriptRegistry (buildScriptPublishingTxs)
 import Hydra.Tx (ScriptRegistry, newScriptRegistry)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
@@ -106,54 +107,6 @@ queryScriptRegistry txIds = do
     Right sr -> pure sr
  where
   candidates = map (\txid -> TxIn txid (TxIx 0)) txIds
-
-publishHydraScripts ::
-  -- | Keys assumed to hold funds to pay for the publishing transaction.
-  SigningKey PaymentKey ->
-  BlockfrostClientT IO [TxId]
-publishHydraScripts sk = do
-  Blockfrost.Genesis
-    { _genesisNetworkMagic = networkMagic
-    , _genesisSystemStart = systemStart'
-    } <-
-    queryGenesisParameters
-  pparams <- queryProtocolParameters
-  let address = Blockfrost.Address (vkAddress networkMagic)
-  let networkId = toCardanoNetworkId networkMagic
-  stakePools' <- Blockfrost.listPools
-  let stakePools = Set.fromList (toCardanoPoolId <$> stakePools')
-  let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
-  eraHistory <- queryEraHistory
-  -- addressUTxO <- Blockfrost.getAddressUtxos address
-  addressUTxO <- Blockfrost.getAddressUtxos address
-
-  cardanoUTxO <-
-    foldMapM
-      ( \Blockfrost.AddressUtxo
-           { Blockfrost._addressUtxoAddress
-           , Blockfrost._addressUtxoTxHash = Blockfrost.TxHash{unTxHash}
-           , Blockfrost._addressUtxoOutputIndex
-           , Blockfrost._addressUtxoAmount
-           , Blockfrost._addressUtxoBlock
-           , Blockfrost._addressUtxoDataHash
-           , Blockfrost._addressUtxoInlineDatum
-           , Blockfrost._addressUtxoReferenceScriptHash
-           } ->
-            let txin = toCardanoTxIn unTxHash _addressUtxoOutputIndex
-             in toCardanoUTxO networkId txin _addressUtxoAddress _addressUtxoReferenceScriptHash _addressUtxoDataHash _addressUtxoAmount _addressUtxoInlineDatum
-      )
-      addressUTxO
-
-  txs <- liftIO $ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools cardanoUTxO sk
-  forM txs $ \(tx :: Tx) -> do
-    eRes <- Blockfrost.tryError $ submitTransaction tx
-    case eRes of
-      Left err -> liftIO $ throwIO $ BlockfrostError $ show err
-      Right _ -> pure $ getTxId $ getTxBody tx
- where
-  vk = getVerificationKey sk
-
-  vkAddress networkMagic = textAddrOf (toCardanoNetworkId networkMagic) vk
 
 queryProtocolParameters :: MonadIO m => BlockfrostClientT m (PParams LedgerEra)
 queryProtocolParameters = do
@@ -337,25 +290,15 @@ toCardanoValue = foldMapM convertAmount
           )
         ]
 
-addressToText :: AddressInEra -> Text
-addressToText = \case
-  ShelleyAddressInEra addr -> serialiseToBech32 addr
-  ByronAddressInEra{} -> error "Byron."
-
 toCardanoAddress :: Text -> Maybe AddressInEra
 toCardanoAddress addrTxt =
   ShelleyAddressInEra <$> deserialiseAddress (AsAddress AsShelleyAddr) addrTxt
 
-textAddrOf :: NetworkId -> VerificationKey PaymentKey -> Text
-textAddrOf networkId vk = addressToText (mkVkAddress @Era networkId vk)
-
-toTxHash :: TxId -> Text
-toTxHash (TxId hash) = hashToTextAsHex hash
-
 toCardanoNetworkId :: Integer -> NetworkId
-toCardanoNetworkId = \case
-  0 -> Mainnet
-  magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
+toCardanoNetworkId magic =
+  if fromIntegral magic == unProtocolMagicId mainnetProtocolMagicId
+    then Mainnet
+    else Testnet (NetworkMagic (fromInteger magic))
 
 data BlockfrostConversion
   = BlockfrostConversion
@@ -462,7 +405,7 @@ queryEraHistory = do
 
 -- | Query the Blockfrost API to get the 'UTxO' for 'TxIn' and convert to cardano 'UTxO'.
 queryUTxOByTxIn :: NetworkId -> Text -> BlockfrostClientT IO UTxO
-queryUTxOByTxIn networkId txHash = go (100 :: Int)
+queryUTxOByTxIn networkId txHash = go (100 :: Int) -- TODO: make this configurable
  where
   go 0 = liftIO $ throwIO $ BlockfrostError $ "Failed to get UTxO for tx hash: " <> txHash
   go n = do
@@ -514,14 +457,27 @@ queryUTxO networkId addresses = do
     )
     utxoWithAddresses
 
-querySystemStart :: BlockfrostClientT IO SystemStart
-querySystemStart = do
-  Blockfrost.Genesis{_genesisSystemStart} <- Blockfrost.getLedgerGenesis
-  pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
+queryUTxOFor :: VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+queryUTxOFor vk = do
+  Blockfrost.Genesis
+    { _genesisNetworkMagic = networkMagic
+    } <-
+    queryGenesisParameters
+  let networkId = toCardanoNetworkId networkMagic
+  case mkVkAddress networkId vk of
+    ShelleyAddressInEra addr ->
+      queryUTxO networkId [addr]
+    ByronAddressInEra{} ->
+      liftIO $ throwIO $ BlockfrostError "impossible: mkVkAddress returned Byron address."
 
 -- | Query the Blockfrost API for 'Genesis'
 queryGenesisParameters :: BlockfrostClientT IO Blockfrost.Genesis
 queryGenesisParameters = Blockfrost.getLedgerGenesis
+
+querySystemStart :: BlockfrostClientT IO SystemStart
+querySystemStart = do
+  Blockfrost.Genesis{_genesisSystemStart} <- queryGenesisParameters
+  pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
 
 -- | Query the Blockfrost API for 'Genesis' and convert to cardano 'ChainPoint'.
 queryTip :: BlockfrostClientT IO ChainPoint
@@ -546,6 +502,19 @@ queryTip = do
             (SlotNo $ fromIntegral $ Blockfrost.unSlot blockSlot)
             (fromString $ T.unpack blockHash)
             (BlockNo $ fromIntegral blockNo)
+
+queryStakePools ::
+  BlockfrostClientT IO (Set PoolId)
+queryStakePools = do
+  stakePools' <- Blockfrost.listPools
+  pure $ Set.fromList (toCardanoPoolId <$> stakePools')
+
+awaitTransaction :: Tx -> BlockfrostClientT IO UTxO
+awaitTransaction tx = do
+  Blockfrost.Genesis{_genesisNetworkMagic} <- queryGenesisParameters
+  let networkId = toCardanoNetworkId _genesisNetworkMagic
+  let TxId txhash = getTxId $ getTxBody tx
+  queryUTxOByTxIn networkId (hashToTextAsHex txhash)
 
 -- | Await for specific UTxO at address - the one that is produced by the given 'TxId'.
 awaitUTxO ::

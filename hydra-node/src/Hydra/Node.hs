@@ -10,7 +10,6 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Cardano.Api.Consensus (EraMismatch (..))
 import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
@@ -20,27 +19,10 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
 import Hydra.Cardano.Api (
-  Address,
-  AnyCardanoEra (AnyCardanoEra),
-  CardanoEra (..),
-  ChainPoint,
-  EraHistory,
-  GenesisParameters,
-  LedgerEra,
-  NetworkId,
-  PParams,
-  QueryInShelleyBasedEra (QueryProtocolParameters),
-  ShelleyAddr,
-  ShelleyEra,
-  SystemStart (..),
-  TxId,
-  UTxO,
   getVerificationKey,
-  shelleyBasedEra,
  )
 import Hydra.Chain (
   Chain (..),
@@ -49,12 +31,7 @@ import Hydra.Chain (
   PostTxError,
   initHistory,
  )
-import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Chain.Blockfrost.TimeHandle qualified as Blockfrost
-import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
-import Hydra.Chain.Direct.TimeHandle qualified as TimeHandle
-import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
 import Hydra.HeadLogic (
   Effect (..),
@@ -79,8 +56,8 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
-import Hydra.Options (BlockfrostBackend (..), CardanoChainConfig (..), ChainBackend (..), ChainConfig (..), DirectBackend (..), RunOptions (..), defaultContestationPeriod, defaultDepositDeadline)
-import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), ScriptRegistry, deriveParty)
+import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
@@ -446,119 +423,3 @@ data HydraNodeLog tx
 deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
 deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
-
-class BackendOps a where
-  queryGenesisParameters :: (MonadIO m, MonadThrow m) => a -> m (GenesisParameters ShelleyEra)
-  queryScriptRegistry :: (MonadIO m, MonadThrow m) => a -> [TxId] -> m ScriptRegistry
-  queryNetworkId :: (MonadIO m, MonadThrow m) => a -> m NetworkId
-  queryTip :: (MonadIO m, MonadThrow m) => a -> m ChainPoint
-  queryUTxO :: (MonadIO m, MonadThrow m) => a -> [Address ShelleyAddr] -> m UTxO
-  queryEraHistory :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m EraHistory
-  querySystemStart :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m SystemStart
-  queryProtocolParameters :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m (PParams LedgerEra)
-  queryTimeHandle :: (MonadIO m, MonadThrow m) => a -> m TimeHandle.TimeHandle
-
-instance BackendOps DirectBackend where
-  queryGenesisParameters DirectBackend{networkId, nodeSocket} =
-    liftIO $ CardanoClient.queryGenesisParameters networkId nodeSocket CardanoClient.QueryTip
-
-  queryScriptRegistry DirectBackend{networkId, nodeSocket} =
-    ScriptRegistry.queryScriptRegistry networkId nodeSocket
-
-  queryNetworkId DirectBackend{networkId} = pure networkId
-
-  queryTip DirectBackend{networkId, nodeSocket} =
-    liftIO $ CardanoClient.queryTip networkId nodeSocket
-
-  queryUTxO DirectBackend{networkId, nodeSocket} addresses =
-    liftIO $ CardanoClient.queryUTxO networkId nodeSocket CardanoClient.QueryTip addresses
-
-  queryEraHistory DirectBackend{networkId, nodeSocket} queryPoint =
-    liftIO $ CardanoClient.queryEraHistory networkId nodeSocket queryPoint
-
-  querySystemStart DirectBackend{networkId, nodeSocket} queryPoint =
-    liftIO $ CardanoClient.querySystemStart networkId nodeSocket queryPoint
-
-  queryProtocolParameters DirectBackend{networkId, nodeSocket} queryPoint =
-    liftIO $ CardanoClient.runQueryExpr networkId nodeSocket queryPoint $ do
-      AnyCardanoEra era <- CardanoClient.queryCurrentEraExpr
-      case era of
-        ConwayEra{} -> CardanoClient.queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
-        _ -> liftIO . throwIO $ CardanoClient.QueryEraMismatchException EraMismatch{ledgerEraName = show era, otherEraName = "Conway"}
-
-  queryTimeHandle DirectBackend{networkId, nodeSocket} =
-    liftIO $ TimeHandle.queryTimeHandle networkId nodeSocket
-
-instance BackendOps BlockfrostBackend where
-  queryGenesisParameters BlockfrostBackend{projectPath} = do
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
-
-  queryScriptRegistry BlockfrostBackend{projectPath} txIds = do
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry txIds
-
-  queryNetworkId BlockfrostBackend{projectPath} = do
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    -- TODO: This calls to queryGenesisParameters again, but we only need the network magic
-    Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
-    pure $ Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-
-  queryTip BlockfrostBackend{projectPath} = do
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.runBlockfrostM prj Blockfrost.queryTip
-
-  queryUTxO BlockfrostBackend{projectPath} addresses = do
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.Genesis
-      { _genesisNetworkMagic
-      , _genesisSystemStart
-      } <-
-      Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
-    let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO networkId addresses
-
-  queryEraHistory BlockfrostBackend{projectPath} _ = do
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.runBlockfrostM prj Blockfrost.queryEraHistory
-
-  querySystemStart BlockfrostBackend{projectPath} _ = do
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.Genesis{_genesisSystemStart} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
-    pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
-
-  queryProtocolParameters BlockfrostBackend{projectPath} _ = do
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
-
-  queryTimeHandle BlockfrostBackend{projectPath} = do
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.runBlockfrostM prj Blockfrost.queryTimeHandle
-
-instance BackendOps ChainBackend where
-  queryGenesisParameters (Direct backend) = queryGenesisParameters backend
-  queryGenesisParameters (Blockfrost backend) = queryGenesisParameters backend
-
-  queryScriptRegistry (Direct backend) txIds = queryScriptRegistry backend txIds
-  queryScriptRegistry (Blockfrost backend) txIds = queryScriptRegistry backend txIds
-
-  queryNetworkId (Direct backend) = queryNetworkId backend
-  queryNetworkId (Blockfrost backend) = queryNetworkId backend
-
-  queryTip (Direct backend) = queryTip backend
-  queryTip (Blockfrost backend) = queryTip backend
-
-  queryUTxO (Direct backend) = queryUTxO backend
-  queryUTxO (Blockfrost backend) = queryUTxO backend
-
-  queryEraHistory (Direct backend) = queryEraHistory backend
-  queryEraHistory (Blockfrost backend) = queryEraHistory backend
-
-  querySystemStart (Direct backend) = querySystemStart backend
-  querySystemStart (Blockfrost backend) = querySystemStart backend
-
-  queryProtocolParameters (Direct backend) = queryProtocolParameters backend
-  queryProtocolParameters (Blockfrost backend) = queryProtocolParameters backend
-
-  queryTimeHandle (Direct backend) = queryTimeHandle backend
-  queryTimeHandle (Blockfrost backend) = queryTimeHandle backend

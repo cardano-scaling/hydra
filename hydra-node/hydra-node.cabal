@@ -55,9 +55,9 @@ library
     Hydra.API.ServerOutputFilter
     Hydra.API.WSServer
     Hydra.Chain
+    Hydra.Chain.Backend
     Hydra.Chain.Blockfrost
     Hydra.Chain.Blockfrost.Client
-    Hydra.Chain.Blockfrost.TimeHandle
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
     Hydra.Chain.Blockfrost
@@ -107,11 +107,13 @@ library
     , cardano-api
     , cardano-binary
     , cardano-crypto-class
+    , cardano-crypto-wrapper
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-babbage:testlib
     , cardano-ledger-binary
+    , cardano-ledger-byron
     , cardano-ledger-conway
     , cardano-ledger-conway:testlib
     , cardano-ledger-core

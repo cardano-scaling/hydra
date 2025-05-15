@@ -17,7 +17,7 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
  )
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
-import Hydra.Options (BlockfrostBackend (..), CardanoChainConfig (..), ChainBackend (..), ChainConfig (..), DirectBackend (..), defaultCardanoChainConfig, defaultDirectBackend)
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), defaultCardanoChainConfig, defaultDirectOptions)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
@@ -99,10 +99,10 @@ chainConfigFor' me targetDir socketOrProjectPath hydraScriptsTxId them contestat
         , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
         , depositDeadline
-        , chainBackend =
+        , chainBackendOptions =
             case socketOrProjectPath of
-              Left projectPath -> Blockfrost BlockfrostBackend{projectPath}
-              Right nodeSocket -> Direct defaultDirectBackend{nodeSocket = nodeSocket}
+              Left projectPath -> Blockfrost BlockfrostOptions{projectPath}
+              Right nodeSocket -> Direct defaultDirectOptions{nodeSocket = nodeSocket}
         }
  where
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType
@@ -120,8 +120,8 @@ modifyConfig fn = \case
 
 setNetworkId :: NetworkId -> ChainConfig -> ChainConfig
 setNetworkId networkId = \case
-  Cardano config@CardanoChainConfig{chainBackend} ->
-    case chainBackend of
-      Direct direct@DirectBackend{} -> Cardano config{chainBackend = Direct direct{networkId = networkId}}
+  Cardano config@CardanoChainConfig{chainBackendOptions} ->
+    case chainBackendOptions of
+      Direct direct@DirectOptions{} -> Cardano config{chainBackendOptions = Direct direct{networkId = networkId}}
       _ -> Cardano config
   x -> x

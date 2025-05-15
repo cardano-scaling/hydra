@@ -134,7 +134,7 @@ commandParser =
       )
 
 data PublishOptions = PublishOptions
-  { chainBackend :: ChainBackend
+  { chainBackendOptions :: ChainBackendOptions
   , publishSigningKey :: FilePath
   }
   deriving stock (Show, Eq, Generic)
@@ -143,30 +143,24 @@ data PublishOptions = PublishOptions
 defaultPublishOptions :: PublishOptions
 defaultPublishOptions =
   PublishOptions
-    { chainBackend = Direct defaultDirectBackend
+    { chainBackendOptions = Direct defaultDirectOptions
     , publishSigningKey = "cardano.sk"
     }
 
-defaultDirectBackend :: DirectBackend
-defaultDirectBackend =
-  DirectBackend
+defaultDirectOptions :: DirectOptions
+defaultDirectOptions =
+  DirectOptions
     { networkId = Testnet (NetworkMagic 42)
     , nodeSocket = "node.socket"
     }
 
-defaultBlockfrostBackend :: BlockfrostBackend
-defaultBlockfrostBackend =
-  BlockfrostBackend
-    { projectPath = "blockfrost-project.txt"
-    }
-
-data ChainBackend
-  = Direct DirectBackend
-  | Blockfrost BlockfrostBackend
+data ChainBackendOptions
+  = Direct DirectOptions
+  | Blockfrost BlockfrostOptions
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
 
-data DirectBackend = DirectBackend
+data DirectOptions = DirectOptions
   { networkId :: NetworkId
   -- ^ Network identifer to which we expect to connect.
   , nodeSocket :: SocketPath
@@ -175,7 +169,7 @@ data DirectBackend = DirectBackend
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
 
-newtype BlockfrostBackend = BlockfrostBackend
+newtype BlockfrostOptions = BlockfrostOptions
   { projectPath :: FilePath
   -- ^ Path to the blockfrost project file
   }
@@ -184,7 +178,7 @@ newtype BlockfrostBackend = BlockfrostBackend
 
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
-  PublishOptions <$> chainBackendParser <*> cardanoSigningKeyFileParser
+  PublishOptions <$> chainBackendOptionsParser <*> cardanoSigningKeyFileParser
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -311,18 +305,18 @@ chainConfigParser =
   Cardano <$> cardanoChainConfigParser
     <|> Offline <$> offlineChainConfigParser
 
-chainBackendParser :: Parser ChainBackend
-chainBackendParser = directBackendParser <|> blockfrostBackendParser
+chainBackendOptionsParser :: Parser ChainBackendOptions
+chainBackendOptionsParser = directOptionsParser <|> blockfrostOptionsParser
  where
-  directBackendParser =
+  directOptionsParser =
     fmap Direct $
-      DirectBackend
+      DirectOptions
         <$> networkIdParser
         <*> nodeSocketParser
 
-  blockfrostBackendParser =
+  blockfrostOptionsParser =
     fmap Blockfrost $
-      BlockfrostBackend
+      BlockfrostOptions
         <$> blockfrostProjectPathParser
 
 newtype GenerateKeyPair = GenerateKeyPair
@@ -414,7 +408,7 @@ data CardanoChainConfig = CardanoChainConfig
   , contestationPeriod :: ContestationPeriod
   , depositDeadline :: DepositDeadline
   -- ^ Deadline to detect deposit tx on-chain.
-  , chainBackend :: ChainBackend
+  , chainBackendOptions :: ChainBackendOptions
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -428,7 +422,7 @@ defaultCardanoChainConfig =
     , startChainFrom = Nothing
     , contestationPeriod = defaultContestationPeriod
     , depositDeadline = defaultDepositDeadline
-    , chainBackend = Direct defaultDirectBackend
+    , chainBackendOptions = Direct defaultDirectOptions
     }
 
 data BlockfrostChainConfig = BlockfrostChainConfig
@@ -455,7 +449,11 @@ instance Arbitrary ChainConfig where
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
       contestationPeriod <- arbitrary
       depositPeriod <- arbitrary
-      chainBackend <- oneof [pure $ Direct defaultDirectBackend, pure $ Blockfrost defaultBlockfrostBackend]
+      chainBackendOptions <-
+        oneof
+          [ pure $ Direct defaultDirectOptions
+          , pure $ Blockfrost BlockfrostOptions{projectPath = "blockfrost-project.txt"}
+          ]
       pure
         CardanoChainConfig
           { hydraScriptsTxId
@@ -464,7 +462,7 @@ instance Arbitrary ChainConfig where
           , startChainFrom
           , contestationPeriod
           , depositPeriod
-          , chainBackend
+          , chainBackendOptions
           }
 
     genOfflineChainConfig = do
@@ -525,7 +523,7 @@ cardanoChainConfigParser =
     <*> optional startChainFromParser
     <*> contestationPeriodParser
     <*> depositDeadlineParser
-    <*> chainBackendParser
+    <*> chainBackendOptionsParser
 
 blockfrostProjectPathParser :: Parser FilePath
 blockfrostProjectPathParser =
@@ -570,7 +568,7 @@ nodeSocketParser =
   strOption
     ( long "node-socket"
         <> metavar "FILE"
-        <> value "node.socket"
+        <> value defaultDirectOptions.nodeSocket
         <> showDefault
         <> help
           "Filepath to local unix domain socket used to communicate with \
@@ -993,12 +991,12 @@ toArgs
           , startChainFrom
           , contestationPeriod
           , depositDeadline
-          , chainBackend
+          , chainBackendOptions
           } ->
-          ( case chainBackend of
-              Blockfrost BlockfrostBackend{projectPath} ->
+          ( case chainBackendOptions of
+              Blockfrost BlockfrostOptions{projectPath} ->
                 ["--blockfrost", projectPath]
-              Direct DirectBackend{networkId, nodeSocket} ->
+              Direct DirectOptions{networkId, nodeSocket} ->
                 toArgNetworkId networkId
                   <> toArgNodeSocket nodeSocket
           )

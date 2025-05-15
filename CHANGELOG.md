@@ -30,6 +30,8 @@ changes.
   - Change to the `ReqSn` message in the Hydra network protocol
   - Added `DepositExpired` for when a deposit was deemed expired.
 
+- Enable blockfrost integration for hydra-node.
+
 ## [0.21.0] - 2025-04-28
 
 - New metric for counting the number of active peers: `hydra_head_peers_connected`
@@ -48,8 +50,6 @@ changes.
     ETCD_AUTO_COMPACTION_MODE=periodic
     ETCD_AUTO_COMPACTION_RETENTION=168h
     ```
-
-- Enable blockfrost integration for hydra-node.
 
 - Changed default contestation period to 600 seconds and deposit deadline to 3600 seconds.
 

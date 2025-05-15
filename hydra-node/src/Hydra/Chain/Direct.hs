@@ -9,6 +9,7 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
+import Cardano.Api.Consensus (EraMismatch (..))
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
@@ -23,6 +24,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
+  AnyCardanoEra (..),
   BlockInMode (..),
   CardanoEra (..),
   ChainPoint (..),
@@ -34,6 +36,9 @@ import Hydra.Cardano.Api (
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
+  NetworkId,
+  QueryInShelleyBasedEra (..),
+  SocketPath,
   Tx,
   TxInMode (..),
   TxValidationErrorInCardanoMode,
@@ -51,11 +56,11 @@ import Hydra.Chain (
   PostTxError (FailedToPostTx, failureReason),
   currentState,
  )
-import Hydra.Chain.Blockfrost qualified as Blockfrost
-import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
+import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler,
   DirectChainLog (..),
@@ -69,15 +74,16 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
  )
+import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   WalletInfoOnChain (..),
   newTinyWallet,
  )
+import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node (BackendOps (..))
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (BlockfrostBackend (..), CardanoChainConfig (..), ChainBackend (..), DirectBackend (..))
+import Hydra.Options (CardanoChainConfig (..), DirectOptions (..))
 import Hydra.Tx (Party)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
@@ -94,17 +100,61 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
  )
 import Text.Printf (printf)
 
+newtype DirectBackend = DirectBackend {options :: DirectOptions}
+
+instance ChainBackend DirectBackend where
+  queryGenesisParameters (DirectBackend DirectOptions{networkId, nodeSocket}) =
+    liftIO $ CardanoClient.queryGenesisParameters networkId nodeSocket CardanoClient.QueryTip
+
+  queryScriptRegistry (DirectBackend DirectOptions{networkId, nodeSocket}) =
+    ScriptRegistry.queryScriptRegistry networkId nodeSocket
+
+  queryNetworkId (DirectBackend DirectOptions{networkId}) = pure networkId
+
+  queryTip (DirectBackend DirectOptions{networkId, nodeSocket}) =
+    liftIO $ CardanoClient.queryTip networkId nodeSocket
+
+  queryUTxO (DirectBackend DirectOptions{networkId, nodeSocket}) addresses =
+    liftIO $ CardanoClient.queryUTxO networkId nodeSocket CardanoClient.QueryTip addresses
+
+  queryEraHistory (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
+    liftIO $ CardanoClient.queryEraHistory networkId nodeSocket queryPoint
+
+  querySystemStart (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
+    liftIO $ CardanoClient.querySystemStart networkId nodeSocket queryPoint
+
+  queryProtocolParameters (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
+    liftIO $ CardanoClient.runQueryExpr networkId nodeSocket queryPoint $ do
+      AnyCardanoEra era <- CardanoClient.queryCurrentEraExpr
+      case era of
+        ConwayEra{} -> CardanoClient.queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
+        _ -> liftIO . throwIO $ CardanoClient.QueryEraMismatchException EraMismatch{ledgerEraName = show era, otherEraName = "Conway"}
+  queryStakePools (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
+    liftIO $ CardanoClient.queryStakePools networkId nodeSocket queryPoint
+
+  queryUTxOFor (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint vk =
+    liftIO $ CardanoClient.queryUTxOFor networkId nodeSocket queryPoint vk
+
+  submitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx =
+    liftIO $ CardanoClient.submitTransaction networkId nodeSocket tx
+
+  awaitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx =
+    liftIO $ CardanoClient.awaitTransaction networkId nodeSocket tx
+
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
+  forall backend.
+  ChainBackend backend =>
+  backend ->
   CardanoChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
   -- | The current running era we can use to query the node
   IO ChainContext
-loadChainContext config party = do
+loadChainContext backend config party = do
   (vk, _) <- readKeyPair cardanoSigningKey
-  scriptRegistry <- queryScriptRegistry chainBackend hydraScriptsTxId
-  networkId <- queryNetworkId chainBackend
+  scriptRegistry <- queryScriptRegistry backend hydraScriptsTxId
+  networkId <- queryNetworkId backend
   pure $
     ChainContext
       { networkId
@@ -114,31 +164,33 @@ loadChainContext config party = do
       }
  where
   CardanoChainConfig
-    { chainBackend
-    , hydraScriptsTxId
+    { hydraScriptsTxId
     , cardanoSigningKey
     } = config
 
 mkTinyWallet ::
+  forall backend.
+  ChainBackend backend =>
+  backend ->
   Tracer IO DirectChainLog ->
   CardanoChainConfig ->
   IO (TinyWallet IO)
-mkTinyWallet tracer config = do
+mkTinyWallet backend tracer config = do
   keyPair <- readKeyPair cardanoSigningKey
-  networkId <- queryNetworkId chainBackend
+  networkId <- queryNetworkId backend
   newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
  where
-  CardanoChainConfig{chainBackend, cardanoSigningKey} = config
+  CardanoChainConfig{cardanoSigningKey} = config
 
-  queryEpochInfo = toEpochInfo <$> queryEraHistory chainBackend QueryTip
+  queryEpochInfo = toEpochInfo <$> queryEraHistory backend QueryTip
 
-  querySomePParams = queryProtocolParameters chainBackend QueryTip
+  querySomePParams = queryProtocolParameters backend QueryTip
   queryWalletInfo queryPoint address = do
     point <- case queryPoint of
       QueryAt point -> pure point
-      QueryTip -> queryTip chainBackend
-    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO chainBackend [address]
-    systemStart <- querySystemStart chainBackend QueryTip
+      QueryTip -> queryTip backend
+    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO backend [address]
+    systemStart <- querySystemStart backend QueryTip
     pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
 
   toEpochInfo :: EraHistory -> EpochInfo (Either Text)
@@ -147,6 +199,7 @@ mkTinyWallet tracer config = do
       Consensus.interpreterToEpochInfo interpreter
 
 withDirectChain ::
+  DirectBackend ->
   Tracer IO DirectChainLog ->
   CardanoChainConfig ->
   ChainContext ->
@@ -154,17 +207,17 @@ withDirectChain ::
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx wallet chainStateHistory callback action = do
+withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip chainBackend) pure $ do
+  chainPoint <- maybe (queryTip backend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
 
-  let getTimeHandle = queryTimeHandle chainBackend
+  let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
   let chainHandle =
         mkChain
@@ -179,30 +232,26 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
   res <-
     race
       ( handle onIOException $
-          case chainBackend of
-            Direct DirectBackend{networkId, nodeSocket} ->
-              connectToLocalNode
-                (connectInfo networkId nodeSocket)
-                (clientProtocols chainPoint queue handler)
-            Blockfrost BlockfrostBackend{projectPath} -> do
-              prj <- Blockfrost.projectFromFile projectPath
-              Blockfrost.blockfrostChain tracer queue prj chainPoint handler wallet
+          connectToLocalNode
+            (connectInfo networkId nodeSocket)
+            (clientProtocols chainPoint queue handler)
       )
       (action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  CardanoChainConfig{chainBackend, startChainFrom} = config
+  DirectBackend{options = DirectOptions{networkId, nodeSocket}} = backend
+  CardanoChainConfig{startChainFrom} = config
 
-  connectInfo networkId nodeSocket =
+  connectInfo networkId' nodeSocket' =
     LocalNodeConnectInfo
       { -- REVIEW: This was 432000 before, but all usages in the
         -- cardano-node repository are using this value. This is only
         -- relevant for the Byron era.
         localConsensusModeParams = CardanoModeParams (EpochSlots 21600)
-      , localNodeNetworkId = networkId
-      , localNodeSocketPath = nodeSocket
+      , localNodeNetworkId = networkId'
+      , localNodeSocketPath = nodeSocket'
       }
 
   clientProtocols point queue handler =
@@ -224,16 +273,20 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
   onIOException :: IOException -> IO ()
   onIOException ioException =
     throwIO $
-      ConnectException
+      DirectConnectException
         { ioException
+        , nodeSocket
+        , networkId
         }
 
-newtype ConnectException = ConnectException
+data DirectConnectException = DirectConnectException
   { ioException :: IOException
+  , nodeSocket :: SocketPath
+  , networkId :: NetworkId
   }
   deriving stock (Show)
 
-instance Exception ConnectException
+instance Exception DirectConnectException
 
 -- | Thrown when the user-provided custom point of intersection is unknown to
 -- the local node. This may happen if users shut down their node quickly after

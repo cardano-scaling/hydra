@@ -2,124 +2,164 @@ module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Slotting.EpochInfo.API (EpochInfo, hoistEpochInfo)
-import Control.Concurrent.Class.MonadSTM (newTVarIO, putTMVar, readTQueue, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (newEmptyTMVar, newTQueueIO, newTVarIO, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
+import Control.Exception (IOException)
 import Control.Retry (constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
-  EraHistory (..),
   Hash,
-  PaymentCredential (PaymentCredentialByKey),
   SlotNo (..),
-  StakeAddressReference (NoStakeAddress),
-  SystemStart (..),
   Tx,
   deserialiseFromCBOR,
   getTxBody,
   getTxId,
-  makeShelleyAddress,
   proxyToAsType,
-  runExcept,
   serialiseToRawBytes,
-  toLedgerUTxO,
-  verificationKeyHash,
  )
-import Hydra.Chain (PostTxError (..))
-import Hydra.Chain.Blockfrost.Client (
-  queryEraHistory,
-  queryGenesisParameters,
-  queryProtocolParameters,
-  queryScriptRegistry,
-  queryTip,
-  queryUTxO,
-  runBlockfrostM,
-  toCardanoNetworkId,
- )
+import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), currentState)
+import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   DirectChainLog (..),
+  chainSyncHandler,
+  mkChain,
+  newLocalChainState,
  )
-import Hydra.Chain.Direct.State (ChainContext (..))
-import Hydra.Chain.Direct.Wallet (TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
+import Hydra.Chain.Direct.State (ChainContext, ChainStateAt (..))
+import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
+import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node.Util (
-  readKeyPair,
- )
-import Hydra.Chain.Direct.Wallet (TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
-import Hydra.Logging (Tracer)
-import Hydra.Options (BlockfrostChainConfig (..))
-import Hydra.Tx (Party)
-import Ouroboros.Consensus.HardFork.History qualified as Consensus
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..))
 
--- | Build the 'ChainContext' from a 'BlockfrostChainConfig and additional information.
-loadChainContext ::
-  BlockfrostChainConfig ->
-  -- | Hydra party of our hydra node.
-  Party ->
-  IO ChainContext
-loadChainContext config party = do
-  (vk, _) <- readKeyPair cardanoSigningKey
-  prj <- Blockfrost.projectFromFile projectPath
-  runBlockfrostM prj $ do
-    scriptRegistry <- queryScriptRegistry hydraScriptsTxId
+newtype BlockfrostBackend = BlockfrostBackend {options :: BlockfrostOptions}
+
+instance ChainBackend BlockfrostBackend where
+  queryGenesisParameters (BlockfrostBackend BlockfrostOptions{projectPath}) = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+
+  queryScriptRegistry (BlockfrostBackend BlockfrostOptions{projectPath}) txIds = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry txIds
+
+  queryNetworkId (BlockfrostBackend BlockfrostOptions{projectPath}) = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    -- TODO: This calls to queryGenesisParameters again, but we only need the network magic
+    Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+    pure $ Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+
+  queryTip (BlockfrostBackend BlockfrostOptions{projectPath}) = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.runBlockfrostM prj Blockfrost.queryTip
+
+  queryUTxO (BlockfrostBackend BlockfrostOptions{projectPath}) addresses = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.Genesis
       { _genesisNetworkMagic
+      , _genesisSystemStart
       } <-
-      queryGenesisParameters
-    let networkId = toCardanoNetworkId _genesisNetworkMagic
-    pure $
-      ChainContext
-        { networkId
-        , ownVerificationKey = vk
-        , ownParty = party
-        , scriptRegistry
-        }
- where
-  BlockfrostChainConfig
-    { projectPath
-    , hydraScriptsTxId
-    , cardanoSigningKey
-    } = config
+      Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+    let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO networkId addresses
 
-mkTinyWallet ::
+  queryEraHistory (BlockfrostBackend BlockfrostOptions{projectPath}) _ = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.runBlockfrostM prj Blockfrost.queryEraHistory
+
+  querySystemStart (BlockfrostBackend BlockfrostOptions{projectPath}) _ = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.runBlockfrostM prj Blockfrost.querySystemStart
+
+  queryProtocolParameters (BlockfrostBackend BlockfrostOptions{projectPath}) _ = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
+
+  queryStakePools (BlockfrostBackend BlockfrostOptions{projectPath}) _ = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.runBlockfrostM prj Blockfrost.queryStakePools
+
+  queryUTxOFor (BlockfrostBackend BlockfrostOptions{projectPath}) _ vk = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor vk
+
+  submitTransaction (BlockfrostBackend BlockfrostOptions{projectPath}) tx = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    void $ Blockfrost.runBlockfrostM prj $ Blockfrost.submitTransaction tx
+
+  awaitTransaction (BlockfrostBackend BlockfrostOptions{projectPath}) tx = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction tx
+
+withBlockfrostChain ::
+  BlockfrostBackend ->
   Tracer IO DirectChainLog ->
-  BlockfrostChainConfig ->
-  IO (TinyWallet IO)
-mkTinyWallet tracer config = do
-  keyPair@(vk, _) <- readKeyPair cardanoSigningKey
-  prj <- Blockfrost.projectFromFile projectPath
-  runBlockfrostM prj $ do
-    Blockfrost.Genesis{_genesisSystemStart, _genesisNetworkMagic} <- queryGenesisParameters
-    let networkId = toCardanoNetworkId _genesisNetworkMagic
-    let address = makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
-    eraHistory <- queryEraHistory
-    let queryEpochInfo = pure $ toEpochInfo eraHistory
-    -- NOTE: we don't need to provide address here since it is derived from the
-    -- keypair but we still want to keep the same wallet api.
-    let queryWalletInfo queryPoint _address = runBlockfrostM prj $ do
-          point <- case queryPoint of
-            QueryAt point -> pure point
-            QueryTip -> queryTip
-          utxo <- queryUTxO networkId [address]
-          let walletUTxO = Ledger.unUTxO $ toLedgerUTxO utxo
-          let systemStart = SystemStart $ posixSecondsToUTCTime _genesisSystemStart
-          pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
-    let querySomePParams = runBlockfrostM prj queryProtocolParameters
-    liftIO $ newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
- where
-  BlockfrostChainConfig{projectPath, cardanoSigningKey} = config
+  CardanoChainConfig ->
+  ChainContext ->
+  TinyWallet IO ->
+  -- | Chain state loaded from persistence.
+  ChainStateHistory Tx ->
+  ChainComponent Tx IO a
+withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
+  -- Last known point on chain as loaded from persistence.
+  let persistedPoint = recordedAt (currentState chainStateHistory)
+  queue <- newTQueueIO
+  -- Select a chain point from which to start synchronizing
+  chainPoint <- maybe (queryTip backend) pure $ do
+    (max <$> startChainFrom <*> persistedPoint)
+      <|> persistedPoint
+      <|> startChainFrom
 
-  toEpochInfo :: EraHistory -> EpochInfo (Either Text)
-  toEpochInfo (EraHistory interpreter) =
-    hoistEpochInfo (first show . runExcept) $
-      Consensus.interpreterToEpochInfo interpreter
+  let getTimeHandle = queryTimeHandle backend
+  localChainState <- newLocalChainState chainStateHistory
+  let chainHandle =
+        mkChain
+          tracer
+          getTimeHandle
+          wallet
+          ctx
+          localChainState
+          (submitTx queue)
+
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
+  res <-
+    race
+      ( handle onIOException $ do
+          prj <- Blockfrost.projectFromFile projectPath
+          blockfrostChain tracer queue prj chainPoint handler wallet
+      )
+      (action chainHandle)
+  case res of
+    Left () -> error "'connectTo' cannot terminate but did?"
+    Right a -> pure a
+ where
+  BlockfrostBackend{options = BlockfrostOptions{projectPath}} = backend
+  CardanoChainConfig{startChainFrom} = config
+
+  submitTx queue tx = do
+    response <- atomically $ do
+      response <- newEmptyTMVar
+      writeTQueue queue (tx, response)
+      return response
+    atomically (takeTMVar response)
+      >>= maybe (pure ()) throwIO
+
+  onIOException :: IOException -> IO ()
+  onIOException ioException =
+    throwIO $
+      BlockfrostConnectException
+        { ioException
+        }
+
+newtype BlockfrostConnectException = BlockfrostConnectException
+  { ioException :: IOException
+  }
+  deriving stock (Show)
+
+instance Exception BlockfrostConnectException
 
 blockfrostChain ::
   (MonadIO m, MonadCatch m, MonadAsync m, MonadDelay m) =>
@@ -131,26 +171,34 @@ blockfrostChain ::
   TinyWallet m ->
   m ()
 blockfrostChain tracer queue prj chainPoint handler wallet = do
+  forever $
+    race_
+      (blockfrostChainFollow tracer prj chainPoint handler wallet)
+      (blockfrostSubmissionClient prj tracer queue)
+
+blockfrostChainFollow ::
+  (MonadIO m, MonadCatch m, MonadSTM m, MonadDelay m) =>
+  Tracer m DirectChainLog ->
+  Blockfrost.Project ->
+  ChainPoint ->
+  ChainSyncHandler m ->
+  TinyWallet m ->
+  m ()
+blockfrostChainFollow tracer prj chainPoint handler wallet = do
   Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <- Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
 
   Blockfrost.Block{_blockHash = (Blockfrost.BlockHash genesisBlockHash)} <-
     Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 0))
 
-  let blockTime = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
+  let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
   let blockHash = fromChainPoint chainPoint genesisBlockHash
 
   stateTVar <- newTVarIO blockHash
-  forever $
-    race_
-      (blockfrostChainFollow tracer prj blockTime stateTVar handler wallet)
-      (blockfrostSubmissionClient prj tracer queue)
 
-blockfrostChainFollow :: (MonadIO m, MonadCatch m, MonadSTM m, MonadDelay m) => Tracer m DirectChainLog -> Blockfrost.Project -> DiffTime -> TVar m Blockfrost.BlockHash -> ChainSyncHandler m -> TinyWallet m -> m ()
-blockfrostChainFollow tracer prj blockTime stateTVar handler wallet = do
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
-      loop tracer prj handler wallet 1 stateTVar
+      loop stateTVar
         `catch` \(ex :: APIBlockfrostError) ->
           pure $ Left ex
  where
@@ -160,20 +208,12 @@ blockfrostChainFollow tracer prj blockTime stateTVar handler wallet = do
 
   retryPolicy blockTime' = constantDelay (truncate blockTime' * 1000 * 1000)
 
-loop ::
-  (MonadIO m, MonadThrow m, MonadSTM m, MonadDelay m) =>
-  Tracer m DirectChainLog ->
-  Blockfrost.Project ->
-  ChainSyncHandler m ->
-  TinyWallet m ->
-  Integer ->
-  TVar m Blockfrost.BlockHash ->
-  m a
-loop tracer prj handler wallet blockConfirmations stateTVar = do
-  current <- readTVarIO stateTVar
-  nextHash <- rollForward tracer prj handler wallet blockConfirmations current
-  atomically $ writeTVar stateTVar nextHash
-  loop tracer prj handler wallet blockConfirmations stateTVar
+  loop stateTVar = do
+    current <- readTVarIO stateTVar
+    nextBlockHash <- rollForward tracer prj handler wallet 1 current
+    threadDelay 1
+    atomically $ writeTVar stateTVar nextBlockHash
+    loop stateTVar
 
 rollForward ::
   (MonadIO m, MonadThrow m) =>
@@ -233,7 +273,6 @@ blockfrostSubmissionClient ::
   m ()
 blockfrostSubmissionClient prj tracer queue = bfClient
  where
-  bfClient :: m ()
   bfClient = do
     (tx, response) <- atomically $ readTQueue queue
     let txId = getTxId $ getTxBody tx

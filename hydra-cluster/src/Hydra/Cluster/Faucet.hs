@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module Hydra.Cluster.Faucet where
 
 import Hydra.Cardano.Api
@@ -26,12 +28,14 @@ import Data.Set qualified as Set
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
  )
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
+import Hydra.Options (DirectOptions (..))
 import Hydra.Tx (balance, txId)
 
 data FaucetException
@@ -255,6 +259,6 @@ retryOnExceptions tracer action =
 publishHydraScriptsAs :: RunningNode -> Actor -> IO [TxId]
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
-  txIds <- publishHydraScripts networkId nodeSocket sk
+  txIds <- publishHydraScripts (DirectBackend $ DirectOptions{networkId, nodeSocket}) sk
   mapM_ (awaitTransactionId networkId nodeSocket) txIds
   pure txIds

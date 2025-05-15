@@ -10,7 +10,7 @@
             "chainConfig": {
                 "cardanoSigningKey": "a/a/a/b/b.sk",
                 "cardanoVerificationKeys": [],
-                "chainBackend": {
+                "chainBackendOptions": {
                     "contents": {
                         "projectPath": "blockfrost-project.txt"
                     },
@@ -98,7 +98,7 @@
                     "b/c.vk",
                     "a.vk"
                 ],
-                "chainBackend": {
+                "chainBackendOptions": {
                     "contents": {
                         "projectPath": "blockfrost-project.txt"
                     },
@@ -187,7 +187,7 @@
                     "a.vk",
                     "c/c.vk"
                 ],
-                "chainBackend": {
+                "chainBackendOptions": {
                     "contents": {
                         "networkId": {
                             "magic": 42,
@@ -269,7 +269,7 @@
                     "a.vk",
                     "b.vk"
                 ],
-                "chainBackend": {
+                "chainBackendOptions": {
                     "contents": {
                         "projectPath": "blockfrost-project.txt"
                     },

@@ -578,10 +578,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   Cardano
                     defaultCardanoChainConfig
                       { cardanoSigningKey = "not-existing.sk"
-                      , chainBackend =
+                      , chainBackendOptions =
                           Direct
-                            DirectBackend
-                              { networkId = Hydra.Options.networkId defaultDirectBackend
+                            DirectOptions
+                              { networkId = Hydra.Options.networkId defaultDirectOptions
                               , nodeSocket = nodeSocket
                               }
                       }

@@ -16,7 +16,9 @@ import Hydra.Cardano.Api (
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
+import Hydra.Chain.Backend (ChainBackend (queryGenesisParameters))
+import Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
+import Hydra.Chain.Direct (DirectBackend (..), loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
@@ -25,7 +27,6 @@ import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Node (
-  BackendOps (queryGenesisParameters),
   HydraNode (eventSinks),
   chainStateHistory,
   connect,
@@ -40,6 +41,7 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
   CardanoChainConfig (..),
+  ChainBackendOptions (..),
   ChainConfig (..),
   InvalidOptions (..),
   LedgerConfig (..),
@@ -124,10 +126,18 @@ run opts = do
   prepareChainComponent tracer Environment{party, otherParties} = \case
     Offline cfg ->
       pure $ withOfflineChain cfg party otherParties
-    Cardano cfg@CardanoChainConfig{} -> do
-      ctx <- loadChainContext cfg party
-      wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
-      pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
+    Cardano cfg@CardanoChainConfig{chainBackendOptions} -> do
+      case chainBackendOptions of
+        Direct directOptions -> do
+          let directBackend = DirectBackend directOptions
+          wallet <- mkTinyWallet directBackend (contramap DirectChain tracer) cfg
+          ctx <- loadChainContext directBackend cfg party
+          pure $ withDirectChain directBackend (contramap DirectChain tracer) cfg ctx wallet
+        Blockfrost blockfrostOptions -> do
+          let blockfrostBackend = BlockfrostBackend blockfrostOptions
+          wallet <- mkTinyWallet blockfrostBackend (contramap DirectChain tracer) cfg
+          ctx <- loadChainContext blockfrostBackend cfg party
+          pure $ withBlockfrostChain blockfrostBackend (contramap DirectChain tracer) cfg ctx wallet
 
   RunOptions
     { verbosity
@@ -151,8 +161,11 @@ getGlobalsForChain = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
     loadGenesisFile ledgerGenesisFile
       >>= newGlobals
-  Cardano CardanoChainConfig{chainBackend} ->
-    queryGenesisParameters chainBackend >>= newGlobals
+  Cardano CardanoChainConfig{chainBackendOptions} ->
+    case chainBackendOptions of
+      Direct directOptions -> queryGenesisParameters (DirectBackend directOptions)
+      Blockfrost blockfrostOptions -> queryGenesisParameters (BlockfrostBackend blockfrostOptions)
+      >>= newGlobals
 
 data GlobalsTranslationException = GlobalsTranslationException
   deriving stock (Eq, Show)

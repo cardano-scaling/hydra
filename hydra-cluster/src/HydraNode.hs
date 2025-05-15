@@ -26,7 +26,7 @@ import Hydra.HeadLogic.State (SeenSnapshot)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
 import Hydra.Network qualified as Network
-import Hydra.Options (BlockfrostBackend (..), CardanoChainConfig (..), ChainBackend (..), ChainConfig (..), DirectBackend (..), LedgerConfig (..), RunOptions (..), defaultCardanoChainConfig, defaultDirectBackend, nodeSocket, toArgs)
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
@@ -318,9 +318,9 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
                 , cardanoVerificationKeys
                 , contestationPeriod
                 , depositDeadline
-                , chainBackend =
+                , chainBackendOptions =
                     Direct
-                      defaultDirectBackend
+                      defaultDirectOptions
                         { nodeSocket = nodeSocket
                         }
                 }
@@ -349,12 +349,12 @@ preparePParams chainConfig stateDir paramsDecorator = do
     Offline _ ->
       readConfigFile "protocol-parameters.json"
         >>= writeFileBS cardanoLedgerProtocolParametersFile
-    Cardano CardanoChainConfig{chainBackend} -> do
-      protocolParameters <- case chainBackend of
-        Direct DirectBackend{networkId, nodeSocket} ->
+    Cardano CardanoChainConfig{chainBackendOptions} -> do
+      protocolParameters <- case chainBackendOptions of
+        Direct DirectOptions{networkId, nodeSocket} ->
           -- NOTE: This implicitly tests of cardano-cli with hydra-node
           cliQueryProtocolParameters nodeSocket networkId
-        Blockfrost BlockfrostBackend{projectPath} -> do
+        Blockfrost BlockfrostOptions{projectPath} -> do
           prj <- Blockfrost.projectFromFile projectPath
           toJSON <$> Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
       Aeson.encodeFile cardanoLedgerProtocolParametersFile $
@@ -488,12 +488,12 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
       Offline _ ->
         readConfigFile "protocol-parameters.json"
           >>= writeFileBS cardanoLedgerProtocolParametersFile
-      Cardano CardanoChainConfig{chainBackend} -> do
-        protocolParameters <- case chainBackend of
-          Direct DirectBackend{networkId, nodeSocket} ->
+      Cardano CardanoChainConfig{chainBackendOptions} -> do
+        protocolParameters <- case chainBackendOptions of
+          Direct DirectOptions{networkId, nodeSocket} ->
             -- NOTE: This implicitly tests of cardano-cli with hydra-node
             cliQueryProtocolParameters nodeSocket networkId
-          Blockfrost BlockfrostBackend{projectPath} -> do
+          Blockfrost BlockfrostOptions{projectPath} -> do
             prj <- Blockfrost.projectFromFile projectPath
             toJSON <$> Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
 
