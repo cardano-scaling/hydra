@@ -1,24 +1,22 @@
 {
     "samples": [
         {
-            "contents": {
-                "fanoutUTxO": {
-                    "0101000001000101000001010100000000010001000100010100010100000100#27": {
-                        "address": "addr_test1zzxhc2msm57vhj2cppjpeszrhlz5wrkpk8t3fta4g2zgm8queaetzrqdj5dyhrz0f7zly3djrn6hz8ryc9j4dp4gltgs8yj9t0",
-                        "datum": null,
-                        "datumhash": null,
-                        "inlineDatum": null,
-                        "inlineDatumRaw": null,
-                        "referenceScript": null,
-                        "value": {
-                            "lovelace": 45000000000000000
-                        }
+            "fanoutUTxO": {
+                "0100010001000101010100010100000001010100010000010101000100010000#32": {
+                    "address": "addr_test1xrava6lrhn35xzd6cuj0hjtxf4z5rkqvlfkzrmjk0vjw6y0f7ygnds34emwka4mvff4xzay23m4eg2mq03fehu9j8ehsjhm4n0",
+                    "datum": null,
+                    "datumhash": "7692a35fbd3f26d602abe671bf0a4445900211184e62f23cf38a764362e3b3ed",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 45000000000000000
                     }
-                },
-                "headId": "01010000000001000101000101000000"
+                }
             },
+            "headId": "01010001000001000001000100000100",
             "tag": "Fanout"
         }
     ],
-    "seed": -864926882
+    "seed": 702186404
 }
