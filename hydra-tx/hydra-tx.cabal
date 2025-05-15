@@ -94,6 +94,7 @@ library
     , hydra-plutus-extras
     , hydra-prelude
     , lens
+    , lens-aeson
     , mono-traversable
     , ouroboros-consensus
     , ouroboros-consensus-cardano

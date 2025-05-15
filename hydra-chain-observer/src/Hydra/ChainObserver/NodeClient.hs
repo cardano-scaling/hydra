@@ -38,11 +38,7 @@ data ChainObservation
   = ChainObservation
   { point :: ChainPoint
   , blockNo :: BlockNo
-  , -- FIXME: This breaks the explorer interface. Either move 'HeadObservation'
-    -- into similar form, or create a new similar type. Cannot use 'OnChainTx'
-    -- from hydra-node as that contains converted time and requires a
-    -- 'TimeHandle' to create.
-    observed :: HeadObservation
+  , observed :: HeadObservation
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
