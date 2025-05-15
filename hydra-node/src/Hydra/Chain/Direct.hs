@@ -52,7 +52,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   ChainComponent,
   ChainStateHistory,
-  PostTxError (FailedToPostTx, failureReason),
+  PostTxError (..),
   currentState,
  )
 import Hydra.Chain.CardanoClient (
@@ -366,7 +366,7 @@ txSubmissionClient tracer queue =
             SubmitFail err -> do
               -- XXX: Very complicated / opaque show instance and no unpacking
               -- possible because of missing data constructors from cardano-api
-              let postTxError = FailedToPostTx{failureReason = show err}
+              let postTxError = FailedToPostTx{failureReason = show err, failingTx = tx}
               traceWith tracer PostingFailed{tx, postTxError}
               -- NOTE: Delay callback in case our transaction got invalidated
               -- because of a transaction seen in a block. This gives the

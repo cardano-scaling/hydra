@@ -199,14 +199,15 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
   let headUTxO = getKnownUTxO ctx <> utxo <> userUTxO
   coverFee headUTxO partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
-      throwIO (NoFuelUTXOFound :: PostTxError Tx)
+      throwIO NoFuelUTXOFound{failingTx = partialTx}
     Left ErrNotEnoughFunds{} ->
-      throwIO (NotEnoughFuel :: PostTxError Tx)
+      throwIO NotEnoughFuel{failingTx = partialTx}
     Left ErrScriptExecutionFailed{redeemerPointer, scriptFailure} ->
       throwIO
         ( ScriptFailedInWallet
             { redeemerPtr = redeemerPointer
             , failureReason = scriptFailure
+            , failingTx = partialTx
             } ::
             PostTxError Tx
         )
@@ -215,7 +216,7 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
         ( InternalWalletError
             { headUTxO
             , reason = show e
-            , tx = partialTx
+            , failingTx = partialTx
             } ::
             PostTxError Tx
         )

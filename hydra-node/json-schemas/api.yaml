@@ -2261,24 +2261,6 @@ components:
               $ref: "api.yaml#/components/schemas/ChainState"
             txTried:
               $ref: "api.yaml#/components/schemas/PostChainTx"
-        - title: PlutusValidationFailed
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          - plutusFailure
-          - plutusDebugInfo
-          description: >-
-            An internal transaction created by the Hydra node failed with Plutus errors. This should not happen in principle
-            and may disappear in the final version but is currently useful as a debugging mean.
-          properties:
-            tag:
-              type: string
-              enum: ["PlutusValidationFailed"]
-            plutusFailure:
-              type: string
-            plutusDebugInfo:
-              type: string
         - title: FailedToPostTx
           type: object
           additionalProperties: false
