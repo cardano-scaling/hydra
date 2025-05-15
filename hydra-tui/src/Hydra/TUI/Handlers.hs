@@ -235,7 +235,7 @@ handleHydraEventsInfo = \case
   Update (ApiClientMessage API.PostTxOnChainFailed{postTxError}) -> do
     time <- liftIO getCurrentTime
     case postTxError of
-      NotEnoughFuel ->
+      NotEnoughFuel _ ->
         warn time "Not enough Fuel. Please provide more to the internal wallet and try again."
       InternalWalletError{reason} ->
         warn time reason

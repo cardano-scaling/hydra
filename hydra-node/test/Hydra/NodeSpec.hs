@@ -11,13 +11,13 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
+import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
 import Hydra.HeadLogic (Input (..))
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
-import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
 import Hydra.Logging qualified as Logging
 import Hydra.Network (Network (..))
@@ -236,16 +236,18 @@ spec = parallel $ do
     it "notifies client when postTx throws PostTxError" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let inputs = [ClientInput Init]
+        let tx = aValidTx 1
+        let expectedError = FailedToPostTx{failureReason = "unknown failure", failingTx = tx}
         (node, getServerOutputs) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
-            >>= throwExceptionOnPostTx NoSeedInput
+            >>= throwExceptionOnPostTx expectedError
             >>= recordServerOutputs
 
         runToCompletion node
 
         outputs <- getServerOutputs
         let isPostTxOnChainFailed = \case
-              Right PostTxOnChainFailed{postTxError} -> postTxError == NoSeedInput
+              Right PostTxOnChainFailed{postTxError} -> postTxError == expectedError
               _ -> False
         any isPostTxOnChainFailed outputs `shouldBe` True
 
