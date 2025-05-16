@@ -68,7 +68,7 @@
               --testnet-magic 42 \
               --node-socket devnet/node.socket \
               --persistence-dir devnet/persistence/alice \
-              --contestation-period 3
+              --contestation-period 3s
           '';
         };
         ready_log_line = "NodeIsLeader";
@@ -99,7 +99,7 @@
             --testnet-magic 42 \
             --node-socket devnet/node.socket \
             --persistence-dir devnet/persistence/bob \
-            --contestation-period 3
+            --contestation-period 3s
           '';
         };
         ready_log_line = "NodeIsLeader";
@@ -130,7 +130,7 @@
             --testnet-magic 42 \
             --node-socket devnet/node.socket \
             --persistence-dir devnet/persistence/carol \
-            --contestation-period 3
+            --contestation-period 3s
           '';
         };
         ready_log_line = "NodeIsLeader";

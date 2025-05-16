@@ -1255,12 +1255,15 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
       refuelIfNeeded tracer node Bob 30_000_000
       -- NOTE: Directly expire deposits
       contestationPeriod <- CP.fromNominalDiffTime 1
+      let depositPeriod = 1
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
+            . modifyConfig (\c -> c{depositPeriod})
       bobChainConfig <-
         chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId
+            . modifyConfig (\c -> c{depositPeriod})
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         headId <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
