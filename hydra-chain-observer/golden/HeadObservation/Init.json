@@ -1,0 +1,19 @@
+{
+    "samples": [
+        {
+            "headId": "00000101000101000000010100000000",
+            "headParameters": {
+                "contestationPeriod": 17453,
+                "parties": [
+                    {
+                        "vkey": "a4f7aea56e283df223520b668fa52e46374efe132b80737951b9dbd8b911831b"
+                    }
+                ]
+            },
+            "headSeed": "00000001000100000101010101010000",
+            "participants": [],
+            "tag": "Init"
+        }
+    ],
+    "seed": 1341342007
+}

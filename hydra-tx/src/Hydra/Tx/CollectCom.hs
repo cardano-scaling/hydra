@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Hydra.Tx.CollectCom where
@@ -11,11 +12,7 @@ import Data.ByteString qualified as BS
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Builder (
-  unsafeBuildTransaction,
- )
+import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
 import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
@@ -101,26 +98,27 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
 
 -- * Observation
 
--- | Representation of the Head output after a CollectCom transaction.
-data OpenThreadOutput = OpenThreadOutput
-  { openThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , openContestationPeriod :: OnChain.ContestationPeriod
-  , openParties :: [OnChain.Party]
-  }
-  deriving stock (Eq, Show, Generic)
-
 newtype UTxOHash = UTxOHash ByteString
   deriving stock (Eq, Show, Generic)
+  deriving (ToJSON, FromJSON) via (UsingRawBytesHex UTxOHash)
+
+instance HasTypeProxy UTxOHash where
+  data AsType UTxOHash = AsUTxOHash
+  proxyToAsType _ = AsUTxOHash
+
+instance SerialiseAsRawBytes UTxOHash where
+  serialiseToRawBytes (UTxOHash bytes) = bytes
+  deserialiseFromRawBytes _ = Right . UTxOHash
 
 instance Arbitrary UTxOHash where
   arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary
 
 data CollectComObservation = CollectComObservation
-  { threadOutput :: OpenThreadOutput
-  , headId :: HeadId
+  { headId :: HeadId
   , utxoHash :: UTxOHash
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Identify a collectCom tx by lookup up the input spending the Head output
 -- and decoding its redeemer.
@@ -137,19 +135,13 @@ observeCollectComTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Initial{parties, contestationPeriod}, Head.CollectCom) -> do
-      (newHeadInput, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+    (Head.Initial{}, Head.CollectCom) -> do
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       utxoHash <- UTxOHash <$> decodeUtxoHash newHeadDatum
       pure
         CollectComObservation
-          { threadOutput =
-              OpenThreadOutput
-                { openThreadUTxO = (newHeadInput, newHeadOutput)
-                , openParties = parties
-                , openContestationPeriod = contestationPeriod
-                }
-          , headId
+          { headId
           , utxoHash
           }
     _ -> Nothing

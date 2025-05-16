@@ -63,7 +63,6 @@ import Hydra.HeadLogic (
   InitialState (..),
   Input (..),
   OpenState (..),
-  defaultTTL,
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
@@ -72,7 +71,7 @@ import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect)
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect, defaultTTL)
 import Hydra.Node.Environment (Environment (Environment, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.NodeSpec (mockServer)

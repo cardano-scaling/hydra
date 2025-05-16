@@ -30,6 +30,11 @@ changes.
   - Change to the `ReqSn` message in the Hydra network protocol
   - Added `DepositExpired` for when a deposit was deemed expired.
 
+- Switch `hydra-chain-observer` to use `HeadObservation` when reporting observations to `hydra-explorer`.
+  - Most observation types got changed quite a lot to match the previously used `OnChainTx`.
+  - This introduces `ToJSON` and `FromJSON` instances on all observation types.
+  - `CollectComObservation` and `ContestObservation` are made compatible with their `OnChainTx` counterparts.
+
 ## [0.21.0] - 2025-04-28
 
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network

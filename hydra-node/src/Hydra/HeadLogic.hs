@@ -101,9 +101,6 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 
-defaultTTL :: TTL
-defaultTTL = 5
-
 onConnectionEvent :: Network.Connectivity -> Outcome tx
 onConnectionEvent = \case
   Network.NetworkConnected ->
@@ -413,7 +410,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mDe
         -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
           -- TODO: Spec updates for these checks in here
-          requireApplicableCommit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
+          waitForDeposit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
             -- Resolve transactions by-id
             waitResolvableTxs $ \requestedTxs -> do
               -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
@@ -484,14 +481,20 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mDe
       [] -> continue $ mapMaybe (`Map.lookup` allTxs) requestedTxIds
       unseen -> wait $ WaitOnTxs unseen
 
-  requireApplicableCommit activeUTxOAfterDecommit cont =
+  waitForDeposit activeUTxOAfterDecommit cont =
     case mDepositTxId of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just depositTxId ->
         case Map.lookup depositTxId pendingDeposits of
+          -- REVIEW: Is this also a wait? It could be that another node has such
+          -- low deposit period that we have not yet seen the deposit on chain?
           Nothing -> Error $ RequireFailed NoMatchingDeposit
           Just Deposit{status, deposited}
-            | status /= Active -> Error $ RequireFailed RequestedDepositNotActive{depositTxId}
+            -- TODO: this needs to go into the spec!
+            -- XXX: We may need to wait quite long here and this makes losing
+            -- the 'ReqSn' due to a restart (fail-recovery) quite likely
+            | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
+            | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
             | otherwise ->
                 -- NOTE: this makes the commits sequential in a sense that you can't
                 -- commit unless the previous commit is settled.
@@ -957,13 +960,14 @@ onOpenChainTick env st chainTime =
           Expired | status /= Expired -> (newActive, Map.insert depositTxId d' newExpired)
           _ -> (newActive, newExpired)
 
-  determineStatus Deposit{deadline}
+  determineStatus Deposit{created, deadline}
     | chainTime > deadline `minusTime` toNominalDiffTime depositPeriod = Expired
-    -- TODO: should check for minimum age
-    -- https://github.com/cardano-scaling/hydra/issues/1951#issuecomment-2809966834
-    | otherwise = Active
+    | chainTime > created `plusTime` toNominalDiffTime depositPeriod = Active
+    | otherwise = Inactive
 
   minusTime time dt = addUTCTime (-dt) time
+
+  plusTime = flip addUTCTime
 
   withNextActive deposits cont = do
     -- NOTE: Do not consider empty deposits.
@@ -971,7 +975,7 @@ onOpenChainTick env st chainTime =
     maybe noop (cont . fst) . find p $ Map.toList deposits
 
   mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
-    pure DepositActivated{depositTxId, deposit}
+    pure DepositActivated{depositTxId, chainTime, deposit}
 
   mkDepositExpired m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
     pure DepositExpired{depositTxId, chainTime, deposit}
@@ -1357,9 +1361,9 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, deadline}, newChainState})
+  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId ->
-        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, deadline}
+        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{}, ChainInput Tick{chainTime, chainSlot}) ->
@@ -1602,7 +1606,7 @@ aggregate st = \case
                       }
             }
       _otherState -> st
-  DepositRecorded{chainState, headId, depositTxId, deposited, deadline} -> case st of
+  DepositRecorded{chainState, headId, depositTxId, deposited, created, deadline} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1610,7 +1614,7 @@ aggregate st = \case
             { chainState
             , coordinatedHeadState =
                 coordinatedHeadState
-                  { pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, deadline, status = Unknown} pendingDeposits
+                  { pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} pendingDeposits
                   }
             }
        where

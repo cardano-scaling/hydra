@@ -31,17 +31,17 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Prelude (
   BlockHeader (..),
  )
-import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
   NodeClient (..),
   ObserverHandler,
-  logOnChainTx,
+  logObservation,
   observeAll,
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (IsTx (..))
+import Hydra.Tx.Observe (HeadObservation (..))
 
 data APIBlockfrostError
   = BlockfrostError Text
@@ -169,16 +169,15 @@ rollForward tracer prj networkId observerHandler blockConfirmations (blockHash, 
 
   -- Collect head observations
   let (adjustedUTxO, observations) = observeAll networkId utxo receivedTxs
-  let onChainTxs = mapMaybe convertObservation observations
-  forM_ onChainTxs (traceWith tracer . logOnChainTx)
+  mapM_ (traceWith tracer) $ mapMaybe logObservation observations
 
   blockNo <- maybe (throwIO $ MissingBlockNo _blockHash) (pure . fromInteger) _blockHeight
-  let observationsAt = ChainObservation point blockNo . Just <$> onChainTxs
+  let observationsAt = ChainObservation point blockNo <$> observations
 
   -- Call observer handler
   observerHandler $
     if null observationsAt
-      then [ChainObservation point blockNo Nothing]
+      then [ChainObservation point blockNo NoHeadTx]
       else observationsAt
 
   -- Next

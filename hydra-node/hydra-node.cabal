@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-node
-version:       0.21.0
+version:       0.22.0
 synopsis:      The Hydra node
 author:        IOG
 copyright:     2022 IOG
@@ -128,7 +128,6 @@ library
     , http-types
     , hydra-cardano-api
     , hydra-plutus
-    , hydra-plutus-extras
     , hydra-prelude
     , hydra-tx
     , hydra-tx:testlib
@@ -337,7 +336,6 @@ test-suite tests
     , hydra-node
     , hydra-node:testlib
     , hydra-plutus
-    , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils
     , hydra-tx

@@ -6,9 +6,10 @@ import Hydra.Prelude
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
+import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
 import Hydra.Plutus.Extras (posixToUTCTime)
-import Hydra.Tx.Close (ClosedThreadOutput (..), PointInTime)
+import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
@@ -16,10 +17,21 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
+import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
 
+import Hydra.Plutus.Orphans ()
+
 -- * Construction
+
+data ClosedThreadOutput = ClosedThreadOutput
+  { closedThreadUTxO :: (TxIn, TxOut CtxUTxO)
+  , closedParties :: [OnChain.Party]
+  , closedContestationDeadline :: Plutus.POSIXTime
+  , closedContesters :: [Plutus.PubKeyHash]
+  }
+  deriving stock (Eq, Show, Generic)
 
 -- XXX: This function is VERY similar to the 'closeTx' function (only notable
 -- difference being the redeemer, which is in itself also the same structure as
@@ -138,13 +150,13 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
 -- * Observation
 
 data ContestObservation = ContestObservation
-  { contestedThreadOutput :: (TxIn, TxOut CtxUTxO)
-  , headId :: HeadId
+  { headId :: HeadId
   , snapshotNumber :: SnapshotNumber
   , contestationDeadline :: UTCTime
   , contesters :: [Plutus.PubKeyHash]
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -162,13 +174,12 @@ observeContestTx utxo tx = do
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Closed Head.ClosedDatum{}, Head.Contest{}) -> do
-      (newHeadInput, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       let (onChainSnapshotNumber, contestationDeadline, contesters) = decodeDatum newHeadDatum
       pure
         ContestObservation
-          { contestedThreadOutput = (newHeadInput, newHeadOutput)
-          , headId
+          { headId
           , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
           , contestationDeadline = posixToUTCTime contestationDeadline
           , contesters
