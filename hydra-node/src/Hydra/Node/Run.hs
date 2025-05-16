@@ -6,6 +6,7 @@ import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff,
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
+import Data.List (maximum, stripPrefix)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (
@@ -20,7 +21,9 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
+import Hydra.Events (LogId)
+import Hydra.Events.FileBased (mkFileBasedEventStore)
+import Hydra.Events.Rotation (RotationConfig (..), mkChechpointer, newRotatedEventStore)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -49,6 +52,8 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (readJsonFileThrow)
+import System.Directory (listDirectory)
+import System.FilePath (takeFileName)
 
 data ConfigurationException
   = -- XXX: this is not used
@@ -76,17 +81,16 @@ run opts = do
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
-        incPersistence <- createPersistenceIncremental (persistenceDir <> "/state")
         -- Hydrate with event source and sinks
-        (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incPersistence
+        logId <- getLatestLogId persistenceDir "state"
+        eventStore@(eventSource, _) <-
+          prepareEventStore logId
+            =<< mkFileBasedEventStore (persistenceDir <> "/state") logId createPersistenceIncremental
         -- NOTE: Add any custom sink setup code here
         -- customSink <- createCustomSink
-        let eventSinks =
-              [ filePersistenceSink
-              -- NOTE: Add any custom sinks here
-              -- , customSink
-              ]
-        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventSource eventSinks
+        -- NOTE: Add any customSink here
+        let eventSinks = []
+        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
@@ -129,10 +133,20 @@ run opts = do
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
       pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
 
+  prepareEventStore logId eventStore = do
+    case RotateAfter <$> persistenceRotateAfter of
+      Nothing ->
+        pure eventStore
+      Just rotationConfig -> do
+        now <- getCurrentTime
+        let checkpointer = mkChechpointer initialChainState now
+        newRotatedEventStore rotationConfig checkpointer logId eventStore
+
   RunOptions
     { verbosity
     , monitoringPort
     , persistenceDir
+    , persistenceRotateAfter
     , chainConfig
     , ledgerConfig
     , listen
@@ -199,3 +213,15 @@ newGlobals genesisParameters = do
   -- NOTE: uses fixed epoch info for our L2 ledger
   epochInfo = fixedEpochInfo protocolParamEpochLength slotLength
   slotLength = mkSlotLength protocolParamSlotLength
+
+-- \| Get the highest LogId from given persisted event logs directory.
+-- Assumes filenames are in the format "state-<logId>"
+getLatestLogId :: FilePath -> String -> IO LogId
+getLatestLogId stateDir filePrefix = do
+  files <- listDirectory stateDir
+  let logIds = mapMaybe (extractLogId . takeFileName) files
+  pure $ if null logIds then 0 else maximum logIds
+ where
+  extractLogId :: [Char] -> Maybe LogId
+  extractLogId fname =
+    stripPrefix (filePrefix <> "-") fname >>= readMaybe

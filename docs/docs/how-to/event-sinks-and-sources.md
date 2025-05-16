@@ -20,6 +20,11 @@ Multiple event sinks can be utilized simultaneously, whereas only one event sour
 
 The default Hydra file-based persistence is implemented as an event sink and source pair. They can be used independently. For example, you can use the default event source to process previous transactions from a file on disk, along with an event sink that could store new transactions on S3, on several machines, or not at all.
 
+### Log rotation support
+The default file-based persistence now supports optional rotation of event log files. When rotation is enabled via configuration, the node will start a new log file after a given number of events. This helps to reduce the time required to replay historical events on startup.
+
+The rotation configuration affects how files are named and managed on disk. Each event log is stored as a file with a monotonically increasing index (e.g., state-0, state-1, ...). If no rotation is configured, all events are stored in a single file (state-0 by default).
+
 ### Examples
 
 - **Simple basic implementation**. For a basic implementation that sends new transactions over UDP, please refer to [this fork](https://github.com/ffakenz/hydra/tree/udp-sink).
