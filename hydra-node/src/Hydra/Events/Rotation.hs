@@ -34,7 +34,7 @@ newRotatedEventStore config checkpointer logId eventStore = do
   let currentNumberOfEvents = toInteger $ length currentEvents
   numberOfEventsV <- newTVarIO currentNumberOfEvents
   -- XXX: check rotation on startup
-  when (currentNumberOfEvents >= toInteger rotateAfterX) $ do
+  whenM (shouldRotate numberOfEventsV) $ do
     rotateEventLog logIdV numberOfEventsV
   pure
     ( EventSource
@@ -51,16 +51,19 @@ newRotatedEventStore config checkpointer logId eventStore = do
   -- TODO: if this turns out to be equal to sourceEvents, then the whole algorithm can just work on each 'EventSink'
   rotatedSourceEvents = sourceEvents eventSource
 
+  shouldRotate numberOfEventsV = do
+    currentNumberOfEvents <- readTVarIO numberOfEventsV
+    pure $ currentNumberOfEvents >= toInteger rotateAfterX
+
   rotatedPutEvent logIdV numberOfEventsV event = do
     putEvent event
     -- XXX: bump numberOfEvents
-    numberOfEvents' <- atomically $ do
+    atomically $ do
       numberOfEvents <- readTVar numberOfEventsV
       let numberOfEvents' = numberOfEvents + 1
       writeTVar numberOfEventsV numberOfEvents'
-      pure numberOfEvents'
     -- XXX: check rotation
-    when (numberOfEvents' >= toInteger rotateAfterX) $ do
+    whenM (shouldRotate numberOfEventsV) $ do
       rotateEventLog logIdV numberOfEventsV
 
   rotateEventLog logIdV numberOfEventsV = do
