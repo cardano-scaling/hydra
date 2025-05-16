@@ -177,6 +177,7 @@ spec = parallel $
               defaultRunOptions
                 { chainConfig = Direct defaultDirectChainConfig{contestationPeriod}
                 }
+      shouldNotParse ["--contestation-period", "3"]
       shouldNotParse ["--contestation-period", "abc"]
       shouldNotParse ["--contestation-period", "s"]
       shouldNotParse ["--contestation-period", "-1"]
