@@ -23,10 +23,9 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
-  AnyCardanoEra (..),
   BlockInMode (..),
   CardanoEra (..),
-  ChainPoint,
+  ChainPoint (..),
   ChainTip,
   ConsensusModeParams (..),
   EpochSlots (..),
@@ -35,9 +34,6 @@ import Hydra.Cardano.Api (
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
-  NetworkId,
-  QueryInShelleyBasedEra (..),
-  SocketPath,
   Tx,
   TxInMode (..),
   TxValidationErrorInCardanoMode,
@@ -55,16 +51,11 @@ import Hydra.Chain (
   PostTxError (FailedToPostTx, failureReason),
   currentState,
  )
+import Hydra.Chain.Backend (BackendOps (..))
+import Hydra.Chain.Blockfrost qualified as Blockfrost
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.CardanoClient (
-  QueryException (..),
   QueryPoint (..),
-  queryCurrentEraExpr,
-  queryEraHistory,
-  queryInShelleyBasedEraExpr,
-  querySystemStart,
-  queryTip,
-  queryUTxO,
-  runQueryExpr,
  )
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler,
@@ -85,12 +76,10 @@ import Hydra.Chain.Direct.Wallet (
   WalletInfoOnChain (..),
   newTinyWallet,
  )
-import Hydra.Chain.ScriptRegistry (queryScriptRegistry)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (DirectChainConfig (..))
+import Hydra.Options (BlockfrostBackend (..), CardanoChainConfig (..), ChainBackend (..), DirectBackend (..))
 import Hydra.Tx (Party)
-import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
@@ -108,14 +97,15 @@ import Text.Printf (printf)
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
-  DirectChainConfig ->
+  CardanoChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
   -- | The current running era we can use to query the node
   IO ChainContext
 loadChainContext config party = do
   (vk, _) <- readKeyPair cardanoSigningKey
-  scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
+  scriptRegistry <- queryScriptRegistry chainBackend hydraScriptsTxId
+  networkId <- queryNetworkId chainBackend
   pure $
     ChainContext
       { networkId
@@ -124,38 +114,32 @@ loadChainContext config party = do
       , scriptRegistry
       }
  where
-  DirectChainConfig
-    { networkId
-    , nodeSocket
+  CardanoChainConfig
+    { chainBackend
     , hydraScriptsTxId
     , cardanoSigningKey
     } = config
 
 mkTinyWallet ::
   Tracer IO DirectChainLog ->
-  DirectChainConfig ->
+  CardanoChainConfig ->
   IO (TinyWallet IO)
 mkTinyWallet tracer config = do
   keyPair <- readKeyPair cardanoSigningKey
+  networkId <- queryNetworkId chainBackend
   newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
  where
-  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey} = config
+  CardanoChainConfig{chainBackend, cardanoSigningKey} = config
 
-  queryEpochInfo = toEpochInfo <$> queryEraHistory networkId nodeSocket QueryTip
+  queryEpochInfo = toEpochInfo <$> queryEraHistory chainBackend QueryTip
 
-  querySomePParams =
-    runQueryExpr networkId nodeSocket QueryTip $ do
-      AnyCardanoEra era <- queryCurrentEraExpr
-      case era of
-        ConwayEra{} -> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
-        _ -> liftIO . throwIO $ QueryEraMismatchException EraMismatch{ledgerEraName = show era, otherEraName = "Conway"}
-
+  querySomePParams = queryProtocolParameters chainBackend QueryTip
   queryWalletInfo queryPoint address = do
     point <- case queryPoint of
       QueryAt point -> pure point
-      QueryTip -> queryTip networkId nodeSocket
-    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address]
-    systemStart <- querySystemStart networkId nodeSocket QueryTip
+      QueryTip -> queryTip chainBackend
+    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO chainBackend [address]
+    systemStart <- querySystemStart chainBackend QueryTip
     pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
 
   toEpochInfo :: EraHistory -> EpochInfo (Either Text)
@@ -163,25 +147,25 @@ mkTinyWallet tracer config = do
     hoistEpochInfo (first show . runExcept) $
       Consensus.interpreterToEpochInfo interpreter
 
-withDirectChain ::
+withCardanoChain ::
   Tracer IO DirectChainLog ->
-  DirectChainConfig ->
+  CardanoChainConfig ->
   ChainContext ->
   TinyWallet IO ->
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx wallet chainStateHistory callback action = do
+withCardanoChain tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
+  chainPoint <- maybe (queryTip chainBackend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
 
-  let getTimeHandle = queryTimeHandle networkId nodeSocket
+  let getTimeHandle = queryTimeHandle chainBackend
   localChainState <- newLocalChainState chainStateHistory
   let chainHandle =
         mkChain
@@ -196,18 +180,23 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
   res <-
     race
       ( handle onIOException $
-          connectToLocalNode
-            connectInfo
-            (clientProtocols chainPoint queue handler)
+          case chainBackend of
+            Direct DirectBackend{networkId, nodeSocket} ->
+              connectToLocalNode
+                (connectInfo networkId nodeSocket)
+                (clientProtocols chainPoint queue handler)
+            Blockfrost BlockfrostBackend{projectPath} -> do
+              prj <- Blockfrost.projectFromFile projectPath
+              Blockfrost.blockfrostChain tracer queue prj chainPoint handler wallet
       )
       (action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  DirectChainConfig{networkId, nodeSocket, startChainFrom} = config
+  CardanoChainConfig{chainBackend, startChainFrom} = config
 
-  connectInfo =
+  connectInfo networkId nodeSocket =
     LocalNodeConnectInfo
       { -- REVIEW: This was 432000 before, but all usages in the
         -- cardano-node repository are using this value. This is only
@@ -238,14 +227,10 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
     throwIO $
       ConnectException
         { ioException
-        , nodeSocket
-        , networkId
         }
 
-data ConnectException = ConnectException
+newtype ConnectException = ConnectException
   { ioException :: IOException
-  , nodeSocket :: SocketPath
-  , networkId :: NetworkId
   }
   deriving stock (Show)
 

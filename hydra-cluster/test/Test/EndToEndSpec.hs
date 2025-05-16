@@ -582,10 +582,15 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \RunningNode{nodeSocket} -> do
             -- NOTE: Deliberately broken configuration so we expect the node to not start.
             let chainConfig =
-                  Direct
-                    defaultDirectChainConfig
-                      { nodeSocket
-                      , cardanoSigningKey = "not-existing.sk"
+                  Cardano
+                    defaultCardanoChainConfig
+                      { cardanoSigningKey = "not-existing.sk"
+                      , chainBackend =
+                          Direct
+                            DirectBackend
+                              { networkId = Hydra.Options.networkId defaultDirectBackend
+                              , nodeSocket = nodeSocket
+                              }
                       }
             withHydraNode (contramap FromHydraNode tracer) chainConfig dir 1 aliceSk [] [1] (const $ pure ())
               `shouldThrow` \(e :: SomeException) ->

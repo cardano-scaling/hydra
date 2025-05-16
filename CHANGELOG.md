@@ -22,6 +22,8 @@ changes.
 - Hydra will now store etcd cluster information on the filesystem in directories content-addressed
   by the cluster configuration.
 
+- Enable blockfrost integration for hydra-node.
+
 ## [0.21.0] - 2025-04-28
 
 - New metric for counting the number of active peers: `hydra_head_peers_connected`

@@ -14,7 +14,7 @@ import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.HeadId (HeadId (..))
-import Hydra.Tx.Utils (findStateToken, headTokensFromValue)
+import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
 
 -- * Creation
 
@@ -55,6 +55,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
             & addTxOuts reimbursedOutputs
             & burnTokens headTokenScript Burn headTokens
             & addTxExtraKeyWits [verificationKeyHash vk]
+            & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "AbortTx")
  where
   headWitness =
     BuildTxWith $

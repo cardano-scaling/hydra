@@ -16,8 +16,8 @@ import Hydra.Cardano.Api (
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
-import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
+import Hydra.Chain.Backend (BackendOps (queryGenesisParameters))
+import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withCardanoChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
@@ -38,8 +38,8 @@ import Hydra.Node (
  )
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
+  CardanoChainConfig (..),
   ChainConfig (..),
-  DirectChainConfig (..),
   InvalidOptions (..),
   LedgerConfig (..),
   OfflineChainConfig (..),
@@ -124,10 +124,10 @@ run opts = do
   prepareChainComponent tracer Environment{party, otherParties} = \case
     Offline cfg ->
       pure $ withOfflineChain cfg party otherParties
-    Direct cfg -> do
+    Cardano cfg@CardanoChainConfig{} -> do
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
-      pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
+      pure $ withCardanoChain (contramap DirectChain tracer) cfg ctx wallet
 
   RunOptions
     { verbosity
@@ -151,9 +151,8 @@ getGlobalsForChain = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
     loadGenesisFile ledgerGenesisFile
       >>= newGlobals
-  Direct DirectChainConfig{networkId, nodeSocket} ->
-    queryGenesisParameters networkId nodeSocket QueryTip
-      >>= newGlobals
+  Cardano CardanoChainConfig{chainBackend} ->
+    queryGenesisParameters chainBackend >>= newGlobals
 
 data GlobalsTranslationException = GlobalsTranslationException
   deriving stock (Eq, Show)

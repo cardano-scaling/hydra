@@ -14,7 +14,7 @@ import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (ChainBackend (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand)
+import Hydra.Options (BlockfrostBackend (..), ChainBackend (..), Command (GenHydraKey, Publish, Run), DirectBackend (..), PublishOptions (..), RunOptions (..), parseHydraCommand)
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
 
@@ -34,10 +34,11 @@ main = do
   publish PublishOptions{chainBackend, publishSigningKey} = do
     (_, sk) <- readKeyPair publishSigningKey
     txIds <- case chainBackend of
-      DirectBackend{publishNetworkId, publishNodeSocket} ->
-        publishHydraScripts publishNetworkId publishNodeSocket sk
-      BlockfrostBackend{projectPath} ->
-        Blockfrost.publishHydraScripts projectPath sk
+      Direct DirectBackend{networkId, nodeSocket} ->
+        publishHydraScripts networkId nodeSocket sk
+      Blockfrost BlockfrostBackend{projectPath} -> do
+        prj <- Blockfrost.projectFromFile projectPath
+        Blockfrost.runBlockfrostM prj $ Blockfrost.publishHydraScripts sk
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Handle SIGTERM like SIGINT
