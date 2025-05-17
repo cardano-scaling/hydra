@@ -1,0 +1,712 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.Init</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Foldable.html#toList"><span class="hs-identifier">toList</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IsList.html"><span class="hs-identifier">GHC.IsList</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IsList.html#toList"><span class="hs-identifier">toList</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.Head</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Head</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadState</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Head</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadTokens</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HeadTokens</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.Initial</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Initial</span></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.MintAction</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MintAction</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html"><span class="hs-identifier">Hydra.Ledger.Cardano.Builder</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#addTxInsSpending"><span class="hs-identifier">addTxInsSpending</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#mintTokens"><span class="hs-identifier">mintTokens</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Builder.html#unsafeBuildTransaction"><span class="hs-identifier">unsafeBuildTransaction</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Plutus</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">initialValidatorScript</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html"><span class="hs-identifier">Hydra.Tx.ContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier">ContestationPeriod</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#fromChain"><span class="hs-identifier">fromChain</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#toChain"><span class="hs-identifier">toChain</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html"><span class="hs-identifier">Hydra.Tx.HeadId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier">HeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#mkHeadId"><span class="hs-identifier">mkHeadId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html"><span class="hs-identifier">Hydra.Tx.HeadParameters</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier">HeadParameters</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.OnChainId.html"><span class="hs-identifier">Hydra.Tx.OnChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier">OnChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html"><span class="hs-identifier">Hydra.Tx.Party</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier">Party</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#partyFromChain"><span class="hs-identifier">partyFromChain</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#partyToChain"><span class="hs-identifier">partyToChain</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.Utils.html"><span class="hs-identifier">Hydra.Tx.Utils</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.Utils.html#assetNameToOnChainId"><span class="hs-identifier">assetNameToOnChainId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.Utils.html#findFirst"><span class="hs-identifier">findFirst</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.Utils.html#hydraHeadV1AssetName"><span class="hs-identifier">hydraHeadV1AssetName</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.Utils.html#mkHydraHeadV1TxName"><span class="hs-identifier">mkHydraHeadV1TxName</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Tx.Utils.html#onChainIdToAssetName"><span class="hs-identifier">onChainIdToAssetName</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="annot"><span class="hs-comment">-- * Construction</span></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- | Create the init transaction from some 'HeadParameters' and a single TxIn</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- which will be used as unique parameter for minting NFTs.</span><span>
+</span><span id="line-25"></span><span class="annot"><a href="Hydra.Tx.Init.html#initTx"><span class="hs-identifier hs-type">initTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Seed input.</span></span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Verification key hashes of all participants.</span></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-type">OnChainId</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-33"></span><span id="initTx"><span class="annot"><span class="annottext">initTx :: NetworkId -&gt; TxIn -&gt; [OnChainId] -&gt; HeadParameters -&gt; Tx
+</span><a href="Hydra.Tx.Init.html#initTx"><span class="hs-identifier hs-var hs-var">initTx</span></a></span></span><span> </span><span id="local-6989586621679434310"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679434310"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679434311"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434311"><span class="hs-identifier hs-var">seedTxIn</span></a></span></span><span> </span><span id="local-6989586621679434312"><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="#local-6989586621679434312"><span class="hs-identifier hs-var">participants</span></a></span></span><span> </span><span id="local-6989586621679434313"><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621679434313"><span class="hs-identifier hs-var">parameters</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="annottext">HasCallStack =&gt; TxBodyContent BuildTx -&gt; Tx
+TxBodyContent BuildTx -&gt; Tx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#unsafeBuildTransaction"><span class="hs-identifier hs-var">unsafeBuildTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">(TxBodyContent BuildTx -&gt; Tx) -&gt; TxBodyContent BuildTx -&gt; Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><span class="hs-identifier hs-var">defaultTxBodyContent</span></span><span>
+</span><span id="line-36"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#addTxInsSpending"><span class="hs-identifier hs-var">addTxInsSpending</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434311"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-37"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx Era] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+forall era build.
+[TxOut CtxTx era]
+-&gt; TxBodyContent build era -&gt; TxBodyContent build era
+</span><span class="hs-identifier hs-var">addTxOuts</span></span><span>
+</span><span id="line-38"></span><span>        </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; TxIn -&gt; HeadParameters -&gt; TxOut CtxTx Era
+</span><a href="Hydra.Tx.Init.html#mkHeadOutputInitial"><span class="hs-identifier hs-var">mkHeadOutputInitial</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679434310"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434311"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621679434313"><span class="hs-identifier hs-var">parameters</span></a></span><span>
+</span><span id="line-39"></span><span>            </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; [TxOut CtxTx Era] -&gt; [TxOut CtxTx Era]
+forall a. a -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">(OnChainId -&gt; TxOut CtxTx Era) -&gt; [OnChainId] -&gt; [TxOut CtxTx Era]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NetworkId -&gt; TxIn -&gt; OnChainId -&gt; TxOut CtxTx Era
+</span><a href="Hydra.Tx.Init.html#mkInitialOutput"><span class="hs-identifier hs-var">mkInitialOutput</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679434310"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434311"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="#local-6989586621679434312"><span class="hs-identifier hs-var">participants</span></a></span><span>
+</span><span id="line-40"></span><span>        </span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+-&gt; MintAction
+-&gt; PolicyAssets
+-&gt; TxBodyContent BuildTx
+-&gt; TxBodyContent BuildTx
+forall redeemer.
+ToScriptData redeemer =&gt;
+PlutusScript
+-&gt; redeemer
+-&gt; PolicyAssets
+-&gt; TxBodyContent BuildTx
+-&gt; TxBodyContent BuildTx
+</span><a href="Hydra.Ledger.Cardano.Builder.html#mintTokens"><span class="hs-identifier hs-var">mintTokens</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; PlutusScript
+</span><span class="hs-identifier hs-var">HeadTokens.mkHeadTokenScript</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434311"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">MintAction
+</span><span class="hs-identifier hs-var">Mint</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Item PolicyAssets] -&gt; PolicyAssets
+forall l. IsList l =&gt; [Item l] -&gt; l
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IsList.html#fromList"><span class="hs-identifier hs-var">fromList</span></a></span><span> </span><span class="annot"><span class="annottext">([Item PolicyAssets] -&gt; PolicyAssets)
+-&gt; [Item PolicyAssets] -&gt; PolicyAssets
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AssetName
+</span><a href="Hydra.Tx.Utils.html#hydraHeadV1AssetName"><span class="hs-identifier hs-var">hydraHeadV1AssetName</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(AssetName, Quantity)
+-&gt; [(AssetName, Quantity)] -&gt; [(AssetName, Quantity)]
+forall a. a -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[(AssetName, Quantity)]
+</span><a href="#local-6989586621679434321"><span class="hs-identifier hs-var">participationTokens</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">TxMetadataInEra Era
+-&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+forall era build.
+TxMetadataInEra era
+-&gt; TxBodyContent build era -&gt; TxBodyContent build era
+</span><span class="hs-identifier hs-var">setTxMetadata</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxMetadata -&gt; TxMetadataInEra Era
+</span><span class="hs-identifier hs-var">TxMetadataInEra</span></span><span> </span><span class="annot"><span class="annottext">(TxMetadata -&gt; TxMetadataInEra Era)
+-&gt; TxMetadata -&gt; TxMetadataInEra Era
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; TxMetadata
+</span><a href="Hydra.Tx.Utils.html#mkHydraHeadV1TxName"><span class="hs-identifier hs-var">mkHydraHeadV1TxName</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;InitTx&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-44"></span><span>  </span><span id="local-6989586621679434321"><span class="annot"><span class="annottext">participationTokens :: [(AssetName, Quantity)]
+</span><a href="#local-6989586621679434321"><span class="hs-identifier hs-var hs-var">participationTokens</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">OnChainId -&gt; AssetName
+</span><a href="Hydra.Tx.Utils.html#onChainIdToAssetName"><span class="hs-identifier hs-var">onChainIdToAssetName</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainId
+</span><a href="#local-6989586621679434324"><span class="hs-identifier hs-var">oid</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679434324"><span class="annot"><span class="annottext">OnChainId
+</span><a href="#local-6989586621679434324"><span class="hs-identifier hs-var">oid</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="#local-6989586621679434312"><span class="hs-identifier hs-var">participants</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span id="local-6989586621679434118"><span class="annot"><a href="Hydra.Tx.Init.html#mkHeadOutput"><span class="hs-identifier hs-type">mkHeadOutput</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutDatum</span></span><span> </span><span class="annot"><a href="#local-6989586621679434118"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><a href="#local-6989586621679434118"><span class="hs-identifier hs-type">ctx</span></a></span></span><span>
+</span><span id="line-48"></span><span id="mkHeadOutput"><span class="annot"><span class="annottext">mkHeadOutput :: forall ctx. NetworkId -&gt; PolicyId -&gt; TxOutDatum ctx -&gt; TxOut ctx
+</span><a href="Hydra.Tx.Init.html#mkHeadOutput"><span class="hs-identifier hs-var hs-var">mkHeadOutput</span></a></span></span><span> </span><span id="local-6989586621679434330"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679434330"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679434331"><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434331"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span></span><span> </span><span id="local-6989586621679434332"><span class="annot"><span class="annottext">TxOutDatum ctx
+</span><a href="#local-6989586621679434332"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><span class="annottext">AddressInEra
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+forall ctx.
+AddressInEra
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+</span><span class="hs-identifier hs-var">TxOut</span></span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NetworkId -&gt; PlutusScript -&gt; AddressInEra
+forall lang era.
+(IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
+NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkScriptAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679434330"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><span class="hs-identifier hs-var">Head.validatorScript</span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Item Value] -&gt; Value
+forall l. IsList l =&gt; [Item l] -&gt; l
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IsList.html#fromList"><span class="hs-identifier hs-var">fromList</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; AssetName -&gt; AssetId
+</span><span class="hs-identifier hs-var">AssetId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434331"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span><span> </span><span class="annot"><span class="annottext">AssetName
+</span><a href="Hydra.Tx.Utils.html#hydraHeadV1AssetName"><span class="hs-identifier hs-var">hydraHeadV1AssetName</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>    </span><span class="annot"><span class="annottext">TxOutDatum ctx
+</span><a href="#local-6989586621679434332"><span class="hs-identifier hs-var">datum</span></a></span><span>
+</span><span id="line-53"></span><span>    </span><span class="annot"><span class="annottext">ReferenceScript
+</span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="annot"><a href="Hydra.Tx.Init.html#mkHeadOutputInitial"><span class="hs-identifier hs-type">mkHeadOutputInitial</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span>
+</span><span id="line-56"></span><span id="mkHeadOutputInitial"><span class="annot"><span class="annottext">mkHeadOutputInitial :: NetworkId -&gt; TxIn -&gt; HeadParameters -&gt; TxOut CtxTx Era
+</span><a href="Hydra.Tx.Init.html#mkHeadOutputInitial"><span class="hs-identifier hs-var hs-var">mkHeadOutputInitial</span></a></span></span><span> </span><span id="local-6989586621679434338"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679434338"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679434339"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434339"><span class="hs-identifier hs-var">seedTxIn</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span><span class="hs-special">{</span><span id="local-6989586621679434340"><span class="annot"><span class="annottext">ContestationPeriod
+contestationPeriod :: ContestationPeriod
+$sel:contestationPeriod:HeadParameters :: HeadParameters -&gt; ContestationPeriod
+</span><a href="#local-6989586621679434340"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434342"><span class="annot"><span class="annottext">[Party]
+parties :: [Party]
+$sel:parties:HeadParameters :: HeadParameters -&gt; [Party]
+</span><a href="#local-6989586621679434342"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-57"></span><span>  </span><span class="annot"><span class="annottext">NetworkId -&gt; PolicyId -&gt; TxOutDatum CtxTx -&gt; TxOut CtxTx Era
+forall ctx. NetworkId -&gt; PolicyId -&gt; TxOutDatum ctx -&gt; TxOut ctx
+</span><a href="Hydra.Tx.Init.html#mkHeadOutput"><span class="hs-identifier hs-var">mkHeadOutput</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679434338"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434344"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
+</span><a href="#local-6989586621679434345"><span class="hs-identifier hs-var">headDatum</span></a></span><span>
+</span><span id="line-58"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-59"></span><span>  </span><span id="local-6989586621679434344"><span class="annot"><span class="annottext">tokenPolicyId :: PolicyId
+</span><a href="#local-6989586621679434344"><span class="hs-identifier hs-var hs-var">tokenPolicyId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; PolicyId
+</span><span class="hs-identifier hs-var">HeadTokens.headPolicyId</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434339"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span>
+</span><span id="line-60"></span><span>  </span><span id="local-6989586621679434345"><span class="annot"><span class="annottext">headDatum :: TxOutDatum CtxTx
+</span><a href="#local-6989586621679434345"><span class="hs-identifier hs-var hs-var">headDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-61"></span><span>    </span><span class="annot"><span class="annottext">State -&gt; TxOutDatum CtxTx
+forall era a ctx.
+(ToScriptData a, IsBabbageBasedEra era) =&gt;
+a -&gt; TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">mkTxOutDatumInline</span></span><span> </span><span class="annot"><span class="annottext">(State -&gt; TxOutDatum CtxTx) -&gt; State -&gt; TxOutDatum CtxTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-62"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Head.Initial</span></span><span>
+</span><span id="line-63"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:contestationPeriod:Initial :: ContestationPeriod
+</span><span class="hs-identifier hs-var">contestationPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#toChain"><span class="hs-identifier hs-var">toChain</span></a></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679434340"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span>
+</span><span id="line-64"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:parties:Initial :: [Party]
+</span><span class="hs-identifier hs-var">parties</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Party -&gt; Party) -&gt; [Party] -&gt; [Party]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party
+</span><a href="Hydra.Tx.Party.html#partyToChain"><span class="hs-identifier hs-var">partyToChain</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679434342"><span class="hs-identifier hs-var">parties</span></a></span><span>
+</span><span id="line-65"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headId:Initial :: CurrencySymbol
+</span><span class="hs-identifier hs-var">headId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; CurrencySymbol
+</span><span class="hs-identifier hs-var">toPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434344"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span><span>
+</span><span id="line-66"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:seed:Initial :: TxOutRef
+</span><span class="hs-identifier hs-var">seed</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; TxOutRef
+</span><span class="hs-identifier hs-var">toPlutusTxOutRef</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434339"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span>
+</span><span id="line-67"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="annot"><a href="Hydra.Tx.Init.html#mkInitialOutput"><span class="hs-identifier hs-type">mkInitialOutput</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-type">OnChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span>
+</span><span id="line-70"></span><span id="mkInitialOutput"><span class="annot"><span class="annottext">mkInitialOutput :: NetworkId -&gt; TxIn -&gt; OnChainId -&gt; TxOut CtxTx Era
+</span><a href="Hydra.Tx.Init.html#mkInitialOutput"><span class="hs-identifier hs-var hs-var">mkInitialOutput</span></a></span></span><span> </span><span id="local-6989586621679434355"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679434355"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679434356"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434356"><span class="hs-identifier hs-var">seedTxIn</span></a></span></span><span> </span><span id="local-6989586621679434357"><span class="annot"><span class="annottext">OnChainId
+</span><a href="#local-6989586621679434357"><span class="hs-identifier hs-var">participant</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><span class="annottext">AddressInEra
+-&gt; Value -&gt; TxOutDatum CtxTx -&gt; ReferenceScript -&gt; TxOut CtxTx Era
+forall ctx.
+AddressInEra
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+</span><span class="hs-identifier hs-var">TxOut</span></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679434358"><span class="hs-identifier hs-var">initialAddress</span></a></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679434359"><span class="hs-identifier hs-var">initialValue</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
+</span><a href="#local-6989586621679434360"><span class="hs-identifier hs-var">initialDatum</span></a></span><span> </span><span class="annot"><span class="annottext">ReferenceScript
+</span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
+</span><span id="line-72"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679434361"><span class="annot"><span class="annottext">tokenPolicyId :: PolicyId
+</span><a href="#local-6989586621679434361"><span class="hs-identifier hs-var hs-var">tokenPolicyId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; PolicyId
+</span><span class="hs-identifier hs-var">HeadTokens.headPolicyId</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434356"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679434359"><span class="annot"><span class="annottext">initialValue :: Value
+</span><a href="#local-6989586621679434359"><span class="hs-identifier hs-var hs-var">initialValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">[Item Value] -&gt; Value
+forall l. IsList l =&gt; [Item l] -&gt; l
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IsList.html#fromList"><span class="hs-identifier hs-var">fromList</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; AssetName -&gt; AssetId
+</span><span class="hs-identifier hs-var">AssetId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434361"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">OnChainId -&gt; AssetName
+</span><a href="Hydra.Tx.Utils.html#onChainIdToAssetName"><span class="hs-identifier hs-var">onChainIdToAssetName</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainId
+</span><a href="#local-6989586621679434357"><span class="hs-identifier hs-var">participant</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-76"></span><span>  </span><span id="local-6989586621679434358"><span class="annot"><span class="annottext">initialAddress :: AddressInEra
+</span><a href="#local-6989586621679434358"><span class="hs-identifier hs-var hs-var">initialAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">NetworkId -&gt; PlutusScript -&gt; AddressInEra
+forall lang era.
+(IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
+NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkScriptAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679434355"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><span class="hs-identifier hs-var">initialValidatorScript</span></span><span>
+</span><span id="line-78"></span><span>  </span><span id="local-6989586621679434360"><span class="annot"><span class="annottext">initialDatum :: TxOutDatum CtxTx
+</span><a href="#local-6989586621679434360"><span class="hs-identifier hs-var hs-var">initialDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">Datum -&gt; TxOutDatum CtxTx
+forall era a ctx.
+(ToScriptData a, IsBabbageBasedEra era) =&gt;
+a -&gt; TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">mkTxOutDatumInline</span></span><span> </span><span class="annot"><span class="annottext">(Datum -&gt; TxOutDatum CtxTx) -&gt; Datum -&gt; TxOutDatum CtxTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; Datum
+</span><span class="hs-identifier hs-var">Initial.datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; CurrencySymbol
+</span><span class="hs-identifier hs-var">toPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434361"><span class="hs-identifier hs-var">tokenPolicyId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="annot"><span class="hs-comment">-- * Observation</span></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="annot"><span class="hs-comment">-- | Data which can be observed from an `initTx`.</span></span><span>
+</span><span id="line-84"></span><span class="hs-keyword">data</span><span> </span><span id="InitObservation"><span class="annot"><a href="Hydra.Tx.Init.html#InitObservation"><span class="hs-identifier hs-var">InitObservation</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="InitObservation"><span class="annot"><a href="Hydra.Tx.Init.html#InitObservation"><span class="hs-identifier hs-var">InitObservation</span></a></span></span><span>
+</span><span id="line-85"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AinitialThreadUTxO%3AInitObservation"><span class="annot"><span class="annottext">InitObservation -&gt; (TxIn, TxOut CtxUTxO)
+</span><a href="Hydra.Tx.Init.html#%24sel%3AinitialThreadUTxO%3AInitObservation"><span class="hs-identifier hs-var hs-var">initialThreadUTxO</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Ainitials%3AInitObservation"><span class="annot"><span class="annottext">InitObservation -&gt; [(TxIn, TxOut CtxUTxO)]
+</span><a href="Hydra.Tx.Init.html#%24sel%3Ainitials%3AInitObservation"><span class="hs-identifier hs-var hs-var">initials</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-87"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AheadId%3AInitObservation"><span class="annot"><span class="annottext">InitObservation -&gt; HeadId
+</span><a href="Hydra.Tx.Init.html#%24sel%3AheadId%3AInitObservation"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- XXX: This is cardano-specific, while headId, parties and</span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-comment">-- contestationPeriod are already generic here. Check which is more</span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-comment">-- convenient and consistent!</span><span>
+</span><span id="line-91"></span><span>    </span><span id="%24sel%3AseedTxIn%3AInitObservation"><span class="annot"><span class="annottext">InitObservation -&gt; TxIn
+</span><a href="Hydra.Tx.Init.html#%24sel%3AseedTxIn%3AInitObservation"><span class="hs-identifier hs-var hs-var">seedTxIn</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcontestationPeriod%3AInitObservation"><span class="annot"><span class="annottext">InitObservation -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.Init.html#%24sel%3AcontestationPeriod%3AInitObservation"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span><span>
+</span><span id="line-93"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aparties%3AInitObservation"><span class="annot"><span class="annottext">InitObservation -&gt; [Party]
+</span><a href="Hydra.Tx.Init.html#%24sel%3Aparties%3AInitObservation"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-94"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- XXX: Improve naming</span><span>
+</span><span id="line-95"></span><span>    </span><span id="%24sel%3Aparticipants%3AInitObservation"><span class="annot"><span class="annottext">InitObservation -&gt; [OnChainId]
+</span><a href="Hydra.Tx.Init.html#%24sel%3Aparticipants%3AInitObservation"><span class="hs-identifier hs-var hs-var">participants</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-type">OnChainId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-96"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-97"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434372"><span id="local-6989586621679434391"><span id="local-6989586621679434395"><span class="annot"><span class="annottext">Int -&gt; InitObservation -&gt; ShowS
+[InitObservation] -&gt; ShowS
+InitObservation -&gt; String
+(Int -&gt; InitObservation -&gt; ShowS)
+-&gt; (InitObservation -&gt; String)
+-&gt; ([InitObservation] -&gt; ShowS)
+-&gt; Show InitObservation
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; InitObservation -&gt; ShowS
+showsPrec :: Int -&gt; InitObservation -&gt; ShowS
+$cshow :: InitObservation -&gt; String
+show :: InitObservation -&gt; String
+$cshowList :: [InitObservation] -&gt; ShowS
+showList :: [InitObservation] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434403"><span id="local-6989586621679434420"><span class="annot"><span class="annottext">InitObservation -&gt; InitObservation -&gt; Bool
+(InitObservation -&gt; InitObservation -&gt; Bool)
+-&gt; (InitObservation -&gt; InitObservation -&gt; Bool)
+-&gt; Eq InitObservation
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: InitObservation -&gt; InitObservation -&gt; Bool
+== :: InitObservation -&gt; InitObservation -&gt; Bool
+$c/= :: InitObservation -&gt; InitObservation -&gt; Bool
+/= :: InitObservation -&gt; InitObservation -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434429"><span id="local-6989586621679434431"><span class="annot"><span class="annottext">(forall x. InitObservation -&gt; Rep InitObservation x)
+-&gt; (forall x. Rep InitObservation x -&gt; InitObservation)
+-&gt; Generic InitObservation
+forall x. Rep InitObservation x -&gt; InitObservation
+forall x. InitObservation -&gt; Rep InitObservation x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. InitObservation -&gt; Rep InitObservation x
+from :: forall x. InitObservation -&gt; Rep InitObservation x
+$cto :: forall x. Rep InitObservation x -&gt; InitObservation
+to :: forall x. Rep InitObservation x -&gt; InitObservation
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="hs-keyword">data</span><span> </span><span id="NotAnInitReason"><span class="annot"><a href="Hydra.Tx.Init.html#NotAnInitReason"><span class="hs-identifier hs-var">NotAnInitReason</span></a></span></span><span>
+</span><span id="line-100"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="NoHeadOutput"><span class="annot"><a href="Hydra.Tx.Init.html#NoHeadOutput"><span class="hs-identifier hs-var">NoHeadOutput</span></a></span></span><span>
+</span><span id="line-101"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="NotAHeadDatum"><span class="annot"><a href="Hydra.Tx.Init.html#NotAHeadDatum"><span class="hs-identifier hs-var">NotAHeadDatum</span></a></span></span><span>
+</span><span id="line-102"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="InvalidPartyInDatum"><span class="annot"><a href="Hydra.Tx.Init.html#InvalidPartyInDatum"><span class="hs-identifier hs-var">InvalidPartyInDatum</span></a></span></span><span>
+</span><span id="line-103"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="NoSTFound"><span class="annot"><a href="Hydra.Tx.Init.html#NoSTFound"><span class="hs-identifier hs-var">NoSTFound</span></a></span></span><span>
+</span><span id="line-104"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="NotAHeadPolicy"><span class="annot"><a href="Hydra.Tx.Init.html#NotAHeadPolicy"><span class="hs-identifier hs-var">NotAHeadPolicy</span></a></span></span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434440"><span id="local-6989586621679434442"><span id="local-6989586621679434446"><span class="annot"><span class="annottext">Int -&gt; NotAnInitReason -&gt; ShowS
+[NotAnInitReason] -&gt; ShowS
+NotAnInitReason -&gt; String
+(Int -&gt; NotAnInitReason -&gt; ShowS)
+-&gt; (NotAnInitReason -&gt; String)
+-&gt; ([NotAnInitReason] -&gt; ShowS)
+-&gt; Show NotAnInitReason
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; NotAnInitReason -&gt; ShowS
+showsPrec :: Int -&gt; NotAnInitReason -&gt; ShowS
+$cshow :: NotAnInitReason -&gt; String
+show :: NotAnInitReason -&gt; String
+$cshowList :: [NotAnInitReason] -&gt; ShowS
+showList :: [NotAnInitReason] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434449"><span id="local-6989586621679434451"><span class="annot"><span class="annottext">NotAnInitReason -&gt; NotAnInitReason -&gt; Bool
+(NotAnInitReason -&gt; NotAnInitReason -&gt; Bool)
+-&gt; (NotAnInitReason -&gt; NotAnInitReason -&gt; Bool)
+-&gt; Eq NotAnInitReason
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: NotAnInitReason -&gt; NotAnInitReason -&gt; Bool
+== :: NotAnInitReason -&gt; NotAnInitReason -&gt; Bool
+$c/= :: NotAnInitReason -&gt; NotAnInitReason -&gt; Bool
+/= :: NotAnInitReason -&gt; NotAnInitReason -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434455"><span id="local-6989586621679434457"><span class="annot"><span class="annottext">(forall x. NotAnInitReason -&gt; Rep NotAnInitReason x)
+-&gt; (forall x. Rep NotAnInitReason x -&gt; NotAnInitReason)
+-&gt; Generic NotAnInitReason
+forall x. Rep NotAnInitReason x -&gt; NotAnInitReason
+forall x. NotAnInitReason -&gt; Rep NotAnInitReason x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. NotAnInitReason -&gt; Rep NotAnInitReason x
+from :: forall x. NotAnInitReason -&gt; Rep NotAnInitReason x
+$cto :: forall x. Rep NotAnInitReason x -&gt; NotAnInitReason
+to :: forall x. Rep NotAnInitReason x -&gt; NotAnInitReason
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span class="hs-comment">-- | Identify a init tx by checking the output value for holding tokens that are</span><span>
+</span><span id="line-108"></span><span class="hs-comment">-- valid head tokens (checked by seed + policy).</span><span>
+</span><span id="line-109"></span><span class="annot"><a href="Hydra.Tx.Init.html#observeInitTx"><span class="hs-identifier hs-type">observeInitTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-110"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Init.html#NotAnInitReason"><span class="hs-identifier hs-type">NotAnInitReason</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Init.html#InitObservation"><span class="hs-identifier hs-type">InitObservation</span></a></span><span>
+</span><span id="line-112"></span><span id="observeInitTx"><span class="annot"><span class="annottext">observeInitTx :: Tx -&gt; Either NotAnInitReason InitObservation
+</span><a href="Hydra.Tx.Init.html#observeInitTx"><span class="hs-identifier hs-var hs-var">observeInitTx</span></a></span></span><span> </span><span id="local-6989586621679434460"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679434460"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-113"></span><span>  </span><span class="hs-comment">-- XXX: Lots of redundant information here</span><span>
+</span><span id="line-114"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679434461"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679434461"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434462"><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679434462"><span class="hs-identifier hs-var">headOut</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434463"><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679434463"><span class="hs-identifier hs-var">headState</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-115"></span><span>    </span><span class="annot"><span class="annottext">NotAnInitReason
+-&gt; Maybe (Word, TxOut CtxTx Era, State)
+-&gt; Either NotAnInitReason (Word, TxOut CtxTx Era, State)
+forall {a} {b}. a -&gt; Maybe b -&gt; Either a b
+</span><a href="#local-6989586621679434464"><span class="hs-identifier hs-var">maybeLeft</span></a></span><span> </span><span class="annot"><span class="annottext">NotAnInitReason
+</span><a href="Hydra.Tx.Init.html#NoHeadOutput"><span class="hs-identifier hs-var">NoHeadOutput</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (Word, TxOut CtxTx Era, State)
+ -&gt; Either NotAnInitReason (Word, TxOut CtxTx Era, State))
+-&gt; Maybe (Word, TxOut CtxTx Era, State)
+-&gt; Either NotAnInitReason (Word, TxOut CtxTx Era, State)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-116"></span><span>      </span><span class="annot"><span class="annottext">((Word, TxOut CtxTx Era) -&gt; Maybe (Word, TxOut CtxTx Era, State))
+-&gt; [(Word, TxOut CtxTx Era)]
+-&gt; Maybe (Word, TxOut CtxTx Era, State)
+forall (t :: * -&gt; *) a b.
+Foldable t =&gt;
+(a -&gt; Maybe b) -&gt; t a -&gt; Maybe b
+</span><a href="Hydra.Tx.Utils.html#findFirst"><span class="hs-identifier hs-var">findFirst</span></a></span><span> </span><span class="annot"><span class="annottext">(Word, TxOut CtxTx Era) -&gt; Maybe (Word, TxOut CtxTx Era, State)
+forall {a} {t} {era}.
+FromData a =&gt;
+(t, TxOut CtxTx era) -&gt; Maybe (t, TxOut CtxTx era, a)
+</span><a href="#local-6989586621679434465"><span class="hs-identifier hs-var">matchHeadOutput</span></a></span><span> </span><span class="annot"><span class="annottext">[(Word, TxOut CtxTx Era)]
+</span><a href="#local-6989586621679434466"><span class="hs-identifier hs-var">indexedOutputs</span></a></span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span>  </span><span class="hs-comment">-- check that we have a proper head</span><span>
+</span><span id="line-119"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679434467"><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434467"><span class="hs-identifier hs-var">pid</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434468"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679434468"><span class="hs-identifier hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434469"><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679434469"><span class="hs-identifier hs-var">onChainParties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434470"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434470"><span class="hs-identifier hs-var">seedTxIn</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679434463"><span class="hs-identifier hs-var">headState</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Head.Initial</span></span><span> </span><span id="local-6989586621679434471"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679434471"><span class="hs-identifier hs-var">cp</span></a></span></span><span> </span><span id="local-6989586621679434472"><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679434472"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span id="local-6989586621679434473"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679434473"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621679434474"><span class="annot"><span class="annottext">TxOutRef
+</span><a href="#local-6989586621679434474"><span class="hs-identifier hs-var">outRef</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-121"></span><span>      </span><span id="local-6989586621679434475"><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434475"><span class="hs-identifier hs-var">pid</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; Maybe PolicyId
+forall (m :: * -&gt; *). MonadFail m =&gt; CurrencySymbol -&gt; m PolicyId
+</span><span class="hs-identifier hs-var">fromPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679434473"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe PolicyId
+-&gt; NotAnInitReason -&gt; Either NotAnInitReason PolicyId
+forall a e. Maybe a -&gt; e -&gt; Either e a
+</span><span class="hs-operator hs-var">?&gt;</span></span><span> </span><span class="annot"><span class="annottext">NotAnInitReason
+</span><a href="Hydra.Tx.Init.html#NotAHeadPolicy"><span class="hs-identifier hs-var">NotAHeadPolicy</span></a></span><span>
+</span><span id="line-122"></span><span>      </span><span class="annot"><span class="annottext">(PolicyId, ContestationPeriod, [Party], TxIn)
+-&gt; Either
+     NotAnInitReason (PolicyId, ContestationPeriod, [Party], TxIn)
+forall a. a -&gt; Either NotAnInitReason a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434475"><span class="hs-identifier hs-var">pid</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#fromChain"><span class="hs-identifier hs-var">fromChain</span></a></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679434471"><span class="hs-identifier hs-var">cp</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679434472"><span class="hs-identifier hs-var">ps</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOutRef -&gt; TxIn
+</span><span class="hs-identifier hs-var">fromPlutusTxOutRef</span></span><span> </span><span class="annot"><span class="annottext">TxOutRef
+</span><a href="#local-6989586621679434474"><span class="hs-identifier hs-var">outRef</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span>    </span><span class="annot"><span class="annottext">State
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NotAnInitReason
+-&gt; Either
+     NotAnInitReason (PolicyId, ContestationPeriod, [Party], TxIn)
+forall a b. a -&gt; Either a b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">NotAnInitReason
+</span><a href="Hydra.Tx.Init.html#NotAHeadDatum"><span class="hs-identifier hs-var">NotAHeadDatum</span></a></span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679434479"><span class="annot"><span class="annottext">stQuantity :: Quantity
+</span><a href="#local-6989586621679434479"><span class="hs-identifier hs-var hs-var">stQuantity</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value -&gt; AssetId -&gt; Quantity
+</span><span class="hs-identifier hs-var">selectAsset</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; Value
+forall ctx. TxOut ctx -&gt; Value
+</span><span class="hs-identifier hs-var">txOutValue</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679434462"><span class="hs-identifier hs-var">headOut</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; AssetName -&gt; AssetId
+</span><span class="hs-identifier hs-var">AssetId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434467"><span class="hs-identifier hs-var">pid</span></a></span><span> </span><span class="annot"><span class="annottext">AssetName
+</span><a href="Hydra.Tx.Utils.html#hydraHeadV1AssetName"><span class="hs-identifier hs-var">hydraHeadV1AssetName</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span>  </span><span class="hs-comment">-- check that ST is present in the head output</span><span>
+</span><span id="line-128"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; Either NotAnInitReason () -&gt; Either NotAnInitReason ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.html#unless"><span class="hs-identifier hs-var">unless</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Quantity
+</span><a href="#local-6989586621679434479"><span class="hs-identifier hs-var">stQuantity</span></a></span><span> </span><span class="annot"><span class="annottext">Quantity -&gt; Quantity -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either NotAnInitReason () -&gt; Either NotAnInitReason ())
+-&gt; Either NotAnInitReason () -&gt; Either NotAnInitReason ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-129"></span><span>    </span><span class="annot"><span class="annottext">NotAnInitReason -&gt; Either NotAnInitReason ()
+forall a b. a -&gt; Either a b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">NotAnInitReason
+</span><a href="Hydra.Tx.Init.html#NoSTFound"><span class="hs-identifier hs-var">NoSTFound</span></a></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span>  </span><span class="hs-comment">-- check that we are using the same seed and headId matches</span><span>
+</span><span id="line-132"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; Either NotAnInitReason () -&gt; Either NotAnInitReason ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.html#unless"><span class="hs-identifier hs-var">unless</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434467"><span class="hs-identifier hs-var">pid</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; PolicyId -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; PolicyId
+</span><span class="hs-identifier hs-var">HeadTokens.headPolicyId</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679434470"><span class="hs-identifier hs-var">seedTxIn</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either NotAnInitReason () -&gt; Either NotAnInitReason ())
+-&gt; Either NotAnInitReason () -&gt; Either NotAnInitReason ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-133"></span><span>    </span><span class="annot"><span class="annottext">NotAnInitReason -&gt; Either NotAnInitReason ()
+forall a b. a -&gt; Either a b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">NotAnInitReason
+</span><a href="Hydra.Tx.Init.html#NotAHeadPolicy"><span class="hs-identifier hs-var">NotAHeadPolicy</span></a></span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span>  </span><span id="local-6989586621679434483"><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679434483"><span class="hs-identifier hs-var">parties</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-136"></span><span>    </span><span class="annot"><span class="annottext">Either NotAnInitReason [Party]
+-&gt; ([Party] -&gt; Either NotAnInitReason [Party])
+-&gt; Maybe [Party]
+-&gt; Either NotAnInitReason [Party]
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NotAnInitReason -&gt; Either NotAnInitReason [Party]
+forall a b. a -&gt; Either a b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">NotAnInitReason
+</span><a href="Hydra.Tx.Init.html#InvalidPartyInDatum"><span class="hs-identifier hs-var">InvalidPartyInDatum</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Party] -&gt; Either NotAnInitReason [Party]
+forall a b. b -&gt; Either a b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe [Party] -&gt; Either NotAnInitReason [Party])
+-&gt; Maybe [Party] -&gt; Either NotAnInitReason [Party]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-137"></span><span>      </span><span class="annot"><span class="annottext">(Party -&gt; Maybe Party) -&gt; [Party] -&gt; Maybe [Party]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; [a] -&gt; f [b]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Traversable.html#traverse"><span class="hs-identifier hs-var">traverse</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Maybe Party
+forall (m :: * -&gt; *). MonadFail m =&gt; Party -&gt; m Party
+</span><a href="Hydra.Tx.Party.html#partyFromChain"><span class="hs-identifier hs-var">partyFromChain</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679434469"><span class="hs-identifier hs-var">onChainParties</span></a></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span>  </span><span class="annot"><span class="annottext">InitObservation -&gt; Either NotAnInitReason InitObservation
+forall a. a -&gt; Either NotAnInitReason a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(InitObservation -&gt; Either NotAnInitReason InitObservation)
+-&gt; InitObservation -&gt; Either NotAnInitReason InitObservation
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="annot"><a href="Hydra.Tx.Init.html#InitObservation"><span class="hs-identifier hs-type">InitObservation</span></a></span><span>
+</span><span id="line-141"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:headId:InitObservation :: HeadId
+</span><a href="Hydra.Tx.Init.html#%24sel%3AheadId%3AInitObservation"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; HeadId
+</span><a href="Hydra.Tx.HeadId.html#mkHeadId"><span class="hs-identifier hs-var">mkHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434467"><span class="hs-identifier hs-var">pid</span></a></span><span>
+</span><span id="line-142"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxIn
+$sel:seedTxIn:InitObservation :: TxIn
+seedTxIn :: TxIn
+</span><a href="Hydra.Tx.Init.html#%24sel%3AseedTxIn%3AInitObservation"><span class="hs-identifier hs-var hs-var">seedTxIn</span></a></span><span>
+</span><span id="line-143"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:initialThreadUTxO:InitObservation :: (TxIn, TxOut CtxUTxO)
+</span><a href="Hydra.Tx.Init.html#%24sel%3AinitialThreadUTxO%3AInitObservation"><span class="hs-identifier hs-var">initialThreadUTxO</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; Word -&gt; TxIn
+forall era. Tx era -&gt; Word -&gt; TxIn
+</span><span class="hs-identifier hs-var">mkTxIn</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679434460"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679434461"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; TxOut CtxUTxO
+forall era. TxOut CtxTx era -&gt; TxOut CtxUTxO era
+</span><span class="hs-identifier hs-var">toCtxUTxOTxOut</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679434462"><span class="hs-identifier hs-var">headOut</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-144"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO)]
+$sel:initials:InitObservation :: [(TxIn, TxOut CtxUTxO)]
+initials :: [(TxIn, TxOut CtxUTxO)]
+</span><a href="Hydra.Tx.Init.html#%24sel%3Ainitials%3AInitObservation"><span class="hs-identifier hs-var hs-var">initials</span></a></span><span>
+</span><span id="line-145"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+$sel:contestationPeriod:InitObservation :: ContestationPeriod
+contestationPeriod :: ContestationPeriod
+</span><a href="Hydra.Tx.Init.html#%24sel%3AcontestationPeriod%3AInitObservation"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span><span>
+</span><span id="line-146"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Party]
+$sel:parties:InitObservation :: [Party]
+parties :: [Party]
+</span><a href="Hydra.Tx.Init.html#%24sel%3Aparties%3AInitObservation"><span class="hs-identifier hs-var hs-var">parties</span></a></span><span>
+</span><span id="line-147"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:participants:InitObservation :: [OnChainId]
+</span><a href="Hydra.Tx.Init.html#%24sel%3Aparticipants%3AInitObservation"><span class="hs-identifier hs-var">participants</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AssetName -&gt; OnChainId
+</span><a href="Hydra.Tx.Utils.html#assetNameToOnChainId"><span class="hs-identifier hs-var">assetNameToOnChainId</span></a></span><span> </span><span class="annot"><span class="annottext">(AssetName -&gt; OnChainId) -&gt; [AssetName] -&gt; [OnChainId]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; [AssetName]
+</span><a href="#local-6989586621679434490"><span class="hs-identifier hs-var">mintedTokenNames</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434467"><span class="hs-identifier hs-var">pid</span></a></span><span>
+</span><span id="line-148"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-149"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-150"></span><span>  </span><span id="local-6989586621679434464"><span class="annot"><span class="annottext">maybeLeft :: a -&gt; Maybe b -&gt; Either a b
+</span><a href="#local-6989586621679434464"><span class="hs-identifier hs-var hs-var">maybeLeft</span></a></span></span><span> </span><span id="local-6989586621679434491"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679434491"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Either a b -&gt; (b -&gt; Either a b) -&gt; Maybe b -&gt; Either a b
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Either a b
+forall a b. a -&gt; Either a b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679434491"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">b -&gt; Either a b
+forall a b. b -&gt; Either a b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span>  </span><span id="local-6989586621679434465"><span class="annot"><span class="annottext">matchHeadOutput :: (t, TxOut CtxTx era) -&gt; Maybe (t, TxOut CtxTx era, a)
+</span><a href="#local-6989586621679434465"><span class="hs-identifier hs-var hs-var">matchHeadOutput</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434502"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679434502"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434503"><span class="annot"><span class="annottext">TxOut CtxTx era
+</span><a href="#local-6989586621679434503"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-153"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Maybe ()
+forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ()) -&gt; Bool -&gt; Maybe ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; TxOut CtxTx era -&gt; Bool
+forall lang ctx era.
+IsPlutusScriptLanguage lang =&gt;
+PlutusScript lang -&gt; TxOut ctx era -&gt; Bool
+</span><span class="hs-identifier hs-var">isScriptTxOut</span></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><span class="hs-identifier hs-var">Head.validatorScript</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx era
+</span><a href="#local-6989586621679434503"><span class="hs-identifier hs-var">out</span></a></span><span>
+</span><span id="line-154"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679434502"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">TxOut CtxTx era
+</span><a href="#local-6989586621679434503"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(a -&gt; (t, TxOut CtxTx era, a))
+-&gt; Maybe a -&gt; Maybe (t, TxOut CtxTx era, a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe a
+forall a. FromScriptData a =&gt; HashableScriptData -&gt; Maybe a
+</span><span class="hs-identifier hs-var">fromScriptData</span></span><span> </span><span class="annot"><span class="annottext">(HashableScriptData -&gt; Maybe a)
+-&gt; Maybe HashableScriptData -&gt; Maybe a
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3D%3C%3C"><span class="hs-operator hs-var">=&lt;&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx era -&gt; Maybe HashableScriptData
+forall era. TxOut CtxTx era -&gt; Maybe HashableScriptData
+</span><span class="hs-identifier hs-var">txOutScriptData</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx era
+</span><a href="#local-6989586621679434503"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-155"></span><span>
+</span><span id="line-156"></span><span>  </span><span id="local-6989586621679434466"><span class="annot"><span class="annottext">indexedOutputs :: [(Word, TxOut CtxTx Era)]
+</span><a href="#local-6989586621679434466"><span class="hs-identifier hs-var hs-var">indexedOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Word] -&gt; [TxOut CtxTx Era] -&gt; [(Word, TxOut CtxTx Era)]
+forall a b. [a] -&gt; [b] -&gt; [(a, b)]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx Era]
+forall era. Tx era -&gt; [TxOut CtxTx era]
+</span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679434460"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-157"></span><span>
+</span><span id="line-158"></span><span>  </span><span id="local-6989586621679434509"><span class="annot"><span class="annottext">initialOutputs :: [(Word, TxOut CtxTx Era)]
+</span><a href="#local-6989586621679434509"><span class="hs-identifier hs-var hs-var">initialOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((Word, TxOut CtxTx Era) -&gt; Bool)
+-&gt; [(Word, TxOut CtxTx Era)] -&gt; [(Word, TxOut CtxTx Era)]
+forall a. (a -&gt; Bool) -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.List.html#filter"><span class="hs-identifier hs-var">filter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; Bool
+forall {ctx} {era}. TxOut ctx era -&gt; Bool
+</span><a href="#local-6989586621679434510"><span class="hs-identifier hs-var">isInitial</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx Era -&gt; Bool)
+-&gt; ((Word, TxOut CtxTx Era) -&gt; TxOut CtxTx Era)
+-&gt; (Word, TxOut CtxTx Era)
+-&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(Word, TxOut CtxTx Era) -&gt; TxOut CtxTx Era
+forall a b. (a, b) -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Tuple.html#snd"><span class="hs-identifier hs-var">snd</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(Word, TxOut CtxTx Era)]
+</span><a href="#local-6989586621679434466"><span class="hs-identifier hs-var">indexedOutputs</span></a></span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span>  </span><span id="local-6989586621679434488"><span class="annot"><span class="annottext">initials :: [(TxIn, TxOut CtxUTxO)]
+</span><a href="#local-6989586621679434488"><span class="hs-identifier hs-var hs-var">initials</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-161"></span><span>    </span><span class="annot"><span class="annottext">((Word, TxOut CtxTx Era) -&gt; (TxIn, TxOut CtxUTxO))
+-&gt; [(Word, TxOut CtxTx Era)] -&gt; [(TxIn, TxOut CtxUTxO)]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span>
+</span><span id="line-162"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Word -&gt; TxIn)
+-&gt; (TxOut CtxTx Era -&gt; TxOut CtxUTxO)
+-&gt; (Word, TxOut CtxTx Era)
+-&gt; (TxIn, TxOut CtxUTxO)
+forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; (a, c) -&gt; (b, d)
+forall (p :: * -&gt; * -&gt; *) a b c d.
+Bifunctor p =&gt;
+(a -&gt; b) -&gt; (c -&gt; d) -&gt; p a c -&gt; p b d
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Bifunctor.html#bimap"><span class="hs-identifier hs-var">bimap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; Word -&gt; TxIn
+forall era. Tx era -&gt; Word -&gt; TxIn
+</span><span class="hs-identifier hs-var">mkTxIn</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679434460"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; TxOut CtxUTxO
+forall era. TxOut CtxTx era -&gt; TxOut CtxUTxO era
+</span><span class="hs-identifier hs-var">toCtxUTxOTxOut</span></span><span class="hs-special">)</span><span>
+</span><span id="line-163"></span><span>      </span><span class="annot"><span class="annottext">[(Word, TxOut CtxTx Era)]
+</span><a href="#local-6989586621679434509"><span class="hs-identifier hs-var">initialOutputs</span></a></span><span>
+</span><span id="line-164"></span><span>
+</span><span id="line-165"></span><span>  </span><span id="local-6989586621679434510"><span class="annot"><span class="annottext">isInitial :: TxOut ctx era -&gt; Bool
+</span><a href="#local-6989586621679434510"><span class="hs-identifier hs-var hs-var">isInitial</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; TxOut ctx era -&gt; Bool
+forall lang ctx era.
+IsPlutusScriptLanguage lang =&gt;
+PlutusScript lang -&gt; TxOut ctx era -&gt; Bool
+</span><span class="hs-identifier hs-var">isScriptTxOut</span></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><span class="hs-identifier hs-var">initialValidatorScript</span></span><span>
+</span><span id="line-166"></span><span>
+</span><span id="line-167"></span><span>  </span><span id="local-6989586621679434490"><span class="annot"><span class="annottext">mintedTokenNames :: PolicyId -&gt; [AssetName]
+</span><a href="#local-6989586621679434490"><span class="hs-identifier hs-var hs-var">mintedTokenNames</span></a></span></span><span> </span><span id="local-6989586621679434515"><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434515"><span class="hs-identifier hs-var">pid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-168"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">AssetName
+</span><a href="#local-6989586621679434516"><span class="hs-identifier hs-var">assetName</span></a></span><span>
+</span><span id="line-169"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetId</span></span><span> </span><span id="local-6989586621679434517"><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434517"><span class="hs-identifier hs-var">policyId</span></a></span></span><span> </span><span id="local-6989586621679434516"><span class="annot"><span class="annottext">AssetName
+</span><a href="#local-6989586621679434516"><span class="hs-identifier hs-var">assetName</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434518"><span class="annot"><span class="annottext">Quantity
+</span><a href="#local-6989586621679434518"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Value -&gt; [Item Value]
+forall l. IsList l =&gt; l -&gt; [Item l]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IsList.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; [Item Value]) -&gt; Value -&gt; [Item Value]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxMintValue ViewTx Era -&gt; Value
+forall build era. TxMintValue build era -&gt; Value
+</span><span class="hs-identifier hs-var">txMintValueToValue</span></span><span> </span><span class="annot"><span class="annottext">(TxMintValue ViewTx Era -&gt; Value)
+-&gt; TxMintValue ViewTx Era -&gt; Value
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxBodyContent ViewTx -&gt; TxMintValue ViewTx Era
+forall buidl. TxBodyContent buidl -&gt; TxMintValue buidl
+</span><span class="hs-identifier hs-var">txMintValue</span></span><span> </span><span class="annot"><span class="annottext">(TxBodyContent ViewTx -&gt; TxMintValue ViewTx Era)
+-&gt; TxBodyContent ViewTx -&gt; TxMintValue ViewTx Era
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody Era -&gt; TxBodyContent ViewTx
+forall era. TxBody era -&gt; TxBodyContent ViewTx era
+</span><span class="hs-identifier hs-var">getTxBodyContent</span></span><span> </span><span class="annot"><span class="annottext">(TxBody Era -&gt; TxBodyContent ViewTx)
+-&gt; TxBody Era -&gt; TxBodyContent ViewTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; TxBody Era
+forall era. Tx era -&gt; TxBody era
+</span><span class="hs-identifier hs-var">getTxBody</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679434460"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-170"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><a href="#local-6989586621679434518"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">Quantity -&gt; Quantity -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-comment">-- NOTE: Only consider unique tokens</span><span>
+</span><span id="line-171"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434517"><span class="hs-identifier hs-var">policyId</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; PolicyId -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679434515"><span class="hs-identifier hs-var">pid</span></a></span><span>
+</span><span id="line-172"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">AssetName
+</span><a href="#local-6989586621679434516"><span class="hs-identifier hs-var">assetName</span></a></span><span> </span><span class="annot"><span class="annottext">AssetName -&gt; AssetName -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">AssetName
+</span><a href="Hydra.Tx.Utils.html#hydraHeadV1AssetName"><span class="hs-identifier hs-var">hydraHeadV1AssetName</span></a></span><span>
+</span><span id="line-173"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-174"></span></pre></body></html>
