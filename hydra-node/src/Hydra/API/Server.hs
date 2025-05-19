@@ -297,6 +297,7 @@ projectHeadStatus headStatus = \case
   StateChanged.HeadClosed{} -> Closed
   StateChanged.HeadIsReadyToFanout{} -> FanoutPossible
   StateChanged.HeadFannedOut{} -> Final
+  StateChanged.HeadAborted{} -> Idle
   _other -> headStatus
 
 -- | Projection of latest confirmed snapshot UTxO.
