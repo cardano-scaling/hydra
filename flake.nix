@@ -46,10 +46,6 @@
               # This overlay contains pkg-config mappings via haskell.nix to use the
               # crypto libraries above
               inputs.iohk-nix.overlays.haskell-nix-crypto
-              # Keep haskell.nix as the last overlay!
-              #
-              # Reason: haskell.nix modules/overlays needs to be last
-              # https://github.com/input-output-hk/haskell.nix/issues/1954
               inputs.haskellNix.overlay
               # Custom static libs used for darwin build
               (import ./nix/static-libs.nix)
