@@ -45,6 +45,7 @@ import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
  )
+import Hydra.API.ServerOutput (HeadStatus (Idle))
 import Hydra.Cardano.Api (
   Coin (..),
   Era,
@@ -107,7 +108,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Options (CardanoChainConfig (..), startChainFrom)
+import Hydra.Options (CardanoChainConfig (..), hydraNodeVersion, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
@@ -302,6 +303,14 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
     send n1 $ input "Abort" []
     waitFor hydraTracer 20 [n1] $
       output "HeadIsAborted" ["utxo" .= object mempty, "headId" .= headId2]
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    waitFor hydraTracer 20 [n1] $
+      output
+        "Greetings"
+        [ "headStatus" .= Idle
+        , "hydraNodeVersion" .= hydraNodeVersion
+        , "me" .= alice
+        ]
  where
   RunningNode{nodeSocket} = cardanoNode
 
