@@ -4,7 +4,7 @@
 module Hydra.API.ServerOutput where
 
 import Control.Lens ((.~))
-import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, withObject, (.:))
+import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, tagSingleConstructors, withObject, (.:))
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
@@ -112,6 +112,7 @@ instance IsChainState tx => ToJSON (Greetings tx) where
     genericToJSON
       defaultOptions
         { omitNothingFields = True
+        , tagSingleConstructors = True
         }
 
 instance IsChainState tx => FromJSON (Greetings tx) where
@@ -119,6 +120,7 @@ instance IsChainState tx => FromJSON (Greetings tx) where
     genericParseJSON
       defaultOptions
         { omitNothingFields = True
+        , tagSingleConstructors = True
         }
 
 instance ArbitraryIsTx tx => Arbitrary (Greetings tx) where
