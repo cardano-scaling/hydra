@@ -47,6 +47,7 @@ jobs:
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
+        echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
         cd ${{ matrix.package }}
         nix build .#${{ matrix.package }}-tests
         nix develop .#${{ matrix.package }}-tests --command tests
