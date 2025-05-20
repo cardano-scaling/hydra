@@ -416,7 +416,7 @@ queryEraHistory = do
 
 -- | Query the Blockfrost API to get the 'UTxO' for 'TxIn' and convert to cardano 'UTxO'.
 queryUTxOByTxIn :: NetworkId -> Text -> BlockfrostClientT IO UTxO
-queryUTxOByTxIn networkId txHash = go (100 :: Int) -- TODO: make this configurable
+queryUTxOByTxIn networkId txHash = go (300 :: Int) -- TODO: make this configurable
  where
   go 0 = liftIO $ throwIO $ BlockfrostError $ FailedUTxOForHash txHash
   go n = do
