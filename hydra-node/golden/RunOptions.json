@@ -16,8 +16,8 @@
                     },
                     "tag": "Blockfrost"
                 },
-                "contestationPeriod": 43200,
-                "depositDeadline": 74,
+                "contestationPeriod": 36181,
+                "depositPeriod": 20565,
                 "hydraScriptsTxId": [
                     "0e7aa6a6b04903b07ee1c14b892dd41d79fcdb8d5150b379ee395e6fccd7ac94",
                     "678a8fe9a4d9bae4beb9f04f3514a0ac4934a30213ad0e78adc386c8a3b40b6a",
@@ -104,8 +104,8 @@
                     },
                     "tag": "Blockfrost"
                 },
-                "contestationPeriod": 14376,
-                "depositDeadline": 50,
+                "contestationPeriod": 604800,
+                "depositPeriod": 77091,
                 "hydraScriptsTxId": [
                     "1e09c30835b4d9070d62bb8505e2106719ffbf105c23e75e4e379f6625612756",
                     "2641215eaa36ece3f69185f5f644e1385ac059aa38be5a76a66c694e5bb7bba4",
@@ -197,8 +197,8 @@
                     },
                     "tag": "Direct"
                 },
-                "contestationPeriod": 31536000,
-                "depositDeadline": 214,
+                "contestationPeriod": 53328,
+                "depositPeriod": 13685,
                 "hydraScriptsTxId": [
                     "9ed39761f06f5004ead6a765de1962dfa0efd70df42c6bc1e168735368af2f80",
                     "4823f8d21a11fbd5a357b6cdb37c33699fc3bbbab64d30cc2bb9297574db21c4",
@@ -275,8 +275,8 @@
                     },
                     "tag": "Blockfrost"
                 },
-                "contestationPeriod": 604800,
-                "depositDeadline": 116,
+                "contestationPeriod": 86400,
+                "depositPeriod": 73355,
                 "hydraScriptsTxId": [
                     "2faf8248f026c26067bc554e9b0ceb7502339b6f9eded057df4789b531362850",
                     "e7b3193074581b48b62417594b5486c92177f85894c65c362b4f8ad56b5ab5d5",

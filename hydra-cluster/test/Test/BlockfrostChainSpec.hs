@@ -33,11 +33,11 @@ import Hydra.Cluster.Fixture (
   alice,
   aliceSk,
   blockfrostcperiod,
-  ddeadline,
  )
 import Hydra.Cluster.Util (chainConfigFor', keysFor)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Options (
   BlockfrostOptions (..),
   CardanoChainConfig (..),
@@ -87,7 +87,7 @@ spec = around (showLogsOnFailure "BlockfrostChainSpec") $ do
       void $ Blockfrost.runBlockfrostM prj $ Blockfrost.awaitUTxO networkId [faucetAddress] (List.last hydraScriptsTxId) 100
 
       -- Alice setup
-      aliceChainConfig <- chainConfigFor' Alice tmp (Left projectPath) hydraScriptsTxId [] blockfrostcperiod ddeadline
+      aliceChainConfig <- chainConfigFor' Alice tmp (Left projectPath) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100)
 
       withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
         \aliceChain@CardanoChainTest{postTx} -> do

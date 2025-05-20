@@ -17,7 +17,8 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
  )
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
-import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), defaultCardanoChainConfig, defaultDirectOptions)
+import Hydra.Node.DepositPeriod (DepositPeriod)
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), defaultCardanoChainConfig, defaultDepositPeriod, defaultDirectOptions)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
@@ -66,7 +67,7 @@ chainConfigFor ::
   [Actor] ->
   ContestationPeriod ->
   IO ChainConfig
-chainConfigFor me targetDir nodeSocket = chainConfigFor' me targetDir (Right nodeSocket)
+chainConfigFor me targetDir nodeSocket txids actors cp = chainConfigFor' me targetDir (Right nodeSocket) txids actors cp defaultDepositPeriod
 
 chainConfigFor' ::
   HasCallStack =>
@@ -77,9 +78,9 @@ chainConfigFor' ::
   [TxId] ->
   [Actor] ->
   ContestationPeriod ->
-  DepositDeadline ->
+  DepositPeriod ->
   IO ChainConfig
-chainConfigFor' me targetDir socketOrProjectPath hydraScriptsTxId them contestationPeriod depositDeadline = do
+chainConfigFor' me targetDir socketOrProjectPath hydraScriptsTxId them contestationPeriod depositPeriod = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -98,7 +99,7 @@ chainConfigFor' me targetDir socketOrProjectPath hydraScriptsTxId them contestat
         , cardanoSigningKey = actorFilePath me "sk"
         , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
-        , depositDeadline
+        , depositPeriod
         , chainBackendOptions =
             case socketOrProjectPath of
               Left projectPath -> Blockfrost BlockfrostOptions{projectPath}

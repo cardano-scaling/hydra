@@ -60,7 +60,6 @@ library
     Hydra.Chain.Blockfrost.Client
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
-    Hydra.Chain.Blockfrost
     Hydra.Chain.Direct.Handlers
     Hydra.Chain.Direct.State
     Hydra.Chain.Direct.TimeHandle

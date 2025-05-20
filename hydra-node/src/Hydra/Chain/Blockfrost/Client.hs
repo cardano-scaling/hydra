@@ -68,10 +68,21 @@ import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), mkInterpreter)
 
-data APIBlockfrostError
-  = BlockfrostError Text
+data BlockfrostException
+  = TimeoutOnUTxO TxId
+  | FailedToDecodeAddress Text
+  | ByronAddressNotSupported
+  | FailedUTxOForHash Text
+  | FailedEraHistory
+  | AssetNameMissing
+  | DeserialiseError Text
   | DecodeError Text
+  | BlockfrostAPIError Text
   deriving (Show, Exception)
+
+newtype APIBlockfrostError
+  = BlockfrostError BlockfrostException
+  deriving newtype (Show, Exception)
 
 runBlockfrostM ::
   (MonadIO m, MonadThrow m) =>
@@ -81,7 +92,7 @@ runBlockfrostM ::
 runBlockfrostM prj action = do
   result <- liftIO $ runBlockfrost prj action
   case result of
-    Left err -> throwIO (BlockfrostError $ show err)
+    Left err -> throwIO $ BlockfrostError $ BlockfrostAPIError (show err)
     Right val -> pure val
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
@@ -242,7 +253,7 @@ toCardanoTxOut networkId addrTxt val mDatumHash mInlineDatum plutusScript = do
   case plutusScript of
     Nothing -> do
       case toCardanoAddress addrTxt of
-        Nothing -> liftIO $ throwIO $ BlockfrostError $ "Failed to decode address: " <> addrTxt
+        Nothing -> liftIO $ throwIO $ BlockfrostError $ FailedToDecodeAddress addrTxt
         Just addr -> pure $ TxOut addr val datum ReferenceScriptNone
     Just script -> pure $ TxOut (scriptAddr script) val datum (mkScriptRef script)
  where
@@ -257,13 +268,13 @@ toCardanoPolicyIdAndAssetName :: Text -> BlockfrostClientT IO (PolicyId, AssetNa
 toCardanoPolicyIdAndAssetName pid = do
   Blockfrost.AssetDetails{_assetDetailsPolicyId, _assetDetailsAssetName} <- Blockfrost.getAssetDetails (Blockfrost.mkAssetId pid)
   case deserialiseFromRawBytesHex (encodeUtf8 $ Blockfrost.unPolicyId _assetDetailsPolicyId) of
-    Left err -> liftIO $ throwIO $ BlockfrostError $ show err
+    Left err -> liftIO $ throwIO $ BlockfrostError $ DeserialiseError (show err)
     Right p ->
       case _assetDetailsAssetName of
-        Nothing -> liftIO $ throwIO $ BlockfrostError "Asset name is missing."
+        Nothing -> liftIO $ throwIO $ BlockfrostError AssetNameMissing
         Just assetName ->
           case deserialiseFromRawBytesHex (encodeUtf8 assetName) of
-            Left err -> liftIO $ throwIO $ BlockfrostError $ show err
+            Left err -> liftIO $ throwIO $ BlockfrostError $ DeserialiseError (show err)
             Right asset -> pure (p, asset)
 
 toCardanoValue :: [Blockfrost.Amount] -> BlockfrostClientT IO Value
@@ -370,11 +381,11 @@ submitTransaction tx = Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict 
 queryEraHistory :: BlockfrostClientT IO EraHistory
 queryEraHistory = do
   eras' <- Blockfrost.getNetworkEras
-  let eras = filter withoutEmptyEra eras'
+  let eras = filter isEmptyEra eras'
   let summary = mkEra <$> eras
   case nonEmptyFromList summary of
     Nothing ->
-      liftIO $ throwIO $ BlockfrostError "Failed to create EraHistory."
+      liftIO $ throwIO $ BlockfrostError FailedEraHistory
     Just s -> pure $ EraHistory (mkInterpreter $ Summary s)
  where
   mkBound Blockfrost.NetworkEraBound{_boundEpoch, _boundSlot, _boundTime} =
@@ -396,7 +407,7 @@ queryEraHistory = do
       , eraEnd = EraEnd $ mkBound _networkEraEnd
       , eraParams = mkEraParams _networkEraParameters
       }
-  withoutEmptyEra
+  isEmptyEra
     Blockfrost.NetworkEraSummary
       { _networkEraStart = Blockfrost.NetworkEraBound{_boundTime = boundStart}
       , _networkEraEnd = Blockfrost.NetworkEraBound{_boundTime = boundEnd}
@@ -407,7 +418,7 @@ queryEraHistory = do
 queryUTxOByTxIn :: NetworkId -> Text -> BlockfrostClientT IO UTxO
 queryUTxOByTxIn networkId txHash = go (100 :: Int) -- TODO: make this configurable
  where
-  go 0 = liftIO $ throwIO $ BlockfrostError $ "Failed to get UTxO for tx hash: " <> txHash
+  go 0 = liftIO $ throwIO $ BlockfrostError $ FailedUTxOForHash txHash
   go n = do
     res <- Blockfrost.tryError $ Blockfrost.getTxUtxos (Blockfrost.TxHash txHash)
     case res of
@@ -468,7 +479,7 @@ queryUTxOFor vk = do
     ShelleyAddressInEra addr ->
       queryUTxO networkId [addr]
     ByronAddressInEra{} ->
-      liftIO $ throwIO $ BlockfrostError "impossible: mkVkAddress returned Byron address."
+      liftIO $ throwIO $ BlockfrostError ByronAddressNotSupported
 
 -- | Query the Blockfrost API for 'Genesis'
 queryGenesisParameters :: BlockfrostClientT IO Blockfrost.Genesis
@@ -530,7 +541,7 @@ awaitUTxO ::
 awaitUTxO networkId addresses txid i = do
   go i
  where
-  go 0 = liftIO $ throwIO $ BlockfrostError $ "Timeout waiting for UTxO from Blockfrost. Relevant txid: " <> T.pack (show txid)
+  go 0 = liftIO $ throwIO $ BlockfrostError (TimeoutOnUTxO txid)
   go n = do
     utxo <- Blockfrost.tryError $ queryUTxO networkId addresses
     case utxo of

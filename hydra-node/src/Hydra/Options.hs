@@ -406,8 +406,7 @@ data CardanoChainConfig = CardanoChainConfig
   , startChainFrom :: Maybe ChainPoint
   -- ^ Point at which to start following the chain.
   , contestationPeriod :: ContestationPeriod
-  , depositDeadline :: DepositDeadline
-  -- ^ Deadline to detect deposit tx on-chain.
+  , depositPeriod :: DepositPeriod
   , chainBackendOptions :: ChainBackendOptions
   }
   deriving stock (Eq, Show, Generic)
@@ -421,7 +420,7 @@ defaultCardanoChainConfig =
     , cardanoVerificationKeys = []
     , startChainFrom = Nothing
     , contestationPeriod = defaultContestationPeriod
-    , depositDeadline = defaultDepositDeadline
+    , depositPeriod = defaultDepositPeriod
     , chainBackendOptions = Direct defaultDirectOptions
     }
 
@@ -522,7 +521,7 @@ cardanoChainConfigParser =
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
     <*> contestationPeriodParser
-    <*> depositDeadlineParser
+    <*> depositPeriodParser
     <*> chainBackendOptionsParser
 
 blockfrostProjectPathParser :: Parser FilePath
@@ -990,7 +989,7 @@ toArgs
           , cardanoVerificationKeys
           , startChainFrom
           , contestationPeriod
-          , depositDeadline
+          , depositPeriod
           , chainBackendOptions
           } ->
           ( case chainBackendOptions of
@@ -1003,7 +1002,7 @@ toArgs
             <> ["--hydra-scripts-tx-id", intercalate "," $ toString . serialiseToRawBytesHexText <$> hydraScriptsTxId]
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
-            <> ["--deposit-deadline", show depositDeadline]
+            <> ["--deposit-period", show depositPeriod]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
 

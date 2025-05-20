@@ -56,9 +56,8 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
-import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
@@ -96,9 +95,9 @@ initEnvironment options = do
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
     Cardano CardanoChainConfig{contestationPeriod = cp} -> cp
-  depositDeadline = case chainConfig of
-    Offline{} -> defaultDepositDeadline
-    Cardano CardanoChainConfig{depositDeadline = ddeadline} -> ddeadline
+  depositPeriod = case chainConfig of
+    Offline{} -> defaultDepositPeriod
+    Cardano CardanoChainConfig{depositPeriod = dp} -> dp
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow p

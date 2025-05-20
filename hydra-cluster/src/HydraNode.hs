@@ -317,7 +317,6 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
                 , cardanoSigningKey
                 , cardanoVerificationKeys
                 , contestationPeriod
-                , depositDeadline
                 , chainBackendOptions =
                     Direct
                       defaultDirectOptions
