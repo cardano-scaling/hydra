@@ -187,11 +187,11 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
   outs =
     TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
       : [ fromCtxUTxOTxOut $
-            TxOut
-              owner
-              (valueIn <> negateValue valueOut)
-              datum
-              refScript
+          TxOut
+            owner
+            (valueIn <> negateValue valueOut)
+            datum
+            refScript
         | valueOut /= valueIn
         ]
 
@@ -217,11 +217,11 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
       , txOuts =
           TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
             : [ fromCtxUTxOTxOut $
-                  TxOut
-                    owner
-                    (valueIn <> negateValue valueOut)
-                    datum
-                    refScript
+                TxOut
+                  owner
+                  (valueIn <> negateValue valueOut)
+                  datum
+                  refScript
               | valueOut /= valueIn
               ]
       , txFee = TxFeeExplicit $ Coin 0

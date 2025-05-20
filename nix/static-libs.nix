@@ -12,7 +12,7 @@ final: prev: {
   static-libblst = (final.libblst.override { enableShared = false; }).overrideDerivation (old: {
     postFixup = "";
   });
-  static-openssl = (final.openssl.override { static = true; });
+  static-openssl = final.openssl.override { static = true; };
   static-zlib = final.zlib.override { shared = false; };
   static-pcre = final.pcre.override { shared = false; };
   # XXX: Not replicate the cmakeFlags but just drop the -DBUILD_SHARED_LIBS=ON from it

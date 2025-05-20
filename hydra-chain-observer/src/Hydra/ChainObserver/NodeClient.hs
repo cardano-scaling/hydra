@@ -21,8 +21,7 @@ import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
 
 type ObserverHandler m = [ChainObservation] -> m ()
 
-data ChainObservation
-  = ChainObservation
+data ChainObservation = ChainObservation
   { point :: ChainPoint
   , blockNo :: BlockNo
   , observedTx :: Maybe (OnChainTx Tx)

@@ -173,8 +173,7 @@ toCardanoNetworkMagic = \case
   0 -> Mainnet
   magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
 
-data BlockfrostConversion
-  = BlockfrostConversion
+data BlockfrostConversion = BlockfrostConversion
   { a0 :: NonNegativeInterval
   , rho :: UnitInterval
   , tau :: UnitInterval

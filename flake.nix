@@ -18,12 +18,14 @@
     mithril-unstable.url = "github:input-output-hk/mithril/unstable";
     nixpkgs.follows = "haskellNix/nixpkgs";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
+    treefmt-nix.url = "github:numtide/treefmt-nix";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
   };
 
   outputs = { self, ... }@inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
+        inputs.treefmt-nix.flakeModule
         inputs.process-compose-flake.flakeModule
       ];
       systems = [
@@ -52,18 +54,14 @@
               inputs.nix-npm-buildpackage.overlays.default
               # Specific versions of tools we require
               (final: prev: {
-                aiken = inputs.aiken.packages.${system}.aiken;
-                apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.15.0.0";
-                cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.12";
+                inherit (inputs.aiken.packages.${system}) aiken;
                 cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
                 cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.5.0";
-                fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.17.0.0";
                 haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" "2.9.0.0";
-                hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
                 weeder = pkgs.haskell-nix.tool compiler "weeder" "2.9.0";
-                cardano-cli = inputs.cardano-node.packages.${system}.cardano-cli;
-                cardano-node = inputs.cardano-node.packages.${system}.cardano-node;
-                mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli;
+                inherit (inputs.cardano-node.packages.${system}) cardano-cli;
+                inherit (inputs.cardano-node.packages.${system}) cardano-node;
+                inherit (inputs.mithril.packages.${system}) mithril-client-cli;
                 mithril-client-cli-unstable =
                   pkgs.writeShellScriptBin "mithril-client-unstable" ''
                     exec ${inputs.mithril-unstable.packages.${system}.mithril-client-cli}/bin/mithril-client "$@"
@@ -110,12 +108,12 @@
 
           componentsToWerrors = n: x:
             builtins.listToAttrs
-              ([
+              [
                 {
                   name = "${n}-werror";
                   value = addWerror x.components.library;
                 }
-              ]) // lib.attrsets.mergeAttrsList (map
+              ] // lib.attrsets.mergeAttrsList (map
               (y:
                 lib.mapAttrs'
                   (k: v: {
@@ -146,7 +144,7 @@
 
           tx-cost-diff =
             let
-              pyEnv = (pkgs.python3.withPackages (ps: with ps; [ pandas html5lib beautifulsoup4 tabulate ]));
+              pyEnv = pkgs.python3.withPackages (ps: with ps; [ pandas html5lib beautifulsoup4 tabulate ]);
             in
             pkgs.writers.writeHaskellBin
               "tx-cost-diff"
@@ -172,17 +170,17 @@
             inherit (hydraPackages) hydra-node hydra-tui;
           };
 
-          checks = let lu = inputs.lint-utils.linters.${system}; in {
-            hlint = lu.hlint { src = self; hlint = pkgs.hlint; };
-            treefmt = lu.treefmt {
-              src = self;
-              buildInputs = [
-                pkgs.cabal-fmt
-                pkgs.nixpkgs-fmt
-                pkgs.fourmolu
-              ];
-              treefmt = pkgs.treefmt;
+          treefmt = {
+            programs = {
+              cabal-fmt.enable = true;
+              hlint.enable = true;
+              fourmolu.enable = true;
+              nixpkgs-fmt.enable = true;
+              statix.enable = true;
             };
+          };
+
+          checks = let lu = inputs.lint-utils.linters.${system}; in {
             no-srp = lu.no-srp {
               src = self;
               cabal-project-file = ./cabal.project;

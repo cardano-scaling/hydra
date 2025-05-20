@@ -101,8 +101,7 @@ data PendingIncrementStatus
   | FinalizingDeposit
   deriving (Show)
 
-data PendingIncrement
-  = PendingIncrement
+data PendingIncrement = PendingIncrement
   { utxoToCommit :: UTxO
   , deposit :: TxId
   , depositDeadline :: UTCTime

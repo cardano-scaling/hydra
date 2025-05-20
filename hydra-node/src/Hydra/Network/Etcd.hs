@@ -287,8 +287,7 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
         Right theirVersion ->
           unless (theirVersion == ourVersion) $
             onConnectivity VersionMismatch{ourVersion, theirVersion = Just theirVersion}
-    else
-      traceWith tracer $ MatchingProtocolVersion{version = ourVersion}
+    else traceWith tracer $ MatchingProtocolVersion{version = ourVersion}
  where
   versionKey = "version"
 
@@ -307,8 +306,8 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
     defMessage
       & #requestPut
         .~ ( defMessage
-               & #key .~ versionKey
-               & #value .~ serialize' ourVersion
+              & #key .~ versionKey
+              & #value .~ serialize' ourVersion
            )
 
 -- | Broadcast messages from a queue to the etcd cluster.
