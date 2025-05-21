@@ -20,12 +20,13 @@ import Data.ByteString (hGetContents)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.HeadLogic.State (SeenSnapshot)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
 import Hydra.Network qualified as Network
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
@@ -310,13 +311,17 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
           cardanoSigningKey = workDir </> show nodeId <.> "sk"
           cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           chainConfig =
-            Direct
-              defaultDirectChainConfig
-                { nodeSocket
-                , hydraScriptsTxId
+            Cardano
+              defaultCardanoChainConfig
+                { hydraScriptsTxId
                 , cardanoSigningKey
                 , cardanoVerificationKeys
                 , contestationPeriod
+                , chainBackendOptions =
+                    Direct
+                      defaultDirectOptions
+                        { nodeSocket = nodeSocket
+                        }
                 }
       withHydraNode
         tracer
@@ -343,9 +348,14 @@ preparePParams chainConfig stateDir paramsDecorator = do
     Offline _ ->
       readConfigFile "protocol-parameters.json"
         >>= writeFileBS cardanoLedgerProtocolParametersFile
-    Direct DirectChainConfig{nodeSocket, networkId} -> do
-      -- NOTE: This implicitly tests of cardano-cli with hydra-node
-      protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
+    Cardano CardanoChainConfig{chainBackendOptions} -> do
+      protocolParameters <- case chainBackendOptions of
+        Direct DirectOptions{networkId, nodeSocket} ->
+          -- NOTE: This implicitly tests of cardano-cli with hydra-node
+          cliQueryProtocolParameters nodeSocket networkId
+        Blockfrost BlockfrostOptions{projectPath} -> do
+          prj <- Blockfrost.projectFromFile projectPath
+          toJSON <$> Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
       Aeson.encodeFile cardanoLedgerProtocolParametersFile $
         paramsDecorator protocolParameters
           & atKey "txFeeFixed" ?~ toJSON (Number 0)
@@ -477,9 +487,15 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
       Offline _ ->
         readConfigFile "protocol-parameters.json"
           >>= writeFileBS cardanoLedgerProtocolParametersFile
-      Direct DirectChainConfig{nodeSocket, networkId} -> do
-        -- NOTE: This implicitly tests of cardano-cli with hydra-node
-        protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
+      Cardano CardanoChainConfig{chainBackendOptions} -> do
+        protocolParameters <- case chainBackendOptions of
+          Direct DirectOptions{networkId, nodeSocket} ->
+            -- NOTE: This implicitly tests of cardano-cli with hydra-node
+            cliQueryProtocolParameters nodeSocket networkId
+          Blockfrost BlockfrostOptions{projectPath} -> do
+            prj <- Blockfrost.projectFromFile projectPath
+            toJSON <$> Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
+
         Aeson.encodeFile cardanoLedgerProtocolParametersFile $
           protocolParameters
             & atKey "txFeeFixed" ?~ toJSON (Number 0)

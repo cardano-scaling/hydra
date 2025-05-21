@@ -148,7 +148,7 @@ type GetTimeHandle m = m TimeHandle
 -- for simulations and testing.
 mkChain ::
   (MonadSTM m, MonadThrow (STM m)) =>
-  Tracer m DirectChainLog ->
+  Tracer m CardanoChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
   TinyWallet m ->
@@ -254,7 +254,7 @@ chainSyncHandler ::
   forall m.
   (MonadSTM m, MonadThrow m) =>
   -- | Tracer for logging
-  Tracer m DirectChainLog ->
+  Tracer m CardanoChainLog ->
   ChainCallback Tx m ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
@@ -452,7 +452,7 @@ maxGraceTime = 200
 -- Tracing
 --
 
-data DirectChainLog
+data CardanoChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {txId :: TxId}
   | PostedTx {txId :: TxId}

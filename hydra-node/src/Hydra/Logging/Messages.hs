@@ -11,13 +11,13 @@ module Hydra.Logging.Messages where
 import Hydra.Prelude
 
 import Hydra.API.APIServerLog (APIServerLog)
-import Hydra.Chain.Direct.Handlers (DirectChainLog)
+import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Node.Network (NetworkLog)
 import Hydra.Options (RunOptions)
 
 data HydraLog tx
-  = DirectChain {directChain :: DirectChainLog}
+  = DirectChain {directChain :: CardanoChainLog}
   | APIServer {api :: APIServerLog}
   | Network {network :: NetworkLog}
   | Node {node :: HydraNodeLog tx}
