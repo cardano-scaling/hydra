@@ -119,6 +119,7 @@ import HydraNode (
   getSnapshotLastSeen,
   getSnapshotUTxO,
   input,
+  listEtcdProcesses,
   output,
   postDecommit,
   prepareHydraNode,
@@ -150,6 +151,7 @@ import Network.HTTP.Req (
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
+import System.Directory (removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcessWithExitCode)
 import Test.Hydra.Tx.Fixture (testNetworkId)
@@ -170,6 +172,20 @@ data EndToEndLog
   | CreatedKey {keyPath :: FilePath}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+etcdStopsWhenNodeStops :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+etcdStopsWhenNodeStops t f n xs = do
+  singlePartyOpenAHead
+    t
+    f
+    n
+    xs
+    ( \_ _ _ -> do
+        ps <- listEtcdProcesses
+        when (length ps /= 1) $ error ("Should've found one etcd processes; found: " <> show ps)
+    )
+  ps <- listEtcdProcesses
+  unless (null ps) $ error ("Should've found zero etcd processes; found: " <> show ps)
 
 oneOfThreeNodesStopsForAWhile :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 oneOfThreeNodesStopsForAWhile tracer workDir cardanoNode hydraScriptsTxId = do
@@ -223,6 +239,12 @@ oneOfThreeNodesStopsForAWhile tracer workDir cardanoNode hydraScriptsTxId = do
       -- Carol disconnects and the others observe it
       -- waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
       --   guard $ v ^? key "tag" == Just "PeerDisconnected"
+
+      threadDelay 10
+      -- HACK: Carol deletes her etcd persistence
+      let carolDir = workDir </> "state-3"
+      removeDirectoryRecursive (carolDir </> "etcd")
+      removeFile (carolDir </> "last-known-revision")
 
       -- Alice never-the-less submits a transaction
       utxo <- getSnapshotUTxO n1

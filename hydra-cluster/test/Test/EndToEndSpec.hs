@@ -58,6 +58,7 @@ import Hydra.Cluster.Scenarios (
   canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
   checkFanout,
+  etcdStopsWhenNodeStops,
   headIsInitializingWith,
   initWithWrongKeys,
   nodeCanSupportMultipleEtcdClusters,
@@ -191,6 +192,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
+      it "stops etcd when the node stops" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= etcdStopsWhenNodeStops tracer tmpDir node
       it "full head life-cycle" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->

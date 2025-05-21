@@ -42,6 +42,7 @@ import System.Process.Typed (
   createPipe,
   getStderr,
   proc,
+  readProcess,
   setStderr,
   setStdout,
   useHandleOpen,
@@ -560,6 +561,19 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
     ]
 
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
+
+-- | Mild hack to just get a list of etcd processes. Note that we make no
+-- attempt to isolate these to the ones we've started, so if etcd is running
+-- on your machine with a binary like "bin/etcd" this will pick it up and
+-- likely cause tests to fail!
+listEtcdProcesses :: IO [Text]
+listEtcdProcesses = do
+  let cmd = proc "ps" ["axo", "command"]
+  (_, outBs, _) <- readProcess cmd
+  let procs = lines (decodeUtf8 outBs)
+  pure $ filter isEtcd procs
+ where
+  isEtcd s = "bin/etcd" `T.isInfixOf` s
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =
