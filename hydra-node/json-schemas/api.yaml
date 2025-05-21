@@ -758,6 +758,7 @@ components:
     Greetings:
       type: object
       required:
+        - tag
         - me
         - headStatus
         - hydraNodeVersion

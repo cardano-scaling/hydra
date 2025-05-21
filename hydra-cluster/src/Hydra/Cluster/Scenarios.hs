@@ -45,6 +45,7 @@ import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
  )
+import Hydra.API.ServerOutput (HeadStatus (Idle))
 import Hydra.Cardano.Api (
   Coin (..),
   Era,
@@ -302,6 +303,12 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
     send n1 $ input "Abort" []
     waitFor hydraTracer 20 [n1] $
       output "HeadIsAborted" ["utxo" .= object mempty, "headId" .= headId2]
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    waitMatch 20 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "Greetings"
+      guard $ v ^? key "headStatus" == Just (toJSON Idle)
+      guard $ v ^? key "me" == Just (toJSON alice)
+      guard $ isJust (v ^? key "hydraNodeVersion")
  where
   RunningNode{nodeSocket} = cardanoNode
 
