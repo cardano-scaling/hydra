@@ -31,6 +31,7 @@ import Hydra.Cardano.Api (
   UTxO',
   fromLedgerTx,
   lovelaceToValue,
+  serialiseToRawBytesHexText,
   signTx,
   toLedgerKeyHash,
   toLedgerTx,
@@ -46,13 +47,10 @@ import Hydra.Chain (
   PostTxError (..),
   initHistory,
  )
-import Hydra.Chain.Direct (
-  IntersectionNotFoundException (..),
-  loadChainContext,
-  mkTinyWallet,
-  withDirectChain,
- )
-import Hydra.Chain.Direct.Handlers (DirectChainLog)
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
+import Hydra.Chain.Direct (DirectBackend (..), IntersectionNotFoundException (..), withDirectChain)
+import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.ScriptRegistry (queryScriptRegistry)
 import Hydra.Cluster.Faucet (
@@ -73,8 +71,9 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, readConfigFile
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (
+  CardanoChainConfig (..),
+  ChainBackendOptions (..),
   ChainConfig (..),
-  DirectChainConfig (..),
   toArgNetworkId,
  )
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
@@ -105,10 +104,10 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [Bob, Carol] cperiod
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $ \aliceChain@DirectChainTest{postTx} -> do
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $ \aliceChain@CardanoChainTest{postTx} -> do
           -- Bob setup
           bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [Alice, Carol] cperiod
-          withDirectChainTest nullTracer bobChainConfig bob $ \bobChain@DirectChainTest{} -> do
+          withDirectChainTest nullTracer bobChainConfig bob $ \bobChain@CardanoChainTest{} -> do
             -- Scenario
             participants <- loadParticipants [Alice, Bob, Carol]
             let headParameters = HeadParameters cperiod [alice, bob, carol]
@@ -132,11 +131,11 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [Bob, Carol] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-          \aliceChain@DirectChainTest{postTx} -> do
+          \aliceChain@CardanoChainTest{postTx} -> do
             -- Bob setup
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [Alice, Carol] cperiod
             withDirectChainTest (contramap (FromDirectChain "bob") tracer) bobChainConfig bob $
-              \bobChain@DirectChainTest{} -> do
+              \bobChain@CardanoChainTest{} -> do
                 -- Scenario
                 let aliceCommitment = 66_000_000
                 -- Mimic "external commit" by using different keys for Alice.
@@ -180,14 +179,14 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
 
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-          \aliceChain@DirectChainTest{postTx = alicePostTx} -> do
+          \aliceChain@CardanoChainTest{postTx = alicePostTx} -> do
             -- Bob setup
             (bobCardanoVk, _) <- keysFor Bob
             seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [] cperiod
 
             withDirectChainTest nullTracer bobChainConfig bob $
-              \bobChain@DirectChainTest{postTx = bobPostTx} -> do
+              \bobChain@CardanoChainTest{postTx = bobPostTx} -> do
                 -- Scenario
                 aliceParticipants <- loadParticipants [Carol, Alice]
                 let headParameters = HeadParameters cperiod [alice, carol]
@@ -214,7 +213,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-          \aliceChain@DirectChainTest{postTx} -> do
+          \aliceChain@CardanoChainTest{postTx} -> do
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
@@ -235,7 +234,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-          \aliceChain@DirectChainTest{postTx} -> do
+          \aliceChain@CardanoChainTest{postTx} -> do
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
@@ -255,7 +254,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-          \aliceChain@DirectChainTest{postTx} -> do
+          \aliceChain@CardanoChainTest{postTx} -> do
             -- Scenario
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
@@ -275,7 +274,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-          \aliceChain@DirectChainTest{postTx} -> do
+          \aliceChain@CardanoChainTest{postTx} -> do
             -- Scenario
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
@@ -295,7 +294,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                           <>~ Set.fromList (toLedgerKeyHash . verificationKeyHash . fst <$> randomKeys)
                     )
 
-            externalCommit' node aliceChain (aliceExternalSk : fmap snd randomKeys) headId newAliceUTxO blueprintTx
+            externalCommit' (Right node) aliceChain (aliceExternalSk : fmap snd randomKeys) headId newAliceUTxO blueprintTx
             aliceChain `observesInTime` OnCommitTx headId alice newAliceUTxO
 
   it "can open, close & fanout a Head" $ \tracer -> do
@@ -307,7 +306,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-          \aliceChain@DirectChainTest{postTx} -> do
+          \aliceChain@CardanoChainTest{postTx} -> do
             -- Scenario
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
             someUTxO <- seedFromFaucet node aliceExternalVk 2_000_000 (contramap FromFaucet tracer)
@@ -386,7 +385,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         let headParameters = HeadParameters cperiod [alice]
         -- Scenario
         tip <- withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-          \aliceChain@DirectChainTest{postTx} -> do
+          \aliceChain@CardanoChainTest{postTx} -> do
             tip <- queryTip networkId nodeSocket
             postTx $ InitTx{participants, headParameters}
             void $ aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
@@ -396,7 +395,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         -- REVIEW: It's a bit weird now that we would use the original chain
         -- state here. Does this test even make sense with persistence?
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig' alice $
-          \aliceChain@DirectChainTest{} ->
+          \aliceChain@CardanoChainTest{} ->
             void $ aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
   it "cannot restart head to an unknown point" $ \tracer -> do
@@ -446,7 +445,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-          \aliceChain@DirectChainTest{postTx} -> do
+          \aliceChain@CardanoChainTest{postTx} -> do
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
 
@@ -528,12 +527,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
 data DirectChainTestLog
   = FromNode NodeLog
-  | FromDirectChain Text DirectChainLog
+  | FromDirectChain Text CardanoChainLog
+  | FromBlockfrostChain Text CardanoChainLog
   | FromFaucet FaucetLog
   deriving stock (Show, Generic)
   deriving anyclass (ToJSON)
 
-data DirectChainTest tx m = DirectChainTest
+data CardanoChainTest tx m = CardanoChainTest
   { postTx :: PostChainTx tx -> m ()
   , waitCallback :: m (ChainEvent tx)
   , draftCommitTx :: HeadId -> UTxOType tx -> tx -> m tx
@@ -542,25 +542,28 @@ data DirectChainTest tx m = DirectChainTest
 -- | Wrapper around 'withDirectChain' that threads a 'ChainStateType tx' through
 -- 'postTx' and 'waitCallback' calls.
 withDirectChainTest ::
-  Tracer IO DirectChainLog ->
+  Tracer IO CardanoChainLog ->
   ChainConfig ->
   Party ->
-  (DirectChainTest Tx IO -> IO a) ->
+  (CardanoChainTest Tx IO -> IO a) ->
   IO a
 withDirectChainTest tracer config party action = do
-  directConfig <- case config of
-    Direct cfg -> pure cfg
-    otherConfig -> failure $ "unexpected chainConfig: " <> show otherConfig
-  ctx <- loadChainContext directConfig party
+  (configuration, backend) <-
+    case config of
+      Cardano cfg@CardanoChainConfig{chainBackendOptions} ->
+        case chainBackendOptions of
+          Direct directOptions -> pure (cfg, DirectBackend directOptions)
+          _ -> failure $ "unexpected chainBackendOptions: " <> show chainBackendOptions
+      otherConfig -> failure $ "unexpected chainConfig: " <> show otherConfig
+  ctx <- loadChainContext backend configuration party
   eventMVar <- newEmptyTMVarIO
 
   let callback event = atomically $ putTMVar eventMVar event
 
-  wallet <- mkTinyWallet tracer directConfig
-
-  withDirectChain tracer directConfig ctx wallet (initHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
+  wallet <- mkTinyWallet backend tracer configuration
+  withDirectChain backend tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
     action
-      DirectChainTest
+      CardanoChainTest
         { postTx
         , waitCallback = atomically $ takeTMVar eventMVar
         , draftCommitTx = \headId utxo blueprintTx -> do
@@ -579,13 +582,20 @@ hasInitTxWith HeadParameters{contestationPeriod = expectedContestationPeriod, pa
     pure (headId, headSeed)
   tx -> failure ("Unexpected observation: " <> show tx)
 
-observesInTime :: IsTx tx => DirectChainTest tx IO -> OnChainTx tx -> IO ()
+observesInTime :: IsTx tx => CardanoChainTest tx IO -> OnChainTx tx -> IO ()
 observesInTime chain expected =
   observesInTimeSatisfying chain (`shouldBe` expected)
 
-observesInTimeSatisfying :: DirectChainTest tx IO -> (OnChainTx tx -> IO a) -> IO a
-observesInTimeSatisfying DirectChainTest{waitCallback} check =
-  failAfter 10 go
+observesInTimeSatisfying :: CardanoChainTest tx IO -> (OnChainTx tx -> IO a) -> IO a
+observesInTimeSatisfying directChainTest = observesInTimeSatisfying' directChainTest 10
+
+observesInTime' :: IsTx tx => CardanoChainTest tx IO -> OnChainTx tx -> IO ()
+observesInTime' chain expected =
+  observesInTimeSatisfying' chain 200 (`shouldBe` expected)
+
+observesInTimeSatisfying' :: CardanoChainTest tx IO -> NominalDiffTime -> (OnChainTx tx -> IO a) -> IO a
+observesInTimeSatisfying' CardanoChainTest{waitCallback} waitTime check =
+  failAfter waitTime go
  where
   go = do
     e <- waitCallback
@@ -595,8 +605,8 @@ observesInTimeSatisfying DirectChainTest{waitCallback} check =
       _TickOrRollback ->
         go
 
-waitMatch :: DirectChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
-waitMatch DirectChainTest{waitCallback} match = go
+waitMatch :: CardanoChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
+waitMatch CardanoChainTest{waitCallback} match = go
  where
   go = do
     a <- waitCallback
@@ -610,32 +620,46 @@ delayUntil target = do
 -- Commit using a wallet/external unknown to a hydra-node.
 externalCommit ::
   RunningNode ->
-  DirectChainTest Tx IO ->
+  CardanoChainTest Tx IO ->
   SigningKey PaymentKey ->
   HeadId ->
   UTxO' (TxOut CtxUTxO) ->
   IO ()
 externalCommit node hydraClient externalSk headId utxoToCommit = do
   let blueprintTx = txSpendingUTxO utxoToCommit
-  externalCommit' node hydraClient [externalSk] headId utxoToCommit blueprintTx
+  externalCommit' (Right node) hydraClient [externalSk] headId utxoToCommit blueprintTx
 
 externalCommit' ::
-  RunningNode ->
-  DirectChainTest Tx IO ->
+  Either FilePath RunningNode ->
+  CardanoChainTest Tx IO ->
   [SigningKey PaymentKey] ->
   HeadId ->
   UTxO' (TxOut CtxUTxO) ->
   Tx ->
   IO ()
-externalCommit' node hydraClient externalSks headId utxoToCommit blueprintTx = do
+externalCommit' projectPathOrNode hydraClient externalSks headId utxoToCommit blueprintTx = do
   commitTx <- draftCommitTx headId utxoToCommit blueprintTx
   let signedTx = everybodySigns commitTx externalSks
-  submitTx node signedTx
+  case projectPathOrNode of
+    Left projectPath -> do
+      prj <- Blockfrost.projectFromFile projectPath
+      void $
+        Blockfrost.runBlockfrostM prj $ do
+          void $ Blockfrost.submitTransaction signedTx
+
+          Blockfrost.Genesis
+            { _genesisNetworkMagic
+            , _genesisSystemStart
+            } <-
+            Blockfrost.queryGenesisParameters
+          let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+          void $ Blockfrost.queryUTxOByTxIn networkId (serialiseToRawBytesHexText $ txId signedTx)
+    Right node -> submitTx node signedTx
  where
   everybodySigns tx' [] = tx'
   everybodySigns tx' (sk : sks) = everybodySigns (signTx sk tx') sks
 
-  DirectChainTest{draftCommitTx} = hydraClient
+  CardanoChainTest{draftCommitTx} = hydraClient
 
 -- | Load key files for given 'Actor's (see keysFor) and directly convert them to 'OnChainId'.
 loadParticipants :: [Actor] -> IO [OnChainId]

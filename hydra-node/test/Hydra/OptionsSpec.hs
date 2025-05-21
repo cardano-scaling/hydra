@@ -1,22 +1,28 @@
+{-# LANGUAGE OverloadedLabels #-}
+
 module Hydra.OptionsSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Control.Lens ((.~))
+import Data.Generics.Labels ()
 import Hydra.Cardano.Api (
   ChainPoint (..),
   NetworkId (..),
+  NetworkMagic (..),
   TxId,
   serialiseToRawBytesHexText,
  )
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
-  ChainBackend (..),
+  BlockfrostOptions (..),
+  CardanoChainConfig (..),
+  ChainBackendOptions (..),
   ChainConfig (..),
   Command (..),
-  DirectChainConfig (..),
+  DirectOptions (..),
   GenerateKeyPair (GenerateKeyPair),
   InvalidOptions (..),
   LedgerConfig (..),
@@ -24,8 +30,8 @@ import Hydra.Options (
   ParserResult (..),
   PublishOptions (..),
   RunOptions (..),
-  defaultDirectBackend,
-  defaultDirectChainConfig,
+  defaultCardanoChainConfig,
+  defaultDirectOptions,
   defaultLedgerConfig,
   defaultPublishOptions,
   defaultRunOptions,
@@ -50,12 +56,12 @@ spec = parallel $
 
     it ("validateRunOptions: using more than " <> show maximumNumberOfParties <> " parties should error out") $ do
       let (cardanoKeys, hydraKeys) = genCardanoAndHydraKeys (+ 2) (+ 1)
-          chainCfg = Direct defaultDirectChainConfig{cardanoVerificationKeys = cardanoKeys}
+          chainCfg = Cardano defaultCardanoChainConfig{cardanoVerificationKeys = cardanoKeys}
       validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
         `shouldBe` Left MaximumNumberOfPartiesExceeded
     it "validateRunOptions: loaded cardano keys needs to match with the hydra keys length" $ do
       let (cardanoKeys, hydraKeys) = genCardanoAndHydraKeys (subtract 2) (subtract 1)
-          chainCfg = Direct defaultDirectChainConfig{cardanoVerificationKeys = cardanoKeys}
+          chainCfg = Cardano defaultCardanoChainConfig{cardanoVerificationKeys = cardanoKeys}
       validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
         `shouldBe` Left CardanoAndHydraKeysMissmatch
 
@@ -136,28 +142,43 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { networkId = Testnet (NetworkMagic 0)
-                    }
+                Cardano
+                  ( defaultCardanoChainConfig
+                      & #chainBackendOptions
+                        .~ Direct
+                          DirectOptions
+                            { networkId = Testnet (NetworkMagic 0)
+                            , nodeSocket = nodeSocket defaultDirectOptions
+                            }
+                  )
             }
       ["--testnet-magic", "-1"] -- Word32 overflow expected
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { networkId = Testnet (NetworkMagic 4294967295)
-                    }
+                Cardano
+                  ( defaultCardanoChainConfig
+                      & #chainBackendOptions
+                        .~ Direct
+                          DirectOptions
+                            { networkId = Testnet (NetworkMagic 4294967295)
+                            , nodeSocket = nodeSocket defaultDirectOptions
+                            }
+                  )
             }
       ["--testnet-magic", "123"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { networkId = Testnet (NetworkMagic 123)
-                    }
+                Cardano
+                  ( defaultCardanoChainConfig
+                      & #chainBackendOptions
+                        .~ Direct
+                          DirectOptions
+                            { networkId = Testnet (NetworkMagic 123)
+                            , nodeSocket = nodeSocket defaultDirectOptions
+                            }
+                  )
             }
 
     it "parses --mainnet option" $ do
@@ -165,17 +186,22 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { networkId = Mainnet
-                    }
+                Cardano
+                  ( defaultCardanoChainConfig
+                      & #chainBackendOptions
+                        .~ Direct
+                          DirectOptions
+                            { networkId = Mainnet
+                            , nodeSocket = nodeSocket defaultDirectOptions
+                            }
+                  )
             }
 
     it "parses --contestation-period option as a number of seconds" $ do
       let defaultWithContestationPeriod contestationPeriod =
             Run
               defaultRunOptions
-                { chainConfig = Direct defaultDirectChainConfig{contestationPeriod}
+                { chainConfig = Cardano defaultCardanoChainConfig{contestationPeriod}
                 }
       shouldNotParse ["--contestation-period", "3"]
       shouldNotParse ["--contestation-period", "abc"]
@@ -191,7 +217,7 @@ spec = parallel $
       let defaultWithDepositPeriod depositPeriod =
             Run
               defaultRunOptions
-                { chainConfig = Direct defaultDirectChainConfig{depositPeriod}
+                { chainConfig = Cardano defaultCardanoChainConfig{depositPeriod}
                 }
       shouldNotParse ["--deposit-period", "abc"]
       shouldNotParse ["--deposit-period", "s"]
@@ -207,10 +233,15 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { networkId = Mainnet
-                    }
+                Cardano
+                  ( defaultCardanoChainConfig
+                      & #chainBackendOptions
+                        .~ Direct
+                          DirectOptions
+                            { networkId = Mainnet
+                            , nodeSocket = nodeSocket defaultDirectOptions
+                            }
+                  )
             }
 
     it "parses --node-socket as a filepath" $
@@ -218,10 +249,15 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { nodeSocket = "foo.sock"
-                    }
+                Cardano
+                  ( defaultCardanoChainConfig
+                      & #chainBackendOptions
+                        .~ Direct
+                          DirectOptions
+                            { networkId = networkId defaultDirectOptions
+                            , nodeSocket = "foo.sock"
+                            }
+                  )
             }
 
     it "parses --cardano-signing-key option as a filepath" $
@@ -229,10 +265,8 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { cardanoSigningKey = "./alice-cardano.sk"
-                    }
+                Cardano
+                  (defaultCardanoChainConfig & #cardanoSigningKey .~ "./alice-cardano.sk")
             }
 
     it "parses --cardano-verification-key option as a filepath" $
@@ -240,10 +274,8 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                Direct
-                  defaultDirectChainConfig
-                    { cardanoVerificationKeys = ["./alice-cardano.vk"]
-                    }
+                Cardano
+                  (defaultCardanoChainConfig & #cardanoVerificationKeys .~ ["./alice-cardano.vk"])
             }
 
     it "parses --ledger-protocol-parameters-file as a filepath" $
@@ -261,8 +293,8 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                Direct
-                  defaultDirectChainConfig
+                Cardano
+                  defaultCardanoChainConfig
                     { startChainFrom =
                         Just $
                           ChainPoint 1000 $
@@ -274,7 +306,7 @@ spec = parallel $
       ["--start-chain-from", "0"]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = Direct defaultDirectChainConfig{startChainFrom = Just ChainPointAtGenesis}
+            { chainConfig = Cardano defaultCardanoChainConfig{startChainFrom = Just ChainPointAtGenesis}
             }
 
     prop "parses --hydra-scripts-tx-id as a tx id" $ \(txIds :: NonEmpty TxId) -> do
@@ -282,7 +314,14 @@ spec = parallel $
       ["--hydra-scripts-tx-id", lineToParse]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = Direct defaultDirectChainConfig{hydraScriptsTxId = toList txIds}
+            { chainConfig = Cardano defaultCardanoChainConfig{hydraScriptsTxId = toList txIds}
+            }
+
+    it "parses --blockfrost successfully" $
+      ["--blockfrost", "blockfrost-project.txt"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig = Cardano (defaultCardanoChainConfig & #chainBackendOptions .~ Blockfrost (BlockfrostOptions "blockfrost-project.txt"))
             }
 
     it "switches to offline mode when using --offline-head-seed and --initial-utxo" $
@@ -334,7 +373,15 @@ spec = parallel $
           , ["--node-socket", "foo"]
           , ["--mainnet"]
           ]
-          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNodeSocket = "foo", publishNetworkId = Mainnet}}
+          `shouldParse` Publish
+            ( defaultPublishOptions
+                & #chainBackendOptions
+                  .~ Direct
+                    DirectOptions
+                      { networkId = Mainnet
+                      , nodeSocket = "foo"
+                      }
+            )
 
       it "parses with some missing option (2)" $
         mconcat
@@ -342,7 +389,7 @@ spec = parallel $
           , ["--testnet-magic", "42"]
           , ["--cardano-signing-key", "foo"]
           ]
-          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNetworkId = Testnet (NetworkMagic 42)}, publishSigningKey = "foo"}
+          `shouldParse` Publish defaultPublishOptions{chainBackendOptions = Direct defaultDirectOptions{networkId = Testnet (NetworkMagic 42)}, publishSigningKey = "foo"}
 
       it "parses with some missing option (3)" $
         mconcat
@@ -350,7 +397,7 @@ spec = parallel $
           , ["--node-socket", "foo"]
           , ["--cardano-signing-key", "foo"]
           ]
-          `shouldParse` Publish defaultPublishOptions{chainBackend = defaultDirectBackend{publishNodeSocket = "foo"}, publishSigningKey = "foo"}
+          `shouldParse` Publish defaultPublishOptions{chainBackendOptions = Direct defaultDirectOptions{nodeSocket = "foo"}, publishSigningKey = "foo"}
 
       it "should parse using testnet and all options" $
         mconcat
@@ -361,7 +408,7 @@ spec = parallel $
           ]
           `shouldParse` Publish
             defaultPublishOptions
-              { chainBackend = defaultDirectBackend{publishNodeSocket = "foo", publishNetworkId = Testnet (NetworkMagic 42)}
+              { chainBackendOptions = Direct defaultDirectOptions{nodeSocket = "foo", networkId = Testnet (NetworkMagic 42)}
               , publishSigningKey = "bar"
               }
 
@@ -374,7 +421,7 @@ spec = parallel $
           ]
           `shouldParse` Publish
             defaultPublishOptions
-              { chainBackend = defaultDirectBackend{publishNodeSocket = "baz", publishNetworkId = Mainnet}
+              { chainBackendOptions = Direct defaultDirectOptions{nodeSocket = "baz", networkId = Mainnet}
               , publishSigningKey = "crux"
               }
 
@@ -385,10 +432,11 @@ spec = parallel $
           ]
           `shouldParse` Publish
             ( PublishOptions
-                { chainBackend =
-                    BlockfrostBackend
-                      { projectPath = "baz"
-                      }
+                { chainBackendOptions =
+                    Blockfrost
+                      BlockfrostOptions
+                        { projectPath = "baz"
+                        }
                 , publishSigningKey = "cardano.sk"
                 }
             )

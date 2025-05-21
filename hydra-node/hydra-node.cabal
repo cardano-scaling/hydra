@@ -55,7 +55,10 @@ library
     Hydra.API.ServerOutputFilter
     Hydra.API.WSServer
     Hydra.Chain
+    Hydra.Chain.Backend
+    Hydra.Chain.Blockfrost
     Hydra.Chain.Blockfrost.Client
+    Hydra.Chain.Cardano
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
     Hydra.Chain.Direct.Handlers
@@ -98,16 +101,19 @@ library
   build-depends:
     , aeson
     , base
+    , base16-bytestring
     , blockfrost-client               >=0.9.2.0
     , bytestring
     , cardano-api
     , cardano-binary
     , cardano-crypto-class
+    , cardano-crypto-wrapper
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-babbage:testlib
     , cardano-ledger-binary
+    , cardano-ledger-byron
     , cardano-ledger-conway
     , cardano-ledger-conway:testlib
     , cardano-ledger-core
@@ -150,6 +156,7 @@ library
     , quickcheck-arbitrary-adt
     , quickcheck-instances
     , resourcet
+    , retry
     , safe-money
     , serialise
     , sop-extras
@@ -328,6 +335,7 @@ test-suite tests
     , contra-tracer
     , directory
     , filepath
+    , generic-lens
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson

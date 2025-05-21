@@ -21,7 +21,9 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
-import Hydra.Cardano.Api (getVerificationKey)
+import Hydra.Cardano.Api (
+  getVerificationKey,
+ )
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -54,7 +56,7 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
+import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
@@ -81,8 +83,8 @@ initEnvironment options = do
   getParticipants =
     case chainConfig of
       Offline{} -> pure []
-      Direct
-        DirectChainConfig
+      Cardano
+        CardanoChainConfig
           { cardanoVerificationKeys
           , cardanoSigningKey
           } -> do
@@ -92,11 +94,10 @@ initEnvironment options = do
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
-    Direct DirectChainConfig{contestationPeriod = cp} -> cp
-
+    Cardano CardanoChainConfig{contestationPeriod = cp} -> cp
   depositPeriod = case chainConfig of
     Offline{} -> defaultDepositPeriod
-    Direct DirectChainConfig{depositPeriod = dp} -> dp
+    Cardano CardanoChainConfig{depositPeriod = dp} -> dp
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow p
