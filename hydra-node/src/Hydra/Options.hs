@@ -442,7 +442,7 @@ instance Arbitrary ChainConfig where
       ]
    where
     genCardanoChainConfig = do
-      hydraScriptsTxId <- arbitrary
+      hydraScriptsTxId <- reasonablySized arbitrary
       cardanoSigningKey <- genFilePath "sk"
       cardanoVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
