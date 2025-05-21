@@ -152,6 +152,7 @@ import Network.HTTP.Req (
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
 import System.Directory (removeDirectoryRecursive, removeFile)
+import System.Environment.Blank (setEnv)
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcessWithExitCode)
 import Test.Hydra.Tx.Fixture (testNetworkId)
@@ -240,11 +241,12 @@ oneOfThreeNodesStopsForAWhile tracer workDir cardanoNode hydraScriptsTxId = do
       -- waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
       --   guard $ v ^? key "tag" == Just "PeerDisconnected"
 
-      threadDelay 10
       -- HACK: Carol deletes her etcd persistence
       let carolDir = workDir </> "state-3"
       removeDirectoryRecursive (carolDir </> "etcd")
       removeFile (carolDir </> "last-known-revision")
+
+      setEnv "ETCD_INITIAL_CLUSTER_STATE" "existing" True
 
       -- Alice never-the-less submits a transaction
       utxo <- getSnapshotUTxO n1

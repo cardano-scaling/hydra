@@ -136,6 +136,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- configuration? That would be similar to the 'acks' persistence
   -- bailing out on loading.
   envVars <- Map.fromList <$> getEnvironment
+
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
