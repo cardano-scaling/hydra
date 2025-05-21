@@ -43,8 +43,8 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Chain.Direct.Handlers (
+  CardanoChainLog,
   ChainSyncHandler (..),
-  DirectChainLog,
   LocalChainState,
   SubmitTx,
   chainSyncHandler,
@@ -100,7 +100,7 @@ mockChainAndNetwork ::
   , MonadFork m
   , MonadDelay m
   ) =>
-  Tracer m DirectChainLog ->
+  Tracer m CardanoChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   UTxO ->
   m (SimulatedChainNetwork Tx m)
@@ -373,7 +373,7 @@ data MockHydraNode m = MockHydraNode
 
 createMockChain ::
   (MonadTimer m, MonadThrow (STM m)) =>
-  Tracer m DirectChainLog ->
+  Tracer m CardanoChainLog ->
   ChainContext ->
   SubmitTx m ->
   m TimeHandle ->

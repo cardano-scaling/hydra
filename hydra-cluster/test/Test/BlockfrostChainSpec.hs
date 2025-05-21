@@ -21,8 +21,8 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Chain.Direct (loadChainContext, mkTinyWallet)
-import Hydra.Chain.Direct.Handlers (DirectChainLog)
+import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
+import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Cluster.Faucet (
@@ -150,7 +150,7 @@ spec = around (showLogsOnFailure "BlockfrostChainSpec") $ do
 -- | Wrapper around 'withBlockfrostChain' that threads a 'ChainStateType tx' through
 -- 'postTx' and 'waitCallback' calls.
 withBlockfrostChainTest ::
-  Tracer IO DirectChainLog ->
+  Tracer IO CardanoChainLog ->
   ChainConfig ->
   Party ->
   (CardanoChainTest Tx IO -> IO a) ->

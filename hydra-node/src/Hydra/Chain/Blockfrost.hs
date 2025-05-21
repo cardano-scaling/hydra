@@ -23,8 +23,8 @@ import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), current
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Direct.Handlers (
+  CardanoChainLog (..),
   ChainSyncHandler (..),
-  DirectChainLog (..),
   chainSyncHandler,
   mkChain,
   newLocalChainState,
@@ -96,7 +96,7 @@ instance ChainBackend BlockfrostBackend where
 
 withBlockfrostChain ::
   BlockfrostBackend ->
-  Tracer IO DirectChainLog ->
+  Tracer IO CardanoChainLog ->
   CardanoChainConfig ->
   ChainContext ->
   TinyWallet IO ->
@@ -163,7 +163,7 @@ instance Exception BlockfrostConnectException
 
 blockfrostChain ::
   (MonadIO m, MonadCatch m, MonadAsync m, MonadDelay m) =>
-  Tracer m DirectChainLog ->
+  Tracer m CardanoChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   Blockfrost.Project ->
   ChainPoint ->
@@ -178,7 +178,7 @@ blockfrostChain tracer queue prj chainPoint handler wallet = do
 
 blockfrostChainFollow ::
   (MonadIO m, MonadCatch m, MonadSTM m, MonadDelay m) =>
-  Tracer m DirectChainLog ->
+  Tracer m CardanoChainLog ->
   Blockfrost.Project ->
   ChainPoint ->
   ChainSyncHandler m ->
@@ -217,7 +217,7 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
 
 rollForward ::
   (MonadIO m, MonadThrow m) =>
-  Tracer m DirectChainLog ->
+  Tracer m CardanoChainLog ->
   Blockfrost.Project ->
   ChainSyncHandler m ->
   TinyWallet m ->
@@ -268,7 +268,7 @@ blockfrostSubmissionClient ::
   forall m.
   (MonadIO m, MonadDelay m, MonadSTM m) =>
   Blockfrost.Project ->
-  Tracer m DirectChainLog ->
+  Tracer m CardanoChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   m ()
 blockfrostSubmissionClient prj tracer queue = bfClient

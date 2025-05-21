@@ -48,8 +48,9 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Chain.Direct (DirectBackend (..), IntersectionNotFoundException (..), loadChainContext, mkTinyWallet, withDirectChain)
-import Hydra.Chain.Direct.Handlers (DirectChainLog)
+import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
+import Hydra.Chain.Direct (DirectBackend (..), IntersectionNotFoundException (..), withDirectChain)
+import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.ScriptRegistry (queryScriptRegistry)
 import Hydra.Cluster.Faucet (
@@ -526,8 +527,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
 data DirectChainTestLog
   = FromNode NodeLog
-  | FromDirectChain Text DirectChainLog
-  | FromBlockfrostChain Text DirectChainLog
+  | FromDirectChain Text CardanoChainLog
+  | FromBlockfrostChain Text CardanoChainLog
   | FromFaucet FaucetLog
   deriving stock (Show, Generic)
   deriving anyclass (ToJSON)
@@ -541,7 +542,7 @@ data CardanoChainTest tx m = CardanoChainTest
 -- | Wrapper around 'withDirectChain' that threads a 'ChainStateType tx' through
 -- 'postTx' and 'waitCallback' calls.
 withDirectChainTest ::
-  Tracer IO DirectChainLog ->
+  Tracer IO CardanoChainLog ->
   ChainConfig ->
   Party ->
   (CardanoChainTest Tx IO -> IO a) ->

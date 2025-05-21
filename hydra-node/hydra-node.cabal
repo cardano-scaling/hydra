@@ -58,6 +58,7 @@ library
     Hydra.Chain.Backend
     Hydra.Chain.Blockfrost
     Hydra.Chain.Blockfrost.Client
+    Hydra.Chain.Cardano
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
     Hydra.Chain.Direct.Handlers
