@@ -219,7 +219,7 @@ newGlobals genesisParameters = do
 -- Assumes filenames are in the format "state-<logId>"
 getLatestLogId :: FilePath -> String -> IO LogId
 getLatestLogId stateDir filePrefix = do
-  files <- listDirectory stateDir
+  files <- listDirectory stateDir `catch` \(_ :: SomeException) -> pure []
   let logIds = mapMaybe (extractLogId . takeFileName) files
   pure $ if null logIds then 0 else maximum logIds
  where
