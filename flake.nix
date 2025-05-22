@@ -8,7 +8,7 @@
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.4";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
-    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.1.0";
+    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.2.0";
     hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     lint-utils = {
@@ -75,20 +75,6 @@
             ];
           };
 
-          hydraPackageNames = [
-            "hydra-cardano-api"
-            "hydra-chain-observer"
-            "hydra-cluster"
-            "hydra-node"
-            "hydra-tx"
-            "hydra-prelude"
-            "hydra-plutus"
-            "hydra-plutus-extras"
-            "hydra-test-utils"
-            "hydra-tui"
-            "hydraw"
-          ];
-
           inputMap = { "https://intersectmbo.github.io/cardano-haskell-packages" = inputs.CHaP; };
 
           hsPkgs = import ./nix/hydra/project.nix {
@@ -108,44 +94,6 @@
           prefixAttrs = s: attrs:
             with pkgs.lib.attrsets;
             mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
-
-          addWerror = x: x.override { ghcOptions = [ "-Werror" ]; };
-
-          componentsToWerrors = n: x:
-            builtins.listToAttrs
-              [
-                {
-                  name = "${n}-werror";
-                  value = addWerror x.components.library;
-                }
-              ] // lib.attrsets.mergeAttrsList (map
-              (y:
-                lib.mapAttrs'
-                  (k: v: {
-                    name = "${n}-${y}-${k}-werror";
-                    value = addWerror v;
-                  })
-                  x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
-
-          componentsToHieDirectories = x:
-            [ x.components.library.hie ]
-            ++ lib.concatLists
-              (map
-                (y:
-                  lib.mapAttrsToList
-                    (k: v:
-                      v.hie
-                    )
-                    x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
-
-          componentsToWeederArgs = x:
-            builtins.concatStringsSep " " (map (z: "--hie-directory ${z}") (componentsToHieDirectories x));
-
-          hydra-weeder = pkgs.runCommand "hydra-weeder" { buildInputs = [ pkgs.weeder ]; } ''
-            mkdir -p $out
-            weeder --config ${./weeder.toml} \
-              ${builtins.concatStringsSep " " (map (x: componentsToWeederArgs hsPkgs."${x}") hydraPackageNames)}
-          '';
 
           tx-cost-diff =
             let
@@ -175,15 +123,29 @@
             inherit (hydraPackages) hydra-node hydra-tui;
           };
 
-          coding.standards.hydra.enable = true;
+          coding.standards.hydra = {
+            enable = true;
+            haskellPackages = with hsPkgs; [
+              hydra-cardano-api
+              hydra-chain-observer
+              hydra-cluster
+              hydra-node
+              hydra-tx
+              hydra-prelude
+              hydra-plutus
+              hydra-plutus-extras
+              hydra-test-utils
+              hydra-tui
+              hydraw
+            ];
+          };
 
           checks = let lu = inputs.lint-utils.linters.${system}; in {
             no-srp = lu.no-srp {
               src = self;
               cabal-project-file = ./cabal.project;
             };
-            weeder = hydra-weeder;
-          } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) hydraPackageNames);
+          };
 
           devShells = import ./nix/hydra/shell.nix {
             inherit pkgs hsPkgs hydraPackages system;
