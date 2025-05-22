@@ -307,8 +307,8 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
     defMessage
       & #requestPut
         .~ ( defMessage
-               & #key .~ versionKey
-               & #value .~ serialize' ourVersion
+              & #key .~ versionKey
+              & #value .~ serialize' ourVersion
            )
 
 -- | Broadcast messages from a queue to the etcd cluster.

@@ -13,9 +13,6 @@ let
   buildInputs = [
     # To compile hydra scripts
     pkgs.aiken
-    # For running automatic refactoring with hlint
-    pkgs.apply-refact
-    pkgs.cabal-fmt
     pkgs.cabal-install
     # Handy tool to debug the cabal build plan
     pkgs.cabal-plan
@@ -25,12 +22,10 @@ let
     pkgs.cardano-node
     # For validating JSON instances against a pre-defined schema
     pkgs.check-jsonschema
-    pkgs.fourmolu
     pkgs.git
     # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
     pkgs.haskell-language-server
-    pkgs.hlint
     pkgs.haskellPackages.hspec-discover
     # The interactive Glasgow Haskell Compiler as a Daemon
     pkgs.haskellPackages.ghcid
@@ -45,7 +40,6 @@ let
     pkgs.pkg-config
     # For generating plantuml drawings
     pkgs.plantuml
-    pkgs.treefmt
     # Handy to interact with the hydra-node via websockets
     pkgs.websocat
     pkgs.weeder
@@ -65,7 +59,7 @@ let
     pkgs.etcd # Build-time dependency (static binary to be embedded)
   ]
   ++
-  pkgs.lib.optionals (pkgs.stdenv.isLinux) [
+  pkgs.lib.optionals pkgs.stdenv.isLinux [
     pkgs.systemd
   ];
 

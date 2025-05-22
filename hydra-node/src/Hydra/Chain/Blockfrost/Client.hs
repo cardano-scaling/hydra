@@ -454,15 +454,15 @@ queryUTxO networkId addresses = do
 
   foldMapM
     ( \Blockfrost.AddressUtxo
-         { Blockfrost._addressUtxoAddress
-         , Blockfrost._addressUtxoTxHash = Blockfrost.TxHash{unTxHash}
-         , Blockfrost._addressUtxoOutputIndex
-         , Blockfrost._addressUtxoAmount
-         , Blockfrost._addressUtxoBlock
-         , Blockfrost._addressUtxoDataHash
-         , Blockfrost._addressUtxoInlineDatum
-         , Blockfrost._addressUtxoReferenceScriptHash
-         } ->
+        { Blockfrost._addressUtxoAddress
+        , Blockfrost._addressUtxoTxHash = Blockfrost.TxHash{unTxHash}
+        , Blockfrost._addressUtxoOutputIndex
+        , Blockfrost._addressUtxoAmount
+        , Blockfrost._addressUtxoBlock
+        , Blockfrost._addressUtxoDataHash
+        , Blockfrost._addressUtxoInlineDatum
+        , Blockfrost._addressUtxoReferenceScriptHash
+        } ->
           let txin = toCardanoTxIn unTxHash _addressUtxoOutputIndex
            in toCardanoUTxO networkId txin _addressUtxoAddress _addressUtxoReferenceScriptHash _addressUtxoDataHash _addressUtxoAmount _addressUtxoInlineDatum
     )

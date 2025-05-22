@@ -190,8 +190,6 @@ in
 
 
     mithril-maybe-download =
-      let
-      in
       {
         requires = [ "network-online.target" "necessary-files.service" ];
         after = [ "necessary-files.service" ];
