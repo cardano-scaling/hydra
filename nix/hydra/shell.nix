@@ -45,6 +45,7 @@ let
     pkgs.pkg-config
     # For generating plantuml drawings
     pkgs.plantuml
+    pkgs.statix
     pkgs.treefmt
     # Handy to interact with the hydra-node via websockets
     pkgs.websocat
@@ -65,7 +66,7 @@ let
     pkgs.etcd # Build-time dependency (static binary to be embedded)
   ]
   ++
-  pkgs.lib.optionals (pkgs.stdenv.isLinux) [
+  pkgs.lib.optionals pkgs.stdenv.isLinux [
     pkgs.systemd
   ];
 
