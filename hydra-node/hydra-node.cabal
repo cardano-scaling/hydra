@@ -86,6 +86,7 @@ library
     Hydra.Network.Authenticate
     Hydra.Network.Etcd
     Hydra.Network.Message
+    Hydra.NetworkVersions
     Hydra.Node
     Hydra.Node.DepositPeriod
     Hydra.Node.EmbedTH
