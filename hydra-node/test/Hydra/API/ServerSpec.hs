@@ -33,6 +33,7 @@ import Hydra.Chain (
   Chain (Chain),
   draftCommitTx,
   draftDepositTx,
+  mkChainState,
   postTx,
   submitTx,
  )
@@ -355,7 +356,8 @@ testClient queue semaphore cnx = do
 dummyChainHandle :: Chain tx IO
 dummyChainHandle =
   Chain
-    { postTx = \_ -> error "unexpected call to postTx"
+    { mkChainState = error "unexpected call to mkChainState"
+    , postTx = \_ -> error "unexpected call to postTx"
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
     , submitTx = \_ -> error "unexpected call to submitTx"

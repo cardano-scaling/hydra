@@ -12,7 +12,7 @@ import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
-import Hydra.HeadLogic.State (HeadState, OpenState (..))
+import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
@@ -23,6 +23,8 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Tx.Snapshot qualified as HeadState
 import Test.QuickCheck (recursivelyShrink)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
@@ -307,7 +309,40 @@ data CommitInfo
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
 getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)
 getSnapshotUtxo = \case
+  HeadState.Idle{} ->
+    Nothing
+  HeadState.Initial InitialState{committed} ->
+    let u0 = fold committed
+     in Just u0
   HeadState.Open OpenState{coordinatedHeadState} ->
     let snapshot = getSnapshot coordinatedHeadState.confirmedSnapshot
      in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
-  _ -> Nothing
+  HeadState.Closed ClosedState{confirmedSnapshot} ->
+    let snapshot = getSnapshot confirmedSnapshot
+     in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
+
+-- | Get latest seen snapshot from 'HeadState'.
+getSeenSnapshot :: HeadState tx -> HeadState.SeenSnapshot tx
+getSeenSnapshot = \case
+  HeadState.Idle{} ->
+    NoSeenSnapshot
+  HeadState.Initial{} ->
+    NoSeenSnapshot
+  HeadState.Open OpenState{coordinatedHeadState} ->
+    coordinatedHeadState.seenSnapshot
+  HeadState.Closed ClosedState{confirmedSnapshot} ->
+    let Snapshot{number} = getSnapshot confirmedSnapshot
+     in LastSeenSnapshot number
+
+-- | Get latest confirmed snapshot from 'HeadState'.
+getConfirmedSnapshot :: IsChainState tx => HeadState tx -> Maybe (HeadState.ConfirmedSnapshot tx)
+getConfirmedSnapshot = \case
+  HeadState.Idle{} ->
+    Nothing
+  HeadState.Initial InitialState{headId, committed} ->
+    let u0 = fold committed
+     in Just $ InitialSnapshot headId u0
+  HeadState.Open OpenState{coordinatedHeadState} ->
+    Just coordinatedHeadState.confirmedSnapshot
+  HeadState.Closed ClosedState{confirmedSnapshot} ->
+    Just confirmedSnapshot

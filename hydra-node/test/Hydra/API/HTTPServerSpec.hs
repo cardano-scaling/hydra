@@ -17,7 +17,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted,
   httpApp,
  )
-import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit))
+import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
   mkTxOutDatumInline,
@@ -26,13 +26,15 @@ import Hydra.Cardano.Api (
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
-import Hydra.HeadLogic.State (SeenSnapshot (..))
+import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
+import Hydra.HeadLogicSpec (inIdleState)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Tx (ConfirmedSnapshot (..))
 import Hydra.Tx.IsTx (UTxOType)
+import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -168,12 +170,10 @@ spec = do
 apiServerSpec :: Spec
 apiServerSpec = do
   describe "API should respond correctly" $ do
-    let getNothing = pure Nothing
-        cantCommit = pure CannotCommit
+    let cantCommit = pure CannotCommit
         getPendingDeposits = pure []
         putClientInput = const (pure ())
-        getNoSeenSnapshot = pure NoSeenSnapshot
-
+        getHeadState = pure inIdleState
     describe "GET /protocol-parameters" $ do
       with
         ( return $
@@ -182,10 +182,8 @@ apiServerSpec = do
               dummyChainHandle
               testEnvironment
               defaultPParams
+              getHeadState
               cantCommit
-              getNothing
-              getNoSeenSnapshot
-              getNothing
               getPendingDeposits
               putClientInput
         )
@@ -206,68 +204,95 @@ apiServerSpec = do
                 }
 
     describe "GET /snapshot/last-seen" $ do
-      prop "responds correctly" $ \seenSnapshot -> do
-        let getSeenSnapshot = pure seenSnapshot
+      prop "responds correctly" $ \headState -> do
+        let seenSnapshot :: SeenSnapshot SimpleTx = getSeenSnapshot headState
         withApplication
           ( httpApp @SimpleTx
               nullTracer
               dummyChainHandle
               testEnvironment
               defaultPParams
+              (pure headState)
               cantCommit
-              getNothing
-              getSeenSnapshot
-              getNothing
               getPendingDeposits
               putClientInput
           )
           $ do
             get "/snapshot/last-seen"
-              `shouldRespondWith` 200{matchBody = matchJSON seenSnapshot}
-
+              `shouldRespondWith` case seenSnapshot of
+                NoSeenSnapshot -> 404
+                _ -> 200{matchBody = matchJSON seenSnapshot}
     describe "GET /snapshot" $ do
-      prop "responds correctly" $ \confirmedSnapshot -> do
-        let getConfirmedSnapshot = pure confirmedSnapshot
-        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getNoSeenSnapshot getConfirmedSnapshot getPendingDeposits putClientInput) $ do
-          get "/snapshot"
-            `shouldRespondWith` case confirmedSnapshot of
-              Nothing -> 404
-              Just s -> 200{matchBody = matchJSON s}
-
-      prop "ok response matches schema" $ \(confirmedSnapshot :: ConfirmedSnapshot Tx) ->
-        withMaxSuccess 4
-          . withJsonSpecifications
-          $ \schemaDir -> do
-            let getConfirmedSnapshot = pure $ Just confirmedSnapshot
-            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getNoSeenSnapshot getConfirmedSnapshot getPendingDeposits putClientInput) $ do
-              get "/snapshot"
-                `shouldRespondWith` 200
-                  { matchBody =
-                      matchValidJSON
-                        (schemaDir </> "api.json")
-                        (key "channels" . key "/snapshot" . key "subscribe" . key "message" . key "payload")
-                  }
-
-    describe "POST /snapshot" $ do
-      prop "responds on valid requests" $ \(request :: SideLoadSnapshotRequest Tx) ->
-        withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getNoSeenSnapshot getNothing getPendingDeposits putClientInput) $
-          do
-            post "/snapshot" (Aeson.encode request)
-            `shouldRespondWith` 200
-
-    describe "GET /snapshot/utxo" $ do
-      prop "responds correctly" $ \utxo -> do
-        let getUTxO = pure utxo
+      prop "responds correctly" $ \headState -> do
+        let confirmedSnapshot :: Maybe (ConfirmedSnapshot SimpleTx) = getConfirmedSnapshot headState
         withApplication
           ( httpApp @SimpleTx
               nullTracer
               dummyChainHandle
               testEnvironment
               defaultPParams
+              (pure headState)
               cantCommit
-              getUTxO
-              getNoSeenSnapshot
-              getNothing
+              getPendingDeposits
+              putClientInput
+          )
+          $ do
+            get "/snapshot"
+              `shouldRespondWith` case confirmedSnapshot of
+                Nothing -> 404
+                Just confirmedSn -> 200{matchBody = matchJSON confirmedSn}
+      prop "ok response matches schema" $ \(closedState :: ClosedState tx) ->
+        withMaxSuccess 4
+          . withJsonSpecifications
+          $ \schemaDir -> do
+            withApplication
+              ( httpApp @Tx
+                  nullTracer
+                  dummyChainHandle
+                  testEnvironment
+                  defaultPParams
+                  (pure (Closed closedState))
+                  cantCommit
+                  getPendingDeposits
+                  putClientInput
+              )
+              $ do
+                get "/snapshot"
+                  `shouldRespondWith` 200
+                    { matchBody =
+                        matchValidJSON
+                          (schemaDir </> "api.json")
+                          (key "channels" . key "/snapshot" . key "subscribe" . key "message" . key "payload")
+                    }
+
+    describe "POST /snapshot" $ do
+      prop "responds on valid requests" $ \(request :: SideLoadSnapshotRequest Tx, headState) -> do
+        withApplication
+          ( httpApp @Tx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure headState)
+              cantCommit
+              getPendingDeposits
+              putClientInput
+          )
+          $ do
+            post "/snapshot" (Aeson.encode request)
+            `shouldRespondWith` 200
+
+    describe "GET /snapshot/utxo" $ do
+      prop "responds correctly" $ \headState -> do
+        let utxo :: Maybe (UTxOType SimpleTx) = getSnapshotUtxo headState
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure headState)
+              cantCommit
               getPendingDeposits
               putClientInput
           )
@@ -276,50 +301,58 @@ apiServerSpec = do
               `shouldRespondWith` case utxo of
                 Nothing -> 404
                 Just u -> 200{matchBody = matchJSON u}
-
-      prop "ok response matches schema" $ \(utxo :: UTxOType Tx) ->
+      prop "ok response matches schema" $ \headState -> do
+        let mUTxO = getSnapshotUtxo headState
+            utxo :: UTxOType Tx = fromMaybe mempty mUTxO
         withMaxSuccess 4
           . cover 1 (null utxo) "empty"
           . cover 1 (not $ null utxo) "non empty"
           . withJsonSpecifications
           $ \schemaDir -> do
-            let getUTxO = pure $ Just utxo
             withApplication
               ( httpApp @Tx
                   nullTracer
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
+                  (pure headState)
                   cantCommit
-                  getUTxO
-                  getNoSeenSnapshot
-                  getNothing
                   getPendingDeposits
                   putClientInput
               )
               $ do
                 get "/snapshot/utxo"
-                  `shouldRespondWith` 200
-                    { matchBody =
-                        matchValidJSON
-                          (schemaDir </> "api.json")
-                          (key "channels" . key "/snapshot/utxo" . key "subscribe" . key "message" . key "payload")
-                    }
+                  `shouldRespondWith` case mUTxO of
+                    Nothing -> 404
+                    Just _ ->
+                      200
+                        { matchBody =
+                            matchValidJSON
+                              (schemaDir </> "api.json")
+                              (key "channels" . key "/snapshot/utxo" . key "subscribe" . key "message" . key "payload")
+                        }
 
-      prop "has inlineDatumRaw" $ \i ->
+      prop "has inlineDatumRaw" $ \(i, closedState) ->
         forAll genTxOut $ \o -> do
           let o' = modifyTxOutDatum (const $ mkTxOutDatumInline (123 :: Integer)) o
-          let getUTxO = pure $ Just $ UTxO.fromList [(i, o')]
+          let utxo' :: UTxOType Tx = UTxO.fromList [(i, o')]
+              ClosedState{confirmedSnapshot} = closedState
+              confirmedSnapshot' =
+                case confirmedSnapshot of
+                  InitialSnapshot{headId} -> InitialSnapshot{headId, initialUTxO = utxo'}
+                  ConfirmedSnapshot{snapshot, signatures} ->
+                    let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit} = snapshot
+                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit}
+                     in ConfirmedSnapshot{snapshot = snapshot', signatures}
+              closedState' = closedState{confirmedSnapshot = confirmedSnapshot'}
           withApplication
             ( httpApp @Tx
                 nullTracer
                 dummyChainHandle
                 testEnvironment
                 defaultPParams
+                (pure (Closed closedState'))
                 cantCommit
-                getUTxO
-                getNoSeenSnapshot
-                getNothing
                 getPendingDeposits
                 putClientInput
             )
@@ -340,6 +373,7 @@ apiServerSpec = do
                   tx <- generate $ arbitrary @Tx
                   pure $ Right tx
               }
+      let initialHeadState = Initial (generateWith arbitrary 42)
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
         withApplication
           ( httpApp
@@ -347,10 +381,8 @@ apiServerSpec = do
               workingChainHandle
               testEnvironment
               defaultPParams
+              (pure initialHeadState)
               getHeadId
-              getNothing
-              getNoSeenSnapshot
-              getNothing
               getPendingDeposits
               putClientInput
           )
@@ -364,12 +396,6 @@ apiServerSpec = do
               , draftDepositTx = \_ _ _ -> pure $ Left postTxError
               }
       prop "handles PostTxErrors accordingly" $ \request postTxError -> do
-        let expectedResponse =
-              case postTxError of
-                CommittedTooMuchADAForMainnet{} -> 400
-                UnsupportedLegacyOutput{} -> 400
-                CannotFindOwnInitial{} -> 400
-                _ -> 500
         let coverage = case postTxError of
               CommittedTooMuchADAForMainnet{} -> cover 1 True "CommittedTooMuchADAForMainnet"
               UnsupportedLegacyOutput{} -> cover 1 True "UnsupportedLegacyOutput"
@@ -384,16 +410,18 @@ apiServerSpec = do
                 (failingChainHandle postTxError)
                 testEnvironment
                 defaultPParams
+                (pure initialHeadState)
                 getHeadId
-                getNothing
-                getNoSeenSnapshot
-                getNothing
                 getPendingDeposits
                 putClientInput
             )
           $ do
             post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
-              `shouldRespondWith` expectedResponse
+              `shouldRespondWith` case postTxError of
+                CommittedTooMuchADAForMainnet{} -> 400
+                UnsupportedLegacyOutput{} -> 400
+                CannotFindOwnInitial{} -> 400
+                _ -> 500
 
 -- * Helpers
 

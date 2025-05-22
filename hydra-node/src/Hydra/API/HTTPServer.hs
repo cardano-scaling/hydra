@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.HTTPServer where
@@ -13,7 +12,7 @@ import Data.ByteString.Short ()
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (CommitInfo (..), getSnapshotUtxo)
+import Hydra.API.ServerOutput (CommitInfo (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
@@ -23,7 +22,10 @@ import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (..), OpenState (..))
+import Hydra.HeadLogic.State (
+  HeadState (..),
+  SeenSnapshot (..),
+ )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
@@ -164,23 +166,23 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
       , path = PathInfo $ rawPathInfo request
       }
   case (requestMethod request, pathInfo request) of
-    ("GET", []) ->
+    ("GET", ["head"]) ->
       atomically getHeadState >>= respond . okJSON
-    ("GET", ["snapshot"]) ->
-      atomically getHeadState >>= \case
-        Open OpenState{coordinatedHeadState} ->
-          respond $ okJSON coordinatedHeadState.confirmedSnapshot
-        _ -> respond notFound
+    ("GET", ["snapshot"]) -> do
+      hs <- atomically getHeadState
+      case getConfirmedSnapshot hs of
+        Just confirmedSnapshot -> respond $ okJSON confirmedSnapshot
+        Nothing -> respond notFound
     ("GET", ["snapshot", "utxo"]) -> do
       hs <- atomically getHeadState
       case getSnapshotUtxo hs of
         Just utxo -> respond $ okJSON utxo
         _ -> respond notFound
-    ("GET", ["snapshot", "last-seen"]) ->
-      atomically getHeadState >>= \case
-        Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot}} ->
-          respond $ okJSON seenSnapshot
-        _ -> respond notFound
+    ("GET", ["snapshot", "last-seen"]) -> do
+      hs <- atomically getHeadState
+      case getSeenSnapshot hs of
+        NoSeenSnapshot -> respond notFound
+        seenSn -> respond $ okJSON seenSn
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
         >>= handleSideLoadSnapshot putClientInput
