@@ -38,6 +38,7 @@ import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
+import Hydra.NetworkVersions (parseNetworkTxIds)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Hydra.Tx.HeadId (HeadSeed)
@@ -521,7 +522,7 @@ ledgerGenesisFileParser =
 cardanoChainConfigParser :: Parser CardanoChainConfig
 cardanoChainConfigParser =
   CardanoChainConfig
-    <$> (hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser)
+    <$> ((hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser) <|> hydraScriptsDefaultParser)
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
@@ -801,6 +802,22 @@ hydraScriptsTxIdParser =
           \first 10 outputs. See release notes for pre-published versions. You \
           \can use the 'publish-scripts' sub-command to publish them yourself."
     )
+
+hydraScriptsDefaultParser :: Parser [TxId]
+hydraScriptsDefaultParser =
+  option
+    (eitherReader validateNetwork)
+    ( long "network"
+        <> metavar "NETWORK"
+        <> help "Uses the last pre-published hydra scripts for the given network."
+    )
+ where
+  validateNetwork arg =
+    case arg of
+      "preview" -> parseNetworkTxIds arg
+      "preprod" -> parseNetworkTxIds arg
+      "mainnet" -> parseNetworkTxIds arg
+      _ -> Left $ "Unknown network: " <> arg
 
 persistenceDirParser :: Parser FilePath
 persistenceDirParser =
