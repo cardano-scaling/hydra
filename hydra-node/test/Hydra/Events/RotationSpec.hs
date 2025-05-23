@@ -24,10 +24,10 @@ import Test.QuickCheck.Monadic (monadicIO, run)
 
 spec :: Spec
 spec = parallel $ do
-  describe "Node" $ do
+  describe "Log rotation" $ do
     -- Set up a hydrate function with fixtures curried
     let setupHydrate action =
-          showLogsOnFailure "NodeSpec" $ \tracer -> do
+          showLogsOnFailure "RotationSpec" $ \tracer -> do
             let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0}
             action testHydrate
     around setupHydrate $ do
@@ -35,9 +35,9 @@ spec = parallel $ do
         failAfter 1 $ do
           now <- getCurrentTime
           let initialChainState = SimpleChainState{slot = ChainSlot 0}
-          let checkpointer = mkChechpointer initialChainState now
+          let checkpointer = mkCheckpointer initialChainState now
           let logId = 0
-          -- XXX: this is hardcoded to ensure we get a checkpoint + a single event at the end
+          -- NOTE: this is hardcoded to ensure we get a checkpoint + a single event at the end
           let rotationConfig = RotateAfter 4
           eventStore <- createMockSourceSink
           rotatingEventStore <- newRotatedEventStore rotationConfig checkpointer logId eventStore
@@ -51,9 +51,9 @@ spec = parallel $ do
         failAfter 1 $ do
           now <- getCurrentTime
           let initialChainState = SimpleChainState{slot = ChainSlot 0}
-          let checkpointer = mkChechpointer initialChainState now
+          let checkpointer = mkCheckpointer initialChainState now
           let logId = 0
-          -- XXX: this is hardcoded to ensure we get a single checkpoint event at the end
+          -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter 3
           eventStore <- createMockSourceSink
           rotatingEventStore <- newRotatedEventStore rotationConfig checkpointer logId eventStore
@@ -71,39 +71,41 @@ spec = parallel $ do
           case stateChanged checkpoint of
             Checkpoint{state = Closed{}} -> pure ()
             _ -> fail ("unexpected: " <> show checkpoint)
-    prop "a rotated and non-rotated node have consistent state" $
-      monadicIO . run $
-        setupHydrate $ \testHydrate -> do
-          -- XXX: prepare inputs
-          now <- getCurrentTime
-          let contestationDeadline = addContestationPeriod (posixFromUTCTime now) (toChain cperiod)
-          let closeInput = observationInput $ OnCloseTx testHeadId 0 (posixToUTCTime contestationDeadline)
-          let inputs = inputsToOpenHead ++ [closeInput]
-          failAfter 1 $
-            do
-              -- XXX: run rotated event store with prepared inputs
-              let initialChainState = SimpleChainState{slot = ChainSlot 0}
-              let checkpointer = mkChechpointer initialChainState now
-              let logId = 0
-              -- XXX: this is hardcoded to ensure we get a single checkpoint event at the end
-              let rotationConfig = RotateAfter 3
-              eventStore <- createMockSourceSink
-              rotatingEventStore <- newRotatedEventStore rotationConfig checkpointer logId eventStore
-              testHydrate rotatingEventStore []
-                >>= notConnect
-                >>= primeWith inputs
-                >>= runToCompletion
-              -- XXX: run non-rotated event store with prepared inputs
-              eventStore' <- createMockSourceSink
-              testHydrate eventStore' []
-                >>= notConnect
-                >>= primeWith inputs
-                >>= runToCompletion
-              -- XXX: aggregating stored events should yield consistent states
-              [checkpoint] <- getEvents (fst rotatingEventStore)
-              events' <- getEvents (fst eventStore')
-              let checkpoint' = checkpointer events'
-              checkpoint `shouldBe` checkpoint'
+    prop "a rotated and non-rotated node have consistent state"
+      $ monadicIO
+        . run
+      $ setupHydrate
+      $ \testHydrate -> do
+        -- prepare inputs
+        now <- getCurrentTime
+        let contestationDeadline = addContestationPeriod (posixFromUTCTime now) (toChain cperiod)
+        let closeInput = observationInput $ OnCloseTx testHeadId 0 (posixToUTCTime contestationDeadline)
+        let inputs = inputsToOpenHead ++ [closeInput]
+        failAfter 1 $
+          do
+            -- run rotated event store with prepared inputs
+            let initialChainState = SimpleChainState{slot = ChainSlot 0}
+            let checkpointer = mkCheckpointer initialChainState now
+            let logId = 0
+            -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
+            let rotationConfig = RotateAfter 3
+            eventStore <- createMockSourceSink
+            rotatingEventStore <- newRotatedEventStore rotationConfig checkpointer logId eventStore
+            testHydrate rotatingEventStore []
+              >>= notConnect
+              >>= primeWith inputs
+              >>= runToCompletion
+            -- run non-rotated event store with prepared inputs
+            eventStore' <- createMockSourceSink
+            testHydrate eventStore' []
+              >>= notConnect
+              >>= primeWith inputs
+              >>= runToCompletion
+            -- aggregating stored events should yield consistent states
+            [checkpoint] <- getEvents (fst rotatingEventStore)
+            events' <- getEvents (fst eventStore')
+            let checkpoint' = checkpointer events'
+            checkpoint `shouldBe` checkpoint'
 
   describe "Rotation algorithm" $ do
     prop "rotates on startup" $

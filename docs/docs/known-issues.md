@@ -49,7 +49,7 @@ If the hydra-node has breaking changes in regards to reading the files it stores
 
 Now, because of etcd, it is important to only delete the `hydra-node` specific files; not the files associated with `etcd`. In particular you may like to delete the following files:
 
-- `persistence/state-logId`
+- `persistence/state-*`
 
 Note that, as with any adjustments of this kind, it is good practice to make a backup first!
 
