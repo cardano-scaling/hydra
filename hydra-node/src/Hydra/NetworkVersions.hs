@@ -12,46 +12,37 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (members, _Object)
 import Data.FileEmbed (embedFile)
 import Data.List qualified as List
-import Data.Text (splitOn)
+import Data.Text (pack, splitOn, toLower, unpack)
 import Data.Text.Encoding (encodeUtf8)
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), TxId, deserialiseFromRawBytesHex)
+import Hydra.Cardano.Api (TxId, deserialiseFromRawBytesHex)
 
 networkVersionsFile :: ByteString
 networkVersionsFile = $(embedFile "./../networks.json")
 
-data ParseError
-  = ExpectedStringForTxId
+data NetworkParseError
+  = ExpectedJSONStringForTxId
   | FailedToParseTextToTxId Text
   | UnknownNetwork Text
   deriving stock (Eq, Show)
 
-instance Exception ParseError
+instance Exception NetworkParseError
 
-parseNetworkVersions :: ByteString -> IO [(NetworkId, [TxId])]
-parseNetworkVersions bs = do
-  let info = bs ^@.. members . _Object
-  fmap catMaybes <$> forM info $ \(n, t) -> do
-    let textKey = Key.toText n
-    case textKey of
-      "mainnet" -> do
-        txids <- getLastTxId t
-        pure $ Just (Mainnet, txids)
-      "preview" -> do
-        txids <- getLastTxId t
-        pure $ Just (Testnet $ NetworkMagic 2, txids)
-      "preprod" -> do
-        txids <- getLastTxId t
-        pure $ Just (Testnet $ NetworkMagic 1, txids)
-      _ -> pure Nothing
+parseNetworkTxIds :: String -> Either String [TxId]
+parseNetworkTxIds networkString = do
+  let networkTxt = toLower $ pack networkString
+  let info = networkVersionsFile ^@.. members . _Object
+  case find (\(n, _) -> Key.toText n == networkTxt) info of
+    Nothing -> Left $ "Unknown network:" <> unpack networkTxt
+    Just (_, t) -> getLastTxId t
  where
   getLastTxId t = do
     lastTxIds <-
       case List.last $ KeyMap.elems t of
-        String s -> pure s
-        _ -> throwIO ExpectedStringForTxId
+        String s -> Right s
+        _ -> Left "Failed to find the last tx-id string in networks.json"
     mapM parseToTxId (splitOn "," lastTxIds)
 
   parseToTxId textTxId = do
     case deserialiseFromRawBytesHex $ encodeUtf8 textTxId of
-      Left _ -> throwIO $ FailedToParseTextToTxId textTxId
-      Right txid -> pure txid
+      Left _ -> Left $ "Failed to parse string to TxId: " <> unpack textTxId
+      Right txid -> Right txid
