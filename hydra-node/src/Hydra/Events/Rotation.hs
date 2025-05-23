@@ -33,7 +33,7 @@ newRotatedEventStore config checkpointer logId eventStore = do
   currentEvents <- getEvents eventSource
   let currentNumberOfEvents = toInteger $ length currentEvents
   numberOfEventsV <- newTVarIO currentNumberOfEvents
-  -- XXX: check rotation on startup
+  -- check rotation on startup
   whenM (shouldRotate numberOfEventsV) $ do
     rotateEventLog logIdV numberOfEventsV
   pure
@@ -57,37 +57,39 @@ newRotatedEventStore config checkpointer logId eventStore = do
 
   rotatedPutEvent logIdV numberOfEventsV event = do
     putEvent event
-    -- XXX: bump numberOfEvents
+    -- bump numberOfEvents
     atomically $ do
       numberOfEvents <- readTVar numberOfEventsV
       let numberOfEvents' = numberOfEvents + 1
       writeTVar numberOfEventsV numberOfEvents'
-    -- XXX: check rotation
+    -- check rotation
     whenM (shouldRotate numberOfEventsV) $ do
       rotateEventLog logIdV numberOfEventsV
 
   rotateEventLog logIdV numberOfEventsV = do
-    -- XXX: build checkpoint event
+    -- build checkpoint event
     history <- getEvents eventSource
     let checkpoint = checkpointer history
-    -- XXX: rotate with checkpoint
+    -- rotate with checkpoint
     currentLogId <- readTVarIO logIdV
     let currentLogId' = currentLogId + 1
     rotate currentLogId' checkpoint
-    -- XXX: clear numberOfEvents + bump logId
+    -- clear numberOfEvents + bump logId
     atomically $ do
       writeTVar numberOfEventsV 0
       writeTVar logIdV currentLogId'
 
   (eventSource, EventSink{putEvent, rotate}) = eventStore
 
-mkChechpointer :: IsChainState tx => ChainStateType tx -> UTCTime -> Checkpointer (StateEvent tx)
-mkChechpointer initialChainState time events =
+mkCheckpointer :: IsChainState tx => ChainStateType tx -> UTCTime -> Checkpointer (StateEvent tx)
+mkCheckpointer initialChainState time events =
   StateEvent
     { eventId = maybe 0 (succ . last) (nonEmpty $ (\StateEvent{eventId} -> eventId) <$> events)
     , stateChanged =
-        Checkpoint . foldl' aggregate initialState $
-          (\StateEvent{stateChanged} -> stateChanged) <$> events
+        Checkpoint
+          . foldl' aggregate initialState
+          $ (\StateEvent{stateChanged} -> stateChanged)
+            <$> events
     , time
     }
  where

@@ -25,7 +25,7 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events (LogId)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
-import Hydra.Events.Rotation (RotationConfig (..), mkChechpointer, newRotatedEventStore)
+import Hydra.Events.Rotation (RotationConfig (..), mkCheckpointer, newRotatedEventStore)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -138,7 +138,7 @@ run opts = do
         pure eventStore
       Just rotationConfig -> do
         now <- getCurrentTime
-        let checkpointer = mkChechpointer initialChainState now
+        let checkpointer = mkCheckpointer initialChainState now
         newRotatedEventStore rotationConfig checkpointer logId eventStore
 
   RunOptions
@@ -215,7 +215,7 @@ newGlobals genesisParameters = do
   epochInfo = fixedEpochInfo protocolParamEpochLength slotLength
   slotLength = mkSlotLength protocolParamSlotLength
 
--- \| Get the highest LogId from given persisted event logs directory.
+-- | Get the highest LogId from given persisted event logs directory.
 -- Assumes filenames are in the format "state-<logId>"
 getLatestLogId :: FilePath -> String -> IO LogId
 getLatestLogId stateDir filePrefix = do
