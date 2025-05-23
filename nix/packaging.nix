@@ -10,7 +10,7 @@
       drv = if builtins.isList drvs then builtins.head drvs else drvs;
       name' = if name == null then drv.pname or drv.name else name;
       combined = pkgs.symlinkJoin { name = "${name'}-binaries"; paths = drvs; };
-      targetPlatform = drv.stdenv.targetPlatform;
+      inherit (drv.stdenv) targetPlatform;
       interpForSystem = sys:
         let
           s = {
@@ -55,7 +55,7 @@
           patchelf --set-interpreter ${interpForSystem targetPlatform.system} $bin
           chmod $mode $bin
         done
-      '' + pkgs.lib.optionalString (targetPlatform.isDarwin) ''
+      '' + pkgs.lib.optionalString targetPlatform.isDarwin ''
         for bin in bin/*; do
           mode=$(stat -c%a $bin)
           chmod +w $bin

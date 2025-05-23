@@ -33,20 +33,22 @@ pkgs.haskell-nix.project {
   modules = [
     # Strip debugging symbols from exes (smaller closures)
     {
-      packages.hydra-cardano-api.writeHieFiles = true;
-      packages.hydra-chain-observer.writeHieFiles = true;
-      packages.hydra-cluster.writeHieFiles = true;
-      packages.hydra-node.writeHieFiles = true;
-      packages.hydra-plutus.writeHieFiles = true;
-      packages.hydra-plutus-extras.writeHieFiles = true;
-      packages.hydra-prelude.writeHieFiles = true;
-      packages.hydra-test-utils.writeHieFiles = true;
-      packages.hydra-tx.writeHieFiles = true;
-      packages.hydra-tui.writeHieFiles = true;
-      packages.hydraw.writeHieFiles = true;
-      packages.hydra-node.dontStrip = false;
-      packages.hydra-tui.dontStrip = false;
-      packages.hydraw.dontStrip = false;
+      packages = {
+        hydra-cardano-api.writeHieFiles = true;
+        hydra-chain-observer.writeHieFiles = true;
+        hydra-cluster.writeHieFiles = true;
+        hydra-node.writeHieFiles = true;
+        hydra-plutus.writeHieFiles = true;
+        hydra-plutus-extras.writeHieFiles = true;
+        hydra-prelude.writeHieFiles = true;
+        hydra-test-utils.writeHieFiles = true;
+        hydra-tx.writeHieFiles = true;
+        hydra-tui.writeHieFiles = true;
+        hydraw.writeHieFiles = true;
+        hydra-node.dontStrip = false;
+        hydra-tui.dontStrip = false;
+        hydraw.dontStrip = false;
+      };
     }
     # Use different static libs on darwin
     # TODO: Always use these?
@@ -66,10 +68,12 @@ pkgs.haskell-nix.project {
       # could try have both static and dynamic libs in the pkgs.snappy
       # derivation? Using only the static libs in pkgs.snappy results in
       # libHSsnappy relocation / symbol not found errors.
-      packages.hydra-node.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
-      packages.hydra-tui.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
-      packages.hydra-chain-observer.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
-      packages.hydraw.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+      packages = {
+        hydra-node.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+        hydra-tui.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+        hydra-chain-observer.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+        hydraw.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+      };
     }
     {
       # lib:ghc is a bit annoying in that it comes with it's own build-type:Custom, and then tries

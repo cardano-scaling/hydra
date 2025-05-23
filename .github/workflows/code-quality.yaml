@@ -22,10 +22,6 @@ jobs:
       run: |
         nix build .#checks.x86_64-linux.treefmt
 
-    - name: 📐 Check hlint
-      run: |
-        nix build .#checks.x86_64-linux.hlint
-
     - name: 📐 Check weeder
       run: |
         nix build .#checks.x86_64-linux.weeder

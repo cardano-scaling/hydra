@@ -417,9 +417,9 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
   -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
   peers =
     [ Host
-        { Network.hostname = "0.0.0.0"
-        , Network.port = fromIntegral $ 5_000 + i
-        }
+      { Network.hostname = "0.0.0.0"
+      , Network.port = fromIntegral $ 5_000 + i
+      }
     | i <- allNodeIds
     , i /= hydraNodeId
     ]
@@ -568,9 +568,9 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
   -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
   peers =
     [ Host
-        { Network.hostname = "0.0.0.0"
-        , Network.port = fromIntegral $ 5_000 + i
-        }
+      { Network.hostname = "0.0.0.0"
+      , Network.port = fromIntegral $ 5_000 + i
+      }
     | i <- allNodeIds
     , i /= hydraNodeId
     ]
