@@ -22,6 +22,7 @@ let
     pkgs.cardano-node
     # For validating JSON instances against a pre-defined schema
     pkgs.check-jsonschema
+    pkgs.fourmolu
     pkgs.git
     # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
