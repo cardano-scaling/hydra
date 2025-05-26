@@ -12,6 +12,7 @@ license-files:
 data-files:
   json-schemas/api.yaml
   json-schemas/common.yaml
+  networks.json
 
 source-repository head
   type:     git

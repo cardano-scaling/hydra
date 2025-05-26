@@ -1,5 +1,4 @@
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module Hydra.NetworkVersions where
 
@@ -10,19 +9,21 @@ import Data.Aeson (Value (..))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (members, _Object)
-import Data.FileEmbed (embedFile)
 import Data.List qualified as List
 import Data.Text (pack, splitOn, toLower, unpack)
 import Data.Text.Encoding (encodeUtf8)
 import Hydra.Cardano.Api (TxId, deserialiseFromRawBytesHex)
+import Paths_hydra_node qualified as Pkg
+import System.IO.Unsafe (unsafePerformIO)
 
-networkVersionsFile :: ByteString
-networkVersionsFile = $(embedFile "./../networks.json")
+{-# NOINLINE networkVersions #-}
+networkVersions :: ByteString
+networkVersions = unsafePerformIO $ Pkg.getDataFileName "networks.json" >>= readFileBS
 
 parseNetworkTxIds :: String -> Either String [TxId]
 parseNetworkTxIds networkString = do
   let networkTxt = toLower $ pack networkString
-  let info = networkVersionsFile ^@.. members . _Object
+  let info = networkVersions ^@.. members . _Object
   case find (\(n, _) -> Key.toText n == networkTxt) info of
     Nothing -> Left $ "Unknown network:" <> unpack networkTxt
     Just (_, t) -> getLastTxId t
