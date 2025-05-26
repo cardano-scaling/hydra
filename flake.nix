@@ -8,7 +8,7 @@
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.4";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
-    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.3.0";
+    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.3.1";
     hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     lint-utils = {
@@ -62,6 +62,7 @@
                 apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.15.0.0";
                 cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
                 cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.5.0";
+                cabal-fmt = config.treefmt.programs.cabal-fmt.package;
                 fourmolu = config.treefmt.programs.fourmolu.package;
                 haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" "2.9.0.0";
                 weeder = pkgs.haskell-nix.tool compiler "weeder" "2.9.0";

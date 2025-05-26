@@ -1513,16 +1513,16 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1747931137,
-        "narHash": "sha256-xO7c1bRaEYbOgq5ArYDq0utiaGNIdBGLHgvtIMNNFAo=",
+        "lastModified": 1748278221,
+        "narHash": "sha256-cKRaKMugNgSKD4MlqfJ/yvpAlQaY2dynY2vsTjg3ACw=",
         "owner": "cardano-scaling",
         "repo": "hydra-coding-standards",
-        "rev": "2384cef4dddc7e82f5ffd233ae44d01b0a4cb91c",
+        "rev": "4a574643a06c63c0231e94b4da2ae2ad142987e5",
         "type": "github"
       },
       "original": {
         "owner": "cardano-scaling",
-        "ref": "0.3.0",
+        "ref": "0.3.1",
         "repo": "hydra-coding-standards",
         "type": "github"
       }
