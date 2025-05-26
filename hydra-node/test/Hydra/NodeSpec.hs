@@ -342,7 +342,8 @@ mockNetwork =
 mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
-    { postTx = \_ -> pure ()
+    { mkChainState = SimpleChainState (ChainSlot 0)
+    , postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
     , draftDepositTx = \_ _ _ -> failure "mockChain: unexpected draftDepositTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
@@ -496,7 +497,8 @@ throwExceptionOnPostTx exception node =
     node
       { oc =
           Chain
-            { postTx = \_ -> throwIO exception
+            { mkChainState = error "mkChainState not implemented"
+            , postTx = \_ -> throwIO exception
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             , draftDepositTx = \_ -> error "draftDepositTx not implemented"
             , submitTx = \_ -> error "submitTx not implemented"
