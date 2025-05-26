@@ -19,14 +19,6 @@ import Hydra.Cardano.Api (TxId, deserialiseFromRawBytesHex)
 networkVersionsFile :: ByteString
 networkVersionsFile = $(embedFile "./../networks.json")
 
-data NetworkParseError
-  = ExpectedJSONStringForTxId
-  | FailedToParseTextToTxId Text
-  | UnknownNetwork Text
-  deriving stock (Eq, Show)
-
-instance Exception NetworkParseError
-
 parseNetworkTxIds :: String -> Either String [TxId]
 parseNetworkTxIds networkString = do
   let networkTxt = toLower $ pack networkString
