@@ -280,7 +280,7 @@ blockfrostSubmissionClient prj tracer queue = bfClient
     res <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj $ Blockfrost.submitTransaction tx
     case res of
       Left err -> do
-        let postTxError = FailedToPostTx{failureReason = show err}
+        let postTxError = FailedToPostTx{failureReason = show err, failingTx = tx}
         traceWith tracer PostingFailed{tx, postTxError}
         threadDelay 1
         atomically (putTMVar response (Just postTxError))

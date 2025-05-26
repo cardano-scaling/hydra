@@ -362,7 +362,7 @@ processEffects node tracer inputId effects = do
       OnChainEffect{postChainTx} ->
         postTx postChainTx
           `catch` \(postTxError :: PostTxError tx) ->
-            enqueue . ChainInput $ PostTxError{postChainTx, postTxError}
+            enqueue . ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing}
     traceWith tracer $ EndEffect party inputId effectId
 
   HydraNode

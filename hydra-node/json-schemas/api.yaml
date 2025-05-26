@@ -2166,6 +2166,7 @@ components:
           - tag
           - redeemerPtr
           - failureReason
+          - failingTx
           description: >-
             Script execution failed when finalizing a transaction in the wallet.
             The redeemer pointer should give an indication which script failed
@@ -2179,12 +2180,14 @@ components:
               type: string
             failureReason:
               type: string
+            failingTx:
+              $ref: "api.yaml#/components/schemas/Transaction"
         - title: InternalWalletError
           type: object
           additionalProperties: false
           required:
             - tag
-            - tx
+            - failingTx
             - reason
             - headUTxO
           description: |
@@ -2194,7 +2197,7 @@ components:
             tag:
               type: string
               enum: ["InternalWalletError"]
-            tx:
+            failingTx:
               $ref: "api.yaml#/components/schemas/Transaction"
               description: |
                 A representation of the faulty transaction
@@ -2216,10 +2219,13 @@ components:
           additionalProperties: false
           required:
           - tag
+          - failingTx
           properties:
             tag:
               type: string
               enum: ["NotEnoughFuel"]
+            failingTx:
+              $ref: "api.yaml#/components/schemas/Transaction"
         - title: NoFuelUTXOFound
           description: |
             Raised if the internal wallet could not find a fuel output. See user
@@ -2228,10 +2234,13 @@ components:
           additionalProperties: false
           required:
           - tag
+          - failingTx
           properties:
             tag:
               type: string
               enum: ["NoFuelUTXOFound"]
+            failingTx:
+              $ref: "api.yaml#/components/schemas/Transaction"
         - title: CannotFindOwnInitial
           type: object
           additionalProperties: false
@@ -2294,30 +2303,13 @@ components:
               $ref: "api.yaml#/components/schemas/ChainState"
             txTried:
               $ref: "api.yaml#/components/schemas/PostChainTx"
-        - title: PlutusValidationFailed
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          - plutusFailure
-          - plutusDebugInfo
-          description: >-
-            An internal transaction created by the Hydra node failed with Plutus errors. This should not happen in principle
-            and may disappear in the final version but is currently useful as a debugging mean.
-          properties:
-            tag:
-              type: string
-              enum: ["PlutusValidationFailed"]
-            plutusFailure:
-              type: string
-            plutusDebugInfo:
-              type: string
         - title: FailedToPostTx
           type: object
           additionalProperties: false
           required:
           - tag
           - failureReason
+          - failingTx
           description: >-
             A generic error case. Some transaction that wasn't expected to fail still failed... somehow.
           properties:
@@ -2326,6 +2318,8 @@ components:
               enum: ["FailedToPostTx"]
             failureReason:
               type: string
+            failingTx:
+              $ref: "api.yaml#/components/schemas/Transaction"
         - title: CommittedTooMuchADAForMainnet
           description: |
             Raised if the user tries to commit more than 100 ADA while on the mainnet network.
