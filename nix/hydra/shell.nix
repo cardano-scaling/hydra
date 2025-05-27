@@ -13,6 +13,7 @@ let
   buildInputs = [
     # To compile hydra scripts
     pkgs.aiken
+    pkgs.cabal-fmt
     pkgs.cabal-install
     # Handy tool to debug the cabal build plan
     pkgs.cabal-plan
