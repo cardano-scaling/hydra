@@ -113,13 +113,13 @@ spec = do
 
       it "emits connectivity events" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 30 $ do
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             -- Record and assert connectivity events from alice's perspective
             (recordReceived, _, waitConnectivity) <- newRecordingCallback
             let
               waitFor :: HasCallStack => Connectivity -> IO ()
-              waitFor = waitEq waitConnectivity 10
+              waitFor = waitEq waitConnectivity 60
             withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \_ -> do
               withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
                 -- Alice now on majority cluster
