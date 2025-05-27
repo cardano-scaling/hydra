@@ -22,7 +22,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (ScriptRegistry (..))
-import Hydra.Tx.Close (CloseObservation, OpenThreadOutput)
+import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.Crypto (Hash (..))
 import Hydra.Tx.Observe (AbortObservation, CollectComObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.Party (Party (..))
@@ -258,10 +258,6 @@ genScriptRegistry = do
           , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
           )
       }
-
-instance Arbitrary OpenThreadOutput where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 instance Arbitrary Tx where
   -- TODO: shrinker!

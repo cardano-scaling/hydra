@@ -35,7 +35,6 @@ import Hydra.Tx (
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.Cardano.Ledger.Core.Arbitrary ()
-import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
@@ -162,12 +161,9 @@ data OnChainTx tx
 deriving stock instance IsTx tx => Eq (OnChainTx tx)
 deriving stock instance IsTx tx => Show (OnChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
-deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
 instance ArbitraryIsTx tx => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
-
-instance ArbitraryIsTx tx => ToADTArbitrary (OnChainTx tx)
 
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
