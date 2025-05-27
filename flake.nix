@@ -27,6 +27,7 @@
       imports = [
         inputs.hydra-coding-standards.flakeModule
         inputs.process-compose-flake.flakeModule
+        ./nix/hydra/demo.nix
       ];
       systems = [
         "x86_64-linux"
@@ -111,6 +112,9 @@
 
         in
         {
+
+          _module.args = { inherit pkgs; };
+
           legacyPackages = pkgs // hsPkgs;
 
           packages =
@@ -119,11 +123,6 @@
               spec = inputs.hydra-spec.packages.${system}.default;
               inherit tx-cost-diff;
             };
-          process-compose."demo" = import ./nix/hydra/demo.nix {
-            inherit system pkgs inputs self;
-            inherit (pkgs) cardano-node cardano-cli process-compose;
-            inherit (hydraPackages) hydra-node hydra-tui;
-          };
 
           coding.standards.hydra = {
             enable = true;
