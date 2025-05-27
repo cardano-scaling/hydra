@@ -44,7 +44,6 @@ import Hydra.Options (
  )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
-import Test.QuickCheck.Monadic (monadicIO)
 import Text.Regex.TDFA ((=~))
 
 spec :: Spec
@@ -326,18 +325,17 @@ spec = parallel $
             { chainConfig = Cardano (defaultCardanoChainConfig & #chainBackendOptions .~ Blockfrost (BlockfrostOptions "blockfrost-project.txt"))
             }
 
-    it "parses --network into related tx ids" $ monadicIO $ do
+    it "parses --network into related tx ids" $ do
       let networks = ["Mainnet", "preview", "Preprod"]
       forM_ networks $ \network -> do
         case parseNetworkTxIds network of
-          Left err -> error $ "Failed to parse network versions: " <> show err
-          Right txIds -> do
-            pure $
-              ["--network", network]
-                `shouldParse` Run
-                  defaultRunOptions
-                    { chainConfig = Cardano defaultCardanoChainConfig{hydraScriptsTxId = txIds}
-                    }
+          Left err -> err `shouldBe` ("Failed to find released hydra-node version in networks.json." :: String)
+          Right txIds ->
+            ["--network", network]
+              `shouldParse` Run
+                defaultRunOptions
+                  { chainConfig = Cardano defaultCardanoChainConfig{hydraScriptsTxId = txIds}
+                  }
 
     it "switches to offline mode when using --offline-head-seed and --initial-utxo" $
       mconcat

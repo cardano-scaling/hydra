@@ -1,4 +1,5 @@
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Hydra.NetworkVersions where
 
@@ -9,16 +10,16 @@ import Data.Aeson (Value (..))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (members, _Object)
+import Data.FileEmbed (embedFile, makeRelativeToProject)
 import Data.List qualified as List
 import Data.Text (pack, splitOn, toLower, unpack)
 import Data.Text.Encoding (encodeUtf8)
 import Hydra.Cardano.Api (TxId, deserialiseFromRawBytesHex)
-import Paths_hydra_node qualified as Pkg
-import System.IO.Unsafe (unsafePerformIO)
+import Hydra.Version (embeddedRevision)
 
 {-# NOINLINE networkVersions #-}
 networkVersions :: ByteString
-networkVersions = unsafePerformIO $ Pkg.getDataFileName "networks.json" >>= readFileBS
+networkVersions = $(makeRelativeToProject "./networks.json" >>= embedFile)
 
 parseNetworkTxIds :: String -> Either String [TxId]
 parseNetworkTxIds networkString = do
@@ -30,9 +31,12 @@ parseNetworkTxIds networkString = do
  where
   getLastTxId t = do
     lastTxIds <-
-      case List.last $ KeyMap.elems t of
-        String s -> Right s
-        _ -> Left "Failed to find the last tx-id string in networks.json"
+      case embeddedRevision of
+        Nothing -> Left "Missing hydra-node revision."
+        Just rev ->
+          case List.find (String (pack rev) ==) (KeyMap.elems t) of
+            Just (String s) -> Right s
+            _ -> Left "Failed to find released hydra-node version in networks.json."
     mapM parseToTxId (splitOn "," lastTxIds)
 
   parseToTxId textTxId = do
