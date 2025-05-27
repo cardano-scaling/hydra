@@ -342,7 +342,7 @@ mockNetwork =
 mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
-    { mkChainState = SimpleChainState (ChainSlot 0)
+    { mkChainState = error "mockChain: unexpected mkChainState"
     , postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
     , draftDepositTx = \_ _ _ -> failure "mockChain: unexpected draftDepositTx"

@@ -61,6 +61,7 @@ spec = do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SubmitTxRequest Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized TransactionSubmitted))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SideLoadSnapshotRequest Tx)))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized (HeadState Tx)))
 
     prop "Validate /commit publish api schema" $
       prop_validateJSONSchema @(DraftCommitTxRequest Tx) "api.json" $
@@ -152,6 +153,20 @@ spec = do
       prop_validateJSONSchema @(ConfirmedSnapshot Tx) "api.json" $
         key "components" . key "schemas" . key "ConfirmedSnapshot"
 
+    prop "Validate /head publish api schema" $
+      prop_validateJSONSchema @Text "api.json" $
+        key "channels"
+          . key "/head"
+          . key "publish"
+          . key "message"
+
+    prop "Validate /head subscribe api schema" $
+      prop_validateJSONSchema @(HeadState Tx) "api.json" $
+        key "channels"
+          . key "/head"
+          . key "subscribe"
+          . key "message"
+
     apiServerSpec
     describe "SubmitTxRequest accepted tx formats" $ do
       prop "accepts json encoded transaction" $
@@ -203,6 +218,61 @@ apiServerSpec = do
                 { matchBody = matchJSON defaultPParams
                 }
 
+    describe "GET /head" $ do
+      prop "responds correctly" $ \headState -> do
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure headState)
+              cantCommit
+              getPendingDeposits
+              putClientInput
+          )
+          $ do
+            get "/head"
+              `shouldRespondWith` 200{matchBody = matchJSON headState}
+      prop "ok response matches schema" $ \headState -> do
+        let isIdle = case headState of
+              Idle{} -> True
+              _ -> False
+        let isInitial = case headState of
+              Initial{} -> True
+              _ -> False
+        let isOpen = case headState of
+              Open{} -> True
+              _ -> False
+        let isClosed = case headState of
+              Closed{} -> True
+              _ -> False
+        withMaxSuccess 20
+          . cover 1 isIdle "IdleState"
+          . cover 1 isInitial "InitialState"
+          . cover 1 isOpen "OpenState"
+          . cover 1 isClosed "ClosedState"
+          . withJsonSpecifications
+          $ \schemaDir -> do
+            withApplication
+              ( httpApp @Tx
+                  nullTracer
+                  dummyChainHandle
+                  testEnvironment
+                  defaultPParams
+                  (pure headState)
+                  cantCommit
+                  getPendingDeposits
+                  putClientInput
+              )
+              $ do
+                get "/head"
+                  `shouldRespondWith` 200
+                    { matchBody =
+                        matchValidJSON
+                          (schemaDir </> "api.json")
+                          (key "channels" . key "/head" . key "subscribe" . key "message")
+                    }
     describe "GET /snapshot/last-seen" $ do
       prop "responds correctly" $ \headState -> do
         let seenSnapshot :: SeenSnapshot SimpleTx = getSeenSnapshot headState
@@ -267,17 +337,18 @@ apiServerSpec = do
 
     describe "POST /snapshot" $ do
       prop "responds on valid requests" $ \(request :: SideLoadSnapshotRequest Tx, headState) -> do
-        withApplication
-          ( httpApp @Tx
-              nullTracer
-              dummyChainHandle
-              testEnvironment
-              defaultPParams
-              (pure headState)
-              cantCommit
-              getPendingDeposits
-              putClientInput
-          )
+        withMaxSuccess 10
+          . withApplication
+            ( httpApp @Tx
+                nullTracer
+                dummyChainHandle
+                testEnvironment
+                defaultPParams
+                (pure headState)
+                cantCommit
+                getPendingDeposits
+                putClientInput
+            )
           $ do
             post "/snapshot" (Aeson.encode request)
             `shouldRespondWith` 200
