@@ -8,13 +8,9 @@
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.4";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
-    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.3.1";
+    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.4.0";
     hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
-    lint-utils = {
-      url = "github:homotopic/lint-utils";
-      inputs.nixpkgs.follows = "haskellNix/nixpkgs";
-    };
     mithril.url = "github:input-output-hk/mithril/2517.1";
     mithril-unstable.url = "github:input-output-hk/mithril/unstable";
     nixpkgs.follows = "haskellNix/nixpkgs";
@@ -140,13 +136,6 @@
               hydra-tui
               hydraw
             ];
-          };
-
-          checks = let lu = inputs.lint-utils.linters.${system}; in {
-            no-srp = lu.no-srp {
-              src = self;
-              cabal-project-file = ./cabal.project;
-            };
           };
 
           devShells = import ./nix/hydra/shell.nix {
