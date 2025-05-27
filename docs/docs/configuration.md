@@ -83,7 +83,13 @@ See the [how-to](./how-to/incremental-commit) and [protocol documentation](./dev
 
 The `hydra-node` uses reference scripts to reduce transaction sizes driving the head's lifecycle. Specify the `--hydra-scripts-tx-id` to reference the correct scripts. The `hydra-node` will verify the availability of these scripts on-chain.
 
-Since we pre-publish hydra scrips before each release, in case you want to run the official released version instead of specifying hydra-scripts using `--hydra-scripts-tx-id`, you can use `--network` together with the network name you would like to run your hydra-node on (e.g. `--network preview`).
+:::important Alternative: use --network
+Since we pre-publish hydra scrips before each release, instead of specifying hydra-scripts using `--hydra-scripts-tx-id`, you can use `--network` together with the network name you would like to run your hydra-node on (e.g. `--network preview`).
+:::
+
+:::warning
+`--network` argument only works with officially released hydra-node versions!
+:::
 
 Check the scripts against which a hydra-node was compiled using:
 
@@ -91,7 +97,7 @@ Check the scripts against which a hydra-node was compiled using:
 hydra-node --script-info
 ```
 
-For public [(test) networks](https://book.world.dev.cardano.org/environments.html), we publish Hydra scripts with each new release, listing transaction IDs in the [release notes](https://github.com/cardano-scaling/hydra/releases) and [`networks.json`](https://github.com/cardano-scaling/hydra/blob/master/networks.json).
+For public [(test) networks](https://book.world.dev.cardano.org/environments.html), we publish Hydra scripts with each new release, listing transaction IDs in the [release notes](https://github.com/cardano-scaling/hydra/releases) and [`networks.json`](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/networks.json).
 
 To publish scripts yourself, use the `publish-scripts` command:
 

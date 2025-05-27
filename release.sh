@@ -145,7 +145,7 @@ check_networks_is_up_to_date() {
     preview
   )
 
-  local networks_file=networks.json
+  local networks_file=hydra-node/networks.json
 
   for network in "${networks[@]}"; do
     cat ${networks_file} | jq -e ".\"${network}\".\"${version}\"" >/dev/null ||
