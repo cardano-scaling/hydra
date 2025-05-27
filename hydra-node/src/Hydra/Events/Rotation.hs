@@ -2,8 +2,9 @@ module Hydra.Events.Rotation where
 
 import Hydra.Prelude
 
-import Conduit (MonadUnliftIO)
+import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
+import Data.Conduit.Combinators qualified as C
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId, LogId, StateEvent (..), getEvents)
 import Hydra.HeadLogic (StateChanged (Checkpoint), aggregate)
@@ -30,8 +31,7 @@ newRotatedEventStore config checkpointer logId eventStore = do
   -- - sourceEvents will be called in the beginning of the application and whenever the api server wans to load history
   --   -> might be called multiple times!!
   -- - putEvent will be called on application start with all events returned by sourceEvents and during processing
-  currentEvents <- getEvents eventSource
-  let currentNumberOfEvents = toInteger $ length currentEvents
+  currentNumberOfEvents <- runResourceT . runConduit $ sourceEvents eventSource .| C.length
   numberOfEventsV <- newTVarIO currentNumberOfEvents
   -- check rotation on startup
   whenM (shouldRotate numberOfEventsV) $ do
