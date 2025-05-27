@@ -38,6 +38,8 @@ changes.
 
 - Add `UDP` and `S3` examples for `EventSource` and `EventSink` implementations to `hydra-node:examples`.
 
+- Add API query (GET /head) to fetch the latest head state by a node and help introspecting the whole internal.
+
 ## [0.21.0] - 2025-04-28
 
 - New metric for counting the number of active peers: `hydra_head_peers_connected`
