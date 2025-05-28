@@ -403,15 +403,17 @@ onOpenNetworkReqSn ::
   Maybe (TxIdType tx) ->
   Outcome tx
 onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
-  -- Spec: require s = ŝ + 1 ∧ leader(s) = j
+  -- Spec: require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
+      -- TODO: is this really needed?
       -- Spec: wait v = v̂
       waitOnSnapshotVersion $
-        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
+        -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
+        -- Require any pending utxo to decommit to be consistent
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
-          -- TODO: Spec updates for these checks in here
+          -- Wait for the deposit and require any pending commit to be consistent
           waitForDeposit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
             -- Resolve transactions by-id
             waitResolvableTxs $ \requestedTxs -> do
@@ -487,14 +489,11 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mDe
     case mDepositTxId of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just depositTxId ->
+        -- XXX: We may need to wait quite long here and this makes losing
+        -- the 'ReqSn' due to a restart (fail-recovery) quite likely
         case Map.lookup depositTxId pendingDeposits of
-          -- REVIEW: Is this also a wait? It could be that another node has such
-          -- low deposit period that we have not yet seen the deposit on chain?
-          Nothing -> Error $ RequireFailed NoMatchingDeposit
+          Nothing -> wait WaitOnDepositObserved{depositTxId}
           Just Deposit{status, deposited}
-            -- TODO: this needs to go into the spec!
-            -- XXX: We may need to wait quite long here and this makes losing
-            -- the 'ReqSn' due to a restart (fail-recovery) quite likely
             | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
             | otherwise ->
@@ -503,7 +502,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mDe
                 if sv == confVersion && isJust confUTxOToCommit
                   then
                     if confUTxOToCommit == Just deposited
-                      then cont (activeUTxOAfterDecommit <> fromMaybe mempty confUTxOToCommit, confUTxOToCommit)
+                      then cont (activeUTxOAfterDecommit <> deposited, confUTxOToCommit)
                       else Error $ RequireFailed ReqSnCommitNotSettled
                   else do
                     let activeUTxOAfterCommit = activeUTxOAfterDecommit <> deposited

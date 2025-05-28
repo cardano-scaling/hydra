@@ -233,6 +233,7 @@ data WaitReason tx
   | WaitOnNotApplicableDecommitTx {notApplicableReason :: DecommitInvalidReason tx}
   | WaitOnUnresolvedCommit {commitUTxO :: UTxOType tx}
   | WaitOnUnresolvedDecommit {decommitTx :: tx}
+  | WaitOnDepositObserved {depositTxId :: TxIdType tx}
   | WaitOnDepositActivation {depositTxId :: TxIdType tx}
   deriving stock (Generic)
 

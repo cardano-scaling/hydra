@@ -1569,15 +1569,16 @@
         "nixpkgs": "nixpkgs_13"
       },
       "locked": {
-        "lastModified": 1744277032,
-        "narHash": "sha256-Z83c60ZY8JQ3J7w1lD/6raEIuiXdxjGHXP/FND4YHLA=",
+        "lastModified": 1748425827,
+        "narHash": "sha256-VPJF5I/lKXvwH8M5Y0H3FFiSdM1RvnhKw9lfJYOjzHw=",
         "owner": "cardano-scaling",
         "repo": "hydra-formal-specification",
-        "rev": "a626ac70c7b74ccfa6432512ad752ef37d80a1c6",
+        "rev": "d0cb5474d69e5fb877d5dfa4700b77a32c143c14",
         "type": "github"
       },
       "original": {
         "owner": "cardano-scaling",
+        "ref": "deposit-protocol-changes",
         "repo": "hydra-formal-specification",
         "type": "github"
       }
