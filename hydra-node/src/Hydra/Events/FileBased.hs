@@ -1,6 +1,6 @@
 -- | A file-based event source and sink using JSON encoding.
 --
--- This is currently used as the emain event source and sink in the hydra-node.
+-- This is currently used as the main event source and sink in the hydra-node.
 module Hydra.Events.FileBased where
 
 import Hydra.Prelude
