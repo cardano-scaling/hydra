@@ -11,6 +11,7 @@ import CardanoClient (
  )
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
+import Control.Exception (IOException)
 import Data.List qualified as List
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
@@ -64,88 +65,96 @@ import Test.DirectChainSpec (
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
 
+blockfrostProjectPath :: FilePath
+blockfrostProjectPath = "./../blockfrost-project.txt"
+
 spec :: Spec
 spec = around (showLogsOnFailure "BlockfrostChainSpec") $ do
   it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
-    withTempDir "hydra-cluster" $ \tmp -> do
-      (vk, sk) <- keysFor Faucet
-      let projectPath = "./../blockfrost-project.txt"
-      prj <- Blockfrost.projectFromFile projectPath
-      (aliceCardanoVk, _) <- keysFor Alice
-      (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-      hydraScriptsTxId <- publishHydraScripts (BlockfrostBackend $ BlockfrostOptions{projectPath}) sk
+    onlyWithBlockfrostProjectFile $
+      withTempDir "hydra-cluster" $ \tmp -> do
+        (vk, sk) <- keysFor Faucet
+        prj <- Blockfrost.projectFromFile blockfrostProjectPath
+        (aliceCardanoVk, _) <- keysFor Alice
+        (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+        hydraScriptsTxId <- publishHydraScripts (BlockfrostBackend $ BlockfrostOptions{projectPath = blockfrostProjectPath}) sk
 
-      Blockfrost.Genesis
-        { _genesisNetworkMagic
-        , _genesisSystemStart
-        } <-
-        Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+        Blockfrost.Genesis
+          { _genesisNetworkMagic
+          , _genesisSystemStart
+          } <-
+          Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
 
-      let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-      let faucetAddress = buildAddress vk networkId
-      -- wait to see the last txid propagated on the blockfrost network
-      void $ Blockfrost.runBlockfrostM prj $ Blockfrost.awaitUTxO networkId [faucetAddress] (List.last hydraScriptsTxId) 100
+        let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+        let faucetAddress = buildAddress vk networkId
+        -- wait to see the last txid propagated on the blockfrost network
+        void $ Blockfrost.runBlockfrostM prj $ Blockfrost.awaitUTxO networkId [faucetAddress] (List.last hydraScriptsTxId) 100
 
-      -- Alice setup
-      aliceChainConfig <- chainConfigFor' Alice tmp (Left projectPath) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100)
+        -- Alice setup
+        aliceChainConfig <- chainConfigFor' Alice tmp (Left blockfrostProjectPath) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100)
 
-      withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
-        \aliceChain@CardanoChainTest{postTx} -> do
-          _ <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost aliceCardanoVk 100_000_000
-          someUTxO <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost aliceExternalVk 7_000_000
-          -- Scenario
-          participants <- loadParticipants [Alice]
-          let headParameters = HeadParameters blockfrostcperiod [alice]
-          postTx $ InitTx{participants, headParameters}
-          (headId, headSeed) <- observesInTimeSatisfying' aliceChain 500 $ hasInitTxWith headParameters participants
+        withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
+          \aliceChain@CardanoChainTest{postTx} -> do
+            _ <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost aliceCardanoVk 100_000_000
+            someUTxO <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost aliceExternalVk 7_000_000
+            -- Scenario
+            participants <- loadParticipants [Alice]
+            let headParameters = HeadParameters blockfrostcperiod [alice]
+            postTx $ InitTx{participants, headParameters}
+            (headId, headSeed) <- observesInTimeSatisfying' aliceChain 500 $ hasInitTxWith headParameters participants
 
-          let blueprintTx = txSpendingUTxO someUTxO
-          externalCommit' (Left projectPath) aliceChain [aliceExternalSk] headId someUTxO blueprintTx
-          aliceChain `observesInTime'` OnCommitTx headId alice someUTxO
+            let blueprintTx = txSpendingUTxO someUTxO
+            externalCommit' (Left blockfrostProjectPath) aliceChain [aliceExternalSk] headId someUTxO blueprintTx
+            aliceChain `observesInTime'` OnCommitTx headId alice someUTxO
 
-          postTx $ CollectComTx someUTxO headId headParameters
-          aliceChain `observesInTime'` OnCollectComTx{headId}
+            postTx $ CollectComTx someUTxO headId headParameters
+            aliceChain `observesInTime'` OnCollectComTx{headId}
 
-          let snapshotVersion = 0
-          let snapshot =
-                Snapshot
-                  { headId
-                  , number = 1
-                  , utxo = someUTxO
-                  , confirmed = []
-                  , utxoToCommit = Nothing
-                  , utxoToDecommit = Nothing
-                  , version = snapshotVersion
-                  }
+            let snapshotVersion = 0
+            let snapshot =
+                  Snapshot
+                    { headId
+                    , number = 1
+                    , utxo = someUTxO
+                    , confirmed = []
+                    , utxoToCommit = Nothing
+                    , utxoToDecommit = Nothing
+                    , version = snapshotVersion
+                    }
 
-          postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
+            postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
 
-          deadline <-
+            deadline <-
+              waitMatch aliceChain $ \case
+                Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
+                  | snapshotNumber == 1 -> Just contestationDeadline
+                _ -> Nothing
+
             waitMatch aliceChain $ \case
-              Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
-                | snapshotNumber == 1 -> Just contestationDeadline
+              Tick t _ | t > deadline -> Just ()
               _ -> Nothing
-
-          waitMatch aliceChain $ \case
-            Tick t _ | t > deadline -> Just ()
-            _ -> Nothing
-          postTx $
-            FanoutTx
-              { utxo = Snapshot.utxo snapshot
-              , utxoToCommit = Nothing
-              , utxoToDecommit = Nothing
-              , headSeed
-              , contestationDeadline = deadline
-              }
-          let expectedUTxO =
-                (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
-                  `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
-          observesInTimeSatisfying' aliceChain 500 $ \case
-            OnFanoutTx _ finalUTxO ->
-              if UTxO.containsOutputs finalUTxO expectedUTxO
-                then pure ()
-                else failure "OnFanoutTx does not contain expected UTxO"
-            _ -> failure "expected OnFanoutTx"
+            postTx $
+              FanoutTx
+                { utxo = Snapshot.utxo snapshot
+                , utxoToCommit = Nothing
+                , utxoToDecommit = Nothing
+                , headSeed
+                , contestationDeadline = deadline
+                }
+            let expectedUTxO =
+                  (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
+                    `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
+            observesInTimeSatisfying' aliceChain 500 $ \case
+              OnFanoutTx _ finalUTxO ->
+                if UTxO.containsOutputs finalUTxO expectedUTxO
+                  then pure ()
+                  else failure "OnFanoutTx does not contain expected UTxO"
+              _ -> failure "expected OnFanoutTx"
+ where
+  onlyWithBlockfrostProjectFile action = do
+    try (Blockfrost.projectFromFile blockfrostProjectPath) >>= \case
+      Left (_ :: IOException) -> pendingWith "Requires Blockfrost project file"
+      Right _ -> action
 
 -- | Wrapper around 'withBlockfrostChain' that threads a 'ChainStateType tx' through
 -- 'postTx' and 'waitCallback' calls.
