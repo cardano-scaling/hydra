@@ -15,7 +15,7 @@ import Hydra.Tx.Deposit (depositTx)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOSized)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..))
-import Test.QuickCheck (chooseInteger, elements)
+import Test.QuickCheck (chooseEnum, chooseInteger, elements)
 
 genHealthyDepositTx :: Gen (Tx, UTxO)
 genHealthyDepositTx = do
@@ -28,12 +28,17 @@ genHealthyDepositTx = do
           testNetworkId
           (mkHeadId testPolicyId)
           (mkSimpleBlueprintTx toDeposit)
-          (SlotNo 1) -- TODO: generate?
-          healthyDeadline -- TODO: generate?
+          slot
+          healthyDeadline
   pure (tx, toDeposit)
+ where
+  slot = chooseEnum (0, healthyDeadlineSlot) `generateWith` 42
 
 healthyDeadline :: UTCTime
-healthyDeadline = slotNoToUTCTime systemStart slotLength $ SlotNo 10
+healthyDeadline = slotNoToUTCTime systemStart slotLength healthyDeadlineSlot
+
+healthyDeadlineSlot :: SlotNo
+healthyDeadlineSlot = arbitrary `generateWith` 42
 
 data DepositMutation
   = -- | Change the output value to a subset of the deposited value. This
