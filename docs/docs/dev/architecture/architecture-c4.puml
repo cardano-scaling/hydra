@@ -5,6 +5,7 @@ title "Hydra Components"
 AddElementTag("external", $bgColor="#23aa12")
 
 Container_Boundary(hydra_node, "Hydra Node") {
+   Component(events, "Events", "", "Event source and sink", $link="https://github.com/cardano-scaling/hydra/blob/master/hydra-node/src/Hydra/Events.hs")
    Component(persistence, "Persistence", "JSON/FS", "Persists state of the head on disk", $link="https://github.com/cardano-scaling/hydra/blob/master/hydra-node/src/Hydra/Persistence.hs")
    Component(head_logic, "Head Logic", "", "Maintains internal Head state and processes events", $link="https://github.com/cardano-scaling/hydra/blob/master/hydra-node/src/Hydra/HeadLogic.hs")
    Component(api_server, "API Server", "", "Handle client commands & queries and serves outputs", $link="https://github.com/cardano-scaling/hydra/blob/master/hydra-node/src/Hydra/API/Server.hs")
@@ -15,6 +16,7 @@ Container_Boundary(hydra_node, "Hydra Node") {
    Component(monitoring, "Monitoring", "", "Exposes Prometheus metrics", $link="https://github.com/cardano-scaling/hydra/blob/master/hydra-node/src/Hydra/Logging/Monitoring.hs")
    Component(ledger, "Cardano Ledger", "", "Maintains Layer 2 State", $tags="external")
 
+   Lay_U(head_logic, events)
    Lay_U(head_logic, persistence)
    Lay_U(head_logic, logging)
    Lay_U(head_logic, monitoring)
