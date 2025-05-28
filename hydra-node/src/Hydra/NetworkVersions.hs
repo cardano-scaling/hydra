@@ -15,7 +15,7 @@ import Data.List qualified as List
 import Data.Text (pack, splitOn, toLower, unpack)
 import Data.Text.Encoding (encodeUtf8)
 import Hydra.Cardano.Api (TxId, deserialiseFromRawBytesHex)
-import Hydra.Version (embeddedRevision)
+import Hydra.Version (gitDescribe)
 
 {-# NOINLINE networkVersions #-}
 networkVersions :: ByteString
@@ -31,10 +31,11 @@ parseNetworkTxIds networkString = do
  where
   getLastTxId t = do
     lastTxIds <-
-      case embeddedRevision of
+      case gitDescribe of
         Nothing -> Left "Missing hydra-node revision."
-        Just rev ->
-          case List.find (String (pack rev) ==) (KeyMap.elems t) of
+        Just fullRev -> do
+          let rev = List.head $ splitOn "-" $ pack fullRev
+          case List.find (String rev ==) (KeyMap.elems t) of
             Just (String s) -> Right s
             _ -> Left "Failed to find released hydra-node version in networks.json."
     mapM parseToTxId (splitOn "," lastTxIds)
