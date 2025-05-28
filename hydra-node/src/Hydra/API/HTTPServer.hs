@@ -24,7 +24,6 @@ import Hydra.Chain.ChainState (
 import Hydra.Chain.Direct.State ()
 import Hydra.HeadLogic.State (
   HeadState (..),
-  SeenSnapshot (..),
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (toNominalDiffTime)
@@ -180,9 +179,7 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
         _ -> respond notFound
     ("GET", ["snapshot", "last-seen"]) -> do
       hs <- atomically getHeadState
-      case getSeenSnapshot hs of
-        NoSeenSnapshot -> respond notFound
-        seenSn -> respond $ okJSON seenSn
+      respond . okJSON $ getSeenSnapshot hs
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
         >>= handleSideLoadSnapshot putClientInput

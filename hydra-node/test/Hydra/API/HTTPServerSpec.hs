@@ -289,9 +289,7 @@ apiServerSpec = do
           )
           $ do
             get "/snapshot/last-seen"
-              `shouldRespondWith` case seenSnapshot of
-                NoSeenSnapshot -> 404
-                _ -> 200{matchBody = matchJSON seenSnapshot}
+              `shouldRespondWith` 200{matchBody = matchJSON seenSnapshot}
     describe "GET /snapshot" $ do
       prop "responds correctly" $ \headState -> do
         let confirmedSnapshot :: Maybe (ConfirmedSnapshot SimpleTx) = getConfirmedSnapshot headState
