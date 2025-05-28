@@ -89,9 +89,7 @@ run opts = do
         eventStore@(eventSource, _) <-
           prepareEventStore logId
             =<< mkFileBasedEventStore (persistenceDir <> "/state") logId createPersistenceIncremental
-        -- NOTE: Add any custom sink setup code here
-        -- customSink <- createCustomSink
-        -- NOTE: Add any customSink here
+        -- NOTE: Add any custom sinks here
         let eventSinks = []
         wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
         -- Chain
