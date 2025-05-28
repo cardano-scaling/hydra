@@ -70,7 +70,6 @@ import Hydra.Tx (
   HeadParameters (..),
   UTxOType,
   headSeedToTxIn,
-  txInToHeadSeed,
  )
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
@@ -179,7 +178,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           validBefore <- case currentPointInTime timeHandle of
             -- XXX: We only need the current slot and this would never fail
             Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
-            Right (s, _) -> pure $ s + 200 -- XXX: configurable and unify with maxGraceTime
+            Right (s, _) -> pure $ s + fromInteger (truncate maxGraceTime)
           lift . finalizeTx wallet ctx spendableUTxO lookupUTxO $
             depositTx (networkId ctx) headId commitBlueprintTx validBefore deadline
     , -- Submit a cardano transaction to the cardano-node using the

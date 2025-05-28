@@ -91,7 +91,6 @@ import Hydra.Tx (
   mkSimpleBlueprintTx,
   partyToChain,
   registryUTxO,
-  txInToHeadSeed,
   utxoFromTx,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)
@@ -798,7 +797,7 @@ observeInit _ctx _allVerificationKeys tx = do
 
 -- | Observe an commit transition using a 'InitialState' and 'observeCommitTx'.
 -- NOTE: This function is a bit fragile as it assumes commit output on first
--- output whilte the underlying observeCommitTx could deal with commit outputs
+-- output while the underlying observeCommitTx could deal with commit outputs
 -- at any index. Only use this function in tests and benchmarks.
 observeCommit ::
   ChainContext ->
