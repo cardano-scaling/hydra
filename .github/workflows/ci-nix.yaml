@@ -186,6 +186,14 @@ jobs:
     name: "nix flake check"
     runs-on: ubuntu-latest
     steps:
+    - name: Reclaim the bytes
+      uses: data-intuitive/reclaim-the-bytes@v2
+      with:
+        # NOTE: Remove more when needed, but these take also time
+        # See https://github.com/marketplace/actions/reclaim-the-bytes
+        remove-android-sdk: false
+        remove-docker-images: false
+
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
