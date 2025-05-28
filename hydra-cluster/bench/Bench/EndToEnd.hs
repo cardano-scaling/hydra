@@ -218,7 +218,7 @@ defaultDescription = ""
 
 -- | Collect OS-level stats while running some 'IO' action.
 --
--- __NOTE__: This function relies on [dstat](https://linux.die.net/man/1/dstat). If the executable is not in the @PATH@
+-- __NOTE__: This function relies on [dool](https://man.archlinux.org/man/extra/dool/dool.1.en). If the executable is not in the @PATH@
 -- it's basically a no-op.
 --
 -- Writes into given `TVar` containing one line every 5 second with share of user/free memory load.
@@ -243,7 +243,7 @@ defaultDescription = ""
 -- TODO: add more data points for memory and network consumption
 withOSStats :: FilePath -> TVar IO SystemStats -> IO a -> IO a
 withOSStats workDir tvar action =
-  findExecutable "dstat" >>= \case
+  findExecutable "dool" >>= \case
     Nothing -> action
     Just _ ->
       withCreateProcess process{std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
@@ -255,10 +255,10 @@ withOSStats workDir tvar action =
           )
           action
           >>= \case
-            Left _ -> failure "dstat process failed unexpectedly"
+            Left _ -> failure "dool process failed unexpectedly"
             Right a -> pure a
  where
-  process = (proc "dstat" ["-cm", "-n", "-N", "lo", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
+  process = (proc "dool" ["-cm", "-n", "-N", "lo", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
 
   collectStats _ Nothing = pure ()
   collectStats tvar' (Just hdl) =

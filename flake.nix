@@ -139,6 +139,7 @@
               hydra-tui
               hydraw
             ];
+            inherit (pkgs) weeder;
           };
 
           checks = let lu = inputs.lint-utils.linters.${system}; in {
