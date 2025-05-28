@@ -1509,20 +1509,21 @@
       "inputs": {
         "flake-parts": "flake-parts_2",
         "import-tree": "import-tree",
+        "lint-utils": "lint-utils",
         "nixpkgs": "nixpkgs_9",
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1748416319,
-        "narHash": "sha256-Wo+YNL4w6IU3neLsbFeIyvI94KHrYEMec1Ot6S1/gHA=",
+        "lastModified": 1748421598,
+        "narHash": "sha256-GbwaRkzr4EBOIOmGiMdt4QsYVtnnk5ZxM9HtNI8R0FQ=",
         "owner": "cardano-scaling",
         "repo": "hydra-coding-standards",
-        "rev": "f86edeb52593dc89c26c1cc8bf71d302d4288910",
+        "rev": "a5658e94c85f2583d8121ca0616ed529a7ab22b5",
         "type": "github"
       },
       "original": {
         "owner": "cardano-scaling",
-        "ref": "0.4.0",
+        "ref": "0.4.1",
         "repo": "hydra-coding-standards",
         "type": "github"
       }
@@ -1682,7 +1683,7 @@
       "inputs": {
         "flake-utils": "flake-utils_6",
         "nixpkgs": [
-          "haskellNix",
+          "hydra-coding-standards",
           "nixpkgs"
         ]
       },
@@ -2601,7 +2602,6 @@
         "hydra-coding-standards": "hydra-coding-standards",
         "hydra-spec": "hydra-spec",
         "iohk-nix": "iohk-nix",
-        "lint-utils": "lint-utils",
         "mithril": "mithril",
         "mithril-unstable": "mithril-unstable",
         "nix-npm-buildpackage": "nix-npm-buildpackage",
