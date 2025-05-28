@@ -72,7 +72,7 @@ import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Tx (
   CommitBlueprintTx (..),
@@ -130,8 +130,7 @@ import Test.Hydra.Tx.Gen (
   genUTxOAdaOnlyOfSize,
   genVerificationKey,
  )
-import Test.QuickCheck (choose, frequency, oneof, suchThat, vector)
-import Test.QuickCheck.Gen (elements)
+import Test.QuickCheck (choose, chooseEnum, elements, frequency, oneof, suchThat, vector)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
 -- all the relevant UTxO for resolving transaction inputs.
@@ -463,6 +462,7 @@ increment ::
   ConfirmedSnapshot Tx ->
   -- | Deposited TxId
   TxId ->
+  -- | Valid until, must be before deadline.
   SlotNo ->
   Either IncrementTxError Tx
 increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId upperValiditySlot = do
@@ -1138,20 +1138,21 @@ genDepositTx numParties = do
   ctx <- genHydraContextFor numParties
   utxo <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . null)
   (_, st@OpenState{headId}) <- genStOpen ctx
-  deadline <- arbitrary
-  validBefore <- arbitrary
-  let tx = depositTx (ctxNetworkId ctx) headId (mkSimpleBlueprintTx utxo) validBefore deadline
+  -- NOTE: Not too high so we can use chooseEnum (which goes through Int) here and in other generators
+  slot <- chooseEnum (0, 1_000_000)
+  slotsUntilDeadline <- chooseEnum (0, 86400)
+  let deadline = slotNoToUTCTime systemStart slotLength (slot + slotsUntilDeadline)
+  let tx = depositTx (ctxNetworkId ctx) headId (mkSimpleBlueprintTx utxo) slot deadline
   pure (ctx, st, utxo <> utxoFromTx tx, tx)
 
 genRecoverTx ::
   Gen (UTxO, Tx)
 genRecoverTx = do
   (_, _, depositedUTxO, txDeposit) <- genDepositTx maximumNumberOfParties
-  let DepositObservation{deposited, deadline} =
-        fromJust $ observeDepositTx testNetworkId txDeposit
-  let slotNo = slotNoFromUTCTime systemStart slotLength deadline
-  slotNo' <- arbitrary
-  let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited (slotNo + slotNo')
+  let DepositObservation{deposited, deadline} = fromJust $ observeDepositTx testNetworkId txDeposit
+  let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
+  slotAfterDeadline <- chooseEnum (deadlineSlot, deadlineSlot + 86400)
+  let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited slotAfterDeadline
   pure (depositedUTxO, tx)
 
 genIncrementTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
@@ -1162,12 +1163,13 @@ genIncrementTx numParties = do
   let openUTxO = getKnownUTxO st
   let version = 0
   snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
-  let slotNo = slotNoFromUTCTime systemStart slotLength deadline
+  let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
+  slotBeforeDeadline <- chooseEnum (0, deadlineSlot)
   pure
     ( cctx
     , st
     , utxo
-    , unsafeIncrement cctx (openUTxO <> utxo) headId (ctxHeadParameters ctx) snapshot depositTxId slotNo
+    , unsafeIncrement cctx (openUTxO <> utxo) headId (ctxHeadParameters ctx) snapshot depositTxId slotBeforeDeadline
     )
 
 genDecrementTx :: Int -> Gen (ChainContext, UTxO, OpenState, UTxO, Tx)
