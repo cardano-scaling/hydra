@@ -11,6 +11,7 @@ import CardanoClient (
  )
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
+import Control.Exception (IOException)
 import Data.List qualified as List
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
@@ -64,16 +65,18 @@ import Test.DirectChainSpec (
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
 
+blockfrostProjectPath :: FilePath
+blockfrostProjectPath = "./../blockfrost-project.txt"
+
 spec :: Spec
-spec = around (showLogsOnFailure "BlockfrostChainSpec") $ do
+spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChainSpec") $ do
   it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
       (vk, sk) <- keysFor Faucet
-      let projectPath = "./../blockfrost-project.txt"
-      prj <- Blockfrost.projectFromFile projectPath
+      prj <- Blockfrost.projectFromFile blockfrostProjectPath
       (aliceCardanoVk, _) <- keysFor Alice
       (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-      hydraScriptsTxId <- publishHydraScripts (BlockfrostBackend $ BlockfrostOptions{projectPath}) sk
+      hydraScriptsTxId <- publishHydraScripts (BlockfrostBackend $ BlockfrostOptions{projectPath = blockfrostProjectPath}) sk
 
       Blockfrost.Genesis
         { _genesisNetworkMagic
@@ -87,7 +90,7 @@ spec = around (showLogsOnFailure "BlockfrostChainSpec") $ do
       void $ Blockfrost.runBlockfrostM prj $ Blockfrost.awaitUTxO networkId [faucetAddress] (List.last hydraScriptsTxId) 100
 
       -- Alice setup
-      aliceChainConfig <- chainConfigFor' Alice tmp (Left projectPath) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100)
+      aliceChainConfig <- chainConfigFor' Alice tmp (Left blockfrostProjectPath) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100)
 
       withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
         \aliceChain@CardanoChainTest{postTx} -> do
@@ -100,7 +103,7 @@ spec = around (showLogsOnFailure "BlockfrostChainSpec") $ do
           (headId, headSeed) <- observesInTimeSatisfying' aliceChain 500 $ hasInitTxWith headParameters participants
 
           let blueprintTx = txSpendingUTxO someUTxO
-          externalCommit' (Left projectPath) aliceChain [aliceExternalSk] headId someUTxO blueprintTx
+          externalCommit' (Left blockfrostProjectPath) aliceChain [aliceExternalSk] headId someUTxO blueprintTx
           aliceChain `observesInTime'` OnCommitTx headId alice someUTxO
 
           postTx $ CollectComTx someUTxO headId headParameters
@@ -146,6 +149,11 @@ spec = around (showLogsOnFailure "BlockfrostChainSpec") $ do
                 then pure ()
                 else failure "OnFanoutTx does not contain expected UTxO"
             _ -> failure "expected OnFanoutTx"
+ where
+  onlyWithBlockfrostProjectFile action = do
+    try (Blockfrost.projectFromFile blockfrostProjectPath) >>= \case
+      Left (_ :: IOException) -> pendingWith "Requires Blockfrost project file"
+      Right _ -> action
 
 -- | Wrapper around 'withBlockfrostChain' that threads a 'ChainStateType tx' through
 -- 'postTx' and 'waitCallback' calls.
