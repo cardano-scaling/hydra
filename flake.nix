@@ -28,6 +28,7 @@
         inputs.hydra-coding-standards.flakeModule
         inputs.process-compose-flake.flakeModule
         ./nix/hydra/demo.nix
+        ./nix/hydra/docker.nix
       ];
       systems = [
         "x86_64-linux"
@@ -90,14 +91,6 @@
             gitRev = self.rev or "dirty";
           };
 
-          hydraImages = import ./nix/hydra/docker.nix {
-            inherit hydraPackages pkgs;
-          };
-
-          prefixAttrs = s: attrs:
-            with pkgs.lib.attrsets;
-            mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
-
           tx-cost-diff =
             let
               pyEnv = pkgs.python3.withPackages (ps: with ps; [ pandas html5lib beautifulsoup4 tabulate ]);
@@ -119,7 +112,7 @@
 
           packages =
             hydraPackages //
-            (if pkgs.stdenv.isLinux then (prefixAttrs "docker-" hydraImages) else { }) // {
+            {
               spec = inputs.hydra-spec.packages.${system}.default;
               inherit tx-cost-diff;
             };
