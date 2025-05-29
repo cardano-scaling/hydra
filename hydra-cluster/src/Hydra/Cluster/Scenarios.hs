@@ -771,9 +771,8 @@ singlePartyUsesSha512ScriptOnL2 tracer workDir node hydraScriptsTxId =
   )
     $ do
       refuelIfNeeded tracer node Alice 250_000_000
-      let contestationPeriod = UnsafeContestationPeriod 1
-      let depositDeadline = UnsafeDepositDeadline 1
-      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+      let contestationPeriod = 100
+      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
       let hydraNodeId = 1
       let hydraTracer = contramap FromHydraNode tracer
       withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -891,9 +890,8 @@ singlePartyUsesWithdrawZeroTrickUsingSha512Script tracer workDir node hydraScrip
       (\_ -> returnFundsToFaucet tracer node AliceFunds)
       $ \utxoToCommit -> do
         -- Start hydra-node and open a head
-        let contestationPeriod = UnsafeContestationPeriod 1
-        let depositDeadline = UnsafeDepositDeadline 1
-        aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+        let contestationPeriod = 100
+        aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
         let hydraNodeId = 1
         let hydraTracer = contramap FromHydraNode tracer
         withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
