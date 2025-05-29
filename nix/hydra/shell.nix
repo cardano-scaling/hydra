@@ -48,9 +48,9 @@ let
     pkgs.yarn
     pkgs.yq
   ] ++
-  # `dstat` is required by the benchmark tests; but it's not supported on
+  # `dool` is required by the benchmark tests; but it's not supported on
   # darwin; so we just don't include it.
-  (pkgs.lib.optionals pkgs.hostPlatform.isLinux [ pkgs.dstat ]);
+  (pkgs.lib.optionals pkgs.hostPlatform.isLinux [ pkgs.dool ]);
 
   libs = [
     pkgs.glibcLocales
