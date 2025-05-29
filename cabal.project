@@ -30,3 +30,13 @@ test-show-details: direct
 
 program-options
   ghc-options: -fwrite-ide-info
+
+source-repository-package
+  type: git
+  location: https://github.com/cardano-scaling/plutus
+  tag: 0a54c3fcef4647387789bdd1d0a560f0ec0d8019
+  --sha256: sha256-5+SSej2axxC+hHBXs2+p342vyd7/30nlmiM91L+8eCA=
+  subdir:
+    plutus-core
+    plutus-tx
+    plutus-tx-plugin

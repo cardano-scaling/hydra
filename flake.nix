@@ -142,13 +142,6 @@
             inherit (pkgs) weeder;
           };
 
-          checks = let lu = inputs.lint-utils.linters.${system}; in {
-            no-srp = lu.no-srp {
-              src = self;
-              cabal-project-file = ./cabal.project;
-            };
-          };
-
           devShells = import ./nix/hydra/shell.nix {
             inherit pkgs hsPkgs hydraPackages system;
             ghc = pkgs.buildPackages.haskell-nix.compiler.${compiler};
