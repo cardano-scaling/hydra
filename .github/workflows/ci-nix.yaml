@@ -53,7 +53,7 @@ jobs:
           nix build .#${{ matrix.package }}-tests
           nix develop .#${{ matrix.package }}-tests --command tests
         else
-          echo "::warning file=blocfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
+          echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
         fi
 
     # This one is special, as it requires a tty.
