@@ -21,6 +21,10 @@ $ plantuml -Tsvg architecture-c4.puml
 
 :::
 
+### Event sourcing
+
+The `hydra-node` is an event sourced application. This means that the main logic is processing _inputs_ (also called commands) and produces _events_. These events are saved and loaded to persist application state across restarts. Also, most events are transformed to _outputs_ and can be observed on the API. See [Event Sourcing](./architecture/event-sourcing) for details.
+
 ### Network
 
 The _network_ component is responsible for communication between Hydra nodes related to the off-chain part of the Hydra protocol. See [Networking](./architecture/networking) for details.
