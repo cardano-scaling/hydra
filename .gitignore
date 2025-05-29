@@ -38,3 +38,6 @@ old.md
 new.md
 new-headers.txt
 /.env
+
+# Blockfrost environment
+blockfrost-project.txt
