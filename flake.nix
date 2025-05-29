@@ -8,7 +8,7 @@
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.4";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
-    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.4.0";
+    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.5.0";
     hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     lint-utils = {
@@ -103,6 +103,11 @@
                   [ aeson text bytestring lens lens-aeson shh ];
               } ''${builtins.readFile scripts/tx-cost-diff.hs}'';
 
+          allComponents = x:
+            [ x.components.library ]
+            ++ lib.concatMap
+              (y: builtins.attrValues x.components."${y}")
+              [ "benchmarks" "exes" "sublibs" "tests" ];
         in
         {
 
@@ -119,7 +124,7 @@
 
           coding.standards.hydra = {
             enable = true;
-            haskellPackages = with hsPkgs; [
+            haskellPackages = with hsPkgs; builtins.concatMap allComponents [
               hydra-cardano-api
               hydra-chain-observer
               hydra-cluster
@@ -133,13 +138,7 @@
               hydraw
             ];
             inherit (pkgs) weeder;
-          };
-
-          checks = let lu = inputs.lint-utils.linters.${system}; in {
-            no-srp = lu.no-srp {
-              src = self;
-              cabal-project-file = ./cabal.project;
-            };
+            haskellType = "haskell.nix";
           };
 
           devShells = import ./nix/hydra/shell.nix {
