@@ -34,8 +34,8 @@ program-options
 source-repository-package
   type: git
   location: https://github.com/cardano-scaling/plutus
-  tag: bdc9b541023906674fe54015638fc9cb2aa4a83b
-  --sha256: sha256-ibg4jC+YpsYz/753+89VkU3dc3adrjTHrqaBtl2301M=
+  tag: 0a54c3fcef4647387789bdd1d0a560f0ec0d8019
+  --sha256: sha256-5+SSej2axxC+hHBXs2+p342vyd7/30nlmiM91L+8eCA=
   subdir:
     plutus-core
     plutus-tx
