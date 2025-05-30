@@ -25,7 +25,8 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events (LogId)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
-import Hydra.Events.Rotation (RotationConfig (..), mkCheckpointer, newRotatedEventStore)
+import Hydra.Events.Rotation (RotationConfig (..), mkAggregator, mkCheckpointer, newRotatedEventStore)
+import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -135,9 +136,8 @@ run opts = do
       Nothing ->
         pure eventStore
       Just rotationConfig -> do
-        now <- getCurrentTime
-        let checkpointer = mkCheckpointer initialChainState now
-        newRotatedEventStore rotationConfig checkpointer logId eventStore
+        let initialState = Idle IdleState{chainState = initialChainState}
+        newRotatedEventStore rotationConfig initialState mkAggregator mkCheckpointer logId eventStore
 
   RunOptions
     { verbosity
