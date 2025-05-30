@@ -7,9 +7,12 @@ import Hydra.Prelude
 
 import Conduit (mapMC, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
+import Data.List (maximum, stripPrefix)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..), LogId)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Persistence (PersistenceIncremental (..))
+import System.Directory (listDirectory)
+import System.FilePath (takeFileName)
 
 -- | A basic file based event source and sink defined using a rotated
 -- 'PersistenceIncremental' handle.
@@ -63,3 +66,15 @@ mkFileBasedEventStore fp logId mkPersistenceIncremental = do
       , eventSink = EventSink{putEvent}
       , rotate
       }
+
+-- | Get the highest LogId from given persisted event logs directory.
+-- Assumes filenames are in the format "state-<logId>"
+getLatestLogId :: FilePath -> String -> IO LogId
+getLatestLogId stateDir filePrefix = do
+  files <- listDirectory stateDir `catch` \(_ :: SomeException) -> pure []
+  let logIds = mapMaybe (extractLogId . takeFileName) files
+  pure $ if null logIds then 0 else maximum logIds
+ where
+  extractLogId :: [Char] -> Maybe LogId
+  extractLogId fname =
+    stripPrefix (filePrefix <> "-") fname >>= readMaybe
