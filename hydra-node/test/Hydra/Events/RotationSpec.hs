@@ -13,7 +13,7 @@ import Hydra.HeadLogic (HeadState (..), IdleState (..), StateChanged (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), simpleLedger)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Node (hydrate)
-import Hydra.NodeSpec (createMockSourceSink, inputsToOpenHead, notConnect, observationInput, primeWith, runToCompletion)
+import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, runToCompletion)
 import Hydra.Plutus.Extras (posixFromUTCTime, posixToUTCTime)
 import Hydra.Tx.ContestationPeriod (toChain)
 import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
@@ -33,7 +33,7 @@ spec = parallel $ do
     around setupHydrate $ do
       it "rotates while running" $ \testHydrate -> do
         failAfter 1 $ do
-          eventStore <- createMockSourceSink
+          eventStore <- createMockEventStore
           -- NOTE: this is hardcoded to ensure we get a checkpoint + a single event at the end
           let rotationConfig = RotateAfter 4
           let logId = 0
@@ -47,7 +47,7 @@ spec = parallel $ do
           length rotatedHistory `shouldBe` 2
       it "consistent state after restarting with rotation" $ \testHydrate -> do
         failAfter 1 $ do
-          eventStore <- createMockSourceSink
+          eventStore <- createMockEventStore
           -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter 3
           let logId = 0
@@ -80,7 +80,7 @@ spec = parallel $ do
         let inputs = inputsToOpenHead ++ [closeInput]
         failAfter 1 $
           do
-            eventStore <- createMockSourceSink
+            eventStore <- createMockEventStore
             -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
             let rotationConfig = RotateAfter 3
             -- run rotated event store with prepared inputs
@@ -92,7 +92,7 @@ spec = parallel $ do
               >>= primeWith inputs
               >>= runToCompletion
             -- run non-rotated event store with prepared inputs
-            eventStore' <- createMockSourceSink
+            eventStore' <- createMockEventStore
             testHydrate eventStore' []
               >>= notConnect
               >>= primeWith inputs
@@ -106,7 +106,7 @@ spec = parallel $ do
   describe "Rotation algorithm" $ do
     prop "rotates on startup" $
       \(Positive x, Positive delta) -> do
-        eventStore@EventStore{eventSource, eventSink} <- createMockSourceSink
+        eventStore@EventStore{eventSource, eventSink} <- createMockEventStore
         let y = x + delta
         let totalEvents = toInteger y
         let events = TrivialEvent <$> [1 .. fromInteger totalEvents]
@@ -128,7 +128,7 @@ spec = parallel $ do
     -- load all events returns a suffix of put events with length <= x
     prop "rotates after configured number of events" $
       \(Positive x, Positive y) -> do
-        mockEventStore <- createMockSourceSink
+        mockEventStore <- createMockEventStore
         let rotationConfig = RotateAfter x
         let logId = 0
         let s0 = []
@@ -151,7 +151,7 @@ spec = parallel $ do
     prop "puts checkpoint event as first event" $
       \(Positive y, Positive delta) -> do
         let x = y + delta
-        mockEventStore <- createMockSourceSink
+        mockEventStore <- createMockEventStore
         let rotationConfig = RotateAfter x
         let logId = 0
         let s0 = []
