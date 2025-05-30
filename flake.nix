@@ -29,6 +29,7 @@
         inputs.process-compose-flake.flakeModule
         ./nix/hydra/demo.nix
         ./nix/hydra/docker.nix
+        ./nix/hydra/tx-cost-diff.nix
       ];
       systems = [
         "x86_64-linux"
@@ -91,23 +92,12 @@
             gitRev = self.rev or "dirty";
           };
 
-          tx-cost-diff =
-            let
-              pyEnv = pkgs.python3.withPackages (ps: with ps; [ pandas html5lib beautifulsoup4 tabulate ]);
-            in
-            pkgs.writers.writeHaskellBin
-              "tx-cost-diff"
-              {
-                libraries =
-                  with pkgs.haskellPackages;
-                  [ aeson text bytestring lens lens-aeson shh ];
-              } ''${builtins.readFile scripts/tx-cost-diff.hs}'';
-
           allComponents = x:
             [ x.components.library ]
             ++ lib.concatMap
               (y: builtins.attrValues x.components."${y}")
               [ "benchmarks" "exes" "sublibs" "tests" ];
+
         in
         {
 
@@ -119,7 +109,6 @@
             hydraPackages //
             {
               spec = inputs.hydra-spec.packages.${system}.default;
-              inherit tx-cost-diff;
             };
 
           coding.standards.hydra = {
