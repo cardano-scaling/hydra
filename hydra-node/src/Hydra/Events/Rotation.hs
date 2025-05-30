@@ -2,46 +2,77 @@ module Hydra.Events.Rotation where
 
 import Hydra.Prelude
 
-import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
+import Conduit (ConduitT, MonadUnliftIO, ResourceT, runConduit, runResourceT, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
-import Data.Conduit.Combinators qualified as C
-import Hydra.Chain.ChainState (ChainStateType, IsChainState)
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId, LogId, StateEvent (..), getEvents)
-import Hydra.HeadLogic (StateChanged (Checkpoint), aggregate)
-import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
+import Data.Conduit (await)
+import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId (..), LogId, StateEvent (..))
+import Hydra.HeadLogic (StateChanged (..), aggregate)
+import Hydra.HeadLogic.State (HeadState)
 
 newtype RotationConfig = RotateAfter Natural
 
 -- | An EventSource and EventSink combined
 type EventStore e m = (EventSource e m, EventSink e m)
 
-type Checkpointer e = [e] -> e
+type StateAggregate s e = s -> e -> s
 
--- | Creates an event store that rotates according to given config and 'Checkpointer'.
+type StateCheckpointer s e = s -> EventId -> UTCTime -> e
+
+mkAggregator :: IsChainState tx => StateAggregate (HeadState tx) (StateEvent tx)
+mkAggregator s StateEvent{stateChanged} = aggregate s stateChanged
+
+mkCheckpointer :: StateCheckpointer (HeadState tx) (StateEvent tx)
+mkCheckpointer headState eventId time =
+  StateEvent
+    { eventId
+    , stateChanged = Checkpoint headState
+    , time
+    }
+
+foldEvents ::
+  (Monad m, HasEventId e) =>
+  StateAggregate s e ->
+  s ->
+  ConduitT e Void (ResourceT m) (Integer, EventId, s)
+foldEvents aggregator = go 0 0
+ where
+  go !n !evId !acc =
+    await >>= \case
+      Nothing -> pure (n, evId, acc)
+      Just e ->
+        go (n + 1) (getEventId e) (aggregator acc e)
+
+-- | Creates an event store that rotates according to given config and 'StateAggregate'.
 newRotatedEventStore ::
-  (HasEventId e, MonadSTM m, MonadUnliftIO m) =>
+  (HasEventId e, MonadSTM m, MonadUnliftIO m, MonadTime m) =>
   RotationConfig ->
-  Checkpointer e ->
+  s ->
+  StateAggregate s e ->
+  StateCheckpointer s e ->
   LogId ->
   EventStore e m ->
   m (EventStore e m)
-newRotatedEventStore config checkpointer logId eventStore = do
+newRotatedEventStore config s0 aggregator checkpointer logId eventStore = do
   logIdV <- newTVarIO logId
   -- Rules for any event store:
   -- - sourceEvents will be called in the beginning of the application and whenever the api server wans to load history
   --   -> might be called multiple times!!
   -- - putEvent will be called on application start with all events returned by sourceEvents and during processing
-  currentNumberOfEvents <- runResourceT . runConduit $ sourceEvents eventSource .| C.length
+  (currentNumberOfEvents, lastEventId, currentAggregateState) <-
+    runResourceT . runConduit $
+      sourceEvents eventSource .| foldEvents aggregator s0
+  aggregateStateV <- newTVarIO currentAggregateState
   numberOfEventsV <- newTVarIO currentNumberOfEvents
   -- check rotation on startup
   whenM (shouldRotate numberOfEventsV) $ do
-    rotateEventLog logIdV numberOfEventsV
+    rotateEventLog logIdV numberOfEventsV aggregateStateV lastEventId
   pure
     ( EventSource
         { sourceEvents = rotatedSourceEvents
         }
     , EventSink
-        { putEvent = rotatedPutEvent logIdV numberOfEventsV
+        { putEvent = rotatedPutEvent logIdV numberOfEventsV aggregateStateV
         , -- NOTE: Don't allow rotation on-demand
           rotate = const . const $ pure ()
         }
@@ -55,21 +86,27 @@ newRotatedEventStore config checkpointer logId eventStore = do
     currentNumberOfEvents <- readTVarIO numberOfEventsV
     pure $ currentNumberOfEvents >= toInteger rotateAfterX
 
-  rotatedPutEvent logIdV numberOfEventsV event = do
+  rotatedPutEvent logIdV numberOfEventsV aggregateStateV event = do
     putEvent event
-    -- bump numberOfEvents
     atomically $ do
+      -- aggregate new state
+      aggregateState <- readTVar aggregateStateV
+      let aggregateState' = aggregator aggregateState event
+      writeTVar aggregateStateV aggregateState'
+      -- bump numberOfEvents
       numberOfEvents <- readTVar numberOfEventsV
       let numberOfEvents' = numberOfEvents + 1
       writeTVar numberOfEventsV numberOfEvents'
     -- check rotation
     whenM (shouldRotate numberOfEventsV) $ do
-      rotateEventLog logIdV numberOfEventsV
+      let eventId = getEventId event
+      rotateEventLog logIdV numberOfEventsV aggregateStateV eventId
 
-  rotateEventLog logIdV numberOfEventsV = do
+  rotateEventLog logIdV numberOfEventsV aggregateStateV lastEventId = do
     -- build checkpoint event
-    history <- getEvents eventSource
-    let checkpoint = checkpointer history
+    now <- getCurrentTime
+    aggregateState <- readTVarIO aggregateStateV
+    let checkpoint = checkpointer aggregateState (lastEventId + 1) now
     -- rotate with checkpoint
     currentLogId <- readTVarIO logIdV
     let currentLogId' = currentLogId + 1
@@ -80,17 +117,3 @@ newRotatedEventStore config checkpointer logId eventStore = do
       writeTVar logIdV currentLogId'
 
   (eventSource, EventSink{putEvent, rotate}) = eventStore
-
-mkCheckpointer :: IsChainState tx => ChainStateType tx -> UTCTime -> Checkpointer (StateEvent tx)
-mkCheckpointer initialChainState time events =
-  StateEvent
-    { eventId = maybe 0 (succ . last) (nonEmpty $ (\StateEvent{eventId} -> eventId) <$> events)
-    , stateChanged =
-        Checkpoint
-          . foldl' aggregate initialState
-          $ (\StateEvent{stateChanged} -> stateChanged)
-            <$> events
-    , time
-    }
- where
-  initialState = Idle IdleState{chainState = initialChainState}
