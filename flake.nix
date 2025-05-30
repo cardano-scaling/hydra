@@ -30,6 +30,7 @@
         ./nix/hydra/demo.nix
         ./nix/hydra/docker.nix
         ./nix/hydra/tx-cost-diff.nix
+        ./nix/static-libs.nix
       ];
       systems = [
         "x86_64-linux"
@@ -57,7 +58,7 @@
               # https://github.com/input-output-hk/haskell.nix/issues/1954
               inputs.haskellNix.overlay
               # Custom static libs used for darwin build
-              (import ./nix/static-libs.nix)
+              self.overlays.static-libs
               inputs.nix-npm-buildpackage.overlays.default
               # Specific versions of tools we require
               (final: prev: {
