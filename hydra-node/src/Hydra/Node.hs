@@ -33,7 +33,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
-import Hydra.Events.Rotation (EventStore)
+import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
@@ -172,7 +172,7 @@ hydrate ::
   EventStore (StateEvent tx) m ->
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
-hydrate tracer env ledger initialChainState (eventSource, eventSink) eventSinks = do
+hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} eventSinks = do
   let allSinks = eventSink : eventSinks
   traceWith tracer LoadingState
   (lastEventId, (headState, chainStateHistory)) <-

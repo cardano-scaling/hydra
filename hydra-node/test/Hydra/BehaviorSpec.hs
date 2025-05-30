@@ -35,6 +35,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
+import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), OpenState (..), defaultTTL)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
@@ -1276,7 +1277,7 @@ createHydraNode ::
   DepositPeriod ->
   m (HydraNode tx m)
 createHydraNode tracer ledger chainState signingKey otherParties outputs messages outputHistory chain cp dp = do
-  (eventSource, eventSink) <- createMockSourceSink
+  EventStore{eventSource, eventSink} <- createMockSourceSink
   let apiSink =
         EventSink
           { putEvent = \event ->
@@ -1285,7 +1286,6 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
                 Just TimedServerOutput{output} -> atomically $ do
                   writeTQueue outputs output
                   modifyTVar' outputHistory (output :)
-          , rotate = const . const $ pure ()
           }
   -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
   let headState = Idle IdleState{chainState}

@@ -39,11 +39,9 @@ getEvents EventSource{sourceEvents} = runResourceT $ sourceToList sourceEvents
 
 type LogId = Natural
 
-data EventSink e m = EventSink
+newtype EventSink e m = EventSink
   { putEvent :: HasEventId e => e -> m ()
   -- ^ Send a single event to the event sink.
-  , rotate :: LogId -> e -> m ()
-  -- ^ Rotate existing events into a given log id and start a new log from given e.
   }
 
 -- | Put a list of events to a list of event sinks in a round-robin fashion.

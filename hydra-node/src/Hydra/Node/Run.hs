@@ -25,7 +25,7 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events (LogId)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
-import Hydra.Events.Rotation (RotationConfig (..), mkAggregator, mkCheckpointer, newRotatedEventStore)
+import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), mkAggregator, mkCheckpointer, newRotatedEventStore)
 import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
@@ -87,7 +87,7 @@ run opts = do
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         logId <- getLatestLogId persistenceDir "state"
-        eventStore@(eventSource, _) <-
+        eventStore@EventStore{eventSource} <-
           prepareEventStore logId
             =<< mkFileBasedEventStore (persistenceDir <> "/state") logId createPersistenceIncremental
         -- NOTE: Add any custom sinks here

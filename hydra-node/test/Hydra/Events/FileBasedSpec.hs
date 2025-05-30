@@ -11,6 +11,7 @@ import Conduit (runConduitRes, sinkList, (.|))
 import Data.List (zipWith3)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvents, putEvent)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
+import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (StateChanged)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -82,7 +83,7 @@ spec = do
             PersistenceIncremental{append} <- createPersistenceIncremental (tmpDir <> "/data" <> "-" <> show logId)
             forM_ events append
             -- Load and store events through the event source interface
-            (src, EventSink{putEvent}) <-
+            EventStore{eventSource = src, eventSink = EventSink{putEvent}} <-
               mkFileBasedEventStore (tmpDir <> "/data") logId createPersistenceIncremental
             loadedEvents <- getEvents src
             -- Store all loaded events like the node would do
@@ -98,5 +99,5 @@ withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (St
 withEventSourceAndSink action =
   withTempDir "hydra-persistence" $ \tmpDir -> do
     let logId = 0
-    (eventSource, eventSink) <- mkFileBasedEventStore (tmpDir <> "/data") logId createPersistenceIncremental
+    EventStore{eventSource, eventSink} <- mkFileBasedEventStore (tmpDir <> "/data") logId createPersistenceIncremental
     action eventSource eventSink
