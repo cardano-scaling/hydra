@@ -8,7 +8,7 @@ import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Events (EventSink (..), HasEventId (..), StateEvent (..), getEvents)
-import Hydra.Events.Rotation
+import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), mkAggregator, mkCheckpointer, newRotatedEventStore)
 import Hydra.HeadLogic (HeadState (..), IdleState (..), StateChanged (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), simpleLedger)
 import Hydra.Logging (showLogsOnFailure)
@@ -43,7 +43,7 @@ spec = parallel $ do
             >>= notConnect
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
-          rotatedHistory <- getEvents (fst rotatingEventStore)
+          rotatedHistory <- getEvents (eventSource rotatingEventStore)
           length rotatedHistory `shouldBe` 2
       it "consistent state after restarting with rotation" $ \testHydrate -> do
         failAfter 1 $ do
@@ -64,7 +64,7 @@ spec = parallel $ do
             >>= notConnect
             >>= primeWith [closeInput]
             >>= runToCompletion
-          [checkpoint] <- getEvents (fst rotatingEventStore)
+          [checkpoint] <- getEvents (eventSource rotatingEventStore)
           case stateChanged checkpoint of
             Checkpoint{state = Closed{}} -> pure ()
             _ -> fail ("unexpected: " <> show checkpoint)
@@ -98,15 +98,15 @@ spec = parallel $ do
               >>= primeWith inputs
               >>= runToCompletion
             -- aggregating stored events should yield consistent states
-            [StateEvent{stateChanged = checkpoint}] <- getEvents (fst rotatingEventStore)
-            events' <- getEvents (fst eventStore')
+            [StateEvent{stateChanged = checkpoint}] <- getEvents (eventSource rotatingEventStore)
+            events' <- getEvents (eventSource eventStore')
             let checkpoint' = foldl' mkAggregator s0 events'
             checkpoint `shouldBe` Checkpoint checkpoint'
 
   describe "Rotation algorithm" $ do
     prop "rotates on startup" $
       \(Positive x, Positive delta) -> do
-        eventStore@(eventSource, eventSink) <- createMockSourceSink
+        eventStore@EventStore{eventSource, eventSink} <- createMockSourceSink
         let y = x + delta
         let totalEvents = toInteger y
         let events = TrivialEvent <$> [1 .. fromInteger totalEvents]
@@ -118,7 +118,7 @@ spec = parallel $ do
         let s0 = []
         let aggregator s e = e : s
         let checkpointer s _ _ = trivialCheckpoint s
-        (rotatedEventSource, _) <- newRotatedEventStore rotationConfig s0 aggregator checkpointer logId eventStore
+        EventStore{eventSource = rotatedEventSource} <- newRotatedEventStore rotationConfig s0 aggregator checkpointer logId eventStore
         rotatedHistory <- getEvents rotatedEventSource
         length rotatedHistory `shouldBe` 1
 
@@ -135,7 +135,7 @@ spec = parallel $ do
         let aggregator s e = e : s
         let checkpointer s _ _ = trivialCheckpoint s
         rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer logId mockEventStore
-        let (eventSource, EventSink{putEvent}) = rotatingEventStore
+        let EventStore{eventSource, eventSink = EventSink{putEvent}} = rotatingEventStore
         let totalEvents = toInteger x * y
         let events = TrivialEvent . fromInteger <$> [1 .. totalEvents]
         forM_ events putEvent
@@ -158,7 +158,7 @@ spec = parallel $ do
         let aggregator s e = e : s
         let checkpointer s _ _ = trivialCheckpoint s
         rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer logId mockEventStore
-        let (eventSource, EventSink{putEvent}) = rotatingEventStore
+        let EventStore{eventSource, eventSink = EventSink{putEvent}} = rotatingEventStore
         let totalEvents = toInteger x + toInteger y
         let events = TrivialEvent . fromInteger <$> [1 .. totalEvents]
         forM_ events putEvent

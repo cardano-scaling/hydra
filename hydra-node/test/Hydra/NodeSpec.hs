@@ -14,7 +14,7 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
-import Hydra.Events.Rotation (EventStore)
+import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (Input (..))
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
@@ -93,7 +93,6 @@ spec = parallel $ do
                 failingSink =
                   EventSink
                     { putEvent = \_ -> failure "failing putEvent sink called"
-                    , rotate = \_ _ -> failure "failing rotate sink called"
                     }
             forAllBlind (listOf genSinks) $ \sinks ->
               testHydrate (mockEventStore someEvents) (sinks <> [failingSink])
@@ -348,14 +347,15 @@ mockChain =
     }
 
 mockSink :: Monad m => EventSink a m
-mockSink = EventSink{putEvent = const $ pure (), rotate = const . const $ pure ()}
+mockSink = EventSink{putEvent = const $ pure ()}
 
 mockEventStore :: Monad m => [a] -> EventStore a m
 mockEventStore events =
-  (eventSource, eventSink)
+  EventStore{eventSource, eventSink, rotate}
  where
   eventSource = mockSource events
   eventSink = mockSink
+  rotate = const . const $ pure ()
 
 mockSource :: Monad m => [a] -> EventSource a m
 mockSource events =
@@ -366,11 +366,9 @@ mockSource events =
 createRecordingSink :: IO (EventSink a IO, IO [a])
 createRecordingSink = do
   (putEvent, getAll) <- messageRecorder
-  pure (EventSink{putEvent, rotate}, getAll)
- where
-  rotate = const . const $ pure ()
+  pure (EventSink{putEvent}, getAll)
 
-createMockSourceSink :: MonadLabelledSTM m => m (EventSource a m, EventSink a m)
+createMockSourceSink :: MonadLabelledSTM m => m (EventStore a m)
 createMockSourceSink = do
   tvar <- newTVarIO []
   labelTVarIO tvar "in-memory-source-sink"
@@ -384,10 +382,9 @@ createMockSourceSink = do
         EventSink
           { putEvent = \x ->
               atomically $ modifyTVar tvar (<> [x])
-          , rotate = \_ checkpoint ->
-              atomically $ writeTVar tvar [checkpoint]
           }
-  pure (source, sink)
+      rotate _ checkpoint = atomically $ writeTVar tvar [checkpoint]
+  pure (EventStore source sink rotate)
 
 inputsToOpenHead :: [Input SimpleTx]
 inputsToOpenHead =
@@ -468,7 +465,6 @@ recordServerOutputs node = do
               case mkTimedServerOutputFromStateEvent event of
                 Nothing -> pure ()
                 Just TimedServerOutput{output} -> record $ Left output
-          , rotate = const . const $ pure ()
           }
   pure
     ( node{eventSinks = apiSink : eventSinks node, server = Server{sendMessage = record . Right}}

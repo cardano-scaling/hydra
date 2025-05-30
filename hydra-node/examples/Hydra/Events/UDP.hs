@@ -30,8 +30,6 @@ withUDPEventSink host port action =
     action $
       EventSink
         { putEvent = sendData socket
-        , -- XXX: currently unsupported
-          rotate = const . const $ pure ()
         }
 
 -- | Create a new event sink that sends events as JSON.
@@ -52,8 +50,6 @@ newUDPEventSink host port = do
   pure
     EventSink
       { putEvent = sendData socket
-      , -- XXX: currently unsupported
-        rotate = const . const $ pure ()
       }
 
 sendData :: ToJSON e => UDPSocket -> e -> IO ()

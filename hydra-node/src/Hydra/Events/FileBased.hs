@@ -8,7 +8,7 @@ import Hydra.Prelude
 import Conduit (mapMC, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..), LogId)
-import Hydra.Events.Rotation (EventStore)
+import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Persistence (PersistenceIncremental (..))
 
 -- | A basic file based event source and sink defined using a rotated
@@ -57,4 +57,9 @@ mkFileBasedEventStore fp logId mkPersistenceIncremental = do
       append persistence' checkpointEvt
       atomically $ writeTVar persistenceV persistence'
 
-  pure (EventSource{sourceEvents}, EventSink{putEvent, rotate})
+  pure
+    EventStore
+      { eventSource = EventSource{sourceEvents}
+      , eventSink = EventSink{putEvent}
+      , rotate
+      }

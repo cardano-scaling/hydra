@@ -13,7 +13,13 @@ import Hydra.HeadLogic.State (HeadState)
 newtype RotationConfig = RotateAfter Natural
 
 -- | An EventSource and EventSink combined
-type EventStore e m = (EventSource e m, EventSink e m)
+data EventStore e m
+  = EventStore
+  { eventSource :: EventSource e m
+  , eventSink :: EventSink e m
+  , rotate :: LogId -> e -> m ()
+  -- ^ Rotate existing events into a given log id and start a new log from given e.
+  }
 
 type StateAggregate s e = s -> e -> s
 
@@ -68,19 +74,17 @@ newRotatedEventStore config s0 aggregator checkpointer logId eventStore = do
   whenM (shouldRotate numberOfEventsV) $ do
     rotateEventLog logIdV numberOfEventsV aggregateStateV lastEventId
   pure
-    ( EventSource
-        { sourceEvents = rotatedSourceEvents
-        }
-    , EventSink
-        { putEvent = rotatedPutEvent logIdV numberOfEventsV aggregateStateV
-        , -- NOTE: Don't allow rotation on-demand
-          rotate = const . const $ pure ()
-        }
-    )
+    EventStore
+      { eventSource
+      , eventSink =
+          EventSink
+            { putEvent = rotatedPutEvent logIdV numberOfEventsV aggregateStateV
+            }
+      , -- NOTE: Don't allow rotation on-demand
+        rotate = const . const $ pure ()
+      }
  where
   RotateAfter rotateAfterX = config
-  -- TODO: if this turns out to be equal to sourceEvents, then the whole algorithm can just work on each 'EventSink'
-  rotatedSourceEvents = sourceEvents eventSource
 
   shouldRotate numberOfEventsV = do
     currentNumberOfEvents <- readTVarIO numberOfEventsV
@@ -116,4 +120,4 @@ newRotatedEventStore config s0 aggregator checkpointer logId eventStore = do
       writeTVar numberOfEventsV 0
       writeTVar logIdV currentLogId'
 
-  (eventSource, EventSink{putEvent, rotate}) = eventStore
+  EventStore{eventSource, eventSink = EventSink{putEvent}, rotate} = eventStore
