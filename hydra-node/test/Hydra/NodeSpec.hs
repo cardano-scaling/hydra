@@ -156,7 +156,7 @@ spec = parallel $ do
 
       it "can continue after re-hydration" $ \testHydrate ->
         failAfter 1 $ do
-          eventStore <- createMockSourceSink
+          eventStore <- createMockEventStore
 
           testHydrate eventStore []
             >>= notConnect
@@ -368,8 +368,8 @@ createRecordingSink = do
   (putEvent, getAll) <- messageRecorder
   pure (EventSink{putEvent}, getAll)
 
-createMockSourceSink :: MonadLabelledSTM m => m (EventStore a m)
-createMockSourceSink = do
+createMockEventStore :: MonadLabelledSTM m => m (EventStore a m)
+createMockEventStore = do
   tvar <- newTVarIO []
   labelTVarIO tvar "in-memory-source-sink"
   let source =
