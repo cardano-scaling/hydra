@@ -6,24 +6,20 @@ module Hydra.Events.FileBased where
 import Hydra.Prelude
 
 import Conduit (mapMC, (.|))
-import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
-import Data.List (maximum, stripPrefix)
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..), LogId)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
+import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Persistence (PersistenceIncremental (..))
-import System.Directory (listDirectory)
-import System.FilePath (takeFileName)
+import System.Directory (renameFile)
 
 -- | A basic file based event source and sink defined using a rotated
 -- 'PersistenceIncremental' handle.
 mkFileBasedEventStore ::
   (ToJSON e, FromJSON e, HasEventId e) =>
   FilePath ->
-  LogId ->
-  (FilePath -> IO (PersistenceIncremental e IO)) ->
+  PersistenceIncremental e IO ->
   IO (EventStore e IO)
-mkFileBasedEventStore fp logId mkPersistenceIncremental = do
-  persistenceV <- newTVarIO =<< mkPersistenceIncremental (fp <> "-" <> show logId)
+mkFileBasedEventStore stateDir persistence = do
   eventIdV <- newTVarIO Nothing
   let
     getLastSeenEventId = readTVar eventIdV
@@ -33,7 +29,6 @@ mkFileBasedEventStore fp logId mkPersistenceIncremental = do
 
     -- Keep track of the last seen event id when loading
     sourceEvents = do
-      persistence <- liftIO (readTVarIO persistenceV)
       source persistence
         .| mapMC
           ( \event -> lift . atomically $ do
@@ -50,15 +45,19 @@ mkFileBasedEventStore fp logId mkPersistenceIncremental = do
           | otherwise -> pure ()
 
     store e = do
-      persistence <- readTVarIO persistenceV
       append persistence e
       atomically $ setLastSeenEventId e
 
     rotate nextLogId checkpointEvt = do
-      let fp' = fp <> "-" <> show nextLogId
-      persistence' <- mkPersistenceIncremental fp'
-      append persistence' checkpointEvt
-      atomically $ writeTVar persistenceV persistence'
+      let rotatedPath = stateDir <> "-" <> show nextLogId
+      ( do
+          renameFile stateDir rotatedPath
+          append persistence checkpointEvt
+        )
+        `catch` \(_ :: SomeException) -> do
+          -- Attempt to revert the rename,
+          -- ignoring errors during rollback.
+          renameFile rotatedPath stateDir
 
   pure
     EventStore
@@ -66,15 +65,3 @@ mkFileBasedEventStore fp logId mkPersistenceIncremental = do
       , eventSink = EventSink{putEvent}
       , rotate
       }
-
--- | Get the highest LogId from given persisted event logs directory.
--- Assumes filenames are in the format "state-<logId>"
-getLatestLogId :: FilePath -> String -> IO LogId
-getLatestLogId stateDir filePrefix = do
-  files <- listDirectory stateDir `catch` \(_ :: SomeException) -> pure []
-  let logIds = mapMaybe (extractLogId . takeFileName) files
-  pure $ if null logIds then 0 else maximum logIds
- where
-  extractLogId :: [Char] -> Maybe LogId
-  extractLogId fname =
-    stripPrefix (filePrefix <> "-") fname >>= readMaybe

@@ -22,7 +22,7 @@ import Hydra.Chain.Cardano (withCardanoChain)
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.Events.FileBased (getLatestLogId, mkFileBasedEventStore)
+import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), mkAggregator, mkCheckpointer, newRotatedEventStore)
 import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
@@ -82,10 +82,11 @@ run opts = do
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
-        logId <- getLatestLogId persistenceDir "state"
+        let stateDir = persistenceDir <> "/state"
         eventStore@EventStore{eventSource} <-
-          prepareEventStore logId
-            =<< mkFileBasedEventStore (persistenceDir <> "/state") logId createPersistenceIncremental
+          prepareEventStore
+            =<< mkFileBasedEventStore stateDir
+            =<< createPersistenceIncremental stateDir
         -- NOTE: Add any custom sinks here
         let eventSinks = []
         wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
@@ -127,13 +128,13 @@ run opts = do
     Offline cfg -> pure $ withOfflineChain cfg party otherParties
     Cardano cfg -> pure $ withCardanoChain (contramap DirectChain tracer) cfg party
 
-  prepareEventStore logId eventStore = do
+  prepareEventStore eventStore = do
     case RotateAfter <$> persistenceRotateAfter of
       Nothing ->
         pure eventStore
       Just rotationConfig -> do
         let initialState = Idle IdleState{chainState = initialChainState}
-        newRotatedEventStore rotationConfig initialState mkAggregator mkCheckpointer logId eventStore
+        newRotatedEventStore rotationConfig initialState mkAggregator mkCheckpointer eventStore
 
   RunOptions
     { verbosity

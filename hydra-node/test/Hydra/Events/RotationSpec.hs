@@ -36,9 +36,8 @@ spec = parallel $ do
           eventStore <- createMockEventStore
           -- NOTE: this is hardcoded to ensure we get a checkpoint + a single event at the end
           let rotationConfig = RotateAfter 4
-          let logId = 0
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpointer logId eventStore
+          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpointer eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWith inputsToOpenHead
@@ -50,9 +49,8 @@ spec = parallel $ do
           eventStore <- createMockEventStore
           -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter 3
-          let logId = 0
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpointer logId eventStore
+          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpointer eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWith inputsToOpenHead
@@ -84,9 +82,8 @@ spec = parallel $ do
             -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
             let rotationConfig = RotateAfter 3
             -- run rotated event store with prepared inputs
-            let logId = 0
             let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-            rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpointer logId eventStore
+            rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpointer eventStore
             testHydrate rotatingEventStore []
               >>= notConnect
               >>= primeWith inputs
@@ -114,11 +111,10 @@ spec = parallel $ do
         unrotatedHistory <- getEvents eventSource
         toInteger (length unrotatedHistory) `shouldBe` totalEvents
         let rotationConfig = RotateAfter x
-        let logId = 0
         let s0 = []
         let aggregator s e = e : s
         let checkpointer s _ _ = trivialCheckpoint s
-        EventStore{eventSource = rotatedEventSource} <- newRotatedEventStore rotationConfig s0 aggregator checkpointer logId eventStore
+        EventStore{eventSource = rotatedEventSource} <- newRotatedEventStore rotationConfig s0 aggregator checkpointer eventStore
         rotatedHistory <- getEvents rotatedEventSource
         length rotatedHistory `shouldBe` 1
 
@@ -130,11 +126,10 @@ spec = parallel $ do
       \(Positive x, Positive y) -> do
         mockEventStore <- createMockEventStore
         let rotationConfig = RotateAfter x
-        let logId = 0
         let s0 = []
         let aggregator s e = e : s
         let checkpointer s _ _ = trivialCheckpoint s
-        rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer logId mockEventStore
+        rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer mockEventStore
         let EventStore{eventSource, eventSink = EventSink{putEvent}} = rotatingEventStore
         let totalEvents = toInteger x * y
         let events = TrivialEvent . fromInteger <$> [1 .. totalEvents]
@@ -153,11 +148,10 @@ spec = parallel $ do
         let x = y + delta
         mockEventStore <- createMockEventStore
         let rotationConfig = RotateAfter x
-        let logId = 0
         let s0 = []
         let aggregator s e = e : s
         let checkpointer s _ _ = trivialCheckpoint s
-        rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer logId mockEventStore
+        rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer mockEventStore
         let EventStore{eventSource, eventSink = EventSink{putEvent}} = rotatingEventStore
         let totalEvents = toInteger x + toInteger y
         let events = TrivialEvent . fromInteger <$> [1 .. totalEvents]
