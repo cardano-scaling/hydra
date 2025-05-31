@@ -56,11 +56,9 @@ newRotatedEventStore ::
   s ->
   StateAggregate s e ->
   StateCheckpointer s e ->
-  LogId ->
   EventStore e m ->
   m (EventStore e m)
-newRotatedEventStore config s0 aggregator checkpointer logId eventStore = do
-  logIdV <- newTVarIO logId
+newRotatedEventStore config s0 aggregator checkpointer eventStore = do
   -- Rules for any event store:
   -- - sourceEvents will be called in the beginning of the application and whenever the api server wans to load history
   --   -> might be called multiple times!!
@@ -72,13 +70,13 @@ newRotatedEventStore config s0 aggregator checkpointer logId eventStore = do
   numberOfEventsV <- newTVarIO currentNumberOfEvents
   -- check rotation on startup
   whenM (shouldRotate numberOfEventsV) $ do
-    rotateEventLog logIdV numberOfEventsV aggregateStateV lastEventId
+    rotateEventLog numberOfEventsV aggregateStateV lastEventId
   pure
     EventStore
       { eventSource
       , eventSink =
           EventSink
-            { putEvent = rotatedPutEvent logIdV numberOfEventsV aggregateStateV
+            { putEvent = rotatedPutEvent numberOfEventsV aggregateStateV
             }
       , -- NOTE: Don't allow rotation on-demand
         rotate = const . const $ pure ()
@@ -90,7 +88,7 @@ newRotatedEventStore config s0 aggregator checkpointer logId eventStore = do
     currentNumberOfEvents <- readTVarIO numberOfEventsV
     pure $ currentNumberOfEvents >= toInteger rotateAfterX
 
-  rotatedPutEvent logIdV numberOfEventsV aggregateStateV event = do
+  rotatedPutEvent numberOfEventsV aggregateStateV event = do
     putEvent event
     atomically $ do
       -- aggregate new state
@@ -104,20 +102,19 @@ newRotatedEventStore config s0 aggregator checkpointer logId eventStore = do
     -- check rotation
     whenM (shouldRotate numberOfEventsV) $ do
       let eventId = getEventId event
-      rotateEventLog logIdV numberOfEventsV aggregateStateV eventId
+      rotateEventLog numberOfEventsV aggregateStateV eventId
 
-  rotateEventLog logIdV numberOfEventsV aggregateStateV lastEventId = do
+  rotateEventLog numberOfEventsV aggregateStateV lastEventId = do
     -- build checkpoint event
     now <- getCurrentTime
     aggregateState <- readTVarIO aggregateStateV
     let checkpoint = checkpointer aggregateState (lastEventId + 1) now
     -- rotate with checkpoint
-    currentLogId <- readTVarIO logIdV
-    let currentLogId' = currentLogId + 1
-    rotate currentLogId' checkpoint
+    -- FIXME! use timestamp instead
+    let nextLogId = fromMaybe 0 $ integerToNatural . toInteger $ lastEventId + 1
+    rotate nextLogId checkpoint
     -- clear numberOfEvents + bump logId
     atomically $ do
       writeTVar numberOfEventsV 0
-      writeTVar logIdV currentLogId'
 
   EventStore{eventSource, eventSink = EventSink{putEvent}, rotate} = eventStore
