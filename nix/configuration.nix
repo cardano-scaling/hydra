@@ -24,10 +24,5 @@
 
       legacyPackages = pkgs // hsPkgs;
 
-      packages =
-        {
-          spec = inputs.hydra-spec.packages.${system}.default;
-        };
-
     };
 }
