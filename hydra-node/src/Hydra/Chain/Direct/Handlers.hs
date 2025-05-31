@@ -4,7 +4,7 @@
 -- | Provide infrastructure-independent "handlers" for posting transactions and following the chain.
 --
 -- This module encapsulates the transformation logic between cardano transactions and `HydraNode` abstractions
--- `PostChainTx` and `OnChainTx`, and maintainance of on-chain relevant state.
+-- `PostChainTx` and `OnChainTx`, and maintenance of on-chain relevant state.
 module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude

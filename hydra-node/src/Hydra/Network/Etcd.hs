@@ -247,7 +247,7 @@ getEtcdBinary persistenceDir EmbeddedEtcd =
   let path = persistenceDir </> "bin" </> "etcd"
    in installEtcd path >> pure path
 
--- | Install the embeded 'etcd' binary to given file path.
+-- | Install the embedded 'etcd' binary to given file path.
 installEtcd :: FilePath -> IO ()
 installEtcd fp = do
   createDirectoryIfMissing True (takeDirectory fp)

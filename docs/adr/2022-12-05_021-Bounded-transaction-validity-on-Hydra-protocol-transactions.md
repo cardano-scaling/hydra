@@ -37,7 +37,7 @@ Accepted
   upper bound on the `closeTx`. This was also required so far to compute the
   contestation deadline.
 
-- Different networks (chains) have different slot lenghts, e.g. the preview
+- Different networks (chains) have different slot lengths, e.g. the preview
   network has a slot every `1s`, while our local devnets use `0.1s`. This means
   hardcoded values like `closeGraceTime` need to be _in sync_ with the
   underlying network.
@@ -105,5 +105,5 @@ Accepted
   constructing transactions since we cannot convert arbitrary point in times to
   slots.
 
-- All parties need to aggree on contestation period before trying to run a Head
+- All parties need to agree on contestation period before trying to run a Head
   protocol otherwise InitTx will be ignored.

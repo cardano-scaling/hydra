@@ -148,7 +148,7 @@ genCommitMutation (tx, _utxo) =
             , ChangeInput
                 healthyInitialTxIn
                 (toCtxUTxOTxOut healthyInitialTxOut)
-                (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allComittedTxIn <&> toPlutusTxOutRef))
+                (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allCommittedTxIn <&> toPlutusTxOutRef))
             ]
     , SomeMutation (pure $ toErrorCode MissingOrInvalidCommitAuthor) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
@@ -163,7 +163,7 @@ genCommitMutation (tx, _utxo) =
             , ChangeInput
                 healthyInitialTxIn
                 (toCtxUTxOTxOut $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
-                (Just $ toScriptData $ Initial.ViaCommit (allComittedTxIn <&> toPlutusTxOutRef))
+                (Just $ toScriptData $ Initial.ViaCommit (allCommittedTxIn <&> toPlutusTxOutRef))
             ]
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
@@ -171,7 +171,7 @@ genCommitMutation (tx, _utxo) =
  where
   commitTxOut = fromJust $ txOuts' tx !!? 0
 
-  allComittedTxIn = UTxO.inputSet healthyCommittedUTxO & toList
+  allCommittedTxIn = UTxO.inputSet healthyCommittedUTxO & toList
 
   (aCommittedTxIn, aCommittedTxOut) = List.head $ UTxO.toList healthyCommittedUTxO
 

@@ -28,7 +28,7 @@ spec = do
               loadedEvents <- getEvents source
               pure $ loadedEvents === events
 
-    it "handles non-continous events" $ \bucketName ->
+    it "handles non-continuous events" $ \bucketName ->
       withMaxSuccess 3 $
         forAllShrink (sublistOf =<< genContinuousEvents) shrink $ \events ->
           ioProperty $ do

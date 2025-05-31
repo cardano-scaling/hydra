@@ -105,7 +105,7 @@ healthyInitials :: [(TxIn, TxOut CtxUTxO)]
 healthyCommits :: [(TxIn, TxOut CtxUTxO, UTxO)]
 (healthyInitials, healthyCommits) =
   -- TODO: Refactor this to be an AbortTx generator because we actually want
-  -- to test healthy abort txs with varied combinations of inital and commit
+  -- to test healthy abort txs with varied combinations of initial and commit
   -- outputs
   generateWith (genAbortableOutputs healthyParties `suchThat` thereIsTwoEach) 42
  where
@@ -137,7 +137,7 @@ propHasCommit (_, utxo) =
     txOutAddress txOut == addr
 
 data AbortMutation
-  = -- | Add one more party to the hydra keys. This is essentialy the same as
+  = -- | Add one more party to the hydra keys. This is essentially the same as
     -- not collecting all inputs.
     MutateParties
   | -- | Not collect one committed UTxO by removing the input and not burn the
@@ -146,7 +146,7 @@ data AbortMutation
   | -- | Not reimburse one of the parties.
     DropOneCommitOutput
   | -- | Burning one PT more. This should be an impossible situation, but it is
-    -- tested nontheless.
+    -- tested nonetheless.
     BurnOneTokenMore
   | -- | Meant to test that the minting policy is burning all PTs present in tx
     MutateThreadTokenQuantity

@@ -6,7 +6,7 @@ utilities and function commonly used across the Hydra project.
 
 Some of those addition may be likely candidates for upstream change requests,
 but having this extra space gives us an opportunity to iterate faster and to
-unify not-always-consistent names / approches across the Cardano ecosystem.
+unify not-always-consistent names / approaches across the Cardano ecosystem.
 
 In addition, the top-level module `Hydra.Cardano.Api` does re-export only
 specialized types and constructors for all underlying types. Everything is

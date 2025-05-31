@@ -63,7 +63,7 @@ spec = parallel $
       let (cardanoKeys, hydraKeys) = genCardanoAndHydraKeys (subtract 2) (subtract 1)
           chainCfg = Cardano defaultCardanoChainConfig{cardanoVerificationKeys = cardanoKeys}
       validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
-        `shouldBe` Left CardanoAndHydraKeysMissmatch
+        `shouldBe` Left CardanoAndHydraKeysMismatch
 
     it "parses with default values" $
       [] `shouldParse` Run defaultRunOptions

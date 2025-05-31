@@ -197,7 +197,7 @@ estimateMinFee tx evaluationReport =
 -- * Fixtures
 
 -- | Current (2023-04-12) mainchain protocol parameters.
--- XXX: Avoid specifiying not required parameters here (e.g. max block units
+-- XXX: Avoid specifying not required parameters here (e.g. max block units
 -- should not matter).
 -- XXX: Load and use mainnet parameters from a file which we can easily review
 -- to be in sync with mainnet.
@@ -246,7 +246,7 @@ maxMem, maxCpu :: Natural
 maxCpu = executionSteps maxTxExecutionUnits
 maxMem = executionMemory maxTxExecutionUnits
 
--- | An artifical 'EpochInfo' comprised by a single never ending (forking) era,
+-- | An artificial 'EpochInfo' comprised by a single never ending (forking) era,
 -- with fixed 'epochSize' and 'slotLength'.
 epochInfo :: Monad m => EpochInfo m
 epochInfo = fixedEpochInfo epochSize slotLength

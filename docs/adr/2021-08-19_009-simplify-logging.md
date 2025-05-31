@@ -16,7 +16,7 @@ Accepted
 * Providing the needed components and tools to be able to configure logging and monitoring to each operator's liking should not be the responibility of the Hydra node, and requires complex machinery that will need to be maintained and evolved
 * When a problem occurs in production, if the process is not verbose enough it can be very hard to analyse the problem
   * Enabling dynamic changes of verbosity in logs is both complex to implement and comes too late
-  * Deciding in the code on what's the right "severity" for a log entry leads to dropping important information on _how_ some error occured
+  * Deciding in the code on what's the right "severity" for a log entry leads to dropping important information on _how_ some error occurred
 
 ## Decision
 

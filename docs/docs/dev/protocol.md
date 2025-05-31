@@ -29,7 +29,7 @@ The nominal case of depositing and later incrementing funds starts with a user r
 See [commit](./commit.md) for more details about the commit API.
 :::
 
-A successfull API response includes a `depositTx` that needs to be signed and submitted by the user in order to lock the specified `UTxO` at a deposit script address. The `hydra-node` of all participants will observe the deposit transaction and the snapshot leader _should_ request inclusion of the UTxO via a snapshot. With this snapshot an `incrementTx` can be posted that will update the Head state `UTxO` on L1 and upon observing this make the committed `UTxO` available on L2.
+A successful API response includes a `depositTx` that needs to be signed and submitted by the user in order to lock the specified `UTxO` at a deposit script address. The `hydra-node` of all participants will observe the deposit transaction and the snapshot leader _should_ request inclusion of the UTxO via a snapshot. With this snapshot an `incrementTx` can be posted that will update the Head state `UTxO` on L1 and upon observing this make the committed `UTxO` available on L2.
 
 The overall sequence diagram of a deposit and later increment across the `hydra-node`:
 
@@ -101,7 +101,7 @@ sequenceDiagram
 
 ```
 
-### Rollback resistence
+### Rollback resistance
 
 In a perfect world the processes as explained above would be sufficient. However, the Cardano L1 is evolved using a probabilistic consensus algorithm and [rollbacks](./rollbacks) need to be considered.
 
@@ -115,7 +115,7 @@ As indicated on the transaction trace example above, a successful incremental co
 
 For `incrementTx`, the input is governed by the deposit validator which ensures funds can only be spent into the destined head before the **deposit deadline** (by anyone using a `recoverTx` after the deadline). Hence, any rollbacks _before_ this deadline can be mitigated by re-submitting the same (or a new) `incrementTx`. It is vital though, that the deadline is _far enough_ in the future to not be prone to yet more chain re-organization and run out of time mitigating eventually. As the deposit deadline is only relevant for the pessimistic case, we can pick fairly *high values* without affecting user experience. For example: **1 week**, equating to roughly 5x the worst case settlement time of Cardano.
 
-For `depositTx`, the inputs may very well be spent by an attacker and an honest `hydra-node` should be cautious in observing a deposit as settled before signing a snapshot that authorizes addition of those funds to the L2 state. To mitigate this, a **deposit period** analogous to the contestation period of close/contest phase is introduced. A valid deposit must record in its datum when it was created and when the deadline shall be (see [specification](./specification.md)). An honest `hydra-node` will only consider deposits that are **older** than the deposit period and when the deadline is **further out** than the deposit period. While the deposit period will delay all increments by at least that time, a `hydra-node` can configure the risk it is willing to take using this period. For example: **1 hour** means that roughly after 180 blocks on `mainnet` we would only see a rollback including the `depositTx` with `0.01%` likelihood, assuming a `15%` adversarial stake fairly conservative grinding power. See [this excelent explanation and calculator](https://aiken-lang.org/fundamentals/what-i-wish-i-knew#transaction-latency-vs-finality) in the Aiken docs. 
+For `depositTx`, the inputs may very well be spent by an attacker and an honest `hydra-node` should be cautious in observing a deposit as settled before signing a snapshot that authorizes addition of those funds to the L2 state. To mitigate this, a **deposit period** analogous to the contestation period of close/contest phase is introduced. A valid deposit must record in its datum when it was created and when the deadline shall be (see [specification](./specification.md)). An honest `hydra-node` will only consider deposits that are **older** than the deposit period and when the deadline is **further out** than the deposit period. While the deposit period will delay all increments by at least that time, a `hydra-node` can configure the risk it is willing to take using this period. For example: **1 hour** means that roughly after 180 blocks on `mainnet` we would only see a rollback including the `depositTx` with `0.01%` likelihood, assuming a `15%` adversarial stake fairly conservative grinding power. See [this excellent explanation and calculator](https://aiken-lang.org/fundamentals/what-i-wish-i-knew#transaction-latency-vs-finality) in the Aiken docs. 
 
 In summary, a deposit may only be picked up while `Active` in the following deposit life cycle:
 ```mermaid

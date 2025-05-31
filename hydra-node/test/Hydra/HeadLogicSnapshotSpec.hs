@@ -162,8 +162,8 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        let everybodyAcknowleged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
-        everybodyAcknowleged `hasNoEffectSatisfying` sendReqSn
+        let everybodyAcknowledged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
+        everybodyAcknowledged `hasNoEffectSatisfying` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
         headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do

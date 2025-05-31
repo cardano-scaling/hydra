@@ -109,7 +109,7 @@ changes.
 - There is a new `--deposit-deadline` argument to hydra-node that determines the maximum time for the hydra-node to detect a deposit.
   After this time has passed users can recover a deposit in case it wasn't observed previously.
 
-- **BREAKING** hydra-node accepts multiple `hydra-scripts-tx-id` as a comma-seperated list, as the outcome of changes in the Hydra scripts publishing.
+- **BREAKING** hydra-node accepts multiple `hydra-scripts-tx-id` as a comma-separated list, as the outcome of changes in the Hydra scripts publishing.
 
 - Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
 
@@ -162,7 +162,7 @@ changes.
 
 - Adds a manual recipient address entry to `hydra-tui` and fixes event handling. [#1607](https://github.com/cardano-scaling/hydra/pull/1607)
 
-- Add a demo mode to hydra-cluster to facilitate network resiliance tests [#1552](https://github.com/cardano-scaling/hydra/pull/1552)
+- Add a demo mode to hydra-cluster to facilitate network resilience tests [#1552](https://github.com/cardano-scaling/hydra/pull/1552)
 
 ## [0.18.1] - 2024-08-15
 
@@ -191,7 +191,7 @@ changes.
 
 - Change `--start-chain-from` to always use the newer point when also a head state is known. [#1471](https://github.com/cardano-scaling/hydra/pull/1471)
 
-- Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey. [#1486](https://github.com/cardano-scaling/hydra/pull/1486)
+- Moved several pages from "core concepts" into the user manual and developer docs to further improve user journey. [#1486](https://github.com/cardano-scaling/hydra/pull/1486)
 
 - Offline mode of `hydra-node` uses `--node-id` to derive an artificial offline `headId`. [#1551](https://github.com/cardano-scaling/hydra/pull/1551)
 
@@ -199,7 +199,7 @@ changes.
 
 - **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts [#1380](https://github.com/cardano-scaling/hydra/pull/1380):
   - Instead of the custom `witness` extension of `UTxO`, the endpoint now accepts a _blueprint_ transaction together with the `UTxO` which is spent in this transaction.
-  - Usage is still the same for commiting "normal" `UTxO` owned by public key addresses.
+  - Usage is still the same for committing "normal" `UTxO` owned by public key addresses.
   - Spending from a script `UTxO` now needs the `blueprintTx` request type, which also unlocks more involved use-cases, where the commit transaction should also satisfy script spending constraints (like additional signers, validity ranges etc.)
 
 - _DEPRECATED_ the `GetUTxO` client input and `GetUTxOResponse` server output. Use `GET /snapshot/utxo` instead.
@@ -441,14 +441,14 @@ changes.
       spend multiple UTxOs into a Hydra head.
     - Removes the `MoreThanOneUTxOCommitted` server output on the API.
 
-- Suport commits from external wallets [#215](215)
+- Support commits from external wallets [#215](215)
     - Added the `/commit` HTTP endpoint to the `hydra-node` for creating a draft
       `commit` transaction to commit requested UTxO into a head. This
       transaction can be signed and submitted to the network by the hydra client
       now instead of `hydra-node`.
     - Commits via `/commit` also allow to commit scripts into a Hydra Head. For
       that, the UTxO entry in the HTTP request needs to provide a `witness` with
-      scrpit, datum, and redeemer to be used.
+      script, datum, and redeemer to be used.
     - Removed the need to mark fuel when using external commits. Fees for Hydra
       protocol transactions are paid the largest UTxO held by the internal
       wallet if no marked fuel UTxO is present.
@@ -834,7 +834,7 @@ changes.
 
 - Implement on-chain contestation logic [#192](https://github.com/cardano-scaling/hydra/issues/192):
   + Node will automatically post a `Contest` transaction when it observes a `Close` or `Contest` with an obsolete snapshot
-  + Posting a fan-out transaction is not possible before the contestation dealine has passed
+  + Posting a fan-out transaction is not possible before the contestation deadline has passed
 
 - Transactions can now be submitted as raw CBOR-serialized object, base16 encoded, using the `NewTx` client input. This also supports the text-envelope format from cardano-cli out of the box. See the [api Reference](https://hydra.family/head-protocol/api-reference#operation-publish-/-message).
 
@@ -893,7 +893,7 @@ changes.
 - **BREAKING** Renamed server output `UTxO -> GetUTxOResponse`
   + This should be a better name for the response of `GetUTxO` client input on our API :)
 
-- Updated our dependencies (`plutus`, `cardano-ledger`, etc.) to most recent released versions making scripts smaller and Head transactions slighly cheaper already, see benchmarks for current limits.
+- Updated our dependencies (`plutus`, `cardano-ledger`, etc.) to most recent released versions making scripts smaller and Head transactions slightly cheaper already, see benchmarks for current limits.
 
 #### Fixed
 
@@ -1002,7 +1002,7 @@ changes.
 - Recipient addresses to send money to in the TUI are inferred from the current
   UTXO set. If a party does not commit a UTXO or consumes all its UTXO in a
   Head, it won't be able to send or receive anything anymore.
-- TUI crashes when user tries to post a new transaction wihout any UTXO
+- TUI crashes when user tries to post a new transaction without any UTXO
   remaining.
 - Not an issue, but a workaround: The internal wallet of `hydra-node` requires a
   UTXO to be marked as "fuel" to drive the Hydra protocol transactions.

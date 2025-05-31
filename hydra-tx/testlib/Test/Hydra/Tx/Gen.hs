@@ -96,7 +96,7 @@ genTxOutByron = do
   value <- genValue
   pure $ TxOut addr value TxOutDatumNone ReferenceScriptNone
 
--- | Generate an ada-only 'TxOut' payed to an arbitrary public key.
+-- | Generate an ada-only 'TxOut' paid to an arbitrary public key.
 genTxOutAdaOnly :: VerificationKey PaymentKey -> Gen (TxOut ctx)
 genTxOutAdaOnly vk = do
   value <- lovelaceToValue . Coin <$> scale (* 8) arbitrary `suchThat` (> 0)
@@ -140,7 +140,7 @@ genUTxOSized numUTxO =
  where
   gen = UTxO.singleton <$> arbitrary <*> genTxOut
 
--- | Genereate a 'UTxO' with a single entry using given 'TxOut' generator.
+-- | Generate a 'UTxO' with a single entry using given 'TxOut' generator.
 genUTxO1 :: Gen (TxOut CtxUTxO) -> Gen UTxO
 genUTxO1 gen = UTxO.singleton <$> arbitrary <*> gen
 

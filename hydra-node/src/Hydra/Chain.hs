@@ -174,18 +174,18 @@ data PostTxError tx
   | InvalidSeed {headSeed :: HeadSeed}
   | InvalidHeadId {headId :: HeadId}
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
-  | -- | Comitting byron addresses is not supported.
+  | -- | Committing byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
   | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
   | NotEnoughFuel {failingTx :: tx}
   | NoFuelUTXOFound {failingTx :: tx}
   | -- | Script execution failed when finalizing a transaction in the wallet.
-    -- XXX: Ideally we want a cardano-api type with corresonding JSON instance
+    -- XXX: Ideally we want a cardano-api type with corresponding JSON instance
     -- here. But the wallet still uses ledger types and we don't want to copy the
     -- conversion from ledger 'TransactionScriptFailure' to the cardano-api
     -- 'ScriptExecutionError' type.
     ScriptFailedInWallet {redeemerPtr :: Text, failureReason :: Text, failingTx :: tx}
-  | -- | A generic error happened when finalizing a transction in the wallet.
+  | -- | A generic error happened when finalizing a transaction in the wallet.
     InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, failingTx :: tx}
   | -- | An error occurred when submitting a transaction to the cardano-node.
     FailedToPostTx {failureReason :: Text, failingTx :: tx}

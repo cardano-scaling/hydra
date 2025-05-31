@@ -141,7 +141,7 @@ spec = do
       timeHandle <- pickBlind arbitrary
       let callback = \case
             Rollback{} -> failure "rolled back but expected roll forward."
-            PostTxError{} -> failure "Unxpected PostTxError event"
+            PostTxError{} -> failure "Unexpected PostTxError event"
             Tick{} -> pure ()
             Observation{observedTx} -> do
               let observedTransition =
@@ -187,9 +187,9 @@ spec = do
       timeHandle <- pickBlind arbitrary
       let callback = \case
             Rollback{} -> failure "rolled back but expected roll forward."
-            PostTxError{} -> failure "Unxpected PostTxError event"
+            PostTxError{} -> failure "Unexpected PostTxError event"
             Tick{} -> pure ()
-            Observation{observedTx} -> failure $ "Unxpected observation: " <> show observedTx
+            Observation{observedTx} -> failure $ "Unexpected observation: " <> show observedTx
 
       let handler =
             chainSyncHandler

@@ -105,7 +105,7 @@ headValidator oldState input ctx =
 --     head id are burnt, one PT for each party and a state token ST.
 --
 --   * All committed funds have been redistributed. This is done via v_commit
---     and it only needs to ensure that we have spent all comitted outputs,
+--     and it only needs to ensure that we have spent all committed outputs,
 --     which follows from burning all the PTs.
 checkAbort ::
   ScriptContext ->

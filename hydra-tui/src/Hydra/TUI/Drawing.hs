@@ -113,10 +113,10 @@ drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
   Connected c -> case c ^. headStateL of
     Idle -> ["[I]nit", "[Q]uit"]
     Active (ActiveLink{activeHeadState}) -> case activeHeadState of
-      Initializing{} -> ["[C]ommit", "[A]bort", "[Q]uit"]
-      Open{} -> ["[N]ew Transaction", "[D]ecommit", "[I]ncrement", "[R]ecover", "[C]lose", "[Q]uit"]
+      Initializing{} -> ["[C]omit", "[A]bort", "[Q]uit"]
+      Open{} -> ["[N]ew Transaction", "[D]ecommit", "[I]increment", "[R]ecover", "[C]lose", "[Q]uit"]
       Closed{} -> ["[Q]uit"]
-      FanoutPossible{} -> ["[F]anout", "[Q]uit"]
+      FanoutPossible{} -> ["[F]about", "[Q]uit"]
       Final{} -> ["[I]nit", "[Q]uit"]
 
 drawLogCommandList :: LogVerbosity -> Widget n

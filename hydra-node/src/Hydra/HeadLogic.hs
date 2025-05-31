@@ -9,7 +9,7 @@
 -- 'StateChanged' events, which in turn are 'aggregate'd into a single
 -- 'HeadState'.
 --
--- As the specification is using a more imperative way of specifying the protocl
+-- As the specification is using a more imperative way of specifying the protocol
 -- behavior, one would find the decision logic in 'update' while state updates
 -- can be found in the corresponding 'aggregate' branch.
 module Hydra.HeadLogic (
@@ -193,7 +193,7 @@ onInitialChainCommitTx ::
   InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
-  -- | Comitting party
+  -- | Committing party
   Party ->
   -- | Committed UTxO
   UTxOType tx ->
@@ -1183,7 +1183,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
   requireVerifiedSameSnapshot cont =
     if requestedSnapshot == currentSnapshot
       then cont
-      else Error . SideLoadSnapshotFailed $ SideLoadInitialSnapshotMissmatch
+      else Error . SideLoadSnapshotFailed $ SideLoadInitialSnapshotMismatch
 
   requireVerifiedSnapshotNumber cont =
     if requestedSn >= lastSeenSn
@@ -1240,7 +1240,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
                     }
               }
     | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
-        -- TODO: A more recent snapshot number was succesfully contested, we will
+        -- TODO: A more recent snapshot number was successfully contested, we will
         -- not be able to fanout! We might want to communicate that to the client!
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
     | otherwise ->
@@ -1295,7 +1295,7 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
   ClosedState{headId} = closedState
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
--- 'Effect's, in case it is processed succesfully. Later, the Node will
+-- 'Effect's, in case it is processed successfully. Later, the Node will
 -- 'aggregate' the events, resulting in a new 'HeadState'.
 update ::
   IsChainState tx =>

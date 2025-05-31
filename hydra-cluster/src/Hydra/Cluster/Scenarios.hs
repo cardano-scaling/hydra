@@ -1586,7 +1586,7 @@ canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
           guard $ v ^? key "tag" == Just "TxValid"
           guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
 
-        -- Carol does not because of its node being missconfigured
+        -- Carol does not because of its node being misconfigured
         waitMatch 3 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "TxInvalid"
           guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)

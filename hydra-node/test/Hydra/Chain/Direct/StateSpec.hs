@@ -218,7 +218,7 @@ spec = parallel $ do
     propIsValid forAllCommit
 
     -- XXX: This is testing observeCommitTx. Eventually we will get rid of the
-    -- state-ful layer anyways.
+    -- stateful layer anyways.
     it "only proper head is observed" $
       forAllCommit' $ \ctx st committedUtxo tx ->
         monadicIO $ do

@@ -78,4 +78,4 @@ hydra-tui \
   --node-socket "preview/node.socket"
 ```
 
-Now we should be able to `[i]nit`, `[c]ommit` & `[c]lose` a hydra head using the interactive terminal client.
+Now we should be able to `[i]nit`, `[c]omit` & `[c]lose` a hydra head using the interactive terminal client.

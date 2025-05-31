@@ -95,6 +95,6 @@ This will start a full-blown terminal interface loaded with signing keys corresp
 
 ## Use the head
 
-Using the terminal interface of any node, you can now `[i]nit` the Hydra head and `[c]ommit` pre-distributed funds to it. Note that these steps are near-instant as the devnet is producing blocks much faster than a public testnet or the mainnet. After committing from all nodes, the head will automatically open, and you can also use the `hydra-tui` or the API to create new transactions and submit them to the Hydra head.
+Using the terminal interface of any node, you can now `[i]nit` the Hydra head and `[c]omit` pre-distributed funds to it. Note that these steps are near-instant as the devnet is producing blocks much faster than a public testnet or the mainnet. After committing from all nodes, the head will automatically open, and you can also use the `hydra-tui` or the API to create new transactions and submit them to the Hydra head.
 
 ![](./open-head.png)

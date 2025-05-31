@@ -68,7 +68,7 @@ deriving stock instance Show (TxIdType tx) => Show (RequirementFailure tx)
 deriving anyclass instance ToJSON (TxIdType tx) => ToJSON (RequirementFailure tx)
 
 data SideLoadRequirementFailure tx
-  = SideLoadInitialSnapshotMissmatch
+  = SideLoadInitialSnapshotMismatch
   | SideLoadSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | SideLoadSvNumberInvalid {requestedSv :: SnapshotVersion, lastSeenSv :: SnapshotVersion}
   | SideLoadUTxOToCommitInvalid {requestedSc :: Maybe (UTxOType tx), lastSeenSc :: Maybe (UTxOType tx)}
