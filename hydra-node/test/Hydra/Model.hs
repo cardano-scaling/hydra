@@ -535,7 +535,7 @@ data RunException
 
 instance Exception RunException
 
--- | This type family is needed to link the _actual_ output from runnign actions
+-- | This type family is needed to link the _actual_ output from running actions
 -- with the ones that are modelled.
 --
 -- In our case we can keep things simple and use the same types on both side of

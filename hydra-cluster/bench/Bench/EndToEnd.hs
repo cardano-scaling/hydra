@@ -160,7 +160,7 @@ scenario hydraTracer node workDir Dataset{clientDatasets, title, description} no
       guard $ v ^? key "tag" == Just "HeadIsInitializing"
       v ^? key "headId" . _JSON
 
-  putTextLn "Comitting initialUTxO from dataset"
+  putTextLn "Committing initialUTxO from dataset"
   expectedUTxO <- commitUTxO node clients clientDatasets
 
   waitFor hydraTracer (fromIntegral $ 10 * clusterSize) clients $
@@ -337,7 +337,7 @@ seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, 
     seedFromFaucet node vk 100_000_000 tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
--- (asumed same sequence) of clients.
+-- (assumed same sequence) of clients.
 commitUTxO :: RunningNode -> [HydraClient] -> [ClientDataset] -> IO UTxO
 commitUTxO node clients clientDatasets =
   mconcat <$> forM (zip clients clientDatasets) doCommit

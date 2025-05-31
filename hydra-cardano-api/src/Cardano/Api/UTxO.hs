@@ -5,7 +5,7 @@
 --   cardano-api which is not convenient enough to work with. Having it as
 --   'Hydra.Cardano.Api.UTxO' causes cyclic imports with other modules also
 --   relying on this newtype. So instead, we do 'as if' it was part of the
---   cardano-api in the first palce.
+--   cardano-api in the first place.
 module Cardano.Api.UTxO where
 
 import Cardano.Api hiding (UTxO, toLedgerUTxO)

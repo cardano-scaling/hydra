@@ -89,7 +89,7 @@ withAPIServer ::
 withAPIServer config env party eventSource tracer chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
-    -- Intialize our read models from stored events
+    -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
     headStatusP <- mkProjection Idle projectHeadStatus
     snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo

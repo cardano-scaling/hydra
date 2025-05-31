@@ -152,7 +152,7 @@ data IncrementMutation
     DepositMutateDepositPeriod
   | -- | Alter the head id
     DepositMutateHeadId
-  | -- | Change parties in incrment output datum
+  | -- | Change parties in increment output datum
     IncrementMutateParties
   | -- | New version is incremented correctly
     IncrementUseDifferentSnapshotVersion

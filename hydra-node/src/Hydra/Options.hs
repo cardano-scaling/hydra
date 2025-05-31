@@ -162,7 +162,7 @@ data ChainBackendOptions
 
 data DirectOptions = DirectOptions
   { networkId :: NetworkId
-  -- ^ Network identifer to which we expect to connect.
+  -- ^ Network identifier to which we expect to connect.
   , nodeSocket :: SocketPath
   -- ^ Path to a domain socket used to connect to the server.
   }
@@ -879,7 +879,7 @@ depositPeriodParser =
 
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded
-  | CardanoAndHydraKeysMissmatch
+  | CardanoAndHydraKeysMismatch
   deriving stock (Eq, Show)
 
 -- | Validate cmd line arguments for hydra-node and check if they make sense before actually running the node.
@@ -896,7 +896,7 @@ validateRunOptions RunOptions{hydraVerificationKeys, chainConfig} =
       | max (length hydraVerificationKeys) (length cardanoVerificationKeys) + 1 > maximumNumberOfParties ->
           Left MaximumNumberOfPartiesExceeded
       | length cardanoVerificationKeys /= length hydraVerificationKeys ->
-          Left CardanoAndHydraKeysMissmatch
+          Left CardanoAndHydraKeysMismatch
       | otherwise -> Right ()
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
@@ -909,7 +909,7 @@ parseHydraCommandFromArgs = execParserPure defaultPrefs hydraNodeCommand
 
 -- | Convert an 'Options' instance into the corresponding list of command-line arguments.
 --
--- This is useful in situations where one wants to programatically define 'Options', providing
+-- This is useful in situations where one wants to programmatically define 'Options', providing
 -- some measure of type safety, without having to juggle with strings.
 toArgs :: RunOptions -> [String]
 toArgs
@@ -943,7 +943,7 @@ toArgs
       <> ["--hydra-signing-key", hydraSigningKey]
       <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
       <> concatMap toArgPeer peers
-      <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
+      <> maybe [] (\port -> ["--monitoring-port", show port]) monitoringPort
       <> ["--persistence-dir", persistenceDir]
       <> argsChainConfig chainConfig
       <> argsLedgerConfig

@@ -40,6 +40,6 @@ partyFromVerificationKeyBytes =
   UnsafeParty . toBuiltin
 
 -- | Get the verification key bytes contained from an on-chain 'Party'.
-partyToVerficationKeyBytes :: Party -> ByteString
-partyToVerficationKeyBytes (UnsafeParty bytes) =
+partyToVerificationKeyBytes :: Party -> ByteString
+partyToVerificationKeyBytes (UnsafeParty bytes) =
   fromBuiltin bytes

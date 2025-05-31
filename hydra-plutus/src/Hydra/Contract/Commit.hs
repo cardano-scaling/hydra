@@ -21,7 +21,7 @@ import PlutusTx (fromData, toData)
 import PlutusTx qualified
 import Prelude qualified as Haskell
 
--- | A data type representing comitted outputs on-chain. Besides recording the
+-- | A data type representing committed outputs on-chain. Besides recording the
 -- original 'TxOutRef', it also stores a binary representation compatible
 -- between on- and off-chain code to be hashed in the validators.
 data Commit = Commit

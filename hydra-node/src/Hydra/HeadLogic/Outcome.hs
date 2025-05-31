@@ -33,7 +33,7 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Test.QuickCheck (oneof)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
--- | Analogous to inputs, the pure head logic "core" can have effects emited to
+-- | Analogous to inputs, the pure head logic "core" can have effects emitted to
 -- the "shell" layers and we distinguish the same: effects onto the client, the
 -- network and the chain.
 data Effect tx

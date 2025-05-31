@@ -69,7 +69,7 @@ partyFromChain :: MonadFail m => OnChain.Party -> m Party
 partyFromChain =
   either (\e -> fail $ "partyFromChain failed: " <> show e) (pure . Party)
     . deserialiseFromRawBytes (AsVerificationKey AsHydraKey)
-    . OnChain.partyToVerficationKeyBytes
+    . OnChain.partyToVerificationKeyBytes
 
 -- | Type class to retrieve the 'Party' from some type.
 class HasParty a where

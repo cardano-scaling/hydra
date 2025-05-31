@@ -36,7 +36,7 @@ import Test.QuickCheck (recursivelyShrink)
 -- only this internal chain state gets replaced with the "rolled back to"
 -- version.
 --
--- TODO: chainState would actualy not be needed in the HeadState anymore as we
+-- TODO: chainState would actually not be needed in the HeadState anymore as we
 -- do not persist the 'HeadState' and not access it in the HeadLogic either.
 data HeadState tx
   = Idle (IdleState tx)

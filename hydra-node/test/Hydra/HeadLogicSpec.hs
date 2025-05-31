@@ -156,7 +156,7 @@ spec =
               tx3 = SimpleTx 3 (utxoRef 3) (utxoRef 4)
               s0 = inOpenState threeParties
 
-          -- XXX: this is hiding unxpected 'Error' outcomes
+          -- XXX: this is hiding unexpected 'Error' outcomes
           s <- runHeadLogic bobEnv ledger s0 $ do
             step $ receiveMessage $ ReqTx tx1
             step $ receiveMessage $ ReqTx tx2
@@ -505,7 +505,7 @@ spec =
           Error RequireFailed{} -> True
           _ -> False
 
-      it "rejects same version snapshot requests with differring decommit txs" $ do
+      it "rejects same version snapshot requests with differing decommit txs" $ do
         let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 3)
             decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 4)
             activeUTxO = utxoRefs [1, 2]
@@ -745,7 +745,7 @@ spec =
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
           let wrongInitialSnapshot = InitialSnapshot testHeadId (utxoRef 2)
           update bobEnv ledger s0 (ClientInput (SideLoadSnapshot wrongInitialSnapshot))
-            `shouldBe` Error (SideLoadSnapshotFailed SideLoadInitialSnapshotMissmatch)
+            `shouldBe` Error (SideLoadSnapshotFailed SideLoadInitialSnapshotMismatch)
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
 
         prop "ignores side load initial snapshot of another head" $ \otherHeadId -> do

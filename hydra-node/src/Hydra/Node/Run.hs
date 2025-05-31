@@ -63,7 +63,7 @@ instance Exception ConfigurationException where
   displayException = \case
     InvalidOptionException MaximumNumberOfPartiesExceeded ->
       "Maximum number of parties is currently set to: " <> show maximumNumberOfParties
-    InvalidOptionException CardanoAndHydraKeysMissmatch ->
+    InvalidOptionException CardanoAndHydraKeysMismatch ->
       "Number of loaded cardano and hydra keys needs to match"
     ConfigurationException err ->
       "Incorrect protocol parameters configuration provided: " <> show err

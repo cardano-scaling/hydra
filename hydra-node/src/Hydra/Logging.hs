@@ -80,7 +80,7 @@ defaultQueueSize :: Natural
 defaultQueueSize = 500
 
 -- | Start logging thread and acquire a 'Tracer'. This tracer will dump all
--- messsages on @stdout@, one message per line, formatted as JSON. This tracer
+-- messages on @stdout@, one message per line, formatted as JSON. This tracer
 -- is wrapping 'msg' into an 'Envelope' with metadata.
 withTracer ::
   forall m msg a.

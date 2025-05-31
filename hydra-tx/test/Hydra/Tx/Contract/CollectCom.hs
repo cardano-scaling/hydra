@@ -191,10 +191,10 @@ data CollectComMutation
   | MutateOpenVersion
   | -- | Ensures collectCom cannot collect from an initial UTxO.
     MutateCommitToInitial
-  | -- | Every party should have commited and been taken into account for the
+  | -- | Every party should have committed and been taken into account for the
     -- collectCom transaction to be valid. Here we increase the number of
     -- parties in input and output but keep the commits unchanged. This
-    -- simulates the situation where one participant would not have commited
+    -- simulates the situation where one participant would not have committed
     -- already or whose commit would have been ignored by the collectCom
     -- transaction.
     MutateNumberOfParties

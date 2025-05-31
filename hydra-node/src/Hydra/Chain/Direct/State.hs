@@ -1,7 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- | Contains the a state-ful interface to transaction construction and observation.
+-- | Contains the a stateful interface to transaction construction and observation.
 --
 -- It defines the 'ChainStateType tx' to be used in the 'Hydra.Chain.Direct'
 -- layer and it's constituents.

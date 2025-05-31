@@ -62,7 +62,7 @@ import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
 
--- | Intialize the 'Environment' from command line options.
+-- | Initialize the 'Environment' from command line options.
 initEnvironment :: RunOptions -> IO Environment
 initEnvironment options = do
   sk <- readFileTextEnvelopeThrow hydraSigningKey

@@ -407,7 +407,7 @@ In summary, the Hydra head participants exchanged and agreed on:
 
 ## Step 3. Start the Hydra node
 
-Scripts are pre-published for all [released](https://github.com/cardano-scaling/hydra/releases) HYDRA_VERSIONs of the `hydra-node` and common Cardano networks. Consult the [user manual](../docs/configuration#reference-scripts) for guidance on publishing your own scripts.
+Scripts are pre-published for all [released](https://github.com/cardano-scaling/hydra/releases) HYDRA_VERSIONNs of the `hydra-node` and common Cardano networks. Consult the [user manual](../docs/configuration#reference-scripts) for guidance on publishing your own scripts.
 
 Start the `hydra-node` using these parameters:
 

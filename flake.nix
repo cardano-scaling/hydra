@@ -122,6 +122,14 @@
               inherit tx-cost-diff;
             };
 
+          treefmt.programs.typos = {
+            enable = true;
+            includes = [
+              "*.md"
+              "*.hs"
+              "*.cabal"
+            ];
+          };
           coding.standards.hydra = {
             enable = true;
             haskellPackages = with hsPkgs; builtins.concatMap allComponents [

@@ -33,7 +33,7 @@
 --   Time 380.1s - ThreadId [4]  node-94455e3e - EventThrow AsyncCancelled
 --   Time 380.1s - ThreadId [4]  node-94455e3e - EventMask MaskedInterruptible
 --   Time 380.1s - ThreadId [4]  node-94455e3e - EventMask MaskedInterruptible
---   Time 380.1s - ThreadId [4]  node-94455e3e - EventDeschedule Interruptable
+--   Time 380.1s - ThreadId [4]  node-94455e3e - EventDeschedule Interruptible
 --   Time 380.1s - ThreadId [4]  node-94455e3e - EventTxCommitted [Labelled (TVarId 25) (Just "async-ThreadId [4]")] [] Nothing
 --   Time 380.1s - ThreadId []   main          - EventTxWakeup [Labelled (TVarId 25) (Just "async-ThreadId [4]")]
 --   Time 380.1s - ThreadId [4]  node-94455e3e - EventUnblocked [ThreadId []]

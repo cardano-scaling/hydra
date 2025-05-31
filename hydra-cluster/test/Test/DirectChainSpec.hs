@@ -193,7 +193,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 alicePostTx $ InitTx{participants = aliceParticipants, headParameters}
                 void $ aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters aliceParticipants
 
-                -- Expect bob's chain layer to see the init of alice and carols exlusive head
+                -- Expect bob's chain layer to see the init of alice and carols exclusive head
                 headSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith headParameters aliceParticipants
                 -- headSeed2 <- generate arbitrary
 

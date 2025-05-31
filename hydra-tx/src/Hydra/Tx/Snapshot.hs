@@ -146,7 +146,7 @@ data ConfirmedSnapshot tx
 --
 -- NOTE: While we could use 'snapshot' directly, this is a record-field accessor
 -- which may become partial (and lead to unnoticed runtime errors) if we ever
--- add a new branch to the sumtype. So, we explicitely define a getter which
+-- add a new branch to the sumtype. So, we explicitly define a getter which
 -- will force us into thinking about changing the signature properly if this
 -- happens.
 getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
