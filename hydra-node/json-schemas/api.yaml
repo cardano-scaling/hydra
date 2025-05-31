@@ -117,6 +117,34 @@ channels:
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
+  
+  /head:
+    servers:
+      - localhost-http
+    publish:
+      description: Get latest head state.
+      operationId: getHeadState
+      message:
+        payload:
+          type: "null"
+      bindings:
+        http:
+          type: request
+          method: GET
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: headStateResponse
+      description: |
+        Possible responses of this endpoint are:
+          * 200 OK
+      message:
+        payload:
+          $ref: "api.yaml#/components/schemas/HeadState"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
 
   /commit:
     servers:
@@ -3022,7 +3050,7 @@ components:
         - parameters
         - confirmedSnapshot
         - contestationDeadline
-        - readyToFanoutSent
+        - readyToFanout
         - chainState
         - headId
         - headSeed
@@ -3034,7 +3062,7 @@ components:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         contestationDeadline:
           $ref: "api.yaml#/components/schemas/UTCTime"
-        readyToFanoutSent:
+        readyToFanout:
           type: boolean
         chainState:
           $ref: "api.yaml#/components/schemas/ChainState"

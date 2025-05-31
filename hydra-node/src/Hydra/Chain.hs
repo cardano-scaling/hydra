@@ -250,7 +250,9 @@ instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
 
 -- | Handle to interface with the main chain network
 data Chain tx m = Chain
-  { postTx :: MonadThrow m => PostChainTx tx -> m ()
+  { mkChainState :: ChainStateType tx
+  -- ^ Provide an initial chain state that may be evolved through 'ChainEvent'.
+  , postTx :: MonadThrow m => PostChainTx tx -> m ()
   -- ^ Construct and send a transaction to the main chain corresponding to the
   -- given 'PostChainTx' description.
   -- This function is not expected to block, so it is only responsible for

@@ -53,6 +53,7 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   increment,
+  initialChainState,
   initialize,
   recover,
  )
@@ -158,7 +159,8 @@ mkChain ::
   Chain Tx m
 mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
-    { postTx = \tx -> do
+    { mkChainState = initialChainState
+    , postTx = \tx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle

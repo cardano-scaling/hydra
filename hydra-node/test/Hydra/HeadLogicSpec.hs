@@ -1127,7 +1127,7 @@ inClosedState' parties confirmedSnapshot =
       { parameters
       , confirmedSnapshot
       , contestationDeadline
-      , readyToFanoutSent = False
+      , readyToFanout = False
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
       , headSeed = testHeadSeed

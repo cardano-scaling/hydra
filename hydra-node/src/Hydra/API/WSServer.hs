@@ -19,12 +19,13 @@ import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
   ClientMessage,
   Greetings (..),
-  HeadStatus,
+  HeadStatus (..),
   InvalidInput (..),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithAddressedTx (..),
   WithUTxO (..),
+  getSnapshotUtxo,
   handleUtxoInclusion,
   headStatus,
   me,
@@ -39,10 +40,11 @@ import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic (StateChanged)
+import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanout), HeadState, StateChanged)
+import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options qualified as Options
-import Hydra.Tx (Party, UTxOType)
+import Hydra.Tx (Party)
 import Hydra.Tx.HeadId (HeadId (..))
 import Network.WebSockets (
   PendingConnection (pendingRequest),
@@ -63,16 +65,14 @@ wsApp ::
   ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
-  Projection STM.STM (StateChanged tx) HeadStatus ->
+  Projection STM.STM (StateChanged tx) (HeadState tx) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadId'.
   Projection STM.STM (StateChanged tx) (Maybe HeadId) ->
-  -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
-  Projection STM.STM (StateChanged tx) (Maybe (UTxOType tx)) ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp party tracer history callback headStateP headIdP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -94,23 +94,21 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
   forwardGreetingOnly config con = do
-    headStatus <- atomically getLatestHeadStatus
+    headState <- atomically getLatest
     hydraHeadId <- atomically getLatestHeadId
-    snapshotUtxo <- atomically getLatestSnapshotUtxo
     sendTextData con $
       handleUtxoInclusion config (atKey "snapshotUtxo" .~ Nothing) $
         Aeson.encode
           Greetings
             { me = party
-            , headStatus
+            , headStatus = getHeadStatus headState
             , hydraHeadId
-            , snapshotUtxo
+            , snapshotUtxo = getSnapshotUtxo headState
             , hydraNodeVersion = showVersion Options.hydraNodeVersion
             }
 
-  Projection{getLatest = getLatestHeadStatus} = headStatusP
+  Projection{getLatest} = headStateP
   Projection{getLatest = getLatestHeadId} = headIdP
-  Projection{getLatest = getLatestSnapshotUtxo} = snapshotUtxoP
 
   mkServerOutputConfig qp =
     ServerOutputConfig
@@ -177,3 +175,13 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
       case addressInTx of
         WithAddressedTx addr -> txContainsAddr tx addr
         WithoutAddressedTx -> True
+
+-- | Get the content of 'headStatus' field in 'Greetings' message from the full 'HeadState'.
+getHeadStatus :: HeadState tx -> HeadStatus
+getHeadStatus = \case
+  HeadState.Idle{} -> Idle
+  HeadState.Initial{} -> Initializing
+  HeadState.Open{} -> Open
+  HeadState.Closed ClosedState{readyToFanout}
+    | readyToFanout -> FanoutPossible
+    | otherwise -> Closed
