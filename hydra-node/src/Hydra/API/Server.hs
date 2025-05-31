@@ -133,7 +133,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                   chain
                   env
                   pparams
-                  (getLatest headStateP)
+                  (atomically $ getLatest headStateP)
                   (atomically $ getLatest commitInfoP)
                   (atomically $ getLatest pendingDepositsP)
                   callback

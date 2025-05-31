@@ -150,7 +150,7 @@ httpApp ::
   Environment ->
   PParams LedgerEra ->
   -- | Get latest 'HeadState'.
-  STM IO (HeadState tx) ->
+  IO (HeadState tx) ->
   -- | A means to get commit info.
   IO CommitInfo ->
   -- | Get the pending commits (deposits)
@@ -166,19 +166,19 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
       }
   case (requestMethod request, pathInfo request) of
     ("GET", ["head"]) ->
-      atomically getHeadState >>= respond . okJSON
+      getHeadState >>= respond . okJSON
     ("GET", ["snapshot"]) -> do
-      hs <- atomically getHeadState
+      hs <- getHeadState
       case getConfirmedSnapshot hs of
         Just confirmedSnapshot -> respond $ okJSON confirmedSnapshot
         Nothing -> respond notFound
     ("GET", ["snapshot", "utxo"]) -> do
-      hs <- atomically getHeadState
+      hs <- getHeadState
       case getSnapshotUtxo hs of
         Just utxo -> respond $ okJSON utxo
         _ -> respond notFound
     ("GET", ["snapshot", "last-seen"]) -> do
-      hs <- atomically getHeadState
+      hs <- getHeadState
       respond . okJSON $ getSeenSnapshot hs
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
