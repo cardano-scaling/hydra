@@ -163,8 +163,7 @@
       run-tmux = pkgs.writers.writePython3Bin
         "run-tmux"
         { libraries = with pkgs.python3Packages; [ libtmux pyyaml ]; }
-        # TODO: should use project relative path (via flake inputs.self?)
-        (builtins.readFile ./../../demo/run-tmux.py);
+        (builtins.readFile "${self}/demo/run-tmux.py");
     in
     {
       devShells = {
