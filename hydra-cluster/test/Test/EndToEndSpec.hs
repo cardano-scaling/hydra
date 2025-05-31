@@ -20,9 +20,11 @@ import CardanoNode (
   withCardanoNodeDevnet,
  )
 import Control.Lens ((^..), (^?))
+import Control.Monad (foldM_)
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
+import Data.Aeson.Types (parseMaybe)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -87,6 +89,7 @@ import HydraNode (
   getSnapshotUTxO,
   input,
   output,
+  prepareHydraNode,
   requestCommitTx,
   send,
   waitFor,
@@ -95,6 +98,7 @@ import HydraNode (
   waitMatch,
   withHydraCluster,
   withHydraNode,
+  withPreparedHydraNode,
  )
 import System.Directory (removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
@@ -157,6 +161,57 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           send node $ input "NewTx" ["transaction" .= bobToAlice]
           waitMatch 10 node $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+
+    it "rotates persistence on start up" $ \tracer -> do
+      withClusterTempDir $ \tmpDir -> do
+        (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+        initialUTxO <- generate $ genUTxOFor aliceCardanoVk
+        Aeson.encodeFile (tmpDir </> "utxo.json") initialUTxO
+        let offlineConfig =
+              Offline
+                OfflineChainConfig
+                  { offlineHeadSeed = "test"
+                  , initialUTxOFile = tmpDir </> "utxo.json"
+                  , ledgerGenesisFile = Nothing
+                  }
+        -- Start a hydra-node in offline mode and submit several self-txs
+        withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] [] $ \node -> do
+          foldM_
+            ( \utxo i -> do
+                let Just (aliceTxIn, aliceTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) utxo
+                let Right selfTx =
+                      mkSimpleTx
+                        (aliceTxIn, aliceTxOut)
+                        (mkVkAddress testNetworkId aliceCardanoVk, txOutValue aliceTxOut)
+                        aliceCardanoSk
+                send node $ input "NewTx" ["transaction" .= selfTx]
+                waitMatch 10 node $ \v -> do
+                  guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+                  guard $ v ^? key "snapshot" . key "number" == Just (toJSON (i :: Integer))
+                  v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
+            )
+            initialUTxO
+            [1 .. (200 :: Integer)]
+
+        -- Measure restart time
+        t0 <- getCurrentTime
+        diff1 <- withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] [] $ \_ -> do
+          t1 <- getCurrentTime
+          let diff = diffUTCTime t1 t0
+          pure diff
+
+        -- Measure restart after rotation
+        options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] [] id
+        let options' = options{persistenceRotateAfter = Just 10}
+        t1 <- getCurrentTime
+        diff2 <- withPreparedHydraNode (contramap FromHydraNode tracer) tmpDir 1 options' $ \_ -> do
+          t2 <- getCurrentTime
+          let diff = diffUTCTime t2 t1
+          pure diff
+
+        unless (diff2 < diff1 * 0.9) $
+          failure $
+            "Expected to start up 10% quicker than original " <> show diff1 <> ", but it took " <> show diff2
 
     it "supports multi-party networked heads" $ \tracer -> do
       withClusterTempDir $ \tmpDir -> do

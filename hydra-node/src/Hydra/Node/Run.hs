@@ -22,7 +22,9 @@ import Hydra.Chain.Cardano (withCardanoChain)
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
+import Hydra.Events.FileBased (mkFileBasedEventStore)
+import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), mkAggregator, mkCheckpointer, newRotatedEventStore)
+import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -79,17 +81,15 @@ run opts = do
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
-        incPersistence <- createPersistenceIncremental (persistenceDir <> "/state")
         -- Hydrate with event source and sinks
-        (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incPersistence
-        -- NOTE: Add any custom sink setup code here
-        -- customSink <- createCustomSink
-        let eventSinks =
-              [ filePersistenceSink
-              -- NOTE: Add any custom sinks here
-              -- , customSink
-              ]
-        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventSource eventSinks
+        let stateDir = persistenceDir <> "/state"
+        eventStore@EventStore{eventSource} <-
+          prepareEventStore
+            =<< mkFileBasedEventStore stateDir
+            =<< createPersistenceIncremental stateDir
+        -- NOTE: Add any custom sinks here
+        let eventSinks = []
+        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
@@ -128,10 +128,19 @@ run opts = do
     Offline cfg -> pure $ withOfflineChain cfg party otherParties
     Cardano cfg -> pure $ withCardanoChain (contramap DirectChain tracer) cfg party
 
+  prepareEventStore eventStore = do
+    case RotateAfter <$> persistenceRotateAfter of
+      Nothing ->
+        pure eventStore
+      Just rotationConfig -> do
+        let initialState = Idle IdleState{chainState = initialChainState}
+        newRotatedEventStore rotationConfig initialState mkAggregator mkCheckpointer eventStore
+
   RunOptions
     { verbosity
     , monitoringPort
     , persistenceDir
+    , persistenceRotateAfter
     , chainConfig
     , ledgerConfig
     , listen
