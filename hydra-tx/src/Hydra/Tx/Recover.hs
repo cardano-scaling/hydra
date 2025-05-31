@@ -48,6 +48,7 @@ data RecoverObservation = RecoverObservation
   , recoveredUTxO :: UTxO
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 observeRecoverTx ::
   NetworkId ->

@@ -58,7 +58,7 @@ spec = do
         getEvents source `shouldReturn` [123, 456 :: EventId]
 
     it "supports multiple instances" $ \bucketName ->
-      finally (cleanup bucketName) $ do
+      bracket_ (pure ()) (cleanup bucketName) $ do
         (source1, sink1) <- newS3EventStore bucketName
         (source2, sink2) <- newS3EventStore bucketName
         putEvent sink1 123

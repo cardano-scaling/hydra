@@ -22,8 +22,7 @@ import Hydra.Tx (
   mkHeadId,
   registryUTxO,
  )
-import Hydra.Tx.Close (closeTx)
-import Hydra.Tx.CollectCom (OpenThreadOutput (..))
+import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
   healthyCloseUpperBoundPointInTime,

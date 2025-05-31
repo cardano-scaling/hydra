@@ -32,13 +32,12 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)
-import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..))
+import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..), mkHeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
-import System.IO.Unsafe (unsafePerformIO)
 
 -- | Our beloved alice, bob, and carol.
 alice, bob, carol :: Party
@@ -54,14 +53,11 @@ bobSk = generateSigningKey "bob"
 carolSk = generateSigningKey "zcarol"
 
 testHeadId :: HeadId
-testHeadId = UnsafeHeadId "1234"
+testHeadId = mkHeadId testPolicyId
 
+-- XXX: DRY with testSeedInput
 testHeadSeed :: HeadSeed
 testHeadSeed = UnsafeHeadSeed "000000000000000000#0"
-
-depositDeadline :: UTCTime
-depositDeadline = unsafePerformIO getCurrentTime
-{-# NOINLINE depositDeadline #-}
 
 -- | Derive some 'OnChainId' from a Hydra party. In the real protocol this is
 -- currently not done, but in this simulated chain setting this is definitely

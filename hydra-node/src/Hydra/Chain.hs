@@ -126,8 +126,9 @@ data OnChainTx tx
   | OnCollectComTx {headId :: HeadId}
   | OnDepositTx
       { headId :: HeadId
-      , deposited :: UTxOType tx
       , depositTxId :: TxIdType tx
+      , deposited :: UTxOType tx
+      , created :: UTCTime
       , deadline :: UTCTime
       }
   | OnRecoverTx
@@ -161,12 +162,9 @@ data OnChainTx tx
 deriving stock instance IsTx tx => Eq (OnChainTx tx)
 deriving stock instance IsTx tx => Show (OnChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
-deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
 instance ArbitraryIsTx tx => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
-
-instance ArbitraryIsTx tx => ToADTArbitrary (OnChainTx tx)
 
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
@@ -198,7 +196,7 @@ data PostTxError tx
   | FailedToConstructCloseTx
   | FailedToConstructContestTx
   | FailedToConstructCollectTx
-  | FailedToConstructDepositTx
+  | FailedToConstructDepositTx {failureReason :: Text}
   | FailedToConstructRecoverTx {failureReason :: Text}
   | FailedToConstructIncrementTx {failureReason :: Text}
   | FailedToConstructDecrementTx {failureReason :: Text}
