@@ -2,7 +2,7 @@
 # environment. The main shell environment is based on haskell.nix and uses the
 # same nixpkgs as the default nix builds (see default.nix).
 
-{ inputs, ... }: {
+{ inputs, self, ... }: {
 
   perSystem = { pkgs, hsPkgs, compiler, self', ... }:
 
