@@ -1,9 +1,5 @@
 { inputs, ... }: {
 
-  imports = [
-    inputs.process-compose-flake.flakeModule
-  ];
-
   perSystem = { pkgs, hsPkgs, config, lib, system, ... }:
     let
       compiler = "ghc966";

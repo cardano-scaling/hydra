@@ -1,7 +1,5 @@
 { inputs, ... }: {
-  imports = [
-    inputs.hydra-coding-standards.flakeModule
-  ];
+
   perSystem = { pkgs, hsPkgs, config, lib, system, ... }:
     let
       allComponents = x:
