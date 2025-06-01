@@ -8,7 +8,7 @@
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.4";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
-    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.5.0";
+    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.6.0";
     hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     lint-utils = {
@@ -36,7 +36,7 @@
         "aarch64-darwin"
         "aarch64-linux"
       ];
-      perSystem = { pkgs, config, lib, system, ... }:
+      perSystem = { config, lib, system, ... }:
         let
           compiler = "ghc966";
 
@@ -59,20 +59,20 @@
               (import ./nix/static-libs.nix)
               inputs.nix-npm-buildpackage.overlays.default
               # Specific versions of tools we require
-              (final: prev: {
+              (final: _prev: {
                 inherit (inputs.aiken.packages.${system}) aiken;
-                apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.15.0.0";
-                cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
-                cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.5.0";
+                apply-refact = final.haskell-nix.tool compiler "apply-refact" "0.15.0.0";
+                cabal-install = final.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
+                cabal-plan = final.haskell-nix.tool compiler "cabal-plan" "0.7.5.0";
                 cabal-fmt = config.treefmt.programs.cabal-fmt.package;
                 fourmolu = config.treefmt.programs.fourmolu.package;
-                haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" "2.9.0.0";
-                weeder = pkgs.haskell-nix.tool compiler "weeder" "2.9.0";
+                haskell-language-server = final.haskell-nix.tool compiler "haskell-language-server" "2.9.0.0";
+                weeder = final.haskell-nix.tool compiler "weeder" "2.9.0";
                 inherit (inputs.cardano-node.packages.${system}) cardano-cli;
                 inherit (inputs.cardano-node.packages.${system}) cardano-node;
                 inherit (inputs.mithril.packages.${system}) mithril-client-cli;
                 mithril-client-cli-unstable =
-                  pkgs.writeShellScriptBin "mithril-client-unstable" ''
+                  final.writeShellScriptBin "mithril-client-unstable" ''
                     exec ${inputs.mithril-unstable.packages.${system}.mithril-client-cli}/bin/mithril-client "$@"
                   '';
               })
@@ -92,9 +92,6 @@
           };
 
           tx-cost-diff =
-            let
-              pyEnv = pkgs.python3.withPackages (ps: with ps; [ pandas html5lib beautifulsoup4 tabulate ]);
-            in
             pkgs.writers.writeHaskellBin
               "tx-cost-diff"
               {
@@ -122,14 +119,6 @@
               inherit tx-cost-diff;
             };
 
-          treefmt.programs.typos = {
-            enable = true;
-            includes = [
-              "*.md"
-              "*.hs"
-              "*.cabal"
-            ];
-          };
           coding.standards.hydra = {
             enable = true;
             haskellPackages = with hsPkgs; builtins.concatMap allComponents [

@@ -1,5 +1,5 @@
 # A demo using process-compose
-{ inputs, self, ... }:
+{ self, ... }:
 {
 
   perSystem = { pkgs, self', ... }:

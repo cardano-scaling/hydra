@@ -1548,16 +1548,16 @@
         "werrorwolf": "werrorwolf"
       },
       "locked": {
-        "lastModified": 1748542676,
-        "narHash": "sha256-XD006KdRZYdtKY32pBleVnmcBXmwuYEHKZoLuyCCCqk=",
+        "lastModified": 1748769822,
+        "narHash": "sha256-pZrE965wjDfKxU/MU5r7Vk9GDSd5w+exeYXRzOeta08=",
         "owner": "cardano-scaling",
         "repo": "hydra-coding-standards",
-        "rev": "73da02a050b2ae6a85940a901043bc07d41cb70e",
+        "rev": "e34955ec6d0c0b4e0d4ec976a1117760cc3b0bbb",
         "type": "github"
       },
       "original": {
         "owner": "cardano-scaling",
-        "ref": "0.5.0",
+        "ref": "0.6.0",
         "repo": "hydra-coding-standards",
         "type": "github"
       }

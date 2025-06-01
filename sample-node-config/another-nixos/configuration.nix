@@ -1,5 +1,4 @@
-{ config
-, pkgs
+{ pkgs
 , lib
 , system
 , cardano-node
