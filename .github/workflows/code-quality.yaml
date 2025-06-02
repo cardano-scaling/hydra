@@ -10,6 +10,14 @@ jobs:
     name: Check Code Quality
     runs-on: ubuntu-latest
     steps:
+    - name: Reclaim the bytes
+      uses: data-intuitive/reclaim-the-bytes@v2
+      with:
+        # NOTE: Remove more when needed, but these take also time
+        # See https://github.com/marketplace/actions/reclaim-the-bytes
+        remove-android-sdk: false
+        remove-docker-images: false
+
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
@@ -21,10 +29,6 @@ jobs:
     - name: 📐 Check treefmt
       run: |
         nix build .#checks.x86_64-linux.treefmt
-
-    - name: 📐 Check hlint
-      run: |
-        nix build .#checks.x86_64-linux.hlint
 
     - name: 📐 Check weeder
       run: |

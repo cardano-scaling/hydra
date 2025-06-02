@@ -42,8 +42,6 @@ import Hydra.Cluster.Scenarios (
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Tx (HeadId, IsTx (..))
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
@@ -260,10 +258,9 @@ scenarioSetup tracer tmpDir action = do
 
     let firstNodeId = 1
     hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-    let contestationPeriod = UnsafeContestationPeriod 2
-    let depositDeadline = UnsafeDepositDeadline 200
+    let contestationPeriod = 2
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \nodes -> do
+    withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
@@ -321,7 +318,7 @@ prepareScenario node nodes tracer = do
 -- NOTE: this is partial and will fail if we are not able to generate a payment
 sendTx :: NonEmpty HydraClient -> UTxO' (TxOut CtxUTxO) -> SigningKey PaymentKey -> VerificationKey PaymentKey -> Lovelace -> IO Tx
 sendTx nodes senderUTxO sender receiver amount = do
-  let utxo = Prelude.head $ UTxO.pairs senderUTxO
+  let utxo = Prelude.head $ UTxO.toList senderUTxO
   let Right tx =
         mkSimpleTx
           utxo

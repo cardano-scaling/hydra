@@ -12,21 +12,10 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.md for information about when and how to update these.
 index-state:
-  , hackage.haskell.org 2025-04-22T10:01:33Z
-  , cardano-haskell-packages 2025-04-22T10:01:33Z
+  , hackage.haskell.org 2025-05-27T12:29:12Z
+  , cardano-haskell-packages 2025-05-28T12:02:33Z
 
-packages:
-  hydra-prelude
-  hydra-cardano-api
-  hydra-test-utils
-  hydra-plutus-extras
-  hydra-plutus
-  hydra-node
-  hydra-cluster
-  hydra-tx
-  hydra-tui
-  hydraw
-  hydra-chain-observer
+packages: **/*.cabal
 
 -- Compile more things in parallel
 package *
@@ -42,21 +31,20 @@ test-show-details: direct
 program-options
   ghc-options: -fwrite-ide-info
 
-allow-newer:
-  -- Grapesy requires network >= 3.2 and the ouroboros packages used upstream
-  -- are restricting this upper bound, but updating seemed fine.
-  network-mux:network
-  , ouroboros-network:network
-  , ouroboros-network-api:network
-  , ouroboros-network-framework:network
-  , ouroboros-network-protocols:network
-
 source-repository-package
   type: git
   location: https://github.com/cardano-scaling/plutus
-  tag: bdc9b541023906674fe54015638fc9cb2aa4a83b
-  --sha256: sha256-ibg4jC+YpsYz/753+89VkU3dc3adrjTHrqaBtl2301M=
+  tag: 3566252d9b7378d2d3bc3e4ea537ba6ec2f76fc9
+  --sha256: sha256-+64+LJlsJQkka54tlao8hzLGTGZqanwTtoSDAqPnou8=
   subdir:
     plutus-core
+    plutus-ledger-api
+    plutus-metatheory
     plutus-tx
     plutus-tx-plugin
+
+allow-newer: plutus-core
+allow-newer: plutus-ledger-api
+allow-newer: plutus-metatheory
+allow-newer: plutus-tx-plugin
+allow-newer: plutus-tx

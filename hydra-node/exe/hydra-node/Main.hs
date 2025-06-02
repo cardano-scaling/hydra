@@ -9,12 +9,13 @@ import Control.Exception (AsyncException (UserInterrupt), throwTo)
 import Data.ByteString (intercalate)
 import GHC.Weak (deRefWeak)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
-import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (ChainBackend (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand)
+import Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand)
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
 
@@ -31,13 +32,13 @@ main = do
     GenHydraKey outputFile ->
       either (die . show) pure =<< genHydraKeys outputFile
  where
-  publish PublishOptions{chainBackend, publishSigningKey} = do
+  publish PublishOptions{chainBackendOptions, publishSigningKey} = do
     (_, sk) <- readKeyPair publishSigningKey
-    txIds <- case chainBackend of
-      DirectBackend{publishNetworkId, publishNodeSocket} ->
-        publishHydraScripts publishNetworkId publishNodeSocket sk
-      BlockfrostBackend{projectPath} ->
-        Blockfrost.publishHydraScripts projectPath sk
+    txIds <- case chainBackendOptions of
+      Direct directOptions ->
+        publishHydraScripts (DirectBackend directOptions) sk
+      Blockfrost blockfrostOptions ->
+        publishHydraScripts (BlockfrostBackend blockfrostOptions) sk
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Handle SIGTERM like SIGINT

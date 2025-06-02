@@ -48,7 +48,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef]
+      & addTxInsReference [headScriptRef] mempty
       & addTxOuts [headOutputAfter]
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)

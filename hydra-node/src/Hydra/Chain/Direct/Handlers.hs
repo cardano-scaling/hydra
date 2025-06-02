@@ -4,7 +4,7 @@
 -- | Provide infrastructure-independent "handlers" for posting transactions and following the chain.
 --
 -- This module encapsulates the transformation logic between cardano transactions and `HydraNode` abstractions
--- `PostChainTx` and `OnChainTx`, and maintainance of on-chain relevant state.
+-- `PostChainTx` and `OnChainTx`, and maintenance of on-chain relevant state.
 module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
@@ -148,7 +148,7 @@ type GetTimeHandle m = m TimeHandle
 -- for simulations and testing.
 mkChain ::
   (MonadSTM m, MonadThrow (STM m)) =>
-  Tracer m DirectChainLog ->
+  Tracer m CardanoChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
   TinyWallet m ->
@@ -199,14 +199,15 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
   let headUTxO = getKnownUTxO ctx <> utxo <> userUTxO
   coverFee headUTxO partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
-      throwIO (NoFuelUTXOFound :: PostTxError Tx)
+      throwIO NoFuelUTXOFound{failingTx = partialTx}
     Left ErrNotEnoughFunds{} ->
-      throwIO (NotEnoughFuel :: PostTxError Tx)
+      throwIO NotEnoughFuel{failingTx = partialTx}
     Left ErrScriptExecutionFailed{redeemerPointer, scriptFailure} ->
       throwIO
         ( ScriptFailedInWallet
             { redeemerPtr = redeemerPointer
             , failureReason = scriptFailure
+            , failingTx = partialTx
             } ::
             PostTxError Tx
         )
@@ -215,7 +216,7 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
         ( InternalWalletError
             { headUTxO
             , reason = show e
-            , tx = partialTx
+            , failingTx = partialTx
             } ::
             PostTxError Tx
         )
@@ -254,7 +255,7 @@ chainSyncHandler ::
   forall m.
   (MonadSTM m, MonadThrow m) =>
   -- | Tracer for logging
-  Tracer m DirectChainLog ->
+  Tracer m CardanoChainLog ->
   ChainCallback Tx m ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
@@ -452,7 +453,7 @@ maxGraceTime = 200
 -- Tracing
 --
 
-data DirectChainLog
+data CardanoChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {txId :: TxId}
   | PostedTx {txId :: TxId}
@@ -462,7 +463,3 @@ data DirectChainLog
   | Wallet TinyWalletLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
-
-instance Arbitrary DirectChainLog where
-  arbitrary = genericArbitrary
-  shrink = genericShrink

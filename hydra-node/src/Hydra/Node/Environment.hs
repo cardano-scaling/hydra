@@ -1,12 +1,13 @@
-module Hydra.Tx.Environment where
+module Hydra.Node.Environment where
 
 import Hydra.Prelude
 
+import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey, SigningKey)
-import Hydra.Tx.DepositDeadline (DepositDeadline)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Party (HasParty (..), Party, deriveParty)
+import Hydra.Tx.Party (HasParty (..), Party)
 
 data Environment = Environment
   { party :: Party
@@ -18,26 +19,18 @@ data Environment = Environment
   , -- XXX: Improve naming
     participants :: [OnChainId]
   , contestationPeriod :: ContestationPeriod
-  , depositDeadline :: DepositDeadline
+  , depositPeriod :: DepositPeriod
   }
-  deriving stock (Show, Eq)
+  deriving stock (Generic, Show, Eq)
 
 instance Arbitrary Environment where
-  arbitrary = do
-    signingKey <- arbitrary
-    otherParties <- arbitrary
-    participants <- arbitrary
-    contestationPeriod <- arbitrary
-    depositDeadline <- arbitrary
-    pure $
-      Environment
-        { signingKey
-        , party = deriveParty signingKey
-        , otherParties
-        , contestationPeriod
-        , participants
-        , depositDeadline
-        }
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 instance HasParty Environment where
   getParty = party
+
+-- | Make 'HeadParameters' that are consistent with the given 'Environment'.
+mkHeadParameters :: Environment -> HeadParameters
+mkHeadParameters Environment{party, otherParties, contestationPeriod} =
+  HeadParameters{contestationPeriod, parties = party : otherParties}

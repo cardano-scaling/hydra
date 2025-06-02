@@ -57,13 +57,14 @@ Accepted
 
 - Using `etcd` as-is adds a run-time dependency onto that binary.
   - Docker image users should not see any different UX
+  - We can ship the binary through `hydra-node`.
 
-- Introspectability network as the `etcd` cluster is queriable could improve debugging experience
+- Introspectability network as the `etcd` cluster is queryable could improve debugging experience
 
 - Persisted state for networking changes as there will be no `acks`, but the `etcd` Write Ahead Log (WAL) and a last seen revision.
 
 - Can keep same user experience on configuration
-  - Full, static topology with listing everone as `--peer`
+  - Full, static topology with listing everyone as `--peer`
   - Simpler configuration via [peer discovery](https://etcd.io/docs/v3.5/op-guide/clustering/#discovery) possible
 
 - `PeerConnected` semantics needs to change to an overall `HydraNetworkConnected`

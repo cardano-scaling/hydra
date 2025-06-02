@@ -58,7 +58,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
@@ -100,26 +100,13 @@ evaluateTx' ::
   Either EvaluationError EvaluationReport
 evaluateTx' maxUnits tx utxo = do
   let pparams' = pparams & ppMaxTxExUnitsL .~ toLedgerExUnits maxUnits
-  case result (LedgerProtocolParameters pparams') of
-    Left txValidityError -> Left $ TransactionInvalid txValidityError
-    Right report
-      -- Check overall budget when all individual scripts evaluated
-      | all isRight report -> checkBudget maxUnits report
-      | otherwise -> Right report
+  let report = result $ LedgerProtocolParameters pparams'
+  if all isRight report
+    then checkBudget maxUnits report
+    else Right report
  where
-  result ::
-    LedgerProtocolParameters UTxO.Era ->
-    Either
-      (TransactionValidityError UTxO.Era)
-      ( Map
-          ScriptWitnessIndex
-          ( Either
-              ScriptExecutionError
-              ExecutionUnits
-          )
-      )
   result pparams' =
-    (fmap . fmap . fmap) snd $
+    (fmap . fmap) snd $
       evaluateTransactionExecutionUnits
         cardanoEra
         systemStart
@@ -210,7 +197,7 @@ estimateMinFee tx evaluationReport =
 -- * Fixtures
 
 -- | Current (2023-04-12) mainchain protocol parameters.
--- XXX: Avoid specifiying not required parameters here (e.g. max block units
+-- XXX: Avoid specifying not required parameters here (e.g. max block units
 -- should not matter).
 -- XXX: Load and use mainnet parameters from a file which we can easily review
 -- to be in sync with mainnet.
@@ -259,7 +246,7 @@ maxMem, maxCpu :: Natural
 maxCpu = executionSteps maxTxExecutionUnits
 maxMem = executionMemory maxTxExecutionUnits
 
--- | An artifical 'EpochInfo' comprised by a single never ending (forking) era,
+-- | An artificial 'EpochInfo' comprised by a single never ending (forking) era,
 -- with fixed 'epochSize' and 'slotLength'.
 epochInfo :: Monad m => EpochInfo m
 epochInfo = fixedEpochInfo epochSize slotLength
@@ -368,7 +355,7 @@ propTransactionFailsEvaluation (tx, lookupUTxO) =
 -- is not higher than the cp.
 -- Returned slots are tx validity bounds
 genValidityBoundsFromContestationPeriod :: ContestationPeriod -> Gen (SlotNo, (SlotNo, UTCTime))
-genValidityBoundsFromContestationPeriod (UnsafeContestationPeriod cpSeconds) = do
+genValidityBoundsFromContestationPeriod cpSeconds = do
   startSlot@(SlotNo start) <- SlotNo <$> arbitrary
   let end = start + fromIntegral cpSeconds
   endSlot <- SlotNo <$> chooseWord64 (start, end)

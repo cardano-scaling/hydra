@@ -21,7 +21,9 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
-import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
+import Hydra.Cardano.Api (
+  getVerificationKey,
+ )
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -50,22 +52,20 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
-import Hydra.Tx.Crypto (AsType (AsHydraKey))
-import Hydra.Tx.Environment (Environment (..))
-import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
 
--- | Intialize the 'Environment' from command line options.
+-- | Initialize the 'Environment' from command line options.
 initEnvironment :: RunOptions -> IO Environment
 initEnvironment options = do
-  sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
+  sk <- readFileTextEnvelopeThrow hydraSigningKey
   otherParties <- mapM loadParty hydraVerificationKeys
   participants <- getParticipants
   pure $
@@ -75,7 +75,7 @@ initEnvironment options = do
       , otherParties
       , participants
       , contestationPeriod
-      , depositDeadline
+      , depositPeriod
       }
  where
   -- XXX: This is mostly a cardano-specific initialization step of loading
@@ -83,24 +83,24 @@ initEnvironment options = do
   getParticipants =
     case chainConfig of
       Offline{} -> pure []
-      Direct
-        DirectChainConfig
+      Cardano
+        CardanoChainConfig
           { cardanoVerificationKeys
           , cardanoSigningKey
           } -> do
-          ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
-          otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
+          ownSigningKey <- readFileTextEnvelopeThrow cardanoSigningKey
+          otherVerificationKeys <- mapM readFileTextEnvelopeThrow cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
-    Direct DirectChainConfig{contestationPeriod = cp} -> cp
-  depositDeadline = case chainConfig of
-    Offline{} -> defaultDepositDeadline
-    Direct DirectChainConfig{depositDeadline = ddeadline} -> ddeadline
+    Cardano CardanoChainConfig{contestationPeriod = cp} -> cp
+  depositPeriod = case chainConfig of
+    Offline{} -> defaultDepositPeriod
+    Cardano CardanoChainConfig{depositPeriod = dp} -> dp
 
   loadParty p =
-    Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
+    Party <$> readFileTextEnvelopeThrow p
 
   RunOptions
     { hydraSigningKey
@@ -362,7 +362,7 @@ processEffects node tracer inputId effects = do
       OnChainEffect{postChainTx} ->
         postTx postChainTx
           `catch` \(postTxError :: PostTxError tx) ->
-            enqueue . ChainInput $ PostTxError{postChainTx, postTxError}
+            enqueue . ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing}
     traceWith tracer $ EndEffect party inputId effectId
 
   HydraNode
@@ -422,7 +422,3 @@ data HydraNodeLog tx
 deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
 deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
-
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (HydraNodeLog tx) where
-  arbitrary = genericArbitrary
-  shrink = genericShrink

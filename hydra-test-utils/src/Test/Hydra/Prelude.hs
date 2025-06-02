@@ -48,7 +48,7 @@ createTempDir template = liftIO $ do
   createTempDirectory tmpDir template
 
 -- | Create a temporary directory for the given 'action' to use. The directory
--- is removed if and only if the action completes successfuly.
+-- is removed if and only if the action completes successfully.
 withTempDir :: MonadIO m => String -> (FilePath -> m r) -> m r
 withTempDir baseName action = do
   tmpDir <- createTempDir baseName
@@ -78,7 +78,7 @@ withLogFile filepath io = do
 
 -- | Fails a test with given error message.
 -- This function improves over existing 'expectationFailure' by throwing a
--- 'HUnitFailure' exception containig the location of the error and providing
+-- 'HUnitFailure' exception containing the location of the error and providing
 -- better callstack context.
 failure :: (HasCallStack, MonadThrow m) => String -> m a
 failure msg =

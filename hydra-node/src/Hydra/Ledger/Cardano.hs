@@ -14,7 +14,6 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder
 
-import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Rules (
   FailureDescription (..),
@@ -188,11 +187,11 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
   outs =
     TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
       : [ fromCtxUTxOTxOut $
-            TxOut
-              owner
-              (valueIn <> negateValue valueOut)
-              datum
-              refScript
+          TxOut
+            owner
+            (valueIn <> negateValue valueOut)
+            datum
+            refScript
         | valueOut /= valueIn
         ]
 
@@ -218,11 +217,11 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
       , txOuts =
           TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
             : [ fromCtxUTxOTxOut $
-                  TxOut
-                    owner
-                    (valueIn <> negateValue valueOut)
-                    datum
-                    refScript
+                TxOut
+                  owner
+                  (valueIn <> negateValue valueOut)
+                  datum
+                  refScript
               | valueOut /= valueIn
               ]
       , txFee = TxFeeExplicit $ Coin 0
@@ -242,8 +241,8 @@ adjustUTxO tx utxo =
       consumed = txIns' tx
       produced =
         toCtxUTxOTxOut
-          <$> fromPairs ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
-      utxo' = fromPairs $ filter (\(txin, _) -> txin `notElem` consumed) $ pairs utxo
+          <$> UTxO.fromList ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
+      utxo' = UTxO.fromList $ filter (\(txin, _) -> txin `notElem` consumed) $ UTxO.toList utxo
    in utxo' <> produced
 
 -- * Generators

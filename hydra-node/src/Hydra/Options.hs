@@ -21,7 +21,6 @@ import Data.Text (unpack)
 import Data.Text qualified as T
 import Data.Version (Version (..), showVersion)
 import Hydra.Cardano.Api (
-  AsType (AsTxId),
   ChainPoint (..),
   File (..),
   NetworkId (..),
@@ -38,10 +37,10 @@ import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, readHost, readPort, showHost)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
-import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline), depositFromNominalDiffTime)
-import Hydra.Tx.HeadId (AsType (AsHeadSeed), HeadSeed)
+import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
+import Hydra.Tx.HeadId (HeadSeed)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
   Parser,
@@ -80,7 +79,7 @@ import Options.Applicative (
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
-import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
+import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
 
 data Command
   = Run RunOptions
@@ -135,39 +134,51 @@ commandParser =
       )
 
 data PublishOptions = PublishOptions
-  { chainBackend :: ChainBackend
+  { chainBackendOptions :: ChainBackendOptions
   , publishSigningKey :: FilePath
   }
-  deriving stock (Show, Eq)
+  deriving stock (Show, Eq, Generic)
 
 -- | Default options as they should also be provided by 'runOptionsParser'.
 defaultPublishOptions :: PublishOptions
 defaultPublishOptions =
   PublishOptions
-    { chainBackend = defaultDirectBackend
+    { chainBackendOptions = Direct defaultDirectOptions
     , publishSigningKey = "cardano.sk"
     }
 
-defaultDirectBackend :: ChainBackend
-defaultDirectBackend =
-  DirectBackend
-    { publishNetworkId = Testnet (NetworkMagic 42)
-    , publishNodeSocket = "node.socket"
+defaultDirectOptions :: DirectOptions
+defaultDirectOptions =
+  DirectOptions
+    { networkId = Testnet (NetworkMagic 42)
+    , nodeSocket = "node.socket"
     }
 
-data ChainBackend
-  = DirectBackend
-      { publishNetworkId :: NetworkId
-      , publishNodeSocket :: SocketPath
-      }
-  | BlockfrostBackend
-      { projectPath :: FilePath
-      }
-  deriving stock (Show, Eq)
+data ChainBackendOptions
+  = Direct DirectOptions
+  | Blockfrost BlockfrostOptions
+  deriving stock (Generic, Show, Eq)
+  deriving anyclass (ToJSON, FromJSON)
+
+data DirectOptions = DirectOptions
+  { networkId :: NetworkId
+  -- ^ Network identifier to which we expect to connect.
+  , nodeSocket :: SocketPath
+  -- ^ Path to a domain socket used to connect to the server.
+  }
+  deriving stock (Generic, Show, Eq)
+  deriving anyclass (ToJSON, FromJSON)
+
+newtype BlockfrostOptions = BlockfrostOptions
+  { projectPath :: FilePath
+  -- ^ Path to the blockfrost project file
+  }
+  deriving stock (Generic, Show, Eq)
+  deriving anyclass (ToJSON, FromJSON)
 
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
-  PublishOptions <$> chainBackendParser <*> cardanoSigningKeyFileParser
+  PublishOptions <$> chainBackendOptionsParser <*> cardanoSigningKeyFileParser
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -185,6 +196,7 @@ data RunOptions = RunOptions
   , persistenceDir :: FilePath
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
+  , whichEtcd :: WhichEtcd
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -211,6 +223,7 @@ instance Arbitrary RunOptions where
     persistenceDir <- genDirPath
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
+    whichEtcd <- arbitrary
     pure $
       RunOptions
         { verbosity
@@ -228,6 +241,7 @@ instance Arbitrary RunOptions where
         , persistenceDir
         , chainConfig
         , ledgerConfig
+        , whichEtcd
         }
 
   shrink = genericShrink
@@ -249,8 +263,9 @@ defaultRunOptions =
     , hydraSigningKey = "hydra.sk"
     , hydraVerificationKeys = []
     , persistenceDir = "./"
-    , chainConfig = Direct defaultDirectChainConfig
+    , chainConfig = Cardano defaultCardanoChainConfig
     , ledgerConfig = defaultLedgerConfig
+    , whichEtcd = EmbeddedEtcd
     }
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
@@ -274,23 +289,35 @@ runOptionsParser =
     <*> persistenceDirParser
     <*> chainConfigParser
     <*> ledgerConfigParser
+    <*> whichEtcdParser
+
+whichEtcdParser :: Parser WhichEtcd
+whichEtcdParser =
+  flag
+    EmbeddedEtcd
+    SystemEtcd
+    ( long "use-system-etcd"
+        <> help "Use the `etcd` binary found on the path instead of the embedded one."
+    )
 
 chainConfigParser :: Parser ChainConfig
 chainConfigParser =
-  Direct <$> directChainConfigParser
+  Cardano <$> cardanoChainConfigParser
     <|> Offline <$> offlineChainConfigParser
 
-chainBackendParser :: Parser ChainBackend
-chainBackendParser = directBackendParser <|> blockfrostBackendParser
+chainBackendOptionsParser :: Parser ChainBackendOptions
+chainBackendOptionsParser = directOptionsParser <|> blockfrostOptionsParser
  where
-  directBackendParser =
-    DirectBackend
-      <$> networkIdParser
-      <*> nodeSocketParser
+  directOptionsParser =
+    fmap Direct $
+      DirectOptions
+        <$> networkIdParser
+        <*> nodeSocketParser
 
-  blockfrostBackendParser =
-    BlockfrostBackend
-      <$> blockfrostProjectPathParser
+  blockfrostOptionsParser =
+    fmap Blockfrost $
+      BlockfrostOptions
+        <$> blockfrostProjectPathParser
 
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
@@ -342,20 +369,20 @@ cardanoLedgerProtocolParametersParser =
 
 data ChainConfig
   = Offline OfflineChainConfig
-  | Direct DirectChainConfig
+  | Cardano CardanoChainConfig
   deriving stock (Eq, Show, Generic)
 
 instance ToJSON ChainConfig where
   toJSON = \case
     Offline cfg -> toJSON cfg & atKey "tag" ?~ String "OfflineChainConfig"
-    Direct cfg -> toJSON cfg & atKey "tag" ?~ String "DirectChainConfig"
+    Cardano cfg -> toJSON cfg & atKey "tag" ?~ String "CardanoChainConfig"
 
 instance FromJSON ChainConfig where
   parseJSON =
     withObject "ChainConfig" $ \o ->
       o .: "tag" >>= \case
         "OfflineChainConfig" -> Offline <$> parseJSON (Object o)
-        "DirectChainConfig" -> Direct <$> parseJSON (Object o)
+        "CardanoChainConfig" -> Cardano <$> parseJSON (Object o)
         tag -> fail $ "unexpected tag " <> tag
 
 data OfflineChainConfig = OfflineChainConfig
@@ -369,12 +396,8 @@ data OfflineChainConfig = OfflineChainConfig
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-data DirectChainConfig = DirectChainConfig
-  { networkId :: NetworkId
-  -- ^ Network identifer to which we expect to connect.
-  , nodeSocket :: SocketPath
-  -- ^ Path to a domain socket used to connect to the server.
-  , hydraScriptsTxId :: [TxId]
+data CardanoChainConfig = CardanoChainConfig
+  { hydraScriptsTxId :: [TxId]
   -- ^ Identifier of transaction holding the hydra scripts to use.
   , cardanoSigningKey :: FilePath
   -- ^ Path to the cardano signing key of the internal wallet.
@@ -383,51 +406,62 @@ data DirectChainConfig = DirectChainConfig
   , startChainFrom :: Maybe ChainPoint
   -- ^ Point at which to start following the chain.
   , contestationPeriod :: ContestationPeriod
-  , depositDeadline :: DepositDeadline
-  -- ^ Deadline to detect deposit tx on-chain.
+  , depositPeriod :: DepositPeriod
+  , chainBackendOptions :: ChainBackendOptions
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-defaultDirectChainConfig :: DirectChainConfig
-defaultDirectChainConfig =
-  DirectChainConfig
-    { networkId = Testnet (NetworkMagic 42)
-    , nodeSocket = "node.socket"
-    , hydraScriptsTxId = []
+defaultCardanoChainConfig :: CardanoChainConfig
+defaultCardanoChainConfig =
+  CardanoChainConfig
+    { hydraScriptsTxId = []
     , cardanoSigningKey = "cardano.sk"
     , cardanoVerificationKeys = []
     , startChainFrom = Nothing
     , contestationPeriod = defaultContestationPeriod
-    , depositDeadline = defaultDepositDeadline
+    , depositPeriod = defaultDepositPeriod
+    , chainBackendOptions = Direct defaultDirectOptions
     }
+
+data BlockfrostChainConfig = BlockfrostChainConfig
+  { projectPath :: FilePath
+  -- ^ Path to the blockfrost project file
+  , cardanoSigningKey :: FilePath
+  -- ^ Path to the cardano signing key of the internal wallet.
+  , hydraScriptsTxId :: [TxId]
+  -- ^ Identifier of transaction holding the hydra scripts to use.
+  }
+  deriving stock (Eq, Show, Generic)
 
 instance Arbitrary ChainConfig where
   arbitrary =
     oneof
-      [ Direct <$> genDirectChainConfig
+      [ Cardano <$> genCardanoChainConfig
       , Offline <$> genOfflineChainConfig
       ]
    where
-    genDirectChainConfig = do
-      networkId <- Testnet . NetworkMagic <$> arbitrary
-      nodeSocket <- File <$> genFilePath "socket"
-      hydraScriptsTxId <- arbitrary
+    genCardanoChainConfig = do
+      hydraScriptsTxId <- reasonablySized arbitrary
       cardanoSigningKey <- genFilePath "sk"
       cardanoVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
-      contestationPeriod <- arbitrary `suchThat` (> UnsafeContestationPeriod 0)
-      depositDeadline <- arbitrary `suchThat` (> UnsafeDepositDeadline 0)
+      contestationPeriod <- arbitrary
+      depositPeriod <- arbitrary
+      chainBackendOptions <-
+        oneof
+          [ pure $ Direct defaultDirectOptions
+          , pure $ Blockfrost BlockfrostOptions{projectPath = "blockfrost-project.txt"}
+          ]
       pure
-        DirectChainConfig
-          { networkId
-          , nodeSocket
-          , hydraScriptsTxId
+        CardanoChainConfig
+          { hydraScriptsTxId
           , cardanoSigningKey
           , cardanoVerificationKeys
           , startChainFrom
           , contestationPeriod
-          , depositDeadline
+          , depositPeriod
+          , chainBackendOptions
           }
 
     genOfflineChainConfig = do
@@ -451,7 +485,7 @@ offlineChainConfigParser =
 offlineHeadSeedParser :: Parser HeadSeed
 offlineHeadSeedParser =
   option
-    (eitherReader $ left show . deserialiseFromRawBytesHex AsHeadSeed . BSC.pack)
+    (eitherReader $ left show . deserialiseFromRawBytesHex . BSC.pack)
     ( long "offline-head-seed"
         <> metavar "HEX"
         <> help "Offline mode: Hexadecimal seed bytes to derive the offline head id from. Needs to be consistent across the hydra-node instances."
@@ -479,17 +513,16 @@ ledgerGenesisFileParser =
         <> help "Offline mode: File containing shelley genesis parameters for the simulated L1 chain in offline mode."
     )
 
-directChainConfigParser :: Parser DirectChainConfig
-directChainConfigParser =
-  DirectChainConfig
-    <$> networkIdParser
-    <*> nodeSocketParser
-    <*> (hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser)
+cardanoChainConfigParser :: Parser CardanoChainConfig
+cardanoChainConfigParser =
+  CardanoChainConfig
+    <$> (hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser)
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
     <*> contestationPeriodParser
-    <*> depositDeadlineParser
+    <*> depositPeriodParser
+    <*> chainBackendOptionsParser
 
 blockfrostProjectPathParser :: Parser FilePath
 blockfrostProjectPathParser =
@@ -534,7 +567,7 @@ nodeSocketParser =
   strOption
     ( long "node-socket"
         <> metavar "FILE"
-        <> value defaultDirectChainConfig.nodeSocket
+        <> value defaultDirectOptions.nodeSocket
         <> showDefault
         <> help
           "Filepath to local unix domain socket used to communicate with \
@@ -547,7 +580,7 @@ cardanoSigningKeyFileParser =
     ( long "cardano-signing-key"
         <> metavar "FILE"
         <> showDefault
-        <> value defaultDirectChainConfig.cardanoSigningKey
+        <> value defaultCardanoChainConfig.cardanoSigningKey
         <> help
           "Cardano signing key of our hydra-node. This will be used to authorize \
           \Hydra protocol transactions for heads the node takes part in and any \
@@ -732,7 +765,7 @@ startChainFromParser =
           slotNo <- SlotNo <$> readMaybe (toString slotNoTxt)
           headerHash <-
             either (const Nothing) Just $
-              deserialiseFromRawBytesHex (proxyToAsType Proxy) (encodeUtf8 headerHashTxt)
+              deserialiseFromRawBytesHex (encodeUtf8 headerHashTxt)
           pure $ ChainPoint slotNo headerHash
         _emptyOrSingularList ->
           Nothing
@@ -749,12 +782,12 @@ hydraScriptsTxIdsParser =
           \sub-command to publish scripts yourself."
     )
  where
-  parseFromHex = mapM (deserialiseFromRawBytesHex AsTxId)
+  parseFromHex = mapM deserialiseFromRawBytesHex
 
 hydraScriptsTxIdParser :: Parser TxId
 hydraScriptsTxIdParser =
   option
-    (eitherReader $ left show . deserialiseFromRawBytesHex AsTxId . BSC.pack)
+    (eitherReader $ left show . deserialiseFromRawBytesHex . BSC.pack)
     ( long "hydra-scripts-tx-id"
         <> metavar "TXID"
         <> help
@@ -810,15 +843,12 @@ hydraNodeVersion =
         <|> Just unknownVersion
 
 defaultContestationPeriod :: ContestationPeriod
-defaultContestationPeriod = UnsafeContestationPeriod 600
-
-defaultDepositDeadline :: DepositDeadline
-defaultDepositDeadline = UnsafeDepositDeadline 3600
+defaultContestationPeriod = 600
 
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
   option
-    (parseNatural <|> parseViaDiffTime)
+    (auto >>= fromNominalDiffTime)
     ( long "contestation-period"
         <> metavar "SECONDS"
         <> value defaultContestationPeriod
@@ -829,31 +859,27 @@ contestationPeriodParser =
           \ If this value is not in sync with other participants hydra-node will ignore the initial tx.\
           \ Additionally, this value needs to make sense compared to the current network we are running."
     )
- where
-  parseNatural = UnsafeContestationPeriod <$> auto
 
-  parseViaDiffTime = auto >>= fromNominalDiffTime
+defaultDepositPeriod :: DepositPeriod
+defaultDepositPeriod = DepositPeriod 3600
 
-depositDeadlineParser :: Parser DepositDeadline
-depositDeadlineParser =
+depositPeriodParser :: Parser DepositPeriod
+depositPeriodParser =
   option
-    (parseNatural <|> parseViaDiffTime)
-    ( long "deposit-deadline"
+    (DepositPeriod <$> auto)
+    ( long "deposit-period"
         <> metavar "SECONDS"
-        <> value defaultDepositDeadline
+        <> value defaultDepositPeriod
         <> showDefault
-        <> completer (listCompleter ["60", "180", "300"])
+        <> completer (listCompleter ["3600", "7200", "43200"])
         <> help
-          "Deadline for detecting the the deposit transaction on-chain expressed in seconds."
+          "Minimum time before deadline to consider deposits. 2 x deposit-period \
+          \is used to set the deadline on any drafted deposit transactions."
     )
- where
-  parseNatural = UnsafeDepositDeadline <$> auto
-
-  parseViaDiffTime = auto >>= depositFromNominalDiffTime
 
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded
-  | CardanoAndHydraKeysMissmatch
+  | CardanoAndHydraKeysMismatch
   deriving stock (Eq, Show)
 
 -- | Validate cmd line arguments for hydra-node and check if they make sense before actually running the node.
@@ -866,11 +892,11 @@ validateRunOptions :: RunOptions -> Either InvalidOptions ()
 validateRunOptions RunOptions{hydraVerificationKeys, chainConfig} =
   case chainConfig of
     Offline{} -> Right ()
-    Direct DirectChainConfig{cardanoVerificationKeys}
+    Cardano CardanoChainConfig{cardanoVerificationKeys}
       | max (length hydraVerificationKeys) (length cardanoVerificationKeys) + 1 > maximumNumberOfParties ->
           Left MaximumNumberOfPartiesExceeded
       | length cardanoVerificationKeys /= length hydraVerificationKeys ->
-          Left CardanoAndHydraKeysMissmatch
+          Left CardanoAndHydraKeysMismatch
       | otherwise -> Right ()
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
@@ -883,7 +909,7 @@ parseHydraCommandFromArgs = execParserPure defaultPrefs hydraNodeCommand
 
 -- | Convert an 'Options' instance into the corresponding list of command-line arguments.
 --
--- This is useful in situations where one wants to programatically define 'Options', providing
+-- This is useful in situations where one wants to programmatically define 'Options', providing
 -- some measure of type safety, without having to juggle with strings.
 toArgs :: RunOptions -> [String]
 toArgs
@@ -903,6 +929,7 @@ toArgs
     , persistenceDir
     , chainConfig
     , ledgerConfig
+    , whichEtcd
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -910,17 +937,23 @@ toArgs
       <> maybe [] (\h -> ["--advertise", showHost h]) advertise
       <> ["--api-host", show apiHost]
       <> toArgApiPort apiPort
+      <> toWhichEtcd whichEtcd
       <> maybe [] (\cert -> ["--tls-cert", cert]) tlsCertPath
       <> maybe [] (\key -> ["--tls-key", key]) tlsKeyPath
       <> ["--hydra-signing-key", hydraSigningKey]
       <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
       <> concatMap toArgPeer peers
-      <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
+      <> maybe [] (\port -> ["--monitoring-port", show port]) monitoringPort
       <> ["--persistence-dir", persistenceDir]
       <> argsChainConfig chainConfig
       <> argsLedgerConfig
    where
     (NodeId nId) = nodeId
+
+    toWhichEtcd = \case
+      SystemEtcd -> ["--use-system-etcd"]
+      EmbeddedEtcd -> []
+
     isVerbose = \case
       Quiet -> ["--quiet"]
       _ -> []
@@ -949,23 +982,27 @@ toArgs
             <> case ledgerGenesisFile of
               Just fp -> ["--ledger-genesis", fp]
               Nothing -> []
-      Direct
-        DirectChainConfig
-          { networkId
-          , nodeSocket
-          , hydraScriptsTxId
+      Cardano
+        CardanoChainConfig
+          { hydraScriptsTxId
           , cardanoSigningKey
           , cardanoVerificationKeys
           , startChainFrom
           , contestationPeriod
-          , depositDeadline
+          , depositPeriod
+          , chainBackendOptions
           } ->
-          toArgNetworkId networkId
-            <> toArgNodeSocket nodeSocket
+          ( case chainBackendOptions of
+              Blockfrost BlockfrostOptions{projectPath} ->
+                ["--blockfrost", projectPath]
+              Direct DirectOptions{networkId, nodeSocket} ->
+                toArgNetworkId networkId
+                  <> toArgNodeSocket nodeSocket
+          )
             <> ["--hydra-scripts-tx-id", intercalate "," $ toString . serialiseToRawBytesHexText <$> hydraScriptsTxId]
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
-            <> ["--deposit-deadline", show depositDeadline]
+            <> ["--deposit-period", show depositPeriod]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
 

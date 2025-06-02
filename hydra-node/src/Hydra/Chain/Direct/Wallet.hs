@@ -308,7 +308,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
-  -- and an aditional witness (we will sign this tx later)
+  -- and an additional witness (we will sign this tx later)
   let fee = calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx additionalWitnesses
       costingTx =
         unbalancedTx
@@ -449,7 +449,3 @@ data TinyWalletLog
   deriving stock (Eq, Generic, Show)
 
 deriving anyclass instance ToJSON TinyWalletLog
-
-instance Arbitrary TinyWalletLog where
-  arbitrary = genericArbitrary
-  shrink = genericShrink

@@ -24,12 +24,13 @@ import PlutusLedgerApi.V3 (
   mintValueBurned,
   mintValueMinted,
   mintValueToMap,
-  toBuiltinData,
  )
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Builtins (serialiseData)
 import PlutusTx.Builtins qualified as Builtins
 import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
+import PlutusTx.Foldable qualified as F
+import PlutusTx.List qualified as L
 import PlutusTx.Prelude
 
 hydraHeadV1 :: BuiltinByteString
@@ -52,12 +53,12 @@ hasST headPolicyId v =
 mustBurnAllHeadTokens :: MintValue -> CurrencySymbol -> [Party] -> Bool
 mustBurnAllHeadTokens mintValue headCurrencySymbol parties =
   traceIfFalse $(errorCode BurntTokenNumberMismatch) $
-    burntTokens == length parties + 1
+    burntTokens == L.length parties + 1
  where
   burntTokens =
     case AssocMap.lookup headCurrencySymbol (mintValueToMap mintValue) of
       Nothing -> 0
-      Just tokenMap -> negate $ sum tokenMap
+      Just tokenMap -> negate $ F.sum tokenMap
 {-# INLINEABLE mustBurnAllHeadTokens #-}
 
 mustNotMintOrBurn :: TxInfo -> Bool
@@ -83,8 +84,8 @@ infix 4 ===
 -- NOTE: See note from `hashTxOuts`.
 hashPreSerializedCommits :: [Commit] -> BuiltinByteString
 hashPreSerializedCommits commits =
-  sha2_256 . foldMap preSerializedOutput $
-    sortBy (\a b -> compareRef (input a) (input b)) commits
+  sha2_256 . F.foldMap preSerializedOutput $
+    L.sortBy (\a b -> compareRef (input a) (input b)) commits
 {-# INLINEABLE hashPreSerializedCommits #-}
 
 -- | Hash a pre-ordered list of transaction outputs by serializing each
@@ -99,7 +100,7 @@ hashPreSerializedCommits commits =
 -- valid and meaningful `TxOut`).
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
-  sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
+  sha2_256 . F.foldMap (Builtins.serialiseData . toBuiltinData)
 {-# INLINEABLE hashTxOuts #-}
 
 compareRef :: TxOutRef -> TxOutRef -> Ordering

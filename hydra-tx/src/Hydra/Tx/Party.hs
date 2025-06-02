@@ -34,7 +34,7 @@ instance FromJSONKey Party where
    where
     partyFromHexText :: MonadFail m => Text -> m Party
     partyFromHexText t =
-      case deserialiseFromRawBytesHex (AsVerificationKey AsHydraKey) (encodeUtf8 t) of
+      case deserialiseFromRawBytesHex (encodeUtf8 t) of
         Left err -> fail $ "failed to decode Party: " <> show err
         Right vkey -> pure $ Party{vkey}
 
@@ -69,7 +69,7 @@ partyFromChain :: MonadFail m => OnChain.Party -> m Party
 partyFromChain =
   either (\e -> fail $ "partyFromChain failed: " <> show e) (pure . Party)
     . deserialiseFromRawBytes (AsVerificationKey AsHydraKey)
-    . OnChain.partyToVerficationKeyBytes
+    . OnChain.partyToVerificationKeyBytes
 
 -- | Type class to retrieve the 'Party' from some type.
 class HasParty a where

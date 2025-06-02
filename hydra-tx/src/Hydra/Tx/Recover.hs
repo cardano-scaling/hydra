@@ -60,10 +60,10 @@ observeRecoverTx networkId utxo tx = do
   dat <- txOutScriptData $ fromCtxUTxOTxOut depositOut
   (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat :: Maybe Deposit.DepositDatum
   deposits <- do
-    depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
-    pure $ UTxO.fromPairs depositedUTxO
+    depositedUTxO <- traverse (Commit.deserializeCommit (toShelleyNetwork networkId)) onChainDeposits
+    pure $ UTxO.fromList depositedUTxO
   headId <- fmap mkHeadId . fromPlutusCurrencySymbol $ headCurrencySymbol
-  let depositOuts = fromCtxUTxOTxOut . snd <$> UTxO.pairs deposits
+  let depositOuts = fromCtxUTxOTxOut . snd <$> UTxO.toList deposits
   -- NOTE: All deposit outputs need to be present in the recover tx outputs but
   -- the two lists of outputs are not necesarilly the same.
   if all (`elem` txOuts' tx) depositOuts

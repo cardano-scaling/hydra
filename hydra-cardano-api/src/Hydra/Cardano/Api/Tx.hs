@@ -52,7 +52,7 @@ txSpendingUTxO utxo =
 -- XXX: Defined here to avoid cyclic module dependency
 utxoProducedByTx :: Tx Era -> UTxO
 utxoProducedByTx tx =
-  UTxO.fromPairs $
+  UTxO.fromList $
     zip [0 ..] (txOuts body)
       <&> bimap (mkTxIn tx) toCtxUTxOTxOut
  where

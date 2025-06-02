@@ -46,14 +46,12 @@ import PlutusLedgerApi.V3 (
   CurrencySymbol,
   Datum (..),
   Extended (Finite),
-  FromData (fromBuiltinData),
   Interval (..),
   LowerBound (LowerBound),
   OutputDatum (..),
   POSIXTime,
   PubKeyHash (getPubKeyHash),
   ScriptContext (..),
-  ToData (toBuiltinData),
   TokenName (..),
   TxInInfo (..),
   TxInfo (..),
@@ -66,6 +64,8 @@ import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Builtins qualified as Builtins
+import PlutusTx.Foldable qualified as F
+import PlutusTx.List qualified as L
 
 type DatumType = State
 type RedeemerType = Input
@@ -105,7 +105,7 @@ headValidator oldState input ctx =
 --     head id are burnt, one PT for each party and a state token ST.
 --
 --   * All committed funds have been redistributed. This is done via v_commit
---     and it only needs to ensure that we have spent all comitted outputs,
+--     and it only needs to ensure that we have spent all committed outputs,
 --     which follows from burning all the PTs.
 checkAbort ::
   ScriptContext ->
@@ -128,7 +128,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     -- correspond to the number of commit inputs to make sure everything is
     -- reimbursed because we assume the outputs are correctly sorted with
     -- reimbursed commits coming first
-    hashTxOuts $ take (length committed) (txInfoOutputs txInfo)
+    hashTxOuts $ L.take (L.length committed) (txInfoOutputs txInfo)
 
   hashOfCommittedUTxO =
     hashPreSerializedCommits committed
@@ -197,20 +197,20 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 
   everyoneHasCommitted =
     traceIfFalse $(errorCode MissingCommits) $
-      nTotalCommits == length parties
+      nTotalCommits == L.length parties
 
   val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   otherValueOut =
     case txInfoOutputs txInfo of
       -- NOTE: First output must be head output
-      (_ : rest) -> foldMap txOutValue rest
+      (_ : rest) -> F.foldMap txOutValue rest
       _ -> mempty
 
   -- NOTE: We do keep track of the value we do not want to collect as this is
   -- typically less, ideally only a single other input with only ADA in it.
   (collectedCommits, nTotalCommits, notCollectedValueIn) =
-    foldr
+    F.foldr
       extractAndCountCommits
       ([], 0, mempty)
       (txInfoInputs txInfo)
@@ -277,17 +277,17 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   depositValue = txOutValue $ txInInfoResolved depositInput
 
   headInValue =
-    case find (hasST prevHeadId) $ txOutValue . txInInfoResolved <$> inputs of
+    case L.find (hasST prevHeadId) $ txOutValue . txInInfoResolved <$> inputs of
       Nothing -> traceError $(errorCode HeadInputNotFound)
       Just i -> i
 
-  headOutValue = txOutValue $ head $ txInfoOutputs txInfo
+  headOutValue = txOutValue $ L.head $ txInfoOutputs txInfo
 
   IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
 
   claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
-      increment `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
+      increment `L.elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash) signature
@@ -335,7 +335,7 @@ checkDecrement ctx openBefore redeemer =
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue == headOutValue <> foldMap txOutValue decommitOutputs
+      headInValue == headOutValue <> F.foldMap txOutValue decommitOutputs
 
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
@@ -361,12 +361,12 @@ checkDecrement ctx openBefore redeemer =
     } = decodeHeadOutputOpenDatum ctx
 
   -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
-  headOutValue = txOutValue $ head outputs
+  headOutValue = txOutValue $ L.head outputs
   headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   -- NOTE: we always assume Head output is the first one so we pick all other
   -- outputs of a decommit tx to calculate the expected hash.
-  decommitOutputs = take numberOfDecommitOutputs (tail outputs)
+  decommitOutputs = L.take numberOfDecommitOutputs (L.tail outputs)
 
   outputs = txInfoOutputs txInfo
 
@@ -404,7 +404,7 @@ checkClose ctx openBefore redeemer =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       val === val'
 
-  val' = txOutValue . head $ txInfoOutputs txInfo
+  val' = txOutValue . L.head $ txInfoOutputs txInfo
 
   val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
@@ -494,7 +494,7 @@ checkClose ctx openBefore redeemer =
 
   mustInitializeContesters =
     traceIfFalse $(errorCode ContestersNonEmpty) $
-      null contesters'
+      L.null contesters'
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
@@ -524,7 +524,7 @@ checkContest ctx closedDatum redeemer =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       val === val'
 
-  val' = txOutValue . head $ txInfoOutputs txInfo
+  val' = txOutValue . L.head $ txInfoOutputs txInfo
 
   val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
@@ -584,7 +584,7 @@ checkContest ctx closedDatum redeemer =
       _ -> traceError $(errorCode ContestNoUpperBoundDefined)
 
   mustPushDeadline =
-    if length contesters' == length parties'
+    if L.length contesters' == L.length parties'
       then
         traceIfFalse $(errorCode MustNotPushDeadline) $
           contestationDeadline' == contestationDeadline
@@ -628,7 +628,7 @@ checkContest ctx closedDatum redeemer =
 
   checkSignedParticipantContestOnlyOnce =
     traceIfFalse $(errorCode SignerAlreadyContested) $
-      contester `notElem` contesters
+      contester `L.notElem` contesters
 {-# INLINEABLE checkContest #-}
 
 -- | Verify a fanout transaction.
@@ -664,11 +664,11 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
     traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
       omegaUTxOHash == decommitUtxoHash
 
-  fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
+  fannedOutUtxoHash = hashTxOuts $ L.take numberOfFanoutOutputs txInfoOutputs
 
-  commitUtxoHash = hashTxOuts $ take numberOfCommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
+  commitUtxoHash = hashTxOuts $ L.take numberOfCommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
 
-  decommitUtxoHash = hashTxOuts $ take numberOfDecommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
+  decommitUtxoHash = hashTxOuts $ L.take numberOfDecommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
 
   ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline} = closedDatum
 
@@ -725,7 +725,7 @@ mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} headCurren
   case getPubKeyHash <$> txInfoSignatories txInfo of
     [signer] ->
       traceIfFalse $(errorCode SignerIsNotAParticipant) $
-        signer `elem` (unTokenName <$> participationTokens)
+        signer `L.elem` (unTokenName <$> participationTokens)
     [] ->
       traceError $(errorCode NoSigners)
     _ ->
@@ -735,7 +735,7 @@ mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} headCurren
   loop = \case
     [] -> []
     (TxInInfo{txInInfoResolved} : rest) ->
-      findParticipationTokens headCurrencySymbol (txOutValue txInInfoResolved) ++ loop rest
+      findParticipationTokens headCurrencySymbol (txOutValue txInInfoResolved) L.++ loop rest
 {-# INLINEABLE mustBeSignedByParticipant #-}
 
 findParticipationTokens :: CurrencySymbol -> Value -> [TokenName]
@@ -771,7 +771,7 @@ getTxOutDatum o =
 hasPT :: CurrencySymbol -> TxOut -> Bool
 hasPT headCurrencySymbol txOut =
   let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
-   in length pts == 1
+   in L.length pts == 1
 {-# INLINEABLE hasPT #-}
 
 -- | Verify the multi-signature of a snapshot using given constituents 'headId',
@@ -780,8 +780,8 @@ hasPT headCurrencySymbol txOut =
 verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> [Signature] -> Bool
 verifySnapshotSignature parties msg sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
-    length parties == length sigs
-      && all (uncurry $ verifyPartySignature msg) (zip parties sigs)
+    L.length parties == L.length sigs
+      && L.all (uncurry $ verifyPartySignature msg) (L.zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
 -- | Verify individual party signature of a snapshot. See

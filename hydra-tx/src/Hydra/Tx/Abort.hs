@@ -14,7 +14,7 @@ import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.HeadId (HeadId (..))
-import Hydra.Tx.Utils (findStateToken, headTokensFromValue)
+import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
 
 -- * Creation
 
@@ -51,10 +51,11 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
         unsafeBuildTransaction $
           defaultTxBodyContent
             & addTxIns ((headInput, headWitness) : initialInputs <> commitInputs)
-            & addTxInsReference ([headScriptRef, initialScriptRef] <> [commitScriptRef | not $ null commitInputs])
+            & addTxInsReference ([headScriptRef, initialScriptRef] <> [commitScriptRef | not $ null commitInputs]) mempty
             & addTxOuts reimbursedOutputs
             & burnTokens headTokenScript Burn headTokens
             & addTxExtraKeyWits [verificationKeyHash vk]
+            & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "AbortTx")
  where
   headWitness =
     BuildTxWith $
@@ -99,7 +100,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
-  reimbursedOutputs = fromCtxUTxOTxOut . snd <$> UTxO.pairs committedUTxO
+  reimbursedOutputs = fromCtxUTxOTxOut . snd <$> UTxO.toList committedUTxO
 
 -- * Observation
 

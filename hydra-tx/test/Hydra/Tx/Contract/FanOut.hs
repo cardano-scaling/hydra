@@ -6,7 +6,7 @@ module Hydra.Tx.Contract.FanOut where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label, toList)
 
-import Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -34,7 +34,7 @@ healthyFanoutTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (headInput, headOutput)
+    UTxO.singleton headInput headOutput
       <> registryUTxO scriptRegistry
 
   tx =
@@ -133,7 +133,7 @@ genFanoutMutation (tx, _utxo) =
       -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
       SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateFanoutOutputValue <$> do
         let outs = txOuts' tx
-        let noOfUtxoToOutputs = size $ toMap (fst healthyFanoutSnapshotUTxO)
+        let noOfUtxoToOutputs = size $ UTxO.toMap (fst healthyFanoutSnapshotUTxO)
         (ix, out) <- elements (zip [0 .. noOfUtxoToOutputs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
@@ -141,7 +141,7 @@ genFanoutMutation (tx, _utxo) =
       -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
       SomeMutation (pure $ toErrorCode FanoutUTxOToDecommitHashMismatch) MutateDecommitOutputValue <$> do
         let outs = txOuts' tx
-        let noOfUtxoToOutputs = size $ toMap (fst healthyFanoutSnapshotUTxO)
+        let noOfUtxoToOutputs = size $ UTxO.toMap (fst healthyFanoutSnapshotUTxO)
         (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)

@@ -23,8 +23,9 @@ import Data.Text qualified as Text
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Network (NetworkCallback (..))
 import Hydra.Node (HydraNodeLog)
+import System.IO.Temp (writeSystemTempFile)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot))
-import Test.QuickCheck (forAll, withMaxSuccess)
+import Test.QuickCheck (Property, Testable, counterexample, forAll, ioProperty, property, withMaxSuccess)
 
 noopCallback :: Applicative m => NetworkCallback msg m
 noopCallback =
@@ -49,6 +50,32 @@ shouldRunInSim action =
  where
   tr = runSimTrace action
   dumpTrace = say (toString $ printTrace (Proxy :: Proxy (HydraNodeLog SimpleTx)) tr)
+
+-- | Run given 'action' in 'IOSim' as a 'Property' including the whole
+-- 'HydraNodeLog' trace as a counterexample.
+propRunInSim :: Testable prop => (forall s. IOSim s prop) -> Property
+propRunInSim action =
+  ioProperty $ do
+    fn <- storeTrace
+    pure $
+      runSim
+        & counterexample ("IOSim trace stored in: " <> fn)
+ where
+  runSim = case traceResult False tr of
+    Right x ->
+      property x
+    Left (FailureException (SomeException ex)) -> do
+      property False
+        & counterexample ("Failed with exception: " <> show ex)
+    Left ex ->
+      property False
+        & counterexample ("Failed with exception: " <> show ex)
+
+  tr = runSimTrace action
+
+  storeTrace =
+    writeSystemTempFile "io-sim-trace" . toString $
+      printTrace (Proxy :: Proxy (HydraNodeLog SimpleTx)) tr
 
 -- | Utility function to dump logs given a `SimTrace`.
 printTrace :: forall log a. (Typeable log, ToJSON log) => Proxy log -> SimTrace a -> Text

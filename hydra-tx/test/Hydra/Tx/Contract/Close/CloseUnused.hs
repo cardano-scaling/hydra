@@ -100,7 +100,7 @@ healthyCloseCurrentTx =
   datum = mkTxOutDatumInline healthyCurrentOpenDatum
 
   lookupUTxO =
-    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
+    UTxO.singleton healthyOpenHeadTxIn (healthyOpenHeadTxOut datum)
       <> registryUTxO scriptRegistry
 
   scriptRegistry = genScriptRegistry `generateWith` 42

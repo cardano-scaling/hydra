@@ -1,7 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- | Contains the a state-ful interface to transaction construction and observation.
+-- | Contains the a stateful interface to transaction construction and observation.
 --
 -- It defines the 'ChainStateType tx' to be used in the 'Hydra.Chain.Direct'
 -- layer and it's constituents.
@@ -41,9 +41,9 @@ import Hydra.Cardano.Api (
   isScriptTxOut,
   modifyTxOutValue,
   negateValue,
-  networkIdToNetwork,
   selectAsset,
   selectLovelace,
+  toShelleyNetwork,
   txIns',
   txOutScriptData,
   txOutValue,
@@ -278,7 +278,7 @@ instance Arbitrary OpenState where
 
 instance HasKnownUTxO OpenState where
   getKnownUTxO st =
-    UTxO.singleton openThreadUTxO
+    uncurry UTxO.singleton openThreadUTxO
    where
     OpenState
       { openThreadOutput = OpenThreadOutput{openThreadUTxO}
@@ -293,7 +293,7 @@ data ClosedState = ClosedState
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
-    UTxO.singleton closedThreadUTxO
+    uncurry UTxO.singleton closedThreadUTxO
    where
     ClosedState
       { closedThreadOutput = ClosedThreadOutput{closedThreadUTxO}
@@ -483,7 +483,7 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
     Just deposit
       | null deposit ->
           Left SnapshotIncrementUTxOIsNull
-      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut)) upperValiditySlot sigs
+      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton depositedIn depositedOut) upperValiditySlot sigs
  where
   Snapshot{utxoToCommit} = sn
 
@@ -568,7 +568,7 @@ recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
       spendableUTxO
       ?> CannotFindDepositOutputToRecover{depositTxId = depositedTxId}
   (headId', deposited, _deadline) <-
-    observeDepositTxOut (networkIdToNetwork networkId) depositedOut
+    observeDepositTxOut (toShelleyNetwork networkId) depositedOut
       ?> CannotFindDepositedOutputToRecover{depositedTxId = depositedTxId}
   if headId /= headId'
     then Left InvalidHeadIdInRecover{headId}

@@ -11,13 +11,13 @@ module Hydra.Logging.Messages where
 import Hydra.Prelude
 
 import Hydra.API.APIServerLog (APIServerLog)
-import Hydra.Chain.Direct.Handlers (DirectChainLog)
+import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Node.Network (NetworkLog)
 import Hydra.Options (RunOptions)
 
 data HydraLog tx
-  = DirectChain {directChain :: DirectChainLog}
+  = DirectChain {directChain :: CardanoChainLog}
   | APIServer {api :: APIServerLog}
   | Network {network :: NetworkLog}
   | Node {node :: HydraNodeLog tx}
@@ -28,7 +28,3 @@ data HydraLog tx
 deriving stock instance Eq (HydraNodeLog tx) => Eq (HydraLog tx)
 deriving stock instance Show (HydraNodeLog tx) => Show (HydraLog tx)
 deriving anyclass instance ToJSON (HydraNodeLog tx) => ToJSON (HydraLog tx)
-
-instance Arbitrary (HydraNodeLog tx) => Arbitrary (HydraLog tx) where
-  arbitrary = genericArbitrary
-  shrink = genericShrink

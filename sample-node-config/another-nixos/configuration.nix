@@ -1,5 +1,4 @@
-{ config
-, pkgs
+{ pkgs
 , lib
 , system
 , cardano-node
@@ -190,8 +189,6 @@ in
 
 
     mithril-maybe-download =
-      let
-      in
       {
         requires = [ "network-online.target" "necessary-files.service" ];
         after = [ "necessary-files.service" ];

@@ -9,7 +9,7 @@ import Data.Map qualified as Map
 
 -- * Executing
 
--- | Construct a transction from a builder. It is said 'unsafe' because the
+-- | Construct a transaction from a builder. It is said 'unsafe' because the
 -- underlying implementation will perform some sanity check on a transaction;
 -- for example, check that it has at least one input, that no outputs are
 -- negatives and whatnot.

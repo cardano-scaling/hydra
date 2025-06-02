@@ -8,9 +8,8 @@ import PlutusTx.Prelude
 
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.ByteString.Lazy (fromStrict, toStrict)
-import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
+import Hydra.Cardano.Api (CtxUTxO, Network, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import Hydra.Cardano.Api qualified as OffChain
-import Hydra.Cardano.Api.Network (Network)
 import Hydra.Data.Party (Party)
 import PlutusLedgerApi.V3 (
   CurrencySymbol,
@@ -18,11 +17,11 @@ import PlutusLedgerApi.V3 (
   Redeemer (Redeemer),
   TxOutRef,
  )
-import PlutusTx (fromData, toBuiltinData, toData)
+import PlutusTx (fromData, toData)
 import PlutusTx qualified
 import Prelude qualified as Haskell
 
--- | A data type representing comitted outputs on-chain. Besides recording the
+-- | A data type representing committed outputs on-chain. Besides recording the
 -- original 'TxOutRef', it also stores a binary representation compatible
 -- between on- and off-chain code to be hashed in the validators.
 data Commit = Commit

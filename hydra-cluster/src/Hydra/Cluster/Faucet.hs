@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module Hydra.Cluster.Faucet where
 
 import Hydra.Cardano.Api
@@ -13,6 +15,7 @@ import CardanoClient (
   awaitTransactionId,
   buildAddress,
   buildTransaction,
+  buildTransactionWithPParams',
   queryUTxO,
   queryUTxOFor,
   sign,
@@ -21,18 +24,24 @@ import CardanoClient (
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
+import Data.Set qualified as Set
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
  )
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
-import Hydra.Tx (balance)
+import Hydra.Options (DirectOptions (..))
+import Hydra.Tx (balance, txId)
 
 data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
   | FaucetFailedToBuildTx {reason :: TxBodyErrorAutoBalance Era}
+  | FaucetBlockfrostError {blockFrostError :: Text}
   deriving stock (Show)
 
 instance Exception FaucetException
@@ -87,6 +96,55 @@ findFaucetUTxO RunningNode{networkId, nodeSocket} lovelace = do
     throwIO $
       FaucetHasNotEnoughFunds{faucetUTxO}
   pure foundUTxO
+
+seedFromFaucetBlockfrost ::
+  -- | Recipient of the funds
+  VerificationKey PaymentKey ->
+  -- | Amount to get from faucet
+  Coin ->
+  Blockfrost.BlockfrostClientT IO UTxO
+seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
+  (faucetVk, faucetSk) <- liftIO $ keysFor Faucet
+
+  Blockfrost.Genesis
+    { Blockfrost._genesisNetworkMagic = networkMagic
+    , Blockfrost._genesisSystemStart = systemStart'
+    } <-
+    Blockfrost.queryGenesisParameters
+  pparams <- Blockfrost.queryProtocolParameters
+  let networkId = Blockfrost.toCardanoNetworkId networkMagic
+  let changeAddress = buildAddress faucetVk networkId
+  let receivingAddress = buildAddress receivingVerificationKey networkId
+  let theOutput =
+        TxOut
+          (shelleyAddressInEra shelleyBasedEra receivingAddress)
+          (lovelaceToValue lovelace)
+          TxOutDatumNone
+          ReferenceScriptNone
+  stakePools' <- Blockfrost.listPools
+  let stakePools = Set.fromList (Blockfrost.toCardanoPoolId <$> stakePools')
+  let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
+  eraHistory <- Blockfrost.queryEraHistory
+  foundUTxO <- findUTxO networkId changeAddress lovelace
+  case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId faucetVk) foundUTxO [] [theOutput] of
+    Left e -> liftIO $ throwIO $ FaucetFailedToBuildTx{reason = e}
+    Right tx -> do
+      let signedTx = signTx faucetSk tx
+      eResult <- Blockfrost.tryError $ Blockfrost.submitTransaction signedTx
+      case eResult of
+        Left err -> liftIO $ throwIO $ FaucetBlockfrostError{blockFrostError = show err}
+        Right _ -> do
+          void $ Blockfrost.awaitUTxO networkId [changeAddress] (txId signedTx) 100
+          Blockfrost.awaitUTxO networkId [receivingAddress] (txId signedTx) 100
+ where
+  findUTxO networkId address lovelace' = do
+    faucetUTxO <- Blockfrost.queryUTxO networkId [address]
+    let foundUTxO = UTxO.find (\o -> (selectLovelace . txOutValue) o >= lovelace') faucetUTxO
+    when (isNothing foundUTxO) $
+      liftIO $
+        throwIO $
+          FaucetHasNotEnoughFunds{faucetUTxO}
+    pure $ maybe mempty (uncurry UTxO.singleton) foundUTxO
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
@@ -201,6 +259,6 @@ retryOnExceptions tracer action =
 publishHydraScriptsAs :: RunningNode -> Actor -> IO [TxId]
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
-  txIds <- publishHydraScripts networkId nodeSocket sk
+  txIds <- publishHydraScripts (DirectBackend $ DirectOptions{networkId, nodeSocket}) sk
   mapM_ (awaitTransactionId networkId nodeSocket) txIds
   pure txIds

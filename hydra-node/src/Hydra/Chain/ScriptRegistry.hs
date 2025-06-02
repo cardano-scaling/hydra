@@ -36,17 +36,11 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import Hydra.Cardano.Api.Tx (signTx)
+import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
-  awaitTransaction,
   buildTransactionWithPParams',
-  queryEraHistory,
-  queryProtocolParameters,
-  queryStakePools,
-  querySystemStart,
   queryUTxOByTxIn,
-  queryUTxOFor,
-  submitTransaction,
  )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
@@ -78,23 +72,22 @@ queryScriptRegistry networkId socketPath txIds = do
   candidates = map (\txid -> TxIn txid (TxIx 0)) txIds
 
 publishHydraScripts ::
-  -- | Expected network discriminant.
-  NetworkId ->
-  -- | Path to the cardano-node's domain socket
-  SocketPath ->
+  ChainBackend backend =>
+  backend ->
   -- | Keys assumed to hold funds to pay for the publishing transaction.
   SigningKey PaymentKey ->
   IO [TxId]
-publishHydraScripts networkId socketPath sk = do
-  pparams <- queryProtocolParameters networkId socketPath QueryTip
-  systemStart <- querySystemStart networkId socketPath QueryTip
-  eraHistory <- queryEraHistory networkId socketPath QueryTip
-  stakePools <- queryStakePools networkId socketPath QueryTip
-  utxo <- queryUTxOFor networkId socketPath QueryTip vk
+publishHydraScripts backend sk = do
+  networkId <- queryNetworkId backend
+  pparams <- queryProtocolParameters backend QueryTip
+  systemStart <- querySystemStart backend QueryTip
+  eraHistory <- queryEraHistory backend QueryTip
+  stakePools <- queryStakePools backend QueryTip
+  utxo <- queryUTxOFor backend QueryTip vk
   txs <- buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
   forM txs $ \tx -> do
-    submitTransaction networkId socketPath tx
-    void $ awaitTransaction networkId socketPath tx
+    submitTransaction backend tx
+    void $ awaitTransaction backend tx
     pure $ txId tx
  where
   vk = getVerificationKey sk
@@ -135,7 +128,7 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
       Right tx -> pure $ signTx sk tx
 
     let changeOutput = txOuts' tx !! 1
-        utxo' = UTxO.singleton (mkTxIn tx 1, toCtxUTxOTxOut changeOutput)
+        utxo' = UTxO.singleton (mkTxIn tx 1) (toCtxUTxOTxOut changeOutput)
     (tx :) <$> go utxo' rest
 
   changeAddress = mkVkAddress networkId (getVerificationKey sk)

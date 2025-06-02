@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Implements the Head Protocol's /state machine/ as /pure functions/ in an event sourced manner.
@@ -8,7 +9,7 @@
 -- 'StateChanged' events, which in turn are 'aggregate'd into a single
 -- 'HeadState'.
 --
--- As the specification is using a more imperative way of specifying the protocl
+-- As the specification is using a more imperative way of specifying the protocol
 -- behavior, one would find the decision logic in 'update' while state updates
 -- can be found in the corresponding 'aggregate' branch.
 module Hydra.HeadLogic (
@@ -59,6 +60,8 @@ import Hydra.HeadLogic.State (
   ClosedState (..),
   Committed,
   CoordinatedHeadState (..),
+  Deposit (..),
+  DepositStatus (..),
   HeadState (..),
   IdleState (IdleState, chainState),
   InitialState (..),
@@ -74,13 +77,14 @@ import Hydra.Ledger (
  )
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
+import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Tx (
   HeadId,
   HeadSeed,
   IsTx (..),
   TxIdType,
   UTxOType,
-  mkHeadParameters,
   txId,
   utxoFromTx,
   withoutUTxO,
@@ -92,7 +96,6 @@ import Hydra.Tx.Crypto (
   sign,
   verifyMultiSignature,
  )
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
@@ -190,7 +193,7 @@ onInitialChainCommitTx ::
   InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
-  -- | Comitting party
+  -- | Committing party
   Party ->
   -- | Committed UTxO
   UTxOType tx ->
@@ -339,19 +342,22 @@ onOpenNetworkReqTx env ledger st ttl tx =
           -- spec. Do we really need to store that we have
           -- requested a snapshot? If yes, should update spec.
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx pendingDeposit)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx currentDepositTxId)
       else outcome
 
   Environment{party} = env
 
   Ledger{applyTransactions} = ledger
 
-  pendingDeposit =
-    case Map.toList pendingDeposits of
-      [] -> Nothing
-      (_, depositUTxO) : _ -> Just depositUTxO
-
-  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx, version, pendingDeposits} = coordinatedHeadState
+  CoordinatedHeadState
+    { localTxs
+    , localUTxO
+    , confirmedSnapshot
+    , seenSnapshot
+    , decommitTx
+    , version
+    , currentDepositTxId
+    } = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -394,9 +400,10 @@ onOpenNetworkReqSn ::
   [TxIdType tx] ->
   -- | Optional decommit transaction of removing funds from the head.
   Maybe tx ->
-  Maybe (UTxOType tx) ->
+  -- | Optional commit of additional funds into the head.
+  Maybe (TxIdType tx) ->
   Outcome tx
-onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIncrementUTxO =
+onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
   -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
@@ -405,6 +412,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
       waitOnSnapshotVersion $
         -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
+          -- TODO: Spec updates for these checks in here
           requireApplicableCommit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
             -- Resolve transactions by-id
             waitResolvableTxs $ \requestedTxs -> do
@@ -446,6 +454,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
                       , requestedTxIds
                       , newLocalUTxO
                       , newLocalTxs
+                      , newCurrentDepositTxId = mDepositTxId
                       }
  where
   requireReqSn continue
@@ -476,19 +485,24 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
       unseen -> wait $ WaitOnTxs unseen
 
   requireApplicableCommit activeUTxOAfterDecommit cont =
-    case mIncrementUTxO of
+    case mDepositTxId of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
-      Just utxo ->
-        -- NOTE: this makes the commits sequential in a sense that you can't
-        -- commit unless the previous commit is settled.
-        if sv == confVersion && isJust confUTxOToCommit
-          then
-            if confUTxOToCommit == Just utxo
-              then cont (activeUTxOAfterDecommit <> fromMaybe mempty confUTxOToCommit, confUTxOToCommit)
-              else Error $ RequireFailed ReqSnCommitNotSettled
-          else do
-            let activeUTxOAfterCommit = activeUTxOAfterDecommit <> utxo
-            cont (activeUTxOAfterCommit, Just utxo)
+      Just depositTxId ->
+        case Map.lookup depositTxId pendingDeposits of
+          Nothing -> Error $ RequireFailed NoMatchingDeposit
+          Just Deposit{status, deposited}
+            | status /= Active -> Error $ RequireFailed RequestedDepositNotActive{depositTxId}
+            | otherwise ->
+                -- NOTE: this makes the commits sequential in a sense that you can't
+                -- commit unless the previous commit is settled.
+                if sv == confVersion && isJust confUTxOToCommit
+                  then
+                    if confUTxOToCommit == Just deposited
+                      then cont (activeUTxOAfterDecommit <> fromMaybe mempty confUTxOToCommit, confUTxOToCommit)
+                      else Error $ RequireFailed ReqSnCommitNotSettled
+                  else do
+                    let activeUTxOAfterCommit = activeUTxOAfterDecommit <> deposited
+                    cont (activeUTxOAfterCommit, Just deposited)
 
   requireApplicableDecommitTx cont =
     case mDecommitTx of
@@ -558,7 +572,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
     InitialSnapshot{initialUTxO} -> initialUTxO
     ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit}} -> utxo <> fromMaybe mempty utxoToCommit
 
-  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version} = coordinatedHeadState
+  CoordinatedHeadState{pendingDeposits, confirmedSnapshot, seenSnapshot, allTxs, localTxs, version} = coordinatedHeadState
 
   OpenState{parameters, coordinatedHeadState, currentSlot, headId} = st
 
@@ -616,8 +630,8 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                 --         postTx (decrement, v̂, ŝ, η, η𝛼, ηω)
                 & maybePostDecrementTx snapshot multisig
                 -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
-                --         multicast (reqSn, v, ̅S.s + 1, T̂, 𝑈𝛼, txω)
-                & maybeRequestNextSnapshot (number snapshot + 1)
+                -- REVIEW: multicast (reqSn, v, ̅S.s + 1, T̂, S.𝑈𝛼, S.txω)
+                & maybeRequestNextSnapshot snapshot
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -661,19 +675,21 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           RequireFailed $
             InvalidMultisignature{multisig = show multisig, vkeys}
 
-  maybeRequestNextSnapshot nextSn outcome =
+  maybeRequestNextSnapshot previous outcome = do
+    let nextSn = previous.number + 1
     if isLeader parameters party nextSn && not (null localTxs)
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx pendingDeposit)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx currentDepositTxId)
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    case find (\(_, depositUTxO) -> Just depositUTxO == utxoToCommit) (Map.assocs pendingDeposits) of
-      Just (depositTxId, depositUTxO) ->
+    -- TODO: check status (again)?
+    case find (\(_, Deposit{deposited}) -> Just deposited == utxoToCommit) $ Map.toList pendingDeposits of
+      Just (depositTxId, Deposit{deposited}) ->
         outcome
-          <> newState CommitApproved{headId, utxoToCommit = depositUTxO}
+          <> newState CommitApproved{headId, utxoToCommit = deposited}
           <> cause
             OnChainEffect
               { postChainTx =
@@ -715,12 +731,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , headId
     } = openState
 
-  pendingDeposit =
-    case Map.toList pendingDeposits of
-      [] -> Nothing
-      (_, depositUTxO) : _ -> Just depositUTxO
-
-  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, pendingDeposits, version} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, pendingDeposits, currentDepositTxId, version} = coordinatedHeadState
 
 -- | Client request to recover deposited UTxO.
 --
@@ -735,16 +746,17 @@ onOpenClientRecover ::
 onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
   case Map.lookup recoverTxId pendingDeposits of
     Nothing ->
-      Error $ RequireFailed RecoverNotMatchingDeposit
-    Just recoverUTxO ->
+      Error $ RequireFailed NoMatchingDeposit
+    Just Deposit{deposited} ->
       causes
         [ OnChainEffect
             { postChainTx =
                 RecoverTx
                   { headId
                   , recoverTxId = recoverTxId
-                  , deadline = currentSlot
-                  , recoverUTxO
+                  , -- XXX: Why is this called deadline?
+                    deadline = currentSlot
+                  , recoverUTxO = deposited
                   }
             }
         ]
@@ -900,48 +912,83 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
     , currentSlot
     } = openState
 
-onOpenChainDepositTx ::
-  IsTx tx =>
-  ChainStateType tx ->
-  HeadId ->
-  Environment ->
-  OpenState tx ->
-  -- | Deposited UTxO
-  UTxOType tx ->
-  -- | Deposit 'TxId'
-  TxIdType tx ->
-  -- | Deposit deadline
-  UTCTime ->
-  Outcome tx
-onOpenChainDepositTx newChainState headId env st deposited depositTxId deadline =
-  -- TODO: We should check for deadline and only request snapshots that have deadline further in the future so
-  -- we don't end up with a snapshot that is already outdated.
-  waitOnUnresolvedDecommit $
-    newState
-      CommitRecorded
-        { chainState = newChainState
-        , headId
-        , pendingDeposits = Map.singleton depositTxId deposited
-        , newLocalUTxO = localUTxO <> deposited
-        , utxoToCommit = deposited
-        , pendingDeposit = depositTxId
-        , deadline
-        }
-      <> if not snapshotInFlight && isLeader parameters party nextSn
-        then
-          cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
-        else noop
+-- | Process the chain (and time) advancing in an open head.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+--
+-- This is primarily used to track deposits and either drop them or request
+-- snapshots for inclusion.
+onOpenChainTick :: IsTx tx => Environment -> OpenState tx -> UTCTime -> Outcome tx
+onOpenChainTick env st chainTime =
+  -- Determine new active and new expired
+  updateDeposits $ \newActive newExpired ->
+    -- Emit state change for both
+    -- XXX: This is a bit messy
+    ((mkDepositActivated newActive <> mkDepositExpired newExpired) <>) $
+      -- Apply state changes and pick next active to request snapshot
+      -- XXX: This is smelly as we rely on Map <> to override entries (left
+      -- biased). This is also weird because we want to actually apply the state
+      -- change and also to determine the next active.
+      withNextActive (newActive <> newExpired <> pendingDeposits) $ \depositTxId ->
+        -- REVIEW: this is not really a wait, but discard?
+        -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
+        if isNothing decommitTx
+          && isNothing currentDepositTxId
+          && not snapshotInFlight
+          && isLeader parameters party nextSn
+          then
+            -- XXX: This state update has no equivalence in the
+            -- spec. Do we really need to store that we have
+            -- requested a snapshot? If yes, should update spec.
+            newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just depositTxId))
+          else
+            noop
  where
-  waitOnUnresolvedDecommit cont =
-    case decommitTx of
-      Nothing -> cont
-      Just tx -> wait $ WaitOnUnresolvedDecommit{decommitTx = tx}
+  updateDeposits cont =
+    uncurry cont $ Map.foldlWithKey updateDeposit (mempty, mempty) pendingDeposits
+
+  updateDeposit (newActive, newExpired) depositTxId deposit@Deposit{status} =
+    let newStatus = determineStatus deposit
+        d' = deposit{status = newStatus}
+     in case newStatus of
+          Active | status /= Active -> (Map.insert depositTxId d' newActive, newExpired)
+          Expired | status /= Expired -> (newActive, Map.insert depositTxId d' newExpired)
+          _ -> (newActive, newExpired)
+
+  determineStatus Deposit{deadline}
+    | chainTime > deadline `minusTime` toNominalDiffTime depositPeriod = Expired
+    -- TODO: should check for minimum age
+    -- https://github.com/cardano-scaling/hydra/issues/1951#issuecomment-2809966834
+    | otherwise = Active
+
+  minusTime time dt = addUTCTime (-dt) time
+
+  withNextActive deposits cont = do
+    -- NOTE: Do not consider empty deposits.
+    let p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
+    maybe noop (cont . fst) . find p $ Map.toList deposits
+
+  mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    pure DepositActivated{depositTxId, deposit}
+
+  mkDepositExpired m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    pure DepositExpired{depositTxId, chainTime, deposit}
 
   nextSn = confirmedSn + 1
 
-  Environment{party} = env
+  Environment{party, depositPeriod} = env
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot, seenSnapshot, version, decommitTx, localUTxO} = coordinatedHeadState
+  CoordinatedHeadState
+    { localTxs
+    , confirmedSnapshot
+    , seenSnapshot
+    , version
+    , decommitTx
+    , pendingDeposits
+    , currentDepositTxId
+    } = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -952,28 +999,6 @@ onOpenChainDepositTx newChainState headId env st deposited depositTxId deadline 
     LastSeenSnapshot{} -> False
     RequestedSnapshot{} -> True
     SeenSnapshot{} -> True
-
-onOpenChainRecoverTx ::
-  IsTx tx =>
-  OpenState tx ->
-  ChainStateType tx ->
-  HeadId ->
-  TxIdType tx ->
-  UTxOType tx ->
-  Outcome tx
-onOpenChainRecoverTx st newChainState headId recoveredTxId recoveredUTxO =
-  newState
-    CommitRecovered
-      { chainState = newChainState
-      , headId
-      , recoveredUTxO
-      , newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO
-      , recoveredTxId
-      }
- where
-  OpenState{coordinatedHeadState} = st
-
-  CoordinatedHeadState{localUTxO} = coordinatedHeadState
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
@@ -1158,7 +1183,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
   requireVerifiedSameSnapshot cont =
     if requestedSnapshot == currentSnapshot
       then cont
-      else Error . SideLoadSnapshotFailed $ SideLoadInitialSnapshotMissmatch
+      else Error . SideLoadSnapshotFailed $ SideLoadInitialSnapshotMismatch
 
   requireVerifiedSnapshotNumber cont =
     if requestedSn >= lastSeenSn
@@ -1215,7 +1240,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
                     }
               }
     | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
-        -- TODO: A more recent snapshot number was succesfully contested, we will
+        -- TODO: A more recent snapshot number was successfully contested, we will
         -- not be able to fanout! We might want to communicate that to the client!
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
     | otherwise ->
@@ -1270,7 +1295,7 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
   ClosedState{headId} = closedState
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
--- 'Effect's, in case it is processed succesfully. Later, the Node will
+-- 'Effect's, in case it is processed successfully. Later, the Node will
 -- 'aggregate' the events, resulting in a new 'HeadState'.
 update ::
   IsChainState tx =>
@@ -1306,8 +1331,8 @@ update env ledger st ev = case (st, ev) of
     onOpenClientNewTx tx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
     onOpenNetworkReqTx env ledger openState ttl tx
-  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx incrementUTxO})) ->
-    onOpenNetworkReqSn env ledger openState sender sv sn txIds decommitTx incrementUTxO
+  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
+    onOpenNetworkReqSn env ledger openState sender sv sn txIds decommitTx depositTxId
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
     onOpenNetworkAckSn env openState sender snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
@@ -1332,12 +1357,20 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, depositTxId, deadline}, newChainState})
-    | ourHeadId == headId -> onOpenChainDepositTx newChainState headId env openState deposited depositTxId deadline
+  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, deadline}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, deadline}
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
-    | ourHeadId == headId -> onOpenChainRecoverTx openState newChainState headId recoveredTxId recoveredUTxO
+  (Open openState@OpenState{}, ChainInput Tick{chainTime, chainSlot}) ->
+    -- XXX: We originally forgot the normal TickObserved state event here and so
+    -- time did not advance in an open head anymore. This is a hint that we
+    -- should compose event handling better.
+    newState TickObserved{chainSlot}
+      <> onOpenChainTick env openState chainTime
+  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
@@ -1357,9 +1390,10 @@ update env ledger st ev = case (st, ev) of
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime})
+  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState HeadIsReadyToFanout{headId}
+        newState TickObserved{chainSlot}
+          <> newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId, fanoutUTxO}, newChainState})
@@ -1434,6 +1468,7 @@ aggregate st = \case
                   , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
                   , pendingDeposits = mempty
+                  , currentDepositTxId = Nothing
                   , decommitTx = Nothing
                   , version = 0
                   }
@@ -1489,7 +1524,7 @@ aggregate st = \case
        where
         CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
       _otherState -> st
-  SnapshotRequested{snapshot, requestedTxIds, newLocalUTxO, newLocalTxs} ->
+  SnapshotRequested{snapshot, requestedTxIds, newLocalUTxO, newLocalTxs, newCurrentDepositTxId} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
         Open
@@ -1500,6 +1535,7 @@ aggregate st = \case
                   , localTxs = newLocalTxs
                   , localUTxO = newLocalUTxO
                   , allTxs = foldr Map.delete allTxs requestedTxIds
+                  , currentDepositTxId = newCurrentDepositTxId
                   }
             }
        where
@@ -1566,7 +1602,7 @@ aggregate st = \case
                       }
             }
       _otherState -> st
-  CommitRecorded{chainState, pendingDeposits, newLocalUTxO} -> case st of
+  DepositRecorded{chainState, headId, depositTxId, deposited, deadline} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1574,15 +1610,40 @@ aggregate st = \case
             { chainState
             , coordinatedHeadState =
                 coordinatedHeadState
-                  { localUTxO = newLocalUTxO
-                  , pendingDeposits = pendingDeposits `Map.union` existingDeposits
+                  { pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, deadline, status = Unknown} pendingDeposits
                   }
             }
        where
-        CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
+        CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
+    _otherState -> st
+  DepositActivated{depositTxId, deposit} -> case st of
+    Open
+      os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { pendingDeposits = Map.insert depositTxId deposit pendingDeposits
+                  }
+            }
+       where
+        CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
+    _otherState -> st
+  DepositExpired{depositTxId, deposit} -> case st of
+    Open
+      os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { pendingDeposits = Map.insert depositTxId deposit pendingDeposits
+                  }
+            }
+       where
+        CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
     _otherState -> st
   CommitApproved{} -> st
-  CommitRecovered{chainState, newLocalUTxO, recoveredTxId} -> case st of
+  DepositRecovered{chainState, depositTxId} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1590,18 +1651,18 @@ aggregate st = \case
             { chainState
             , coordinatedHeadState =
                 coordinatedHeadState
-                  { localUTxO = newLocalUTxO
-                  , pendingDeposits = Map.delete recoveredTxId existingDeposits
+                  { pendingDeposits = Map.delete depositTxId pendingDeposits
                   }
             }
        where
-        CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
+        CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
     _otherState -> st
   CommitFinalized{chainState, newVersion, depositTxId} ->
     case st of
       Open
         os@OpenState{coordinatedHeadState} ->
-          let newLocalUTxO = fromMaybe mempty (Map.lookup depositTxId existingDeposits)
+          let deposit = Map.lookup depositTxId existingDeposits
+              newUTxO = maybe mempty (\Deposit{deposited} -> deposited) deposit
               pendingDeposits = Map.delete depositTxId existingDeposits
            in Open
                 os
@@ -1610,7 +1671,10 @@ aggregate st = \case
                       coordinatedHeadState
                         { pendingDeposits
                         , version = newVersion
-                        , localUTxO = localUTxO <> newLocalUTxO
+                        , -- NOTE: This must correspond to the just finalized
+                          -- depositTxId, but we should not verify this here.
+                          currentDepositTxId = Nothing
+                        , localUTxO = localUTxO <> newUTxO
                         }
                   }
          where
@@ -1735,8 +1799,10 @@ aggregateChainStateHistory history = \case
   TransactionReceived{} -> history
   PartySignedSnapshot{} -> history
   SnapshotConfirmed{} -> history
-  CommitRecorded{chainState} -> pushNewState chainState history
-  CommitRecovered{chainState} -> pushNewState chainState history
+  DepositRecorded{chainState} -> pushNewState chainState history
+  DepositActivated{} -> history
+  DepositExpired{} -> history
+  DepositRecovered{chainState} -> pushNewState chainState history
   CommitFinalized{chainState} -> pushNewState chainState history
   DecommitRecorded{} -> history
   DecommitFinalized{chainState} -> pushNewState chainState history

@@ -38,63 +38,46 @@ For demonstration purposes, we also provide demo key pairs (`alice.{vk,sk}`, `bo
 
 ### Contestation period
 
-The contestation period is a critical protocol parameter, defined in seconds, for example:
+The contestation period (CP) is an important protocol parameter, defined in seconds:
 
 ```
-hydra-node --contestation-period 120s
+hydra-node --contestation-period 1200s
 ```
 
-The contestation period is used in:
+The contestation period is used to set the **contestation deadline**. That is, after `Close`, all participants have at minimum `CP` to submit a `Contest` transaction. The `hydra-node` does that automatically if it sees a closed state not be the latest it knows.
 
-- Constructing the upper validity bound for `Close` and `Contest` transactions
-- Computing the contestation deadline, which defines the lower validity
-  bound for the `FanOut` transaction.
+:::important Consistent contestation period
 
-The default contestation period is _600 seconds_, but it should be tailored to the network conditions, as different networks have varying block production rates.
-
-:::info Consistent contestation period
-
-All parties in the Hydra Head protocol must configure the same `--contestation-period` value. Otherwise, the `Init` transaction will be ignored, preventing any participant from stalling or causing a denial-of-service (DoS) attack by setting an unreasonably large contestation period.
+Being a protocol parameter, all participants in a head must configure the same `--contestation-period` value. Otherwise, the `Init` transaction will be ignored, preventing any participant from stalling or causing a denial-of-service (DoS) attack by setting an unreasonably large contestation period.
 
 :::
+
+The default contestation period is _600 seconds_, but it should be tailored to the network conditions, as different networks have varying block production rates. A good rule of thumb is the maximum time you would expect an attacker to launch a withholding attack onto the cardano network you are on. Also, consider the time it takes to propagate a transaction to the network and the time it takes for a block to be produced, and the contestation period should be long enough to accommodate any downtime of the `hydra-node`. 
+
+The contestation deadline decides when a closed head can be fanned out. At worst, this is `(1 + n) * CP` after submitting a `Close` transaction, where `n` is the number of participants in the head. This is because the deadline is pushed forward on each `Contest`. With no contestations which may still be `2 * CP` after `Close` depending on the upper validity set on che close transaction. The `hydra-node` currently picks a blanket 200 seconds as [max grace time](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Chain-Direct-Handlers.html#v:maxGraceTime).
 
 :::warning Invalid `Close` and `Contest` transactions
 
-Depending on the contestation period value and the network conditions,
-`Close` and `Contest` transactions could become invalid and be
-silently rejected by the `cardano-node` to which they have been
-submitted. This can happen, for example, if:
-* The network is congested with many transactions waiting to be
-  included in a block
-* The node's connectivity to the network drops, and the transaction is
-  not propagated to block producers fast enough.
+Depending on the upper validity picked by `hydra-node` and the current network conditions, `Close` and `Contest` transactions could become invalid and be silently rejected by the `cardano-node` to which they have been submitted. This can happen, for example, if:
+* The network is congested with many transactions waiting to be included in a block
+* The node's connectivity to the network drops, and the transaction is not propagated to block producers fast enough.
 
 Currently, the `hydra-node` does not handle this situation. Each client application should implement a retry mechanism based on the expected time for transaction inclusion.
-
 :::
 
-### Networking: Configuring the limits of etcd networking recovery
+### Deposit period
 
-Since switching to the [`etcd`-backed network
-configuration](https://github.com/cardano-scaling/hydra/pull/1854), the system
-is more resiliant to nodes going offline.
-
-However, because we don't want the etcd cluster to use up unlimited disk
-space, we set a limit to how long it will retain messages for. By default this
-is 1000 revisions across all keys. You can override this by setting the
-relevant `etcd` [environment
-variables](https://etcd.io/docs/v3.4/op-guide/configuration/).
-
-For example, to configure etcd to retain 7 days worth of revisions, in the
-call to running hydra-node, you can define:
+While not a protocol parameter, the deposit period (DP) can be set by any `hydra-node` to configure incremental commits to a head:
 
 ```
-ETCD_AUTO_COMPACTION_MODE=periodic
-ETCD_AUTO_COMPACTION_RETENTION=168h
+hydra-node --deposit-period 7200s
 ```
 
-which will be passed on to the `etcd` executable.
+Anyone can submit a deposit transaction that targets a given head. Each deposit has a **deposit deadline**, after which a deposit can be recovered. All participants need to agree before a deposit can be incremented into the head state and deposited funds are made available on the L2.
 
+For a deposit to be considered by the `hydra-node` the deadline must be further out than `now + DP`. The `hydra-node` will pick the deadline `now + 2 * DP` for any deposit transactions created through `POST /commit`. For example, if you set a deposit period of 2 hours, the deposit can be picked up for 2 hours and recovered after 4 hours.
+
+See the [how-to](./how-to/incremental-commit) and [protocol documentation](./dev/protocol#incremental-commits) for more details.
 
 ### Reference scripts
 
@@ -148,7 +131,7 @@ Many protocol parameters are irrelevant in the Hydra context (eg, there is no tr
 
 ### Fuel v funds
 
-Transactions driving the head lifecycle (`Init`, `Abort`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `--hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
+Transactions driving the head lifecycle (`Init`, `Abort`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
 
 Consequently, sending some ada to the address of this 'internal wallet' is required. To get the address for the Cardano keys as generated above, one can use, for example, the `cardano-cli`:
 
@@ -250,3 +233,16 @@ The API is not authenticated, and if exposed, an open head can be easily closed 
 
 The API server also supports `TLS` connections (`https://` and `wss://`) when a certificate and key are configured with `--tls-cert` and `--tls-key` respectively.
 
+
+### Auto compaction of networking buffers
+
+Since switching to the [`etcd`-backed network configuration](https://github.com/cardano-scaling/hydra/pull/1854), the system is more resiliant to nodes going offline.
+
+By default, the network stack keeps **1000** messages which other nodes may be picking up after being offline.
+
+You can override this by setting the relevant `etcd` [environment variables](https://etcd.io/docs/v3.4/op-guide/configuration/). For example, to configure retention of 7 days worth of network messages, in the call to running hydra-node, you can define:
+
+```
+ETCD_AUTO_COMPACTION_MODE=periodic
+ETCD_AUTO_COMPACTION_RETENTION=168h
+```

@@ -47,9 +47,14 @@ jobs:
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
-        cd ${{ matrix.package }}
-        nix build .#${{ matrix.package }}-tests
-        nix develop .#${{ matrix.package }}-tests --command tests
+        if [[ ${{secrets.blockfrost_token}} != '' ]]; then
+          echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
+          cd ${{ matrix.package }}
+          nix build .#${{ matrix.package }}-tests
+          nix develop .#${{ matrix.package }}-tests --command tests
+        else
+          echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
+        fi
 
     # This one is special, as it requires a tty.
     - name: ❓ Test (TUI)
@@ -185,6 +190,14 @@ jobs:
     name: "nix flake check"
     runs-on: ubuntu-latest
     steps:
+    - name: Reclaim the bytes
+      uses: data-intuitive/reclaim-the-bytes@v2
+      with:
+        # NOTE: Remove more when needed, but these take also time
+        # See https://github.com/marketplace/actions/reclaim-the-bytes
+        remove-android-sdk: false
+        remove-docker-images: false
+
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 

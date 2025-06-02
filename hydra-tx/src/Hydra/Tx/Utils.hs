@@ -49,7 +49,7 @@ findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)
 
 -- | Derive the 'OnChainId' from a Cardano 'PaymentKey'. The on-chain identifier
--- is the public key hash as it is also availble to plutus validators.
+-- is the public key hash as it is also available to plutus validators.
 verificationKeyToOnChainId :: VerificationKey PaymentKey -> OnChainId
 verificationKeyToOnChainId =
   UnsafeOnChainId . fromBuiltin . getPubKeyHash . toPlutusKeyHash . verificationKeyHash
@@ -66,9 +66,9 @@ headTokensFromValue headTokenScript v =
 -- is useful to pick a UTxO to decommit.
 splitUTxO :: UTxO -> (UTxO, UTxO)
 splitUTxO utxo =
-  case UTxO.pairs utxo of
+  case UTxO.toList utxo of
     [] -> (mempty, mempty)
-    (u : us) -> (UTxO.fromPairs us, UTxO.singleton u)
+    ((u, o) : us) -> (UTxO.fromList us, UTxO.singleton u o)
 
 adaOnly :: TxOut CtxUTxO -> TxOut CtxUTxO
 adaOnly = \case
@@ -93,7 +93,7 @@ addMetadata (TxMetadata newMetadata) blueprintTx tx =
 -- regular snapshot. This actually signals that our snapshot modeling is likely
 -- not ideal but for now we want to keep track of both fields (de/commit) since
 -- we might want to support batch de/commits too in the future, but having both fields
--- be Maybe UTxO intruduces a lot of checks if the value is Nothing or mempty.
+-- be Maybe UTxO introduces a lot of checks if the value is Nothing or mempty.
 data IncrementalAction = ToCommit UTxO | ToDecommit UTxO | NoThing deriving (Eq, Show)
 
 setIncrementalActionMaybe :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction

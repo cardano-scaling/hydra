@@ -42,9 +42,7 @@ import Hydra.Logging (
  )
 import Hydra.Network (Host)
 import Hydra.Tx (HeadId, txId)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (generateSigningKey)
-import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import HydraNode (
   HydraClient,
   HydraNodeLog,
@@ -91,9 +89,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             putStrLn $ "Starting hydra cluster in " <> workDir
             let hydraTracer = contramap FromHydraNode tracer
-            let contestationPeriod = UnsafeContestationPeriod 10
-            let depositDeadline = UnsafeDepositDeadline 10
-            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \clients -> do
+            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
               waitForNodesConnected hydraTracer 20 clients
               scenario hydraTracer node workDir dataset clients
         systemStats <- readTVarIO statsTvar
@@ -164,7 +160,7 @@ scenario hydraTracer node workDir Dataset{clientDatasets, title, description} no
       guard $ v ^? key "tag" == Just "HeadIsInitializing"
       v ^? key "headId" . _JSON
 
-  putTextLn "Comitting initialUTxO from dataset"
+  putTextLn "Committing initialUTxO from dataset"
   expectedUTxO <- commitUTxO node clients clientDatasets
 
   waitFor hydraTracer (fromIntegral $ 10 * clusterSize) clients $
@@ -222,7 +218,7 @@ defaultDescription = ""
 
 -- | Collect OS-level stats while running some 'IO' action.
 --
--- __NOTE__: This function relies on [dstat](https://linux.die.net/man/1/dstat). If the executable is not in the @PATH@
+-- __NOTE__: This function relies on [dool](https://man.archlinux.org/man/extra/dool/dool.1.en). If the executable is not in the @PATH@
 -- it's basically a no-op.
 --
 -- Writes into given `TVar` containing one line every 5 second with share of user/free memory load.
@@ -247,7 +243,7 @@ defaultDescription = ""
 -- TODO: add more data points for memory and network consumption
 withOSStats :: FilePath -> TVar IO SystemStats -> IO a -> IO a
 withOSStats workDir tvar action =
-  findExecutable "dstat" >>= \case
+  findExecutable "dool" >>= \case
     Nothing -> action
     Just _ ->
       withCreateProcess process{std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
@@ -259,10 +255,10 @@ withOSStats workDir tvar action =
           )
           action
           >>= \case
-            Left _ -> failure "dstat process failed unexpectedly"
+            Left _ -> failure "dool process failed unexpectedly"
             Right a -> pure a
  where
-  process = (proc "dstat" ["-cm", "-n", "-N", "lo", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
+  process = (proc "dool" ["-cm", "-n", "-N", "lo", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
 
   collectStats _ Nothing = pure ()
   collectStats tvar' (Just hdl) =
@@ -341,7 +337,7 @@ seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, 
     seedFromFaucet node vk 100_000_000 tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
--- (asumed same sequence) of clients.
+-- (assumed same sequence) of clients.
 commitUTxO :: RunningNode -> [HydraClient] -> [ClientDataset] -> IO UTxO
 commitUTxO node clients clientDatasets =
   mconcat <$> forM (zip clients clientDatasets) doCommit

@@ -84,7 +84,3 @@ data NetworkLog
   | Etcd EtcdLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
-
-instance Arbitrary NetworkLog where
-  arbitrary = genericArbitrary
-  shrink = genericShrink

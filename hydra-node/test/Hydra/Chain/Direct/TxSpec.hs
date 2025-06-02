@@ -148,7 +148,7 @@ spec =
                 let blueprintBody = toLedgerTx blueprintTx ^. bodyTxL
                 let commitTxBody = toLedgerTx createdTx ^. bodyTxL
                 let spendableUTxO =
-                      UTxO.singleton (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut)
+                      UTxO.singleton healthyInitialTxIn (toCtxUTxOTxOut healthyInitialTxOut)
                         <> lookupUTxO
                         <> registryUTxO scriptRegistry
 
@@ -241,7 +241,7 @@ genBlueprintTxWithUTxO =
       ( utxo <> utxoToSpend
       , txbody
           & addTxIns
-            ( UTxO.pairs $
+            ( UTxO.toList $
                 ( \_ ->
                     BuildTxWith $
                       ScriptWitness ScriptWitnessForSpending $
@@ -254,7 +254,7 @@ genBlueprintTxWithUTxO =
   addSomeReferenceInputs (utxo, txbody) = do
     txout <- genTxOutWithReferenceScript
     txin <- arbitrary
-    pure (utxo <> UTxO.singleton (txin, txout), txbody & addTxInsReference [txin])
+    pure (utxo <> UTxO.singleton txin txout, txbody & addTxInsReference [txin] mempty)
 
   addValidityRange (utxo, txbody) = do
     (start, end) <- arbitrary
@@ -336,7 +336,7 @@ prop_interestingBlueprintTx = do
 
   spendsFromPubKey (utxo, tx) =
     any
-      ( \txIn -> case UTxO.resolve (fromLedgerTxIn txIn) utxo of
+      ( \txIn -> case UTxO.resolveTxIn (fromLedgerTxIn txIn) utxo of
           Just (TxOut (ShelleyAddressInEra (ShelleyAddress _ (KeyHashObj _) _)) _ _ _) -> True
           _ -> False
       )
@@ -347,7 +347,7 @@ prop_interestingBlueprintTx = do
   -- and would not detect if redeemers are missing.
   spendsFromScript (utxo, tx) =
     any
-      ( \txIn -> case UTxO.resolve (fromLedgerTxIn txIn) utxo of
+      ( \txIn -> case UTxO.resolveTxIn (fromLedgerTxIn txIn) utxo of
           Just (TxOut (ShelleyAddressInEra (ShelleyAddress _ (ScriptHashObj _) _)) _ _ _) -> True
           _ -> False
       )
