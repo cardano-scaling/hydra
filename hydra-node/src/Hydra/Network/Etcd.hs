@@ -56,9 +56,10 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Exception (IOException)
-import Control.Lens ((^.), (^..))
+import Control.Lens ((^.), (^..), (^?))
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
+import Data.Aeson.Lens qualified as Aeson
 import Data.Aeson.Types (Value)
 import Data.Bits ((.|.))
 import Data.ByteString qualified as BS
@@ -138,12 +139,12 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   envVars <- Map.fromList <$> getEnvironment
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
-      race_ (traceStderr p) $ do
+      race_ (traceStderr p callback) $ do
         -- XXX: cleanup reconnecting through policy if other threads fail
         doneVar <- newTVarIO False
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) grpcServer $ \conn ->
+        withConnection (connParams doneVar) grpcServer $ \conn -> do
           -- REVIEW: checkVersion blocks if used on main thread - why?
           withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
             race_ (pollConnectivity tracer conn advertise callback) $
@@ -188,12 +189,22 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- be used by default still.
   clientPort = 2379 + port listen - 5001
 
-  traceStderr p =
+  traceStderr p NetworkCallback{onConnectivity} =
     forever $ do
       bs <- BS.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bs of
         Left err -> traceWith tracer FailedToDecodeLog{log = decodeUtf8 bs, reason = show err}
-        Right v -> traceWith tracer $ EtcdLog{etcd = v}
+        Right v -> do
+          let expectedClusterMismatch = do
+                level' <- bs ^? Aeson.key "level" . Aeson.nonNull
+                msg' <- bs ^? Aeson.key "msg" . Aeson.nonNull
+                localClusterId <- bs ^? Aeson.key "local-member-cluster-id" . Aeson.nonNull
+                remoteClusterId <- bs ^? Aeson.key "remote-peer-cluster-id" . Aeson.nonNull
+                pure (level', msg', localClusterId, remoteClusterId)
+          case expectedClusterMismatch of
+            Just (Aeson.String "error", Aeson.String "request sent was ignored due to cluster ID mismatch", Aeson.String localClusterID, Aeson.String remotePeerClusterID) ->
+              onConnectivity ClusterIDMismatch{localClusterID, remotePeerClusterID}
+            _ -> traceWith tracer $ EtcdLog{etcd = v}
 
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration

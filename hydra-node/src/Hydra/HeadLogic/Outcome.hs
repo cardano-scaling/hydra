@@ -60,6 +60,11 @@ data StateChanged tx
       { ourVersion :: ProtocolVersion
       , theirVersion :: Maybe ProtocolVersion
       }
+  | NetworkClusterIDMismatch
+      { localClusterID :: Text
+      , remotePeerClusterID :: Text
+      , configuredParties :: [Party]
+      }
   | HeadInitialized
       { parameters :: HeadParameters
       , chainState :: ChainStateType tx
