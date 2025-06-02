@@ -13,14 +13,13 @@
 
 
   outputs =
-    { self
-    , nixpkgs
+    { nixpkgs
     , nixos-generators
     , cardano-node
     , hydra
     , mithril
     , ...
-    }@inputs:
+    }:
     let
       system = "x86_64-linux";
     in

@@ -1,6 +1,6 @@
 # Hydraw running on hydra running on cardano
 
-{ config, pkgs, lib, ... }:
+{ pkgs, ... }:
 
 let
   cardano-node = import

@@ -10,7 +10,7 @@ pkgs.haskell-nix.project {
   src = pkgs.haskell-nix.haskellLib.cleanSourceWith {
     name = "hydra";
     src = ./../..;
-    filter = path: type:
+    filter = path: _type:
       # Blacklist of paths which do not affect the haskell build. The smaller
       # the resulting list of files is, the less likely we have redundant
       # rebuilds.

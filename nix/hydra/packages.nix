@@ -2,9 +2,8 @@
 
 { hsPkgs # as defined in default.nix
 , pkgs
-, inputs
 , gitRev ? "unknown"
-, self
+, ...
 }:
 let
   inherit (pkgs) lib;
