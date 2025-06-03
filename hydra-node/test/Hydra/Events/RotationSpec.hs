@@ -21,7 +21,6 @@ import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
 import Test.Hydra.Tx.Fixture (cperiod)
 import Test.QuickCheck (Positive (..))
 import Test.QuickCheck.Instances.Natural ()
-import Test.QuickCheck.Monadic (monadicIO, run)
 
 spec :: Spec
 spec = parallel $ do
@@ -67,11 +66,7 @@ spec = parallel $ do
           case stateChanged checkpoint of
             Checkpoint{state = Closed{}} -> pure ()
             _ -> fail ("unexpected: " <> show checkpoint)
-    it "a rotated and non-rotated node have consistent state"
-      $ monadicIO
-        . run
-      $ setupHydrate
-      $ \testHydrate -> do
+      it "a rotated and non-rotated node have consistent state" $ \testHydrate -> do
         -- prepare inputs
         now <- getCurrentTime
         let contestationDeadline = addContestationPeriod (posixFromUTCTime now) (toChain cperiod)
