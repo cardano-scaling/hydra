@@ -17,7 +17,7 @@ changes.
 - Remove runtime dependency to `etcd` by embedding and shipping it with `hydra-node`.
   - New option `--use-system-etcd` to prefer the system etcd instead of the embedded one.
 
-- Add file-based event log rotation support via optional `--rotate-after` command line option.
+- Add file-based event log rotation support via optional `--persistence-rotate-after` command line option.
 
 - **BREAKING** Update scripts to plutus 1.45.0.0.
 
