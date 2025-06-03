@@ -3,8 +3,7 @@ module Hydra.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (Tx, utxoFromTx)
-import Hydra.Chain (OnChainTx)
+import Hydra.Cardano.Api (utxoFromTx)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.ChainObserver.NodeClient (ChainObservation, observeAll, observeTx)
