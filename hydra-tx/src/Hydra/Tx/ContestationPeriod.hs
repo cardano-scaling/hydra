@@ -22,14 +22,14 @@ instance Show ContestationPeriod where
 instance Enum ContestationPeriod where
   toEnum i
     | i > 0 = UnsafeContestationPeriod $ toEnum i
-    | otherwise = error $ "ContestationPeriod.toEnum: non-zero integer " <> toText (show i)
+    | otherwise = error $ "ContestationPeriod.toEnum: " <> toText (show i) <> " is not > 0"
 
   fromEnum (UnsafeContestationPeriod n) = fromEnum n
 
 instance Num ContestationPeriod where
   fromInteger i
     | i > 0 = UnsafeContestationPeriod $ fromInteger i
-    | otherwise = error $ "ContestationPeriod.fromInteger: non-zero integer " <> toText (show i)
+    | otherwise = error $ "ContestationPeriod.fromInteger: " <> toText (show i) <> " is not > 0"
 
   (+) (UnsafeContestationPeriod a) (UnsafeContestationPeriod b) = UnsafeContestationPeriod (a + b)
   (-) (UnsafeContestationPeriod a) (UnsafeContestationPeriod b) = UnsafeContestationPeriod (a - b)

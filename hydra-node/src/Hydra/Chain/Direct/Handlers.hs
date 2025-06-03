@@ -172,15 +172,22 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
     , draftDepositTx = \headId commitBlueprintTx deadline -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
-        timeHandle <- queryTimeHandle
+        TimeHandle{currentPointInTime} <- queryTimeHandle
         -- XXX: What an error handling mess
         runExceptT $ do
-          validBefore <- case currentPointInTime timeHandle of
-            -- XXX: We only need the current slot and this would never fail
+          (currentSlot, currentTime) <- case currentPointInTime of
             Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
-            Right (s, _) -> pure $ s + fromInteger (truncate maxGraceTime)
+            Right (s, t) -> pure (s, t)
+          -- NOTE: Use a smaller upper bound than maxGraceTime to allow for
+          -- shorter than 200 slot deposit periods. This is only important on
+          -- fast moving networks (e.g. in testing). XXX: Making maxGraceTime
+          -- configurable would avoid this.
+          let untilDeadline = diffUTCTime deadline currentTime
+          let graceTime = maxGraceTime `min` untilDeadline / 2
+          -- -- NOTE: But also not make it smaller than 10 slots.
+          let validBeforeSlot = currentSlot + fromInteger (truncate graceTime `max` 10)
           lift . finalizeTx wallet ctx spendableUTxO lookupUTxO $
-            depositTx (networkId ctx) headId commitBlueprintTx validBefore deadline
+            depositTx (networkId ctx) headId commitBlueprintTx validBeforeSlot deadline
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
