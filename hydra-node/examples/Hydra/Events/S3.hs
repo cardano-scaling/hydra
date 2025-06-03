@@ -31,9 +31,7 @@ newS3EventStore bucketName = do
   env <- AWS.newEnv AWS.discover
   pure
     ( EventSource{sourceEvents = sourceEvents env}
-    , EventSink
-        { putEvent = putEvent env
-        }
+    , EventSink{putEvent = putEvent env}
     )
  where
   putEvent env e = do

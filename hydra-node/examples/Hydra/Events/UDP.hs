@@ -27,10 +27,7 @@ withUDPEventSink ::
 withUDPEventSink host port action =
   -- Make sure to free resources (file descriptor)
   bracket (clientSocket host port False) close $ \socket ->
-    action $
-      EventSink
-        { putEvent = sendData socket
-        }
+    action $ EventSink{putEvent = sendData socket}
 
 -- | Create a new event sink that sends events as JSON.
 --
@@ -47,10 +44,7 @@ newUDPEventSink ::
 newUDPEventSink host port = do
   -- Make sure to free resources (file descriptor)
   (_, socket) <- allocate (clientSocket host port False) close
-  pure
-    EventSink
-      { putEvent = sendData socket
-      }
+  pure EventSink{putEvent = sendData socket}
 
 sendData :: ToJSON e => UDPSocket -> e -> IO ()
 sendData socket e =
