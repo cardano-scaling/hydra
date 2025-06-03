@@ -40,7 +40,7 @@ foldEvents ::
   (Monad m, HasEventId e) =>
   StateAggregate s e ->
   s ->
-  ConduitT e Void (ResourceT m) (Integer, EventId, s)
+  ConduitT e Void (ResourceT m) (Natural, EventId, s)
 foldEvents aggregator = go 0 0
  where
   go !n !evId !acc =
@@ -86,7 +86,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
 
   shouldRotate numberOfEventsV = do
     currentNumberOfEvents <- readTVarIO numberOfEventsV
-    pure $ currentNumberOfEvents >= toInteger rotateAfterX
+    pure $ currentNumberOfEvents >= rotateAfterX
 
   rotatedPutEvent numberOfEventsV aggregateStateV event = do
     putEvent event
