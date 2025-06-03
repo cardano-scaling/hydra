@@ -1350,6 +1350,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
       , contestationPeriod = cp
       , participants
       , depositPeriod = dp
+      , configuredPeers = ""
       }
   party = deriveParty signingKey
 

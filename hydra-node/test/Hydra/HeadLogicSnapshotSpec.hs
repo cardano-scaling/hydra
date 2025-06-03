@@ -56,6 +56,7 @@ spec = do
                 , contestationPeriod = defaultContestationPeriod
                 , depositPeriod = defaultDepositPeriod
                 , participants = deriveOnChainId <$> threeParties
+                , configuredPeers = ""
                 }
 
     let coordinatedHeadState =
@@ -201,6 +202,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
             , participants = [deriveOnChainId party]
+            , configuredPeers = ""
             }
     st =
       CoordinatedHeadState

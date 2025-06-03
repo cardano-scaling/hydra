@@ -1004,14 +1004,12 @@ components:
         tag:
           type: string
           enum: ["NetworkClusterIDMismatch"]
-        localClusterID:
+        clusterPeers:
           type: string
-        remotePeerClusterID:
+        reportingHost:
           type: string
-        configuredParties:
-          type: array
-          items:
-            $ref: "api.yaml#/components/schemas/Party"
+        misconfiguredPeers:
+          type: string
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

@@ -1,13 +1,9 @@
 {
     "samples": [
         {
-            "configuredParties": [
-                {
-                    "vkey": "d05f801e08648c87a1182768655803d4261ae2545573cd3a58b837f1541691de"
-                }
-            ],
-            "localClusterID": "",
-            "remotePeerClusterID": "",
+            "clusterPeers": "",
+            "misconfiguredPeers": "$",
+            "reportingHost": "",
             "tag": "NetworkClusterIDMismatch"
         }
     ],

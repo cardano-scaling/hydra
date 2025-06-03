@@ -19,6 +19,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
+import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
 import Hydra.Cardano.Api (
@@ -51,7 +52,7 @@ import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (Network (..), NetworkCallback (..))
+import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
@@ -78,6 +79,7 @@ initEnvironment options = do
       , participants
       , contestationPeriod
       , depositPeriod
+      , configuredPeers
       }
  where
   -- XXX: This is mostly a cardano-specific initialization step of loading
@@ -104,10 +106,20 @@ initEnvironment options = do
   loadParty p =
     Party <$> readFileTextEnvelopeThrow p
 
+  httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
+
+  configuredPeers =
+    pack
+      $ intercalate ","
+        . map (\h -> show h <> "=" <> httpUrl h)
+      $ (maybeToList advertise <> peers)
+
   RunOptions
     { hydraSigningKey
     , hydraVerificationKeys
     , chainConfig
+    , advertise
+    , peers
     } = options
 
 -- | Checks that command line options match a given 'HeadState'. This function

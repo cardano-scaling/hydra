@@ -61,9 +61,9 @@ data StateChanged tx
       , theirVersion :: Maybe ProtocolVersion
       }
   | NetworkClusterIDMismatch
-      { localClusterID :: Text
-      , remotePeerClusterID :: Text
-      , configuredParties :: [Party]
+      { clusterPeers :: Text
+      , reportingHost :: Text
+      , misconfiguredPeers :: Text
       }
   | HeadInitialized
       { parameters :: HeadParameters

@@ -143,8 +143,9 @@ data ServerOutput tx
       , theirVersion :: Maybe ProtocolVersion
       }
   | NetworkClusterIDMismatch
-      { localClusterID :: Text
-      , remotePeerClusterID :: Text
+      { clusterPeers :: Text
+      , reportingHost :: Text
+      , misconfiguredPeers :: Text
       }
   | PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}

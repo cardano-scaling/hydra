@@ -186,8 +186,8 @@ data Connectivity
       , theirVersion :: Maybe ProtocolVersion
       }
   | ClusterIDMismatch
-      { localClusterID :: Text
-      , remotePeerClusterID :: Text
+      { clusterPeers :: Text
+      , reportingHost :: Text
       }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)

@@ -1,8 +1,9 @@
 {
     "samples": [
         {
-            "localClusterID": "",
-            "remotePeerClusterID": "",
+            "clusterPeers": "",
+            "misconfiguredPeers": "`",
+            "reportingHost": "",
             "tag": "NetworkClusterIDMismatch"
         }
     ],

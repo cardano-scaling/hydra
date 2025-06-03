@@ -67,6 +67,7 @@ import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
 import Data.List qualified as List
 import Data.Map qualified as Map
+import Data.Text qualified as T
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
@@ -198,12 +199,10 @@ withEtcdNetwork tracer protocolVersion config callback action = do
           let expectedClusterMismatch = do
                 level' <- bs ^? Aeson.key "level" . Aeson.nonNull
                 msg' <- bs ^? Aeson.key "msg" . Aeson.nonNull
-                localClusterId <- bs ^? Aeson.key "local-member-cluster-id" . Aeson.nonNull
-                remoteClusterId <- bs ^? Aeson.key "remote-peer-cluster-id" . Aeson.nonNull
-                pure (level', msg', localClusterId, remoteClusterId)
+                pure (level', msg')
           case expectedClusterMismatch of
-            Just (Aeson.String "error", Aeson.String "request sent was ignored due to cluster ID mismatch", Aeson.String localClusterID, Aeson.String remotePeerClusterID) ->
-              onConnectivity ClusterIDMismatch{localClusterID, remotePeerClusterID}
+            Just (Aeson.String "error", Aeson.String "request sent was ignored due to cluster ID mismatch") ->
+              onConnectivity ClusterIDMismatch{clusterPeers = T.pack clusterPeers, reportingHost = T.pack $ httpUrl advertise}
             _ -> traceWith tracer $ EtcdLog{etcd = v}
 
   -- XXX: Could use TLS to secure peer connections
