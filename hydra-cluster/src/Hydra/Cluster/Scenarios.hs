@@ -1172,23 +1172,26 @@ canCommit tracer workDir node hydraScriptsTxId =
     (`finally` returnFundsToFaucet tracer node Bob) $ do
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
-      let contestationPeriod = 20
+      -- NOTE: Deliberately low periods to speed up happy path test
+      let contestationPeriod = truncate $ 3 * blockTime
+          depositPeriod = truncate $ 5 * blockTime
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
+            . modifyConfig (\c -> c{depositPeriod})
       bobChainConfig <-
         chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId
+            . modifyConfig (\c -> c{depositPeriod})
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
-          -- _ <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [bob])
-          headId <- waitMatch 20 n2 $ headIsInitializingWith (Set.fromList [alice, bob])
+          headId <- waitMatch (2 * blockTime) n2 $ headIsInitializingWith (Set.fromList [alice, bob])
 
           -- Commit nothing
           requestCommitTx n1 mempty >>= submitTx node
           requestCommitTx n2 mempty >>= submitTx node
-          waitFor hydraTracer (20 * blockTime) [n1, n2] $
+          waitFor hydraTracer (2 * blockTime) [n1, n2] $
             output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
 
           -- Get some L1 funds
@@ -1206,9 +1209,9 @@ canCommit tracer workDir node hydraScriptsTxId =
 
           submitTx node tx
 
-          waitFor hydraTracer 20 [n1, n2] $
+          waitFor hydraTracer (2 * realToFrac depositPeriod) [n1, n2] $
             output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
-          waitFor hydraTracer 20 [n1, n2] $
+          waitFor hydraTracer (2 * blockTime) [n1, n2] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
           getSnapshotUTxO n1 `shouldReturn` commitUTxO
@@ -1223,16 +1226,16 @@ canCommit tracer workDir node hydraScriptsTxId =
 
           submitTx node tx'
 
-          waitFor hydraTracer 20 [n1, n2] $
+          waitFor hydraTracer (2 * realToFrac depositPeriod) [n1, n2] $
             output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO2]
-          waitFor hydraTracer 20 [n1, n2] $
+          waitFor hydraTracer (2 * blockTime) [n1, n2] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx')]
 
           getSnapshotUTxO n1 `shouldReturn` commitUTxO <> commitUTxO2
 
           send n2 $ input "Close" []
 
-          deadline <- waitMatch (20 * blockTime) n2 $ \v -> do
+          deadline <- waitMatch (2 * blockTime) n2 $ \v -> do
             guard $ v ^? key "tag" == Just "HeadIsClosed"
             v ^? key "contestationDeadline" . _JSON
 
@@ -1240,7 +1243,7 @@ canCommit tracer workDir node hydraScriptsTxId =
           waitFor hydraTracer (remainingTime + 3 * blockTime) [n1, n2] $
             output "ReadyToFanout" ["headId" .= headId]
           send n2 $ input "Fanout" []
-          waitMatch (20 * blockTime) n2 $ \v ->
+          waitMatch (2 * blockTime) n2 $ \v ->
             guard $ v ^? key "tag" == Just "HeadIsFinalized"
 
           -- Assert final wallet balance
