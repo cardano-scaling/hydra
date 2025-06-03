@@ -54,6 +54,7 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (readJsonFileThrow)
+import System.FilePath ((</>))
 
 data ConfigurationException
   = -- XXX: this is not used
@@ -82,11 +83,11 @@ run opts = do
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
-        let stateDir = persistenceDir <> "/state"
+        let stateFile = persistenceDir </> "state"
         eventStore@EventStore{eventSource} <-
           prepareEventStore
-            =<< mkFileBasedEventStore stateDir
-            =<< createPersistenceIncremental stateDir
+            =<< mkFileBasedEventStore stateFile
+            =<< createPersistenceIncremental stateFile
         -- NOTE: Add any custom sinks here
         let eventSinks = []
         wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
