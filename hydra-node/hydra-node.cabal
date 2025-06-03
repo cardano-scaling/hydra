@@ -75,6 +75,7 @@ library
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.State
+    Hydra.HeadLogic.StateEvent
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Simple

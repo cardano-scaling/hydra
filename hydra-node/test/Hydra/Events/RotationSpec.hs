@@ -5,11 +5,12 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Hydra.Chain (OnChainTx (..))
-import Hydra.Chain.ChainState (ChainSlot (..))
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
-import Hydra.Events (EventSink (..), HasEventId (..), StateEvent (..), getEvents)
-import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), mkAggregator, mkCheckpointer, newRotatedEventStore)
-import Hydra.HeadLogic (HeadState (..), IdleState (..), StateChanged (..))
+import Hydra.Events (EventSink (..), HasEventId (..), getEvents)
+import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
+import Hydra.HeadLogic (HeadState (..), IdleState (..), StateChanged (..), aggregate)
+import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
 import Hydra.Ledger.Simple (SimpleChainState (..), simpleLedger)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Node (hydrate)
@@ -37,7 +38,7 @@ spec = parallel $ do
           -- NOTE: this is hardcoded to ensure we get a checkpoint + a single event at the end
           let rotationConfig = RotateAfter 4
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpointer eventStore
+          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWith inputsToOpenHead
@@ -50,7 +51,7 @@ spec = parallel $ do
           -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter 3
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpointer eventStore
+          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWith inputsToOpenHead
@@ -83,7 +84,7 @@ spec = parallel $ do
             let rotationConfig = RotateAfter 3
             -- run rotated event store with prepared inputs
             let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-            rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpointer eventStore
+            rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
             testHydrate rotatingEventStore []
               >>= notConnect
               >>= primeWith inputs
@@ -168,3 +169,6 @@ instance HasEventId TrivialEvent where
 
 trivialCheckpoint :: [TrivialEvent] -> TrivialEvent
 trivialCheckpoint = sum
+
+mkAggregator :: IsChainState tx => HeadState tx -> StateEvent tx -> HeadState tx
+mkAggregator s StateEvent{stateChanged} = aggregate s stateChanged

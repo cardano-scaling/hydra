@@ -32,7 +32,7 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
-import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
+import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
   Effect (..),
@@ -48,6 +48,7 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
+import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..), NetworkCallback (..))

@@ -23,8 +23,10 @@ import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
-import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), mkAggregator, mkCheckpointer, newRotatedEventStore)
+import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
+import Hydra.HeadLogic (aggregate)
 import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
+import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -135,7 +137,8 @@ run opts = do
         pure eventStore
       Just rotationConfig -> do
         let initialState = Idle IdleState{chainState = initialChainState}
-        newRotatedEventStore rotationConfig initialState mkAggregator mkCheckpointer eventStore
+        let aggregator s StateEvent{stateChanged} = aggregate s stateChanged
+        newRotatedEventStore rotationConfig initialState aggregator mkCheckpoint eventStore
 
   RunOptions
     { verbosity

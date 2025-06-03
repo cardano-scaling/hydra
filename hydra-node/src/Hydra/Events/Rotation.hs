@@ -5,12 +5,11 @@ import Hydra.Prelude
 import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
 import Data.Conduit.Combinators qualified as C
-import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId (..), LogId, StateEvent (..))
-import Hydra.HeadLogic (StateChanged (..), aggregate)
-import Hydra.HeadLogic.State (HeadState)
+import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId (..))
 
 newtype RotationConfig = RotateAfter Natural
+
+type LogId = EventId
 
 -- | An EventSource and EventSink combined
 data EventStore e m
@@ -21,28 +20,16 @@ data EventStore e m
   -- ^ Rotate existing events into a given log id and start a new log from given e.
   }
 
-type StateAggregate s e = s -> e -> s
-
-type StateCheckpointer s e = s -> EventId -> UTCTime -> e
-
-mkAggregator :: IsChainState tx => StateAggregate (HeadState tx) (StateEvent tx)
-mkAggregator s StateEvent{stateChanged} = aggregate s stateChanged
-
-mkCheckpointer :: StateCheckpointer (HeadState tx) (StateEvent tx)
-mkCheckpointer headState eventId time =
-  StateEvent
-    { eventId
-    , stateChanged = Checkpoint headState
-    , time
-    }
-
 -- | Creates an event store that rotates according to given config and 'StateAggregate'.
 newRotatedEventStore ::
   (HasEventId e, MonadSTM m, MonadUnliftIO m, MonadTime m) =>
   RotationConfig ->
+  -- | Starting state of aggregate
   s ->
-  StateAggregate s e ->
-  StateCheckpointer s e ->
+  -- | Update aggregate state
+  (s -> e -> s) ->
+  -- | Create a checkpoint event
+  (s -> EventId -> UTCTime -> e) ->
   EventStore e m ->
   m (EventStore e m)
 newRotatedEventStore config s0 aggregator checkpointer eventStore = do
