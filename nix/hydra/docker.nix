@@ -10,9 +10,12 @@
           name = "hydra-node";
           tag = "latest";
           created = "now";
-          contents = [
-            pkgs.busybox
-          ];
+          copyToRoot = pkgs.buildEnv {
+            name = "hydra-node-env";
+            paths = [
+              pkgs.busybox
+            ];
+          };
           config = {
             Entrypoint = [ "${self'.packages.hydra-node-static}/bin/hydra-node" ];
           };
@@ -22,10 +25,13 @@
           name = "hydra-node-for-netem";
           tag = "latest";
           created = "now";
-          contents = [
-            pkgs.iproute2
-            pkgs.busybox
-          ];
+          copyToRoot = pkgs.buildEnv {
+            name = "hydra-node-for-netem-env";
+            paths = [
+              pkgs.busybox
+              pkgs.iproute2
+            ];
+          };
           config = {
             Entrypoint = [ "${self'.packages.hydra-node-static}/bin/hydra-node" ];
           };
@@ -48,12 +54,15 @@
             Entrypoint = [ "${self'.packages.hydraw-static}/bin/hydraw" ];
             WorkingDir = "/static";
           };
-          contents = [
-            (pkgs.runCommand "hydraw-static-files" { } ''
-              mkdir $out
-              ln -s ${../../hydraw/static} $out/static
-            '')
-          ];
+          copyToRoot = pkgs.buildEnv {
+            name = "hydraw-env";
+            paths = [
+              (pkgs.runCommand "hydraw-static-files" { } ''
+                mkdir $out
+                ln -s ${../../hydraw/static} $out/static
+              '')
+            ];
+          };
         };
 
         docker-hydra-chain-observer = pkgs.dockerTools.buildImage {
