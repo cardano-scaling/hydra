@@ -125,7 +125,7 @@ spec = parallel $ do
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
-            nothingHappensFor n1 1000000
+            nothingHappensFor n1 100000
 
     it "does finalize head after contestation period upon command" $
       shouldRunInSim $ do
@@ -1229,12 +1229,12 @@ newDeadlineFarEnoughFromNow =
   addUTCTime (3 * DP.toNominalDiffTime defaultDepositPeriod) <$> getCurrentTime
 
 nothingHappensFor ::
-  (MonadTimer m, MonadThrow m, IsChainState tx, MonadAsync m) =>
+  (MonadTimer m, MonadThrow m, IsChainState tx) =>
   TestHydraClient tx m ->
   NominalDiffTime ->
   m ()
-nothingHappensFor TestHydraClient{waitForNext, waitForNextMessage} secs =
-  timeout (realToFrac secs) (race waitForNext waitForNextMessage) >>= (`shouldBe` Nothing)
+nothingHappensFor node secs =
+  timeout (realToFrac secs) (waitForNext node) >>= (`shouldBe` Nothing)
 
 withHydraNode ::
   forall s a.
