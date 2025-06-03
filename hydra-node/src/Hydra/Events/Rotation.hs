@@ -107,7 +107,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
     let checkpoint = checkpointer aggregateState (lastEventId + 1) now
     -- rotate with checkpoint
     -- FIXME! use timestamp instead
-    let nextLogId = fromMaybe 0 $ integerToNatural . toInteger $ lastEventId + 1
+    let nextLogId = lastEventId + 1
     rotate nextLogId checkpoint
     -- clear numberOfEvents + bump logId
     atomically $ do

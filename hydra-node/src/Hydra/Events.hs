@@ -37,7 +37,7 @@ newtype EventSource e m = EventSource
 getEvents :: (HasEventId e, MonadUnliftIO m) => EventSource e m -> m [e]
 getEvents EventSource{sourceEvents} = runResourceT $ sourceToList sourceEvents
 
-type LogId = Natural
+type LogId = EventId
 
 newtype EventSink e m = EventSink
   { putEvent :: HasEventId e => e -> m ()
