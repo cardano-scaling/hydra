@@ -713,8 +713,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
     waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Acquire a current point in time
-    genesisParams <- queryGenesisParameters networkId nodeSocket QueryTip
-    let slotLengthSec = protocolParamSlotLength genesisParams
+    slotLengthSec <- protocolParamSlotLength <$> queryGenesisParameters networkId nodeSocket QueryTip
     currentSlot <- queryTipSlotNo networkId nodeSocket
 
     -- Create an arbitrary transaction using some input.

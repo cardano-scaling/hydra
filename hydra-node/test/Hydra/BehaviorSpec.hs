@@ -42,8 +42,8 @@ import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message, NetworkEvent (..))
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeState, defaultTTL, queryHeadState, runHydraNode, waitDelay)
+import Hydra.Network.Message (Message)
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeState, defaultTxTTL, mkNetworkInput, queryHeadState, runHydraNode, waitDelay)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.Environment (Environment (..))
@@ -338,7 +338,7 @@ spec = parallel $ do
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
                 -- If we wait too long, secondTx will expire
-                threadDelay $ fromIntegral defaultTTL * waitDelay + 1
+                threadDelay $ fromIntegral defaultTxTTL * waitDelay + 1
                 waitUntilMatch [n1, n2] $ \case
                   TxInvalid{transaction} -> guard $ transaction == secondTx
                   _ -> Nothing
@@ -1176,7 +1176,7 @@ createMockNetwork node nodes =
     mapM_ (`handleMessage` msg) allNodes
 
   handleMessage HydraNode{inputQueue} msg =
-    enqueue inputQueue . NetworkInput defaultTTL $ ReceivedMessage{sender, msg}
+    enqueue inputQueue $ mkNetworkInput sender msg
 
   sender = getParty node
 

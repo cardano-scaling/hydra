@@ -55,7 +55,7 @@ import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
-import Hydra.Node (defaultTTL)
+import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -1015,16 +1015,15 @@ genClosedState = do
 
 -- * Utilities
 
--- | Create a network input about a received protocol message with 'defaultTTL'
+-- | Create a network input about a received protocol message with default ttl
 -- and 'alice' as the sender.
 receiveMessage :: Message tx -> Input tx
 receiveMessage = receiveMessageFrom alice
 
--- | Create a network input about a received protocol message with 'defaultTTL'
+-- | Create a network input about a received protocol message with default ttl
 -- from given sender.
 receiveMessageFrom :: Party -> Message tx -> Input tx
-receiveMessageFrom sender msg =
-  NetworkInput defaultTTL $ ReceivedMessage{sender, msg}
+receiveMessageFrom = mkNetworkInput
 
 -- | Create a chain effect with fixed chain state and slot.
 chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
