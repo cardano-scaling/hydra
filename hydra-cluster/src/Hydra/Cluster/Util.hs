@@ -6,8 +6,6 @@ import Hydra.Prelude
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
-  AsType (AsPaymentKey, AsSigningKey),
-  HasTypeProxy (AsType),
   Key (VerificationKey, getVerificationKey),
   NetworkId,
   PaymentKey,
@@ -19,9 +17,9 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
  )
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), defaultDirectChainConfig)
+import Hydra.Node.DepositPeriod (DepositPeriod)
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), defaultCardanoChainConfig, defaultDepositPeriod, defaultDirectOptions)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import Hydra.Tx.DepositDeadline (DepositDeadline)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
@@ -45,14 +43,11 @@ keysFor actor = do
   bs <- readConfigFile ("credentials" </> actorName actor <.> "sk")
   let res =
         first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs)
-          >>= deserialiseFromTextEnvelope asSigningKey
+          >>= deserialiseFromTextEnvelope
   case res of
     Left err ->
       fail $ "cannot decode text envelope from '" <> show bs <> "', error: " <> show err
     Right sk -> pure (getVerificationKey sk, sk)
- where
-  asSigningKey :: AsType (SigningKey PaymentKey)
-  asSigningKey = AsSigningKey AsPaymentKey
 
 -- | Create and save new signing key at the provided path.
 -- NOTE: Uses 'TextEnvelope' format.
@@ -71,9 +66,21 @@ chainConfigFor ::
   [TxId] ->
   [Actor] ->
   ContestationPeriod ->
-  DepositDeadline ->
   IO ChainConfig
-chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod depositDeadline = do
+chainConfigFor me targetDir nodeSocket txids actors cp = chainConfigFor' me targetDir (Right nodeSocket) txids actors cp defaultDepositPeriod
+
+chainConfigFor' ::
+  HasCallStack =>
+  Actor ->
+  FilePath ->
+  Either FilePath SocketPath ->
+  -- | Transaction ids at which Hydra scripts should have been published.
+  [TxId] ->
+  [Actor] ->
+  ContestationPeriod ->
+  DepositPeriod ->
+  IO ChainConfig
+chainConfigFor' me targetDir socketOrProjectPath hydraScriptsTxId them contestationPeriod depositPeriod = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -86,14 +93,17 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
   forM_ them $ \actor ->
     copyFile actor "vk"
   pure $
-    Direct
-      defaultDirectChainConfig
-        { nodeSocket
-        , hydraScriptsTxId
+    Cardano
+      defaultCardanoChainConfig
+        { hydraScriptsTxId
         , cardanoSigningKey = actorFilePath me "sk"
         , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
-        , depositDeadline
+        , depositPeriod
+        , chainBackendOptions =
+            case socketOrProjectPath of
+              Left projectPath -> Blockfrost BlockfrostOptions{projectPath}
+              Right nodeSocket -> Direct defaultDirectOptions{nodeSocket = nodeSocket}
         }
  where
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType
@@ -104,12 +114,15 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
         filePath = actorFilePath actor fileType
     readConfigFile ("credentials" </> fileName) >>= writeFileBS filePath
 
-modifyConfig :: (DirectChainConfig -> DirectChainConfig) -> ChainConfig -> ChainConfig
+modifyConfig :: (CardanoChainConfig -> CardanoChainConfig) -> ChainConfig -> ChainConfig
 modifyConfig fn = \case
-  Direct config -> Direct $ fn config
+  Cardano config -> Cardano $ fn config
   x -> x
 
 setNetworkId :: NetworkId -> ChainConfig -> ChainConfig
 setNetworkId networkId = \case
-  Direct config -> Direct config{networkId}
+  Cardano config@CardanoChainConfig{chainBackendOptions} ->
+    case chainBackendOptions of
+      Direct direct@DirectOptions{} -> Cardano config{chainBackendOptions = Direct direct{networkId = networkId}}
+      _ -> Cardano config
   x -> x

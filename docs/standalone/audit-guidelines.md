@@ -31,7 +31,7 @@ As described in the following figure, the main entry points of a Hydra node are:
 A detailed description of each of the artifacts relevant for an audit can be found in the above section _Artifacts_.
 
 For its operations, the hydra-node process relies on a cardano-node process and client processes can connect to the hydra-node process through API.
-Generally, we recommand to run the Hydra and cardano node in a trusted environment so that any assessment performed during an audit should be done under the following assumptions:
+Generally, we recommend to run the Hydra and cardano node in a trusted environment so that any assessment performed during an audit should be done under the following assumptions:
 * Organizational procedures for managing the hydra and cardano signing keys are trusted;
 * The system running the hydra-node is trusted;
 * The cardano-node software is trusted as is the system running it;
@@ -48,7 +48,7 @@ If you plan to consider a different operational environment were these assumptio
 
 ## Suggested Tasks
 
-Broadly speaking, an audit would probably want to ensure that the security properties proven in _Hydra Head Specification_ hold for the implementation, taking also into acount the main entry points of a `hydra-node` which are the node to node network communications, the API and the Cardano ledger.
+Broadly speaking, an audit would probably want to ensure that the security properties proven in _Hydra Head Specification_ hold for the implementation, taking also into account the main entry points of a `hydra-node` which are the node to node network communications, the API and the Cardano ledger.
 Furthermore, we suggest to focus efforts on ensuring correctness and robustness of the _Hydra plutus scripts_ (on-chain code) as it is harder (or impossible) to fix in the field and attackers could side-step all measures but the on-chain code (i.e. use their own off-chain code).
 
 We suggest auditors to assess the following statements, which will be detailed in the next sections:
@@ -69,7 +69,7 @@ This specification provides several important security properties:
 You could review this specification to share comments and assess that the above properties hold. An outcome of such a review could include, without being limited to:
 * Identification of any inconsistencies or lack of generality within the specification;
 * Identification of any inconsistencies in the proofs exposed in the specification;
-* Identification of any behavior that could lead, with an adverserial mindset, to one of the above properties to be falsified.
+* Identification of any behavior that could lead, with an adversarial mindset, to one of the above properties to be falsified.
 
 ### Scripts are consistent with specification
 

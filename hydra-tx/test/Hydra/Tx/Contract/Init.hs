@@ -54,7 +54,7 @@ healthyHeadParameters =
 
 healthySeedInput :: TxIn
 healthySeedInput =
-  fst . Prelude.head $ UTxO.pairs healthyLookupUTxO
+  fst . Prelude.head $ UTxO.toList healthyLookupUTxO
 
 healthyParties :: [Party]
 healthyParties =

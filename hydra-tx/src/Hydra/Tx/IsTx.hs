@@ -123,7 +123,7 @@ instance FromJSON Tx where
   parseJSON =
     withObject "Tx" $ \o -> do
       hexText <- o .: "cborHex"
-      -- NOTE: We deliberately ingore the "type" to be backwards compatible
+      -- NOTE: We deliberately ignore the "type" to be backwards compatible
       bytes <- decodeBase16 hexText
       case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
         Left e -> fail $ show e

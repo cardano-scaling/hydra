@@ -55,7 +55,7 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
-      & addTxInsReference [commitScriptRef, headScriptRef]
+      & addTxInsReference [commitScriptRef, headScriptRef] mempty
       & addTxOuts [headOutput]
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CollectComTx")

@@ -13,8 +13,6 @@ let
   buildInputs = [
     # To compile hydra scripts
     pkgs.aiken
-    # For running automatic refactoring with hlint
-    pkgs.apply-refact
     pkgs.cabal-fmt
     pkgs.cabal-install
     # Handy tool to debug the cabal build plan
@@ -30,7 +28,6 @@ let
     # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
     pkgs.haskell-language-server
-    pkgs.hlint
     pkgs.haskellPackages.hspec-discover
     # The interactive Glasgow Haskell Compiler as a Daemon
     pkgs.haskellPackages.ghcid
@@ -45,16 +42,15 @@ let
     pkgs.pkg-config
     # For generating plantuml drawings
     pkgs.plantuml
-    pkgs.treefmt
     # Handy to interact with the hydra-node via websockets
     pkgs.websocat
     pkgs.weeder
     pkgs.yarn
     pkgs.yq
   ] ++
-  # `dstat` is required by the benchmark tests; but it's not supported on
+  # `dool` is required by the benchmark tests; but it's not supported on
   # darwin; so we just don't include it.
-  (pkgs.lib.optionals pkgs.hostPlatform.isLinux [ pkgs.dstat ]);
+  (pkgs.lib.optionals pkgs.hostPlatform.isLinux [ pkgs.dool ]);
 
   libs = [
     pkgs.glibcLocales
@@ -62,10 +58,10 @@ let
     pkgs.secp256k1
     pkgs.xz
     pkgs.zlib
-    pkgs.etcd # Run-time dependency of hydra-node
+    pkgs.etcd # Build-time dependency (static binary to be embedded)
   ]
   ++
-  pkgs.lib.optionals (pkgs.stdenv.isLinux) [
+  pkgs.lib.optionals pkgs.stdenv.isLinux [
     pkgs.systemd
   ];
 

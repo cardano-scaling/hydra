@@ -174,25 +174,21 @@ data PostTxError tx
   | InvalidSeed {headSeed :: HeadSeed}
   | InvalidHeadId {headId :: HeadId}
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
-  | -- | Comitting byron addresses is not supported.
+  | -- | Committing byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
   | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
-  | NotEnoughFuel
-  | NoFuelUTXOFound
+  | NotEnoughFuel {failingTx :: tx}
+  | NoFuelUTXOFound {failingTx :: tx}
   | -- | Script execution failed when finalizing a transaction in the wallet.
-    -- XXX: Ideally we want a cardano-api type with corresonding JSON instance
+    -- XXX: Ideally we want a cardano-api type with corresponding JSON instance
     -- here. But the wallet still uses ledger types and we don't want to copy the
     -- conversion from ledger 'TransactionScriptFailure' to the cardano-api
     -- 'ScriptExecutionError' type.
-    ScriptFailedInWallet {redeemerPtr :: Text, failureReason :: Text}
-  | -- | A generic error happened when finalizing a transction in the wallet.
-    InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
+    ScriptFailedInWallet {redeemerPtr :: Text, failureReason :: Text, failingTx :: tx}
+  | -- | A generic error happened when finalizing a transaction in the wallet.
+    InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, failingTx :: tx}
   | -- | An error occurred when submitting a transaction to the cardano-node.
-    FailedToPostTx {failureReason :: Text}
-  | -- | A plutus script failed in a transaction submitted to the cardano-node.
-    -- NOTE: PlutusDebugInfo does not have much available instances so we put it
-    -- in Text form but it's lame
-    PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
+    FailedToPostTx {failureReason :: Text, failingTx :: tx}
   | -- | User tried to commit more than 'maxMainnetLovelace' hardcoded limit on mainnet
     -- we keep track of both the hardcoded limit and what the user originally tried to commit
     CommittedTooMuchADAForMainnet {userCommittedLovelace :: Coin, mainnetLimitLovelace :: Coin}
@@ -309,7 +305,7 @@ data ChainEvent tx
       , chainSlot :: ChainSlot
       }
   | -- | Event to re-ingest errors from 'postTx' for further processing.
-    PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+    PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx, failingTx :: Maybe tx}
   deriving stock (Generic)
 
 deriving stock instance (IsTx tx, IsChainState tx) => Eq (ChainEvent tx)

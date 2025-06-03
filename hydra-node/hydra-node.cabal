@@ -12,7 +12,6 @@ license-files:
 data-files:
   json-schemas/api.yaml
   json-schemas/common.yaml
-  json-schemas/logs.yaml
 
 source-repository head
   type:     git
@@ -56,7 +55,10 @@ library
     Hydra.API.ServerOutputFilter
     Hydra.API.WSServer
     Hydra.Chain
+    Hydra.Chain.Backend
+    Hydra.Chain.Blockfrost
     Hydra.Chain.Blockfrost.Client
+    Hydra.Chain.Cardano
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
     Hydra.Chain.Direct.Handlers
@@ -83,6 +85,9 @@ library
     Hydra.Network.Etcd
     Hydra.Network.Message
     Hydra.Node
+    Hydra.Node.DepositPeriod
+    Hydra.Node.EmbedTH
+    Hydra.Node.Environment
     Hydra.Node.InputQueue
     Hydra.Node.Network
     Hydra.Node.ParameterMismatch
@@ -96,16 +101,19 @@ library
   build-depends:
     , aeson
     , base
+    , base16-bytestring
     , blockfrost-client               >=0.9.2.0
     , bytestring
     , cardano-api
     , cardano-binary
     , cardano-crypto-class
+    , cardano-crypto-wrapper
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-babbage:testlib
     , cardano-ledger-binary
+    , cardano-ledger-byron
     , cardano-ledger-conway
     , cardano-ledger-conway:testlib
     , cardano-ledger-core
@@ -116,9 +124,10 @@ library
     , conduit
     , containers
     , contra-tracer
-    , cryptonite
+    , crypton
     , data-default
     , directory
+    , file-embed
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3
@@ -147,14 +156,17 @@ library
     , quickcheck-arbitrary-adt
     , quickcheck-instances
     , resourcet
+    , retry
     , safe-money
     , serialise
     , sop-extras
     , stm
+    , template-haskell
     , text
     , time
     , transformers
     , typed-process
+    , unix
     , unliftio
     , wai
     , wai-cors
@@ -194,6 +206,27 @@ library testlib
     , time
     , versions
     , yaml
+
+library examples
+  import:          project-config
+  visibility:      public
+  hs-source-dirs:  examples
+  exposed-modules:
+    Hydra.Events.S3
+    Hydra.Events.UDP
+
+  build-depends:
+    , aeson
+    , amazonka
+    , amazonka-s3
+    , base
+    , conduit
+    , hydra-node
+    , hydra-prelude
+    , lens
+    , network
+    , network-udp
+    , resourcet
 
 executable hydra-node
   import:         project-config
@@ -270,9 +303,10 @@ test-suite tests
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.TxTraceSpec
     Hydra.Chain.Direct.WalletSpec
-    Hydra.ContestationPeriodSpec
     Hydra.CryptoSpec
     Hydra.Events.FileBasedSpec
+    Hydra.Events.S3Spec
+    Hydra.Events.UDPSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchemaSpec
@@ -303,6 +337,7 @@ test-suite tests
   type:               exitcode-stdio-1.0
   build-depends:
     , aeson
+    , amazonka
     , base
     , bytestring
     , cardano-api:gen
@@ -324,6 +359,7 @@ test-suite tests
     , contra-tracer
     , directory
     , filepath
+    , generic-lens
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
@@ -331,6 +367,7 @@ test-suite tests
     , HUnit
     , hydra-cardano-api
     , hydra-node
+    , hydra-node:examples
     , hydra-node:testlib
     , hydra-plutus
     , hydra-plutus-extras
@@ -343,6 +380,7 @@ test-suite tests
     , lens
     , lens-aeson
     , network-simple-wss
+    , network-udp
     , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
     , QuickCheck
@@ -350,6 +388,7 @@ test-suite tests
     , quickcheck-instances
     , regex-tdfa
     , req
+    , resourcet
     , silently
     , temporary
     , text

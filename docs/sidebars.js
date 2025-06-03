@@ -66,23 +66,18 @@ module.exports = {
   developerDocumentation: [
     "dev/index",
     {
-      type: "doc",
-      id: "dev/specification",
-      label: "Specification",
-    },
-    "dev/protocol",
-    "dev/incremental-commits-and-decommits",
-    {
-      type: "doc",
-      id: "dev/commit_to_a_Head",
-      label: "Commit funds to a Head",
-    },
-    {
       type: "category",
       link: { type: "doc", id: "dev/architecture/index" },
       label: "Architecture",
       items: ["dev/architecture/networking"],
     },
+    {
+      type: "doc",
+      id: "dev/specification",
+      label: "Specification",
+    },
+    "dev/protocol",
+    "dev/commit",
     "dev/rollbacks/index",
     {
       type: "html",

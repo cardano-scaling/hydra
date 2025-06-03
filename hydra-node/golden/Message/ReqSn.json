@@ -1,0 +1,30 @@
+{
+    "samples": [
+        {
+            "decommitTx": null,
+            "depositTxId": -6,
+            "snapshotNumber": 0,
+            "snapshotVersion": 6,
+            "tag": "ReqSn",
+            "transactionIds": [
+                10,
+                3,
+                18,
+                -30,
+                -11,
+                11,
+                2,
+                18,
+                22,
+                -14,
+                -18,
+                -22,
+                -16,
+                -16,
+                24,
+                -10
+            ]
+        }
+    ],
+    "seed": 1995666081
+}

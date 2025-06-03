@@ -41,7 +41,7 @@ healthyCommitTx =
   (tx', lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut)
+    UTxO.singleton healthyInitialTxIn (toCtxUTxOTxOut healthyInitialTxOut)
       <> healthyCommittedUTxO
       <> registryUTxO scriptRegistry
 
@@ -127,7 +127,7 @@ genCommitMutation (tx, _utxo) =
                   (party, mCommit, toPlutusCurrencySymbol otherHeadId)
         pure $ ChangeOutput 0 $ mutateHeadId commitTxOut
     , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
-        let totalValueMinusOneLovelace = negateValue (lovelaceToValue 1) <> txOutValue healthyInitialTxOut <> foldMap (txOutValue . snd) (UTxO.pairs healthyCommittedUTxO)
+        let totalValueMinusOneLovelace = negateValue (lovelaceToValue 1) <> txOutValue healthyInitialTxOut <> foldMap (txOutValue . snd) (UTxO.toList healthyCommittedUTxO)
         pure $ commitTxOut{txOutValue = totalValueMinusOneLovelace}
     , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= aCommittedOutputValue)
@@ -138,7 +138,7 @@ genCommitMutation (tx, _utxo) =
         let mutatedOutput = modifyTxOutAddress (const mutatedAddress) aCommittedTxOut
         pure $ ChangeInput aCommittedTxIn mutatedOutput Nothing
     , SomeMutation (map toErrorCode [MismatchCommittedTxOutInDatum, MissingCommittedTxOutInOutputDatum]) RecordAllCommittedUTxO <$> do
-        (removedTxIn, removedTxOut) <- elements $ UTxO.pairs healthyCommittedUTxO
+        (removedTxIn, removedTxOut) <- elements $ UTxO.toList healthyCommittedUTxO
         -- Leave out not-committed value
         let mutatedCommitTxOut = modifyTxOutValue (\v -> negateValue (txOutValue removedTxOut) <> v) commitTxOut
         pure $
@@ -148,7 +148,7 @@ genCommitMutation (tx, _utxo) =
             , ChangeInput
                 healthyInitialTxIn
                 (toCtxUTxOTxOut healthyInitialTxOut)
-                (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allComittedTxIn <&> toPlutusTxOutRef))
+                (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allCommittedTxIn <&> toPlutusTxOutRef))
             ]
     , SomeMutation (pure $ toErrorCode MissingOrInvalidCommitAuthor) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
@@ -163,7 +163,7 @@ genCommitMutation (tx, _utxo) =
             , ChangeInput
                 healthyInitialTxIn
                 (toCtxUTxOTxOut $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
-                (Just $ toScriptData $ Initial.ViaCommit (allComittedTxIn <&> toPlutusTxOutRef))
+                (Just $ toScriptData $ Initial.ViaCommit (allCommittedTxIn <&> toPlutusTxOutRef))
             ]
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
@@ -171,9 +171,9 @@ genCommitMutation (tx, _utxo) =
  where
   commitTxOut = fromJust $ txOuts' tx !!? 0
 
-  allComittedTxIn = UTxO.inputSet healthyCommittedUTxO & toList
+  allCommittedTxIn = UTxO.inputSet healthyCommittedUTxO & toList
 
-  (aCommittedTxIn, aCommittedTxOut) = List.head $ UTxO.pairs healthyCommittedUTxO
+  (aCommittedTxIn, aCommittedTxOut) = List.head $ UTxO.toList healthyCommittedUTxO
 
   aCommittedAddress = txOutAddress aCommittedTxOut
 

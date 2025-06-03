@@ -34,12 +34,12 @@ import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
 import Hydra.HeadLogic.Outcome qualified as StateChanged
-import Hydra.HeadLogic.State (SeenSnapshot (..), seenSnapshotNumber)
+import Hydra.HeadLogic.State (Deposit (..), SeenSnapshot (..), seenSnapshotNumber)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
+import Hydra.Node.Environment (Environment)
 import Hydra.Tx (ConfirmedSnapshot (..), HeadId, IsTx (..), Party, txId)
 import Hydra.Tx qualified as Tx
-import Hydra.Tx.Environment (Environment)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
@@ -89,7 +89,7 @@ withAPIServer ::
 withAPIServer config env party eventSource tracer chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
-    -- Intialize our read models from stored events
+    -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
     headStatusP <- mkProjection Idle projectHeadStatus
     snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
@@ -239,10 +239,12 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
     StateChanged.DecommitApproved{..} -> Just DecommitApproved{..}
     StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
-    StateChanged.CommitRecorded{..} -> Just CommitRecorded{..}
+    StateChanged.DepositRecorded{..} -> Just CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline}
+    StateChanged.DepositActivated{} -> Nothing
+    StateChanged.DepositExpired{depositTxId, chainTime, deposit = Deposit{..}} -> Just DepositExpired{..}
+    StateChanged.DepositRecovered{..} -> Just CommitRecovered{headId, recoveredTxId = depositTxId, recoveredUTxO = recovered}
     StateChanged.CommitApproved{..} -> Just CommitApproved{..}
     StateChanged.CommitFinalized{..} -> Just CommitFinalized{..}
-    StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}
     StateChanged.NetworkConnected -> Just NetworkConnected
     StateChanged.NetworkDisconnected -> Just NetworkDisconnected
     StateChanged.NetworkVersionMismatch{..} -> Just NetworkVersionMismatch{..}
@@ -261,8 +263,8 @@ mkTimedServerOutputFromStateEvent event =
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
 projectPendingDeposits txIds = \case
-  StateChanged.CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
-  StateChanged.CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
+  StateChanged.DepositRecorded{depositTxId} -> depositTxId : txIds
+  StateChanged.DepositRecovered{depositTxId} -> filter (/= depositTxId) txIds
   StateChanged.CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
   _other -> txIds
 
@@ -295,6 +297,7 @@ projectHeadStatus headStatus = \case
   StateChanged.HeadClosed{} -> Closed
   StateChanged.HeadIsReadyToFanout{} -> FanoutPossible
   StateChanged.HeadFannedOut{} -> Final
+  StateChanged.HeadAborted{} -> Idle
   _other -> headStatus
 
 -- | Projection of latest confirmed snapshot UTxO.

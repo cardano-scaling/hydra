@@ -60,7 +60,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef]
+      & addTxInsReference [headScriptRef] mempty
       & addTxOuts [headOutputAfter]
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityLowerBound (TxValidityLowerBound startSlotNo)

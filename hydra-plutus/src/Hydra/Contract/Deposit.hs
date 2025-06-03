@@ -19,7 +19,6 @@ import PlutusLedgerApi.V3 (
   Redeemer (Redeemer),
  )
 import PlutusLedgerApi.V3 qualified as PlutusV3
-import PlutusTx (toBuiltinData)
 import PlutusTx qualified
 
 data DepositRedeemer

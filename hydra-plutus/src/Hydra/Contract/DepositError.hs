@@ -7,19 +7,19 @@ import Hydra.Contract.Error (ToErrorCode (..), errorCode)
 import Text.Show (Show)
 
 data DepositError
-  = DepositDeadlineSurpassed
+  = DepositPeriodSurpassed
   | DepositNoUpperBoundDefined
   | DepositNoLowerBoundDefined
-  | DepositDeadlineNotReached
+  | DepositPeriodNotReached
   | IncorrectDepositHash
   | WrongHeadIdInDepositDatum
   deriving stock (Show)
 
 instance ToErrorCode DepositError where
   toErrorCode = \case
-    DepositDeadlineSurpassed -> "D01"
+    DepositPeriodSurpassed -> "D01"
     DepositNoUpperBoundDefined -> "D02"
     DepositNoLowerBoundDefined -> "D03"
-    DepositDeadlineNotReached -> "D04"
+    DepositPeriodNotReached -> "D04"
     IncorrectDepositHash -> "D05"
     WrongHeadIdInDepositDatum -> "D06"

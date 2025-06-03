@@ -61,12 +61,12 @@ textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, n
       , "Average confirmation time (ms): " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
       ]
         ++ ( if length quantiles == 100
-               then
-                 [ "P99: " <> show (quantiles ! 99) <> "ms"
-                 , "P95: " <> show (quantiles ! 95) <> "ms"
-                 , "P50: " <> show (quantiles ! 50) <> "ms"
-                 ]
-               else []
+              then
+                [ "P99: " <> show (quantiles ! 99) <> "ms"
+                , "P95: " <> show (quantiles ! 95) <> "ms"
+                , "P50: " <> show (quantiles ! 50) <> "ms"
+                ]
+              else []
            )
         ++ ["Invalid txs: " <> show numberOfInvalidTxs]
         ++ if null systemStats then [] else "\n### Memory data \n" : [unlines systemStats]
@@ -115,12 +115,12 @@ markdownReport now summaries =
     , "| _Avg. Confirmation Time (ms)_ | " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
     ]
       ++ ( if length quantiles == 100
-             then
-               [ "| _P99_ | " <> show (quantiles ! 99) <> "ms |"
-               , "| _P95_ | " <> show (quantiles ! 95) <> "ms |"
-               , "| _P50_ | " <> show (quantiles ! 50) <> "ms |"
-               ]
-             else []
+            then
+              [ "| _P99_ | " <> show (quantiles ! 99) <> "ms |"
+              , "| _P95_ | " <> show (quantiles ! 95) <> "ms |"
+              , "| _P50_ | " <> show (quantiles ! 50) <> "ms |"
+              ]
+            else []
          )
       ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
          ]

@@ -52,7 +52,7 @@ healthyContestTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyClosedHeadTxIn, healthyClosedHeadTxOut)
+    UTxO.singleton healthyClosedHeadTxIn healthyClosedHeadTxOut
       <> registryUTxO scriptRegistry
 
   tx =
@@ -95,14 +95,14 @@ healthyContestUTxO =
   (genOneUTxOFor healthyContesterVerificationKey `suchThat` (/= healthyClosedUTxO))
     `generateWith` 42
 
-splittedContestUTxO :: (UTxO, UTxO)
-splittedContestUTxO = splitUTxO healthyContestUTxO
+splitContestUTxO :: (UTxO, UTxO)
+splitContestUTxO = splitUTxO healthyContestUTxO
 
 splitUTxOInHead :: UTxO
-splitUTxOInHead = fst splittedContestUTxO
+splitUTxOInHead = fst splitContestUTxO
 
 splitUTxOToDecommit :: UTxO
-splitUTxOToDecommit = snd splittedContestUTxO
+splitUTxOToDecommit = snd splitContestUTxO
 
 healthyContestSnapshot :: Snapshot Tx
 healthyContestSnapshot =

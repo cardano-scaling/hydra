@@ -49,7 +49,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness), (depositIn, depositWitness)]
-      & addTxInsReference [headScriptRef]
+      & addTxInsReference [headScriptRef] mempty
       & addTxOuts [headOutput']
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityUpperBound (TxValidityUpperBound upperValiditySlot)
@@ -91,10 +91,10 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           , version = toInteger version + 1
           }
 
-  depositedValue = foldMap (txOutValue . snd) $ UTxO.pairs (fromMaybe mempty utxoToCommit)
+  depositedValue = foldMap (txOutValue . snd) $ UTxO.toList (fromMaybe mempty utxoToCommit)
 
   -- NOTE: we expect always a single output from a deposit tx
-  (depositIn, _) = List.head $ UTxO.pairs depositScriptUTxO
+  (depositIn, _) = List.head $ UTxO.toList depositScriptUTxO
 
   depositRedeemer = toScriptData $ Deposit.redeemer $ Deposit.Claim $ headIdToCurrencySymbol headId
 

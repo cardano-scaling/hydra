@@ -2,12 +2,11 @@
 
 { hsPkgs # as defined in default.nix
 , pkgs
-, inputs
 , gitRev ? "unknown"
-, self
+, ...
 }:
 let
-  lib = pkgs.lib;
+  inherit (pkgs) lib;
 
   packaging = import ../packaging.nix { inherit pkgs; };
 
@@ -101,8 +100,7 @@ rec {
     ${nativePkgs.hydra-cluster.components.exes.hydra-cluster}/bin/hydra-cluster "$@"
   '';
 
-  tx-cost =
-    nativePkgs.hydra-node.components.benchmarks.tx-cost;
+  inherit (nativePkgs.hydra-node.components.benchmarks) tx-cost;
 
   hydra-tui =
     embedRevision
@@ -116,7 +114,7 @@ rec {
       "hydra-tui"
       paddedRevision;
 
-  hydraw = nativePkgs.hydraw.components.exes.hydraw;
+  inherit (nativePkgs.hydraw.components.exes) hydraw;
 
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
 
@@ -143,7 +141,6 @@ rec {
     name = "hydra-node-tests";
     buildInputs = [
       nativePkgs.hydra-node.components.tests.tests
-      pkgs.etcd
       pkgs.check-jsonschema
     ];
   };
@@ -153,7 +150,6 @@ rec {
       [
         nativePkgs.hydra-cluster.components.tests.tests
         hydra-node
-        pkgs.etcd
         hydra-chain-observer
         pkgs.cardano-node
         pkgs.cardano-cli
@@ -170,7 +166,6 @@ rec {
         hydra-node
         pkgs.cardano-node
         pkgs.cardano-cli
-        pkgs.etcd
       ];
   };
 
@@ -189,8 +184,7 @@ rec {
         hydra-node
         pkgs.cardano-node
         pkgs.cardano-cli
-        pkgs.dstat
-        pkgs.etcd
+        pkgs.dool
       ];
   };
 

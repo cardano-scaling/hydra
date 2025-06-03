@@ -72,7 +72,7 @@ waitForUTxO ::
   UTxO ->
   IO ()
 waitForUTxO node utxo =
-  forM_ (snd <$> UTxO.pairs utxo) forEachUTxO
+  forM_ (snd <$> UTxO.toList utxo) forEachUTxO
  where
   RunningNode{networkId, nodeSocket} = node
 
@@ -99,7 +99,7 @@ mkGenesisTx ::
   Tx
 mkGenesisTx networkId signingKey initialAmount recipients =
   case createAndValidateTransactionBody body of
-    Left err -> error $ "Fail to build genesis transations: " <> show err
+    Left err -> error $ "Fail to build genesis transactions: " <> show err
     Right tx -> sign signingKey tx
  where
   body =

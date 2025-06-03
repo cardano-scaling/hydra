@@ -1,6 +1,6 @@
 module Hydra.Model.MockChainSpec where
 
-import Cardano.Api.UTxO (pairs)
+import Cardano.Api.UTxO qualified as UTxO
 import Data.Text (unpack)
 import Hydra.Cardano.Api (Tx, TxIn (TxIn), UTxO, prettyPrintJSON, renderUTxO)
 import Hydra.Cardano.Api.Pretty (renderTx)
@@ -33,7 +33,7 @@ appliesValidTransaction =
 
 isOutputOfLastTransaction :: [Tx] -> UTxO -> Property
 isOutputOfLastTransaction txs utxo =
-  case (listToMaybe $ reverse txs, pairs utxo) of
+  case (listToMaybe $ reverse txs, UTxO.toList utxo) of
     (Just tx, [(TxIn txid _, _)]) ->
       txId tx === txid
     (Just _, _) ->

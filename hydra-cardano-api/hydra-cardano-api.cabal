@@ -48,7 +48,6 @@ library
     Hydra.Cardano.Api.ChainPoint
     Hydra.Cardano.Api.ExecutionUnits
     Hydra.Cardano.Api.Hash
-    Hydra.Cardano.Api.Network
     Hydra.Cardano.Api.NetworkId
     Hydra.Cardano.Api.NetworkMagic
     Hydra.Cardano.Api.PolicyId
@@ -75,9 +74,9 @@ library
   -- dependencies on cardano-ledger* and plutus-ledger-api follow.
   build-depends:
     , aeson                   >=2
-    , base                    >=4.16
+    , base                    >=4.14
     , bytestring
-    , cardano-api             ^>=10.13
+    , cardano-api             ^>=10.16
     , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class

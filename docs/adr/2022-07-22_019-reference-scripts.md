@@ -32,7 +32,7 @@ Accepted
 
 * Publish outputs holding Hydra scripts out-of-band (option 2), because
   + All scripts would not fit into the `init` transaction directly, we would need to post multiple.
-  + Costs (deposits) would need to be payed for each head instance.
+  + Costs (deposits) would need to be paid for each head instance.
 
 * The scripts are stored at outputs addressed to some **unspendable** `v_publish` validator.
   + This is to avoid DoS risk and unnecessariy centralization

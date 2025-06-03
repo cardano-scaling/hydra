@@ -137,7 +137,7 @@ healthyCloseOutdatedTx =
 
   lookupUTxO :: UTxO' (TxOut CtxUTxO)
   lookupUTxO =
-    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
+    UTxO.singleton healthyOpenHeadTxIn (healthyOpenHeadTxOut datum)
       <> registryUTxO scriptRegistry
 
   scriptRegistry = genScriptRegistry `generateWith` 42

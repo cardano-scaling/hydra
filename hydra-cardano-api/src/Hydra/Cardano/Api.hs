@@ -82,7 +82,6 @@ import Cardano.Api as X hiding (
   toLedgerValue,
   (<+>),
  )
-import Cardano.Api.Experimental as X (UnsignedTx (..))
 import Cardano.Api.Ledger as X (
   PParams,
  )
@@ -111,7 +110,6 @@ import Cardano.Api.UTxO (
   UTxO' (..),
  )
 import Cardano.Ledger.Coin as X (Coin (..))
-import Hydra.Cardano.Api.Network as X (networkIdToNetwork)
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
@@ -147,9 +145,11 @@ import Hydra.Cardano.Api.Value as Extras
 import Hydra.Cardano.Api.Witness as Extras
 
 import Cardano.Api qualified
+import Cardano.Api.Internal.Tx.Body (TxInsReferenceDatums)
 import Cardano.Api.Shelley qualified
 import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.BaseTypes as X (Network)
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Keys qualified as Ledger
 import Data.ByteString.Short (ShortByteString)
@@ -367,13 +367,13 @@ defaultTxBodyContent = Cardano.Api.defaultTxBodyContent shelleyBasedEra
 
 -- ** TxBodyContent
 
-type TxBodyContent buidl = Cardano.Api.TxBodyContent buidl Era
+type TxBodyContent build = Cardano.Api.TxBodyContent build Era
 {-# COMPLETE TxBodyContent #-}
 
 pattern TxBodyContent ::
-  TxIns buidl ->
+  TxIns build ->
   TxInsCollateral ->
-  TxInsReference ->
+  TxInsReference build ->
   [TxOut CtxTx] ->
   TxTotalCollateral Era ->
   TxReturnCollateral CtxTx Era ->
@@ -383,17 +383,17 @@ pattern TxBodyContent ::
   TxMetadataInEra ->
   TxAuxScripts ->
   TxExtraKeyWitnesses ->
-  BuildTxWith buidl (Maybe (LedgerProtocolParameters Era)) ->
-  TxWithdrawals buidl Era ->
-  TxCertificates buidl Era ->
+  BuildTxWith build (Maybe (LedgerProtocolParameters Era)) ->
+  TxWithdrawals build Era ->
+  TxCertificates build Era ->
   TxUpdateProposal Era ->
-  TxMintValue buidl ->
+  TxMintValue build ->
   TxScriptValidity ->
-  Maybe (Featured ConwayEraOnwards Era (TxProposalProcedures buidl Era)) ->
-  Maybe (Featured ConwayEraOnwards Era (TxVotingProcedures buidl Era)) ->
+  Maybe (Featured ConwayEraOnwards Era (TxProposalProcedures build Era)) ->
+  Maybe (Featured ConwayEraOnwards Era (TxVotingProcedures build Era)) ->
   Maybe (Featured ConwayEraOnwards Era (Maybe Coin)) ->
   Maybe (Featured ConwayEraOnwards Era Coin) ->
-  TxBodyContent buidl
+  TxBodyContent build
 pattern TxBodyContent
   { txIns
   , txInsCollateral
@@ -498,23 +498,23 @@ pattern TxFeeExplicit{txFeeExplicit} <-
 
 -- ** TxIns
 
-type TxIns buidl = [(TxIn, BuildTxWith buidl (Cardano.Api.Witness WitCtxTxIn Era))]
+type TxIns build = [(TxIn, BuildTxWith build (Cardano.Api.Witness WitCtxTxIn Era))]
 
 -- ** TxInsReference
 
-type TxInsReference = Cardano.Api.TxInsReference Era
+type TxInsReference build = Cardano.Api.TxInsReference build Era
 {-# COMPLETE TxInsReferenceNone, TxInsReference #-}
 
-pattern TxInsReferenceNone :: TxInsReference
+pattern TxInsReferenceNone :: TxInsReference build
 pattern TxInsReferenceNone <-
   Cardano.Api.TxInsReferenceNone
   where
     TxInsReferenceNone =
       Cardano.Api.TxInsReferenceNone
 
-pattern TxInsReference :: [TxIn] -> TxInsReference
-pattern TxInsReference{txInsReference'} <-
-  Cardano.Api.TxInsReference _ txInsReference'
+pattern TxInsReference :: [TxIn] -> TxInsReferenceDatums build -> TxInsReference build
+pattern TxInsReference{txInsReference', scriptData} <-
+  Cardano.Api.TxInsReference _ txInsReference' scriptData
   where
     TxInsReference =
       Cardano.Api.TxInsReference babbageBasedEra
@@ -559,10 +559,10 @@ pattern TxMetadataInEra{txMetadataInEra} <-
 
 -- ** TxMintValue
 
-type TxMintValue buidl = Cardano.Api.TxMintValue buidl Era
+type TxMintValue build = Cardano.Api.TxMintValue build Era
 {-# COMPLETE TxMintValueNone, TxMintValue #-}
 
-pattern TxMintValueNone :: TxMintValue buidl
+pattern TxMintValueNone :: TxMintValue build
 pattern TxMintValueNone <-
   Cardano.Api.TxMintNone
   where
@@ -570,8 +570,8 @@ pattern TxMintValueNone <-
       Cardano.Api.TxMintNone
 
 pattern TxMintValue ::
-  Map PolicyId (PolicyAssets, BuildTxWith buidl (ScriptWitness WitCtxMint)) ->
-  TxMintValue buidl
+  Map PolicyId (PolicyAssets, BuildTxWith build (ScriptWitness WitCtxMint)) ->
+  TxMintValue build
 pattern TxMintValue{txMintValueInEra} <-
   Cardano.Api.TxMintValue _ txMintValueInEra
   where

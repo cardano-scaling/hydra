@@ -8,7 +8,7 @@ In both modes, reporting observations to a [`hydra-explorer`](https://github.com
 
 ## Direct Mode
 
-To run the observer directly connected to a `cardano-node`, use the `--node-socket` option and specify the network id via `--mainnet` or `--testnet-magic`. Optionally, you can specify a starting point to observe usin `--start-chain-from`:
+To run the observer directly connected to a `cardano-node`, use the `--node-socket` option and specify the network id via `--mainnet` or `--testnet-magic`. Optionally, you can specify a starting point to observe using `--start-chain-from`:
 
 ``` shell
 hydra-chain-observer \
@@ -19,7 +19,7 @@ hydra-chain-observer \
 
 ## Blockfrost Mode
 
-To run a chain observer using [blockfrost](blockfrost.io), use the `--blockfrost-project-path` option to point to a file containing your Blockfrost project API token (e.g. testnetA3C2E...). Optionally, you can specify a starting point to observe usin `--start-chain-from`:
+To run a chain observer using [blockfrost](blockfrost.io), use the `--blockfrost-project-path` option to point to a file containing your Blockfrost project API token (e.g. testnetA3C2E...). Optionally, you can specify a starting point to observe using `--start-chain-from`:
 
 ``` shell
 hydra-chain-observer blockfrost \

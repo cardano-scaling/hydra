@@ -46,7 +46,7 @@ healthyDecrementTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (headInput, headOutput)
+    UTxO.singleton headInput headOutput
       <> registryUTxO scriptRegistry
 
   tx =
@@ -115,10 +115,10 @@ healthySnapshot =
 
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
 splitDecommitUTxO utxo =
-  case UTxO.pairs utxo of
+  case UTxO.toList utxo of
     [] -> error "empty utxo in splitDecommitUTxO"
     (decommit : _rest) ->
-      let decommitUTxO' = UTxO.fromPairs [decommit]
+      let decommitUTxO' = UTxO.fromList [decommit]
        in (utxo `withoutUTxO` decommitUTxO', decommitUTxO')
 
 healthyContestationPeriod :: ContestationPeriod
@@ -143,7 +143,7 @@ healthyDatum =
 data DecrementMutation
   = -- | Ensures parties do not change between head input datum and head output
     --  datum.
-    ChangePartiesInOuput
+    ChangePartiesInOutput
   | -- | Produce invalid signature by changing signers in the redeemer
     ProduceInvalidSignatures
   | -- | Ensures decrement is authenticated by one of the Head members by changing
@@ -168,7 +168,7 @@ genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 genDecrementMutation (tx, _utxo) =
   oneof
     [ -- Spec: parameters cid, ̃kH,n,T stay unchanged
-      SomeMutation (pure $ toErrorCode ChangedParameters) ChangePartiesInOuput <$> do
+      SomeMutation (pure $ toErrorCode ChangedParameters) ChangePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
     , -- New version v′ is incremented correctly

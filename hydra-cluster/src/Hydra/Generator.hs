@@ -53,7 +53,7 @@ instance FromJSON Dataset where
     pure Dataset{fundingTransaction, hydraNodeKeys, clientDatasets, title, description}
    where
     parseSigningKey =
-      either (fail . show) pure . deserialiseFromTextEnvelope (AsSigningKey AsPaymentKey)
+      either (fail . show) pure . deserialiseFromTextEnvelope
 
 instance Arbitrary Dataset where
   arbitrary = sized $ \n -> do
@@ -84,7 +84,7 @@ instance FromJSON ClientDataset where
       pure ClientDataset{paymentKey, initialUTxO, txSequence}
    where
     parseSigningKey =
-      either (fail . show) pure . deserialiseFromTextEnvelope (AsSigningKey AsPaymentKey)
+      either (fail . show) pure . deserialiseFromTextEnvelope
 
 -- | Generate a 'Dataset' which does not grow the per-client UTXO set over time.
 -- This version provided faucet key owns funds on the initial funds of the
@@ -114,7 +114,7 @@ generateConstantUTxODataset faucetSk nClients nTxs = do
   clientDatasets <- forM allPaymentKeys (generateClientDataset networkId fundingTransaction nTxs)
   pure Dataset{fundingTransaction, hydraNodeKeys, clientDatasets, title = Nothing, description = Nothing}
 
--- | Generate a 'Dataset' from an already running network by quering available
+-- | Generate a 'Dataset' from an already running network by querying available
 -- funds of the well-known 'faucet.sk' and assuming the hydra-nodes we connect
 -- to have fuel available. Then for a given number of clients a number of
 -- transactions are generated.

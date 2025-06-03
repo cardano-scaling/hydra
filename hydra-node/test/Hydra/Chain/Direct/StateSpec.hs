@@ -182,7 +182,7 @@ spec = parallel $ do
 
         let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
         (mutation, cex, expected) <- pickBlind $ genInitTxMutation seedInput tx
-        let utxo = UTxO.singleton (seedInput, seedTxOut)
+        let utxo = UTxO.singleton seedInput seedTxOut
         let (tx', utxo') = applyMutation mutation (tx, utxo)
 
             originalIsObserved = property $ isRight (observeInitTx tx)
@@ -218,7 +218,7 @@ spec = parallel $ do
     propIsValid forAllCommit
 
     -- XXX: This is testing observeCommitTx. Eventually we will get rid of the
-    -- state-ful layer anyways.
+    -- stateful layer anyways.
     it "only proper head is observed" $
       forAllCommit' $ \ctx st committedUtxo tx ->
         monadicIO $ do
@@ -423,8 +423,8 @@ genCommitTxMutation utxo tx =
       UTxO.find (isScriptTxOut initialValidatorScript) resolvedInputs
 
   resolvedInputs =
-    UTxO.fromPairs $
-      mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
+    UTxO.fromList $
+      mapMaybe (\txIn -> (txIn,) <$> UTxO.resolveTxIn txIn utxo) (txIns' tx)
 
   initialRedeemer =
     fromMaybe (error "not found redeemer") $
@@ -601,7 +601,7 @@ forAllInit action =
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
         let tx = initialize cctx seedIn (ctxParticipants ctx) (ctxHeadParameters ctx)
-            utxo = UTxO.singleton (seedIn, seedOut) <> getKnownUTxO cctx
+            utxo = UTxO.singleton seedIn seedOut <> getKnownUTxO cctx
          in action utxo tx
               & classify
                 (null (ctxVerificationKeys ctx))

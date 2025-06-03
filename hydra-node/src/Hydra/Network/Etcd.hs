@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 -- | Implements a Hydra network component using [etcd](https://etcd.io/).
@@ -11,8 +12,8 @@
 -- very introspectable, while it would also support features like TLS or service
 -- discovery.
 --
--- The component starts and configures an `etcd` instance and connects to it
--- using a GRPC client. We can only write and read from the cluster while
+-- The component installs, starts and configures an `etcd` instance and connects
+-- to it using a GRPC client. We can only write and read from the cluster while
 -- connected to the majority cluster.
 --
 -- Broadcasting is implemented using @put@ to some well-known key, while message
@@ -43,6 +44,7 @@ module Hydra.Network.Etcd where
 import Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
+import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar',
   newTBQueueIO,
@@ -58,7 +60,9 @@ import Control.Lens ((^.), (^..))
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Value)
+import Data.Bits ((.|.))
 import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -71,7 +75,9 @@ import Hydra.Network (
   NetworkComponent,
   NetworkConfiguration (..),
   ProtocolVersion,
+  WhichEtcd (..),
  )
+import Hydra.Node.EmbedTH (embedExecutable)
 import Network.GRPC.Client (
   Address (..),
   ConnParams (..),
@@ -95,8 +101,9 @@ import Network.GRPC.Etcd (
  )
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
-import System.FilePath ((</>))
+import System.FilePath (takeDirectory, (</>))
 import System.IO.Error (isDoesNotExistError)
+import System.Posix (ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
 import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
   Process,
@@ -124,11 +131,12 @@ withEtcdNetwork ::
   NetworkConfiguration ->
   NetworkComponent IO msg msg ()
 withEtcdNetwork tracer protocolVersion config callback action = do
+  etcdBinPath <- getEtcdBinary persistenceDir whichEtcd
   -- TODO: fail if cluster config / members do not match --peer
   -- configuration? That would be similar to the 'acks' persistence
   -- bailing out on loading.
   envVars <- Map.fromList <$> getEnvironment
-  withProcessInterrupt (etcdCmd envVars) $ \p -> do
+  withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
         -- XXX: cleanup reconnecting through policy if other threads fail
@@ -190,16 +198,16 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
-  etcdCmd envVars =
+  etcdCmd etcdBinPath envVars =
     -- NOTE: We map prefers the left; so we need to mappend default at the end.
     setEnv (Map.toList $ envVars <> defaultEnv)
       . setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
       . setStderr createPipe
-      . proc "etcd"
+      . proc etcdBinPath
       $ concat
         [ -- NOTE: Must be used in clusterPeers
           ["--name", show advertise]
-        , ["--data-dir", persistenceDir </> "etcd"]
+        , ["--data-dir", persistenceDir </> "etcd" </> hashToStringAsHex (hashWithSerialiser @SHA256 toCBOR $ BS8.pack clusterPeers)]
         , ["--listen-peer-urls", httpUrl listen]
         , ["--initial-advertise-peer-urls", httpUrl advertise]
         , ["--listen-client-urls", httpUrl clientHost]
@@ -229,7 +237,22 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
 
-  NetworkConfiguration{persistenceDir, listen, advertise, peers} = config
+  NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
+
+-- | Return the path of the etcd binary. Will either install it first, or just
+-- assume there is one available on the system path.
+getEtcdBinary :: FilePath -> WhichEtcd -> IO FilePath
+getEtcdBinary _ SystemEtcd = pure "etcd"
+getEtcdBinary persistenceDir EmbeddedEtcd =
+  let path = persistenceDir </> "bin" </> "etcd"
+   in installEtcd path >> pure path
+
+-- | Install the embedded 'etcd' binary to given file path.
+installEtcd :: FilePath -> IO ()
+installEtcd fp = do
+  createDirectoryIfMissing True (takeDirectory fp)
+  BS.writeFile fp $(embedExecutable "etcd")
+  setFileMode fp (ownerReadMode .|. ownerWriteMode .|. ownerExecuteMode)
 
 -- | Check and write version on etcd cluster. This will retry until we are on a
 -- majority cluster and succeed. If the version does not match a corresponding
@@ -284,8 +307,8 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
     defMessage
       & #requestPut
         .~ ( defMessage
-               & #key .~ versionKey
-               & #value .~ serialize' ourVersion
+              & #key .~ versionKey
+              & #value .~ serialize' ourVersion
            )
 
 -- | Broadcast messages from a queue to the etcd cluster.
@@ -583,7 +606,3 @@ data EtcdLog
   | MatchingProtocolVersion {version :: ProtocolVersion}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
-
-instance Arbitrary EtcdLog where
-  arbitrary = genericArbitrary
-  shrink = genericShrink

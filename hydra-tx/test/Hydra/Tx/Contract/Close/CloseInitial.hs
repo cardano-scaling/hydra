@@ -80,7 +80,7 @@ healthyCloseInitialTx =
 
   lookupUTxO :: UTxO' (TxOut CtxUTxO)
   lookupUTxO =
-    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut initialDatum)
+    UTxO.singleton healthyOpenHeadTxIn (healthyOpenHeadTxOut initialDatum)
       <> registryUTxO scriptRegistry
 
   scriptRegistry = genScriptRegistry `generateWith` 42
@@ -108,7 +108,7 @@ healthyInitialOpenDatum =
       , version = 0
       }
 
---- | Mutations for the specific case of closing with the intial state.
+--- | Mutations for the specific case of closing with the initial state.
 --- We should probably validate all the mutation to this initial state but at
 --- least we keep this regression test as we stumbled upon problems with the following case.
 --- The nice thing to do would probably to generate either "normal" healthyCloseTx or

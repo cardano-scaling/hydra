@@ -309,7 +309,7 @@ apiServerSpec = do
       prop "has inlineDatumRaw" $ \i ->
         forAll genTxOut $ \o -> do
           let o' = modifyTxOutDatum (const $ mkTxOutDatumInline (123 :: Integer)) o
-          let getUTxO = pure $ Just $ UTxO.fromPairs [(i, o')]
+          let getUTxO = pure $ Just $ UTxO.fromList [(i, o')]
           withApplication
             ( httpApp @Tx
                 nullTracer

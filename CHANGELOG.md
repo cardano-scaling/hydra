@@ -8,8 +8,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.22.0] - UNRELEASED
+
+- Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
+
+- Fix tutorial usage of `cardano-cli` and include download of `etcd`.
+
+- Remove runtime dependency to `etcd` by embedding and shipping it with `hydra-node`.
+  - New option `--use-system-etcd` to prefer the system etcd instead of the embedded one.
+
+- **BREAKING** Update scripts to plutus 1.45.0.0.
+
+- Hydra will now store etcd cluster information on the filesystem in directories content-addressed
+  by the cluster configuration.
+
+- **BREAKING** Fixed observation of deposit transactions:
+  - Correctly ignore deposits with deadlines in the past or too soon in the future.
+  - Replaced `--deposit-deadline` with `--deposit-period`.
+  - To make sure a deposit is picked up ensure that `--deposit-period` is longer than `--contestation-period`.
+  - Change persisted events of `hydra-node`.
+  - Change to the `ReqSn` message in the Hydra network protocol
+  - Added `DepositExpired` for when a deposit was deemed expired.
+
+- Enable blockfrost integration for hydra-node.
+
+- Fix head status in post abort greetings output.
+
+- Add `UDP` and `S3` examples for `EventSource` and `EventSink` implementations to `hydra-node:examples`.
+
 ## [0.21.0] - 2025-04-28
 
+- New metric for counting the number of active peers: `hydra_head_peers_connected`
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network
   - New run-time dependency onto `etcd` binary
   - The peer network options to `hydra-node` (`--peer`) need to match across the Hydra network.
@@ -26,16 +55,11 @@ changes.
     ETCD_AUTO_COMPACTION_RETENTION=168h
     ```
 
-- **BREAKING** Enable multi-party, networked "offline" heads by providing an `--offline-head-seed` option to `hydra-node`.
-  - Drop `hydra-node offline` as a sub-command. Use `--offline-head-seed` and `--initial-utxo` options to switch to offline mode.
+- Changed default contestation period to 600 seconds and deposit deadline to 3600 seconds.
 
-- **BREAKING** API changes
-  - API Server does **NOT** serve the event history by default any more. Clients need to add a query parameter `?history=yes` in order to obtain the history.
-  - Remove `GetUTxO` client input and corresponding `GetUTxOResponse`. There is already a way to query the `UTxO` in the Head with `GET /snapshot/utxo` query.
-  - Renamed 'CommitFinalized' field 'theDeposit' to 'depositTxId'.
-  - We now store the `time` in `StateEvent` which is a breaking change to our persistence loading
-  - Query parameter `?address=..` does **NOT** filter `TxValid` and `TxInvalid` server outputs anymore.
-  - Removed the `transaction` from `TxValid` server outputs. Use `SnapshotConfirmed` to determine what transactions got confirmed intead!
+- Introduce an option to publish hydra scripts using blockfrost.
+
+- Remove checks that rely on hydra-node's local state and trust on-chain data when we observe decrement/recover transactions.
 
 - Fix a bug in increment observation where wrong deposited UTxO was picked up.
 
@@ -45,35 +69,37 @@ changes.
   - A problematic transaction will now be ignored and not deemed a valid head protocol transaction.
   - An example was if the datum would contain CBOR instead of just hex encoded bytes.
 
-- Fix a bug on HeadFannedOut as it should always display the observed fanned-out UTxO instead of local confirmed snapshot.
-
-- API Additions
-    - Add query (GET /snapshot/last-seen) to fetch the latest seen snapshot by a node and help identify non-cooperating peers.
-    - Add command (POST /snapshot) to adopt the given snapshot as the latest confirmed.
-      * add new `SideLoadSnapshot` client input.
-      * add new `LocalStateCleared` state changed event.
-      * add new `SnapshotSideLoaded` server output.
-      * add new `SideLoadSnapshotFailed` logic error.
-
-- Changed default contestation period to 600 seconds and deposit deadline to 3600 seconds.
+- **BREAKING** Enable multi-party, networked "offline" heads by providing an `--offline-head-seed` option to `hydra-node`.
+  - Drop `hydra-node offline` as a sub-command. Use `--offline-head-seed` and `--initial-utxo` options to switch to offline mode.
 
 - Add support for "withdraw zero trick" transactions:
   - Any transaction with a `Rewarding` redeemer for a `Withdrawal` of `0 lovelace`, will be validated as if there would be a corresponding stake `RewardAccount` already registered.
   - No need to register the script's stake address before.
 
-- Remove checks that rely on hydra-node's local state and trust on-chain data when we observe decrement/recover transactions.
-
-- Publish scripts using blockfrost via new `hydra-node publish-scripts --blockfrost` option.
-
-- New metric for counting the number of active peers: `hydra_head_peers_connected`
+- Stream historical data from disk in the hydra-node API server.
 
 - Record used and free memory when running `bench-e2e` benchmark.
 
 - Submit observations to a `hydra-explorer` via optional `--explorer` option.
 
+- Add API query (GET /snapshot/last-seen) to fetch the latest seen snapshot by a node and help identify non-cooperating peers.
+
+- Bugfix: HeadFannedOut should always display the observed fanned-out UTxO instead of local confirmed snapshot.
+
+- **BREAKING**
+  - API Server does **NOT** serve the event history by default any more. Clients need to add a query parameter `?history=yes` in order to obtain the history.
+  - Remove `GetUTxO` client input and corresponding `GetUTxOResponse`. There is already a way to query the `UTxO` in the Head with `GET /snapshot/utxo` query.
+  - Renamed 'CommitFinalized' field 'theDeposit' to 'depositTxId'.
+  - We now store the `time` in `StateEvent` which is a breaking change to our
+  persistence loading
+
 - Add a list of [clients](https://hydra.family/head-protocol/unstable/docs/clients) to the docs
 
-- Stream historical data from disk in the hydra-node API server.
+- Add API command (POST /snapshot) which allows to adopt the given snapshot as the latest confirmed.
+  * add new `SideLoadSnapshot` client input.
+  * add new `LocalStateCleared` state changed event.
+  * add new `SnapshotSideLoaded` server output.
+  * add new `SideLoadSnapshotFailed` logic error.
 
 ## [0.20.0] - 2025-02-04
 
@@ -83,7 +109,7 @@ changes.
 - There is a new `--deposit-deadline` argument to hydra-node that determines the maximum time for the hydra-node to detect a deposit.
   After this time has passed users can recover a deposit in case it wasn't observed previously.
 
-- **BREAKING** hydra-node accepts multiple `hydra-scripts-tx-id` as a comma-seperated list, as the outcome of changes in the Hydra scripts publishing.
+- **BREAKING** hydra-node accepts multiple `hydra-scripts-tx-id` as a comma-separated list, as the outcome of changes in the Hydra scripts publishing.
 
 - Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
 
@@ -136,7 +162,7 @@ changes.
 
 - Adds a manual recipient address entry to `hydra-tui` and fixes event handling. [#1607](https://github.com/cardano-scaling/hydra/pull/1607)
 
-- Add a demo mode to hydra-cluster to facilitate network resiliance tests [#1552](https://github.com/cardano-scaling/hydra/pull/1552)
+- Add a demo mode to hydra-cluster to facilitate network resilience tests [#1552](https://github.com/cardano-scaling/hydra/pull/1552)
 
 ## [0.18.1] - 2024-08-15
 
@@ -165,7 +191,7 @@ changes.
 
 - Change `--start-chain-from` to always use the newer point when also a head state is known. [#1471](https://github.com/cardano-scaling/hydra/pull/1471)
 
-- Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey. [#1486](https://github.com/cardano-scaling/hydra/pull/1486)
+- Moved several pages from "core concepts" into the user manual and developer docs to further improve user journey. [#1486](https://github.com/cardano-scaling/hydra/pull/1486)
 
 - Offline mode of `hydra-node` uses `--node-id` to derive an artificial offline `headId`. [#1551](https://github.com/cardano-scaling/hydra/pull/1551)
 
@@ -173,7 +199,7 @@ changes.
 
 - **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts [#1380](https://github.com/cardano-scaling/hydra/pull/1380):
   - Instead of the custom `witness` extension of `UTxO`, the endpoint now accepts a _blueprint_ transaction together with the `UTxO` which is spent in this transaction.
-  - Usage is still the same for commiting "normal" `UTxO` owned by public key addresses.
+  - Usage is still the same for committing "normal" `UTxO` owned by public key addresses.
   - Spending from a script `UTxO` now needs the `blueprintTx` request type, which also unlocks more involved use-cases, where the commit transaction should also satisfy script spending constraints (like additional signers, validity ranges etc.)
 
 - _DEPRECATED_ the `GetUTxO` client input and `GetUTxOResponse` server output. Use `GET /snapshot/utxo` instead.
@@ -415,14 +441,14 @@ changes.
       spend multiple UTxOs into a Hydra head.
     - Removes the `MoreThanOneUTxOCommitted` server output on the API.
 
-- Suport commits from external wallets [#215](215)
+- Support commits from external wallets [#215](215)
     - Added the `/commit` HTTP endpoint to the `hydra-node` for creating a draft
       `commit` transaction to commit requested UTxO into a head. This
       transaction can be signed and submitted to the network by the hydra client
       now instead of `hydra-node`.
     - Commits via `/commit` also allow to commit scripts into a Hydra Head. For
       that, the UTxO entry in the HTTP request needs to provide a `witness` with
-      scrpit, datum, and redeemer to be used.
+      script, datum, and redeemer to be used.
     - Removed the need to mark fuel when using external commits. Fees for Hydra
       protocol transactions are paid the largest UTxO held by the internal
       wallet if no marked fuel UTxO is present.
@@ -808,7 +834,7 @@ changes.
 
 - Implement on-chain contestation logic [#192](https://github.com/cardano-scaling/hydra/issues/192):
   + Node will automatically post a `Contest` transaction when it observes a `Close` or `Contest` with an obsolete snapshot
-  + Posting a fan-out transaction is not possible before the contestation dealine has passed
+  + Posting a fan-out transaction is not possible before the contestation deadline has passed
 
 - Transactions can now be submitted as raw CBOR-serialized object, base16 encoded, using the `NewTx` client input. This also supports the text-envelope format from cardano-cli out of the box. See the [api Reference](https://hydra.family/head-protocol/api-reference#operation-publish-/-message).
 
@@ -867,7 +893,7 @@ changes.
 - **BREAKING** Renamed server output `UTxO -> GetUTxOResponse`
   + This should be a better name for the response of `GetUTxO` client input on our API :)
 
-- Updated our dependencies (`plutus`, `cardano-ledger`, etc.) to most recent released versions making scripts smaller and Head transactions slighly cheaper already, see benchmarks for current limits.
+- Updated our dependencies (`plutus`, `cardano-ledger`, etc.) to most recent released versions making scripts smaller and Head transactions slightly cheaper already, see benchmarks for current limits.
 
 #### Fixed
 
@@ -976,7 +1002,7 @@ changes.
 - Recipient addresses to send money to in the TUI are inferred from the current
   UTXO set. If a party does not commit a UTXO or consumes all its UTXO in a
   Head, it won't be able to send or receive anything anymore.
-- TUI crashes when user tries to post a new transaction wihout any UTXO
+- TUI crashes when user tries to post a new transaction without any UTXO
   remaining.
 - Not an issue, but a workaround: The internal wallet of `hydra-node` requires a
   UTXO to be marked as "fuel" to drive the Hydra protocol transactions.

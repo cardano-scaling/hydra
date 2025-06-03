@@ -5,7 +5,7 @@ import Hydra.Prelude
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson (eitherDecodeFileStrict)
-import Hydra.Cardano.Api (TxIx (..), networkIdToNetwork, textEnvelopeToJSON, txSpendingUTxO, pattern TxIn)
+import Hydra.Cardano.Api (TxIx (..), textEnvelopeToJSON, toShelleyNetwork, txSpendingUTxO, pattern TxIn)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Deposit (depositTx, observeDepositTxOut)
 import Hydra.Tx.Recover (recoverTx)
@@ -25,11 +25,11 @@ main =
           putStrLn $ "Wrote deposit transaction to " <> outFile
     Recover RecoverOptions{networkId, outFile, recoverTxId, utxoFilePath, recoverSlotNo} -> do
       -- XXX: Only requires network discriminator / not networkId
-      let network = networkIdToNetwork networkId
+      let network = toShelleyNetwork networkId
       eitherDecodeFileStrict utxoFilePath >>= \case
         Left err -> die $ "failed to parse provided UTXO file! " <> err
         Right (utxo :: UTxO) -> do
-          case UTxO.resolve (TxIn recoverTxId (TxIx 0)) utxo of
+          case UTxO.resolveTxIn (TxIn recoverTxId (TxIx 0)) utxo of
             Nothing -> die "failed to resolve deposited UTxO with provided TxIn"
             Just depositedTxOut -> do
               case observeDepositTxOut network depositedTxOut of

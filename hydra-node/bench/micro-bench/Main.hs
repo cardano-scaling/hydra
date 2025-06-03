@@ -20,7 +20,7 @@ import Test.QuickCheck (generate)
 
 main :: IO ()
 main = do
-  -- Use this env var to run benchmarks for more transations:
+  -- Use this env var to run benchmarks for more transactions:
   --
   -- > N_TXNS=1 cabal bench micro --benchmark-options '--json output.json +RTS -T'
   --
