@@ -2,9 +2,9 @@ module Hydra.Events.Rotation where
 
 import Hydra.Prelude
 
-import Conduit (ConduitT, MonadUnliftIO, ResourceT, runConduit, runResourceT, (.|))
+import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
-import Data.Conduit (await)
+import Data.Conduit.Combinators qualified as C
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId (..), LogId, StateEvent (..))
 import Hydra.HeadLogic (StateChanged (..), aggregate)
@@ -36,19 +36,6 @@ mkCheckpointer headState eventId time =
     , time
     }
 
-foldEvents ::
-  (Monad m, HasEventId e) =>
-  StateAggregate s e ->
-  s ->
-  ConduitT e Void (ResourceT m) (Natural, EventId, s)
-foldEvents aggregator = go 0 0
- where
-  go !n !evId !acc =
-    await >>= \case
-      Nothing -> pure (n, evId, acc)
-      Just e ->
-        go (n + 1) (getEventId e) (aggregator acc e)
-
 -- | Creates an event store that rotates according to given config and 'StateAggregate'.
 newRotatedEventStore ::
   (HasEventId e, MonadSTM m, MonadUnliftIO m, MonadTime m) =>
@@ -61,7 +48,7 @@ newRotatedEventStore ::
 newRotatedEventStore config s0 aggregator checkpointer eventStore = do
   (currentNumberOfEvents, lastEventId, currentAggregateState) <-
     runResourceT . runConduit $
-      sourceEvents eventSource .| foldEvents aggregator s0
+      sourceEvents eventSource .| C.foldl aggregateEvents (0, 0, s0)
   aggregateStateV <- newTVarIO currentAggregateState
   numberOfEventsV <- newTVarIO currentNumberOfEvents
   -- check rotation on startup
@@ -79,6 +66,8 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
       }
  where
   RotateAfter rotateAfterX = config
+
+  aggregateEvents (!n, !_evId, !acc) e = (n + 1, getEventId e, aggregator acc e)
 
   shouldRotate numberOfEventsV = do
     currentNumberOfEvents <- readTVarIO numberOfEventsV
