@@ -3,7 +3,7 @@ module Hydra.Events.Rotation where
 import Hydra.Prelude
 
 import Conduit (ConduitT, MonadUnliftIO, ResourceT, runConduit, runResourceT, (.|))
-import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
 import Data.Conduit (await)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId (..), LogId, StateEvent (..))
@@ -88,9 +88,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
     putEvent event
     atomically $ do
       -- aggregate new state
-      aggregateState <- readTVar aggregateStateV
-      let aggregateState' = aggregator aggregateState event
-      writeTVar aggregateStateV aggregateState'
+      modifyTVar' aggregateStateV (`aggregator` event)
       -- bump numberOfEvents
       numberOfEvents <- readTVar numberOfEventsV
       let numberOfEvents' = numberOfEvents + 1
