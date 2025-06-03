@@ -203,7 +203,7 @@ data ServerOutput tx
     -- The local state has been reset, meaning pending transactions were pruned.
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
-  | Checkpointed {state :: HeadState tx}
+  | EventLogRotated {state :: HeadState tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -274,7 +274,7 @@ prepareServerOutput config response =
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
     SnapshotSideLoaded{} -> encodedResponse
-    Checkpointed{} -> encodedResponse
+    EventLogRotated{} -> encodedResponse
  where
   encodedResponse = encode response
 

@@ -102,7 +102,7 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitFinalized"
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
-          - $ref: "api.yaml#/components/messages/Checkpointed"
+          - $ref: "api.yaml#/components/messages/EventLogRotated"
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
@@ -670,12 +670,12 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
 
-    Checkpointed:
-      title: Checkpointed
+    EventLogRotated:
+      title: EventLogRotated
       description: |
         The node event log file has been rotated. The current aggregated head state is used as the checkpoint event to resume from.
       payload:
-        $ref: "api.yaml#/components/schemas/Checkpointed"
+        $ref: "api.yaml#/components/schemas/EventLogRotated"
 
     # Other messages
 
@@ -757,7 +757,7 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
-        - $ref: "api.yaml#/components/schemas/Checkpointed"
+        - $ref: "api.yaml#/components/schemas/EventLogRotated"
 
     ClientMessage:
       oneOf:
@@ -1611,8 +1611,8 @@ components:
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
-    Checkpointed:
-      title: Checkpointed
+    EventLogRotated:
+      title: EventLogRotated
       description: |
         The node event log file has been rotated. The current aggregated head state is used as the checkpoint event to resume from.
       additionalProperties: false
@@ -1625,7 +1625,7 @@ components:
       properties:
         tag:
           type: string
-          enum: ["Checkpointed"]
+          enum: ["EventLogRotated"]
         state:
           $ref: "api.yaml#/components/schemas/HeadState"
         seq:

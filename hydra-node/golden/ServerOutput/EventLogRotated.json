@@ -446,7 +446,7 @@
                 },
                 "tag": "Open"
             },
-            "tag": "Checkpointed"
+            "tag": "EventLogRotated"
         }
     ],
     "seed": -1295008779
