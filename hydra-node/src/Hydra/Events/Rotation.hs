@@ -59,10 +59,6 @@ newRotatedEventStore ::
   EventStore e m ->
   m (EventStore e m)
 newRotatedEventStore config s0 aggregator checkpointer eventStore = do
-  -- Rules for any event store:
-  -- - sourceEvents will be called in the beginning of the application and whenever the api server wans to load history
-  --   -> might be called multiple times!!
-  -- - putEvent will be called on application start with all events returned by sourceEvents and during processing
   (currentNumberOfEvents, lastEventId, currentAggregateState) <-
     runResourceT . runConduit $
       sourceEvents eventSource .| foldEvents aggregator s0
