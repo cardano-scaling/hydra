@@ -58,7 +58,7 @@ import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
 spec :: Spec
 spec =
-  parallel $ do
+  do
     it "should fail on port in use" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
         let withServerOnPort p = withTestAPIServer p alice (mockSource []) tracer
