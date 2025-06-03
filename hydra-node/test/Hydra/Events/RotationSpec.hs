@@ -66,7 +66,7 @@ spec = parallel $ do
           case stateChanged checkpoint of
             Checkpoint{state = Closed{}} -> pure ()
             _ -> fail ("unexpected: " <> show checkpoint)
-    prop "a rotated and non-rotated node have consistent state"
+    it "a rotated and non-rotated node have consistent state"
       $ monadicIO
         . run
       $ setupHydrate
