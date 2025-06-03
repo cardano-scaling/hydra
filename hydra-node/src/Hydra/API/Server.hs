@@ -257,7 +257,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.ChainRolledBack{} -> Nothing
     StateChanged.TickObserved{} -> Nothing
     StateChanged.LocalStateCleared{..} -> Just SnapshotSideLoaded{..}
-    StateChanged.Checkpoint{..} -> Just EventLogRotated{..}
+    StateChanged.Checkpoint{} -> Just EventLogRotated
 
 --
 
