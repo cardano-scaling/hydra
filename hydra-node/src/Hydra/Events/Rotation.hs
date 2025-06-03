@@ -106,9 +106,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
     aggregateState <- readTVarIO aggregateStateV
     let checkpoint = checkpointer aggregateState (lastEventId + 1) now
     -- rotate with checkpoint
-    -- FIXME! use timestamp instead
-    let nextLogId = lastEventId + 1
-    rotate nextLogId checkpoint
+    rotate lastEventId checkpoint
     -- clear numberOfEvents + bump logId
     atomically $ do
       writeTVar numberOfEventsV 0
