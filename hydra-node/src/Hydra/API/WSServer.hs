@@ -40,7 +40,7 @@ import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanout), HeadState, StateChanged)
+import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options qualified as Options
@@ -182,6 +182,6 @@ getHeadStatus = \case
   HeadState.Idle{} -> Idle
   HeadState.Initial{} -> Initializing
   HeadState.Open{} -> Open
-  HeadState.Closed ClosedState{readyToFanout}
-    | readyToFanout -> FanoutPossible
+  HeadState.Closed ClosedState{readyToFanoutSent}
+    | readyToFanoutSent -> FanoutPossible
     | otherwise -> Closed

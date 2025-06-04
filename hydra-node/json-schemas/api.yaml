@@ -3110,7 +3110,7 @@ components:
         - parameters
         - confirmedSnapshot
         - contestationDeadline
-        - readyToFanout
+        - readyToFanoutSent
         - chainState
         - headId
         - headSeed
@@ -3122,7 +3122,7 @@ components:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         contestationDeadline:
           $ref: "api.yaml#/components/schemas/UTCTime"
-        readyToFanout:
+        readyToFanoutSent:
           type: boolean
         chainState:
           $ref: "api.yaml#/components/schemas/ChainState"

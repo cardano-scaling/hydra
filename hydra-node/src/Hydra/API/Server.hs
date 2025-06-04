@@ -30,7 +30,7 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
+import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (aggregate)
 import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.State (

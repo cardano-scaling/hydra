@@ -942,13 +942,15 @@ onOpenChainTick env st chainTime =
           && isNothing currentDepositTxId
           && not snapshotInFlight
           && isLeader parameters party nextSn
-          then -- XXX: This state update has no equivalence in the
-          -- spec. Do we really need to store that we have
-          -- requested a snapshot? If yes, should update spec.
+          then
+            -- XXX: This state update has no equivalence in the
+            -- spec. Do we really need to store that we have
+            -- requested a snapshot? If yes, should update spec.
             newState SnapshotRequestDecided{snapshotNumber = nextSn}
               -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
               <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just depositTxId))
-          else noop
+          else
+            noop
  where
   updateDeposits cont =
     uncurry cont $ Map.foldlWithKey updateDeposit (mempty, mempty) pendingDeposits
@@ -1395,8 +1397,8 @@ update env ledger st ev = case (st, ev) of
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanout, headId}, ChainInput Tick{chainTime, chainSlot})
-    | chainTime > contestationDeadline && not readyToFanout ->
+  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
+    | chainTime > contestationDeadline && not readyToFanoutSent ->
         newState TickObserved{chainSlot}
           <> newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
@@ -1732,7 +1734,7 @@ aggregate st = \case
               { parameters
               , confirmedSnapshot
               , contestationDeadline
-              , readyToFanout = False
+              , readyToFanoutSent = False
               , chainState
               , headId
               , headSeed
@@ -1741,13 +1743,13 @@ aggregate st = \case
       _otherState -> st
   HeadContested{chainState, contestationDeadline} ->
     case st of
-      Closed ClosedState{parameters, confirmedSnapshot, readyToFanout, headId, headSeed, version} ->
+      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version} ->
         Closed
           ClosedState
             { parameters
             , confirmedSnapshot
             , contestationDeadline
-            , readyToFanout
+            , readyToFanoutSent
             , chainState
             , headId
             , headSeed
@@ -1764,7 +1766,7 @@ aggregate st = \case
       _otherState -> st
   HeadIsReadyToFanout{} ->
     case st of
-      Closed cst -> Closed cst{readyToFanout = True}
+      Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
   ChainRolledBack{chainState} ->
     setChainState chainState st
