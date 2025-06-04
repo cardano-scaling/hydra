@@ -8,15 +8,18 @@ import Hydra.Prelude
 import Conduit (mapMC, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
+import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Persistence (PersistenceIncremental (..))
+import System.Directory (renameFile)
 
--- | A basic file based event source and sink defined using an
+-- | A basic file based event source and sink defined using a rotated
 -- 'PersistenceIncremental' handle.
-eventPairFromPersistenceIncremental ::
-  (ToJSON e, FromJSON e, HasEventId e, MonadSTM m) =>
-  PersistenceIncremental e m ->
-  m (EventSource e m, EventSink e m)
-eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
+mkFileBasedEventStore ::
+  (ToJSON e, FromJSON e, HasEventId e) =>
+  FilePath ->
+  PersistenceIncremental e IO ->
+  IO (EventStore e IO)
+mkFileBasedEventStore stateDir persistence = do
   eventIdV <- newTVarIO Nothing
   let
     getLastSeenEventId = readTVar eventIdV
@@ -25,8 +28,8 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
       writeTVar eventIdV (Just $ getEventId evt)
 
     -- Keep track of the last seen event id when loading
-    sourceEvents =
-      source
+    sourceEvents = do
+      source persistence
         .| mapMC
           ( \event -> lift . atomically $ do
               setLastSeenEventId event
@@ -42,7 +45,23 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
           | otherwise -> pure ()
 
     store e = do
-      append e
+      append persistence e
       atomically $ setLastSeenEventId e
 
-  pure (EventSource{sourceEvents}, EventSink{putEvent})
+    rotate nextLogId checkpointEvent = do
+      let rotatedPath = stateDir <> "-" <> show nextLogId
+      ( do
+          renameFile stateDir rotatedPath
+          append persistence checkpointEvent
+        )
+        `catch` \(_ :: SomeException) -> do
+          -- Attempt to revert the rename,
+          -- ignoring errors during rollback.
+          renameFile rotatedPath stateDir
+
+  pure
+    EventStore
+      { eventSource = EventSource{sourceEvents}
+      , eventSink = EventSink{putEvent}
+      , rotate
+      }

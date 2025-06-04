@@ -53,7 +53,7 @@ The `hydra-node` component exposes an [asynchronous API](https://hydra.family/he
 
 ### Persistence
 
-All API server outputs and the `hydra-node` state are preserved on disk. The persistence layer is responsible for loading historical messages and the Hydra state from disk, as well as storing them. Currently, there hasn't been a need to increase the complexity of this layer or use a database.
+The `hydra-node` state is preserved on disk. The persistence layer is responsible for loading historical messages and Hydra state from disk, as well as storing them in so-called event log files. Depending on the rotation configuration used at startup, these event log files will be rotated to improve restart times. So far, there hasn’t been a need to increase the complexity of this layer or to use a database.
 
 ### Logging
 

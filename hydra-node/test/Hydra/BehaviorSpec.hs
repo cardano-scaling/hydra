@@ -35,6 +35,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
+import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), OpenState (..), defaultTTL)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
@@ -47,7 +48,7 @@ import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
-import Hydra.NodeSpec (createMockSourceSink)
+import Hydra.NodeSpec (createMockEventStore)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
@@ -1276,7 +1277,7 @@ createHydraNode ::
   DepositPeriod ->
   m (HydraNode tx m)
 createHydraNode tracer ledger chainState signingKey otherParties outputs messages outputHistory chain cp dp = do
-  (eventSource, eventSink) <- createMockSourceSink
+  EventStore{eventSource, eventSink} <- createMockEventStore
   let apiSink =
         EventSink
           { putEvent = \event ->

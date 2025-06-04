@@ -102,6 +102,7 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitFinalized"
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
+          - $ref: "api.yaml#/components/messages/EventLogRotated"
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
@@ -669,6 +670,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
 
+    EventLogRotated:
+      title: EventLogRotated
+      description: |
+        The node event log file has been rotated. The current aggregated head state is used as the checkpoint event to resume from.
+      payload:
+        $ref: "api.yaml#/components/schemas/EventLogRotated"
+
     # Other messages
 
     DraftCommitTxRequest:
@@ -749,6 +757,7 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
+        - $ref: "api.yaml#/components/schemas/EventLogRotated"
 
     ClientMessage:
       oneOf:
@@ -1220,7 +1229,6 @@ components:
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
-
     InvalidInput:
       type: object
       required:
@@ -1598,6 +1606,25 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         snapshotNumber:
           $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    EventLogRotated:
+      title: EventLogRotated
+      description: |
+        The node event log file has been rotated. The current aggregated head state is used as the checkpoint event to resume from.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["EventLogRotated"]
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2753,9 +2780,6 @@ components:
             }
           }
         }
-
-    # END OF SERVER OUTPUT SCHEMAS
-
 
     PlutusV2Script:
       type: object

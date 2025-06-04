@@ -152,7 +152,7 @@ import Network.HTTP.Req (
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
 import System.FilePath ((</>))
-import System.Process (proc, readCreateProcessWithExitCode)
+import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, elements, generate)
@@ -401,9 +401,9 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
         <&> modifyConfig (\config -> config{startChainFrom = Just tip})
 
     withTempDir "blank-state" $ \tmpDir -> do
-      void $ readCreateProcessWithExitCode (proc "cp" ["-r", workDir </> "state-2", tmpDir]) ""
-      void $ readCreateProcessWithExitCode (proc "rm" ["-rf", tmpDir </> "state-2" </> "state"]) ""
-      void $ readCreateProcessWithExitCode (proc "rm" ["-rf", tmpDir </> "state-2" </> "last-known-revision"]) ""
+      callProcess "cp" ["-r", workDir </> "state-2", tmpDir]
+      callProcess "rm" ["-rf", tmpDir </> "state-2" </> "state*"]
+      callProcess "rm" ["-rf", tmpDir </> "state-2" </> "last-known-revision"]
       withHydraNode hydraTracer bobChainConfigFromTip tmpDir 2 bobSk [aliceVk] [1] $ \n2 -> do
         -- Also expect to see past server outputs replayed
         headId2 <- waitMatch 5 n2 $ headIsInitializingWith (Set.fromList [alice, bob])

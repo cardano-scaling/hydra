@@ -240,6 +240,8 @@ handleHydraEventsInfo = \case
       InternalWalletError{reason} ->
         warn time reason
       _ -> warn time ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.EventLogRotated{}}) -> do
+    info time "Checkpoint triggered: head state event log rotated"
   _ -> pure ()
 
 partyCommitted :: Party -> UTxO -> EventM n ActiveLink ()

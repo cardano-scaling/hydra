@@ -32,7 +32,8 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
-import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
+import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
+import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
@@ -47,6 +48,7 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
+import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..), NetworkCallback (..))
@@ -168,10 +170,11 @@ hydrate ::
   Environment ->
   Ledger tx ->
   ChainStateType tx ->
-  EventSource (StateEvent tx) m ->
+  EventStore (StateEvent tx) m ->
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
-hydrate tracer env ledger initialChainState eventSource eventSinks = do
+hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} eventSinks = do
+  let allSinks = eventSink : eventSinks
   traceWith tracer LoadingState
   (lastEventId, (headState, chainStateHistory)) <-
     runConduitRes $
@@ -188,7 +191,7 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   traceWith tracer ReplayingState
   runConduitRes $
-    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
+    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks allSinks [e])
 
   nodeState <- createNodeState (getLast lastEventId) headState
   inputQueue <- createInputQueue
@@ -200,7 +203,7 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
       , nodeState
       , inputQueue
       , eventSource
-      , eventSinks
+      , eventSinks = allSinks
       , chainStateHistory
       }
  where

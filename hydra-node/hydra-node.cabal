@@ -69,11 +69,13 @@ library
     Hydra.Chain.ScriptRegistry
     Hydra.Events
     Hydra.Events.FileBased
+    Hydra.Events.Rotation
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.State
+    Hydra.HeadLogic.StateEvent
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Simple
@@ -305,6 +307,7 @@ test-suite tests
     Hydra.Chain.Direct.WalletSpec
     Hydra.CryptoSpec
     Hydra.Events.FileBasedSpec
+    Hydra.Events.RotationSpec
     Hydra.Events.S3Spec
     Hydra.Events.UDPSpec
     Hydra.HeadLogicSnapshotSpec

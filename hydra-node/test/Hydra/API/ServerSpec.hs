@@ -36,8 +36,9 @@ import Hydra.Chain (
   postTx,
   submitTx,
  )
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId), StateEvent (..), genStateEvent)
+import Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId))
 import Hydra.HeadLogic.Outcome qualified as Outcome
+import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)

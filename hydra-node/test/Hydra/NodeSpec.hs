@@ -6,16 +6,18 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO, writeTVar)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
-import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
+import Hydra.Events (EventSink (..), EventSource (..), getEventId)
+import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (Input (..))
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
+import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
@@ -70,8 +72,7 @@ spec = parallel $ do
           \someEvents -> do
             (mockSink1, getMockSinkEvents1) <- createRecordingSink
             (mockSink2, getMockSinkEvents2) <- createRecordingSink
-
-            void $ testHydrate (mockSource someEvents) [mockSink1, mockSink2]
+            void $ testHydrate (mockEventStore someEvents) [mockSink1, mockSink2]
 
             getMockSinkEvents1 `shouldReturn` someEvents
             getMockSinkEvents2 `shouldReturn` someEvents
@@ -81,7 +82,7 @@ spec = parallel $ do
           \someEvents -> do
             (sink, getSinkEvents) <- createRecordingSink
 
-            void $ testHydrate (mockSource someEvents) [sink]
+            void $ testHydrate (mockEventStore someEvents) [sink]
 
             seenEvents <- getSinkEvents
             getEventId <$> seenEvents `shouldBe` getEventId <$> someEvents
@@ -90,9 +91,12 @@ spec = parallel $ do
         forAllShrink (listOf1 $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             let genSinks = elements [mockSink, failingSink]
-                failingSink = EventSink{putEvent = \_ -> failure "failing sink called"}
+                failingSink =
+                  EventSink
+                    { putEvent = \_ -> failure "failing putEvent sink called"
+                    }
             forAllBlind (listOf genSinks) $ \sinks ->
-              testHydrate (mockSource someEvents) (sinks <> [failingSink])
+              testHydrate (mockEventStore someEvents) (sinks <> [failingSink])
                 `shouldThrow` \(_ :: HUnitFailure) -> True
 
       it "checks head state" $ \testHydrate ->
@@ -107,7 +111,7 @@ spec = parallel $ do
                       <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
                       <*> pure now
               forAllShrink genEvent shrink $ \incompatibleEvent ->
-                testHydrate (mockSource [incompatibleEvent]) []
+                testHydrate (mockEventStore [incompatibleEvent]) []
                   `shouldThrow` \(_ :: ParameterMismatch) -> True
 
   describe "stepHydraNode" $ do
@@ -116,7 +120,7 @@ spec = parallel $ do
         (mockSink1, getMockSinkEvents1) <- createRecordingSink
         (mockSink2, getMockSinkEvents2) <- createRecordingSink
 
-        testHydrate (mockSource []) [mockSink1, mockSink2]
+        testHydrate (mockEventStore []) [mockSink1, mockSink2]
           >>= notConnect
           >>= primeWith inputsToOpenHead
           >>= runToCompletion
@@ -136,7 +140,7 @@ spec = parallel $ do
         forAllShrinkBlind genInputs shrink $ \someInputs ->
           idempotentIOProperty $ do
             (sink, getSinkEvents) <- createRecordingSink
-            testHydrate (mockSource []) [sink]
+            testHydrate (mockEventStore []) [sink]
               >>= notConnect
               >>= primeWith someInputs
               >>= runToCompletion
@@ -153,9 +157,9 @@ spec = parallel $ do
 
       it "can continue after re-hydration" $ \testHydrate ->
         failAfter 1 $ do
-          (eventSource, eventSink) <- createMockSourceSink
+          eventStore <- createMockEventStore
 
-          testHydrate eventSource [eventSink]
+          testHydrate eventStore []
             >>= notConnect
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
@@ -166,7 +170,7 @@ spec = parallel $ do
           (recordingSink, getRecordedEvents) <- createRecordingSink
 
           (node, getServerOutputs) <-
-            testHydrate eventSource [eventSink, recordingSink]
+            testHydrate eventStore [recordingSink]
               >>= notConnect
               >>= primeWith [reqTx]
               >>= recordServerOutputs
@@ -314,13 +318,13 @@ spec = parallel $ do
 
 -- | Add given list of inputs to the 'InputQueue'. This is returning the node to
 -- allow for chaining with 'runToCompletion'.
-primeWith :: Monad m => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+primeWith :: Monad m => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
 primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}} = do
   forM_ inputs enqueue
   pure node
 
 -- | Convert a 'DraftHydraNode' to a 'HydraNode' by providing mock implementations.
-notConnect :: MonadThrow m => DraftHydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+notConnect :: MonadThrow m => DraftHydraNode tx m -> m (HydraNode tx m)
 notConnect =
   connect mockChain mockNetwork mockServer
 
@@ -330,11 +334,11 @@ mockServer =
     { sendMessage = \_ -> pure ()
     }
 
-mockNetwork :: Monad m => Network m (Message SimpleTx)
+mockNetwork :: Monad m => Network m (Message tx)
 mockNetwork =
   Network{broadcast = \_ -> pure ()}
 
-mockChain :: MonadThrow m => Chain SimpleTx m
+mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
     { postTx = \_ -> pure ()
@@ -345,6 +349,14 @@ mockChain =
 
 mockSink :: Monad m => EventSink a m
 mockSink = EventSink{putEvent = const $ pure ()}
+
+mockEventStore :: Monad m => [a] -> EventStore a m
+mockEventStore events =
+  EventStore{eventSource, eventSink, rotate}
+ where
+  eventSource = mockSource events
+  eventSink = mockSink
+  rotate = const . const $ pure ()
 
 mockSource :: Monad m => [a] -> EventSource a m
 mockSource events =
@@ -357,8 +369,8 @@ createRecordingSink = do
   (putEvent, getAll) <- messageRecorder
   pure (EventSink{putEvent}, getAll)
 
-createMockSourceSink :: MonadLabelledSTM m => m (EventSource a m, EventSink a m)
-createMockSourceSink = do
+createMockEventStore :: MonadLabelledSTM m => m (EventStore a m)
+createMockEventStore = do
   tvar <- newTVarIO []
   labelTVarIO tvar "in-memory-source-sink"
   let source =
@@ -372,7 +384,8 @@ createMockSourceSink = do
           { putEvent = \x ->
               atomically $ modifyTVar tvar (<> [x])
           }
-  pure (source, sink)
+      rotate _ checkpoint = atomically $ writeTVar tvar [checkpoint]
+  pure (EventStore source sink rotate)
 
 inputsToOpenHead :: [Input SimpleTx]
 inputsToOpenHead =
@@ -383,19 +396,19 @@ inputsToOpenHead =
   , observationInput $ OnCollectComTx testHeadId
   ]
  where
-  observationInput :: OnChainTx SimpleTx -> Input SimpleTx
-  observationInput observedTx =
-    ChainInput
-      { chainEvent =
-          Observation
-            { observedTx
-            , newChainState = SimpleChainState{slot = ChainSlot 0}
-            }
-      }
-
   parties = [alice, bob, carol]
   headParameters = HeadParameters cperiod parties
   participants = deriveOnChainId <$> parties
+
+observationInput :: OnChainTx SimpleTx -> Input SimpleTx
+observationInput observedTx =
+  ChainInput
+    { chainEvent =
+        Observation
+          { observedTx
+          , newChainState = SimpleChainState{slot = ChainSlot 0}
+          }
+    }
 
 runToCompletion ::
   IsChainState tx =>
@@ -418,7 +431,8 @@ testHydraNode ::
   [Input SimpleTx] ->
   m (HydraNode SimpleTx m)
 testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
-  hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} (mockSource []) []
+  let eventStore = mockEventStore []
+  hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} eventStore []
     >>= notConnect
     >>= primeWith inputs
  where
