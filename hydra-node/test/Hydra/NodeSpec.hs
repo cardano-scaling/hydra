@@ -15,7 +15,7 @@ import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
 import Hydra.Events.Rotation (EventStore (..))
-import Hydra.HeadLogic (Input (..))
+import Hydra.HeadLogic (Input (..), TTL)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
@@ -23,7 +23,7 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
 import Hydra.Logging qualified as Logging
 import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message (..))
+import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (
   DraftHydraNode,
   HydraNode (..),
@@ -264,9 +264,9 @@ spec = parallel $ do
               sigBob = sign bobSk snapshot
               inputs =
                 inputsToOpenHead
-                  <> [ receiveMessageFrom bob ReqTx{transaction = tx1}
-                     , receiveMessageFrom bob ReqTx{transaction = tx2}
-                     , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, depositTxId = Nothing}
+                  <> [ NetworkInput testTTL $ ReceivedMessage{sender = bob, msg = ReqTx{transaction = tx1}}
+                     , NetworkInput testTTL $ ReceivedMessage{sender = bob, msg = ReqTx{transaction = tx2}}
+                     , NetworkInput testTTL $ ReceivedMessage{sender = alice, msg = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, depositTxId = Nothing}}
                      ]
           (node, getNetworkEvents) <-
             testHydraNode tracer bobSk [alice, carol] cperiod inputs
@@ -451,6 +451,11 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
   -- NOTE: We use the hydra-keys as on-chain identities directly. This is fine
   -- as this is a simulated network.
   participants = deriveOnChainId <$> (party : otherParties)
+
+-- | A lot shorter than the real world ttl which requires to be long to overcome
+-- some longer chain observation delays, but would just make tests longer.
+testTTL :: TTL
+testTTL = 5
 
 recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
 recordNetwork node = do

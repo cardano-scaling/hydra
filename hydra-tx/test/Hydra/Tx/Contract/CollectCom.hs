@@ -28,6 +28,7 @@ import Hydra.Tx.CollectCom (
 import Hydra.Tx.Commit (mkCommitDatum)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
+import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput, mkInitialOutput)
 import Hydra.Tx.OnChainId (OnChainId)
@@ -47,7 +48,6 @@ import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genForParty,
   genHash,
-  genMintedOrBurnedValue,
   genScriptRegistry,
   genUTxOAdaOnlyOfSize,
   genVerificationKey,

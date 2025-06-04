@@ -1,0 +1,22 @@
+{
+    "samples": [
+        {
+            "fanoutUTxO": {
+                "0100010001000101010100010100000001010100010000010101000100010000#32": {
+                    "address": "addr_test1xrava6lrhn35xzd6cuj0hjtxf4z5rkqvlfkzrmjk0vjw6y0f7ygnds34emwka4mvff4xzay23m4eg2mq03fehu9j8ehsjhm4n0",
+                    "datum": null,
+                    "datumhash": "7692a35fbd3f26d602abe671bf0a4445900211184e62f23cf38a764362e3b3ed",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "headId": "01010001000001000001000100000100",
+            "tag": "Fanout"
+        }
+    ],
+    "seed": 702186404
+}

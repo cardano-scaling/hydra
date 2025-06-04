@@ -17,6 +17,7 @@ import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
+import Hydra.Tx.Contract.Deposit (healthyDeadline)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Deposit qualified as Deposit
@@ -31,7 +32,7 @@ import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, depositDeadline, slotLength, systemStart, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
@@ -62,7 +63,7 @@ healthyIncrementTx =
       (headInput, headOutput)
       healthySnapshot
       depositUTxO
-      (slotNoFromUTCTime systemStart slotLength depositDeadline)
+      (slotNoFromUTCTime systemStart slotLength healthyDeadline)
       healthySignature
 
   parameters =
@@ -82,7 +83,7 @@ healthyIncrementTx =
 
   depositUTxO =
     UTxO.singleton healthyDepositInput $
-      mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited depositDeadline
+      mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited healthyDeadline
 
 healthyDepositInput :: TxIn
 healthyDepositInput = arbitrary `generateWith` 123

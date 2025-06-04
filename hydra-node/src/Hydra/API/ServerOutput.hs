@@ -193,6 +193,7 @@ data ServerOutput tx
         pendingDeposit :: TxIdType tx
       , deadline :: UTCTime
       }
+  | DepositActivated {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
   | DepositExpired {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
@@ -264,6 +265,7 @@ prepareServerOutput config response =
     DecommitFinalized{} -> encodedResponse
     DecommitInvalid{} -> encodedResponse
     CommitRecorded{} -> encodedResponse
+    DepositActivated{} -> encodedResponse
     DepositExpired{} -> encodedResponse
     CommitApproved{} -> encodedResponse
     CommitFinalized{} -> encodedResponse

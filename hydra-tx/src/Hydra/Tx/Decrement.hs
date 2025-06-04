@@ -99,6 +99,7 @@ data DecrementObservation = DecrementObservation
   , distributedUTxO :: UTxO
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 observeDecrementTx ::
   UTxO ->

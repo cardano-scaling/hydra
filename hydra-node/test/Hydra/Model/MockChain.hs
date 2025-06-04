@@ -63,7 +63,6 @@ import Hydra.HeadLogic (
   InitialState (..),
   Input (..),
   OpenState (..),
-  defaultTTL,
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
@@ -71,8 +70,8 @@ import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx, rend
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message, NetworkEvent (..))
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect)
+import Hydra.Network.Message (Message (..))
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect, mkNetworkInput)
 import Hydra.Node.Environment (Environment (Environment, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.NodeSpec (mockServer)
@@ -361,8 +360,8 @@ createMockNetwork draftNode nodes =
     allNodes <- fmap node <$> readTVarIO nodes
     mapM_ (`handleMessage` msg) allNodes
 
-  handleMessage HydraNode{inputQueue} msg =
-    enqueue inputQueue . NetworkInput defaultTTL $ ReceivedMessage{sender, msg}
+  handleMessage HydraNode{inputQueue} msg = do
+    enqueue inputQueue $ mkNetworkInput sender msg
 
   sender = getParty draftNode
 

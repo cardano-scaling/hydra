@@ -752,6 +752,7 @@ components:
         - $ref: "api.yaml#/components/schemas/DecommitApproved"
         - $ref: "api.yaml#/components/schemas/DecommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecorded"
+        - $ref: "api.yaml#/components/schemas/DepositActivated"
         - $ref: "api.yaml#/components/schemas/DepositExpired"
         - $ref: "api.yaml#/components/schemas/CommitApproved"
         - $ref: "api.yaml#/components/schemas/CommitFinalized"
@@ -1496,6 +1497,37 @@ components:
         pendingDeposit:
           type: string
         deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DepositActivated:
+      title: DepositActivated
+      description: |
+        Deposit for an incremental commit got activated and will be proposed in a snapshot now.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - depositTxId
+        - deadline
+        - chainTime
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DepositActivated"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        depositTxId:
+          type: string
+        deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        chainTime:
           $ref: "api.yaml#/components/schemas/UTCTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
@@ -2454,10 +2486,13 @@ components:
           additionalProperties: false
           required:
           - tag
+          - failureReason
           properties:
             tag:
               type: string
               enum: ["FailedToConstructDepositTx"]
+            failureReason:
+              type: string
         - title: FailedToConstructRecoverTx
           description: |
             Raised if the user fails to draft a recover tx.

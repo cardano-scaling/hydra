@@ -20,6 +20,7 @@ data DepositOptions = DepositOptions
   , headId :: HeadId
   , outFile :: FilePath
   , networkId :: NetworkId
+  , depositSlotNo :: SlotNo
   , depositDeadline :: UTCTime
   }
   deriving stock (Show, Eq)
@@ -67,6 +68,7 @@ depositOptionsParser =
     <*> headIdParser
     <*> outputFileParser
     <*> networkIdParser
+    <*> depositSlotParser
     <*> deadlineParser
 
 recoverOptionsParser :: Parser RecoverOptions
@@ -170,12 +172,25 @@ deadlineParser =
             ]
         )
 
+depositSlotParser :: Parser SlotNo
+depositSlotParser =
+  option
+    (SlotNo . fromInteger <$> auto)
+    $ long "slot"
+      <> metavar "SLOT"
+      <> help
+        ( mconcat
+            [ "Upper validity slot for the deposit transaction."
+            , "Pick a slot in the future, but not too far such that the deposit becomes active soon."
+            ]
+        )
+
 lowerBoundSlotParser :: Parser SlotNo
 lowerBoundSlotParser =
   option
     (SlotNo . fromInteger <$> auto)
     $ long "slot"
-      <> metavar "LOWER_BOUND_SLOT"
+      <> metavar "SLOT"
       <> help
         ( mconcat
             [ "Provide a starting slot for the recover transaction. "

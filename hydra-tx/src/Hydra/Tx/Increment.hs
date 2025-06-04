@@ -113,6 +113,7 @@ data IncrementObservation = IncrementObservation
   , depositTxId :: TxId
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 observeIncrementTx ::
   UTxO ->

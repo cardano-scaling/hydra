@@ -60,7 +60,7 @@ data RequirementFailure tx
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
   | NoMatchingDeposit
-  | RequestedDepositNotActive {depositTxId :: TxIdType tx}
+  | RequestedDepositExpired {depositTxId :: TxIdType tx}
   deriving stock (Generic)
 
 deriving stock instance Eq (TxIdType tx) => Eq (RequirementFailure tx)

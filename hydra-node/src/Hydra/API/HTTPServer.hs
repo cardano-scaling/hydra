@@ -244,7 +244,10 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
   deposit headId commitBlueprint = do
-    deadline <- addUTCTime (2 * toNominalDiffTime depositPeriod) <$> getCurrentTime
+    -- NOTE: Three times deposit period means we have one deposit period time to
+    -- increment because a deposit only activates after one deposit period and
+    -- expires one deposit period before deadline.
+    deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
     draftDepositTx headId commitBlueprint deadline <&> \case
       Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx

@@ -6,7 +6,6 @@ import Test.Hydra.Prelude
 import Data.List qualified as List
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
-import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Events (EventSink (..), HasEventId (..), getEvents)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (HeadState (..), IdleState (..), StateChanged (..), aggregate)
@@ -15,8 +14,7 @@ import Hydra.Ledger.Simple (SimpleChainState (..), simpleLedger)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Node (hydrate)
 import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, runToCompletion)
-import Hydra.Plutus.Extras (posixFromUTCTime, posixToUTCTime)
-import Hydra.Tx.ContestationPeriod (toChain)
+import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
 import Test.Hydra.Tx.Fixture (cperiod)
 import Test.QuickCheck (Positive (..))
@@ -56,8 +54,8 @@ spec = parallel $ do
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
           now <- getCurrentTime
-          let contestationDeadline = addContestationPeriod (posixFromUTCTime now) (toChain cperiod)
-          let closeInput = observationInput $ OnCloseTx testHeadId 0 (posixToUTCTime contestationDeadline)
+          let contestationDeadline = toNominalDiffTime cperiod `addUTCTime` now
+          let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWith [closeInput]
@@ -69,8 +67,8 @@ spec = parallel $ do
       it "a rotated and non-rotated node have consistent state" $ \testHydrate -> do
         -- prepare inputs
         now <- getCurrentTime
-        let contestationDeadline = addContestationPeriod (posixFromUTCTime now) (toChain cperiod)
-        let closeInput = observationInput $ OnCloseTx testHeadId 0 (posixToUTCTime contestationDeadline)
+        let contestationDeadline = toNominalDiffTime cperiod `addUTCTime` now
+        let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline
         let inputs = inputsToOpenHead ++ [closeInput]
         failAfter 1 $
           do

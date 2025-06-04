@@ -1,0 +1,28 @@
+{
+    "samples": [
+        {
+            "committed": {
+                "0000010100010000000001010101010001010001010000000000000100000001#70": {
+                    "address": "addr_test1yqm22vxx6krc4tglljxksas3phfeusfmzuefwsh7wk78wd506fp20dznp36y7gtyvhjahqhuz3cf55mj4c80emwglytqgxky58",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                            "36": 6943682135858439201
+                        },
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "headId": "01010101010101010000000000010101",
+            "party": {
+                "vkey": "95c7882aa5085deabfe19ed7df9f7e411317846529312b4eed0d910745fe43fc"
+            },
+            "tag": "Commit"
+        }
+    ],
+    "seed": -1613991923
+}

@@ -27,16 +27,16 @@ import Hydra.Cardano.Api (
   pattern Block,
  )
 import Hydra.Chain.CardanoClient (queryTip)
-import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
   NodeClient (..),
   ObserverHandler,
-  logOnChainTx,
+  logObservation,
   observeAll,
  )
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Tx.Observe (HeadObservation (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),
@@ -145,13 +145,12 @@ chainSyncClient tracer networkId startingPoint observerHandler =
                 _ -> []
 
               (utxo', observations) = observeAll networkId utxo txs
-              onChainTxs = mapMaybe convertObservation observations
 
-          forM_ onChainTxs (traceWith tracer . logOnChainTx)
-          let observationsAt = ChainObservation point blockNo . Just <$> onChainTxs
+          mapM_ (traceWith tracer) $ mapMaybe logObservation observations
+          let observationsAt = ChainObservation point blockNo <$> observations
           observerHandler $
             if null observationsAt
-              then [ChainObservation point blockNo Nothing]
+              then [ChainObservation point blockNo NoHeadTx]
               else observationsAt
 
           pure $ clientStIdle utxo'

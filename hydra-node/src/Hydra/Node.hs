@@ -40,10 +40,10 @@ import Hydra.HeadLogic (
   IdleState (..),
   Input (..),
   Outcome (..),
+  TTL,
   aggregate,
   aggregateChainStateHistory,
   aggregateState,
-  defaultTTL,
  )
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
@@ -53,7 +53,7 @@ import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (Authenticated (..))
-import Hydra.Network.Message (Message, NetworkEvent (..))
+import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
@@ -230,13 +230,21 @@ wireClientInput node = enqueue . ClientInput
 wireNetworkInput :: DraftHydraNode tx m -> NetworkCallback (Authenticated (Message tx)) m
 wireNetworkInput node =
   NetworkCallback
-    { deliver = \Authenticated{payload, party} ->
-        enqueue $ NetworkInput defaultTTL $ ReceivedMessage{sender = party, msg = payload}
+    { deliver = \Authenticated{party = sender, payload = msg} ->
+        enqueue $ mkNetworkInput sender msg
     , onConnectivity =
-        enqueue . NetworkInput defaultTTL . ConnectivityEvent
+        enqueue . NetworkInput 1 . ConnectivityEvent
     }
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
+
+-- | Create a network input with corresponding default ttl from given sender.
+mkNetworkInput :: Party -> Message tx -> Input tx
+mkNetworkInput sender msg =
+  case msg of
+    ReqTx{} -> NetworkInput defaultTxTTL $ ReceivedMessage{sender, msg}
+    ReqDec{} -> NetworkInput defaultTxTTL $ ReceivedMessage{sender, msg}
+    _ -> NetworkInput defaultTTL $ ReceivedMessage{sender, msg}
 
 -- | Connect chain, network and API to a hydrated 'DraftHydraNode' to get a fully
 -- connected 'HydraNode'.
@@ -312,7 +320,17 @@ stepHydraNode node = do
 
   HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
 
--- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
+-- | The maximum number of times to re-enqueue a network messages upon 'Wait'.
+-- outcome.
+defaultTTL :: TTL
+defaultTTL = 6000
+
+-- | The maximum number of times to re-enqueue 'ReqTx' and 'ReqDec' network
+-- messages upon 'Wait'.
+defaultTxTTL :: TTL
+defaultTxTTL = 5
+
+-- | The time to wait between re-enqueuing a 'Wait' outcome.
 waitDelay :: DiffTime
 waitDelay = 0.1
 

@@ -811,7 +811,8 @@ openHeadUTxO =
 -- | Creates a deposit transaction using given UTxO.
 newDepositTx :: Action Model a -> ModelUTxO -> AppM (Either String Tx)
 newDepositTx _ utxoToDeposit = do
-  let deadline = Fixture.depositDeadline
+  let validBefore = SlotNo 0
+  deadline <- liftIO getCurrentTime
   let depositUTxO = realWorldModelUTxO utxoToDeposit
   let blueprint = CommitBlueprintTx{blueprintTx = txSpendingUTxO depositUTxO, lookupUTxO = depositUTxO}
   pure $
@@ -820,6 +821,7 @@ newDepositTx _ utxoToDeposit = do
         Fixture.testNetworkId
         (mkHeadId Fixture.testPolicyId)
         blueprint
+        validBefore
         deadline
 
 -- | Creates a increment transaction using given utxo and given snapshot.

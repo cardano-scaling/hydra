@@ -19,18 +19,17 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import Hydra.Plutus.Orphans ()
 import Hydra.Tx (ScriptRegistry (..))
-import Hydra.Tx.CollectCom (OpenThreadOutput)
+import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.Crypto (Hash (..))
+import Hydra.Tx.Observe (AbortObservation, CollectComObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.Party (Party (..))
-import PlutusTx.Builtins (fromBuiltin)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture (pparams)
-import Test.Hydra.Tx.Fixture qualified as Fixtures
 import Test.QuickCheck (listOf, oneof, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
 
 -- * TxOut
 
@@ -260,10 +259,6 @@ genScriptRegistry = do
           )
       }
 
-instance Arbitrary OpenThreadOutput where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 instance Arbitrary Tx where
   -- TODO: shrinker!
   arbitrary = fromLedgerTx <$> arbitrary
@@ -275,17 +270,54 @@ shrinkValue =
 genHash :: Gen ByteString
 genHash = BS.pack <$> vector 32
 
--- | Generates value such that:
--- - alters between policy id we use in test fixtures with a random one.
--- - mixing arbitrary token names with 'hydraHeadV1'
--- - excluding 0 for quantity to mimic minting/burning
-genMintedOrBurnedValue :: Gen Value
-genMintedOrBurnedValue = do
-  policyId <-
-    oneof
-      [ headPolicyId <$> arbitrary
-      , pure Fixtures.testPolicyId
-      ]
-  tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
-  quantity <- arbitrary `suchThat` (/= 0)
-  pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]
+-- * Observations
+
+instance Arbitrary HeadObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+deriving instance ToADTArbitrary HeadObservation
+
+instance Arbitrary InitObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary AbortObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary CommitObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary CollectComObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary DepositObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary RecoverObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary IncrementObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary DecrementObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary CloseObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary ContestObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary FanoutObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink

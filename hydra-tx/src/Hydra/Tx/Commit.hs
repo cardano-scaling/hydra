@@ -149,13 +149,13 @@ mkCommitDatum party utxo headId =
 
 -- | Full observation of a commit transaction.
 data CommitObservation = CommitObservation
-  { commitOutput :: (TxIn, TxOut CtxUTxO)
-  , party :: Party
+  { party :: Party
   -- ^ Hydra participant who committed the UTxO.
   , committed :: UTxO
   , headId :: HeadId
   }
   deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Identify a commit tx by:
 --
@@ -171,24 +171,9 @@ observeCommitTx ::
   Tx ->
   Maybe CommitObservation
 observeCommitTx networkId utxo tx = do
-  -- NOTE: Instead checking to spend from initial we could be looking at the
-  -- seed:
-  --
-  --  - We must check that participation token in output satisfies
-  --      policyId = hash(mu_head(seed))
-  --
-  --  - This allows us to assume (by induction) the output datum at the commit
-  --    script is legit
-  --
-  --  - Further, we need to assert / assume that only one script is spent = onle
-  --    one redeemer matches the InitialRedeemer, as we do not have information
-  --    which of the inputs is spending from the initial script otherwise.
-  --
-  --  Right now we only have the headId in the datum, so we use that in place of
-  --  the seed -> THIS CAN NOT BE TRUSTED.
   guard isSpendingFromInitial
 
-  (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
+  (_, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- txOutScriptData commitOut
   (onChainParty, onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
   party <- partyFromChain onChainParty
@@ -203,8 +188,7 @@ observeCommitTx networkId utxo tx = do
   policyId <- fromPlutusCurrencySymbol headId
   pure
     CommitObservation
-      { commitOutput = (commitIn, toCtxUTxOTxOut commitOut)
-      , party
+      { party
       , committed
       , headId = mkHeadId policyId
       }
