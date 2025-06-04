@@ -3186,6 +3186,7 @@ components:
       required:
         - headId
         - deposited
+        - created
         - deadline
         - status
       properties:
@@ -3193,6 +3194,8 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         deposited:
           $ref: "api.yaml#/components/schemas/UTxO"
+        created:
+          $ref: "api.yaml#/components/schemas/UTCTime"
         deadline:
           $ref: "api.yaml#/components/schemas/UTCTime"
         status:
