@@ -37,8 +37,6 @@ import Hydra.HeadLogic.State (
   Deposit (..),
   HeadState (Idle),
   IdleState (..),
-  SeenSnapshot (..),
-  seenSnapshotNumber,
  )
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Logging (Tracer, traceWith)
