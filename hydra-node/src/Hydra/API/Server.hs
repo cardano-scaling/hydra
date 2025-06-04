@@ -249,6 +249,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.NetworkConnected -> Just NetworkConnected
     StateChanged.NetworkDisconnected -> Just NetworkDisconnected
     StateChanged.NetworkVersionMismatch{..} -> Just NetworkVersionMismatch{..}
+    StateChanged.NetworkClusterIDMismatch{..} -> Just NetworkClusterIDMismatch{..}
     StateChanged.PeerConnected{..} -> Just PeerConnected{..}
     StateChanged.PeerDisconnected{..} -> Just PeerDisconnected{..}
     StateChanged.TransactionReceived{} -> Nothing

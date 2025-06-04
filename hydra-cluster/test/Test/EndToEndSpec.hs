@@ -75,6 +75,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyHeadFullLifeCycle,
   singlePartyUsesScriptOnL2,
   singlePartyUsesWithdrawZeroTrick,
+  startWithWrongPeers,
   threeNodesNoErrorsOnOpen,
   threeNodesWithMirrorParty,
  )
@@ -565,6 +566,13 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               publishHydraScriptsAs node Faucet
                 >>= initWithWrongKeys tmpDir tracer node
+
+      it "cluster id mismatch provides useful info in the logs" $ \tracer ->
+        failAfter 60 $
+          withClusterTempDir $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+              publishHydraScriptsAs node Faucet
+                >>= startWithWrongPeers tmpDir tracer node
 
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $

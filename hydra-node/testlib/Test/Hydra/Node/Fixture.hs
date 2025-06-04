@@ -49,4 +49,5 @@ testEnvironment =
     , contestationPeriod = cperiod
     , depositPeriod = DepositPeriod 20
     , participants = deriveOnChainId <$> [alice, bob, carol]
+    , configuredPeers = ""
     }

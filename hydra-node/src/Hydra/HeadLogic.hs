@@ -103,14 +103,16 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 
-onConnectionEvent :: Network.Connectivity -> Outcome tx
-onConnectionEvent = \case
+onConnectionEvent :: Text -> Network.Connectivity -> Outcome tx
+onConnectionEvent misconfiguredPeers = \case
   Network.NetworkConnected ->
     newState NetworkConnected
   Network.NetworkDisconnected ->
     newState NetworkDisconnected
   Network.VersionMismatch{ourVersion, theirVersion} ->
     newState NetworkVersionMismatch{ourVersion, theirVersion}
+  Network.ClusterIDMismatch{clusterPeers} ->
+    newState NetworkClusterIDMismatch{clusterPeers, misconfiguredPeers}
   Network.PeerConnected{peer} ->
     newState PeerConnected{peer}
   Network.PeerDisconnected{peer} ->
@@ -1313,7 +1315,7 @@ update ::
   Outcome tx
 update env ledger st ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
-    onConnectionEvent conn
+    onConnectionEvent env.configuredPeers conn
   (Idle _, ClientInput Init) ->
     onIdleClientInit env
   (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
@@ -1426,6 +1428,7 @@ aggregate st = \case
   NetworkConnected -> st
   NetworkDisconnected -> st
   NetworkVersionMismatch{} -> st
+  NetworkClusterIDMismatch{} -> st
   PeerConnected{} -> st
   PeerDisconnected{} -> st
   HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, headSeed, chainState} ->
@@ -1793,6 +1796,7 @@ aggregateChainStateHistory history = \case
   NetworkConnected -> history
   NetworkDisconnected -> history
   NetworkVersionMismatch{} -> history
+  NetworkClusterIDMismatch{} -> history
   PeerConnected{} -> history
   PeerDisconnected{} -> history
   HeadInitialized{chainState} -> pushNewState chainState history

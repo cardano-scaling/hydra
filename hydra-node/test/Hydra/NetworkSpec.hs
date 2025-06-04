@@ -33,7 +33,7 @@ import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
 import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
-import Test.Util (noopCallback, waitEq)
+import Test.Util (noopCallback, waitEq, waitMatch)
 
 spec :: Spec
 spec = do
@@ -186,6 +186,22 @@ spec = do
                   -- 5 minutes).
                   forM_ messages $ \msg ->
                     waitCarol `shouldReturn` msg
+
+      it "emits cluster id mismatch" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 10 $ do
+            PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
+            let v2 = ProtocolVersion 2
+            (recordAlice, _, waitAlice) <- newRecordingCallback
+            (recordBob, _, waitBob) <- newRecordingCallback
+            let aliceSees = waitMatch waitAlice 5
+            let bobSees = waitMatch waitBob 5
+            let bobConfig' = bobConfig{peers = []}
+            withEtcdNetwork @Int tracer v1 aliceConfig recordAlice $ \_ ->
+              withEtcdNetwork @Int tracer v2 bobConfig' recordBob $ \_ ->
+                race_
+                  (bobSees $ \case ClusterIDMismatch{} -> Just (); _ -> Nothing)
+                  (aliceSees $ \case ClusterIDMismatch{} -> Just (); _ -> Nothing)
 
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)

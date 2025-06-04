@@ -83,6 +83,7 @@ spec =
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
             , participants = deriveOnChainId <$> threeParties
+            , configuredPeers = ""
             }
         aliceEnv =
           Environment
@@ -92,6 +93,7 @@ spec =
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
             , participants = deriveOnChainId <$> threeParties
+            , configuredPeers = ""
             }
 
     describe "Coordinated Head Protocol" $ do
@@ -657,6 +659,7 @@ spec =
                       PeerConnected{} -> True
                       PeerDisconnected{} -> True
                       NetworkVersionMismatch{} -> True
+                      NetworkClusterIDMismatch{} -> True
                       NetworkConnected{} -> True
                       NetworkDisconnected{} -> True
                       _ -> False

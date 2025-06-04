@@ -142,6 +142,10 @@ data ServerOutput tx
       { ourVersion :: ProtocolVersion
       , theirVersion :: Maybe ProtocolVersion
       }
+  | NetworkClusterIDMismatch
+      { clusterPeers :: Text
+      , misconfiguredPeers :: Text
+      }
   | PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
   | HeadIsInitializing {headId :: HeadId, parties :: [Party]}
@@ -273,6 +277,7 @@ prepareServerOutput config response =
     NetworkConnected -> encodedResponse
     NetworkDisconnected -> encodedResponse
     NetworkVersionMismatch{} -> encodedResponse
+    NetworkClusterIDMismatch{} -> encodedResponse
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
     SnapshotSideLoaded{} -> encodedResponse

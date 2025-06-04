@@ -80,6 +80,7 @@ channels:
           - $ref: "api.yaml#/components/messages/NetworkConnected"
           - $ref: "api.yaml#/components/messages/NetworkDisconnected"
           - $ref: "api.yaml#/components/messages/NetworkVersionMismatch"
+          - $ref: "api.yaml#/components/messages/NetworkClusterIDMismatch"
           - $ref: "api.yaml#/components/messages/HeadIsInitializing"
           - $ref: "api.yaml#/components/messages/Committed"
           - $ref: "api.yaml#/components/messages/HeadIsOpen"
@@ -487,6 +488,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/NetworkVersionMismatch"
 
+    NetworkClusterIDMismatch:
+      title: NetworkClusterIDMismatch
+      description: |
+        The configured peers do not match with other nodes on the network.
+      payload:
+        $ref: "api.yaml#/components/schemas/NetworkClusterIDMismatch"
+
     HeadIsInitializing:
       title: HeadIsInitializing
       description: |
@@ -732,6 +740,7 @@ components:
         - $ref: "api.yaml#/components/schemas/NetworkConnected"
         - $ref: "api.yaml#/components/schemas/NetworkDisconnected"
         - $ref: "api.yaml#/components/schemas/NetworkVersionMismatch"
+        - $ref: "api.yaml#/components/schemas/NetworkClusterIDMismatch"
         - $ref: "api.yaml#/components/schemas/PeerConnected"
         - $ref: "api.yaml#/components/schemas/PeerDisconnected"
         - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
@@ -980,6 +989,25 @@ components:
           oneOf:
             - $ref: "api.yaml#/components/schemas/ProtocolVersion"
             - type: "null"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NetworkClusterIDMismatch:
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkClusterIDMismatch"]
+        clusterPeers:
+          type: string
+        misconfiguredPeers:
+          type: string
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

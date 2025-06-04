@@ -43,6 +43,9 @@ changes.
   - This introduces `ToJSON` and `FromJSON` instances on all observation types.
   - `CollectComObservation` and `ContestObservation` are made compatible with their `OnChainTx` counterparts.
 
+- Enhanced the error message for `etcd` cluster ID mismatches by including detailed information about
+  the expected peers versus peers loaded from the `hydra-node` arguments.
+
 ## [0.21.0] - 2025-04-28
 
 - New metric for counting the number of active peers: `hydra_head_peers_connected`
