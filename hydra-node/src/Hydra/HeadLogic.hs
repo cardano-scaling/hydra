@@ -103,7 +103,6 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 
-
 onConnectionEvent :: Text -> Network.Connectivity -> Outcome tx
 onConnectionEvent misconfiguredPeers = \case
   Network.NetworkConnected ->
