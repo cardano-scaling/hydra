@@ -9,8 +9,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
     hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.6.0";
-    # TODO: update to master
-    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification/deposit-protocol-changes";
+    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification/7f78e005b95ff3b9c55995632ceb3d6ab96a305e";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     lint-utils = {
       url = "github:homotopic/lint-utils";
