@@ -31,7 +31,6 @@ Known errors are:
    - check configuration with other participants. There should be a corresponding log entry `NetworkClusterIDMismatch` with the information on:
       - `clusterPeers` - loaded peers info received from `etcd` cluster.
       - `configuredPeers` - peers info coming from `hydra-node` arguments.
-      - `reportingHost` - host that received the error.
 
  - `member ... has already been bootstrapped` - missing information in `<persistence-dir>/etcd`
    - need to bootstrap new cluster or manual workarounds, see also https://etcd.io/docs/v3.5/op-guide/failures/

@@ -62,7 +62,6 @@ data StateChanged tx
       }
   | NetworkClusterIDMismatch
       { clusterPeers :: Text
-      , reportingHost :: Text
       , misconfiguredPeers :: Text
       }
   | HeadInitialized

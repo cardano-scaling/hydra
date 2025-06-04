@@ -3,7 +3,6 @@
         {
             "clusterPeers": "",
             "misconfiguredPeers": "$",
-            "reportingHost": "",
             "tag": "NetworkClusterIDMismatch"
         }
     ],

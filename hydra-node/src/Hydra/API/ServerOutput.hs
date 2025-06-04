@@ -144,7 +144,6 @@ data ServerOutput tx
       }
   | NetworkClusterIDMismatch
       { clusterPeers :: Text
-      , reportingHost :: Text
       , misconfiguredPeers :: Text
       }
   | PeerConnected {peer :: Host}

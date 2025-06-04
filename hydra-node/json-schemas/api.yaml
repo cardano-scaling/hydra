@@ -1006,8 +1006,6 @@ components:
           enum: ["NetworkClusterIDMismatch"]
         clusterPeers:
           type: string
-        reportingHost:
-          type: string
         misconfiguredPeers:
           type: string
         seq:

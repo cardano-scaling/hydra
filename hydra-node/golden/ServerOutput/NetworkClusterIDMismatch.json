@@ -2,8 +2,7 @@
     "samples": [
         {
             "clusterPeers": "",
-            "misconfiguredPeers": "`",
-            "reportingHost": "",
+            "misconfiguredPeers": "",
             "tag": "NetworkClusterIDMismatch"
         }
     ],

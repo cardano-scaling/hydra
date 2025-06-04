@@ -202,7 +202,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                 pure (level', msg')
           case expectedClusterMismatch of
             Just (Aeson.String "error", Aeson.String "request sent was ignored due to cluster ID mismatch") ->
-              onConnectivity ClusterIDMismatch{clusterPeers = T.pack clusterPeers, reportingHost = T.pack $ httpUrl advertise}
+              onConnectivity ClusterIDMismatch{clusterPeers = T.pack clusterPeers}
             _ -> traceWith tracer $ EtcdLog{etcd = v}
 
   -- XXX: Could use TLS to secure peer connections

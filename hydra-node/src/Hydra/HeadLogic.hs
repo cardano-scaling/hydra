@@ -112,8 +112,8 @@ onConnectionEvent misconfiguredPeers = \case
     newState NetworkDisconnected
   Network.VersionMismatch{ourVersion, theirVersion} ->
     newState NetworkVersionMismatch{ourVersion, theirVersion}
-  Network.ClusterIDMismatch{clusterPeers, reportingHost} ->
-    newState NetworkClusterIDMismatch{clusterPeers, reportingHost, misconfiguredPeers}
+  Network.ClusterIDMismatch{clusterPeers} ->
+    newState NetworkClusterIDMismatch{clusterPeers, misconfiguredPeers}
   Network.PeerConnected{peer} ->
     newState PeerConnected{peer}
   Network.PeerDisconnected{peer} ->

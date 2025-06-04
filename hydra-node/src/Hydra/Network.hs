@@ -187,7 +187,6 @@ data Connectivity
       }
   | ClusterIDMismatch
       { clusterPeers :: Text
-      , reportingHost :: Text
       }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)

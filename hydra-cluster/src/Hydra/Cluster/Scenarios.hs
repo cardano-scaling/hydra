@@ -1182,22 +1182,18 @@ startWithWrongPeers workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId
 
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
-    -- NOTE: here we deliberately use the wrong peer list for Bob, which should be visible
-    -- in network message sent to Alice.
+    -- NOTE: here we deliberately use the wrong peer list for Bob
     withHydraNode hydraTracer bobChainConfig workDir 4 bobSk [aliceVk] [4] $ \_ -> do
       seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
-      (clusterPeers, reportingHost, configuredPeers) <- waitMatch 20 n1 $ \v -> do
+      (clusterPeers, configuredPeers) <- waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just (Aeson.String "NetworkClusterIDMismatch")
         clusterPeers <- v ^? key "clusterPeers" . _String
-        reportingHost <- v ^? key "reportingHost" . _String
         configuredPeers <- v ^? key "misconfiguredPeers" . _String
-        pure (clusterPeers, reportingHost, configuredPeers)
+        pure (clusterPeers, configuredPeers)
 
       when (clusterPeers == configuredPeers) $
         failure "Expected clusterPeers and configuredPeers to be different"
-      -- NOTE: reporting host is the host receiving the error, which is Alice
-      reportingHost `shouldBe` "http://0.0.0.0:5003"
       clusterPeers `shouldBe` "0.0.0.0:5003=http://0.0.0.0:5003,0.0.0.0:5004=http://0.0.0.0:5004"
       configuredPeers `shouldBe` "0.0.0.0:5004=http://0.0.0.0:5004"
 
