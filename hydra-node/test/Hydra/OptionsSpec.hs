@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 
 import Control.Lens ((.~))
 import Data.Generics.Labels ()
+import Data.Version (Version, makeVersion)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   NetworkId (..),
@@ -16,7 +17,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Network (Host (Host))
-import Hydra.NetworkVersions (parseNetworkTxIds)
+import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Options (
   BlockfrostOptions (..),
   CardanoChainConfig (..),
@@ -325,22 +326,14 @@ spec = parallel $
             { chainConfig = Cardano (defaultCardanoChainConfig & #chainBackendOptions .~ Blockfrost (BlockfrostOptions "blockfrost-project.txt"))
             }
 
-    it "parses --network into related tx ids" $ do
-      -- NOTE: we should be able to parse both upper and lower case network names
-      let networks = ["Mainnet", "preview", "Preprod"]
-      forM_ networks $ \network -> do
-        case parseNetworkTxIds network of
-          Left err ->
-            err `shouldSatisfy` \case
-              "Failed to find released hydra-node version in networks.json." -> True
-              "Missing hydra-node revision." -> True
-              _ -> False
-          Right txIds ->
-            ["--network", network]
-              `shouldParse` Run
-                defaultRunOptions
-                  { chainConfig = Cardano defaultCardanoChainConfig{hydraScriptsTxId = txIds}
-                  }
+    it "parseNetworkTxIds produces list TxId" $ do
+      let networks = ["mainnet", "preview", "preprod"]
+      let versions = makeVersion . (\v -> [0, v, 0]) <$> [13 .. 21]
+      forM_ networks $ \network ->
+        forM_ versions $ \version -> do
+          case parseNetworkTxIds version network of
+            Left err -> failure $ "Failed to parse network tx ids: " <> err
+            Right txIds -> txIds `shouldSatisfy` not . null
 
     it "switches to offline mode when using --offline-head-seed and --initial-utxo" $
       mconcat
@@ -474,6 +467,11 @@ spec = parallel $
     prop "roundtrip parsing & printing" $
       forAll arbitrary canRoundtripRunOptionsAndPrettyPrinting
 
+    prop "parseNetworkTxIds works with expected versions and networks" $
+      forAll arbitrary $ \version ->
+        forAll arbitrary $ \network ->
+          propParseNetworkTxIds version network
+
 canRoundtripRunOptionsAndPrettyPrinting :: RunOptions -> Property
 canRoundtripRunOptionsAndPrettyPrinting opts =
   let args = toArgs opts
@@ -481,6 +479,17 @@ canRoundtripRunOptionsAndPrettyPrinting opts =
         case parseHydraCommandFromArgs args of
           Success cmd -> cmd === Run opts
           err -> property False & counterexample ("error : " <> show err)
+
+propParseNetworkTxIds :: Version -> String -> Property
+propParseNetworkTxIds version network = do
+  let varlidNetworks = ["mainnet", "preview", "preprod"]
+  let validVersions = (makeVersion . (\v -> [0, v, 0]) <$> [13 .. 21]) <> [hydraNodeVersion]
+  case parseNetworkTxIds version network of
+    Left err ->
+      if network `elem` varlidNetworks && version `elem` validVersions
+        then property False & counterexample ("error: " <> err)
+        else property True
+    Right txIds -> property $ not (null txIds)
 
 shouldParse :: HasCallStack => [String] -> Command -> Expectation
 shouldParse args cmd =

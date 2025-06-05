@@ -1,46 +1,48 @@
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Hydra.NetworkVersions where
 
 import Hydra.Prelude hiding (encodeUtf8)
 
-import Control.Lens ((^@..))
-import Data.Aeson (Value (..))
-import Data.Aeson.Key qualified as Key
-import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Lens (members, _Object)
+import Control.Lens ((^.), (^?))
+import Data.Aeson (Value (..), encode)
+import Data.Aeson.Lens (key, nonNull, _Key)
 import Data.FileEmbed (embedFile, makeRelativeToProject)
-import Data.List qualified as List
-import Data.Text (pack, splitOn, toLower, unpack)
+import Data.Text (splitOn)
 import Data.Text.Encoding (encodeUtf8)
+import Data.Version (Version (..), showVersion)
 import Hydra.Cardano.Api (TxId, deserialiseFromRawBytesHex)
-import Hydra.Version (gitDescribe)
+import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
+import Paths_hydra_node (version)
 
-{-# NOINLINE networkVersions #-}
+hydraNodeVersion :: Version
+hydraNodeVersion =
+  version & \(Version semver _) -> Version semver revision
+ where
+  revision =
+    maybeToList $
+      embeddedRevision
+        <|> gitRevision
+        <|> Just unknownVersion
+
 networkVersions :: ByteString
 networkVersions = $(makeRelativeToProject "./networks.json" >>= embedFile)
 
-parseNetworkTxIds :: String -> Either String [TxId]
-parseNetworkTxIds networkString = do
-  let networkTxt = toLower $ pack networkString
-  let info = networkVersions ^@.. members . _Object
-  case find (\(n, _) -> Key.toText n == networkTxt) info of
-    Nothing -> Left $ "Unknown network:" <> unpack networkTxt
-    Just (_, t) -> getLastTxId t
+parseNetworkTxIds :: MonadFail m => Version -> String -> m [TxId]
+parseNetworkTxIds hydraVersion network = do
+  case networkVersions ^? key (network ^. _Key) of
+    Nothing -> fail $ "Unknown network: " <> toString network
+    Just t -> getLastTxId t
  where
   getLastTxId t = do
-    lastTxIds <-
-      case gitDescribe of
-        Nothing -> Left "Missing hydra-node revision."
-        Just fullRev -> do
-          let rev = List.head $ splitOn "-" $ pack fullRev
-          case List.find (String rev ==) (KeyMap.elems t) of
-            Just (String s) -> Right s
-            _ -> Left "Failed to find released hydra-node version in networks.json."
-    mapM parseToTxId (splitOn "," lastTxIds)
+    case splitOn "-" $ fromString $ showVersion hydraVersion of
+      [] -> fail "Failed to parse hydra-node revision."
+      (rev : _) -> do
+        case encode t ^? key (rev ^. _Key) . nonNull of
+          Just (String s) -> mapM parseToTxId $ splitOn "," s
+          _ -> fail "Failed to find released hydra-node version in networks.json."
 
   parseToTxId textTxId = do
     case deserialiseFromRawBytesHex $ encodeUtf8 textTxId of
-      Left _ -> Left $ "Failed to parse string to TxId: " <> unpack textTxId
-      Right txid -> Right txid
+      Left _ -> fail $ "Failed to parse string to TxId: " <> toString textTxId
+      Right txid -> pure txid
