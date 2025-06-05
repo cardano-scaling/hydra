@@ -43,7 +43,7 @@ import Hydra.Chain.Direct.State ()
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options qualified as Options
+import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Tx (Party)
 import Hydra.Tx.HeadId (HeadId (..))
 import Network.WebSockets (
@@ -104,7 +104,7 @@ wsApp party tracer history callback headStateP headIdP responseChannel ServerOut
             , headStatus = getHeadStatus headState
             , hydraHeadId
             , snapshotUtxo = getSnapshotUtxo headState
-            , hydraNodeVersion = showVersion Options.hydraNodeVersion
+            , hydraNodeVersion = showVersion NetworkVersions.hydraNodeVersion
             }
 
   Projection{getLatest} = headStateP

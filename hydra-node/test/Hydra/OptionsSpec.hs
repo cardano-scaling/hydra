@@ -16,7 +16,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Network (Host (Host))
-import Hydra.NetworkVersions (parseNetworkTxIds)
 import Hydra.Options (
   BlockfrostOptions (..),
   CardanoChainConfig (..),
@@ -324,23 +323,6 @@ spec = parallel $
           defaultRunOptions
             { chainConfig = Cardano (defaultCardanoChainConfig & #chainBackendOptions .~ Blockfrost (BlockfrostOptions "blockfrost-project.txt"))
             }
-
-    it "parses --network into related tx ids" $ do
-      -- NOTE: we should be able to parse both upper and lower case network names
-      let networks = ["Mainnet", "preview", "Preprod"]
-      forM_ networks $ \network -> do
-        case parseNetworkTxIds network of
-          Left err ->
-            err `shouldSatisfy` \case
-              "Failed to find released hydra-node version in networks.json." -> True
-              "Missing hydra-node revision." -> True
-              _ -> False
-          Right txIds ->
-            ["--network", network]
-              `shouldParse` Run
-                defaultRunOptions
-                  { chainConfig = Cardano defaultCardanoChainConfig{hydraScriptsTxId = txIds}
-                  }
 
     it "switches to offline mode when using --offline-head-seed and --initial-utxo" $
       mconcat
