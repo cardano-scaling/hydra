@@ -48,6 +48,8 @@ changes.
 
 - Add API query (GET /head) to fetch the latest head state by a node and help introspecting the whole internal state.
 
+- Provide `--network` option to hydra-node in order to use pre-published hydra scripts.
+
 ## [0.21.0] - 2025-04-28
 
 - New metric for counting the number of active peers: `hydra_head_peers_connected`
