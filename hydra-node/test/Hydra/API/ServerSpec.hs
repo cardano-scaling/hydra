@@ -33,6 +33,7 @@ import Hydra.Chain (
   Chain (Chain),
   draftCommitTx,
   draftDepositTx,
+  mkChainState,
   postTx,
   submitTx,
  )
@@ -245,27 +246,42 @@ spec =
                   Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
 
             waitForValue port $ \v -> do
-              guard $ v ^? key "headStatus" == Just (Aeson.String "Final")
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Idle")
               -- test that the 'snapshotUtxo' is excluded from json if there is no utxo
               guard $ isNothing (v ^? key "snapshotUtxo")
 
-            (headId, headIsOpenMsg) <- generate $ do
+            (headId, headInitializedMsg) <- generate $ do
               headId <- arbitrary
-              output <- genStateEvent =<< (Outcome.HeadOpened headId <$> arbitrary <*> arbitrary)
+              output <-
+                genStateEvent
+                  =<< ( Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> pure headId <*> arbitrary <*> arbitrary
+                      )
               pure (headId, output)
+
+            headIsOpenMsg <- generate $ do
+              genStateEvent
+                =<< ( Outcome.HeadOpened headId <$> arbitrary <*> arbitrary
+                    )
             snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}}} <-
               generate $ genStateEvent =<< generateSnapshot
 
-            mapM_ putEvent [headIsOpenMsg, snapShotConfirmedMsg]
+            mapM_ putEvent [headInitializedMsg, headIsOpenMsg, snapShotConfirmedMsg]
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just (toJSON $ utxo <> fromMaybe mempty utxoToCommit)
 
-            snapShotConfirmedMsg'@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo = utxo', utxoToCommit = utxoToCommit'}}} <-
+            snapShotConfirmedMsg'@StateEvent
+              { stateChanged =
+                Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo = utxo', utxoToCommit = utxoToCommit'}}
+              } <-
               generate $ genStateEvent =<< generateSnapshot
+            headClosedMsg <- generate $ do
+              genStateEvent
+                =<< ( Outcome.HeadClosed headId <$> arbitrary <*> arbitrary <*> arbitrary
+                    )
             readyToFanoutMsg <- generate $ genStateEvent Outcome.HeadIsReadyToFanout{headId}
 
-            mapM_ putEvent [readyToFanoutMsg, snapShotConfirmedMsg']
+            mapM_ putEvent [snapShotConfirmedMsg', headClosedMsg, readyToFanoutMsg]
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "FanoutPossible")
               guard $ v ^? key "snapshotUtxo" == Just (toJSON $ utxo' <> fromMaybe mempty utxoToCommit')
@@ -273,24 +289,27 @@ spec =
     it "greets with correct head status and snapshot utxo after restart" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port -> do
-          let generateSnapshot =
-                generate $
-                  Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-          snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}} <-
-            generateSnapshot
-          headIsInitializing :: Outcome.StateChanged SimpleTx <- generate $ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-          let expectedUtxos = toJSON $ utxo <> fromMaybe mempty utxoToCommit
-          stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [snapShotConfirmedMsg, headIsInitializing]
+          (headId, headInitializedMsg) <- generate $ do
+            headId <- arbitrary
+            output <- Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> pure headId <*> arbitrary <*> arbitrary
+            pure (headId, output)
+          headIsOpenMsg <- generate $ Outcome.HeadOpened headId <$> arbitrary <*> arbitrary
+
+          let generateSnapshot = generate $ Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+          snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}} <- generateSnapshot
+
+          stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [headInitializedMsg, headIsOpenMsg, snapShotConfirmedMsg]
           let eventSource = mockSource stateEvents
 
+          let expectedUtxos = toJSON $ utxo <> fromMaybe mempty utxoToCommit
           withTestAPIServer port alice eventSource tracer $ \_ -> do
             waitForValue port $ \v -> do
-              guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
           withTestAPIServer port alice eventSource tracer $ \_ -> do
             waitForValue port $ \v -> do
-              guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
     it "sends an error when input cannot be decoded" $
@@ -356,7 +375,8 @@ testClient queue semaphore cnx = do
 dummyChainHandle :: Chain tx IO
 dummyChainHandle =
   Chain
-    { postTx = \_ -> error "unexpected call to postTx"
+    { mkChainState = error "unexpected call to mkChainState"
+    , postTx = \_ -> error "unexpected call to postTx"
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
     , submitTx = \_ -> error "unexpected call to submitTx"
