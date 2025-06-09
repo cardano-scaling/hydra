@@ -19,7 +19,7 @@ export default function Home() {
       <div className="z-index:1000">
         <Layout>
           <HomepageHero />
-          <main>
+          <main className="bg-white">
             <Features />
             <div className="pageContainer">
               <AnimatedText />
