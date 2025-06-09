@@ -33,9 +33,9 @@ import Hydra.Chain.Direct.State (ChainContext, ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..))
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
 
-newtype BlockfrostBackend = BlockfrostBackend {options :: BlockfrostOptions}
+newtype BlockfrostBackend = BlockfrostBackend {options :: BlockfrostOptions} deriving (Eq, Show)
 
 instance ChainBackend BlockfrostBackend where
   queryGenesisParameters (BlockfrostBackend BlockfrostOptions{projectPath}) = do
@@ -66,6 +66,16 @@ instance ChainBackend BlockfrostBackend where
     let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO networkId addresses
 
+  queryUTxOByTxIn (BlockfrostBackend BlockfrostOptions{projectPath}) txins = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.Genesis
+      { _genesisNetworkMagic
+      , _genesisSystemStart
+      } <-
+      Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+    let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOByTxIn networkId txins
+
   queryEraHistory (BlockfrostBackend BlockfrostOptions{projectPath}) _ = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj Blockfrost.queryEraHistory
@@ -93,6 +103,13 @@ instance ChainBackend BlockfrostBackend where
   awaitTransaction (BlockfrostBackend BlockfrostOptions{projectPath}) tx = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction tx
+
+  getOptions (BlockfrostBackend blockfrostOptions) = Blockfrost blockfrostOptions
+
+  getBlockTime (BlockfrostBackend BlockfrostOptions{projectPath}) = do
+    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+    Blockfrost.Genesis{_genesisActiveSlotsCoefficient, _genesisSlotLength} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+    pure $ fromInteger _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
 withBlockfrostChain ::
   BlockfrostBackend ->

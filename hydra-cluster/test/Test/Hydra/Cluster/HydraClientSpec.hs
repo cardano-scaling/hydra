@@ -7,10 +7,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (
-  RunningNode (..),
-  submitTx,
- )
 import CardanoNode (
   withCardanoNodeDevnet,
  )
@@ -20,6 +16,9 @@ import Data.Aeson.Lens (key)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
+import Hydra.Chain.Backend (ChainBackend)
+import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
@@ -41,6 +40,7 @@ import Hydra.Cluster.Scenarios (
  )
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (HeadId, IsTx (..))
 import HydraNode (
   HydraClient (..),
@@ -80,9 +80,9 @@ spec = around (showLogsOnFailure "HydraClientSpec") $ do
 
 filterSnapshotConfirmedByAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterSnapshotConfirmedByAddressScenario tracer tmpDir = do
-  scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
+  scenarioSetup tracer tmpDir $ \_ backend nodes hydraTracer -> do
     (expectedSnapshotNumber, initialTxId, headId, (aliceExternalVk, _), (bobExternalVk, bobExternalSk)) <-
-      prepareScenario node nodes tracer
+      prepareScenario backend nodes tracer
     let [n1, n2, _] = toList nodes
 
     -- 1/ query alice address from alice node -> Does see the tx
@@ -191,7 +191,7 @@ filterSnapshotConfirmedByAddressScenario tracer tmpDir = do
 
 filterSnapshotConfirmedByRandomAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterSnapshotConfirmedByRandomAddressScenario tracer tmpDir = do
-  scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
+  scenarioSetup tracer tmpDir $ \_ node nodes hydraTracer -> do
     (expectedSnapshotNumber, _, headId, _, _) <- prepareScenario node nodes tracer
     let [n1, _, _] = toList nodes
 
@@ -205,7 +205,7 @@ filterSnapshotConfirmedByRandomAddressScenario tracer tmpDir = do
 
 filterSnapshotConfirmedByWrongAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterSnapshotConfirmedByWrongAddressScenario tracer tmpDir = do
-  scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
+  scenarioSetup tracer tmpDir $ \_ node nodes hydraTracer -> do
     (expectedSnapshotNumber, _, headId, _, _) <- prepareScenario node nodes tracer
     let [_, _, n3] = toList nodes
 
@@ -245,10 +245,10 @@ runScenario hydraTracer hnode addr action = do
 scenarioSetup ::
   Tracer IO EndToEndLog ->
   FilePath ->
-  (RunningNode -> NonEmpty HydraClient -> Tracer IO HydraNodeLog -> IO a) ->
+  (NominalDiffTime -> DirectBackend -> NonEmpty HydraClient -> Tracer IO HydraNodeLog -> IO a) ->
   IO a
 scenarioSetup tracer tmpDir action = do
-  withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
+  withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
     aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
     bobKeys@(bobCardanoVk, _) <- generate genKeyPair
     carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -257,26 +257,30 @@ scenarioSetup tracer tmpDir action = do
         hydraKeys = [aliceSk, bobSk, carolSk]
 
     let firstNodeId = 1
-    hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+    hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
     let contestationPeriod = 2
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+
+    let nodeSocket' = case Backend.getOptions backend of
+          Direct DirectOptions{nodeSocket} -> nodeSocket
+          _ -> error "Unexpected Blockfrost backend"
+    withHydraCluster hydraTracer tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
       -- Funds to be used as fuel by Hydra protocol transactions
-      seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-      seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-      seedFromFaucet_ node carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
-
-      action node nodes hydraTracer
+      seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      action blockTime backend nodes hydraTracer
 
 prepareScenario ::
-  RunningNode ->
+  ChainBackend backend =>
+  backend ->
   NonEmpty HydraClient ->
   Tracer IO EndToEndLog ->
   IO (Int, TxId, HeadId, (VerificationKey PaymentKey, SigningKey PaymentKey), (VerificationKey PaymentKey, SigningKey PaymentKey))
-prepareScenario node nodes tracer = do
+prepareScenario backend nodes tracer = do
   let [n1, n2, n3] = toList nodes
   let hydraTracer = contramap FromHydraNode tracer
 
@@ -287,14 +291,14 @@ prepareScenario node nodes tracer = do
 
   -- Get some UTXOs to commit to a head
   aliceKeys@(aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-  committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
-  requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+  committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+  requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
 
   bobKeys@(bobExternalVk, bobExternalSk) <- generate genKeyPair
-  committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
-  requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
+  committedUTxOByBob <- seedFromFaucet backend bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
+  requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
 
-  requestCommitTx n3 mempty >>= submitTx node
+  requestCommitTx n3 mempty >>= Backend.submitTransaction backend
 
   let u0 = committedUTxOByAlice <> committedUTxOByBob
 

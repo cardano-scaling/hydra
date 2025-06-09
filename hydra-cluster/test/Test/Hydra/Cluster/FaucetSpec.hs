@@ -1,13 +1,16 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module Test.Hydra.Cluster.FaucetSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (RunningNode (..))
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently)
 import Hydra.Cardano.Api (Coin (..), selectLovelace, txOutValue)
-import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
+import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.CardanoClient (QueryPoint (..))
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, returnFundsToFaucet, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (EndToEndLog (..))
@@ -16,40 +19,40 @@ import Hydra.Logging (Tracer, showLogsOnFailure)
 import Test.Hydra.Tx.Gen (genVerificationKey)
 import Test.QuickCheck (choose, elements, forAll, generate, withMaxSuccess)
 
-setupDevnet :: ((Tracer IO FaucetLog, RunningNode) -> IO a) -> IO a
+setupDevnet :: ((Tracer IO FaucetLog, DirectBackend) -> IO a) -> IO a
 setupDevnet action =
   failAfter 30 $
     showLogsOnFailure "FaucetSpec" $ \tracer ->
       withTempDir "hydra-cluster" $ \tmpDir ->
-        withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-          action (contramap FromFaucet tracer, node)
+        withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+          action (contramap FromFaucet tracer, backend)
 
 spec :: Spec
 spec =
   around setupDevnet $ do
     describe "seedFromFaucet" $
-      it "should work concurrently when called multiple times with the same amount of lovelace" $ \(tracer, node) -> do
+      it "should work concurrently when called multiple times with the same amount of lovelace" $ \(tracer, backend) -> do
         utxos <- replicateConcurrently 10 $ do
           vk <- generate genVerificationKey
-          seedFromFaucet node vk 1_000_000 tracer
+          seedFromFaucet backend vk 1_000_000 tracer
         -- 10 unique outputs
         length (fold utxos) `shouldBe` 10
 
     describe "returnFundsToFaucet" $ do
-      it "does nothing if nothing to return" $ \(tracer, node) -> do
-        returnFundsToFaucet tracer node Alice
+      it "does nothing if nothing to return" $ \(tracer, backend) -> do
+        returnFundsToFaucet tracer backend Alice
 
-      it "seedFromFaucet and returnFundsToFaucet should work together" $ \(tracer, node@RunningNode{networkId, nodeSocket}) -> do
+      it "seedFromFaucet and returnFundsToFaucet should work together" $ \(tracer, backend) -> do
         withMaxSuccess 10 $
           forAll (Coin <$> choose (1000000, 10000000000)) $ \coin ->
             forAll (elements [Alice, Bob, Carol]) $ \actor -> do
               (vk, _) <- keysFor actor
               (faucetVk, _) <- keysFor Faucet
-              initialFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
-              void $ seedFromFaucet node vk coin tracer
-              returnFundsToFaucet tracer node actor
-              remaining <- queryUTxOFor networkId nodeSocket QueryTip vk
-              finalFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
+              initialFaucetFunds <- Backend.queryUTxOFor backend QueryTip faucetVk
+              void $ seedFromFaucet backend vk coin tracer
+              returnFundsToFaucet tracer backend actor
+              remaining <- Backend.queryUTxOFor backend QueryTip vk
+              finalFaucetFunds <- Backend.queryUTxOFor backend QueryTip faucetVk
               foldMap txOutValue remaining `shouldBe` mempty
 
               -- check the faucet has one utxo extra in the end
@@ -63,15 +66,15 @@ spec =
               difference `shouldSatisfy` (< 400_000)
 
     describe "publishHydraScriptsAs" $ do
-      it "squash the UTxO to get a suitable output" $ \(tracer, node@RunningNode{networkId, nodeSocket}) -> do
+      it "squash the UTxO to get a suitable output" $ \(tracer, backend) -> do
         -- NOTE: Note use 'Faucet' as this has a very big initial amount
         (vk, _) <- keysFor Alice
         -- NOTE: 83 ADA is just enough to pay for reference scripts deposits.
-        forM_ [1_000_000, 2_000_000, 83_000_000] $ \c -> seedFromFaucet node vk c tracer
+        forM_ [1_000_000, 2_000_000, 83_000_000] $ \c -> seedFromFaucet backend vk c tracer
 
-        void $ publishHydraScriptsAs node Alice
+        void $ publishHydraScriptsAs backend Alice
 
         -- it squashed the UTxO
-        utxoAfter <- queryUTxOFor networkId nodeSocket QueryTip vk
+        utxoAfter <- Backend.queryUTxOFor backend QueryTip vk
 
         length utxoAfter `shouldBe` 1

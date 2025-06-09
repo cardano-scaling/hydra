@@ -12,10 +12,12 @@ module CardanoClient (
 import Hydra.Prelude
 
 import Hydra.Cardano.Api hiding (Block)
+import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
+import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 
 -- TODO(SN): DRY with Hydra.Cardano.Api
@@ -35,11 +37,6 @@ sign signingKey body =
     [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
     body
 
--- | Submit a transaction to a 'RunningNode'
-submitTx :: RunningNode -> Tx -> IO ()
-submitTx RunningNode{networkId, nodeSocket} =
-  submitTransaction networkId nodeSocket
-
 -- | Wait until the specified Address has received payments, visible on-chain,
 -- for the specified Lovelace amount. Returns the UTxO set containing all payments
 -- with the same Lovelace amount at the given Address.
@@ -47,16 +44,16 @@ submitTx RunningNode{networkId, nodeSocket} =
 -- Note that this function loops indefinitely; therefore, it's recommended to use
 -- it with a surrounding timeout mechanism.
 waitForPayments ::
-  NetworkId ->
-  SocketPath ->
+  ChainBackend backend =>
+  backend ->
   Coin ->
   Address ShelleyAddr ->
   IO UTxO
-waitForPayments networkId socket amount addr =
+waitForPayments backend amount addr =
   go
  where
   go = do
-    utxo <- queryUTxO networkId socket QueryTip [addr]
+    utxo <- Backend.queryUTxO backend [addr]
     let expectedPayments = selectPayments utxo
     if expectedPayments /= mempty
       then pure $ UTxO expectedPayments
@@ -68,21 +65,19 @@ waitForPayments networkId socket amount addr =
 -- | Wait for transaction outputs with matching lovelace value and addresses of
 -- the whole given UTxO
 waitForUTxO ::
-  RunningNode ->
+  ChainBackend backend =>
+  backend ->
   UTxO ->
   IO ()
-waitForUTxO node utxo =
+waitForUTxO backend utxo =
   forM_ (snd <$> UTxO.toList utxo) forEachUTxO
  where
-  RunningNode{networkId, nodeSocket} = node
-
   forEachUTxO :: TxOut CtxUTxO -> IO ()
   forEachUTxO = \case
     TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ _ -> do
       void $
         waitForPayments
-          networkId
-          nodeSocket
+          backend
           (selectLovelace value)
           addr
     txOut ->

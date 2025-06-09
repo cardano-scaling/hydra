@@ -6,7 +6,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
-import CardanoClient (RunningNode (..), awaitTransaction, submitTransaction, submitTx)
 import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
@@ -31,6 +30,8 @@ import Data.Set qualified as Set
 import Data.Text (pack)
 import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, signTx)
+import Hydra.Chain.Backend (ChainBackend)
+import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (EndToEndLog (..))
@@ -41,6 +42,7 @@ import Hydra.Logging (
   withTracerOutputTo,
  )
 import Hydra.Network (Host)
+import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.Crypto (generateSigningKey)
 import HydraNode (
@@ -82,16 +84,20 @@ bench startingNodeId timeoutSeconds workDir dataset = do
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         statsTvar <- newTVarIO mempty
         scenarioData <- withOSStats workDir statsTvar $
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \_ backend -> do
             putTextLn "Seeding network"
-            seedNetwork node dataset (contramap FromFaucet tracer)
+            seedNetwork backend dataset (contramap FromFaucet tracer)
             putTextLn "Publishing hydra scripts"
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             putStrLn $ "Starting hydra cluster in " <> workDir
             let hydraTracer = contramap FromHydraNode tracer
-            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
+
+            let nodeSocket' = case Backend.getOptions backend of
+                  Direct DirectOptions{nodeSocket} -> nodeSocket
+                  _ -> error "Unexpected Blockfrost backend"
+            withHydraCluster hydraTracer workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
               waitForNodesConnected hydraTracer 20 clients
-              scenario hydraTracer node workDir dataset clients
+              scenario hydraTracer backend workDir dataset clients
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)
 
@@ -113,16 +119,16 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
         findRunningCardanoNode' cardanoTracer networkId nodeSocket >>= \case
           Nothing ->
             error ("Not found running node at socket: " <> show nodeSocket <> ", and network: " <> show networkId)
-          Just node -> do
+          Just (_blockTime, backend) -> do
             putTextLn "Seeding network"
-            seedNetwork node dataset (contramap FromFaucet tracer)
-            (`finally` returnFaucetFunds tracer node) $ do
+            seedNetwork backend dataset (contramap FromFaucet tracer)
+            (`finally` returnFaucetFunds tracer backend) $ do
               putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
               let hydraTracer = contramap FromHydraNode tracer
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  (,[]) <$> scenario hydraTracer node workDir dataset (leader :| followers)
+                  (,[]) <$> scenario hydraTracer backend workDir dataset (leader :| followers)
  where
   withHydraClientConnections tracer apiHosts connections action = do
     case apiHosts of
@@ -131,23 +137,24 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
         withConnectionToNodeHost tracer peerId apiHost (Just "/?history=no") $ \con -> do
           withHydraClientConnections tracer rest (con : connections) action
 
-  returnFaucetFunds tracer node = do
+  returnFaucetFunds tracer backend = do
     putTextLn "Returning funds to faucet"
     let faucetTracer = contramap FromFaucet tracer
     forM (hydraNodeKeys dataset <> (paymentKey <$> clientDatasets)) $ \sk -> do
-      returnAmount <- returnFundsToFaucet' faucetTracer node sk
+      returnAmount <- returnFundsToFaucet' faucetTracer backend sk
       traceWith faucetTracer $ ReturnedFunds{returnAmount}
 
 -- | Runs the benchmark scenario given a list of clients. The first client is
 -- used to drive the life-cycle of the head.
 scenario ::
+  ChainBackend backend =>
   Tracer IO HydraNodeLog ->
-  RunningNode ->
+  backend ->
   FilePath ->
   Dataset ->
   NonEmpty HydraClient ->
   IO Summary
-scenario hydraTracer node workDir Dataset{clientDatasets, title, description} nonEmptyClients = do
+scenario hydraTracer backend workDir Dataset{clientDatasets, title, description} nonEmptyClients = do
   let clusterSize = fromIntegral $ length clientDatasets
   let leader = head nonEmptyClients
       clients = toList nonEmptyClients
@@ -161,7 +168,7 @@ scenario hydraTracer node workDir Dataset{clientDatasets, title, description} no
       v ^? key "headId" . _JSON
 
   putTextLn "Committing initialUTxO from dataset"
-  expectedUTxO <- commitUTxO node clients clientDatasets
+  expectedUTxO <- commitUTxO backend clients clientDatasets
 
   waitFor hydraTracer (fromIntegral $ 10 * clusterSize) clients $
     output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
@@ -321,31 +328,31 @@ movingAverage confirmations =
 
 -- | Distribute 100 ADA fuel, starting funds from faucet for each client in the
 -- dataset.
-seedNetwork :: RunningNode -> Dataset -> Tracer IO FaucetLog -> IO ()
-seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, hydraNodeKeys} tracer = do
+seedNetwork :: ChainBackend backend => backend -> Dataset -> Tracer IO FaucetLog -> IO ()
+seedNetwork backend Dataset{fundingTransaction, hydraNodeKeys} tracer = do
   fundClients
   forM_ hydraNodeKeys fuelWith100Ada
  where
   fundClients = do
     putTextLn "Fund scenario from faucet"
-    submitTransaction networkId nodeSocket fundingTransaction
-    void $ awaitTransaction networkId nodeSocket fundingTransaction
+    Backend.submitTransaction backend fundingTransaction
+    void $ Backend.awaitTransaction backend fundingTransaction
 
   fuelWith100Ada signingKey = do
     let vk = getVerificationKey signingKey
     putTextLn $ "Fuel node key " <> show vk
-    seedFromFaucet node vk 100_000_000 tracer
+    seedFromFaucet backend vk 100_000_000 tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (assumed same sequence) of clients.
-commitUTxO :: RunningNode -> [HydraClient] -> [ClientDataset] -> IO UTxO
-commitUTxO node clients clientDatasets =
+commitUTxO :: ChainBackend backend => backend -> [HydraClient] -> [ClientDataset] -> IO UTxO
+commitUTxO backend clients clientDatasets =
   mconcat <$> forM (zip clients clientDatasets) doCommit
  where
   doCommit (client, ClientDataset{initialUTxO, paymentKey}) = do
     requestCommitTx client initialUTxO
       <&> signTx paymentKey
-        >>= submitTx node
+        >>= Backend.submitTransaction backend
     pure initialUTxO
 
 data Event = Event

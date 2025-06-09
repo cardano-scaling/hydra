@@ -75,6 +75,9 @@ data KnownNetwork
   | Preproduction
   | Mainnet
   | Sanchonet
+  | BlockfrostPreview
+  | BlockfrostPreprod
+  | BlockfrostMainnet
   deriving stock (Generic, Show, Eq, Enum, Bounded)
   deriving anyclass (ToJSON)
 
@@ -84,3 +87,6 @@ toNetworkId = \case
   Preproduction -> Api.Testnet (Api.NetworkMagic 1)
   Preview -> Api.Testnet (Api.NetworkMagic 2)
   Sanchonet -> Api.Testnet (Api.NetworkMagic 4)
+  BlockfrostPreview -> Api.Testnet (Api.NetworkMagic 2)
+  BlockfrostPreprod -> Api.Testnet (Api.NetworkMagic 1)
+  BlockfrostMainnet -> Api.Mainnet

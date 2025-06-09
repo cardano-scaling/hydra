@@ -7,7 +7,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoClient (RunningNode (..))
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import Data.ByteString qualified as BS
@@ -29,6 +28,7 @@ import Graphics.Vty.Platform.Unix.Input (buildInput)
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
 import Graphics.Vty.Platform.Unix.Settings (defaultSettings)
 import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -41,6 +41,7 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
+import Hydra.Options (DirectOptions (..))
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
@@ -157,9 +158,9 @@ setupNodeAndTUI' hostname lovelace action =
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
-        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-        chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] tuiContestationPeriod
+      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \_ backend -> do
+        hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+        chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
 
@@ -169,10 +170,10 @@ setupNodeAndTUI' hostname lovelace action =
 
         let externalVKey = getVerificationKey externalSKey
         -- Some ADA to commit
-        seedFromFaucet_ node externalVKey 42_000_000 (contramap FromFaucet tracer)
-
+        seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
+        let DirectBackend DirectOptions{nodeSocket, networkId} = backend
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
-          seedFromFaucet_ node aliceCardanoVk lovelace (contramap FromFaucet tracer)
+          seedFromFaucet_ backend aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_

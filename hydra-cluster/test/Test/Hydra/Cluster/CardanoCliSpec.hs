@@ -3,7 +3,6 @@ module Test.Hydra.Cluster.CardanoCliSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (RunningNode (..))
 import CardanoNode (cliQueryProtocolParameters, withCardanoNodeDevnet)
 import Control.Lens ((^?))
 import Data.Aeson (encodeFile)
@@ -11,8 +10,12 @@ import Data.Aeson.Lens (key, _String)
 import Data.Aeson.Types (parseEither)
 import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
 import Hydra.Cardano.Api (LedgerEra, PParams, Tx)
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.JSONSchema (validateJSON, withJsonSpecifications)
 import Hydra.Logging (showLogsOnFailure)
+import Hydra.Options (
+  DirectOptions (..),
+ )
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcessWithExitCode, readProcess)
@@ -40,7 +43,8 @@ spec =
     around (showLogsOnFailure "CardanoCliSpec") $ do
       it "query protocol-parameters is compatible with our FromJSON instance" $ \tracer ->
         withTempDir "hydra-cluster" $ \tmpDir -> do
-          withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId} -> do
+          withCardanoNodeDevnet tracer tmpDir $ \_ backend -> do
+            let DirectBackend DirectOptions{nodeSocket, networkId} = backend
             protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
             case parseEither (parseJSON @(PParams LedgerEra)) protocolParameters of
               Left e -> failure $ "Failed to decode JSON: " <> e <> "\n" <> show protocolParameters
@@ -48,7 +52,8 @@ spec =
 
       it "query protocol-parameters matches our schema" $ \tracer ->
         withJsonSpecifications $ \tmpDir ->
-          withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId} -> do
+          withCardanoNodeDevnet tracer tmpDir $ \_ backend -> do
+            let DirectBackend DirectOptions{nodeSocket, networkId} = backend
             pparamsValue <- cliQueryProtocolParameters nodeSocket networkId
             validateJSON
               (tmpDir </> "api.json")

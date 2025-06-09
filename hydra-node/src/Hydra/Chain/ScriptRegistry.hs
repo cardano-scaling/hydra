@@ -16,7 +16,6 @@ import Hydra.Cardano.Api (
   PaymentKey,
   PoolId,
   SigningKey,
-  SocketPath,
   SystemStart,
   Tx,
   TxBodyErrorAutoBalance,
@@ -36,11 +35,10 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import Hydra.Cardano.Api.Tx (signTx)
-import Hydra.Chain.Backend (ChainBackend (..))
+import Hydra.Chain.Backend (ChainBackend (..), buildTransactionWithPParams')
+import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
-  buildTransactionWithPParams',
-  queryUTxOByTxIn,
  )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
@@ -55,16 +53,12 @@ import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 --
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
-  (MonadIO m, MonadThrow m) =>
-  -- | cardano-node's network identifier.
-  -- A combination of network discriminant + magic number.
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
+  (MonadIO m, MonadThrow m, ChainBackend backend) =>
+  backend ->
   [TxId] ->
   m ScriptRegistry
-queryScriptRegistry networkId socketPath txIds = do
-  utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates
+queryScriptRegistry backend txIds = do
+  utxo <- Backend.queryUTxOByTxIn backend candidates
   case newScriptRegistry utxo of
     Left e -> throwIO e
     Right sr -> pure sr
