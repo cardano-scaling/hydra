@@ -10,15 +10,23 @@ import Hydra.Cardano.Api (
   NetworkId,
   PaymentKey,
   SigningKey,
-  SocketPath,
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
   TxId,
   deserialiseFromTextEnvelope,
   textEnvelopeToJSON,
  )
+import Hydra.Chain.Backend (ChainBackend)
+import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import Hydra.Node.DepositPeriod (DepositPeriod)
-import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), defaultCardanoChainConfig, defaultDepositPeriod, defaultDirectOptions)
+import Hydra.Options (
+  CardanoChainConfig (..),
+  ChainBackendOptions (..),
+  ChainConfig (..),
+  DirectOptions (..),
+  defaultCardanoChainConfig,
+  defaultDepositPeriod,
+ )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
@@ -58,29 +66,31 @@ createAndSaveSigningKey path = do
   pure sk
 
 chainConfigFor ::
+  ChainBackend backend =>
   HasCallStack =>
   Actor ->
   FilePath ->
-  SocketPath ->
+  backend ->
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   [Actor] ->
   ContestationPeriod ->
   IO ChainConfig
-chainConfigFor me targetDir nodeSocket txids actors cp = chainConfigFor' me targetDir (Right nodeSocket) txids actors cp defaultDepositPeriod
+chainConfigFor me targetDir backend txids actors cp = chainConfigFor' me targetDir backend txids actors cp defaultDepositPeriod
 
 chainConfigFor' ::
+  ChainBackend backend =>
   HasCallStack =>
   Actor ->
   FilePath ->
-  Either FilePath SocketPath ->
+  backend ->
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   [Actor] ->
   ContestationPeriod ->
   DepositPeriod ->
   IO ChainConfig
-chainConfigFor' me targetDir socketOrProjectPath hydraScriptsTxId them contestationPeriod depositPeriod = do
+chainConfigFor' me targetDir backend hydraScriptsTxId them contestationPeriod depositPeriod = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -100,10 +110,7 @@ chainConfigFor' me targetDir socketOrProjectPath hydraScriptsTxId them contestat
         , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
         , depositPeriod
-        , chainBackendOptions =
-            case socketOrProjectPath of
-              Left projectPath -> Blockfrost BlockfrostOptions{projectPath}
-              Right nodeSocket -> Direct defaultDirectOptions{nodeSocket = nodeSocket}
+        , chainBackendOptions = Backend.getOptions backend
         }
  where
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType

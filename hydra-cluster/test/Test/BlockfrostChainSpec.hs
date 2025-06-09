@@ -76,7 +76,8 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       prj <- Blockfrost.projectFromFile blockfrostProjectPath
       (aliceCardanoVk, _) <- keysFor Alice
       (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-      hydraScriptsTxId <- publishHydraScripts (BlockfrostBackend $ BlockfrostOptions{projectPath = blockfrostProjectPath}) sk
+      let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = blockfrostProjectPath}
+      hydraScriptsTxId <- publishHydraScripts backend sk
 
       Blockfrost.Genesis
         { _genesisNetworkMagic
@@ -90,7 +91,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       void $ Blockfrost.runBlockfrostM prj $ Blockfrost.awaitUTxO networkId [faucetAddress] (List.last hydraScriptsTxId) 100
 
       -- Alice setup
-      aliceChainConfig <- chainConfigFor' Alice tmp (Left blockfrostProjectPath) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100)
+      aliceChainConfig <- chainConfigFor' Alice tmp backend hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100)
 
       withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
         \aliceChain@CardanoChainTest{postTx} -> do
@@ -103,7 +104,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           (headId, headSeed) <- observesInTimeSatisfying' aliceChain 500 $ hasInitTxWith headParameters participants
 
           let blueprintTx = txSpendingUTxO someUTxO
-          externalCommit' (Left blockfrostProjectPath) aliceChain [aliceExternalSk] headId someUTxO blueprintTx
+          externalCommit' backend aliceChain [aliceExternalSk] headId someUTxO blueprintTx
           aliceChain `observesInTime'` OnCommitTx headId alice someUTxO
 
           postTx $ CollectComTx someUTxO headId headParameters

@@ -12,6 +12,8 @@ on:
         - preprod
         - mainnet
         - sanchonet
+        - blockfrost-preview
+
 
       hydra-scripts-tx-id:
         description: "TxId of already published scripts (leave empty to publish)"
@@ -60,7 +62,13 @@ jobs:
         if ${{inputs.use-mithril}}; then
           USE_MITHRIL_ARG="--use-mithril"
         fi
-        nix develop .#exes --command bash -c "hydra-cluster --${{inputs.network}} --state-directory ${state_dir} ${HYDRA_SCRIPTS_ARG} ${USE_MITHRIL_ARG}"
+
+        if [[ ${{secrets.blockfrost_token}} != '' ]]; then
+          echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
+          nix develop .#exes --command bash -c "hydra-cluster --${{inputs.network}} --state-directory ${state_dir} ${HYDRA_SCRIPTS_ARG} ${USE_MITHRIL_ARG}"
+        else
+          echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
+        fi
 
     - name: 💾 Upload logs
       if: always()
