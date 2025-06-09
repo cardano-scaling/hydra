@@ -87,8 +87,14 @@
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme="dark"] {
+html:not(.plugin-pages)[data-theme="dark"] {
   --ifm-color-primary: var(--ifm-color-primary-light);
+}
+html.plugin-pages[data-theme='dark'] {
+  --ifm-navbar-link-color: #1c1e21;
+}
+html.plugin-pages .navColorModeToggle{
+  display: none;
 }
 
 @media (min-width: 768px) {
@@ -113,7 +119,7 @@ h4 {
   line-height: 30px !important;
 }
 
-html {
+html:not([data-theme='dark']), html.plugin-pages {
   @apply text-black;
 }
 
@@ -290,7 +296,7 @@ svg.architecture {
   }
 }
 
-.navbar__brand:hover {
+html.plugin-pages .navbar__brand:hover {
   color: #283032;
 }
 
@@ -315,10 +321,16 @@ svg.architecture {
   order: 3;
 }
 
+.DocSearch-Button {
+  margin: 0 10px 0 16px !important;
+}
 .DocSearch-Button .DocSearch-Search-Icon {
   color: black !important;
   height: 24px !important;
   width: 24px;
+}
+html:not(.plugin-pages)[data-theme='dark'] .DocSearch-Button .DocSearch-Search-Icon {
+  color: white !important;
 }
 
 .DocSearch-Button {
