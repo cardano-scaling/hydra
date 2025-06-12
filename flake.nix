@@ -8,7 +8,7 @@
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.4";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
-    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.6.0";
+    hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.6.5";
     hydra-spec.url = "github:cardano-scaling/hydra-formal-specification/7f78e005b95ff3b9c55995632ceb3d6ab96a305e";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     lint-utils = {
