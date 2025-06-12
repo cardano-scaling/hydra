@@ -2877,6 +2877,7 @@
         "haskellNix": "haskellNix_2",
         "hydra-coding-standards": "hydra-coding-standards",
         "hydra-spec": "hydra-spec",
+        "import-tree": "import-tree_3",
         "iohk-nix": "iohk-nix",
         "lint-utils": "lint-utils_2",
         "mithril": "mithril",
