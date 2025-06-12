@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Contains the a stateful interface to transaction construction and observation.
@@ -10,6 +11,7 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
@@ -39,14 +41,17 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   isScriptTxOut,
+  mkTxIn,
   modifyTxOutValue,
   negateValue,
   selectAsset,
   selectLovelace,
+  toCtxUTxOTxOut,
   toShelleyNetwork,
   txIns',
   txOutScriptData,
   txOutValue,
+  txOuts',
   txSpendingUTxO,
   pattern ByronAddressInEra,
   pattern ShelleyAddressInEra,
@@ -65,10 +70,10 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
+import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
-import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   ConfirmedSnapshot (..),
@@ -82,16 +87,17 @@ import Hydra.Tx (
   deriveParty,
   getSnapshot,
   headIdToPolicyId,
+  headSeedToTxIn,
+  mkSimpleBlueprintTx,
   partyToChain,
   registryUTxO,
-  txInToHeadSeed,
   utxoFromTx,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)
-import Hydra.Tx.Close (ClosedThreadOutput (..), PointInTime, closeTx)
-import Hydra.Tx.CollectCom (OpenThreadOutput (..), UTxOHash, collectComTx)
+import Hydra.Tx.Close (OpenThreadOutput (..), PointInTime, closeTx)
+import Hydra.Tx.CollectCom (UTxOHash, collectComTx)
 import Hydra.Tx.Commit (commitTx)
-import Hydra.Tx.Contest (contestTx)
+import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
@@ -105,7 +111,7 @@ import Hydra.Tx.Observe (
   CollectComObservation (..),
   CommitObservation (..),
   InitObservation (..),
-  NotAnInitReason,
+  NotAnInitReason (..),
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
@@ -115,7 +121,7 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Hydra.Tx.Utils (setIncrementalActionMaybe, splitUTxO, verificationKeyToOnChainId)
-import Test.Hydra.Tx.Fixture (depositDeadline, testNetworkId)
+import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
   genScriptRegistry,
@@ -124,8 +130,7 @@ import Test.Hydra.Tx.Gen (
   genUTxOAdaOnlyOfSize,
   genVerificationKey,
  )
-import Test.QuickCheck (choose, frequency, oneof, suchThat, vector)
-import Test.QuickCheck.Gen (elements)
+import Test.QuickCheck (choose, chooseEnum, elements, frequency, oneof, suchThat, vector)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
 -- all the relevant UTxO for resolving transaction inputs.
@@ -262,7 +267,7 @@ instance HasKnownUTxO InitialState where
       } = st
 
 data OpenState = OpenState
-  { openThreadOutput :: OpenThreadOutput
+  { openUTxO :: UTxO
   , headId :: HeadId
   , seedTxIn :: TxIn
   , openUtxoHash :: UTxOHash
@@ -277,27 +282,20 @@ instance Arbitrary OpenState where
   shrink = genericShrink
 
 instance HasKnownUTxO OpenState where
-  getKnownUTxO st =
-    uncurry UTxO.singleton openThreadUTxO
-   where
-    OpenState
-      { openThreadOutput = OpenThreadOutput{openThreadUTxO}
-      } = st
+  getKnownUTxO OpenState{openUTxO} =
+    openUTxO
 
 data ClosedState = ClosedState
-  { closedThreadOutput :: ClosedThreadOutput
+  { closedUTxO :: UTxO
   , headId :: HeadId
   , seedTxIn :: TxIn
+  , contestationDeadline :: UTCTime
   }
   deriving stock (Eq, Show, Generic)
 
 instance HasKnownUTxO ClosedState where
-  getKnownUTxO st =
-    uncurry UTxO.singleton closedThreadUTxO
-   where
-    ClosedState
-      { closedThreadOutput = ClosedThreadOutput{closedThreadUTxO}
-      } = st
+  getKnownUTxO ClosedState{closedUTxO} =
+    closedUTxO
 
 -- * Constructing transactions
 
@@ -464,6 +462,7 @@ increment ::
   ConfirmedSnapshot Tx ->
   -- | Deposited TxId
   TxId ->
+  -- | Valid until, must be before deadline.
   SlotNo ->
   Either IncrementTxError Tx
 increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId upperValiditySlot = do
@@ -762,33 +761,44 @@ observeInit ::
   Either NotAnInitReason (OnChainTx Tx, InitialState)
 observeInit _ctx _allVerificationKeys tx = do
   observation <- observeInitTx tx
-  pure (toEvent observation, toState observation)
+  headOut <- head <$> nonEmpty (txOuts' tx) ?> NoHeadOutput
+  let initialThreadUTxO = (mkTxIn tx 0, toCtxUTxOTxOut headOut)
+  pure (toEvent observation, toState initialThreadUTxO observation)
  where
-  toEvent InitObservation{contestationPeriod, parties, headId, seedTxIn, participants} =
-    OnInitTx
-      { headId
-      , headSeed = txInToHeadSeed seedTxIn
-      , headParameters = HeadParameters{contestationPeriod, parties}
-      , participants
-      }
+  toEvent InitObservation{headParameters, headId, headSeed, participants} =
+    OnInitTx{headId, headSeed, headParameters, participants}
 
-  toState InitObservation{initialThreadUTxO, parties, contestationPeriod, initials, headId, seedTxIn} =
+  toState initialThreadUTxO InitObservation{headParameters, headId, headSeed} =
     InitialState
       { initialThreadOutput =
           InitialThreadOutput
             { initialThreadUTxO
-            , initialParties = partyToChain <$> parties
-            , initialContestationPeriod = toChain contestationPeriod
+            , initialParties = partyToChain <$> headParameters.parties
+            , initialContestationPeriod = toChain headParameters.contestationPeriod
             }
       , initialInitials = initials
       , initialCommits = mempty
       , headId
-      , seedTxIn
+      , seedTxIn = fromJust $ headSeedToTxIn headSeed
       }
+
+  indexedOutputs = zip [0 ..] (txOuts' tx)
+
+  initialOutputs = filter (isInitial . snd) indexedOutputs
+
+  initials =
+    map
+      (bimap (mkTxIn tx) toCtxUTxOTxOut)
+      initialOutputs
+
+  isInitial = isScriptTxOut initialValidatorScript
 
 -- ** InitialState transitions
 
 -- | Observe an commit transition using a 'InitialState' and 'observeCommitTx'.
+-- NOTE: This function is a bit fragile as it assumes commit output on first
+-- output while the underlying observeCommitTx could deal with commit outputs
+-- at any index. Only use this function in tests and benchmarks.
 observeCommit ::
   ChainContext ->
   InitialState ->
@@ -797,7 +807,7 @@ observeCommit ::
 observeCommit ctx st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCommitTx networkId utxo tx
-  let CommitObservation{commitOutput, party, committed, headId = commitHeadId} = observation
+  let CommitObservation{party, committed, headId = commitHeadId} = observation
   guard $ commitHeadId == headId
   let event = OnCommitTx{headId, party, committed}
   let st' =
@@ -807,7 +817,7 @@ observeCommit ctx st tx = do
               -- remove all it's inputs from our tracked initials
               filter ((`notElem` txIns' tx) . fst) initialInitials
           , initialCommits =
-              commitOutput : initialCommits
+              (mkTxIn tx 0, toCtxUTxOTxOut $ List.head (txOuts' tx)) : initialCommits
           }
   pure (event, st')
  where
@@ -828,14 +838,12 @@ observeCollect ::
 observeCollect st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCollectComTx utxo tx
-  let CollectComObservation{threadOutput = threadOutput, headId = collectComHeadId, utxoHash} = observation
+  let CollectComObservation{headId = collectComHeadId, utxoHash} = observation
   guard (headId == collectComHeadId)
-  -- REVIEW: is it enough to pass here just the 'openThreadUTxO' or we need also
-  -- the known utxo (getKnownUTxO st)?
   let event = OnCollectComTx{headId}
   let st' =
         OpenState
-          { openThreadOutput = threadOutput
+          { openUTxO = adjustUTxO tx utxo
           , headId
           , seedTxIn
           , openUtxoHash = utxoHash
@@ -858,20 +866,20 @@ observeClose ::
 observeClose st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCloseTx utxo tx
-  let CloseObservation{threadOutput, headId = closeObservationHeadId, snapshotNumber} = observation
+  let CloseObservation{headId = closeObservationHeadId, snapshotNumber, contestationDeadline} = observation
   guard (headId == closeObservationHeadId)
-  let ClosedThreadOutput{closedContestationDeadline} = threadOutput
   let event =
         OnCloseTx
           { headId = closeObservationHeadId
           , snapshotNumber
-          , contestationDeadline = posixToUTCTime closedContestationDeadline
+          , contestationDeadline
           }
   let st' =
         ClosedState
-          { closedThreadOutput = threadOutput
+          { closedUTxO = adjustUTxO tx utxo
           , headId
           , seedTxIn
+          , contestationDeadline
           }
   pure (event, st')
  where
@@ -1130,18 +1138,21 @@ genDepositTx numParties = do
   ctx <- genHydraContextFor numParties
   utxo <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . null)
   (_, st@OpenState{headId}) <- genStOpen ctx
-  let tx = depositTx (ctxNetworkId ctx) headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxo, lookupUTxO = utxo} depositDeadline
+  -- NOTE: Not too high so we can use chooseEnum (which goes through Int) here and in other generators
+  slot <- chooseEnum (0, 1_000_000)
+  slotsUntilDeadline <- chooseEnum (0, 86400)
+  let deadline = slotNoToUTCTime systemStart slotLength (slot + slotsUntilDeadline)
+  let tx = depositTx (ctxNetworkId ctx) headId (mkSimpleBlueprintTx utxo) slot deadline
   pure (ctx, st, utxo <> utxoFromTx tx, tx)
 
 genRecoverTx ::
   Gen (UTxO, Tx)
 genRecoverTx = do
   (_, _, depositedUTxO, txDeposit) <- genDepositTx maximumNumberOfParties
-  let DepositObservation{deposited, deadline} =
-        fromJust $ observeDepositTx testNetworkId txDeposit
-  let slotNo = slotNoFromUTCTime systemStart slotLength (posixToUTCTime deadline)
-  slotNo' <- arbitrary
-  let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited (slotNo + slotNo')
+  let DepositObservation{deposited, deadline} = fromJust $ observeDepositTx testNetworkId txDeposit
+  let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
+  slotAfterDeadline <- chooseEnum (deadlineSlot, deadlineSlot + 86400)
+  let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited slotAfterDeadline
   pure (depositedUTxO, tx)
 
 genIncrementTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
@@ -1152,12 +1163,13 @@ genIncrementTx numParties = do
   let openUTxO = getKnownUTxO st
   let version = 0
   snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
-  let slotNo = slotNoFromUTCTime systemStart slotLength (posixToUTCTime deadline)
+  let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
+  slotBeforeDeadline <- chooseEnum (0, deadlineSlot)
   pure
     ( cctx
     , st
     , utxo
-    , unsafeIncrement cctx (openUTxO <> utxo) headId (ctxHeadParameters ctx) snapshot depositTxId slotNo
+    , unsafeIncrement cctx (openUTxO <> utxo) headId (ctxHeadParameters ctx) snapshot depositTxId slotBeforeDeadline
     )
 
 genDecrementTx :: Int -> Gen (ChainContext, UTxO, OpenState, UTxO, Tx)
@@ -1214,7 +1226,7 @@ genContestTx = do
   someUtxo <- genUTxO1 genTxOut
   let (confirmedUTxO', utxoToDecommit') = splitUTxO someUtxo
   contestSnapshot <- genConfirmedSnapshot headId version (succ $ number $ getSnapshot confirmed) confirmedUTxO' Nothing (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
-  contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
+  contestPointInTime <- genPointInTimeBefore stClosed.contestationDeadline
   pure (ctx, closePointInTime, stClosed, mempty, unsafeContest cctx utxo headId cp version contestSnapshot contestPointInTime)
 
 genFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
@@ -1234,16 +1246,11 @@ genFanoutTx numParties = do
   let stClosed@ClosedState{seedTxIn} = snd $ fromJust $ observeClose stOpen txClose
   let toFanout = utxo $ getSnapshot confirmed
   let toCommit = utxoToCommit $ getSnapshot confirmed
-  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
   let spendableUTxO = getKnownUTxO stClosed
   -- if local version is not matching the snapshot version we **should** fanout commit utxo
   let finalToCommit = if openVersion /= version then toCommit else Nothing
   pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing deadlineSlotNo)
-
-getContestationDeadline :: ClosedState -> UTCTime
-getContestationDeadline
-  ClosedState{closedThreadOutput = ClosedThreadOutput{closedContestationDeadline}} =
-    posixToUTCTime closedContestationDeadline
 
 genStOpen ::
   HydraContext ->

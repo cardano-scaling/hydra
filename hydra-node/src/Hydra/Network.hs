@@ -185,6 +185,9 @@ data Connectivity
       { ourVersion :: ProtocolVersion
       , theirVersion :: Maybe ProtocolVersion
       }
+  | ClusterIDMismatch
+      { clusterPeers :: Text
+      }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 

@@ -1,10 +1,10 @@
-cabal-version: 3.0
-name:          hydra-node
-version:       0.21.0
-synopsis:      The Hydra node
-author:        IOG
-copyright:     2022 IOG
-license:       Apache-2.0
+cabal-version:      3.0
+name:               hydra-node
+version:            0.22.0
+synopsis:           The Hydra node
+author:             IOG
+copyright:          2022 IOG
+license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
@@ -12,6 +12,8 @@ license-files:
 data-files:
   json-schemas/api.yaml
   json-schemas/common.yaml
+
+extra-source-files: networks.json
 
 source-repository head
   type:     git
@@ -69,11 +71,13 @@ library
     Hydra.Chain.ScriptRegistry
     Hydra.Events
     Hydra.Events.FileBased
+    Hydra.Events.Rotation
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.State
+    Hydra.HeadLogic.StateEvent
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Simple
@@ -84,6 +88,7 @@ library
     Hydra.Network.Authenticate
     Hydra.Network.Etcd
     Hydra.Network.Message
+    Hydra.NetworkVersions
     Hydra.Node
     Hydra.Node.DepositPeriod
     Hydra.Node.EmbedTH
@@ -134,7 +139,6 @@ library
     , http-types
     , hydra-cardano-api
     , hydra-plutus
-    , hydra-plutus-extras
     , hydra-prelude
     , hydra-tx
     , hydra-tx:testlib
@@ -305,6 +309,7 @@ test-suite tests
     Hydra.Chain.Direct.WalletSpec
     Hydra.CryptoSpec
     Hydra.Events.FileBasedSpec
+    Hydra.Events.RotationSpec
     Hydra.Events.S3Spec
     Hydra.Events.UDPSpec
     Hydra.HeadLogicSnapshotSpec
@@ -322,6 +327,7 @@ test-suite tests
     Hydra.ModelSpec
     Hydra.Network.AuthenticateSpec
     Hydra.NetworkSpec
+    Hydra.NetworkVersionsSpec
     Hydra.Node.InputQueueSpec
     Hydra.Node.RunSpec
     Hydra.NodeSpec
@@ -370,7 +376,6 @@ test-suite tests
     , hydra-node:examples
     , hydra-node:testlib
     , hydra-plutus
-    , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils
     , hydra-tx

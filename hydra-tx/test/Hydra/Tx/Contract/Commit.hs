@@ -16,13 +16,16 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (..))
+import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Tx (CommitBlueprintTx (..), Party, mkHeadId)
 import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.Init (mkInitialOutput)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import PlutusLedgerApi.Common (fromBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genAddressInEra, genMintedOrBurnedValue, genScriptRegistry, genSigningKey, genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
+import Test.Hydra.Tx.Fixture qualified as Fixtures
+import Test.Hydra.Tx.Gen (genAddressInEra, genScriptRegistry, genSigningKey, genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -178,3 +181,18 @@ genCommitMutation (tx, _utxo) =
   aCommittedAddress = txOutAddress aCommittedTxOut
 
   aCommittedOutputValue = txOutValue aCommittedTxOut
+
+-- | Generates value such that:
+-- - alters between policy id we use in test fixtures with a random one.
+-- - mixing arbitrary token names with 'hydraHeadV1'
+-- - excluding 0 for quantity to mimic minting/burning
+genMintedOrBurnedValue :: Gen Value
+genMintedOrBurnedValue = do
+  policyId <-
+    oneof
+      [ headPolicyId <$> arbitrary
+      , pure Fixtures.testPolicyId
+      ]
+  tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
+  quantity <- arbitrary `suchThat` (/= 0)
+  pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]

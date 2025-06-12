@@ -80,6 +80,7 @@ channels:
           - $ref: "api.yaml#/components/messages/NetworkConnected"
           - $ref: "api.yaml#/components/messages/NetworkDisconnected"
           - $ref: "api.yaml#/components/messages/NetworkVersionMismatch"
+          - $ref: "api.yaml#/components/messages/NetworkClusterIDMismatch"
           - $ref: "api.yaml#/components/messages/HeadIsInitializing"
           - $ref: "api.yaml#/components/messages/Committed"
           - $ref: "api.yaml#/components/messages/HeadIsOpen"
@@ -102,6 +103,7 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitFinalized"
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
+          - $ref: "api.yaml#/components/messages/EventLogRotated"
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
@@ -116,6 +118,34 @@ channels:
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
+  
+  /head:
+    servers:
+      - localhost-http
+    publish:
+      description: Get latest head state.
+      operationId: getHeadState
+      message:
+        payload:
+          type: "null"
+      bindings:
+        http:
+          type: request
+          method: GET
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: headStateResponse
+      description: |
+        Possible responses of this endpoint are:
+          * 200 OK
+      message:
+        payload:
+          $ref: "api.yaml#/components/schemas/HeadState"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
 
   /commit:
     servers:
@@ -486,6 +516,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/NetworkVersionMismatch"
 
+    NetworkClusterIDMismatch:
+      title: NetworkClusterIDMismatch
+      description: |
+        The configured peers do not match with other nodes on the network.
+      payload:
+        $ref: "api.yaml#/components/schemas/NetworkClusterIDMismatch"
+
     HeadIsInitializing:
       title: HeadIsInitializing
       description: |
@@ -669,6 +706,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
 
+    EventLogRotated:
+      title: EventLogRotated
+      description: |
+        The node event log file has been rotated. The current aggregated head state is used as the checkpoint event to resume from.
+      payload:
+        $ref: "api.yaml#/components/schemas/EventLogRotated"
+
     # Other messages
 
     DraftCommitTxRequest:
@@ -724,6 +768,7 @@ components:
         - $ref: "api.yaml#/components/schemas/NetworkConnected"
         - $ref: "api.yaml#/components/schemas/NetworkDisconnected"
         - $ref: "api.yaml#/components/schemas/NetworkVersionMismatch"
+        - $ref: "api.yaml#/components/schemas/NetworkClusterIDMismatch"
         - $ref: "api.yaml#/components/schemas/PeerConnected"
         - $ref: "api.yaml#/components/schemas/PeerDisconnected"
         - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
@@ -744,11 +789,13 @@ components:
         - $ref: "api.yaml#/components/schemas/DecommitApproved"
         - $ref: "api.yaml#/components/schemas/DecommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecorded"
+        - $ref: "api.yaml#/components/schemas/DepositActivated"
         - $ref: "api.yaml#/components/schemas/DepositExpired"
         - $ref: "api.yaml#/components/schemas/CommitApproved"
         - $ref: "api.yaml#/components/schemas/CommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
+        - $ref: "api.yaml#/components/schemas/EventLogRotated"
 
     ClientMessage:
       oneOf:
@@ -970,6 +1017,25 @@ components:
           oneOf:
             - $ref: "api.yaml#/components/schemas/ProtocolVersion"
             - type: "null"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NetworkClusterIDMismatch:
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkClusterIDMismatch"]
+        clusterPeers:
+          type: string
+        misconfiguredPeers:
+          type: string
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1219,7 +1285,6 @@ components:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
-
 
     InvalidInput:
       type: object
@@ -1494,6 +1559,37 @@ components:
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
+    DepositActivated:
+      title: DepositActivated
+      description: |
+        Deposit for an incremental commit got activated and will be proposed in a snapshot now.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - depositTxId
+        - deadline
+        - chainTime
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DepositActivated"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        depositTxId:
+          type: string
+        deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        chainTime:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
     DepositExpired:
       title: DepositExpired
       description: |
@@ -1598,6 +1694,25 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         snapshotNumber:
           $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    EventLogRotated:
+      title: EventLogRotated
+      description: |
+        The node event log file has been rotated. The current aggregated head state is used as the checkpoint event to resume from.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["EventLogRotated"]
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2427,10 +2542,13 @@ components:
           additionalProperties: false
           required:
           - tag
+          - failureReason
           properties:
             tag:
               type: string
               enum: ["FailedToConstructDepositTx"]
+            failureReason:
+              type: string
         - title: FailedToConstructRecoverTx
           description: |
             Raised if the user fails to draft a recover tx.
@@ -2754,9 +2872,6 @@ components:
           }
         }
 
-    # END OF SERVER OUTPUT SCHEMAS
-
-
     PlutusV2Script:
       type: object
       description: |
@@ -2877,3 +2992,241 @@ components:
       description: Hydra network protocol version
       type: integer
       minimum: 0
+
+    HeadState:
+      oneOf:
+        - title: "Idle"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["Idle"]
+            contents:
+              $ref: "api.yaml#/components/schemas/IdleState"
+        - title: "Initial"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["Initial"]
+            contents:
+              $ref: "api.yaml#/components/schemas/InitialState"
+        - title: "Open"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["Open"]
+            contents:
+              $ref: "api.yaml#/components/schemas/OpenState"
+        - title: "Closed"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["Closed"]
+            contents:
+              $ref: "api.yaml#/components/schemas/ClosedState"
+
+    IdleState:
+      type: object
+      additionalProperties: false
+      required:
+        - chainState
+      properties:
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
+
+    InitialState:
+      type: object
+      additionalProperties: false
+      required:
+        - parameters
+        - pendingCommits
+        - committed
+        - chainState
+        - headId
+        - headSeed
+      properties:
+        parameters:
+          $ref: "api.yaml#/components/schemas/HeadParameters"
+        pendingCommits:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Party"
+        committed:
+          type: object
+          propertyNames:
+            $ref: "api.yaml#/components/schemas/Party"
+          items:
+            $ref: "api.yaml#/components/schemas/UTxO"
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        headSeed:
+          $ref: "api.yaml#/components/schemas/HeadSeed"
+
+    OpenState:
+      type: object
+      additionalProperties: false
+      required:
+        - parameters
+        - coordinatedHeadState
+        - chainState
+        - headId
+        - currentSlot
+        - headSeed
+      properties:
+        parameters:
+          $ref: "api.yaml#/components/schemas/HeadParameters"
+        coordinatedHeadState:
+          $ref: "api.yaml#/components/schemas/CoordinatedHeadState"
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        currentSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        headSeed:
+          $ref: "api.yaml#/components/schemas/HeadSeed"
+
+    ClosedState:
+      type: object
+      additionalProperties: false
+      required:
+        - parameters
+        - confirmedSnapshot
+        - contestationDeadline
+        - readyToFanoutSent
+        - chainState
+        - headId
+        - headSeed
+        - version
+      properties:
+        parameters:
+          $ref: "api.yaml#/components/schemas/HeadParameters"
+        confirmedSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        contestationDeadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        readyToFanoutSent:
+          type: boolean
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        headSeed:
+          $ref: "api.yaml#/components/schemas/HeadSeed"
+        version:
+          $ref: "api.yaml#/components/schemas/SnapshotVersion"
+
+    CoordinatedHeadState:
+      type: object
+      additionalProperties: false
+      required:
+        - localUTxO
+        - localTxs
+        - allTxs
+        - confirmedSnapshot
+        - seenSnapshot
+        - pendingDeposits
+        - currentDepositTxId
+        - decommitTx
+        - version
+      properties:
+        localUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        localTxs:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Transaction"
+        allTxs:
+          type: object
+          propertyNames:
+            $ref: "api.yaml#/components/schemas/TxId"
+          items:
+            $ref: "api.yaml#/components/schemas/Transaction"
+        confirmedSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        seenSnapshot:
+          $ref: "api.yaml#/components/schemas/SeenSnapshot"
+        pendingDeposits:
+          type: object
+          propertyNames:
+            $ref: "api.yaml#/components/schemas/TxId"
+          items:
+            $ref: "api.yaml#/components/schemas/Deposit"
+        currentDepositTxId:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/TxId"
+        decommitTx:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/Transaction"
+        version:
+          $ref: "api.yaml#/components/schemas/SnapshotVersion"
+
+    Deposit:
+      type: object
+      additionalProperties: false
+      required:
+        - headId
+        - deposited
+        - created
+        - deadline
+        - status
+      properties:
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        deposited:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        created:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        status:
+          $ref: "api.yaml#/components/schemas/DepositStatus"
+
+    DepositStatus:
+      oneOf:
+        - title: Unknown
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["Unknown"]
+        - title: Active
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["Active"]
+        - title: Expired
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["Expired"]

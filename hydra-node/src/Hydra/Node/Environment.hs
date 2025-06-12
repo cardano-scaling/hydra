@@ -20,6 +20,8 @@ data Environment = Environment
     participants :: [OnChainId]
   , contestationPeriod :: ContestationPeriod
   , depositPeriod :: DepositPeriod
+  , configuredPeers :: Text
+  -- ^ Configured peers for the network layer, used for comparison on etcd errors.
   }
   deriving stock (Generic, Show, Eq)
 

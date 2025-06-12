@@ -663,11 +663,11 @@
         "nixpkgs-lib": "nixpkgs-lib_2"
       },
       "locked": {
-        "lastModified": 1748821116,
-        "narHash": "sha256-F82+gS044J1APL0n4hH50GYdPRv/5JWm34oCJYmVKdE=",
+        "lastModified": 1749398372,
+        "narHash": "sha256-tYBdgS56eXYaWVW3fsnPQ/nFlgWi/Z2Ymhyu21zVM98=",
         "owner": "hercules-ci",
         "repo": "flake-parts",
-        "rev": "49f0870db23e8c1ca0b5259734a02cd9e1e371a1",
+        "rev": "9305fe4e5c2a6fcf5ba6a3ff155720fbe4076569",
         "type": "github"
       },
       "original": {
@@ -1607,16 +1607,16 @@
         "werrorwolf": "werrorwolf"
       },
       "locked": {
-        "lastModified": 1749308361,
-        "narHash": "sha256-mMdL9E8q0/h7gCbvK9YA7o5RWShaizEvfqoc3kd9KZ0=",
+        "lastModified": 1749723735,
+        "narHash": "sha256-YxlNQkdSLOjE+0vwn6LRe+hXm95ULj6aptXjZK/Z1rA=",
         "owner": "cardano-scaling",
         "repo": "hydra-coding-standards",
-        "rev": "85e09bc05beb08f8ceb531b4b52612007be68685",
+        "rev": "5e86aa5ee49055e63a4cf1f864fdedd1af493bbc",
         "type": "github"
       },
       "original": {
         "owner": "cardano-scaling",
-        "ref": "0.6.3",
+        "ref": "0.6.5",
         "repo": "hydra-coding-standards",
         "type": "github"
       }
@@ -1628,16 +1628,17 @@
         "nixpkgs": "nixpkgs_16"
       },
       "locked": {
-        "lastModified": 1744277032,
-        "narHash": "sha256-Z83c60ZY8JQ3J7w1lD/6raEIuiXdxjGHXP/FND4YHLA=",
+        "lastModified": 1749032052,
+        "narHash": "sha256-Nr92FlQvRhUbS/qnDrn1KRznjl55bHxs2uQgxTYeYnk=",
         "owner": "cardano-scaling",
         "repo": "hydra-formal-specification",
-        "rev": "a626ac70c7b74ccfa6432512ad752ef37d80a1c6",
+        "rev": "7f78e005b95ff3b9c55995632ceb3d6ab96a305e",
         "type": "github"
       },
       "original": {
         "owner": "cardano-scaling",
         "repo": "hydra-formal-specification",
+        "rev": "7f78e005b95ff3b9c55995632ceb3d6ab96a305e",
         "type": "github"
       }
     },
@@ -2706,11 +2707,11 @@
     },
     "nixpkgs_9": {
       "locked": {
-        "lastModified": 1749086602,
-        "narHash": "sha256-DJcgJMekoxVesl9kKjfLPix2Nbr42i7cpEHJiTnBUwU=",
+        "lastModified": 1749494155,
+        "narHash": "sha256-FG4DEYBpROupu758beabUk9lhrblSf5hnv84v1TLqMc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "4792576cb003c994bd7cc1edada3129def20b27d",
+        "rev": "88331c17ba434359491e8d5889cce872464052c2",
         "type": "github"
       },
       "original": {

@@ -19,6 +19,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
+import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
 import Hydra.Cardano.Api (
@@ -32,26 +33,28 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
-import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
+import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
+import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
   IdleState (..),
   Input (..),
   Outcome (..),
+  TTL,
   aggregate,
   aggregateChainStateHistory,
   aggregateState,
-  defaultTTL,
  )
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
+import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (Network (..), NetworkCallback (..))
+import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (Authenticated (..))
-import Hydra.Network.Message (Message, NetworkEvent (..))
+import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
@@ -76,6 +79,7 @@ initEnvironment options = do
       , participants
       , contestationPeriod
       , depositPeriod
+      , configuredPeers
       }
  where
   -- XXX: This is mostly a cardano-specific initialization step of loading
@@ -102,10 +106,20 @@ initEnvironment options = do
   loadParty p =
     Party <$> readFileTextEnvelopeThrow p
 
+  httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
+
+  configuredPeers =
+    pack
+      $ intercalate ","
+        . map (\h -> show h <> "=" <> httpUrl h)
+      $ (maybeToList advertise <> peers)
+
   RunOptions
     { hydraSigningKey
     , hydraVerificationKeys
     , chainConfig
+    , advertise
+    , peers
     } = options
 
 -- | Checks that command line options match a given 'HeadState'. This function
@@ -168,10 +182,11 @@ hydrate ::
   Environment ->
   Ledger tx ->
   ChainStateType tx ->
-  EventSource (StateEvent tx) m ->
+  EventStore (StateEvent tx) m ->
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
-hydrate tracer env ledger initialChainState eventSource eventSinks = do
+hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} eventSinks = do
+  let allSinks = eventSink : eventSinks
   traceWith tracer LoadingState
   (lastEventId, (headState, chainStateHistory)) <-
     runConduitRes $
@@ -188,7 +203,7 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   traceWith tracer ReplayingState
   runConduitRes $
-    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
+    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks allSinks [e])
 
   nodeState <- createNodeState (getLast lastEventId) headState
   inputQueue <- createInputQueue
@@ -200,7 +215,7 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
       , nodeState
       , inputQueue
       , eventSource
-      , eventSinks
+      , eventSinks = allSinks
       , chainStateHistory
       }
  where
@@ -227,13 +242,21 @@ wireClientInput node = enqueue . ClientInput
 wireNetworkInput :: DraftHydraNode tx m -> NetworkCallback (Authenticated (Message tx)) m
 wireNetworkInput node =
   NetworkCallback
-    { deliver = \Authenticated{payload, party} ->
-        enqueue $ NetworkInput defaultTTL $ ReceivedMessage{sender = party, msg = payload}
+    { deliver = \Authenticated{party = sender, payload = msg} ->
+        enqueue $ mkNetworkInput sender msg
     , onConnectivity =
-        enqueue . NetworkInput defaultTTL . ConnectivityEvent
+        enqueue . NetworkInput 1 . ConnectivityEvent
     }
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
+
+-- | Create a network input with corresponding default ttl from given sender.
+mkNetworkInput :: Party -> Message tx -> Input tx
+mkNetworkInput sender msg =
+  case msg of
+    ReqTx{} -> NetworkInput defaultTxTTL $ ReceivedMessage{sender, msg}
+    ReqDec{} -> NetworkInput defaultTxTTL $ ReceivedMessage{sender, msg}
+    _ -> NetworkInput defaultTTL $ ReceivedMessage{sender, msg}
 
 -- | Connect chain, network and API to a hydrated 'DraftHydraNode' to get a fully
 -- connected 'HydraNode'.
@@ -309,7 +332,17 @@ stepHydraNode node = do
 
   HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
 
--- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
+-- | The maximum number of times to re-enqueue a network messages upon 'Wait'.
+-- outcome.
+defaultTTL :: TTL
+defaultTTL = 6000
+
+-- | The maximum number of times to re-enqueue 'ReqTx' and 'ReqDec' network
+-- messages upon 'Wait'.
+defaultTxTTL :: TTL
+defaultTxTTL = 5
+
+-- | The time to wait between re-enqueuing a 'Wait' outcome.
 waitDelay :: DiffTime
 waitDelay = 0.1
 

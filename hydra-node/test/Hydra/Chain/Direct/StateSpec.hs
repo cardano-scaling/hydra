@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.StateSpec where
@@ -47,7 +48,6 @@ import Hydra.Chain.Direct.State (
   InitialState (..),
   OpenState (..),
   abort,
-  closedThreadOutput,
   commit,
   ctxHeadParameters,
   ctxParticipants,
@@ -67,7 +67,6 @@ import Hydra.Chain.Direct.State (
   genInitTx,
   genRecoverTx,
   genStInitial,
-  getContestationDeadline,
   getKnownUTxO,
   initialize,
   maxGenParties,
@@ -96,8 +95,6 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (initialValidatorScript)
-import Hydra.Plutus.Extras.Time (posixToUTCTime)
-import Hydra.Tx.Close (ClosedThreadOutput (closedContesters))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Observe (
@@ -542,7 +539,7 @@ prop_incrementObservesCorrectUTxO = monadicIO $ do
     Nothing -> assertWith False "Deposit not observed"
     Just DepositObservation{depositTxId = depositedTxId, deadline} -> do
       cctx <- pickBlind $ pickChainContext ctx
-      let slotNo = slotNoFromUTCTime systemStart slotLength (posixToUTCTime deadline)
+      let slotNo = slotNoFromUTCTime systemStart slotLength deadline
       let version = 0
       let openUTxO = getKnownUTxO st
       -- NOTE: Use second deposit utxo deliberately here to test that the
@@ -737,16 +734,16 @@ forAllContest ::
   (UTxO -> Tx -> property) ->
   Property
 forAllContest action =
+  -- XXX: This is always generating a fresh closed state with no previous contests
   forAllBlind genContestTx $ \(hctx@HydraContext{ctxContestationPeriod}, closePointInTime, stClosed, _, tx) ->
     -- XXX: Pick an arbitrary context to contest. We will stumble over this when
     -- we make contests only possible once per party.
     forAllBlind (pickChainContext hctx) $ \ctx ->
       let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
        in action utxo tx
-            & counterexample ("Contestation deadline: " <> show (getContestationDeadline stClosed))
+            & counterexample ("Contestation deadline: " <> show stClosed.contestationDeadline)
             & counterexample ("Contestation period: " <> show ctxContestationPeriod)
             & counterexample ("Close point: " <> show closePointInTime)
-            & counterexample ("Closed contesters: " <> show (getClosedContesters stClosed))
             & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)
             & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
  where
@@ -769,8 +766,6 @@ forAllContest action =
   oneWeek = oneDay * 7
   oneMonth = oneDay * 30
   oneYear = oneDay * 365
-
-  getClosedContesters = closedContesters . closedThreadOutput
 
 forAllFanout ::
   Testable property =>

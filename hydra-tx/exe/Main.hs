@@ -5,8 +5,8 @@ import Hydra.Prelude
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson (eitherDecodeFileStrict)
-import Hydra.Cardano.Api (TxIx (..), textEnvelopeToJSON, toShelleyNetwork, txSpendingUTxO, pattern TxIn)
-import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import Hydra.Cardano.Api (TxIx (..), textEnvelopeToJSON, toShelleyNetwork, pattern TxIn)
+import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Deposit (depositTx, observeDepositTxOut)
 import Hydra.Tx.Recover (recoverTx)
 import Options (Command (..), DepositOptions (..), RecoverOptions (..), parseHydraCommand)
@@ -14,14 +14,13 @@ import Options (Command (..), DepositOptions (..), RecoverOptions (..), parseHyd
 main :: IO ()
 main =
   parseHydraCommand >>= \case
-    Deposit DepositOptions{networkId, headId, outFile, utxoFilePath, depositDeadline} ->
+    Deposit DepositOptions{networkId, headId, outFile, utxoFilePath, depositSlotNo, depositDeadline} ->
       eitherDecodeFileStrict utxoFilePath >>= \case
         Left err -> die $ "failed to parse provided UTXO file! " <> err
         Right (utxo :: UTxO) -> do
-          let blueprintTx = txSpendingUTxO utxo
-          let commitBlueprint = CommitBlueprintTx{lookupUTxO = utxo, blueprintTx}
-          let depositTransaction = depositTx networkId headId commitBlueprint depositDeadline
-          writeFileLBS outFile $ textEnvelopeToJSON Nothing depositTransaction
+          writeFileLBS outFile
+            . textEnvelopeToJSON Nothing
+            $ depositTx networkId headId (mkSimpleBlueprintTx utxo) depositSlotNo depositDeadline
           putStrLn $ "Wrote deposit transaction to " <> outFile
     Recover RecoverOptions{networkId, outFile, recoverTxId, utxoFilePath, recoverSlotNo} -> do
       -- XXX: Only requires network discriminator / not networkId

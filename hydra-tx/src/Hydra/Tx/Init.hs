@@ -11,11 +11,11 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (..))
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, mintTokens, unsafeBuildTransaction)
 import Hydra.Plutus (initialValidatorScript)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain, toChain)
-import Hydra.Tx.HeadId (HeadId, mkHeadId)
+import Hydra.Tx.ContestationPeriod (fromChain, toChain)
+import Hydra.Tx.HeadId (HeadId, HeadSeed, mkHeadId, txInToHeadSeed)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId (..))
-import Hydra.Tx.Party (Party, partyFromChain, partyToChain)
+import Hydra.Tx.Party (partyFromChain, partyToChain)
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, mkHydraHeadV1TxName, onChainIdToAssetName)
 
 -- * Construction
@@ -82,19 +82,13 @@ mkInitialOutput networkId seedTxIn participant =
 
 -- | Data which can be observed from an `initTx`.
 data InitObservation = InitObservation
-  { initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , initials :: [(TxIn, TxOut CtxUTxO)]
-  , headId :: HeadId
-  , -- XXX: This is cardano-specific, while headId, parties and
-    -- contestationPeriod are already generic here. Check which is more
-    -- convenient and consistent!
-    seedTxIn :: TxIn
-  , contestationPeriod :: ContestationPeriod
-  , parties :: [Party]
-  , -- XXX: Improve naming
-    participants :: [OnChainId]
+  { headId :: HeadId
+  , headSeed :: HeadSeed
+  , headParameters :: HeadParameters
+  , participants :: [OnChainId]
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 data NotAnInitReason
   = NoHeadOutput
@@ -110,10 +104,8 @@ observeInitTx ::
   Tx ->
   Either NotAnInitReason InitObservation
 observeInitTx tx = do
-  -- XXX: Lots of redundant information here
-  (ix, headOut, headState) <-
-    maybeLeft NoHeadOutput $
-      findFirst matchHeadOutput indexedOutputs
+  (headOut, headState) <-
+    findFirst matchHeadOutput (txOuts' tx) ?> NoHeadOutput
 
   -- check that we have a proper head
   (pid, contestationPeriod, onChainParties, seedTxIn) <- case headState of
@@ -139,30 +131,14 @@ observeInitTx tx = do
   pure $
     InitObservation
       { headId = mkHeadId pid
-      , seedTxIn
-      , initialThreadUTxO = (mkTxIn tx ix, toCtxUTxOTxOut headOut)
-      , initials
-      , contestationPeriod
-      , parties
+      , headSeed = txInToHeadSeed seedTxIn
+      , headParameters = HeadParameters{contestationPeriod, parties}
       , participants = assetNameToOnChainId <$> mintedTokenNames pid
       }
  where
-  maybeLeft e = maybe (Left e) Right
-
-  matchHeadOutput (ix, out) = do
+  matchHeadOutput out = do
     guard $ isScriptTxOut Head.validatorScript out
-    (ix,out,) <$> (fromScriptData =<< txOutScriptData out)
-
-  indexedOutputs = zip [0 ..] (txOuts' tx)
-
-  initialOutputs = filter (isInitial . snd) indexedOutputs
-
-  initials =
-    map
-      (bimap (mkTxIn tx) toCtxUTxOTxOut)
-      initialOutputs
-
-  isInitial = isScriptTxOut initialValidatorScript
+    (out,) <$> (fromScriptData =<< txOutScriptData out)
 
   mintedTokenNames pid =
     [ assetName

@@ -22,6 +22,9 @@ import Hydra.Prelude hiding (toList)
 
 import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Lens ((^.))
+import Data.Aeson (Value (Object, String), defaultOptions, genericToJSON, withObject, (.:))
+import Data.Aeson.KeyMap qualified as KeyMap
+import Data.Aeson.Lens (key, _Object, _String)
 import Hydra.Tx.Abort (AbortObservation (..), observeAbortTx)
 import Hydra.Tx.Close (CloseObservation (..), observeCloseTx)
 import Hydra.Tx.CollectCom (CollectComObservation (..), observeCollectComTx)
@@ -51,6 +54,37 @@ data HeadObservation
   | Contest ContestObservation
   | Fanout FanoutObservation
   deriving stock (Eq, Show, Generic)
+
+-- NOTE: Custom To/FromJSON instances to create a "flat" encoding. The default
+-- generic implementation would use 'TaggedObject' with a "contents" field, but
+-- we want it flat so it resembles what we (used to) have for 'OnChainTx'
+-- without removing the sub-types.
+
+instance ToJSON HeadObservation where
+  toJSON = mergeContents . genericToJSON defaultOptions
+   where
+    mergeContents v = do
+      let tag = v ^. key "tag" . _String
+      let km = v ^. key "contents" . _Object
+      Object $ KeyMap.singleton "tag" (String tag) <> km
+
+instance FromJSON HeadObservation where
+  parseJSON = withObject "HeadObservation" $ \o -> do
+    tag <- o .: "tag"
+    case tag :: Text of
+      "NoHeadTx" -> pure NoHeadTx
+      "Init" -> Init <$> parseJSON (Object o)
+      "Abort" -> Abort <$> parseJSON (Object o)
+      "Commit" -> Commit <$> parseJSON (Object o)
+      "CollectCom" -> CollectCom <$> parseJSON (Object o)
+      "Deposit" -> Deposit <$> parseJSON (Object o)
+      "Recover" -> Recover <$> parseJSON (Object o)
+      "Increment" -> Increment <$> parseJSON (Object o)
+      "Decrement" -> Decrement <$> parseJSON (Object o)
+      "Close" -> Close <$> parseJSON (Object o)
+      "Contest" -> Contest <$> parseJSON (Object o)
+      "Fanout" -> Fanout <$> parseJSON (Object o)
+      _ -> fail $ "Unknown tag: " <> show tag
 
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation

@@ -19,7 +19,7 @@ import Data.ByteString.Char8 qualified as BSC
 import Data.IP (IP (IPv4), toIPv4, toIPv4w)
 import Data.Text (unpack)
 import Data.Text qualified as T
-import Data.Version (Version (..), showVersion)
+import Data.Version (showVersion)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   File (..),
@@ -38,10 +38,10 @@ import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
+import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Hydra.Tx.HeadId (HeadSeed)
-import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -78,7 +78,6 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
-import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
 
 data Command
@@ -194,6 +193,7 @@ data RunOptions = RunOptions
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
   , persistenceDir :: FilePath
+  , persistenceRotateAfter :: Maybe Natural
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   , whichEtcd :: WhichEtcd
@@ -221,6 +221,7 @@ instance Arbitrary RunOptions where
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
     persistenceDir <- genDirPath
+    persistenceRotateAfter <- arbitrary
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     whichEtcd <- arbitrary
@@ -239,6 +240,7 @@ instance Arbitrary RunOptions where
         , hydraSigningKey
         , hydraVerificationKeys
         , persistenceDir
+        , persistenceRotateAfter
         , chainConfig
         , ledgerConfig
         , whichEtcd
@@ -263,6 +265,7 @@ defaultRunOptions =
     , hydraSigningKey = "hydra.sk"
     , hydraVerificationKeys = []
     , persistenceDir = "./"
+    , persistenceRotateAfter = Nothing
     , chainConfig = Cardano defaultCardanoChainConfig
     , ledgerConfig = defaultLedgerConfig
     , whichEtcd = EmbeddedEtcd
@@ -287,6 +290,7 @@ runOptionsParser =
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
     <*> persistenceDirParser
+    <*> optional persistenceRotateAfterParser
     <*> chainConfigParser
     <*> ledgerConfigParser
     <*> whichEtcdParser
@@ -516,7 +520,7 @@ ledgerGenesisFileParser =
 cardanoChainConfigParser :: Parser CardanoChainConfig
 cardanoChainConfigParser =
   CardanoChainConfig
-    <$> (hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser)
+    <$> ((hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser) <|> hydraScriptsDefaultParser)
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
@@ -797,6 +801,22 @@ hydraScriptsTxIdParser =
           \can use the 'publish-scripts' sub-command to publish them yourself."
     )
 
+hydraScriptsDefaultParser :: Parser [TxId]
+hydraScriptsDefaultParser =
+  option
+    (eitherReader validateNetwork)
+    ( long "network"
+        <> metavar "NETWORK"
+        <> help "Uses the last pre-published hydra scripts for the given network."
+    )
+ where
+  validateNetwork arg =
+    case arg of
+      "preview" -> parseNetworkTxIds hydraNodeVersion arg
+      "preprod" -> parseNetworkTxIds hydraNodeVersion arg
+      "mainnet" -> parseNetworkTxIds hydraNodeVersion arg
+      _ -> Left $ "Unknown network: " <> arg
+
 persistenceDirParser :: Parser FilePath
 persistenceDirParser =
   option
@@ -807,6 +827,16 @@ persistenceDirParser =
         <> help
           "The directory where the Hydra Head state is stored.\
           \Do not edit these files manually!"
+    )
+
+persistenceRotateAfterParser :: Parser Natural
+persistenceRotateAfterParser =
+  option
+    auto
+    ( long "persistence-rotate-after"
+        <> metavar "NATURAL"
+        <> help
+          "The number of Hydra events to trigger rotation (default: no rotation)"
     )
 
 hydraNodeCommand :: ParserInfo Command
@@ -831,16 +861,6 @@ hydraNodeCommand =
     infoOption
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
       (long "script-info" <> help "Dump script info as JSON")
-
-hydraNodeVersion :: Version
-hydraNodeVersion =
-  version & \(Version semver _) -> Version semver revision
- where
-  revision =
-    maybeToList $
-      embeddedRevision
-        <|> gitRevision
-        <|> Just unknownVersion
 
 defaultContestationPeriod :: ContestationPeriod
 defaultContestationPeriod = 600
@@ -927,6 +947,7 @@ toArgs
     , hydraSigningKey
     , hydraVerificationKeys
     , persistenceDir
+    , persistenceRotateAfter
     , chainConfig
     , ledgerConfig
     , whichEtcd
@@ -945,6 +966,7 @@ toArgs
       <> concatMap toArgPeer peers
       <> maybe [] (\port -> ["--monitoring-port", show port]) monitoringPort
       <> ["--persistence-dir", persistenceDir]
+      <> maybe [] (\rotateAfter -> ["--persistence-rotate-after", show rotateAfter]) persistenceRotateAfter
       <> argsChainConfig chainConfig
       <> argsLedgerConfig
    where

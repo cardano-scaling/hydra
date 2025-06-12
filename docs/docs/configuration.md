@@ -52,7 +52,7 @@ Being a protocol parameter, all participants in a head must configure the same `
 
 :::
 
-The default contestation period is _600 seconds_, but it should be tailored to the network conditions, as different networks have varying block production rates. A good rule of thumb is the maximum time you would expect an attacker to launch a withholding attack onto the cardano network you are on. Also, consider the time it takes to propagate a transaction to the network and the time it takes for a block to be produced, and the contestation period should be long enough to accommodate any downtime of the `hydra-node`. 
+The default contestation period is _600 seconds_, but it should be tailored to the network conditions, as different networks have varying block production rates. A good rule of thumb is the maximum time you would expect an attacker to launch a withholding attack onto the cardano network you are on. Also, consider the time it takes to propagate a transaction to the network and the time it takes for a block to be produced, and the contestation period should be long enough to accommodate any downtime of the `hydra-node`.
 
 The contestation deadline decides when a closed head can be fanned out. At worst, this is `(1 + n) * CP` after submitting a `Close` transaction, where `n` is the number of participants in the head. This is because the deadline is pushed forward on each `Contest`. With no contestations which may still be `2 * CP` after `Close` depending on the upper validity set on che close transaction. The `hydra-node` currently picks a blanket 200 seconds as [max grace time](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Chain-Direct-Handlers.html#v:maxGraceTime).
 
@@ -83,13 +83,21 @@ See the [how-to](./how-to/incremental-commit) and [protocol documentation](./dev
 
 The `hydra-node` uses reference scripts to reduce transaction sizes driving the head's lifecycle. Specify the `--hydra-scripts-tx-id` to reference the correct scripts. The `hydra-node` will verify the availability of these scripts on-chain.
 
+:::important Alternative: use --network
+Since we pre-publish hydra scrips before each release, instead of specifying hydra-scripts using `--hydra-scripts-tx-id`, you can use `--network` together with the network name you would like to run your hydra-node on (e.g. `--network preview`).
+:::
+
+:::warning
+`--network` argument only works with officially released hydra-node versions!
+:::
+
 Check the scripts against which a hydra-node was compiled using:
 
 ```shell
 hydra-node --script-info
 ```
 
-For public [(test) networks](https://book.world.dev.cardano.org/environments.html), we publish Hydra scripts with each new release, listing transaction IDs in the [release notes](https://github.com/cardano-scaling/hydra/releases) and [`networks.json`](https://github.com/cardano-scaling/hydra/blob/master/networks.json).
+For public [(test) networks](https://book.world.dev.cardano.org/environments.html), we publish Hydra scripts with each new release, listing transaction IDs in the [release notes](https://github.com/cardano-scaling/hydra/releases) and [`networks.json`](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/networks.json).
 
 To publish scripts yourself, use the `publish-scripts` command:
 

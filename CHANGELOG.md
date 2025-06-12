@@ -17,6 +17,8 @@ changes.
 - Remove runtime dependency to `etcd` by embedding and shipping it with `hydra-node`.
   - New option `--use-system-etcd` to prefer the system etcd instead of the embedded one.
 
+- Add file-based event log rotation support via optional `--persistence-rotate-after` command line option.
+
 - **BREAKING** Update scripts to plutus 1.45.0.0.
 
 - Hydra will now store etcd cluster information on the filesystem in directories content-addressed
@@ -35,6 +37,18 @@ changes.
 - Fix head status in post abort greetings output.
 
 - Add `UDP` and `S3` examples for `EventSource` and `EventSink` implementations to `hydra-node:examples`.
+
+- Switch `hydra-chain-observer` to use `HeadObservation` when reporting observations to `hydra-explorer`.
+  - Most observation types got changed quite a lot to match the previously used `OnChainTx`.
+  - This introduces `ToJSON` and `FromJSON` instances on all observation types.
+  - `CollectComObservation` and `ContestObservation` are made compatible with their `OnChainTx` counterparts.
+
+- Enhanced the error message for `etcd` cluster ID mismatches by including detailed information about
+  the expected peers versus peers loaded from the `hydra-node` arguments.
+
+- Add API query (GET /head) to fetch the latest head state by a node and help introspecting the whole internal state.
+
+- Provide `--network` option to hydra-node in order to use pre-published hydra scripts.
 
 ## [0.21.0] - 2025-04-28
 

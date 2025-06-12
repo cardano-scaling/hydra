@@ -153,7 +153,7 @@ import Network.HTTP.Req (
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
 import System.FilePath ((</>))
-import System.Process (proc, readCreateProcessWithExitCode)
+import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, elements, generate)
@@ -319,14 +319,17 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
   refuelIfNeeded tracer cardanoNode Bob 100_000_000
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
-  let contestationPeriod = 2
+
+  -- NOTE: Adapt periods to block times
+  let contestationPeriod = truncate $ 10 * blockTime
+      depositPeriod = truncate $ 50 * blockTime
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
-      <&> modifyConfig (\config -> config{startChainFrom = Nothing})
+      <&> modifyConfig (\config -> config{startChainFrom = Nothing, depositPeriod})
 
   bobChainConfig <-
     chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
-      <&> modifyConfig (\config -> config{startChainFrom = Nothing})
+      <&> modifyConfig (\config -> config{startChainFrom = Nothing, depositPeriod})
 
   (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
   commitUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 5_000_000 (contramap FromFaucet tracer)
@@ -356,10 +359,10 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
 
       submitTx cardanoNode tx
 
-      waitFor hydraTracer 10 [n1, n2] $
+      waitFor hydraTracer (2 * realToFrac depositPeriod) [n1, n2] $
         output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
 
-      waitFor hydraTracer 10 [n1, n2] $
+      waitFor hydraTracer (20 * blockTime) [n1, n2] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
       getSnapshotUTxO n1 `shouldReturn` commitUTxO
@@ -402,9 +405,9 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
         <&> modifyConfig (\config -> config{startChainFrom = Just tip})
 
     withTempDir "blank-state" $ \tmpDir -> do
-      void $ readCreateProcessWithExitCode (proc "cp" ["-r", workDir </> "state-2", tmpDir]) ""
-      void $ readCreateProcessWithExitCode (proc "rm" ["-rf", tmpDir </> "state-2" </> "state"]) ""
-      void $ readCreateProcessWithExitCode (proc "rm" ["-rf", tmpDir </> "state-2" </> "last-known-revision"]) ""
+      callProcess "cp" ["-r", workDir </> "state-2", tmpDir]
+      callProcess "rm" ["-rf", tmpDir </> "state-2" </> "state*"]
+      callProcess "rm" ["-rf", tmpDir </> "state-2" </> "last-known-revision"]
       withHydraNode hydraTracer bobChainConfigFromTip tmpDir 2 bobSk [aliceVk] [1] $ \n2 -> do
         -- Also expect to see past server outputs replayed
         headId2 <- waitMatch 5 n2 $ headIsInitializingWith (Set.fromList [alice, bob])
@@ -958,8 +961,12 @@ singlePartyCommitsScriptBlueprint ::
 singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 20_000_000
-    let contestationPeriod = 100
-    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
+    -- NOTE: Adapt periods to block times
+    let contestationPeriod = truncate $ 10 * blockTime
+        depositPeriod = truncate $ 50 * blockTime
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
+        <&> modifyConfig (\c -> c{depositPeriod})
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     (_, walletSk) <- keysFor AliceFunds
@@ -1003,9 +1010,9 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
 
       submitTx node tx
 
-      waitFor hydraTracer 10 [n1] $
+      waitFor hydraTracer (2 * realToFrac depositPeriod) [n1] $
         output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= scriptUTxO']
-      waitFor hydraTracer 10 [n1] $
+      waitFor hydraTracer (20 * blockTime) [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
       getSnapshotUTxO n1 `shouldReturn` scriptUTxO <> scriptUTxO'
@@ -1342,6 +1349,31 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
 
       participants `shouldMatchList` expectedParticipants
 
+startWithWrongPeers :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> [TxId] -> IO ()
+startWithWrongPeers workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
+  (aliceCardanoVk, _) <- keysFor Alice
+
+  let contestationPeriod = 2
+  aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Carol] contestationPeriod
+  bobChainConfig <- chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
+
+  let hydraTracer = contramap FromHydraNode tracer
+  withHydraNode hydraTracer aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
+    -- NOTE: here we deliberately use the wrong peer list for Bob
+    withHydraNode hydraTracer bobChainConfig workDir 4 bobSk [aliceVk] [4] $ \_ -> do
+      seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+      (clusterPeers, configuredPeers) <- waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just (Aeson.String "NetworkClusterIDMismatch")
+        clusterPeers <- v ^? key "clusterPeers" . _String
+        configuredPeers <- v ^? key "misconfiguredPeers" . _String
+        pure (clusterPeers, configuredPeers)
+
+      when (clusterPeers == configuredPeers) $
+        failure "Expected clusterPeers and configuredPeers to be different"
+      clusterPeers `shouldBe` "0.0.0.0:5003=http://0.0.0.0:5003,0.0.0.0:5004=http://0.0.0.0:5004"
+      configuredPeers `shouldBe` "0.0.0.0:5004=http://0.0.0.0:5004"
+
 -- | Open a a two participant head and incrementally commit to it.
 canCommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 canCommit tracer workDir node hydraScriptsTxId =
@@ -1349,18 +1381,21 @@ canCommit tracer workDir node hydraScriptsTxId =
     (`finally` returnFundsToFaucet tracer node Bob) $ do
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
-      let contestationPeriod = 20
+      -- NOTE: Adapt periods to block times
+      let contestationPeriod = truncate $ 10 * blockTime
+          depositPeriod = truncate $ 50 * blockTime
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
+            . modifyConfig (\c -> c{depositPeriod})
       bobChainConfig <-
         chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId
+            . modifyConfig (\c -> c{depositPeriod})
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
-          -- _ <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [bob])
-          headId <- waitMatch 20 n2 $ headIsInitializingWith (Set.fromList [alice, bob])
+          headId <- waitMatch (10 * blockTime) n2 $ headIsInitializingWith (Set.fromList [alice, bob])
 
           -- Commit nothing
           requestCommitTx n1 mempty >>= submitTx node
@@ -1383,9 +1418,9 @@ canCommit tracer workDir node hydraScriptsTxId =
 
           submitTx node tx
 
-          waitFor hydraTracer 20 [n1, n2] $
+          waitFor hydraTracer (2 * realToFrac depositPeriod) [n1, n2] $
             output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
-          waitFor hydraTracer 20 [n1, n2] $
+          waitFor hydraTracer (20 * blockTime) [n1, n2] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
           getSnapshotUTxO n1 `shouldReturn` commitUTxO
@@ -1400,16 +1435,16 @@ canCommit tracer workDir node hydraScriptsTxId =
 
           submitTx node tx'
 
-          waitFor hydraTracer 20 [n1, n2] $
+          waitFor hydraTracer (2 * realToFrac depositPeriod) [n1, n2] $
             output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO2]
-          waitFor hydraTracer 20 [n1, n2] $
+          waitFor hydraTracer (20 * blockTime) [n1, n2] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx')]
 
           getSnapshotUTxO n1 `shouldReturn` commitUTxO <> commitUTxO2
 
           send n2 $ input "Close" []
 
-          deadline <- waitMatch (20 * blockTime) n2 $ \v -> do
+          deadline <- waitMatch (10 * blockTime) n2 $ \v -> do
             guard $ v ^? key "tag" == Just "HeadIsClosed"
             v ^? key "contestationDeadline" . _JSON
 
@@ -1417,7 +1452,7 @@ canCommit tracer workDir node hydraScriptsTxId =
           waitFor hydraTracer (remainingTime + 3 * blockTime) [n1, n2] $
             output "ReadyToFanout" ["headId" .= headId]
           send n2 $ input "Fanout" []
-          waitMatch (20 * blockTime) n2 $ \v ->
+          waitMatch (10 * blockTime) n2 $ \v ->
             guard $ v ^? key "tag" == Just "HeadIsFinalized"
 
           -- Assert final wallet balance
@@ -1533,9 +1568,9 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
     (`finally` returnFundsToFaucet tracer node Bob) $ do
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
-      -- NOTE: Directly expire deposits
-      contestationPeriod <- CP.fromNominalDiffTime 1
-      let depositPeriod = 1
+      -- NOTE: Adapt periods to block times
+      let contestationPeriod = truncate $ 10 * blockTime
+          depositPeriod = truncate $ 50 * blockTime
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
@@ -1592,7 +1627,7 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
           let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
           -- XXX: should know the deadline from the query above
           -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
-          threadDelay $ realToFrac (toNominalDiffTime depositPeriod * 2)
+          threadDelay $ realToFrac (toNominalDiffTime depositPeriod * 4)
 
           (`shouldReturn` "OK") $
             parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)

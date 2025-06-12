@@ -22,6 +22,7 @@ import Hydra.Cardano.Api (
   getChainPoint,
   getTxBody,
   getTxId,
+  throwError,
  )
 import Hydra.Chain (
   Chain (..),
@@ -53,6 +54,7 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   increment,
+  initialChainState,
   initialize,
   recover,
  )
@@ -64,15 +66,12 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
   UTxOType,
   headSeedToTxIn,
-  txInToHeadSeed,
  )
-import Hydra.Tx.Close (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
 import Hydra.Tx.Observe (
@@ -158,7 +157,8 @@ mkChain ::
   Chain Tx m
 mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
-    { postTx = \tx -> do
+    { mkChainState = initialChainState
+    , postTx = \tx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
@@ -166,21 +166,30 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
             >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
-    , -- Handle that creates a draft commit tx using the user utxo and a _blueprint_ transaction.
-      -- Possible errors are handled at the api server level.
-      draftCommitTx = \headId commitBlueprintTx -> do
+    , draftCommitTx = \headId commitBlueprintTx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
           commit' ctx headId spendableUTxO commitBlueprintTx
-    , -- Handle that creates a draft **deposit** tx using the user utxo and a deadline.
-      -- Possible errors are handled at the api server level.
-      draftDepositTx = \headId commitBlueprintTx deadline -> do
+    , draftDepositTx = \headId commitBlueprintTx deadline -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
-        traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
-          -- TODO: Should we move deposit tx argument verification to `depositTx` function and have Either here?
-          Right (depositTx (networkId ctx) headId commitBlueprintTx deadline)
+        TimeHandle{currentPointInTime} <- queryTimeHandle
+        -- XXX: What an error handling mess
+        runExceptT $ do
+          (currentSlot, currentTime) <- case currentPointInTime of
+            Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
+            Right (s, t) -> pure (s, t)
+          -- NOTE: Use a smaller upper bound than maxGraceTime to allow for
+          -- shorter than 200 slot deposit periods. This is only important on
+          -- fast moving networks (e.g. in testing). XXX: Making maxGraceTime
+          -- configurable would avoid this.
+          let untilDeadline = diffUTCTime deadline currentTime
+          let graceTime = maxGraceTime `min` untilDeadline / 2
+          -- -- NOTE: But also not make it smaller than 10 slots.
+          let validBeforeSlot = currentSlot + fromInteger (truncate graceTime `max` 10)
+          lift . finalizeTx wallet ctx spendableUTxO lookupUTxO $
+            depositTx (networkId ctx) headId commitBlueprintTx validBeforeSlot deadline
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
@@ -288,10 +297,10 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         , receivedTxIds = getTxId . getTxBody <$> receivedTxs
         }
 
+    timeHandle <- getTimeHandle
     case chainPointToSlotNo point of
       Nothing -> pure ()
       Just slotNo -> do
-        timeHandle <- getTimeHandle
         case slotToUTCTime timeHandle slotNo of
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
@@ -300,14 +309,14 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             callback (Tick{chainTime = utcTime, chainSlot})
 
     forM_ receivedTxs $
-      maybeObserveSomeTx point >=> \case
+      maybeObserveSomeTx timeHandle point >=> \case
         Nothing -> pure ()
         Just event -> callback event
 
-  maybeObserveSomeTx point tx = atomically $ do
+  maybeObserveSomeTx timeHandle point tx = atomically $ do
     ChainStateAt{spendableUTxO} <- getLatest
     let observation = observeHeadTx networkId spendableUTxO tx
-    case convertObservation observation of
+    case convertObservation timeHandle observation of
       Nothing -> pure Nothing
       Just observedTx -> do
         let newChainState =
@@ -318,39 +327,28 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
 
-convertObservation :: HeadObservation -> Maybe (OnChainTx Tx)
-convertObservation = \case
+convertObservation :: TimeHandle -> HeadObservation -> Maybe (OnChainTx Tx)
+convertObservation TimeHandle{slotToUTCTime} = \case
   NoHeadTx -> Nothing
-  Init InitObservation{headId, contestationPeriod, parties, seedTxIn, participants} ->
-    pure
-      OnInitTx
-        { headId
-        , headSeed = txInToHeadSeed seedTxIn
-        , headParameters = HeadParameters{contestationPeriod, parties}
-        , participants
-        }
+  Init InitObservation{headId, headSeed, headParameters, participants} ->
+    pure OnInitTx{headId, headSeed, headParameters, participants}
   Abort AbortObservation{headId} ->
     pure OnAbortTx{headId}
   Commit CommitObservation{headId, party, committed} ->
     pure OnCommitTx{headId, party, committed}
   CollectCom CollectComObservation{headId} ->
     pure OnCollectComTx{headId}
-  Deposit DepositObservation{headId, deposited, depositTxId, deadline} ->
-    pure $ OnDepositTx{headId, deposited, depositTxId, deadline = posixToUTCTime deadline}
+  Deposit DepositObservation{headId, depositTxId, deposited, created, deadline} -> do
+    createdTime <- either (const Nothing) Just $ slotToUTCTime created
+    pure $ OnDepositTx{headId, depositTxId, deposited, created = createdTime, deadline}
   Recover RecoverObservation{headId, recoveredTxId, recoveredUTxO} ->
     pure OnRecoverTx{headId, recoveredTxId, recoveredUTxO}
   Increment IncrementObservation{headId, newVersion, depositTxId} ->
     pure OnIncrementTx{headId, newVersion, depositTxId}
   Decrement DecrementObservation{headId, newVersion, distributedUTxO} ->
     pure OnDecrementTx{headId, newVersion, distributedUTxO}
-  -- XXX: Needing ClosedThreadOutput feels weird here
-  Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
-    pure
-      OnCloseTx
-        { headId
-        , snapshotNumber
-        , contestationDeadline = posixToUTCTime closedContestationDeadline
-        }
+  Close CloseObservation{headId, snapshotNumber, contestationDeadline} ->
+    pure OnCloseTx{headId, snapshotNumber, contestationDeadline}
   Contest ContestObservation{contestationDeadline, headId, snapshotNumber} ->
     pure OnContestTx{contestationDeadline, headId, snapshotNumber}
   Fanout FanoutObservation{headId, fanoutUTxO} ->

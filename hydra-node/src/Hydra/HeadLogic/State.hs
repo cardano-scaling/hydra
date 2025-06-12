@@ -61,6 +61,14 @@ setChainState chainState = \case
   Open st -> Open st{chainState}
   Closed st -> Closed st{chainState}
 
+-- | Get the chain state in any 'HeadState'.
+getChainState :: HeadState tx -> ChainStateType tx
+getChainState = \case
+  Idle IdleState{chainState} -> chainState
+  Initial InitialState{chainState} -> chainState
+  Open OpenState{chainState} -> chainState
+  Closed ClosedState{chainState} -> chainState
+
 -- | Get the head parameters in any 'HeadState'.
 getHeadParameters :: HeadState tx -> Maybe HeadParameters
 getHeadParameters = \case
@@ -223,6 +231,7 @@ seenSnapshotNumber = \case
 data Deposit tx = Deposit
   { headId :: HeadId
   , deposited :: UTxOType tx
+  , created :: UTCTime
   , deadline :: UTCTime
   , status :: DepositStatus
   }
@@ -237,7 +246,7 @@ instance ArbitraryIsTx tx => Arbitrary (Deposit tx) where
   arbitrary = genericArbitrary
   shrink = recursivelyShrink
 
-data DepositStatus = Unknown | Active | Expired
+data DepositStatus = Inactive | Active | Expired
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
 instance Arbitrary DepositStatus where

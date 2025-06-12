@@ -28,7 +28,9 @@ The network topology needs to be statically configured and match across all `hyd
 Known errors are:
 
  - `cluster ID mismatch` - the cluster was initiated with a different list of `--peer`s
-   - check configuration with other participants
+   - check configuration with other participants. There should be a corresponding log entry `NetworkClusterIDMismatch` with the information on:
+      - `clusterPeers` - loaded peers info received from `etcd` cluster.
+      - `configuredPeers` - peers info coming from `hydra-node` arguments.
 
  - `member ... has already been bootstrapped` - missing information in `<persistence-dir>/etcd`
    - need to bootstrap new cluster or manual workarounds, see also https://etcd.io/docs/v3.5/op-guide/failures/
@@ -47,15 +49,19 @@ here: [Etcd Configuration](configuration#networking-configuring-the-limits-of-et
 
 If the hydra-node has breaking changes in regards to reading the files it stores in the `persistence` folder, it used to be recommended to just delete the entire folder.
 
-Now, because of etcd, it is important to only delete the `hydra-node` specific files; not the files associated with `etcd`. In particular you may like to delete the following file:
+Now, because of etcd, it is important to only delete the `hydra-node` specific files; not the files associated with `etcd`. In particular you may like to delete the following files:
 
-- `persistence/state`
+- `persistence/state*`
 
 Note that, as with any adjustments of this kind, it is good practice to make a backup first!
 
 ### Training wheels
 
 There is a hard-coded limit on the **mainnet** where only up to 100 ada can be committed into the Hydra head. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on the mainnet.
+
+### Deposit periods
+
+The `--deposit-period` allows an individual `hydra-node` operator to decide how long they want a deposit to have settled at least. However, differences bigger than [`defaultTTL * waitDelay`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Node.html#v:waitDelay) (currently 10 minutes) result in non-approved snapshots. This is due to the way the `HeadLogic` is implemented and snapshot requests are not retried currently. See [hydra#1999](https://github.com/cardano-scaling/hydra/issues/1999) for more context.
 
 ### Known bugs
 
