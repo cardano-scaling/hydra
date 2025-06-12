@@ -63,15 +63,24 @@ downloadLatestSnapshotTo tracer network directory = do
     Preproduction -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
     Preview -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
     Sanchonet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey"
+    BlockfrostPreview -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
+    BlockfrostPreprod -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
+    BlockfrostMainnet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
 
   ancillaryKeyURL = case network of
     Mainnet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
     Preproduction -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
     Preview -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
     Sanchonet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/ancillary.vkey"
+    BlockfrostPreview -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
+    BlockfrostPreprod -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
+    BlockfrostMainnet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
 
   aggregatorEndpoint = case network of
     Mainnet -> "https://aggregator.release-mainnet.api.mithril.network/aggregator"
     Preproduction -> "https://aggregator.release-preprod.api.mithril.network/aggregator"
     Preview -> "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
     Sanchonet -> "https://aggregator.testing-sanchonet.api.mithril.network/aggregator"
+    BlockfrostPreview -> "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
+    BlockfrostPreprod -> "https://aggregator.release-preprod.api.mithril.network/aggregator"
+    BlockfrostMainnet -> "https://aggregator.release-mainnet.api.mithril.network/aggregator"

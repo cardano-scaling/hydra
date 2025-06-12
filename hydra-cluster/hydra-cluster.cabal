@@ -127,6 +127,7 @@ executable hydra-cluster
   build-depends:
     , directory
     , filepath
+    , hydra-cardano-api
     , hydra-cluster
     , hydra-node
     , hydra-prelude

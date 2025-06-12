@@ -9,7 +9,6 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Api.Consensus (EraMismatch (..))
 import Control.Concurrent.Class.MonadSTM (
   newEmptyTMVar,
   newTQueueIO,
@@ -20,19 +19,18 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Exception (IOException)
 import Hydra.Cardano.Api (
-  AnyCardanoEra (..),
   BlockInMode (..),
   CardanoEra (..),
   ChainPoint (..),
   ChainTip,
   ConsensusModeParams (..),
   EpochSlots (..),
+  GenesisParameters (..),
   IsShelleyBasedEra (..),
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
   NetworkId,
-  QueryInShelleyBasedEra (..),
   SocketPath,
   Tx,
   TxInMode (..),
@@ -71,7 +69,7 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (CardanoChainConfig (..), DirectOptions (..))
+import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -86,14 +84,13 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
  )
 import Text.Printf (printf)
 
-newtype DirectBackend = DirectBackend {options :: DirectOptions}
+newtype DirectBackend = DirectBackend {options :: DirectOptions} deriving (Eq, Show)
 
 instance ChainBackend DirectBackend where
   queryGenesisParameters (DirectBackend DirectOptions{networkId, nodeSocket}) =
     liftIO $ CardanoClient.queryGenesisParameters networkId nodeSocket CardanoClient.QueryTip
 
-  queryScriptRegistry (DirectBackend DirectOptions{networkId, nodeSocket}) =
-    ScriptRegistry.queryScriptRegistry networkId nodeSocket
+  queryScriptRegistry = ScriptRegistry.queryScriptRegistry
 
   queryNetworkId (DirectBackend DirectOptions{networkId}) = pure networkId
 
@@ -103,6 +100,9 @@ instance ChainBackend DirectBackend where
   queryUTxO (DirectBackend DirectOptions{networkId, nodeSocket}) addresses =
     liftIO $ CardanoClient.queryUTxO networkId nodeSocket CardanoClient.QueryTip addresses
 
+  queryUTxOByTxIn (DirectBackend DirectOptions{networkId, nodeSocket}) txins =
+    liftIO $ CardanoClient.queryUTxOByTxIn networkId nodeSocket CardanoClient.QueryTip txins
+
   queryEraHistory (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
     liftIO $ CardanoClient.queryEraHistory networkId nodeSocket queryPoint
 
@@ -110,11 +110,7 @@ instance ChainBackend DirectBackend where
     liftIO $ CardanoClient.querySystemStart networkId nodeSocket queryPoint
 
   queryProtocolParameters (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.runQueryExpr networkId nodeSocket queryPoint $ do
-      AnyCardanoEra era <- CardanoClient.queryCurrentEraExpr
-      case era of
-        ConwayEra{} -> CardanoClient.queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
-        _ -> liftIO . throwIO $ CardanoClient.QueryEraMismatchException EraMismatch{ledgerEraName = show era, otherEraName = "Conway"}
+    liftIO $ CardanoClient.queryProtocolParameters networkId nodeSocket queryPoint
   queryStakePools (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
     liftIO $ CardanoClient.queryStakePools networkId nodeSocket queryPoint
 
@@ -126,6 +122,13 @@ instance ChainBackend DirectBackend where
 
   awaitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx =
     liftIO $ CardanoClient.awaitTransaction networkId nodeSocket tx
+
+  getOptions (DirectBackend directOptions) = Direct directOptions
+
+  getBlockTime (DirectBackend DirectOptions{networkId, nodeSocket}) = do
+    GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <-
+      liftIO $ CardanoClient.queryGenesisParameters networkId nodeSocket CardanoClient.QueryTip
+    pure (protocolParamSlotLength / realToFrac protocolParamActiveSlotsCoefficient)
 
 withDirectChain ::
   DirectBackend ->

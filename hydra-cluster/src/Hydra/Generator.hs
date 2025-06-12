@@ -4,12 +4,15 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (size)
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (QueryPoint (QueryTip), buildTransaction, mkGenesisTx, queryUTxOFor)
+import CardanoClient (QueryPoint (QueryTip), mkGenesisTx, queryUTxOFor)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
+import Hydra.Chain.Backend (buildTransaction)
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (availableInitialFunds)
 import Hydra.Ledger.Cardano (mkTransferTx)
+import Hydra.Options qualified as Options
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (choose, generate, sized)
 
@@ -144,7 +147,8 @@ generateDemoUTxODataset network nodeSocket faucetSk nClients nTxs = do
               (lovelaceToValue ll)
               TxOutDatumNone
               ReferenceScriptNone
-    buildTransaction network nodeSocket faucetAddress faucetUTxO [] recipientOutputs >>= \case
+
+    buildTransaction (DirectBackend $ Options.DirectOptions{Options.networkId = network, Options.nodeSocket}) faucetAddress faucetUTxO [] recipientOutputs >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ signTx faucetSk tx
   generate $ do
