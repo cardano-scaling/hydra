@@ -63,10 +63,10 @@
                 inherit (inputs.aiken.packages.${system}) aiken;
                 apply-refact = final.haskell-nix.tool compiler "apply-refact" "0.15.0.0";
                 cabal-install = final.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
-                cabal-plan = final.haskell-nix.tool compiler "cabal-plan" "0.7.5.0";
+                cabal-plan = final.haskell-nix.tool compiler "cabal-plan" { version = "0.7.5.0"; cabalProjectLocal = "package cabal-plan\nflags: +exe"; };
                 cabal-fmt = config.treefmt.programs.cabal-fmt.package;
                 fourmolu = config.treefmt.programs.fourmolu.package;
-                haskell-language-server = final.haskell-nix.tool compiler "haskell-language-server" "2.9.0.0";
+                haskell-language-server = final.haskell-nix.tool compiler "haskell-language-server" "2.11.0.0";
                 weeder = final.haskell-nix.tool compiler "weeder" "2.9.0";
                 inherit (inputs.cardano-node.packages.${system}) cardano-cli;
                 inherit (inputs.cardano-node.packages.${system}) cardano-node;
