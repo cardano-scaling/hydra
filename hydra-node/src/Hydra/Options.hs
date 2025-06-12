@@ -19,7 +19,7 @@ import Data.ByteString.Char8 qualified as BSC
 import Data.IP (IP (IPv4), toIPv4, toIPv4w)
 import Data.Text (unpack)
 import Data.Text qualified as T
-import Data.Version (Version (..), showVersion)
+import Data.Version (showVersion)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   File (..),
@@ -38,10 +38,10 @@ import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
+import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Hydra.Tx.HeadId (HeadSeed)
-import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -78,7 +78,6 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
-import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
 
 data Command
@@ -521,7 +520,7 @@ ledgerGenesisFileParser =
 cardanoChainConfigParser :: Parser CardanoChainConfig
 cardanoChainConfigParser =
   CardanoChainConfig
-    <$> (hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser)
+    <$> ((hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser) <|> hydraScriptsDefaultParser)
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
@@ -802,6 +801,22 @@ hydraScriptsTxIdParser =
           \can use the 'publish-scripts' sub-command to publish them yourself."
     )
 
+hydraScriptsDefaultParser :: Parser [TxId]
+hydraScriptsDefaultParser =
+  option
+    (eitherReader validateNetwork)
+    ( long "network"
+        <> metavar "NETWORK"
+        <> help "Uses the last pre-published hydra scripts for the given network."
+    )
+ where
+  validateNetwork arg =
+    case arg of
+      "preview" -> parseNetworkTxIds hydraNodeVersion arg
+      "preprod" -> parseNetworkTxIds hydraNodeVersion arg
+      "mainnet" -> parseNetworkTxIds hydraNodeVersion arg
+      _ -> Left $ "Unknown network: " <> arg
+
 persistenceDirParser :: Parser FilePath
 persistenceDirParser =
   option
@@ -846,16 +861,6 @@ hydraNodeCommand =
     infoOption
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
       (long "script-info" <> help "Dump script info as JSON")
-
-hydraNodeVersion :: Version
-hydraNodeVersion =
-  version & \(Version semver _) -> Version semver revision
- where
-  revision =
-    maybeToList $
-      embeddedRevision
-        <|> gitRevision
-        <|> Just unknownVersion
 
 defaultContestationPeriod :: ContestationPeriod
 defaultContestationPeriod = 600

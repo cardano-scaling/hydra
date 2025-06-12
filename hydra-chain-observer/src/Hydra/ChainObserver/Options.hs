@@ -6,8 +6,8 @@ import Hydra.Prelude
 
 import Data.Version (showVersion)
 import Hydra.Cardano.Api (ChainPoint, NetworkId, SocketPath)
+import Hydra.NetworkVersions (hydraNodeVersion)
 import Hydra.Options (
-  hydraNodeVersion,
   networkIdParser,
   nodeSocketParser,
   startChainFromParser,

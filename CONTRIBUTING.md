@@ -156,7 +156,7 @@ To perform a release of the next `<version>`:
 1. Make sure all tests are passing.
 2. Publish Hydra scripts onto `preview`, `preprod`, and `mainnet` using the
    [smoke test][smoke-test] and put the transaction IDs as new `<version>`
-   entries into [networks.json](./networks.json).
+   entries into [networks.json](./hydra-node/networks.json).
 3. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
    [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) and prepare contents.
 4. Run `./release.sh <version>`.
