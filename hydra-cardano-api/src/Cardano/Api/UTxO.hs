@@ -5,7 +5,7 @@
 --   cardano-api which is not convenient enough to work with. Having it as
 --   'Hydra.Cardano.Api.UTxO' causes cyclic imports with other modules also
 --   relying on this newtype. So instead, we do 'as if' it was part of the
---   cardano-api in the first palce.
+--   cardano-api in the first place.
 module Cardano.Api.UTxO where
 
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
@@ -14,7 +14,7 @@ import Cardano.Api.Shelley (ReferenceScript (..))
 import Cardano.Ledger.Babbage ()
 import Data.Bifunctor (second)
 import Data.Coerce (coerce)
-import Data.Foldable (toList)
+import Data.Foldable qualified as F
 import Data.List qualified as List
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -45,20 +45,20 @@ newtype UTxO' out = UTxO
     )
 
 -- | Create a 'UTxO' from a list of 'TxIn' and 'out' pairs.
-fromPairs :: [(TxIn, out)] -> UTxO' out
-fromPairs = UTxO . Map.fromList
+fromList :: [(TxIn, out)] -> UTxO' out
+fromList = UTxO . Map.fromList
 
 -- | Create a 'UTxO' from a single unspent transaction output.
-singleton :: (TxIn, out) -> UTxO' out
-singleton (i, o) = UTxO $ Map.singleton i o
+singleton :: TxIn -> out -> UTxO' out
+singleton i o = UTxO $ Map.singleton i o
 
 -- | Find an 'out' for a given 'TxIn'.
-resolve :: TxIn -> UTxO' out -> Maybe out
-resolve k = Map.lookup k . toMap
+resolveTxIn :: TxIn -> UTxO' out -> Maybe out
+resolveTxIn k = Map.lookup k . toMap
 
 -- | Turn a 'UTxO' into a list of pairs.
-pairs :: UTxO' out -> [(TxIn, out)]
-pairs = Map.toList . toMap
+toList :: UTxO' out -> [(TxIn, out)]
+toList = Map.toList . toMap
 
 -- | Find first 'UTxO' using the output in predicate.
 find :: (out -> Bool) -> UTxO' out -> Maybe (TxIn, out)
@@ -66,7 +66,7 @@ find fn = findBy (fn . snd)
 
 -- | Find first 'UTxO' using both input and output in predicate.
 findBy :: ((TxIn, out) -> Bool) -> UTxO' out -> Maybe (TxIn, out)
-findBy fn utxo = List.find fn $ pairs utxo
+findBy fn utxo = List.find fn $ toList utxo
 
 -- | Filter UTxO to only include 'out's satisfying given predicate.
 filter :: (out -> Bool) -> UTxO' out -> UTxO' out
@@ -90,8 +90,8 @@ difference a b = UTxO $ Map.difference (toMap a) (toMap b)
 -- to search for.
 containsOutputs :: Eq out => UTxO' out -> UTxO' out -> Bool
 containsOutputs utxoForSearching utxo =
-  let allOutputs = toList utxoForSearching
-      expectedOutputs = toList utxo
+  let allOutputs = F.toList utxoForSearching
+      expectedOutputs = F.toList utxo
    in all (`elem` allOutputs) expectedOutputs
 
 -- * Type Conversions
@@ -99,7 +99,7 @@ containsOutputs utxoForSearching utxo =
 -- | Transforms a UTxO containing tx outs from any era into Babbage era.
 fromApi :: Cardano.Api.UTxO era -> UTxO
 fromApi (Cardano.Api.UTxO eraUTxO) =
-  fromPairs $ second convertOutputToEra <$> Map.toList eraUTxO
+  fromList $ second convertOutputToEra <$> Map.toList eraUTxO
  where
   -- NOTE: At latest the TxOutValue is an existential where we need to case on
   -- the 'sbe' witness to get constraints on the contained 'value', but the

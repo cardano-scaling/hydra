@@ -1,0 +1,32 @@
+{
+    "samples": [
+        {
+            "chainTime": "1864-05-09T08:33:42.663668007375Z",
+            "deposit": {
+                "created": "1864-05-10T21:31:45.899988059114Z",
+                "deadline": "1864-05-09T11:26:18.208133007952Z",
+                "deposited": {
+                    "0001010100010000000100000101010000010000000000000000000101000101#8": {
+                        "address": "addr_test1yq45nqcv0f26ekp7rw78ymjk832563ktvtre7a2wjjp8glfjs8zqtpvr6trqdjtvjszv4nyst98sdk5jnwx7m7ucf8rstswh46",
+                        "datum": null,
+                        "datumhash": "2a053135ff62646602551f51d064bf17ceecfe597db80643bde2e5ae51a62343",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                                "82266dc6736b75a70557": 2
+                            },
+                            "lovelace": 1310240
+                        }
+                    }
+                },
+                "headId": "00000001010000000100010000000101",
+                "status": "Active"
+            },
+            "depositTxId": "0001010101000100010101000000010001000001010001010000010000010100",
+            "tag": "DepositActivated"
+        }
+    ],
+    "seed": -2122474449
+}

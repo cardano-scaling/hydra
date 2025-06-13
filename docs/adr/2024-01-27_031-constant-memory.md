@@ -22,7 +22,7 @@ used to serve in-memory data are using a common haskell list as a data
 structure. We should stream the data keeping the memory bounded as the first
 optimisation.
 
-It is also not necesary to output the whole history of messages by default and
+It is also not necessary to output the whole history of messages by default and
 only do that if clients request to see the whole history. Internally our
 `ServerOutput` type could be remapped to `StateChanged` since the two are
 almost identical. Any new information must be streamed to the clients

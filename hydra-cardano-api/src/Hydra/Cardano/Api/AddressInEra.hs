@@ -6,7 +6,6 @@ import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Hashes qualified as Ledger
-import Hydra.Cardano.Api.Network (Network)
 import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
@@ -73,7 +72,7 @@ toLedgerAddr = \case
 -- | Convert a plutus 'Address' to an api 'AddressInEra'.
 -- NOTE: Requires the 'Network' discriminator (Testnet or Mainnet) because
 -- Plutus addresses are stripped off it.
-fromPlutusAddress :: IsShelleyBasedEra era => Network -> Plutus.Address -> AddressInEra era
+fromPlutusAddress :: IsShelleyBasedEra era => Ledger.Network -> Plutus.Address -> AddressInEra era
 fromPlutusAddress network plutusAddress =
   fromLedgerAddr $
     case (addressCredential, addressStakingCredential) of

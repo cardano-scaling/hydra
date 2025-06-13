@@ -46,7 +46,6 @@ import Hydra.HeadLogic (
   WaitReason (..),
   aggregateState,
   cause,
-  defaultTTL,
   update,
  )
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
@@ -56,11 +55,12 @@ import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
-import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Node (mkNetworkInput)
+import Hydra.Node.Environment (Environment (..))
+import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..))
@@ -81,8 +81,9 @@ spec =
             , signingKey = bobSk
             , otherParties = [alice, carol]
             , contestationPeriod = defaultContestationPeriod
-            , depositDeadline = defaultDepositDeadline
+            , depositPeriod = defaultDepositPeriod
             , participants = deriveOnChainId <$> threeParties
+            , configuredPeers = ""
             }
         aliceEnv =
           Environment
@@ -90,8 +91,9 @@ spec =
             , signingKey = aliceSk
             , otherParties = [bob, carol]
             , contestationPeriod = defaultContestationPeriod
-            , depositDeadline = defaultDepositDeadline
+            , depositPeriod = defaultDepositPeriod
             , participants = deriveOnChainId <$> threeParties
+            , configuredPeers = ""
             }
 
     describe "Coordinated Head Protocol" $ do
@@ -105,6 +107,7 @@ spec =
               , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
               , pendingDeposits = mempty
+              , currentDepositTxId = Nothing
               , decommitTx = Nothing
               , version = 0
               }
@@ -155,7 +158,7 @@ spec =
               tx3 = SimpleTx 3 (utxoRef 3) (utxoRef 4)
               s0 = inOpenState threeParties
 
-          -- XXX: this is hiding unxpected 'Error' outcomes
+          -- XXX: this is hiding unexpected 'Error' outcomes
           s <- runHeadLogic bobEnv ledger s0 $ do
             step $ receiveMessage $ ReqTx tx1
             step $ receiveMessage $ ReqTx tx2
@@ -220,15 +223,6 @@ spec =
                       }
                 }
 
-        it "cannot commit while another decommit is pending" $ do
-          let decommitTx = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-              s0 = inOpenState' threeParties $ coordinatedHeadState{decommitTx = Just decommitTx}
-              observeDeposit =
-                observeTx $
-                  OnDepositTx{headId = testHeadId, deposited = utxoRefs [2], depositTxId = 1, deadline = arbitrary `generateWith` 42}
-          update aliceEnv ledger s0 observeDeposit
-            `assertWait` WaitOnUnresolvedDecommit{decommitTx}
-
         it "waits if a requested decommit tx is not (yet) applicable" $ do
           let decommitTx = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
               s0 = inOpenState threeParties
@@ -277,7 +271,7 @@ spec =
 
           let s1 = update aliceEnv ledger s0 reqDecEvent
 
-          let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', incrementUTxO = Nothing}
+          let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', depositTxId = Nothing}
           s1 `hasEffect` NetworkEffect reqSn
 
       describe "Tracks Transaction Ids" $ do
@@ -513,7 +507,7 @@ spec =
           Error RequireFailed{} -> True
           _ -> False
 
-      it "rejects same version snapshot requests with differring decommit txs" $ do
+      it "rejects same version snapshot requests with differing decommit txs" $ do
         let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 3)
             decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 4)
             activeUTxO = utxoRefs [1, 2]
@@ -665,6 +659,7 @@ spec =
                       PeerConnected{} -> True
                       PeerDisconnected{} -> True
                       NetworkVersionMismatch{} -> True
+                      NetworkClusterIDMismatch{} -> True
                       NetworkConnected{} -> True
                       NetworkDisconnected{} -> True
                       _ -> False
@@ -689,6 +684,7 @@ spec =
                   { headId = otherHeadId
                   , deposited = mempty
                   , depositTxId = 1
+                  , created = genUTCTime `generateWith` 41
                   , deadline = genUTCTime `generateWith` 42
                   }
         update bobEnv ledger (inOpenState threeParties) depositOtherHead
@@ -753,7 +749,7 @@ spec =
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
           let wrongInitialSnapshot = InitialSnapshot testHeadId (utxoRef 2)
           update bobEnv ledger s0 (ClientInput (SideLoadSnapshot wrongInitialSnapshot))
-            `shouldBe` Error (SideLoadSnapshotFailed SideLoadInitialSnapshotMissmatch)
+            `shouldBe` Error (SideLoadSnapshotFailed SideLoadInitialSnapshotMismatch)
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
 
         prop "ignores side load initial snapshot of another head" $ \otherHeadId -> do
@@ -893,12 +889,13 @@ spec =
                   { parameters = HeadParameters defaultContestationPeriod threeParties
                   , coordinatedHeadState =
                       CoordinatedHeadState
-                        { localUTxO = UTxO.singleton utxo
+                        { localUTxO = uncurry UTxO.singleton utxo
                         , allTxs = mempty
                         , localTxs = [expiringTransaction]
-                        , confirmedSnapshot = InitialSnapshot testHeadId $ UTxO.singleton utxo
+                        , confirmedSnapshot = InitialSnapshot testHeadId $ uncurry UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
                         , pendingDeposits = mempty
+                        , currentDepositTxId = Nothing
                         , decommitTx = Nothing
                         , version = 0
                         }
@@ -936,6 +933,7 @@ spec =
                       , confirmedSnapshot = InitialSnapshot testHeadId mempty
                       , seenSnapshot = NoSeenSnapshot
                       , pendingDeposits = mempty
+                      , currentDepositTxId = Nothing
                       , decommitTx = Nothing
                       , version = 0
                       }
@@ -1020,16 +1018,15 @@ genClosedState = do
 
 -- * Utilities
 
--- | Create a network input about a received protocol message with 'defaultTTL'
+-- | Create a network input about a received protocol message with default ttl
 -- and 'alice' as the sender.
 receiveMessage :: Message tx -> Input tx
 receiveMessage = receiveMessageFrom alice
 
--- | Create a network input about a received protocol message with 'defaultTTL'
+-- | Create a network input about a received protocol message with default ttl
 -- from given sender.
 receiveMessageFrom :: Party -> Message tx -> Input tx
-receiveMessageFrom sender msg =
-  NetworkInput defaultTTL $ ReceivedMessage{sender, msg}
+receiveMessageFrom = mkNetworkInput
 
 -- | Create a chain effect with fixed chain state and slot.
 chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
@@ -1092,6 +1089,7 @@ inOpenState parties =
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
       , pendingDeposits = mempty
+      , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
       }

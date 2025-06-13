@@ -16,11 +16,17 @@ import Hydra.Cardano.Api (
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
-import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
+import Hydra.Chain.Backend (ChainBackend (queryGenesisParameters))
+import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
+import Hydra.Chain.Cardano (withCardanoChain)
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
+import Hydra.Events.FileBased (mkFileBasedEventStore)
+import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
+import Hydra.HeadLogic (aggregate)
+import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
+import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -36,10 +42,12 @@ import Hydra.Node (
   wireClientInput,
   wireNetworkInput,
  )
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
+  CardanoChainConfig (..),
+  ChainBackendOptions (..),
   ChainConfig (..),
-  DirectChainConfig (..),
   InvalidOptions (..),
   LedgerConfig (..),
   OfflineChainConfig (..),
@@ -47,8 +55,8 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Utils (readJsonFileThrow)
+import System.FilePath ((</>))
 
 data ConfigurationException
   = -- XXX: this is not used
@@ -60,7 +68,7 @@ instance Exception ConfigurationException where
   displayException = \case
     InvalidOptionException MaximumNumberOfPartiesExceeded ->
       "Maximum number of parties is currently set to: " <> show maximumNumberOfParties
-    InvalidOptionException CardanoAndHydraKeysMissmatch ->
+    InvalidOptionException CardanoAndHydraKeysMismatch ->
       "Number of loaded cardano and hydra keys needs to match"
     ConfigurationException err ->
       "Incorrect protocol parameters configuration provided: " <> show err
@@ -76,17 +84,15 @@ run opts = do
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
-        incPersistence <- createPersistenceIncremental (persistenceDir <> "/state")
         -- Hydrate with event source and sinks
-        (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incPersistence
-        -- NOTE: Add any custom sink setup code here
-        -- customSink <- createCustomSink
-        let eventSinks =
-              [ filePersistenceSink
-              -- NOTE: Add any custom sinks here
-              -- , customSink
-              ]
-        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventSource eventSinks
+        let stateFile = persistenceDir </> "state"
+        eventStore@EventStore{eventSource} <-
+          prepareEventStore
+            =<< mkFileBasedEventStore stateFile
+            =<< createPersistenceIncremental stateFile
+        -- NOTE: Add any custom sinks here
+        let eventSinks = []
+        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
@@ -103,6 +109,7 @@ run opts = do
                     , advertise = fromMaybe listen advertise
                     , peers
                     , nodeId
+                    , whichEtcd
                     }
             withNetwork
               (contramap Network tracer)
@@ -121,17 +128,23 @@ run opts = do
      in action (cardanoLedger globals ledgerEnv)
 
   prepareChainComponent tracer Environment{party, otherParties} = \case
-    Offline cfg ->
-      pure $ withOfflineChain cfg party otherParties
-    Direct cfg -> do
-      ctx <- loadChainContext cfg party
-      wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
-      pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
+    Offline cfg -> pure $ withOfflineChain cfg party otherParties
+    Cardano cfg -> pure $ withCardanoChain (contramap DirectChain tracer) cfg party
+
+  prepareEventStore eventStore = do
+    case RotateAfter <$> persistenceRotateAfter of
+      Nothing ->
+        pure eventStore
+      Just rotationConfig -> do
+        let initialState = Idle IdleState{chainState = initialChainState}
+        let aggregator s StateEvent{stateChanged} = aggregate s stateChanged
+        newRotatedEventStore rotationConfig initialState aggregator mkCheckpoint eventStore
 
   RunOptions
     { verbosity
     , monitoringPort
     , persistenceDir
+    , persistenceRotateAfter
     , chainConfig
     , ledgerConfig
     , listen
@@ -142,6 +155,7 @@ run opts = do
     , apiPort
     , tlsCertPath
     , tlsKeyPath
+    , whichEtcd
     } = opts
 
 getGlobalsForChain :: ChainConfig -> IO Globals
@@ -149,8 +163,10 @@ getGlobalsForChain = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
     loadGenesisFile ledgerGenesisFile
       >>= newGlobals
-  Direct DirectChainConfig{networkId, nodeSocket} ->
-    queryGenesisParameters networkId nodeSocket QueryTip
+  Cardano CardanoChainConfig{chainBackendOptions} ->
+    case chainBackendOptions of
+      Direct directOptions -> queryGenesisParameters (DirectBackend directOptions)
+      Blockfrost blockfrostOptions -> queryGenesisParameters (BlockfrostBackend blockfrostOptions)
       >>= newGlobals
 
 data GlobalsTranslationException = GlobalsTranslationException

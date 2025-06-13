@@ -61,7 +61,7 @@ Please include as much details as needed to clearly qualify the issue:
 
 6. **Release**: The team creates and publish a release that includes the fix
 
-7. **Announcement**: Concommitant to the release annoucement, the team announces the security vulnerability by making the GitHub issue public. This is the first point that any information regarding the vulnerability is made public.
+7. **Announcement**: Concommitant to the release announcement, the team announces the security vulnerability by making the GitHub issue public. This is the first point that any information regarding the vulnerability is made public.
 
     a. **Credit**: The team publicly acknowledges the contributions of the
        reporter once the vulnerability is resolved, subject to the

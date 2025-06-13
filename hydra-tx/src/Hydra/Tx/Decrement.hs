@@ -43,7 +43,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef]
+      & addTxInsReference [headScriptRef] mempty
       & addTxOuts (headOutput' : map fromCtxUTxOTxOut decommitOutputs)
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DecrementTx")
@@ -99,6 +99,7 @@ data DecrementObservation = DecrementObservation
   , distributedUTxO :: UTxO
   }
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 observeDecrementTx ::
   UTxO ->
@@ -127,7 +128,7 @@ observeDecrementTx utxo tx = do
                         toCtxUTxOTxOut <$> txOuts' tx
                           & drop 1 -- NOTE: Head output must be in first position
                           & take (fromIntegral numberOfDecommitOutputs)
-                   in UTxO.fromPairs $ zip inputs outputs
+                   in UTxO.fromList $ zip inputs outputs
               }
         _ -> Nothing
     _ -> Nothing

@@ -80,7 +80,7 @@ PlutusTx.unstableMakeIsData ''State
 
 -- | Sub-type for close transition with auxiliary data as needed.
 data CloseRedeemer
-  = -- | Intial snapshot is used to close.
+  = -- | Initial snapshot is used to close.
     CloseInitial
   | -- | Any snapshot which doesn't contain anything to inc/decrement but snapshot number is higher than zero.
     CloseAny

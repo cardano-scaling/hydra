@@ -138,7 +138,7 @@ Fuel node key "16e61ed92346eb0b0bd1c6d8c0f924b4d1278996a61043a0a42afad193e5f3fb"
 Publishing hydra scripts
 Starting hydra cluster in out
 Initializing Head
-Comitting initialUTxO from dataset
+Committing initialUTxO from dataset
 HeadIsOpen
 Client 1 (node 0): 0/300 (0.00%)
 Client 1 (node 0): 266/300 (88.67%)
@@ -163,5 +163,5 @@ The benchmark can be run in three modes:
 
 * `single`: Generate a single _dataset_ and runs the benchmark with it.
 * `datasets`: Runs one or more pre-existing _datasets_ in sequence and collect their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over some well-known datasets over time and produce a human-readable summary.
-* `demo`: Generates transactions against an already running network of cardano and hydra nodes. This can serve as a workload when testing network-resiliance scenarios, such as packet loss or node failures. See [this CI workflow](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) for how it is used.
+* `demo`: Generates transactions against an already running network of cardano and hydra nodes. This can serve as a workload when testing network-resilience scenarios, such as packet loss or node failures. See [this CI workflow](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) for how it is used.
 

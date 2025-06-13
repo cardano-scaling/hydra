@@ -24,6 +24,8 @@ import Hydra.Cardano.Api (
   pattern PlutusScriptSerialised,
  )
 import Hydra.Cardano.Api qualified as Api
+import PlutusTx.Foldable qualified as F
+import PlutusTx.List qualified as L
 
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState (seed)
@@ -37,7 +39,6 @@ import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingP
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.V3 (
   Datum (getDatum),
-  FromData (fromBuiltinData),
   OutputDatum (..),
   ScriptContext (..),
   ScriptHash,
@@ -91,7 +92,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
  where
   seedInputIsConsumed =
     traceIfFalse $(errorCode SeedNotSpent) $
-      seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
+      seedInput `L.elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkNumberOfTokens =
     traceIfFalse $(errorCode WrongNumberOfTokensMinted) $
@@ -102,11 +103,11 @@ validateTokensMinting initialValidator headValidator seedInput context =
       hasST currency headValue
 
   allInitialOutsHavePTs =
-    traceIfFalse $(errorCode WrongNumberOfInitialOutputs) (nParties == length initialTxOutValues)
-      && all hasASinglePT initialTxOutValues
+    traceIfFalse $(errorCode WrongNumberOfInitialOutputs) (nParties == L.length initialTxOutValues)
+      && L.all hasASinglePT initialTxOutValues
 
   allInitialOutsHaveCorrectDatum =
-    all hasHeadIdDatum (fst <$> scriptOutputsAt initialValidator txInfo)
+    L.all hasHeadIdDatum (fst <$> scriptOutputsAt initialValidator txInfo)
 
   checkDatum =
     traceIfFalse $(errorCode WrongDatum) $
@@ -134,7 +135,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
       Just hid -> traceIfFalse $(errorCode WrongInitialDatum) $ hid == currency
 
   mintedTokenCount =
-    maybe 0 sum
+    maybe 0 F.sum
       . AssocMap.lookup currency
       . mintValueToMap
       $ txInfoMint txInfo
@@ -144,7 +145,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
       OutputDatum datum ->
         case fromBuiltinData @Head.DatumType $ getDatum datum of
           Just Head.Initial{Head.parties = parties, headId = h, seed = s} ->
-            (h, s, length parties)
+            (h, s, L.length parties)
           _ -> traceError $(errorCode ExpectedHeadDatumType)
       _ -> traceError $(errorCode ExpectedInlineDatum)
 

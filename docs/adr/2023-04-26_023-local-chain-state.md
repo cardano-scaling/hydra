@@ -27,7 +27,7 @@ Accepted
 - [#185](https://github.com/cardano-scaling/hydra/issues/185) plans to improve
   rollback management.
 
-The following picture details the race condition through an exemple:
+The following picture details the race condition through an example:
 
 1. The DirectChain component fetch some `chainState 0` from the `headState`
 

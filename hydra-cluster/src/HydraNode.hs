@@ -20,16 +20,16 @@ import Data.ByteString (hGetContents)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.HeadLogic.State (SeenSnapshot)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
-import Hydra.Network (Host (Host), NodeId (NodeId))
+import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
 import Hydra.Network qualified as Network
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
-import Hydra.Tx.DepositDeadline (DepositDeadline)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
@@ -285,10 +285,9 @@ withHydraCluster ::
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   ContestationPeriod ->
-  DepositDeadline ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline action = do
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -312,14 +311,17 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
           cardanoSigningKey = workDir </> show nodeId <.> "sk"
           cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           chainConfig =
-            Direct
-              defaultDirectChainConfig
-                { nodeSocket
-                , hydraScriptsTxId
+            Cardano
+              defaultCardanoChainConfig
+                { hydraScriptsTxId
                 , cardanoSigningKey
                 , cardanoVerificationKeys
                 , contestationPeriod
-                , depositDeadline
+                , chainBackendOptions =
+                    Direct
+                      defaultDirectOptions
+                        { nodeSocket = nodeSocket
+                        }
                 }
       withHydraNode
         tracer
@@ -346,9 +348,14 @@ preparePParams chainConfig stateDir paramsDecorator = do
     Offline _ ->
       readConfigFile "protocol-parameters.json"
         >>= writeFileBS cardanoLedgerProtocolParametersFile
-    Direct DirectChainConfig{nodeSocket, networkId} -> do
-      -- NOTE: This implicitly tests of cardano-cli with hydra-node
-      protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
+    Cardano CardanoChainConfig{chainBackendOptions} -> do
+      protocolParameters <- case chainBackendOptions of
+        Direct DirectOptions{networkId, nodeSocket} ->
+          -- NOTE: This implicitly tests of cardano-cli with hydra-node
+          cliQueryProtocolParameters nodeSocket networkId
+        Blockfrost BlockfrostOptions{projectPath} -> do
+          prj <- Blockfrost.projectFromFile projectPath
+          toJSON <$> Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
       Aeson.encodeFile cardanoLedgerProtocolParametersFile $
         paramsDecorator protocolParameters
           & atKey "txFeeFixed" ?~ toJSON (Number 0)
@@ -398,7 +405,9 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
       , hydraSigningKey
       , hydraVerificationKeys
       , persistenceDir = stateDir
+      , persistenceRotateAfter = Nothing
       , chainConfig
+      , whichEtcd = EmbeddedEtcd
       , ledgerConfig =
           CardanoLedgerConfig
             { cardanoLedgerProtocolParametersFile
@@ -409,9 +418,9 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
   -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
   peers =
     [ Host
-        { Network.hostname = "0.0.0.0"
-        , Network.port = fromIntegral $ 5_000 + i
-        }
+      { Network.hostname = "0.0.0.0"
+      , Network.port = fromIntegral $ 5_000 + i
+      }
     | i <- allNodeIds
     , i /= hydraNodeId
     ]
@@ -468,99 +477,9 @@ withHydraNode ::
   [Int] ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action =
-  withLogFile logFilePath $ \logFileHandle -> do
-    -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
-    when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
-    let stateDir = workDir </> "state-" <> show hydraNodeId
-    createDirectoryIfMissing True stateDir
-    let cardanoLedgerProtocolParametersFile = stateDir </> "protocol-parameters.json"
-    case chainConfig of
-      Offline _ ->
-        readConfigFile "protocol-parameters.json"
-          >>= writeFileBS cardanoLedgerProtocolParametersFile
-      Direct DirectChainConfig{nodeSocket, networkId} -> do
-        -- NOTE: This implicitly tests of cardano-cli with hydra-node
-        protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
-        Aeson.encodeFile cardanoLedgerProtocolParametersFile $
-          protocolParameters
-            & atKey "txFeeFixed" ?~ toJSON (Number 0)
-            & atKey "txFeePerByte" ?~ toJSON (Number 0)
-            & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
-            & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
-            & atKey "utxoCostPerByte" ?~ toJSON (Number 0)
-            & atKey "treasuryCut" ?~ toJSON (Number 0)
-            & atKey "minFeeRefScriptCostPerByte" ?~ toJSON (Number 0)
-
-    let hydraSigningKey = stateDir </> "me.sk"
-    void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
-    hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
-      let filepath = stateDir </> ("other-" <> show i <> ".vk")
-      filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
-
-    let cmd =
-          ( proc "hydra-node" . toArgs $
-              -- NOTE: Using 0.0.0.0 over 127.0.0.1 will make the hydra-node
-              -- crash if it can't bind the interface and make tests fail more
-              -- obvious when e.g. a hydra-node instance is already running.
-              RunOptions
-                { verbosity = Verbose "HydraNode"
-                , nodeId = NodeId $ show hydraNodeId
-                , listen = Host "0.0.0.0" (fromIntegral $ 5_000 + hydraNodeId)
-                , advertise = Nothing
-                , peers
-                , apiHost = "0.0.0.0"
-                , apiPort = fromIntegral $ 4_000 + hydraNodeId
-                , tlsCertPath = Nothing
-                , tlsKeyPath = Nothing
-                , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
-                , hydraSigningKey
-                , hydraVerificationKeys
-                , persistenceDir = stateDir
-                , chainConfig
-                , ledgerConfig =
-                    CardanoLedgerConfig
-                      { cardanoLedgerProtocolParametersFile
-                      }
-                }
-          )
-            & setStdout (useHandleOpen logFileHandle)
-            & setStderr createPipe
-
-    traceWith tracer $ HydraNodeCommandSpec $ show cmd
-
-    withProcessTerm cmd $ \p -> do
-      -- NOTE: exit code thread gets cancelled if 'action' terminates first
-      race
-        (collectAndCheckExitCode p)
-        (withConnectionToNode tracer hydraNodeId action)
-        <&> either absurd id
- where
-  collectAndCheckExitCode p = do
-    let h = getStderr p
-    waitExitCode p >>= \case
-      ExitSuccess -> failure "hydra-node stopped early"
-      ExitFailure ec -> do
-        err <- hGetContents h
-        failure . toString $
-          unlines
-            [ "hydra-node (nodeId = " <> show hydraNodeId <> ") exited with failure code: " <> show ec
-            , decodeUtf8 err
-            ]
-
-  port = fromIntegral $ 5_000 + hydraNodeId
-
-  -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
-  peers =
-    [ Host
-        { Network.hostname = "0.0.0.0"
-        , Network.port = fromIntegral $ 5_000 + i
-        }
-    | i <- allNodeIds
-    , i /= hydraNodeId
-    ]
-
-  logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
+withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
+  withPreparedHydraNode tracer workDir hydraNodeId opts action
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =
@@ -602,6 +521,11 @@ waitForNodesConnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty H
 waitForNodesConnected tracer delay clients =
   waitFor tracer delay (toList clients) $
     output "NetworkConnected" []
+
+waitForNodesDisconnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesDisconnected tracer delay clients =
+  waitFor tracer delay (toList clients) $
+    output "NetworkDisconnected" []
 
 data HydraNodeLog
   = HydraNodeCommandSpec {cmd :: Text}

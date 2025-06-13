@@ -14,7 +14,7 @@ Accepted
 
 We are in search for a means to describe our technical architecture.
 
-We are a small team working in a very lean and agile way (XP), so we naturally prefer also light-weight documentation methods which also accomodate change easily.
+We are a small team working in a very lean and agile way (XP), so we naturally prefer also light-weight documentation methods which also accommodate change easily.
 
 ## Decision
 

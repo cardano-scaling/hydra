@@ -14,7 +14,6 @@ import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (.
 import Hydra.API.ServerOutput (ClientMessage, Greetings, InvalidInput, TimedServerOutput)
 import Hydra.Cardano.Api (TxId)
 import Hydra.Cardano.Api.Prelude (
-  AsType (AsPaymentKey, AsSigningKey),
   PaymentKey,
   SigningKey,
  )
@@ -90,7 +89,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
         , recoverCommit = recoverCommit'
         }
  where
-  readExternalSk = readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+  readExternalSk = readFileTextEnvelopeThrow cardanoSigningKey
   -- TODO(SN): ping thread?
   client q = runClient (toString hostname) (fromIntegral port) "/?history=yes" $ \con -> do
     -- REVIEW(SN): is sharing the 'con' fine?

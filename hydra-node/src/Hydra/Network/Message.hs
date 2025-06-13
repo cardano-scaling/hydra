@@ -17,6 +17,7 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Crypto (Signature)
 import Hydra.Tx.IsTx (ArbitraryIsTx)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 data NetworkEvent msg
   = ConnectivityEvent Connectivity
@@ -34,7 +35,7 @@ data Message tx
       , snapshotNumber :: SnapshotNumber
       , transactionIds :: [TxIdType tx]
       , decommitTx :: Maybe tx
-      , incrementUTxO :: Maybe (UTxOType tx)
+      , depositTxId :: Maybe (TxIdType tx)
       }
   | AckSn
       { signed :: Signature (Snapshot tx)
@@ -50,6 +51,8 @@ deriving anyclass instance IsTx tx => FromJSON (Message tx)
 
 instance ArbitraryIsTx tx => Arbitrary (Message tx) where
   arbitrary = genericArbitrary
+
+instance ArbitraryIsTx tx => ToADTArbitrary (Message tx)
 
 instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Message tx) where
   toCBOR = \case

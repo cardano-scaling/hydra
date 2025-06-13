@@ -26,8 +26,7 @@ import Hydra.Tx (
   registryUTxO,
   signatures,
  )
-import Hydra.Tx.Close (closeTx)
-import Hydra.Tx.CollectCom (OpenThreadOutput (..))
+import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
   healthyCloseUTxOHash,
@@ -44,6 +43,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthySplitUTxOToDecommit,
   somePartyCardanoVerificationKey,
  )
+import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
@@ -52,7 +52,6 @@ import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genHash,
-  genMintedOrBurnedValue,
   genScriptRegistry,
   genValue,
   genVerificationKey,
@@ -137,7 +136,7 @@ healthyCloseOutdatedTx =
 
   lookupUTxO :: UTxO' (TxOut CtxUTxO)
   lookupUTxO =
-    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
+    UTxO.singleton healthyOpenHeadTxIn (healthyOpenHeadTxOut datum)
       <> registryUTxO scriptRegistry
 
   scriptRegistry = genScriptRegistry `generateWith` 42

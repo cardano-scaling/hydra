@@ -1,26 +1,29 @@
 {
-    "preview": {
-        "hydraScriptsTxId": "90acbeb0ebece3b5319625eedca3f6514870c9414872d9e940c6b7d7b88178fd",
-        "mithril": {
-            "aggregatorEndpoint": "https://aggregator.pre-release-preview.api.mithril.network/aggregator",
-            "genesisVerificationKeyURL": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
-        },
-        "tag": "--testnet-magic=2"
+  "preview": {
+    "hydraScriptsTxId": "90acbeb0ebece3b5319625eedca3f6514870c9414872d9e940c6b7d7b88178fd",
+    "mithril": {
+      "aggregatorEndpoint": "https://aggregator.pre-release-preview.api.mithril.network/aggregator",
+      "genesisVerificationKeyURL": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey",
+      "ancillaryVerificationKeyURL": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
     },
-    "preprod": {
-        "hydraScriptsTxId": "010f68ad75cda7983b68a7691ba1591fa9ce4cfc03ac35d1c6c90cae4b48f849",
-        "mithril": {
-            "aggregatorEndpoint": "https://aggregator.release-preprod.api.mithril.network/aggregator",
-            "genesisVerificationKeyURL": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
-        },
-        "tag": "--testnet-magic=1"
+    "tag": "--testnet-magic=2"
+  },
+  "preprod": {
+    "hydraScriptsTxId": "010f68ad75cda7983b68a7691ba1591fa9ce4cfc03ac35d1c6c90cae4b48f849",
+    "mithril": {
+      "aggregatorEndpoint": "https://aggregator.release-preprod.api.mithril.network/aggregator",
+      "genesisVerificationKeyURL": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey",
+      "ancillaryVerificationKeyURL": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
     },
-    "mainnet": {
-        "hydraScriptsTxId": "eb4c5f213ffb646046cf1d3543ae240ac922deccdc99826edd9af8ad52ddb877",
-        "mithril": {
-            "aggregatorEndpoint": "https://aggregator.release-mainnet.api.mithril.network/aggregator",
-            "genesisVerificationKeyURL": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
-        },
-        "tag": "--mainnet"
-    }
+    "tag": "--testnet-magic=1"
+  },
+  "mainnet": {
+    "hydraScriptsTxId": "eb4c5f213ffb646046cf1d3543ae240ac922deccdc99826edd9af8ad52ddb877",
+    "mithril": {
+      "aggregatorEndpoint": "https://aggregator.release-mainnet.api.mithril.network/aggregator",
+      "genesisVerificationKeyURL": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey",
+      "ancillaryVerificationKeyURL": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
+    },
+    "tag": "--mainnet"
+  }
 }

@@ -128,7 +128,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     mkScriptAddress networkId commitValidatorScript
 
   utxoToCommit =
-    UTxO.fromPairs $ mapMaybe (\txin -> (txin,) <$> UTxO.resolve txin lookupUTxO) committedTxIns
+    UTxO.fromList $ mapMaybe (\txin -> (txin,) <$> UTxO.resolveTxIn txin lookupUTxO) committedTxIns
 
   commitValue =
     txOutValue out <> foldMap txOutValue utxoToCommit
@@ -143,19 +143,19 @@ mkCommitDatum party utxo headId =
   Commit.datum (partyToChain party, commits, headId)
  where
   commits =
-    mapMaybe Commit.serializeCommit $ UTxO.pairs utxo
+    mapMaybe Commit.serializeCommit $ UTxO.toList utxo
 
 -- * Observation
 
 -- | Full observation of a commit transaction.
 data CommitObservation = CommitObservation
-  { commitOutput :: (TxIn, TxOut CtxUTxO)
-  , party :: Party
+  { party :: Party
   -- ^ Hydra participant who committed the UTxO.
   , committed :: UTxO
   , headId :: HeadId
   }
   deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Identify a commit tx by:
 --
@@ -171,24 +171,9 @@ observeCommitTx ::
   Tx ->
   Maybe CommitObservation
 observeCommitTx networkId utxo tx = do
-  -- NOTE: Instead checking to spend from initial we could be looking at the
-  -- seed:
-  --
-  --  - We must check that participation token in output satisfies
-  --      policyId = hash(mu_head(seed))
-  --
-  --  - This allows us to assume (by induction) the output datum at the commit
-  --    script is legit
-  --
-  --  - Further, we need to assert / assume that only one script is spent = onle
-  --    one redeemer matches the InitialRedeemer, as we do not have information
-  --    which of the inputs is spending from the initial script otherwise.
-  --
-  --  Right now we only have the headId in the datum, so we use that in place of
-  --  the seed -> THIS CAN NOT BE TRUSTED.
   guard isSpendingFromInitial
 
-  (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
+  (_, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- txOutScriptData commitOut
   (onChainParty, onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
   party <- partyFromChain onChainParty
@@ -197,14 +182,13 @@ observeCommitTx networkId utxo tx = do
   -- the commit into the datum (+ changing the hashing strategy of
   -- collect/fanout)
   committed <- do
-    committedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainCommits
-    pure . UTxO.fromPairs $ committedUTxO
+    committedUTxO <- traverse (Commit.deserializeCommit (toShelleyNetwork networkId)) onChainCommits
+    pure . UTxO.fromList $ committedUTxO
 
   policyId <- fromPlutusCurrencySymbol headId
   pure
     CommitObservation
-      { commitOutput = (commitIn, toCtxUTxOTxOut commitOut)
-      , party
+      { party
       , committed
       , headId = mkHeadId policyId
       }

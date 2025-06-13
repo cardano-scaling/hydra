@@ -16,7 +16,7 @@ This directory contains some [Terraform](https://www.hashicorp.com/products/terr
 
 terraform require access to GCP resources which is controlled by a _Service account_ configuration.
 
-Assuming one has "admin" access to a GCP project, the following steps will create a service account, set the needed permissions and retriev a key file which can then be used to configure the scripts:
+Assuming one has "admin" access to a GCP project, the following steps will create a service account, set the needed permissions and retrieve a key file which can then be used to configure the scripts:
 
 Create the service account:
 

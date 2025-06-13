@@ -8,7 +8,7 @@
 This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and AWS based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation) connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet. It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
 
 ### Pre-requisites
-- you have access to an aws account with root priviledges.
+- you have access to an aws account with root privileges.
 - you have configured your local aws credentials.
 for this example in `~/.aws/credentials` we have:
     ```
@@ -81,7 +81,7 @@ $ terraform plan -out vm.plan
 
 ```sh
 $ terraform apply vm.plan
-... <takes some time - 3m aprox>
+... <takes some time - 3m approx>
 
 Apply complete! Resources: 19 added, 0 changed, 0 destroyed.
 
@@ -159,7 +159,7 @@ i.e.:
 
 The [promtail-config.yml](./docker/promtail-config.yml) should be edited to point to the correct URL where logs should be shipped or the promtail container altogether removed.
 
-For `cardano-node` and `hydra-node` services, make sure the `logging` options for `awslogs` are propperly aligned with what is defined in your `cloudwatch.tf` and `variables.tf` files.
+For `cardano-node` and `hydra-node` services, make sure the `logging` options for `awslogs` are properly aligned with what is defined in your `cloudwatch.tf` and `variables.tf` files.
 
 ## Running the hydraw instance
 Next, to run hydraw, execute:
@@ -175,7 +175,7 @@ Finally, execute the hydra-tui and open the head:
 $ tui
 ```
 
-> If you take down your hydra-node instance once the head is open. you will loose access to your funds commited to the head.
+> If you take down your hydra-node instance once the head is open. you will loose access to your funds committed to the head.
 To get them back, currently you need to start the head from a point time in the past.
 For that you must run hydra-node the using parameter `--start-chain-from`.
 i.e.: --start-chain-from 2730515.c7a3629911ef004c873ef07313842df5d1331f61e0eb632432ac8c0636dfd391

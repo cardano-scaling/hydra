@@ -1,30 +1,31 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.ServerOutput where
 
 import Control.Lens ((.~))
-import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, withObject, (.:))
+import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, tagSingleConstructors, withObject, (.:))
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic.State (HeadState)
+import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
+import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Prelude hiding (seq)
-import Hydra.Tx (
-  HeadId,
-  Party,
-  Snapshot,
-  SnapshotNumber,
- )
+import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
+import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Tx.Snapshot qualified as HeadState
+import Test.QuickCheck (recursivelyShrink)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
@@ -111,6 +112,7 @@ instance IsChainState tx => ToJSON (Greetings tx) where
     genericToJSON
       defaultOptions
         { omitNothingFields = True
+        , tagSingleConstructors = True
         }
 
 instance IsChainState tx => FromJSON (Greetings tx) where
@@ -118,6 +120,7 @@ instance IsChainState tx => FromJSON (Greetings tx) where
     genericParseJSON
       defaultOptions
         { omitNothingFields = True
+        , tagSingleConstructors = True
         }
 
 instance ArbitraryIsTx tx => Arbitrary (Greetings tx) where
@@ -138,6 +141,10 @@ data ServerOutput tx
   | NetworkVersionMismatch
       { ourVersion :: ProtocolVersion
       , theirVersion :: Maybe ProtocolVersion
+      }
+  | NetworkClusterIDMismatch
+      { clusterPeers :: Text
+      , misconfiguredPeers :: Text
       }
   | PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
@@ -181,14 +188,27 @@ data ServerOutput tx
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, distributedUTxO :: UTxOType tx}
-  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx, deadline :: UTCTime}
+  | -- XXX: Rename to DepositRecorded following the state events naming. But only
+    -- do this when changing the endpoint also to /commits
+    CommitRecorded
+      { headId :: HeadId
+      , utxoToCommit :: UTxOType tx
+      , -- XXX: Inconsinstent field name
+        pendingDeposit :: TxIdType tx
+      , deadline :: UTCTime
+      }
+  | DepositActivated {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
+  | DepositExpired {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
-  | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
+  | -- XXX: Rename to DepositRecovered to be more consistent. But only do this
+    -- when changing the endpoint also to /commits
+    CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | -- | Snapshot was side-loaded, and the included transactions can be considered final.
     -- The local state has been reset, meaning pending transactions were pruned.
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
+  | EventLogRotated
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -198,37 +218,7 @@ deriving anyclass instance IsChainState tx => ToJSON (ServerOutput tx)
 
 instance ArbitraryIsTx tx => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
-
-  -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
-  -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
-  -- should be only one 'UTxOType tx'
-  shrink = \case
-    HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
-    Committed headId p u -> Committed <$> shrink headId <*> shrink p <*> shrink u
-    HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
-    HeadIsClosed headId s t -> HeadIsClosed <$> shrink headId <*> shrink s <*> shrink t
-    HeadIsContested headId sn dl -> HeadIsContested <$> shrink headId <*> shrink sn <*> shrink dl
-    ReadyToFanout headId -> ReadyToFanout <$> shrink headId
-    HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
-    HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
-    TxValid headId txid -> TxValid <$> shrink headId <*> shrink txid
-    TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
-    SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
-    IgnoredHeadInitializing{} -> []
-    DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
-    DecommitInvalid headId decommitTx decommitInvalidReason -> DecommitInvalid headId <$> shrink decommitTx <*> shrink decommitInvalidReason
-    DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
-    DecommitFinalized headId decommitTxId -> DecommitFinalized headId <$> shrink decommitTxId
-    CommitRecorded headId u i d -> CommitRecorded headId <$> shrink u <*> shrink i <*> shrink d
-    CommitApproved headId u -> CommitApproved headId <$> shrink u
-    CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
-    CommitFinalized headId depositTxId -> CommitFinalized headId <$> shrink depositTxId
-    NetworkConnected -> []
-    NetworkDisconnected -> []
-    NetworkVersionMismatch our theirs -> NetworkVersionMismatch <$> shrink our <*> shrink theirs
-    PeerConnected peer -> PeerConnected <$> shrink peer
-    PeerDisconnected peer -> PeerDisconnected <$> shrink peer
-    SnapshotSideLoaded headId snapshotNumber -> SnapshotSideLoaded headId <$> shrink snapshotNumber
+  shrink = recursivelyShrink
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
@@ -279,15 +269,19 @@ prepareServerOutput config response =
     DecommitFinalized{} -> encodedResponse
     DecommitInvalid{} -> encodedResponse
     CommitRecorded{} -> encodedResponse
+    DepositActivated{} -> encodedResponse
+    DepositExpired{} -> encodedResponse
     CommitApproved{} -> encodedResponse
     CommitFinalized{} -> encodedResponse
     CommitRecovered{} -> encodedResponse
     NetworkConnected -> encodedResponse
     NetworkDisconnected -> encodedResponse
     NetworkVersionMismatch{} -> encodedResponse
+    NetworkClusterIDMismatch{} -> encodedResponse
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
     SnapshotSideLoaded{} -> encodedResponse
+    EventLogRotated{} -> encodedResponse
  where
   encodedResponse = encode response
 
@@ -307,7 +301,6 @@ data HeadStatus
   | Open
   | Closed
   | FanoutPossible
-  | Final
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -319,3 +312,44 @@ data CommitInfo
   = CannotCommit
   | NormalCommit HeadId
   | IncrementalCommit HeadId
+
+-- | Get latest confirmed snapshot UTxO from 'HeadState'.
+getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)
+getSnapshotUtxo = \case
+  HeadState.Idle{} ->
+    Nothing
+  HeadState.Initial InitialState{committed} ->
+    let u0 = fold committed
+     in Just u0
+  HeadState.Open OpenState{coordinatedHeadState} ->
+    let snapshot = getSnapshot coordinatedHeadState.confirmedSnapshot
+     in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
+  HeadState.Closed ClosedState{confirmedSnapshot} ->
+    let snapshot = getSnapshot confirmedSnapshot
+     in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
+
+-- | Get latest seen snapshot from 'HeadState'.
+getSeenSnapshot :: HeadState tx -> HeadState.SeenSnapshot tx
+getSeenSnapshot = \case
+  HeadState.Idle{} ->
+    NoSeenSnapshot
+  HeadState.Initial{} ->
+    NoSeenSnapshot
+  HeadState.Open OpenState{coordinatedHeadState} ->
+    coordinatedHeadState.seenSnapshot
+  HeadState.Closed ClosedState{confirmedSnapshot} ->
+    let Snapshot{number} = getSnapshot confirmedSnapshot
+     in LastSeenSnapshot number
+
+-- | Get latest confirmed snapshot from 'HeadState'.
+getConfirmedSnapshot :: IsChainState tx => HeadState tx -> Maybe (HeadState.ConfirmedSnapshot tx)
+getConfirmedSnapshot = \case
+  HeadState.Idle{} ->
+    Nothing
+  HeadState.Initial InitialState{headId, committed} ->
+    let u0 = fold committed
+     in Just $ InitialSnapshot headId u0
+  HeadState.Open OpenState{coordinatedHeadState} ->
+    Just coordinatedHeadState.confirmedSnapshot
+  HeadState.Closed ClosedState{confirmedSnapshot} ->
+    Just confirmedSnapshot

@@ -9,10 +9,11 @@ import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
-import Hydra.HeadLogic.State (HeadState)
+import Hydra.HeadLogic.State (Deposit, HeadState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Network.Message (Message)
+import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Tx (
   HeadId,
   HeadParameters,
@@ -24,17 +25,15 @@ import Hydra.Tx (
   SnapshotVersion,
   TxIdType,
   UTxOType,
-  mkHeadParameters,
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.QuickCheck (oneof)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
--- | Analogous to inputs, the pure head logic "core" can have effects emited to
+-- | Analogous to inputs, the pure head logic "core" can have effects emitted to
 -- the "shell" layers and we distinguish the same: effects onto the client, the
 -- network and the chain.
 data Effect tx
@@ -50,9 +49,6 @@ deriving stock instance IsChainState tx => Eq (Effect tx)
 deriving stock instance IsChainState tx => Show (Effect tx)
 deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
 
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Effect tx) where
-  arbitrary = genericArbitrary
-
 -- | Head state changed event. These events represent all the internal state
 -- changes, get persisted and processed in an event sourcing manner.
 data StateChanged tx
@@ -63,6 +59,10 @@ data StateChanged tx
   | NetworkVersionMismatch
       { ourVersion :: ProtocolVersion
       , theirVersion :: Maybe ProtocolVersion
+      }
+  | NetworkClusterIDMismatch
+      { clusterPeers :: Text
+      , misconfiguredPeers :: Text
       }
   | HeadInitialized
       { parameters :: HeadParameters
@@ -94,26 +94,27 @@ data StateChanged tx
       , requestedTxIds :: [TxIdType tx]
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
+      , newCurrentDepositTxId :: Maybe (TxIdType tx)
       }
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | CommitRecorded
+  | DepositRecorded
       { chainState :: ChainStateType tx
       , headId :: HeadId
-      , pendingDeposits :: Map (TxIdType tx) (UTxOType tx)
-      , newLocalUTxO :: UTxOType tx
-      , utxoToCommit :: UTxOType tx
-      , pendingDeposit :: TxIdType tx
+      , depositTxId :: TxIdType tx
+      , deposited :: UTxOType tx
+      , created :: UTCTime
       , deadline :: UTCTime
       }
-  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitRecovered
+  | DepositActivated {depositTxId :: TxIdType tx, chainTime :: UTCTime, deposit :: Deposit tx}
+  | DepositExpired {depositTxId :: TxIdType tx, chainTime :: UTCTime, deposit :: Deposit tx}
+  | DepositRecovered
       { chainState :: ChainStateType tx
       , headId :: HeadId
-      , recoveredUTxO :: UTxOType tx
-      , newLocalUTxO :: UTxOType tx
-      , recoveredTxId :: TxIdType tx
+      , depositTxId :: TxIdType tx
+      , recovered :: UTxOType tx
       }
+  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitFinalized
       { chainState :: ChainStateType tx
       , headId :: HeadId
@@ -143,6 +144,7 @@ data StateChanged tx
       }
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | LocalStateCleared {headId :: HeadId, snapshotNumber :: SnapshotNumber}
+  | Checkpoint {state :: HeadState tx}
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
@@ -165,12 +167,14 @@ genStateChanged env =
     , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
-    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-    , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DepositActivated <$> arbitrary <*> arbitrary <*> arbitrary
+    , DepositExpired <$> arbitrary <*> arbitrary <*> arbitrary
+    , DepositRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitApproved <$> arbitrary <*> arbitrary
-    , CommitRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DecommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DecommitApproved <$> arbitrary <*> arbitrary <*> arbitrary
@@ -205,10 +209,6 @@ deriving stock instance IsChainState tx => Eq (Outcome tx)
 deriving stock instance IsChainState tx => Show (Outcome tx)
 deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
 
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Outcome tx) where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 noop :: Outcome tx
 noop = Continue [] []
 
@@ -237,11 +237,10 @@ data WaitReason tx
   | WaitOnNotApplicableDecommitTx {notApplicableReason :: DecommitInvalidReason tx}
   | WaitOnUnresolvedCommit {commitUTxO :: UTxOType tx}
   | WaitOnUnresolvedDecommit {decommitTx :: tx}
+  | WaitOnDepositObserved {depositTxId :: TxIdType tx}
+  | WaitOnDepositActivation {depositTxId :: TxIdType tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (WaitReason tx)
 deriving stock instance IsTx tx => Show (WaitReason tx)
 deriving anyclass instance IsTx tx => ToJSON (WaitReason tx)
-
-instance ArbitraryIsTx tx => Arbitrary (WaitReason tx) where
-  arbitrary = genericArbitrary

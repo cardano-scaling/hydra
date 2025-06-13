@@ -21,9 +21,9 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogicSpec (getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
-import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Node.Environment (Environment (..))
+import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx.Crypto (sign)
-import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (txId)
 import Hydra.Tx.Party (deriveParty)
@@ -54,8 +54,9 @@ spec = do
                 , signingKey
                 , otherParties
                 , contestationPeriod = defaultContestationPeriod
-                , depositDeadline = defaultDepositDeadline
+                , depositPeriod = defaultDepositPeriod
                 , participants = deriveOnChainId <$> threeParties
+                , configuredPeers = ""
                 }
 
     let coordinatedHeadState =
@@ -66,6 +67,7 @@ spec = do
             , confirmedSnapshot = InitialSnapshot testHeadId u0
             , seenSnapshot = NoSeenSnapshot
             , pendingDeposits = mempty
+            , currentDepositTxId = Nothing
             , decommitTx = Nothing
             , version = 0
             }
@@ -161,8 +163,8 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        let everybodyAcknowleged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
-        everybodyAcknowleged `hasNoEffectSatisfying` sendReqSn
+        let everybodyAcknowledged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
+        everybodyAcknowledged `hasNoEffectSatisfying` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
         headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
@@ -198,8 +200,9 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
             , signingKey = aliceSk
             , otherParties = []
             , contestationPeriod = defaultContestationPeriod
-            , depositDeadline = defaultDepositDeadline
+            , depositPeriod = defaultDepositPeriod
             , participants = [deriveOnChainId party]
+            , configuredPeers = ""
             }
     st =
       CoordinatedHeadState
@@ -209,6 +212,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
         , confirmedSnapshot = sn
         , seenSnapshot
         , pendingDeposits = mempty
+        , currentDepositTxId = Nothing
         , decommitTx = Nothing
         , version
         }

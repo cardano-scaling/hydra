@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Hydra.Tx (IsTx (..))
 
--- | A generic description for a chain slot all implementions need to use.
+-- | A generic description for a chain slot all implementations need to use.
 newtype ChainSlot = ChainSlot Natural
   deriving stock (Ord, Eq, Show, Generic)
   deriving newtype (Num, ToJSON, FromJSON, Arbitrary)

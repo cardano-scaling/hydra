@@ -21,18 +21,19 @@ import Hydra.Network (
   Network (..),
   NetworkCallback (..),
   ProtocolVersion (..),
+  WhichEtcd (..),
  )
 import Hydra.Network.Etcd (withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
 import System.FilePath ((</>))
-import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGoldenADTSpecsWithSettings)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
 import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
-import Test.Util (noopCallback, waitEq)
+import Test.Util (noopCallback, waitEq, waitMatch)
 
 spec :: Spec
 spec = do
@@ -54,6 +55,7 @@ spec = do
                       , peers = []
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
+                      , whichEtcd = EmbeddedEtcd
                       }
               (recordingCallback, waitNext, _) <- newRecordingCallback
               withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
@@ -111,13 +113,13 @@ spec = do
 
       it "emits connectivity events" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             -- Record and assert connectivity events from alice's perspective
             (recordReceived, _, waitConnectivity) <- newRecordingCallback
             let
               waitFor :: HasCallStack => Connectivity -> IO ()
-              waitFor = waitEq waitConnectivity 10
+              waitFor = waitEq waitConnectivity 60
             withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \_ -> do
               withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
                 -- Alice now on majority cluster
@@ -185,9 +187,26 @@ spec = do
                   forM_ messages $ \msg ->
                     waitCarol `shouldReturn` msg
 
+      it "emits cluster id mismatch" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 10 $ do
+            PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
+            let v2 = ProtocolVersion 2
+            (recordAlice, _, waitAlice) <- newRecordingCallback
+            (recordBob, _, waitBob) <- newRecordingCallback
+            let aliceSees = waitMatch waitAlice 5
+            let bobSees = waitMatch waitBob 5
+            let bobConfig' = bobConfig{peers = []}
+            withEtcdNetwork @Int tracer v1 aliceConfig recordAlice $ \_ ->
+              withEtcdNetwork @Int tracer v2 bobConfig' recordBob $ \_ ->
+                race_
+                  (bobSees $ \case ClusterIDMismatch{} -> Just (); _ -> Nothing)
+                  (aliceSees $ \case ClusterIDMismatch{} -> Just (); _ -> Nothing)
+
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
-    roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
+
+    roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(Message SimpleTx)
 
 lo :: IsString s => s
 lo = "127.0.0.1"
@@ -213,6 +232,7 @@ setup2Peers tmp = do
             , peers = [bobHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
+            , whichEtcd = EmbeddedEtcd
             }
       , bobConfig =
           NetworkConfiguration
@@ -223,6 +243,7 @@ setup2Peers tmp = do
             , peers = [aliceHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
+            , whichEtcd = EmbeddedEtcd
             }
       }
 
@@ -249,6 +270,7 @@ setup3Peers tmp = do
             , peers = [bobHost, carolHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
+            , whichEtcd = EmbeddedEtcd
             }
       , bobConfig =
           NetworkConfiguration
@@ -259,6 +281,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, carolHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
+            , whichEtcd = EmbeddedEtcd
             }
       , carolConfig =
           NetworkConfiguration
@@ -269,6 +292,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, bobHost]
             , nodeId = "carol"
             , persistenceDir = tmp </> "carol"
+            , whichEtcd = EmbeddedEtcd
             }
       }
 

@@ -14,12 +14,10 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
-import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
-import Hydra.Tx.Deposit (depositTx)
-import Hydra.Tx.HeadId (mkHeadId)
+import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Recover (recoverTx)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime)
-import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (testHeadId, testNetworkId)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
 import Test.Hydra.Tx.Mutation (
   Mutation (ChangeInput, ChangeOutput, ChangeValidityLowerBound),
@@ -30,15 +28,22 @@ import Test.QuickCheck (elements, oneof, suchThat)
 
 healthyRecoverTx :: (Tx, UTxO)
 healthyRecoverTx =
-  (tx, depositScriptUTxO)
+  (tx, utxo)
  where
   tx =
     recoverTx
       depositTxId
-      healthyDepositUTxO
+      deposited
       recoverSlotNo
 
-  TxIn depositTxId _ = depositTxIn
+  utxo =
+    UTxO.singleton (TxIn depositTxId $ TxIx 0) depositTxOut
+
+  depositTxId = arbitrary `generateWith` 42
+
+  depositTxOut = mkDepositOutput testNetworkId testHeadId deposited depositDeadline
+
+  deposited = genUTxOAdaOnlyOfSize 1 `generateWith` 42
 
 recoverSlotNo :: SlotNo
 recoverSlotNo = SlotNo $ arbitrary `generateWith` 42
@@ -47,32 +52,10 @@ depositDeadline :: UTCTime
 depositDeadline =
   slotNoToUTCTime systemStart slotLength (recoverSlotNo - SlotNo 1)
 
-depositTransaction :: Tx
-depositTransaction =
-  depositTx testNetworkId (mkHeadId headPolicyId) CommitBlueprintTx{blueprintTx = txSpendingUTxO healthyDepositUTxO, lookupUTxO = healthyDepositUTxO} depositDeadline
-
-healthyDepositUTxO :: UTxO
-healthyDepositUTxO = genUTxOAdaOnlyOfSize 1 `generateWith` 42
-
-headCS :: CurrencySymbol
-headCS = toPlutusCurrencySymbol testPolicyId
-
-headPolicyId :: PolicyId
-headPolicyId =
-  case fromPlutusCurrencySymbol headCS of
-    Nothing -> error "failed to create headId from provided CurrencySymbol"
-    Just policyId -> policyId
-
-depositScriptUTxO :: UTxO
-depositScriptUTxO = utxoFromTx depositTransaction
-
-depositTxIn :: TxIn
-(depositTxIn, _) = List.head $ UTxO.pairs depositScriptUTxO
-
 data RecoverMutation
   = -- | Move the deposit deadline further so that the recover lower bound is
     -- not after the deadline
-    MutateDepositDeadline
+    MutateDepositPeriod
   | -- | Change the recover output so that the datum commit hash does not match
     MutateRecoverOutput
   | -- | Remove the lower bound from the recover transaction
@@ -82,9 +65,9 @@ data RecoverMutation
 genRecoverMutation :: (Tx, UTxO) -> Gen SomeMutation
 genRecoverMutation (tx, utxo) =
   oneof
-    [ SomeMutation (pure $ toErrorCode DepositDeadlineNotReached) MutateDepositDeadline <$> do
+    [ SomeMutation (pure $ toErrorCode DepositPeriodNotReached) MutateDepositPeriod <$> do
         -- Could also use depositTxIn/Out directly but this way we can be sure that the depositTxIn/Out are in the UTxO
-        let (depositIn, depositOut@(TxOut addr val _ rscript)) = List.head $ UTxO.pairs (resolveInputsUTxO utxo tx)
+        let (depositIn, depositOut@(TxOut addr val _ rscript)) = List.head $ UTxO.toList (resolveInputsUTxO utxo tx)
         let n = POSIX.posixSecondsToUTCTime $ realToFrac $ (arbitrary :: Gen Milli) `generateWith` 42
         let datum =
               txOutDatum $

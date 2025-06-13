@@ -28,6 +28,7 @@ import Hydra.Tx.CollectCom (
 import Hydra.Tx.Commit (mkCommitDatum)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
+import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput, mkInitialOutput)
 import Hydra.Tx.OnChainId (OnChainId)
@@ -47,7 +48,6 @@ import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genForParty,
   genHash,
-  genMintedOrBurnedValue,
   genScriptRegistry,
   genUTxOAdaOnlyOfSize,
   genVerificationKey,
@@ -74,7 +74,7 @@ healthyCollectComTx =
   committedUTxO = foldMap committed $ Map.elems healthyCommits
 
   lookupUTxO =
-    UTxO.singleton (healthyHeadTxIn, healthyHeadTxOut)
+    UTxO.singleton healthyHeadTxIn healthyHeadTxOut
       <> UTxO commitOutputs
       <> registryUTxO scriptRegistry
 
@@ -191,10 +191,10 @@ data CollectComMutation
   | MutateOpenVersion
   | -- | Ensures collectCom cannot collect from an initial UTxO.
     MutateCommitToInitial
-  | -- | Every party should have commited and been taken into account for the
+  | -- | Every party should have committed and been taken into account for the
     -- collectCom transaction to be valid. Here we increase the number of
     -- parties in input and output but keep the commits unchanged. This
-    -- simulates the situation where one participant would not have commited
+    -- simulates the situation where one participant would not have committed
     -- already or whose commit would have been ignored by the collectCom
     -- transaction.
     MutateNumberOfParties

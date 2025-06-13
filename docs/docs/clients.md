@@ -8,7 +8,7 @@ While the `hydra-node` tracks the main chain for opening/closing heads and conne
 
 ## Client applications
 
-- [hydra-tui](https://hydra.family/head-protocol/docs/getting-started#use-the-head): Example client offering a terminal user interface (TUI) that can be used to adminstrate heads and submit simple payment transactions
+- [hydra-tui](https://hydra.family/head-protocol/docs/getting-started#use-the-head): Example client offering a terminal user interface (TUI) that can be used to administrate heads and submit simple payment transactions
 - [kupo](https://cardanosolutions.github.io/kupo/#section/Getting-started/-hydra-host-hostname-hydra-port-port-number): Lightweight indexer that directly supports connecting to a `hydra-node`
 
 ## Client libraries

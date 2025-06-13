@@ -2,287 +2,329 @@
     "samples": [
         {
             "advertise": {
-                "hostname": "0.0.0.143",
-                "port": 16367
+                "hostname": "0.0.43.126",
+                "port": 1984
             },
             "apiHost": {
-                "ipv4": "0.0.125.56",
+                "ipv4": "0.0.70.192",
                 "tag": "IPv4"
             },
-            "apiPort": 14924,
+            "apiPort": 18036,
             "chainConfig": {
-                "initialUTxOFile": "c/c/c/a/a/c.json",
-                "ledgerGenesisFile": "a/c/c/c.json",
-                "offlineHeadSeed": "3c628286fcf0615fa5ffda3a7bae19ce",
-                "tag": "OfflineChainConfig"
-            },
-            "hydraSigningKey": "c/c.sk",
-            "hydraVerificationKeys": [
-                "b/b.vk",
-                "b.vk",
-                "c/b.vk",
-                "b/a.vk"
-            ],
-            "ledgerConfig": {
-                "cardanoLedgerProtocolParametersFile": "a/a.json"
-            },
-            "listen": {
-                "hostname": "0.0.12.2",
-                "port": 6738
-            },
-            "monitoringPort": 28641,
-            "nodeId": "kjnedflwzpysgbpmeglqhiipbhg",
-            "peers": [
-                {
-                    "hostname": "0.0.0.5",
-                    "port": 2
-                },
-                {
-                    "hostname": "0.0.0.4",
-                    "port": 1
-                },
-                {
-                    "hostname": "0.0.0.2",
-                    "port": 1
-                },
-                {
-                    "hostname": "0.0.0.6",
-                    "port": 2
-                },
-                {
-                    "hostname": "0.0.0.4",
-                    "port": 6
-                },
-                {
-                    "hostname": "0.0.0.5",
-                    "port": 4
-                }
-            ],
-            "persistenceDir": "b/c/a/a",
-            "tlsCertPath": null,
-            "tlsKeyPath": "a/b/b.key",
-            "verbosity": {
-                "tag": "Quiet"
-            }
-        },
-        {
-            "advertise": {
-                "hostname": "0.0.42.133",
-                "port": 12408
-            },
-            "apiHost": {
-                "ipv4": "0.0.75.60",
-                "tag": "IPv4"
-            },
-            "apiPort": 14910,
-            "chainConfig": {
-                "cardanoSigningKey": "c.sk",
+                "cardanoSigningKey": "a/c/b/c.sk",
                 "cardanoVerificationKeys": [
-                    "b/a.vk",
-                    "c/c/b.vk",
-                    "c/b.vk"
+                    "a/b/a.vk",
+                    "b/c.vk",
+                    "c.vk",
+                    "b/b.vk",
+                    "a/b/b.vk"
                 ],
-                "contestationPeriod": 31536000,
-                "depositDeadline": 100,
-                "hydraScriptsTxId": [
-                    "0b4f405710b5bec99644dd0abcec871ba079e6958a725b94e5a2cabeaef1ed9b",
-                    "5e5d8043122e339f4f3f85942dfd69baa5fb3614b3d011a361ea9158273bc1cc",
-                    "beed04fd1e1c277a39ae72b531a5dad531d7657a4d2a655d15748e0d8f086c70",
-                    "fd0bca1d45ee9deba83db3c1f2863e0f398500bd566581fdc91ea7a3a972cd66",
-                    "efdacffa8fec9a9a02264ad8205edb126ba5caf0350ee75039179cfd531e7c8b",
-                    "69f7291ee42576bfbf7aa0e4819ed65cc02a272d982ab13331834bd08b8042bd",
-                    "f4664312f10c106fbae0869d660fd616e6964e3d7a524856c0d163c9d54ae0d0",
-                    "c08bd7ed45971221be609136887a4e3815ea31564144031646950057513fce4f",
-                    "d0d9df2b1c145781a5c39b7121123df7f29ac35314301e59e449618ec169b112",
-                    "5fbe233b27ffa0626121805dbef320513f5e5c550d1d80dcc8f0f7d121160283",
-                    "0d7db0c8b1265802b65a61b78c68e432e3fc9e0ac0edec20223610a363e2a628",
-                    "7eb296376da8ab6f0083a5bfcd47ac5f7d76bc8ed8f3c203224326fa66171616",
-                    "ff8d2a7736c84f1a67a2ac93c29fb9826956ccc39aedfb117c546949ba60e93d",
-                    "4aced0f61cc5c714ce6ffaa00e497d5f2a42456c98293507ef909194a879b570",
-                    "6669f9b7057c087fe8d960d38e4e6995c990432de7e5d76e5be53c5069689fd1",
-                    "5effc96ff3977f6d8795faaab65c41cbb41808bef1405dc2f60ff052b619a6a8",
-                    "15494380164c9b19c46708cab64c76bb6807606dd1fd4077c857dae9dd4f2c0f",
-                    "2971ea7ff565b4334613808bbe479526d7fde684c75b328ea28d78f118f289b4",
-                    "6c52a29f2fe2dac7ea84ccadccd5409e5ab190f52d6ad0a6314567d92ebfdc3c",
-                    "fd76b9c0ac22d2d5fb5ac01c5497a0fff3d3b2e9a74083b347e3ddd0d396d52d",
-                    "46f88f359dfdf822d63bedcfb3b540256bdd88140c077764759754fd7b4bbd5b"
-                ],
-                "networkId": {
-                    "magic": 7147,
-                    "tag": "Testnet"
+                "chainBackendOptions": {
+                    "contents": {
+                        "networkId": {
+                            "magic": 42,
+                            "tag": "Testnet"
+                        },
+                        "nodeSocket": "node.socket"
+                    },
+                    "tag": "Direct"
                 },
-                "nodeSocket": "a/a/b/a.socket",
-                "startChainFrom": null,
-                "tag": "DirectChainConfig"
+                "contestationPeriod": 604800,
+                "depositPeriod": 13568,
+                "hydraScriptsTxId": [
+                    "0308050108080605060300050607080801070606050403020608050103080807"
+                ],
+                "startChainFrom": {
+                    "blockHash": "41bf3917fca4c554e76325211df0772261c057b1a73df05fa0ad980294837273",
+                    "slot": 16016247,
+                    "tag": "ChainPoint"
+                },
+                "tag": "CardanoChainConfig"
             },
-            "hydraSigningKey": "b/b/a.sk",
+            "hydraSigningKey": "b/c.sk",
             "hydraVerificationKeys": [
-                "c/b/b.vk",
-                "b/b/a.vk",
+                "b/a.vk",
+                "c/a/a.vk",
+                "b/c/b.vk",
+                "c/c.vk",
+                "b/a.vk",
                 "a/a/c.vk"
             ],
             "ledgerConfig": {
-                "cardanoLedgerProtocolParametersFile": "b/c/b/b/a/b.json"
+                "cardanoLedgerProtocolParametersFile": "c.json"
             },
             "listen": {
-                "hostname": "0.0.62.172",
-                "port": 17754
+                "hostname": "0.0.61.156",
+                "port": 18484
             },
-            "monitoringPort": 1256,
-            "nodeId": "onjlkjokxncuqjwmzorzjc",
-            "peers": [],
-            "persistenceDir": "c/c/c/c/a",
-            "tlsCertPath": null,
-            "tlsKeyPath": null,
-            "verbosity": {
-                "contents": "HydraNode",
-                "tag": "Verbose"
-            }
-        },
-        {
-            "advertise": {
-                "hostname": "0.0.121.25",
-                "port": 16440
-            },
-            "apiHost": {
-                "ipv4": "0.0.70.171",
-                "tag": "IPv4"
-            },
-            "apiPort": 4914,
-            "chainConfig": {
-                "initialUTxOFile": "b.json",
-                "ledgerGenesisFile": "a/c/c.json",
-                "offlineHeadSeed": "d103b145f2e8ef83397d273e5e099c13",
-                "tag": "OfflineChainConfig"
-            },
-            "hydraSigningKey": "a.sk",
-            "hydraVerificationKeys": [
-                "b/b.vk",
-                "b/b.vk"
-            ],
-            "ledgerConfig": {
-                "cardanoLedgerProtocolParametersFile": "a/a/c/c/a.json"
-            },
-            "listen": {
-                "hostname": "0.0.73.68",
-                "port": 2102
-            },
-            "monitoringPort": null,
-            "nodeId": "crvsxxqfwiacm",
-            "peers": [],
-            "persistenceDir": "a/c/b/a/c/c",
-            "tlsCertPath": "c/c.pem",
-            "tlsKeyPath": "a/c/c/a.key",
-            "verbosity": {
-                "tag": "Quiet"
-            }
-        },
-        {
-            "advertise": {
-                "hostname": "0.0.66.12",
-                "port": 3079
-            },
-            "apiHost": {
-                "ipv4": "0.0.43.74",
-                "tag": "IPv4"
-            },
-            "apiPort": 11925,
-            "chainConfig": {
-                "initialUTxOFile": "a/b/a.json",
-                "ledgerGenesisFile": null,
-                "offlineHeadSeed": "770d66d67484dbb38746acb971c515d3",
-                "tag": "OfflineChainConfig"
-            },
-            "hydraSigningKey": "b.sk",
-            "hydraVerificationKeys": [],
-            "ledgerConfig": {
-                "cardanoLedgerProtocolParametersFile": "b/c/b/b/b/b.json"
-            },
-            "listen": {
-                "hostname": "0.0.62.18",
-                "port": 26337
-            },
-            "monitoringPort": null,
-            "nodeId": "uyom",
+            "monitoringPort": 14575,
+            "nodeId": "ghz",
             "peers": [
                 {
-                    "hostname": "0.0.0.1",
-                    "port": 0
-                },
-                {
                     "hostname": "0.0.0.5",
-                    "port": 5
-                },
-                {
-                    "hostname": "0.0.0.4",
-                    "port": 7
-                },
-                {
-                    "hostname": "0.0.0.5",
-                    "port": 2
-                },
-                {
-                    "hostname": "0.0.0.0",
-                    "port": 5
-                },
-                {
-                    "hostname": "0.0.0.1",
-                    "port": 6
+                    "port": 3
                 }
             ],
-            "persistenceDir": "b/a/b/a/a/b",
+            "persistenceDir": "c/c/a",
+            "persistenceRotateAfter": null,
             "tlsCertPath": null,
-            "tlsKeyPath": "b/b/b.key",
+            "tlsKeyPath": "c/b/a/a/b/a.key",
             "verbosity": {
                 "contents": "HydraNode",
                 "tag": "Verbose"
-            }
+            },
+            "whichEtcd": "EmbeddedEtcd"
         },
         {
             "advertise": {
-                "hostname": "0.0.114.198",
-                "port": 17907
+                "hostname": "0.0.111.159",
+                "port": 21035
             },
             "apiHost": {
-                "ipv4": "0.0.23.86",
+                "ipv4": "0.0.106.50",
                 "tag": "IPv4"
             },
-            "apiPort": 22603,
+            "apiPort": 32191,
             "chainConfig": {
-                "initialUTxOFile": "a/a/a/c/b.json",
-                "ledgerGenesisFile": "c/a/b/b.json",
-                "offlineHeadSeed": "0d53a78b05b4521daf80cecb4b7ceedd",
+                "initialUTxOFile": "b/b/c/a.json",
+                "ledgerGenesisFile": null,
+                "offlineHeadSeed": "605a4786e76db4b28c3668751db34615",
                 "tag": "OfflineChainConfig"
             },
-            "hydraSigningKey": "a/b/a/b/c.sk",
-            "hydraVerificationKeys": [],
+            "hydraSigningKey": "a/c.sk",
+            "hydraVerificationKeys": [
+                "c.vk",
+                "a/b/a.vk",
+                "a.vk",
+                "b/a.vk",
+                "a/a/b.vk",
+                "b/b/c.vk"
+            ],
             "ledgerConfig": {
-                "cardanoLedgerProtocolParametersFile": "b/c/b/a/b/c.json"
+                "cardanoLedgerProtocolParametersFile": "b/a/b/a/a/a.json"
             },
             "listen": {
-                "hostname": "0.0.42.39",
-                "port": 6767
+                "hostname": "0.0.15.242",
+                "port": 32379
             },
-            "monitoringPort": 9249,
-            "nodeId": "unyaibyymqkxmdszwrweduhbja",
+            "monitoringPort": 29896,
+            "nodeId": "elvahkvrhdyjq",
             "peers": [
                 {
-                    "hostname": "0.0.0.3",
+                    "hostname": "0.0.0.5",
                     "port": 1
                 },
                 {
-                    "hostname": "0.0.0.8",
-                    "port": 0
+                    "hostname": "0.0.0.1",
+                    "port": 1
+                },
+                {
+                    "hostname": "0.0.0.1",
+                    "port": 4
                 }
             ],
-            "persistenceDir": "a/b/c/b/c/a",
-            "tlsCertPath": "b/c/c/a.pem",
-            "tlsKeyPath": null,
+            "persistenceDir": "c/c",
+            "persistenceRotateAfter": 30,
+            "tlsCertPath": null,
+            "tlsKeyPath": "b/a/b/a.key",
             "verbosity": {
                 "contents": "HydraNode",
                 "tag": "Verbose"
-            }
+            },
+            "whichEtcd": "SystemEtcd"
+        },
+        {
+            "advertise": {
+                "hostname": "0.0.56.147",
+                "port": 26421
+            },
+            "apiHost": {
+                "ipv4": "0.0.31.46",
+                "tag": "IPv4"
+            },
+            "apiPort": 20019,
+            "chainConfig": {
+                "cardanoSigningKey": "c/b/a/b/c/b.sk",
+                "cardanoVerificationKeys": [
+                    "a/c/b.vk",
+                    "b.vk",
+                    "c/b/b.vk",
+                    "b/c/b.vk",
+                    "a/a/c.vk",
+                    "c/b/b.vk"
+                ],
+                "chainBackendOptions": {
+                    "contents": {
+                        "networkId": {
+                            "magic": 42,
+                            "tag": "Testnet"
+                        },
+                        "nodeSocket": "node.socket"
+                    },
+                    "tag": "Direct"
+                },
+                "contestationPeriod": 604800,
+                "depositPeriod": 7788,
+                "hydraScriptsTxId": [
+                    "0107030001030003010403010201000301040808010501040703060005070002",
+                    "0507060005030307000407080303050200040008060007080107060404050001"
+                ],
+                "startChainFrom": {
+                    "blockHash": "81667e2b53fa0fc89adae700530801ee0d1c65ba7a2e3b2babb9de600015194c",
+                    "slot": 14063413,
+                    "tag": "ChainPoint"
+                },
+                "tag": "CardanoChainConfig"
+            },
+            "hydraSigningKey": "a.sk",
+            "hydraVerificationKeys": [
+                "a/b/c.vk",
+                "b/a/a.vk",
+                "b.vk",
+                "a.vk",
+                "a.vk"
+            ],
+            "ledgerConfig": {
+                "cardanoLedgerProtocolParametersFile": "b/a/b/c/a.json"
+            },
+            "listen": {
+                "hostname": "0.0.18.217",
+                "port": 21720
+            },
+            "monitoringPort": 338,
+            "nodeId": "enjl",
+            "peers": [
+                {
+                    "hostname": "0.0.0.5",
+                    "port": 4
+                },
+                {
+                    "hostname": "0.0.0.6",
+                    "port": 3
+                },
+                {
+                    "hostname": "0.0.0.7",
+                    "port": 7
+                }
+            ],
+            "persistenceDir": "c/c/b/c",
+            "persistenceRotateAfter": 16,
+            "tlsCertPath": "a/a/b/c/b/b.pem",
+            "tlsKeyPath": null,
+            "verbosity": {
+                "tag": "Quiet"
+            },
+            "whichEtcd": "SystemEtcd"
+        },
+        {
+            "advertise": null,
+            "apiHost": {
+                "ipv4": "0.0.25.188",
+                "tag": "IPv4"
+            },
+            "apiPort": 9965,
+            "chainConfig": {
+                "initialUTxOFile": "b/c/b/a/a/c.json",
+                "ledgerGenesisFile": "b/c/a.json",
+                "offlineHeadSeed": "329e98b0b3a9efc003e42da13950a34f",
+                "tag": "OfflineChainConfig"
+            },
+            "hydraSigningKey": "b/c.sk",
+            "hydraVerificationKeys": [
+                "b/a.vk"
+            ],
+            "ledgerConfig": {
+                "cardanoLedgerProtocolParametersFile": "a/b/b/a/a/a.json"
+            },
+            "listen": {
+                "hostname": "0.0.106.207",
+                "port": 20072
+            },
+            "monitoringPort": 31045,
+            "nodeId": "csqnihmmawedbhcwwpna",
+            "peers": [],
+            "persistenceDir": "c/a",
+            "persistenceRotateAfter": 0,
+            "tlsCertPath": "a/b/c/b/b/a.pem",
+            "tlsKeyPath": "b/c/a/b.key",
+            "verbosity": {
+                "contents": "HydraNode",
+                "tag": "Verbose"
+            },
+            "whichEtcd": "EmbeddedEtcd"
+        },
+        {
+            "advertise": {
+                "hostname": "0.0.76.153",
+                "port": 10391
+            },
+            "apiHost": {
+                "ipv4": "0.0.56.37",
+                "tag": "IPv4"
+            },
+            "apiPort": 8054,
+            "chainConfig": {
+                "cardanoSigningKey": "a/c/a.sk",
+                "cardanoVerificationKeys": [
+                    "a.vk",
+                    "a/a.vk",
+                    "a/a.vk",
+                    "a/a.vk",
+                    "b/b/b.vk"
+                ],
+                "chainBackendOptions": {
+                    "contents": {
+                        "networkId": {
+                            "magic": 42,
+                            "tag": "Testnet"
+                        },
+                        "nodeSocket": "node.socket"
+                    },
+                    "tag": "Direct"
+                },
+                "contestationPeriod": 39741,
+                "depositPeriod": 1119,
+                "hydraScriptsTxId": [
+                    "0203060008010405020004080100080403020305050205080508050800000805",
+                    "0508010600020500050401000706070602010301020103020501000701060004",
+                    "0600000601040000050806020308060804060304000305050500070706000801"
+                ],
+                "startChainFrom": null,
+                "tag": "CardanoChainConfig"
+            },
+            "hydraSigningKey": "b/c/c/b/a/b.sk",
+            "hydraVerificationKeys": [
+                "b.vk"
+            ],
+            "ledgerConfig": {
+                "cardanoLedgerProtocolParametersFile": "a/c/a/a/a/a.json"
+            },
+            "listen": {
+                "hostname": "0.0.8.4",
+                "port": 25176
+            },
+            "monitoringPort": 13997,
+            "nodeId": "zlgbpdultsxtzonc",
+            "peers": [
+                {
+                    "hostname": "0.0.0.5",
+                    "port": 5
+                },
+                {
+                    "hostname": "0.0.0.2",
+                    "port": 2
+                }
+            ],
+            "persistenceDir": "b/a/a/a/a/c",
+            "persistenceRotateAfter": 13,
+            "tlsCertPath": "c/a.pem",
+            "tlsKeyPath": "c.key",
+            "verbosity": {
+                "contents": "HydraNode",
+                "tag": "Verbose"
+            },
+            "whichEtcd": "EmbeddedEtcd"
         }
     ],
-    "seed": -11993528
+    "seed": -1686225623
 }

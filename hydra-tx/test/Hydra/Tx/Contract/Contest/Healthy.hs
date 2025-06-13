@@ -13,8 +13,7 @@ import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)
-import Hydra.Tx.Close (ClosedThreadOutput (..))
-import Hydra.Tx.Contest (contestTx)
+import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.HeadId (mkHeadId)
@@ -52,7 +51,7 @@ healthyContestTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyClosedHeadTxIn, healthyClosedHeadTxOut)
+    UTxO.singleton healthyClosedHeadTxIn healthyClosedHeadTxOut
       <> registryUTxO scriptRegistry
 
   tx =
@@ -95,14 +94,14 @@ healthyContestUTxO =
   (genOneUTxOFor healthyContesterVerificationKey `suchThat` (/= healthyClosedUTxO))
     `generateWith` 42
 
-splittedContestUTxO :: (UTxO, UTxO)
-splittedContestUTxO = splitUTxO healthyContestUTxO
+splitContestUTxO :: (UTxO, UTxO)
+splitContestUTxO = splitUTxO healthyContestUTxO
 
 splitUTxOInHead :: UTxO
-splitUTxOInHead = fst splittedContestUTxO
+splitUTxOInHead = fst splitContestUTxO
 
 splitUTxOToDecommit :: UTxO
-splitUTxOToDecommit = snd splittedContestUTxO
+splitUTxOToDecommit = snd splitContestUTxO
 
 healthyContestSnapshot :: Snapshot Tx
 healthyContestSnapshot =

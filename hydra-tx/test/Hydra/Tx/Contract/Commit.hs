@@ -16,13 +16,16 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (..))
+import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Tx (CommitBlueprintTx (..), Party, mkHeadId)
 import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.Init (mkInitialOutput)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import PlutusLedgerApi.Common (fromBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genAddressInEra, genMintedOrBurnedValue, genScriptRegistry, genSigningKey, genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
+import Test.Hydra.Tx.Fixture qualified as Fixtures
+import Test.Hydra.Tx.Gen (genAddressInEra, genScriptRegistry, genSigningKey, genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -41,7 +44,7 @@ healthyCommitTx =
   (tx', lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut)
+    UTxO.singleton healthyInitialTxIn (toCtxUTxOTxOut healthyInitialTxOut)
       <> healthyCommittedUTxO
       <> registryUTxO scriptRegistry
 
@@ -127,7 +130,7 @@ genCommitMutation (tx, _utxo) =
                   (party, mCommit, toPlutusCurrencySymbol otherHeadId)
         pure $ ChangeOutput 0 $ mutateHeadId commitTxOut
     , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
-        let totalValueMinusOneLovelace = negateValue (lovelaceToValue 1) <> txOutValue healthyInitialTxOut <> foldMap (txOutValue . snd) (UTxO.pairs healthyCommittedUTxO)
+        let totalValueMinusOneLovelace = negateValue (lovelaceToValue 1) <> txOutValue healthyInitialTxOut <> foldMap (txOutValue . snd) (UTxO.toList healthyCommittedUTxO)
         pure $ commitTxOut{txOutValue = totalValueMinusOneLovelace}
     , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= aCommittedOutputValue)
@@ -138,7 +141,7 @@ genCommitMutation (tx, _utxo) =
         let mutatedOutput = modifyTxOutAddress (const mutatedAddress) aCommittedTxOut
         pure $ ChangeInput aCommittedTxIn mutatedOutput Nothing
     , SomeMutation (map toErrorCode [MismatchCommittedTxOutInDatum, MissingCommittedTxOutInOutputDatum]) RecordAllCommittedUTxO <$> do
-        (removedTxIn, removedTxOut) <- elements $ UTxO.pairs healthyCommittedUTxO
+        (removedTxIn, removedTxOut) <- elements $ UTxO.toList healthyCommittedUTxO
         -- Leave out not-committed value
         let mutatedCommitTxOut = modifyTxOutValue (\v -> negateValue (txOutValue removedTxOut) <> v) commitTxOut
         pure $
@@ -148,7 +151,7 @@ genCommitMutation (tx, _utxo) =
             , ChangeInput
                 healthyInitialTxIn
                 (toCtxUTxOTxOut healthyInitialTxOut)
-                (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allComittedTxIn <&> toPlutusTxOutRef))
+                (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allCommittedTxIn <&> toPlutusTxOutRef))
             ]
     , SomeMutation (pure $ toErrorCode MissingOrInvalidCommitAuthor) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
@@ -163,7 +166,7 @@ genCommitMutation (tx, _utxo) =
             , ChangeInput
                 healthyInitialTxIn
                 (toCtxUTxOTxOut $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
-                (Just $ toScriptData $ Initial.ViaCommit (allComittedTxIn <&> toPlutusTxOutRef))
+                (Just $ toScriptData $ Initial.ViaCommit (allCommittedTxIn <&> toPlutusTxOutRef))
             ]
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
@@ -171,10 +174,25 @@ genCommitMutation (tx, _utxo) =
  where
   commitTxOut = fromJust $ txOuts' tx !!? 0
 
-  allComittedTxIn = UTxO.inputSet healthyCommittedUTxO & toList
+  allCommittedTxIn = UTxO.inputSet healthyCommittedUTxO & toList
 
-  (aCommittedTxIn, aCommittedTxOut) = List.head $ UTxO.pairs healthyCommittedUTxO
+  (aCommittedTxIn, aCommittedTxOut) = List.head $ UTxO.toList healthyCommittedUTxO
 
   aCommittedAddress = txOutAddress aCommittedTxOut
 
   aCommittedOutputValue = txOutValue aCommittedTxOut
+
+-- | Generates value such that:
+-- - alters between policy id we use in test fixtures with a random one.
+-- - mixing arbitrary token names with 'hydraHeadV1'
+-- - excluding 0 for quantity to mimic minting/burning
+genMintedOrBurnedValue :: Gen Value
+genMintedOrBurnedValue = do
+  policyId <-
+    oneof
+      [ headPolicyId <$> arbitrary
+      , pure Fixtures.testPolicyId
+      ]
+  tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
+  quantity <- arbitrary `suchThat` (/= 0)
+  pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]
