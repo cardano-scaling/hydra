@@ -38,7 +38,7 @@
       ];
       perSystem = { config, lib, system, ... }:
         let
-          compiler = "ghc966";
+          compiler = "ghc967";
 
           # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
 
