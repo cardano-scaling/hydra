@@ -476,7 +476,7 @@ prop_observeAnyTx =
 -- | Given a UTxO with more than one entry, we can split it into two non-empty UTxO.
 prop_splitUTxO :: UTxO -> Property
 prop_splitUTxO utxo =
-  (length (UTxO.txOutputs utxo) > 1) ==>
+  (UTxO.size utxo > 1) ==>
     let (inHead, toDecommit) = splitUTxO utxo
      in conjoin
           [ not (UTxO.null inHead) & counterexample "inHead is empty"

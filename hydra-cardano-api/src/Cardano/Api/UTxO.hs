@@ -103,6 +103,10 @@ txOutputs = Map.elems . toMap
 null :: UTxO -> Bool
 null = Map.null . toMap
 
+
+size :: UTxO -> Int
+size = Map.size . toMap
+
 -- * Type Conversions
 
 -- | Transforms a UTxO containing tx outs from any era into Babbage era.
