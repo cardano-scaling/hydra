@@ -193,6 +193,6 @@ genMintedOrBurnedValue = do
       [ headPolicyId <$> arbitrary
       , pure Fixtures.testPolicyId
       ]
-  tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
+  tokenName <- oneof [arbitrary, pure (UnsafeAssetName $ fromBuiltin hydraHeadV1)]
   quantity <- arbitrary `suchThat` (/= 0)
   pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]

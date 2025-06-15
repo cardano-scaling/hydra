@@ -21,7 +21,7 @@ import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
 import PlutusLedgerApi.V3 (fromBuiltin, getPubKeyHash)
 
 hydraHeadV1AssetName :: AssetName
-hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
+hydraHeadV1AssetName = UnsafeAssetName (fromBuiltin hydraHeadV1)
 
 -- | The metadata label used for identifying Hydra protocol transactions. As
 -- suggested by a friendly large language model: The number most commonly
@@ -39,10 +39,10 @@ mkHydraHeadV1TxName name =
   TxMetadata $ Map.fromList [(hydraMetadataLabel, TxMetaText $ "HydraV1/" <> name)]
 
 assetNameToOnChainId :: AssetName -> OnChainId
-assetNameToOnChainId (AssetName bs) = UnsafeOnChainId bs
+assetNameToOnChainId (UnsafeAssetName bs) = UnsafeOnChainId bs
 
 onChainIdToAssetName :: OnChainId -> AssetName
-onChainIdToAssetName = AssetName . serialiseToRawBytes
+onChainIdToAssetName = UnsafeAssetName . serialiseToRawBytes
 
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b

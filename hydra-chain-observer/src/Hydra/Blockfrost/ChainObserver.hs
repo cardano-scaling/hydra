@@ -192,15 +192,15 @@ isRetryable (NotEnoughBlockConfirmations _) = True
 isRetryable (MissingBlockNo _) = True
 isRetryable (MissingNextBlockHash _) = True
 
-toChainPoint :: Blockfrost.Block -> ChainPoint
-toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
-  ChainPoint slotNo headerHash
+toChainPoint :: MonadThrow m => Blockfrost.Block -> m ChainPoint
+toChainPoint Blockfrost.Block{_blockSlot, _blockHash} = do
+  blockHash' <- case (deserialiseFromRawBytes (proxyToAsType (Proxy @(Hash BlockHeader))) $ fromString $ T.unpack $ Blockfrost.unBlockHash _blockHash) of
+    Left _ -> throwIO $ DecodeError $ Blockfrost.unBlockHash _blockHash
+    Right x -> pure x
+  pure $ ChainPoint slotNo blockHash'
  where
   slotNo :: SlotNo
   slotNo = maybe 0 (fromInteger . Blockfrost.unSlot) _blockSlot
-
-  headerHash :: Hash BlockHeader
-  headerHash = fromString . toString $ Blockfrost.unBlockHash _blockHash
 
 fromNetworkMagic :: Integer -> NetworkId
 fromNetworkMagic = \case

@@ -6,6 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 import Test.Hydra.Prelude
 
+import Test.QuickCheck.Hedgehog (hedgehog)
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.Credential (Credential (..))
 import Data.Aeson (eitherDecode, encode)
@@ -22,6 +23,7 @@ import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
 import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutput, genTxOut, genUTxOFor, genValue)
+import Test.Gen.Cardano.Api.Typed (genChainPoint)
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -89,7 +91,7 @@ spec =
       describe "genChainPoint" $
         prop "generates only some genesis points" $
           checkCoverage $
-            forAll genChainPoint $ \cp ->
+            forAll (hedgehog genChainPoint) $ \cp ->
               cover 80 (cp /= ChainPointAtGenesis) "not at genesis" $ property True
 
 shouldParseJSONAs :: forall a. (HasCallStack, FromJSON a) => LByteString -> Expectation

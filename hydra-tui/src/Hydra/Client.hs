@@ -12,7 +12,7 @@ import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.API.ServerOutput (ClientMessage, Greetings, InvalidInput, TimedServerOutput)
-import Hydra.Cardano.Api (TxId)
+import Hydra.Cardano.Api (TxId, UTxO)
 import Hydra.Cardano.Api.Prelude (
   PaymentKey,
   SigningKey,
@@ -58,7 +58,7 @@ data Client tx m = Client
   { sendInput :: ClientInput tx -> m ()
   -- ^ Send some input to the server.
   , sk :: SigningKey PaymentKey
-  , externalCommit :: UTxO.UTxO -> m ()
+  , externalCommit :: UTxO -> m ()
   , recoverCommit :: TxId -> m ()
   }
 

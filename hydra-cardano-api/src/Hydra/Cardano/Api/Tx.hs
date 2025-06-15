@@ -38,7 +38,7 @@ signTx signingKey (Tx body wits) =
   witness = makeShelleyKeyWitness shelleyBasedEra body (WitnessPaymentKey signingKey)
 
 -- | Create a transaction spending all given `UTxO`.
-txSpendingUTxO :: UTxO -> Tx Era
+txSpendingUTxO :: UTxO Era -> Tx Era
 txSpendingUTxO utxo =
   fromLedgerTx $
     mkBasicTx
@@ -50,7 +50,7 @@ txSpendingUTxO utxo =
 
 -- | Get the UTxO that are produced by some transaction.
 -- XXX: Defined here to avoid cyclic module dependency
-utxoProducedByTx :: Tx Era -> UTxO
+utxoProducedByTx :: Tx Era -> UTxO Era
 utxoProducedByTx tx =
   UTxO.fromList $
     zip [0 ..] (txOuts body)

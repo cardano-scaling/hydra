@@ -9,7 +9,6 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
@@ -18,6 +17,7 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   Tx,
   TxId,
+  UTxO,
   chainPointToSlotNo,
   getChainPoint,
   getTxBody,
@@ -200,8 +200,8 @@ finalizeTx ::
   MonadThrow m =>
   TinyWallet m ->
   ChainContext ->
-  UTxO.UTxO ->
-  UTxO.UTxO ->
+  UTxO ->
+  UTxO ->
   Tx ->
   m Tx
 finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do

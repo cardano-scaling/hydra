@@ -30,11 +30,9 @@ import Hydra.Cardano.Api (
   VerificationKey,
   fromLedgerTx,
   fromLedgerTxOut,
-  fromLedgerUTxO,
   genTxIn,
   selectLovelace,
   toLedgerTxIn,
-  toLedgerUTxO,
   txOutValue,
   verificationKeyHash,
  )
@@ -115,7 +113,7 @@ setupQuery vk = do
  where
   queryFn queryPointMVar point _addr = do
     putMVar queryPointMVar point
-    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> generate (genOneUTxOFor vk)
+    walletUTxO <- Ledger.unUTxO . toShelleyUTxO shelleyBasedEra <$> generate (genOneUTxOFor vk)
     tip <- generate arbitrary
     pure $
       WalletInfoOnChain
@@ -291,7 +289,7 @@ prop_picksLargestUTxOToPayTheFees =
             & counterexample ("No utxo found: " <> decodeUtf8 (encodePretty combinedUTxO))
         Just (_, txout) -> do
           let foundLovelace = selectLovelace $ txOutValue (fromLedgerTxOut txout)
-              mapToLovelace = fmap (selectLovelace . txOutValue) . UTxO.txOutputs . fromLedgerUTxO . Ledger.UTxO
+              mapToLovelace = fmap (selectLovelace . txOutValue) . UTxO.txOutputs . fromShelleyUTxO shelleyBasedEra . Ledger.UTxO
           property $
             all (foundLovelace >=) (mapToLovelace utxo1)
               && all (foundLovelace >=) (mapToLovelace utxo2)
