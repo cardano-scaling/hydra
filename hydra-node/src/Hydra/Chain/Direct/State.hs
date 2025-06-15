@@ -17,7 +17,7 @@ import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
   AssetId (..),
-  AssetName (AssetName),
+  AssetName (..),
   ChainPoint (..),
   CtxUTxO,
   Key (SigningKey, VerificationKey, verificationKeyHash),
@@ -33,7 +33,6 @@ import Hydra.Cardano.Api (
   TxIn,
   TxOut,
   UTxO,
-  UTxO' (UTxO),
   Value,
   chainPointToSlotNo,
   fromCtxUTxOTxOut,
@@ -57,6 +56,7 @@ import Hydra.Cardano.Api (
   pattern ShelleyAddressInEra,
   pattern TxIn,
   pattern TxOut,
+  pattern UTxO,
  )
 import Hydra.Chain (
   OnChainTx (..),
@@ -363,7 +363,7 @@ commit' ctx headId spendableUTxO commitBlueprintTx = do
     UTxO.find (hasMatchingPT pid . txOutValue) spendableUTxO
 
   hasMatchingPT pid val =
-    selectAsset val (AssetId pid (AssetName (serialiseToRawBytes vkh))) == 1
+    selectAsset val (AssetId pid (UnsafeAssetName (serialiseToRawBytes vkh))) == 1
 
 rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
 rejectByronAddress u = do
@@ -470,8 +470,8 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputInIncrement
   (depositedIn, depositedOut) <-
-    UTxO.findBy
-      ( \(TxIn txid _, txout) ->
+    UTxO.findWithKey
+      ( \(TxIn txid _) txout ->
           isScriptTxOut depositValidatorScript txout && txid == depositTxId
       )
       spendableUTxO
@@ -560,8 +560,8 @@ recover ::
   Either RecoverTxError Tx
 recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
   (_, depositedOut) <-
-    UTxO.findBy
-      ( \(TxIn txid _, txout) ->
+    UTxO.findWithKey
+      ( \(TxIn txid _) txout ->
           isScriptTxOut depositValidatorScript txout && txid == depositedTxId
       )
       spendableUTxO

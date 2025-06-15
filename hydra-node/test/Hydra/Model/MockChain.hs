@@ -78,9 +78,11 @@ import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
 import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
 import Test.QuickCheck (getPositive)
+import Test.QuickCheck.Hedgehog (hedgehog)
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
 -- 'Chain' interfaces. It calls connected chain sync handlers 'onRollForward' on
@@ -214,7 +216,7 @@ mockChainAndNetwork tr seedKeys commits = do
       (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
         draftDepositTx headId defaultPParams (mkSimpleBlueprintTx utxoToDeposit) deadline Nothing Nothing >>= \case
           Left e -> throwIO e
-          Right tx -> submitTx tx $> txId tx
+          Right tx -> submitTx tx $> Hydra.Tx.txId tx
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
   closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> (Party, UTxO) -> m ()
@@ -313,7 +315,7 @@ mockChainAndNetwork tr seedKeys commits = do
     modifyTVar chain $ \(slotNum, position, blocks, utxo) -> do
       -- NOTE: Assumes 1 slot = 1 second
       let newSlot = slotNum + ChainSlot (truncate blockTime)
-          header = genBlockHeaderAt (fromChainSlot newSlot) `generateWith` 42
+          header = hedgehog (genBlockHeaderAt (fromChainSlot newSlot)) `generateWith` 42
           -- NOTE: Transactions that do not apply to the current state (eg.
           -- UTxO) are silently dropped which emulates the chain behaviour that
           -- only the client is potentially witnessing the failure, and no

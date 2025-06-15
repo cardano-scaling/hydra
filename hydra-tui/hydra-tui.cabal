@@ -58,6 +58,7 @@ library
     , async
     , base
     , brick                 >=1.10
+    , cardano-api
     , containers
     , hydra-cardano-api
     , hydra-node

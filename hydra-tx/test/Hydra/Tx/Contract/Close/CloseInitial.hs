@@ -6,7 +6,7 @@ module Hydra.Tx.Contract.Close.CloseInitial where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
-import Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
@@ -77,7 +77,7 @@ healthyCloseInitialTx =
   initialDatum :: TxOutDatum CtxUTxO
   initialDatum = mkTxOutDatumInline healthyInitialOpenDatum
 
-  lookupUTxO :: UTxO' (TxOut CtxUTxO)
+  lookupUTxO :: UTxO
   lookupUTxO =
     UTxO.singleton healthyOpenHeadTxIn (healthyOpenHeadTxOut initialDatum)
       <> registryUTxO scriptRegistry

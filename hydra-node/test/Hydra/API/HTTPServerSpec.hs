@@ -25,6 +25,7 @@ import Hydra.API.HTTPServer (
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
+  UTxO,
   mkTxOutDatumInline,
   modifyTxOutDatum,
   renderTxIn,
@@ -576,7 +577,7 @@ apiServerSpec = do
               }
 
       prop "reject deposits with less than min ADA" $ do
-        forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO.UTxO) -> do
+        forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO) -> do
           let result = rejectLowDeposits pparams utxo Nothing
           case result of
             Left DepositTooLow{providedValue, minimumValue} ->
@@ -586,7 +587,7 @@ apiServerSpec = do
             _ -> property True
 
       prop "reject partial deposits with less ADA then in the UTxO" $ \amt ->
-        forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO.UTxO) -> do
+        forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO) -> do
           let result = checkAmount utxo (Just amt)
           case result of
             Left AmountTooLow{providedValue, totalUTxOValue} ->

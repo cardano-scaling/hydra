@@ -232,7 +232,7 @@ genUTxOWithSimplifiedAddresses =
 -- * Others
 
 instance Arbitrary AssetName where
-  arbitrary = AssetName . BS.take 32 <$> arbitrary
+  arbitrary = UnsafeAssetName . BS.take 32 <$> arbitrary
 
 instance Arbitrary PolicyAssets where
   arbitrary = PolicyAssets <$> arbitrary

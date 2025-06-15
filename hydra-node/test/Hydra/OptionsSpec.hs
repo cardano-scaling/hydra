@@ -12,6 +12,7 @@ import Hydra.Cardano.Api (
   NetworkId (..),
   NetworkMagic (..),
   TxId,
+  deserialiseFromRawBytesThrow,
   serialiseToRawBytesHexText,
  )
 import Hydra.Chain (maximumNumberOfParties)
@@ -316,6 +317,7 @@ spec = parallel $
             }
 
     it "parses --start-chain-from as a pair of slot number and block header hash" $ do
+      x <- deserialiseFromRawBytesThrow "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       ["--start-chain-from", "1000.0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]
         `shouldParse` Run
           defaultRunOptions
@@ -324,8 +326,7 @@ spec = parallel $
                   defaultCardanoChainConfig
                     { startChainFrom =
                         Just $
-                          ChainPoint 1000 $
-                            fromString "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                          ChainPoint 1000 x
                     }
             }
 

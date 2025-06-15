@@ -37,7 +37,7 @@ import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisPara
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api.PParams
-import Cardano.Ledger.BaseTypes (EpochInterval (..), EpochSize (..), NonNegativeInterval, UnitInterval, boundRational, unsafeNonZero)
+import Cardano.Ledger.BaseTypes (EpochInterval (..), NonNegativeInterval, UnitInterval, boundRational, unsafeNonZero)
 import Cardano.Ledger.Binary.Version (mkVersion)
 import Cardano.Ledger.Conway.Core (
   DRepVotingThresholds (..),
@@ -61,7 +61,7 @@ import Data.List qualified as List
 import Data.SOP.NonEmpty (nonEmptyFromList)
 import Data.Set qualified as Set
 import Data.Text qualified as T
-import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
+import Hydra.Cardano.Api.Prelude (fromNetworkMagic)
 import Hydra.Tx (ScriptRegistry, newScriptRegistry)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
@@ -70,6 +70,8 @@ import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams 
 data BlockfrostException
   = TimeoutOnUTxO TxId
   | FailedToDecodeAddress Text
+  | FailedToDecodeBlockHeader Text
+  | FailedToDecodeDatum Text
   | ByronAddressNotSupported
   | FailedUTxOForHash Text
   | FailedEraHistory
@@ -190,7 +192,7 @@ queryProtocolParameters = do
           & ppDRepActivityL .~ EpochInterval (fromIntegral $ Blockfrost.unQuantity drepActivity)
           & ppMinFeeRefScriptCostPerByteL .~ minFeeRefScriptCostPerByte
  where
-  convertCostModels :: Blockfrost.CostModelsRaw -> CostModels
+  convertCostModels :: Blockfrost.CostModelsRaw -> Cardano.Ledger.Plutus.CostModels.CostModels
   convertCostModels costModels =
     let costModelsMap = Blockfrost.unCostModelsRaw costModels
      in foldMap
@@ -208,7 +210,7 @@ queryProtocolParameters = do
 
 -- ** Helpers
 
-toCardanoUTxO :: NetworkId -> TxIn -> Blockfrost.Address -> Maybe Blockfrost.ScriptHash -> Maybe Blockfrost.DatumHash -> [Blockfrost.Amount] -> Maybe Blockfrost.InlineDatum -> BlockfrostClientT IO (UTxO' (TxOut ctx))
+toCardanoUTxO :: NetworkId -> TxIn -> Blockfrost.Address -> Maybe Blockfrost.ScriptHash -> Maybe Blockfrost.DatumHash -> [Blockfrost.Amount] -> Maybe Blockfrost.InlineDatum -> BlockfrostClientT IO UTxO
 toCardanoUTxO networkId txIn address scriptHash datumHash amount inlineDatum = do
   let addrTxt = Blockfrost.unAddress address
   let datumHash' = Blockfrost.unDatumHash <$> datumHash
@@ -239,16 +241,18 @@ toCardanoTxIn txHash i =
 
 toCardanoTxOut :: NetworkId -> Text -> Value -> Maybe Text -> Maybe Text -> Maybe PlutusScript -> BlockfrostClientT IO (TxOut ctx)
 toCardanoTxOut networkId addrTxt val mDatumHash mInlineDatum plutusScript = do
-  let datum =
-        case mInlineDatum of
-          Nothing ->
-            case mDatumHash of
-              Nothing -> TxOutDatumNone
-              Just datumHash -> TxOutDatumHash (fromString $ T.unpack datumHash)
-          Just cborDatum ->
-            case deserialiseFromCBOR (proxyToAsType (Proxy @HashableScriptData)) (encodeUtf8 cborDatum) of
-              Left _ -> TxOutDatumNone
-              Right hashableScriptData -> TxOutDatumInline hashableScriptData
+  datum <-
+    case mInlineDatum of
+      Nothing ->
+        case mDatumHash of
+          Nothing -> pure TxOutDatumNone
+          Just datumHash -> case deserialiseFromRawBytes (proxyToAsType (Proxy @(Hash ScriptData))) (fromString . T.unpack $ datumHash) of
+            Left _ -> liftIO $ throwIO $ FailedToDecodeDatum datumHash
+            Right x -> pure $ TxOutDatumHash x
+      Just cborDatum -> pure $
+        case deserialiseFromCBOR (proxyToAsType (Proxy @HashableScriptData)) (encodeUtf8 cborDatum) of
+          Left _ -> TxOutDatumNone
+          Right hashableScriptData -> TxOutDatumInline hashableScriptData
   case plutusScript of
     Nothing -> do
       case toCardanoAddress addrTxt of
@@ -518,11 +522,14 @@ queryTip = do
     Nothing -> pure $ chainTipToChainPoint ChainTipAtGenesis
     Just (blockSlot, blockNo) -> do
       let Blockfrost.BlockHash blockHash = _blockHash
+      bh <- case deserialiseFromRawBytes (proxyToAsType (Proxy @(Hash BlockHeader))) (fromString $ T.unpack blockHash) of
+        Left _ -> liftIO $ throwIO $ FailedToDecodeBlockHeader blockHash
+        Right x -> pure x
       pure $
         chainTipToChainPoint $
           ChainTip
             (SlotNo $ fromIntegral $ Blockfrost.unSlot blockSlot)
-            (fromString $ T.unpack blockHash)
+            bh
             (BlockNo $ fromIntegral blockNo)
 
 queryStakePools ::
