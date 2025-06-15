@@ -45,7 +45,6 @@ import Hydra.Cardano.Api (
   modifyTxOutValue,
   negateValue,
   selectAsset,
-  selectLovelace,
   toCtxUTxOTxOut,
   toShelleyNetwork,
   txIns',
@@ -381,7 +380,7 @@ rejectMoreThanMainnetLimit network u = do
     Left $
       CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
  where
-  lovelaceAmt = UTxO.foldMap (selectLovelace . txOutValue) u
+  lovelaceAmt = UTxO.totalLovelace u
 
 -- | Construct a abort transaction based on known, spendable UTxO. This function
 -- looks for head, initial and commit outputs to spend and it will fail if we
@@ -521,7 +520,7 @@ decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
     Left DecrementValueNegative
   Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn sigs
  where
-  decommitValue = UTxO.foldMap txOutValue $ fromMaybe mempty $ utxoToDecommit sn
+  decommitValue = UTxO.totalValue $ fromMaybe mempty $ utxoToDecommit sn
 
   isNegative = any ((< 0) . snd) . IsList.toList
 

@@ -175,7 +175,7 @@ healthyCommitOutput participant party committed =
   commitAddress =
     mkScriptAddress testNetworkId commitValidatorScript
   commitValue =
-    UTxO.foldMap txOutValue committed
+    UTxO.totalValue committed
       <> fromList
         [ (AssetId testPolicyId (onChainIdToAssetName participant), 1)
         ]
