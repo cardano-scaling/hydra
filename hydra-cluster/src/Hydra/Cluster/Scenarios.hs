@@ -744,7 +744,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
                   recomputeIntegrityHash pparams [PlutusV3] $
                     toLedgerTx tx
                       & bodyTxL . collateralInputsTxBodyL .~ Set.map toLedgerTxIn (UTxO.inputSet utxoToCommit)
-                      & bodyTxL . totalCollateralTxBodyL .~ SJust (UTxO.foldMap (selectLovelace . txOutValue) utxoToCommit)
+                      & bodyTxL . totalCollateralTxBodyL .~ SJust (UTxO.totalLovelace utxoToCommit)
                       & bodyTxL . withdrawalsTxBodyL .~ Withdrawals (Map.singleton rewardAccount 0)
                       & witsTxL . rdmrsTxWitsL .~ Redeemers (Map.singleton (ConwayRewarding $ AsIx 0) (redeemer, exUnits))
                       & witsTxL . scriptTxWitsL .~ Map.singleton scriptHash script

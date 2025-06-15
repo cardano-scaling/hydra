@@ -134,7 +134,7 @@ generateDemoUTxODataset ::
 generateDemoUTxODataset network nodeSocket faucetSk nClients nTxs = do
   -- Query available funds
   faucetUTxO <- queryUTxOFor network nodeSocket QueryTip faucetVk
-  let (Coin fundsAvailable) = UTxO.foldMap (selectLovelace . txOutValue) faucetUTxO
+  let (Coin fundsAvailable) = UTxO.totalLovelace faucetUTxO
   -- Generate client datasets
   allPaymentKeys <- generate $ replicateM nClients genSigningKey
   clientFunds <- generate $ genClientFunds allPaymentKeys fundsAvailable

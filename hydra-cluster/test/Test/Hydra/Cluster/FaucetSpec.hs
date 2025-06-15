@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently)
-import Hydra.Cardano.Api (Coin (..), selectLovelace, txOutValue)
+import Hydra.Cardano.Api (Coin (..), selectLovelace)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct (DirectBackend (..))
@@ -54,13 +54,13 @@ spec =
               returnFundsToFaucet tracer backend actor
               remaining <- Backend.queryUTxOFor backend QueryTip vk
               finalFaucetFunds <- Backend.queryUTxOFor backend QueryTip faucetVk
-              UTxO.foldMap txOutValue remaining `shouldBe` mempty
+              UTxO.totalValue remaining `shouldBe` mempty
 
               -- check the faucet has one utxo extra in the end
               UTxO.size finalFaucetFunds `shouldBe` UTxO.size initialFaucetFunds + 1
 
-              let initialFaucetValue = selectLovelace (UTxO.foldMap txOutValue initialFaucetFunds)
-              let finalFaucetValue = selectLovelace (UTxO.foldMap txOutValue finalFaucetFunds)
+              let initialFaucetValue = selectLovelace (UTxO.totalValue initialFaucetFunds)
+              let finalFaucetValue = selectLovelace (UTxO.totalValue finalFaucetFunds)
               let difference = initialFaucetValue - finalFaucetValue
               -- difference between starting faucet amount and final one should
               -- just be the amount of paid fees

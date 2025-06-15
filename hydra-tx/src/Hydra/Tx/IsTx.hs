@@ -162,7 +162,7 @@ instance IsTx Tx where
   type ValueType Tx = Value
 
   txId = getTxId . getTxBody
-  balance = UTxO.foldMap txOutValue
+  balance = UTxO.totalValue
 
   -- NOTE: See note from `Util.hashTxOuts`.
   hashUTxO = fromBuiltin . Util.hashTxOuts . mapMaybe toPlutusTxOut . UTxO.txOutputs

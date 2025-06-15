@@ -10,6 +10,7 @@ module Cardano.Api.UTxO where
 
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
 import Cardano.Api qualified
+import Cardano.Api.Ledger (Coin)
 import Cardano.Api.Shelley (ReferenceScript (..))
 import Cardano.Ledger.Babbage ()
 import Data.Bifunctor (second)
@@ -103,9 +104,14 @@ txOutputs = Map.elems . toMap
 null :: UTxO -> Bool
 null = Map.null . toMap
 
-
 size :: UTxO -> Int
 size = Map.size . toMap
+
+totalValue :: UTxO -> Value
+totalValue = Cardano.Api.UTxO.foldMap (\(TxOut _ (txOutValueToValue -> v) _ _) -> v)
+
+totalLovelace :: UTxO -> Coin
+totalLovelace = selectLovelace . totalValue
 
 -- * Type Conversions
 
