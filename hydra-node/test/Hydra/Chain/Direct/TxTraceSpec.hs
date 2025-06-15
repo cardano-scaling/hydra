@@ -21,12 +21,12 @@ module Hydra.Chain.Direct.TxTraceSpec where
 import Hydra.Prelude hiding (Any, State, label, show)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
+  UTxO,
   PaymentKey,
   SlotNo (..),
   TxId,
