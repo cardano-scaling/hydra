@@ -34,7 +34,7 @@ spec =
           vk <- generate genVerificationKey
           seedFromFaucet node vk 1_000_000 tracer
         -- 10 unique outputs
-        length (UTxO.txOutputs $ fold utxos) `shouldBe` 10
+        UTxO.size (fold utxos) `shouldBe` 10
 
     describe "returnFundsToFaucet" $ do
       it "does nothing if nothing to return" $ \(tracer, node) -> do
@@ -54,7 +54,7 @@ spec =
               UTxO.foldMap txOutValue remaining `shouldBe` mempty
 
               -- check the faucet has one utxo extra in the end
-              length (UTxO.txOutputs finalFaucetFunds) `shouldBe` length (UTxO.txOutputs initialFaucetFunds) + 1
+              UTxO.size finalFaucetFunds `shouldBe` UTxO.size initialFaucetFunds + 1
 
               let initialFaucetValue = selectLovelace (UTxO.foldMap txOutValue initialFaucetFunds)
               let finalFaucetValue = selectLovelace (UTxO.foldMap txOutValue finalFaucetFunds)
@@ -75,4 +75,4 @@ spec =
         -- it squashed the UTxO
         utxoAfter <- queryUTxOFor networkId nodeSocket QueryTip vk
 
-        length (UTxO.txOutputs utxoAfter) `shouldBe` 1
+        UTxO.size utxoAfter `shouldBe` 1

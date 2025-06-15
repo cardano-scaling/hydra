@@ -184,7 +184,7 @@ genDecrementMutation (tx, _utxo) =
             Head.DecrementRedeemer
               { signature = invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
-              , numberOfDecommitOutputs = fromIntegral $ maybe 0 (length . UTxO.txOutputs) $ utxoToDecommit healthySnapshot
+              , numberOfDecommitOutputs = fromIntegral $ maybe 0 UTxO.size $ utxoToDecommit healthySnapshot
               }
     , -- Spec: Transaction is signed by a participant
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
