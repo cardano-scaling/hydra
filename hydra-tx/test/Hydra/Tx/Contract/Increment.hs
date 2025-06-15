@@ -79,7 +79,7 @@ healthyIncrementTx =
   headOutput =
     mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyDatum)
       & addParticipationTokens healthyParticipants
-      & modifyTxOutValue (<> UTxO.foldMap txOutValue healthyUTxO)
+      & modifyTxOutValue (<> UTxO.totalValue healthyUTxO)
 
   depositUTxO =
     UTxO.singleton healthyDepositInput $

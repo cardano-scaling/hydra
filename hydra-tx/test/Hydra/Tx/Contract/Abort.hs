@@ -324,7 +324,7 @@ generateCommitUTxOs parties = do
     commitValue =
       mconcat
         [ lovelaceToValue (Coin 2000000)
-        , UTxO.foldMap txOutValue utxo
+        , UTxO.totalValue utxo
         , fromList
             [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
             ]
