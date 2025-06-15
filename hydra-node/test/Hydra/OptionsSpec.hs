@@ -8,10 +8,13 @@ import Test.Hydra.Prelude
 import Control.Lens ((.~))
 import Data.Generics.Labels ()
 import Hydra.Cardano.Api (
+  BlockHeader,
   ChainPoint (..),
+  Hash,
   NetworkId (..),
   NetworkMagic (..),
   TxId,
+  deserialiseFromRawBytes,
   serialiseToRawBytesHexText,
  )
 import Hydra.Chain (maximumNumberOfParties)
@@ -325,7 +328,7 @@ spec = parallel $
                     { startChainFrom =
                         Just $
                           ChainPoint 1000 $
-                            fromString "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                            deserialiseFromRawBytes (Proxy @(Proxy (Hash BlockHeader))) "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                     }
             }
 

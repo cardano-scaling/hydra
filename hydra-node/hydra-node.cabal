@@ -152,7 +152,6 @@ library
     , network
     , optparse-applicative
     , ouroboros-consensus
-    , ouroboros-consensus-cardano
     , ouroboros-network-api           >=0.7.1
     , ouroboros-network-protocols     >=0.8
     , process
@@ -275,6 +274,7 @@ benchmark tx-cost
   build-depends:
     , base
     , bytestring
+    , cardano-api
     , cardano-binary
     , directory
     , filepath
@@ -367,6 +367,7 @@ test-suite tests
     , amazonka-s3
     , base
     , bytestring
+    , cardano-api
     , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class

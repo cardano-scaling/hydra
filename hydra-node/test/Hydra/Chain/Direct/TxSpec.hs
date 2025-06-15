@@ -3,7 +3,7 @@
 -- XXX: This does not have a corresponding "source" module which it tests.
 module Hydra.Chain.Direct.TxSpec where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (referenceInputsTxBodyL, reqSignerHashesTxBodyL)
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
