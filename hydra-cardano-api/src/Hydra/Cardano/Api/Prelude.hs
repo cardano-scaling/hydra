@@ -1,12 +1,10 @@
 module Hydra.Cardano.Api.Prelude (
   module Cardano.Api,
-  module Cardano.Api.Shelley,
   module Data.Aeson,
   HasCallStack,
   Proxy (..),
   Typeable,
-  UTxO,
-  UTxO' (UTxO),
+  UTxO (UTxO),
   Era,
   LedgerEra,
   ledgerEraVersion,
@@ -28,12 +26,7 @@ import Cardano.Api hiding (
   scriptLanguageSupportedInEra,
   toLedgerUTxO,
  )
-import Cardano.Api.Shelley hiding (
-  UTxO,
-  scriptLanguageSupportedInEra,
-  toLedgerUTxO,
- )
-import Cardano.Api.UTxO (UTxO, UTxO' (..))
+import Cardano.Api.UTxO (UTxO (..))
 import Cardano.Crypto.Hash.Class qualified as CC
 import Cardano.Ledger.Binary qualified as Ledger
 import Cardano.Ledger.Core qualified as Ledger
