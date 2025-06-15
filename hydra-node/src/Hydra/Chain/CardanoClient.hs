@@ -87,7 +87,7 @@ buildTransactionWithBody pparams systemStart eraHistory stakePools changeAddress
       stakePools
       mempty
       mempty
-      (UTxO.toApi utxoToSpend)
+      utxoToSpend
       body
       changeAddress
       Nothing
@@ -373,7 +373,7 @@ queryUTxO networkId socket queryPoint addresses =
 queryUTxOExpr :: ShelleyBasedEra era -> [Address ShelleyAddr] -> LocalStateQueryExpr b p QueryInMode r IO UTxO
 queryUTxOExpr sbe addresses = do
   eraUTxO <- queryInShelleyBasedEraExpr sbe $ QueryUTxO (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
-  pure $ UTxO.fromApi eraUTxO
+  pure eraUTxO
 
 -- | Query UTxO for given tx inputs at given point.
 --
@@ -391,7 +391,7 @@ queryUTxOByTxIn networkId socket queryPoint inputs =
     (AnyCardanoEra era) <- queryCurrentEraExpr
     (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
     eraUTxO <- queryInShelleyBasedEraExpr sbe $ QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs))
-    pure $ UTxO.fromApi eraUTxO
+    pure eraUTxO
 
 assumeShelleyBasedEraOrThrow :: MonadThrow m => CardanoEra era -> m (ShelleyBasedEra era)
 assumeShelleyBasedEraOrThrow era = do
@@ -416,7 +416,7 @@ queryUTxOWhole networkId socket queryPoint = do
     (AnyCardanoEra era) <- queryCurrentEraExpr
     (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
     eraUTxO <- queryInShelleyBasedEraExpr sbe $ QueryUTxO QueryUTxOWhole
-    pure $ UTxO.fromApi eraUTxO
+    pure eraUTxO
 
 -- | Query UTxO for the address of given verification key at point.
 --
