@@ -227,7 +227,7 @@ prop_consistentHashPreSerializedCommits =
 prop_hashingCaresAboutOrderingOfTxOuts :: Property
 prop_hashingCaresAboutOrderingOfTxOuts =
   forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
-    (length utxo > 1) ==>
+    (length (UTxO.txOutputs utxo) > 1) ==>
       let plutusTxOuts =
             rights $
               zipWith

@@ -5,6 +5,7 @@ module Test.GeneratorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Data.Text (unpack)
 import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
@@ -45,7 +46,7 @@ prop_keepsUTxOConstant =
           \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
             let initialUTxO = utxoFromTx fundingTransaction
                 finalUTxO = foldl' (apply defaultGlobals ledgerEnv) initialUTxO txSequence
-             in length finalUTxO == length initialUTxO
+             in length (UTxO.txOutputs finalUTxO) == length (UTxO.txOutputs initialUTxO)
                   & counterexample ("transactions: " <> prettyJSONString txSequence)
                   & counterexample ("utxo: " <> prettyJSONString initialUTxO)
                   & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
