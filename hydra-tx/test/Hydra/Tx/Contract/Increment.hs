@@ -79,7 +79,7 @@ healthyIncrementTx =
   headOutput =
     mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyDatum)
       & addParticipationTokens healthyParticipants
-      & modifyTxOutValue (<> foldMap txOutValue healthyUTxO)
+      & modifyTxOutValue (<> UTxO.totalValue healthyUTxO)
 
   depositUTxO =
     UTxO.singleton healthyDepositInput $
@@ -134,7 +134,7 @@ healthyContestationPeriod =
   arbitrary `generateWith` 42
 
 healthyUTxO :: UTxO
-healthyUTxO = adaOnly <$> generateWith (genUTxOSized 3) 42
+healthyUTxO = UTxO.map adaOnly $ generateWith (genUTxOSized 3) 42
 
 healthyDatum :: Head.State
 healthyDatum =

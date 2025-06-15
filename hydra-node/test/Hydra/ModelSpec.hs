@@ -80,6 +80,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
+import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (newTVarIO)
 import Control.Monad.Class.MonadTimer ()
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
@@ -199,7 +200,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
       utxo <- run $ lift $ headUTxO node
       let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
       let expected = sorted (toTxOuts confirmedUTxO)
-      let actual = sorted (toList utxo)
+      let actual = sorted (UTxO.txOutputs utxo)
       stop $
         expected === actual
           & counterexample ("actual: \n  " <> intercalate "\n  " (map renderTxOut actual))

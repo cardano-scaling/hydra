@@ -326,7 +326,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   ChangeInputHeadDatum d' ->
     ( tx
-    , replaceHeadDatum <$> utxo
+    , UTxO.map replaceHeadDatum utxo
     )
    where
     replaceHeadDatum o@(TxOut addr value _ refScript)

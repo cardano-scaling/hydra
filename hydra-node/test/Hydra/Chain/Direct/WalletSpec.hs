@@ -5,6 +5,7 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
@@ -290,7 +291,7 @@ prop_picksLargestUTxOToPayTheFees =
             & counterexample ("No utxo found: " <> decodeUtf8 (encodePretty combinedUTxO))
         Just (_, txout) -> do
           let foundLovelace = selectLovelace $ txOutValue (fromLedgerTxOut txout)
-              mapToLovelace = fmap (selectLovelace . txOutValue) . fromLedgerUTxO . Ledger.UTxO
+              mapToLovelace = fmap (selectLovelace . txOutValue) . UTxO.txOutputs . fromLedgerUTxO . Ledger.UTxO
           property $
             all (foundLovelace >=) (mapToLovelace utxo1)
               && all (foundLovelace >=) (mapToLovelace utxo2)
