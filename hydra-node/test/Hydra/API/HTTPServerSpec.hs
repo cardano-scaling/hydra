@@ -374,8 +374,8 @@ apiServerSpec = do
         let mUTxO = getSnapshotUtxo headState
             utxo :: UTxOType Tx = fromMaybe mempty mUTxO
         withMaxSuccess 4
-          . cover 1 (null utxo) "empty"
-          . cover 1 (not $ null utxo) "non empty"
+          . cover 1 (UTxO.null utxo) "empty"
+          . cover 1 (not $ UTxO.null utxo) "non empty"
           . withJsonSpecifications
           $ \schemaDir -> do
             withApplication
