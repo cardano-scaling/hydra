@@ -67,7 +67,7 @@ healthyFanoutTx =
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =
-  adaOnly <$> generateWith (genUTxOWithSimplifiedAddresses `suchThat` \u -> length u > 1) 42
+  UTxO.map adaOnly $ generateWith (genUTxOWithSimplifiedAddresses `suchThat` \u -> length (UTxO.txOutputs u) > 1) 42
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42

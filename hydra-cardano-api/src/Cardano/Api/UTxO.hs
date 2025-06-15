@@ -14,7 +14,6 @@ import Cardano.Api.Shelley (ReferenceScript (..))
 import Cardano.Ledger.Babbage ()
 import Data.Bifunctor (second)
 import Data.Coerce (coerce)
-import Data.Foldable qualified as F
 import Data.List qualified as List
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -36,8 +35,6 @@ newtype UTxO' out = UTxO
   deriving newtype
     ( Eq
     , Show
-    , Functor
-    , Foldable
     , Semigroup
     , Monoid
     , ToJSON
@@ -88,11 +85,23 @@ difference a b = UTxO $ Map.difference (toMap a) (toMap b)
 -- | Check if the first 'UTxO' contains all **outputs** of the second 'UTxO'.
 -- First argument is the 'UTxO' to search in, second argument is the 'UTxO'
 -- to search for.
-containsOutputs :: Eq out => UTxO' out -> UTxO' out -> Bool
+containsOutputs :: UTxO -> UTxO -> Bool
 containsOutputs utxoForSearching utxo =
-  let allOutputs = F.toList utxoForSearching
-      expectedOutputs = F.toList utxo
+  let allOutputs = txOutputs utxoForSearching
+      expectedOutputs = txOutputs utxo
    in all (`elem` allOutputs) expectedOutputs
+
+map :: (TxOut CtxUTxO Era -> TxOut CtxUTxO Era) -> UTxO -> UTxO
+map f = UTxO . Map.map f . toMap
+
+foldMap :: Monoid m => (TxOut CtxUTxO Era -> m) -> UTxO -> m
+foldMap fn = Prelude.foldMap fn . toMap
+
+txOutputs :: UTxO -> [TxOut CtxUTxO Era]
+txOutputs = Map.elems . toMap
+
+null :: UTxO -> Bool
+null = Map.null . toMap
 
 -- * Type Conversions
 

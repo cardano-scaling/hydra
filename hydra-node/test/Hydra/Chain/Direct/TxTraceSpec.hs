@@ -653,7 +653,7 @@ instance RunModel Model AppM where
             -- NOTE: Sort `[TxOut]` by the address and values. We want to make
             -- sure that the fanout outputs match what we had in the open Head
             -- exactly.
-            let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o))) . toList
+            let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o))) . UTxO.txOutputs
             let fannedOut = utxoFromTx tx
             guard $ sorted fannedOut == sorted (realWorldModelUTxO utxo <> realWorldModelUTxO omegaUTxO)
 
@@ -760,11 +760,11 @@ signedSnapshot ms =
 
   utxoToDecommit =
     let u = realWorldModelUTxO (toDecommit ms)
-     in if null u then Nothing else Just u
+     in if UTxO.null u then Nothing else Just u
 
   utxoToCommit =
     let u = realWorldModelUTxO (toCommit ms)
-     in if null u then Nothing else Just u
+     in if UTxO.null u then Nothing else Just u
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.
@@ -793,7 +793,7 @@ openHeadUTxO =
   openHeadTxOut =
     mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId openHeadDatum
       & addParticipationTokens [alicePVk, bobPVk, carolPVk]
-      & modifyTxOutValue (<> foldMap txOutValue inHeadUTxO)
+      & modifyTxOutValue (<> UTxO.foldMap txOutValue inHeadUTxO)
 
   openHeadDatum =
     mkTxOutDatumInline $

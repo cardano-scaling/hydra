@@ -102,7 +102,7 @@ computeCommitCost = do
       Right tx ->
         case checkSizeAndEvaluate tx (utxo <> knownUtxo) of
           Just (txSize, memUnit, cpuUnit, minFee) ->
-            pure $ Just (NumUTxO $ length utxo, txSize, memUnit, cpuUnit, minFee)
+            pure $ Just (NumUTxO $ length $ UTxO.txOutputs utxo, txSize, memUnit, cpuUnit, minFee)
           Nothing ->
             pure Nothing
 
@@ -309,4 +309,4 @@ serializedSize :: UTxO -> Natural
 serializedSize =
   fromIntegral
     . lengthOfByteString
-    . foldMap (serialiseData . toBuiltinData . fromJust . toPlutusTxOut)
+    . UTxO.foldMap (serialiseData . toBuiltinData . fromJust . toPlutusTxOut)
