@@ -131,7 +131,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     UTxO.fromList $ mapMaybe (\txin -> (txin,) <$> UTxO.resolveTxIn txin lookupUTxO) committedTxIns
 
   commitValue =
-    txOutValue out <> UTxO.foldMap txOutValue utxoToCommit
+    txOutValue out <> UTxO.totalValue utxoToCommit
 
   commitDatum =
     mkTxOutDatumInline $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)

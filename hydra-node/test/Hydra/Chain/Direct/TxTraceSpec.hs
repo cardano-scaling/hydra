@@ -793,7 +793,7 @@ openHeadUTxO =
   openHeadTxOut =
     mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId openHeadDatum
       & addParticipationTokens [alicePVk, bobPVk, carolPVk]
-      & modifyTxOutValue (<> UTxO.foldMap txOutValue inHeadUTxO)
+      & modifyTxOutValue (<> UTxO.totalValue inHeadUTxO)
 
   openHeadDatum =
     mkTxOutDatumInline $
