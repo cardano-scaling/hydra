@@ -112,7 +112,7 @@ evaluateTx' maxUnits tx utxo = do
         systemStart
         (LedgerEpochInfo epochInfo)
         pparams'
-        (UTxO.toApi utxo)
+        utxo
         (getTxBody tx)
 
 -- | Check the budget used by provided 'EvaluationReport' does not exceed given

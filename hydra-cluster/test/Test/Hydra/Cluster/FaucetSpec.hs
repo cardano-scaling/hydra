@@ -3,10 +3,11 @@ module Test.Hydra.Cluster.FaucetSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (RunningNode (..))
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently)
-import Hydra.Cardano.Api (Coin (..), selectLovelace, txOutValue)
+import Hydra.Cardano.Api (Coin (..), selectLovelace)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, returnFundsToFaucet, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
@@ -33,7 +34,7 @@ spec =
           vk <- generate genVerificationKey
           seedFromFaucet node vk 1_000_000 tracer
         -- 10 unique outputs
-        length (fold utxos) `shouldBe` 10
+        UTxO.size (fold utxos) `shouldBe` 10
 
     describe "returnFundsToFaucet" $ do
       it "does nothing if nothing to return" $ \(tracer, node) -> do
@@ -50,13 +51,13 @@ spec =
               returnFundsToFaucet tracer node actor
               remaining <- queryUTxOFor networkId nodeSocket QueryTip vk
               finalFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
-              foldMap txOutValue remaining `shouldBe` mempty
+              UTxO.totalValue remaining `shouldBe` mempty
 
               -- check the faucet has one utxo extra in the end
-              length finalFaucetFunds `shouldBe` length initialFaucetFunds + 1
+              UTxO.size finalFaucetFunds `shouldBe` UTxO.size initialFaucetFunds + 1
 
-              let initialFaucetValue = selectLovelace (foldMap txOutValue initialFaucetFunds)
-              let finalFaucetValue = selectLovelace (foldMap txOutValue finalFaucetFunds)
+              let initialFaucetValue = selectLovelace (UTxO.totalValue initialFaucetFunds)
+              let finalFaucetValue = selectLovelace (UTxO.totalValue finalFaucetFunds)
               let difference = initialFaucetValue - finalFaucetValue
               -- difference between starting faucet amount and final one should
               -- just be the amount of paid fees
@@ -74,4 +75,4 @@ spec =
         -- it squashed the UTxO
         utxoAfter <- queryUTxOFor networkId nodeSocket QueryTip vk
 
-        length utxoAfter `shouldBe` 1
+        UTxO.size utxoAfter `shouldBe` 1

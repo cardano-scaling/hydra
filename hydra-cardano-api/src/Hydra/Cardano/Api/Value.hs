@@ -87,4 +87,4 @@ fromPlutusValue plutusValue = do
         pure (AssetId pid (toAssetName tk), Quantity i)
 
   toAssetName :: Plutus.TokenName -> AssetName
-  toAssetName = AssetName . fromBuiltin . unTokenName
+  toAssetName = UnsafeAssetName . fromBuiltin . unTokenName

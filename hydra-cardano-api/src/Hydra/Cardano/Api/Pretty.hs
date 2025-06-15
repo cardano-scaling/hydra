@@ -23,7 +23,7 @@ renderTx :: Api.Tx -> String
 renderTx = renderTxWithUTxO mempty
 
 -- | Like 'renderTx', but uses the given UTxO to resolve inputs.
-renderTxWithUTxO :: UTxO -> Api.Tx -> String
+renderTxWithUTxO :: UTxO Era -> Api.Tx -> String
 renderTxWithUTxO utxo (Tx body _wits) =
   unlines $
     intercalate

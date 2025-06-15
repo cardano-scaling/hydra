@@ -239,9 +239,7 @@ adjustUTxO :: Tx -> UTxO -> UTxO
 adjustUTxO tx utxo =
   let txid = txId tx
       consumed = txIns' tx
-      produced =
-        toCtxUTxOTxOut
-          <$> UTxO.fromList ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
+      produced = UTxO.fromList ((\(txout, ix) -> (TxIn txid (TxIx ix), toCtxUTxOTxOut txout)) <$> zip (txOuts' tx) [0 ..])
       utxo' = UTxO.fromList $ filter (\(txin, _) -> txin `notElem` consumed) $ UTxO.toList utxo
    in utxo' <> produced
 

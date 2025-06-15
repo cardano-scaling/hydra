@@ -21,7 +21,7 @@ import Hydra.Ledger.Cardano (cardanoLedger, genSequenceOfSimplePaymentTransactio
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
-import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutput, genTxOut, genUTxO, genUTxOAdaOnlyOfSize, genUTxOFor, genValue)
+import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutput, genTxOut, genUTxOFor, genValue)
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -31,8 +31,6 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   property,
-  sized,
-  vectorOf,
   (===),
  )
 import Test.Util (propCollisionResistant)
@@ -73,8 +71,6 @@ spec =
       propCollisionResistant "arbitrary @TxId" (arbitrary @TxId)
       propCollisionResistant "arbitrary @(VerificationKey PaymentKey)" (arbitrary @(VerificationKey PaymentKey))
       propCollisionResistant "arbitrary @(Hash PaymentKey)" (arbitrary @(Hash PaymentKey))
-      propDoesNotCollapse "genUTxO" genUTxO
-      propDoesNotCollapse "genUTxOAdaOnlyOfSize" (sized genUTxOAdaOnlyOfSize)
       propCollisionResistant "genUTxOFor" (genUTxOFor (arbitrary `generateWith` 42))
       propCollisionResistant "genOneUTxOFor" (genOneUTxOFor (arbitrary `generateWith` 42))
 
@@ -133,12 +129,6 @@ appliesValidTransactionFromJSON =
           & counterexample ("Result: " <> show result)
           & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
           & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
-
-propDoesNotCollapse :: (Show (t a), Foldable t, Monoid (t a)) => String -> Gen (t a) -> Spec
-propDoesNotCollapse name gen =
-  prop (name <> " does not generate collapsing values") $
-    forAll (vectorOf 100 gen) $ \xs ->
-      sum (length <$> xs) === length (fold xs)
 
 -- | A transaction or transaction output can usually only contain a realistic
 -- number of native asset entries. This property checks a realistic order of

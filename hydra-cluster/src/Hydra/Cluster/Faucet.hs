@@ -92,7 +92,7 @@ findFaucetUTxO RunningNode{networkId, nodeSocket} lovelace = do
   (faucetVk, _) <- keysFor Faucet
   faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
   let foundUTxO = UTxO.filter (\o -> (selectLovelace . txOutValue) o >= lovelace) faucetUTxO
-  when (null foundUTxO) $
+  when (UTxO.null foundUTxO) $
     throwIO $
       FaucetHasNotEnoughFunds{faucetUTxO}
   pure foundUTxO
@@ -179,7 +179,7 @@ returnFundsToFaucet' tracer RunningNode{networkId, nodeSocket} senderSk = do
   let senderVk = getVerificationKey senderSk
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
   returnAmount <-
-    if null utxo
+    if UTxO.null utxo
       then pure 0
       else retryOnExceptions tracer $ do
         let utxoValue = balance @Tx utxo
