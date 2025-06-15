@@ -55,7 +55,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           { signature = toPlutusSignatures signatures
           , snapshotNumber = fromIntegral number
           , numberOfDecommitOutputs =
-              fromIntegral $ length $ maybe [] UTxO.txOutputs utxoToDecommit
+              fromIntegral $ maybe 0 UTxO.size utxoToDecommit
           }
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
