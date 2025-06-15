@@ -367,7 +367,7 @@ commit' ctx headId spendableUTxO commitBlueprintTx = do
 
 rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
 rejectByronAddress u = do
-  forM_ u $ \case
+  forM_ (UTxO.txOutputs u) $ \case
     (TxOut (ByronAddressInEra addr) _ _ _) ->
       Left (UnsupportedLegacyOutput addr)
     (TxOut ShelleyAddressInEra{} _ _ _) ->
@@ -381,7 +381,7 @@ rejectMoreThanMainnetLimit network u = do
     Left $
       CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
  where
-  lovelaceAmt = foldMap (selectLovelace . txOutValue) u
+  lovelaceAmt = UTxO.foldMap (selectLovelace . txOutValue) u
 
 -- | Construct a abort transaction based on known, spendable UTxO. This function
 -- looks for head, initial and commit outputs to spend and it will fail if we
@@ -480,7 +480,7 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
     Nothing ->
       Left SnapshotMissingIncrementUTxO
     Just deposit
-      | null deposit ->
+      | UTxO.null deposit ->
           Left SnapshotIncrementUTxOIsNull
       | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton depositedIn depositedOut) upperValiditySlot sigs
  where
@@ -521,7 +521,7 @@ decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
     Left DecrementValueNegative
   Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn sigs
  where
-  decommitValue = foldMap txOutValue $ fromMaybe mempty $ utxoToDecommit sn
+  decommitValue = UTxO.foldMap txOutValue $ fromMaybe mempty $ utxoToDecommit sn
 
   isNegative = any ((< 0) . snd) . IsList.toList
 
@@ -1097,9 +1097,10 @@ genCommits' genUTxO ctx txInit = do
     let stInitial@InitialState{headId} = unsafeObserveInit cctx (ctxVerificationKeys ctx) txInit
     pure $ unsafeCommit cctx headId (getKnownUTxO stInitial) toCommit
  where
+  scaleCommitUTxOs :: [UTxO] -> [UTxO]
   scaleCommitUTxOs commitUTxOs =
-    let numberOfUTxOs = length $ fold commitUTxOs
-     in map (fmap (modifyTxOutValue (scaleQuantitiesDownBy numberOfUTxOs))) commitUTxOs
+    let numberOfUTxOs = length commitUTxOs
+     in map (UTxO.map (modifyTxOutValue (scaleQuantitiesDownBy numberOfUTxOs))) commitUTxOs
 
   scaleQuantitiesDownBy x =
     -- XXX: Foldable Value instance would be nice here
@@ -1136,7 +1137,7 @@ genCollectComTx = do
 genDepositTx :: Int -> Gen (HydraContext, OpenState, UTxO, Tx)
 genDepositTx numParties = do
   ctx <- genHydraContextFor numParties
-  utxo <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . null)
+  utxo <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . UTxO.null)
   (_, st@OpenState{headId}) <- genStOpen ctx
   -- NOTE: Not too high so we can use chooseEnum (which goes through Int) here and in other generators
   slot <- chooseEnum (0, 1_000_000)
@@ -1175,7 +1176,7 @@ genIncrementTx numParties = do
 genDecrementTx :: Int -> Gen (ChainContext, UTxO, OpenState, UTxO, Tx)
 genDecrementTx numParties = do
   ctx <- genHydraContextFor numParties
-  (u0, stOpen@OpenState{headId}) <- genStOpen ctx `suchThat` \(u, _) -> not (null u)
+  (u0, stOpen@OpenState{headId}) <- genStOpen ctx `suchThat` \(u, _) -> not (UTxO.null u)
   cctx <- pickChainContext ctx
   let (confirmedUtxo, toDecommit) = splitUTxO u0
   let version = 0
