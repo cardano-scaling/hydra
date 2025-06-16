@@ -33,7 +33,7 @@ Known errors are:
       - `configuredPeers` - peers info coming from `hydra-node` arguments.
 
  - `member ... has already been bootstrapped` - missing information in `<persistence-dir>/etcd`
-   - need to restart your hydra-node using `ETCD_INITIAL_CLUSTER_STATE` env variable set to `existing` (`new` is used by default), see also https://etcd.io/docs/v3.3/op-guide/configuration/
+   - restart your hydra-node with the `ETCD_INITIAL_CLUSTER_STATE` environment variable set to `existing` (`new` is the default), see also https://etcd.io/docs/v3.3/op-guide/configuration/
 
 We should be able to work around these UX issues using [etcd discovery](https://etcd.io/docs/v3.5/op-guide/clustering/#etcd-discovery) eventually.
 
