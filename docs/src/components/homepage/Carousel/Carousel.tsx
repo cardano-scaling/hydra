@@ -21,7 +21,11 @@ const CarouselEntry: FC<Props> = ({ idx, src, description }) => {
   return (
     <div className="flex items-center gap-6 h-full justify-center">
       <div className="basis-[40%]">
-        <img src={src} className="w-full rounded-lg object-cover" />
+        <img
+          src={src}
+          className="w-full rounded-lg object-cover"
+          alt={`How it works panel ${idx}`}
+        />
       </div>
       <div className="flex flex-col gap-4 max-w-md justify-center">
         <h4 className="text-2xl text-primary font-medium">How it works</h4>
@@ -52,11 +56,17 @@ type ControlProps = {
 const Controls: FC<ControlProps> = ({ showing, handlePrev, handleNext }) => {
   return (
     <div className="inline-flex gap-4">
-      <button onClick={handlePrev} disabled={showing < 1}>
+      <button
+        onClick={handlePrev}
+        disabled={showing < 1}
+        aria-label="Previous slide"
+      >
         <Arrow
           className={clsx(
             "rotate-180 rounded-full",
-            showing < 1 ? "text-primary-lightest" : "text-primary hover:bg-primary/15"
+            showing < 1
+              ? "text-primary-lightest"
+              : "text-primary hover:bg-primary/15"
           )}
         />
       </button>
@@ -72,6 +82,7 @@ const Controls: FC<ControlProps> = ({ showing, handlePrev, handleNext }) => {
       <button
         onClick={handleNext}
         disabled={showing > HowItWorksCarouselContent.length - 2}
+        aria-label="Next slide"
       >
         <Arrow
           className={clsx(

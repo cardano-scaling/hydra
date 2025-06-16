@@ -74,6 +74,7 @@ export default function NavbarContent() {
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-primary-light mx-3 py-1"
+            aria-label="Github link"
           >
             <GithubSmall />
           </a>
@@ -82,6 +83,7 @@ export default function NavbarContent() {
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-primary-light mx-3 py-1"
+            aria-label="Discord link"
           >
             <Discord />
           </a>

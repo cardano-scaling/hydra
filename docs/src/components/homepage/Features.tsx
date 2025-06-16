@@ -27,7 +27,7 @@ const Feature: FC<Props> = ({ icon, title, description, index }) => {
     >
       <div className="inline-flex gap-3 border-b pb-4 border-gray [&>*:first-child]:mt-1">
         {icon}
-        <h6 className="text-2xl">{title}</h6>
+        <span className="text-2xl">{title}</span>
       </div>
       <p>{description}</p>
     </motion.div>
@@ -38,8 +38,8 @@ const Features: FC = () => {
   return (
     <section className="component bg-white">
       <div className="pageContainer">
-        <motion.h5
-          className="text-base text-primary pb-14"
+        <motion.h2
+          className="text-base text-primary pb-14 section-label"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
@@ -50,7 +50,7 @@ const Features: FC = () => {
           }}
         >
           / FEATURES
-        </motion.h5>
+        </motion.h2>
         <motion.div className="grid laptop:grid-cols-3 laptop:grid-rows-2 laptop:grid-flow-row tablet:grid-rows-3 tablet:grid-flow-col gap-x-6 tablet:gap-y-6 laptop:gap-y-14 gap-y-14">
           {FeatureList.map((props, idx) => (
             <Feature key={idx} index={idx} {...props} />

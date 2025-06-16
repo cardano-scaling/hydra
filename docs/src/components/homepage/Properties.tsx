@@ -47,7 +47,7 @@ const Properties: FC = () => {
       }}
     >
       <div className="component pageContainer flex flex-col">
-        <h5 className="text-base text-white">/ PROPERTIES</h5>
+        <h3 className="text-base text-white section-label">/ PROPERTIES</h3>
         <div className="flex flex-col laptop:flex-row justify-between">
           <div className="pt-14 laptop:pr-14 flex flex-col gap-8">
             {PropertiesContent.map((props, idx) => (
