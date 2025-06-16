@@ -22,6 +22,7 @@ import Ouroboros.Network.Protocol.LocalStateQuery.Type (Target (..))
 data QueryException
   = QueryAcquireException AcquiringFailure
   | QueryEraMismatchException EraMismatch
+  | QueryUnsupportedNtcVersionException UnsupportedNtcVersionError
   | QueryProtocolParamsConversionException ProtocolParametersConversionError
   | QueryProtocolParamsEraNotSupported AnyCardanoEra
   | QueryProtocolParamsEncodingFailureOnEra AnyCardanoEra Text
@@ -35,6 +36,7 @@ instance Exception QueryException where
     QueryEraMismatchException EraMismatch{ledgerEraName, otherEraName} ->
       -- NOTE: The "ledger" here is the one in the cardano-node and "otherEra" is the one we picked for the query.
       printf "Connected to cardano-node in unsupported era %s, while we requested %s. Please upgrade your hydra-node." ledgerEraName otherEraName
+    QueryUnsupportedNtcVersionException err -> show err
     QueryProtocolParamsConversionException err -> show err
     QueryProtocolParamsEraNotSupported unsupportedEraName ->
       printf "Error while querying protocol params using era %s." (show unsupportedEraName :: Text)
@@ -503,7 +505,7 @@ throwOnEraMismatch res =
 throwOnUnsupportedNtcVersion :: MonadThrow m => Either UnsupportedNtcVersionError a -> m a
 throwOnUnsupportedNtcVersion res =
   case res of
-    Left unsupportedNtcVersion -> error $ show unsupportedNtcVersion -- TODO
+    Left unsupportedNtcVersion -> throwIO $ QueryUnsupportedNtcVersionException unsupportedNtcVersion
     Right result -> pure result
 
 localNodeConnectInfo :: NetworkId -> SocketPath -> LocalNodeConnectInfo
