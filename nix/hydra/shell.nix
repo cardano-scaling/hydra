@@ -97,6 +97,7 @@ let
       ghc
       pkgs.cabal-install
       pkgs.pkg-config
+      pkgs.snappy
     ] ++ buildInputs;
 
     # Ensure that libz.so and other libraries are available to TH splices.
