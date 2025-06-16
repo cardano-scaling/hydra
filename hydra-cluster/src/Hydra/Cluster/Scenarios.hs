@@ -154,6 +154,7 @@ import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript)
 import Test.QuickCheck (choose, elements, generate)
+import System.Environment (setEnv)
 
 data EndToEndLog
   = ClusterOptions {options :: Options}
@@ -1772,9 +1773,12 @@ canResumeOnMemberAlreadyBoostrapped tracer workDir cardanoNode hydraScriptsTxId 
     callProcess "rm" ["-rf", workDir </> "state-2"]
 
     withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
-              `shouldThrow` \(e :: SomeException) ->
-                "hydra-node" `isInfixOf` show e
-                  && "etcd" `isInfixOf` show e
+      `shouldThrow` \(e :: SomeException) ->
+        "hydra-node" `isInfixOf` show e
+          && "etcd" `isInfixOf` show e
+
+    setEnv "ETCD_INITIAL_CLUSTER_STATE" "existing"
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
   hydraTracer = contramap FromHydraNode tracer
