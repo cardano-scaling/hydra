@@ -75,7 +75,7 @@ hydra-node --deposit-period 7200s
 
 Anyone can submit a deposit transaction that targets a given head. Each deposit has a **deposit deadline**, after which a deposit can be recovered. All participants need to agree before a deposit can be incremented into the head state and deposited funds are made available on the L2.
 
-For a deposit to be considered by the `hydra-node` the deadline must be further out than `now + DP`. The `hydra-node` will pick the deadline `now + 2 * DP` for any deposit transactions created through `POST /commit`. For example, if you set a deposit period of 2 hours, the deposit can be picked up for 2 hours and recovered after 4 hours.
+For a deposit to be considered by the `hydra-node` the deadline must be further out than `now + DP`. The `hydra-node` will pick the deadline `now + 3 * DP` for any deposit transactions created through `POST /commit`. For example, if you set a deposit period of 2 hours, the deposit will be picked up after 2 hours and at latest after 4 hours, while it may be recovered by the user after 6 hours.
 
 See the [how-to](./how-to/incremental-commit) and [protocol documentation](./dev/protocol#incremental-commits) for more details.
 
