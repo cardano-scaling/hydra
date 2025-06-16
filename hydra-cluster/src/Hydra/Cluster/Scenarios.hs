@@ -39,7 +39,7 @@ import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
  )
-import Hydra.API.ServerOutput (HeadStatus (Idle))
+import Hydra.API.ServerOutput (HeadStatus (..))
 import Hydra.Cardano.Api (
   Coin (..),
   Era,
@@ -1741,6 +1741,42 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
         seenSn3' <- getSnapshotLastSeen n3
         seenSn2' `shouldBe` seenSn3'
  where
+  hydraTracer = contramap FromHydraNode tracer
+
+canResumeOnMemberAlreadyBoostrapped :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+canResumeOnMemberAlreadyBoostrapped tracer workDir cardanoNode hydraScriptsTxId = do
+  let clients = [Alice, Bob]
+  [(aliceCardanoVk, _aliceCardanoSk), (bobCardanoVk, _)] <- forM clients keysFor
+  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  let contestationPeriod = 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
+      <&> setNetworkId networkId
+
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
+    waitMatch 20 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "Greetings"
+      guard $ v ^? key "headStatus" == Just (toJSON Idle)
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
+      waitMatch 20 n2 $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+
+      threadDelay 5
+
+    callProcess "rm" ["-rf", workDir </> "state-2"]
+
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
+              `shouldThrow` \(e :: SomeException) ->
+                "hydra-node" `isInfixOf` show e
+                  && "etcd" `isInfixOf` show e
+ where
+  RunningNode{nodeSocket, networkId} = cardanoNode
   hydraTracer = contramap FromHydraNode tracer
 
 -- | Three hydra nodes open a head and we assert that none of them sees errors if a party is duplicated.
