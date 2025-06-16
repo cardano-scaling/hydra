@@ -148,7 +148,7 @@ import Network.HTTP.Req (
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
-import System.Environment (setEnv)
+import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
 import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
@@ -1781,6 +1781,7 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir cardanoNode hydraScriptsTxId
 
     setEnv "ETCD_INITIAL_CLUSTER_STATE" "existing"
     withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
+    unsetEnv "ETCD_INITIAL_CLUSTER_STATE"
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
   hydraTracer = contramap FromHydraNode tracer
