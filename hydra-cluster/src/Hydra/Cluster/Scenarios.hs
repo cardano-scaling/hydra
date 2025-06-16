@@ -149,12 +149,12 @@ import Network.HTTP.Req (
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
+import System.Environment (setEnv)
 import System.FilePath ((</>))
 import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript)
 import Test.QuickCheck (choose, elements, generate)
-import System.Environment (setEnv)
 
 data EndToEndLog
   = ClusterOptions {options :: Options}
@@ -1744,8 +1744,8 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
  where
   hydraTracer = contramap FromHydraNode tracer
 
-canResumeOnMemberAlreadyBoostrapped :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
-canResumeOnMemberAlreadyBoostrapped tracer workDir cardanoNode hydraScriptsTxId = do
+canResumeOnMemberAlreadyBootstrapped :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+canResumeOnMemberAlreadyBootstrapped tracer workDir cardanoNode hydraScriptsTxId = do
   let clients = [Alice, Bob]
   [(aliceCardanoVk, _aliceCardanoSk), (bobCardanoVk, _)] <- forM clients keysFor
   seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)

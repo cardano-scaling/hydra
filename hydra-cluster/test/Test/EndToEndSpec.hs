@@ -52,7 +52,7 @@ import Hydra.Cluster.Scenarios (
   canCommit,
   canDecommit,
   canRecoverDeposit,
-  canResumeOnMemberAlreadyBoostrapped,
+  canResumeOnMemberAlreadyBootstrapped,
   canSeePendingDeposits,
   canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
@@ -657,11 +657,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             publishHydraScriptsAs backend Faucet
               >>= canSideLoadSnapshot tracer tmpDir backend
 
-      fit "can resume when member has already been bootstrapped" $ \tracer -> do
+      it "can resume when member has already been bootstrapped" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
-              >>= canResumeOnMemberAlreadyBoostrapped tracer tmpDir node
+              >>= canResumeOnMemberAlreadyBootstrapped tracer tmpDir node
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
