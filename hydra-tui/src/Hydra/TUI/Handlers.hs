@@ -397,7 +397,7 @@ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
                 else id
             addresses =
               ManualEntry
-                :| (SelectAddress . txOutAddress <$> toList utxo)
+                :| (SelectAddress . txOutAddress <$> UTxO.txOutputs utxo)
           put
             SelectingRecipient
               { utxoSelected

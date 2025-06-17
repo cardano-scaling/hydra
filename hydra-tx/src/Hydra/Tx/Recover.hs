@@ -40,7 +40,7 @@ recoverTx depositTxId deposited lowerBoundSlot =
         mkScriptWitness depositValidatorScript InlineScriptDatum redeemer
 
   depositOutputs =
-    fromCtxUTxOTxOut <$> toList deposited
+    fromCtxUTxOTxOut <$> UTxO.txOutputs deposited
 
 data RecoverObservation = RecoverObservation
   { headId :: HeadId

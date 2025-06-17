@@ -72,7 +72,7 @@ healthyDecrementTx =
   headOutput =
     mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyDatum)
       & addParticipationTokens healthyParticipants
-      & modifyTxOutValue (<> foldMap txOutValue healthyUTxO)
+      & modifyTxOutValue (<> UTxO.totalValue healthyUTxO)
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
@@ -126,7 +126,7 @@ healthyContestationPeriod =
   arbitrary `generateWith` 42
 
 healthyUTxO :: UTxO
-healthyUTxO = adaOnly <$> generateWith (genUTxOSized 3) 42
+healthyUTxO = UTxO.map adaOnly $ generateWith (genUTxOSized 3) 42
 
 healthyDatum :: Head.State
 healthyDatum =
@@ -184,7 +184,7 @@ genDecrementMutation (tx, _utxo) =
             Head.DecrementRedeemer
               { signature = invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
-              , numberOfDecommitOutputs = fromIntegral $ maybe 0 length $ utxoToDecommit healthySnapshot
+              , numberOfDecommitOutputs = fromIntegral $ maybe 0 UTxO.size $ utxoToDecommit healthySnapshot
               }
     , -- Spec: Transaction is signed by a participant
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do

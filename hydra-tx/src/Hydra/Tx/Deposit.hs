@@ -61,7 +61,7 @@ mkDepositOutput networkId headId depositUTxO deadline =
     depositDatum
     ReferenceScriptNone
  where
-  depositValue = foldMap txOutValue depositUTxO
+  depositValue = UTxO.totalValue depositUTxO
 
   deposits = mapMaybe Commit.serializeCommit $ UTxO.toList depositUTxO
 
@@ -128,7 +128,7 @@ observeDepositTxOut network depositOut = do
   headId <- currencySymbolToHeadId headCurrencySymbol
   deposit <- do
     depositedUTxO <- UTxO.fromList <$> traverse (Commit.deserializeCommit network) onChainDeposits
-    guard $ depositValue `containsValue` foldMap txOutValue depositedUTxO
+    guard $ depositValue `containsValue` UTxO.totalValue depositedUTxO
     pure depositedUTxO
   pure (headId, deposit, deadline)
  where

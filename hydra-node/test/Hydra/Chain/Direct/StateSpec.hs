@@ -360,7 +360,7 @@ spec = parallel $ do
     forAllDecrement' $ \toDistribute utxo tx ->
       case observeDecrementTx utxo tx of
         Just DecrementObservation{distributedUTxO} ->
-          toList distributedUTxO === toList toDistribute
+          UTxO.txOutputs distributedUTxO === UTxO.txOutputs toDistribute
         Nothing ->
           False & counterexample ("observeDecrementTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
@@ -476,11 +476,11 @@ prop_observeAnyTx =
 -- | Given a UTxO with more than one entry, we can split it into two non-empty UTxO.
 prop_splitUTxO :: UTxO -> Property
 prop_splitUTxO utxo =
-  (length utxo > 1) ==>
+  (UTxO.size utxo > 1) ==>
     let (inHead, toDecommit) = splitUTxO utxo
      in conjoin
-          [ not (null inHead) & counterexample "inHead is empty"
-          , not (null toDecommit) & counterexample "toDecommit is empty"
+          [ not (UTxO.null inHead) & counterexample "inHead is empty"
+          , not (UTxO.null toDecommit) & counterexample "toDecommit is empty"
           , inHead /= toDecommit & counterexample "inHead == toDecommit"
           ]
 
@@ -629,10 +629,10 @@ forAllCommit' action = do
             tx = unsafeCommit ctx headId (getKnownUTxO ctx <> getKnownUTxO stInitial) toCommit
          in action ctx stInitial toCommit tx
               & classify
-                (null toCommit)
+                (UTxO.null toCommit)
                 "Empty commit"
               & classify
-                (not (null toCommit))
+                (not (UTxO.null toCommit))
                 "Non-empty commit"
 
 forAllAbort ::
