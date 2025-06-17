@@ -10,7 +10,7 @@ changes.
 
 ## [0.22.0] - 2025.06.17
 
-- Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
+- Tested with `cardano-node 10.1.4` and `cardano-cli 10.1.1.0`.
 
 - Fix tutorial usage of `cardano-cli` and include download of `etcd`.
 
