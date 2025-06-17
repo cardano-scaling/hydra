@@ -461,6 +461,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
           <&> modifyConfig (\config -> config{startChainFrom = Just tip})
+            . setNetworkId networkId
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
         -- Initialize & open head
         send n1 $ input "Init" []
