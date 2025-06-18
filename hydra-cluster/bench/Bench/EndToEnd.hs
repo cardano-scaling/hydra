@@ -85,6 +85,9 @@ bench startingNodeId timeoutSeconds workDir dataset = do
         statsTvar <- newTVarIO mempty
         scenarioData <- withOSStats workDir statsTvar $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \_ backend -> do
+            let nodeSocket' = case Backend.getOptions backend of
+                  Direct DirectOptions{nodeSocket} -> nodeSocket
+                  _ -> error "Unexpected Blockfrost backend"
             putTextLn "Seeding network"
             seedNetwork backend dataset (contramap FromFaucet tracer)
             putTextLn "Publishing hydra scripts"
@@ -92,9 +95,6 @@ bench startingNodeId timeoutSeconds workDir dataset = do
             putStrLn $ "Starting hydra cluster in " <> workDir
             let hydraTracer = contramap FromHydraNode tracer
 
-            let nodeSocket' = case Backend.getOptions backend of
-                  Direct DirectOptions{nodeSocket} -> nodeSocket
-                  _ -> error "Unexpected Blockfrost backend"
             withHydraCluster hydraTracer workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
               waitForNodesConnected hydraTracer 20 clients
               scenario hydraTracer backend workDir dataset clients

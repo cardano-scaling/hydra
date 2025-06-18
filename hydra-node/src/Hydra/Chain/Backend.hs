@@ -8,6 +8,9 @@ import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Options (ChainBackendOptions)
 import Hydra.Tx (ScriptRegistry)
 
+blockfrostProjectPath :: FilePath
+blockfrostProjectPath = "./blockfrost-project.txt"
+
 class ChainBackend a where
   queryGenesisParameters :: (MonadIO m, MonadThrow m) => a -> m (GenesisParameters ShelleyEra)
   queryScriptRegistry :: (MonadIO m, MonadThrow m) => a -> [TxId] -> m ScriptRegistry

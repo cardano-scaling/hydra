@@ -16,6 +16,7 @@ import Hydra.Chain (
   PostChainTx (..),
   initHistory,
  )
+import Hydra.Chain.Backend (blockfrostProjectPath)
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
@@ -60,9 +61,6 @@ import Test.DirectChainSpec (
  )
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
-
-blockfrostProjectPath :: FilePath
-blockfrostProjectPath = "./../blockfrost-project.txt"
 
 spec :: Spec
 spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChainSpec") $ do

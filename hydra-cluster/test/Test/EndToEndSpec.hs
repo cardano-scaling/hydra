@@ -99,6 +99,7 @@ import HydraNode (
  )
 import System.Directory (removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
+import Test.Hydra.Cluster.Utils (chainPointToSlot)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair, genUTxOFor)
 import Test.QuickCheck (generate)
@@ -352,6 +353,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withClusterTempDir $ \tmpDir -> do
             let clusterIx = 0
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+              let nodeSocket' = case Backend.getOptions backend of
+                    Direct DirectOptions{nodeSocket} -> nodeSocket
+                    _ -> error "Unexpected Blockfrost backend"
               aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
               bobKeys@(bobCardanoVk, _) <- generate genKeyPair
               carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -365,9 +369,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               let contestationPeriod = 2
               let hydraTracer = contramap FromHydraNode tracer
 
-              let nodeSocket' = case Backend.getOptions backend of
-                    Direct DirectOptions{nodeSocket} -> nodeSocket
-                    _ -> error "Unexpected Blockfrost backend"
               withHydraCluster hydraTracer tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
                 waitForNodesConnected hydraTracer 20 nodes
                 let [n1, n2, n3] = toList nodes
@@ -725,7 +726,7 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
 
     -- Acquire a current point in time
     slotLengthSec <- protocolParamSlotLength <$> Backend.queryGenesisParameters backend
-    currentSlot <- fromMaybe 0 . chainPointToSlotNo <$> Backend.queryTip backend
+    currentSlot <- chainPointToSlot <$> Backend.queryTip backend
 
     -- Create an arbitrary transaction using some input.
     let firstCommittedUTxO = Prelude.head $ UTxO.toList committedUTxOByAlice

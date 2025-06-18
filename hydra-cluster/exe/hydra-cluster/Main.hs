@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import CardanoNode (findRunningCardanoNode, waitForFullySynchronized, withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
 import Hydra.Cardano.Api (TxId)
-import Hydra.Chain.Backend (ChainBackend)
+import Hydra.Chain.Backend (ChainBackend, blockfrostProjectPath)
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
@@ -19,9 +19,6 @@ import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, in
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Prelude (withTempDir)
-
-blockfrostProjectPath :: FilePath
-blockfrostProjectPath = "./blockfrost-project.txt"
 
 main :: IO ()
 main =

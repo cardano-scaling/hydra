@@ -10,13 +10,13 @@ import CardanoNode (
   withCardanoNodeOnKnownNetwork,
  )
 
-import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic), chainPointToSlotNo, unFile)
+import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic), unFile)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import System.Directory (doesFileExist)
-import Test.Hydra.Cluster.Utils (forEachKnownNetwork)
+import Test.Hydra.Cluster.Utils (chainPointToSlot, forEachKnownNetwork)
 
 supportedNetworks :: [KnownNetwork]
 supportedNetworks = [Mainnet, Preproduction, Preview]
@@ -53,9 +53,9 @@ spec = do
         networkId `shouldBe` Testnet (NetworkMagic 42)
         blockTime `shouldBe` 0.1
         -- Should produce blocks (tip advances)
-        slot1 <- fromMaybe 0 . chainPointToSlotNo <$> Backend.queryTip backend
+        slot1 <- chainPointToSlot <$> Backend.queryTip backend
         threadDelay 1
-        slot2 <- fromMaybe 0 . chainPointToSlotNo <$> Backend.queryTip backend
+        slot2 <- chainPointToSlot <$> Backend.queryTip backend
         slot2 `shouldSatisfy` (> slot1)
 
     describe "findRunningCardanoNode" $ do
@@ -76,9 +76,9 @@ spec = do
         networkId `shouldBe` toNetworkId network
         blockTime `shouldBe` 20
         -- Should synchronize blocks (tip advances)
-        slot1 <- fromMaybe 0 . chainPointToSlotNo <$> Backend.queryTip backend
+        slot1 <- chainPointToSlot <$> Backend.queryTip backend
         threadDelay 10
-        slot2 <- fromMaybe 0 . chainPointToSlotNo <$> Backend.queryTip backend
+        slot2 <- chainPointToSlot <$> Backend.queryTip backend
         slot2 `shouldSatisfy` (> slot1)
 
 setupTracerAndTempDir :: ToJSON msg => ((Tracer IO msg, FilePath) -> IO a) -> IO a

@@ -249,6 +249,9 @@ scenarioSetup ::
   IO a
 scenarioSetup tracer tmpDir action = do
   withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
+    let nodeSocket' = case Backend.getOptions backend of
+          Direct DirectOptions{nodeSocket} -> nodeSocket
+          _ -> error "Unexpected Blockfrost backend"
     aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
     bobKeys@(bobCardanoVk, _) <- generate genKeyPair
     carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -261,9 +264,6 @@ scenarioSetup tracer tmpDir action = do
     let contestationPeriod = 2
     let hydraTracer = contramap FromHydraNode tracer
 
-    let nodeSocket' = case Backend.getOptions backend of
-          Direct DirectOptions{nodeSocket} -> nodeSocket
-          _ -> error "Unexpected Blockfrost backend"
     withHydraCluster hydraTracer tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
