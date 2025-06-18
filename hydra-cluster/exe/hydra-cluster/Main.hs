@@ -64,7 +64,7 @@ run options =
         action blockTime backend
       Nothing -> do
         when (useMithril == UseMithril) $ do
-          removeDirectoryRecursive $ workDir </> "db"
+          removeDirectoryRecursive (workDir </> "db") `catch` (\(_ :: SomeException) -> pure ())
           downloadLatestSnapshotTo (contramap FromMithril tracer) network workDir
         withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir network action
 
