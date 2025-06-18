@@ -21,7 +21,7 @@ class ChainBackend a where
   queryStakePools :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m (Set PoolId)
   queryUTxOFor :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> VerificationKey PaymentKey -> m UTxO
   submitTransaction :: (MonadIO m, MonadThrow m) => a -> Tx -> m ()
-  awaitTransaction :: (MonadIO m, MonadThrow m) => a -> Tx -> m UTxO
+  awaitTransaction :: (MonadIO m, MonadThrow m) => a -> Tx -> VerificationKey PaymentKey -> m UTxO
   getOptions :: a -> ChainBackendOptions
   getBlockTime :: a -> (MonadIO m, MonadThrow m) => m NominalDiffTime
 

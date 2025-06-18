@@ -520,11 +520,11 @@ queryStakePools = do
   stakePools' <- Blockfrost.listPools
   pure $ Set.fromList (toCardanoPoolId <$> stakePools')
 
-awaitTransaction :: Tx -> BlockfrostClientT IO UTxO
-awaitTransaction tx = do
+awaitTransaction :: Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+awaitTransaction tx vk = do
   Blockfrost.Genesis{_genesisNetworkMagic} <- queryGenesisParameters
   let networkId = toCardanoNetworkId _genesisNetworkMagic
-  queryUTxOByTxIn networkId (txIns' tx)
+  awaitUTxO networkId [makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress] (getTxId $ getTxBody tx) 300
 
 -- | Await for specific UTxO at address - the one that is produced by the given 'TxId'.
 awaitUTxO ::

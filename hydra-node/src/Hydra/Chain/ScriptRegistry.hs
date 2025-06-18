@@ -81,7 +81,7 @@ publishHydraScripts backend sk = do
   txs <- buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
   forM txs $ \tx -> do
     submitTransaction backend tx
-    void $ awaitTransaction backend tx
+    void $ awaitTransaction backend tx vk
     pure $ txId tx
  where
   vk = getVerificationKey sk

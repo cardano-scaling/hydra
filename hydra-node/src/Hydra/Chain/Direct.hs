@@ -120,7 +120,7 @@ instance ChainBackend DirectBackend where
   submitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx =
     liftIO $ CardanoClient.submitTransaction networkId nodeSocket tx
 
-  awaitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx =
+  awaitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx _ =
     liftIO $ CardanoClient.awaitTransaction networkId nodeSocket tx
 
   getOptions (DirectBackend directOptions) = Direct directOptions

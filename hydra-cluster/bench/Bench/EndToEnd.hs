@@ -330,13 +330,14 @@ movingAverage confirmations =
 -- dataset.
 seedNetwork :: ChainBackend backend => backend -> Dataset -> Tracer IO FaucetLog -> IO ()
 seedNetwork backend Dataset{fundingTransaction, hydraNodeKeys} tracer = do
-  fundClients
+  fundClients hydraNodeKeys
   forM_ hydraNodeKeys fuelWith100Ada
  where
-  fundClients = do
+  fundClients hydraSKeys = do
     putTextLn "Fund scenario from faucet"
     Backend.submitTransaction backend fundingTransaction
-    void $ Backend.awaitTransaction backend fundingTransaction
+    let vks = getVerificationKey <$> hydraSKeys
+    mapM_ (Backend.awaitTransaction backend fundingTransaction) vks
 
   fuelWith100Ada signingKey = do
     let vk = getVerificationKey signingKey

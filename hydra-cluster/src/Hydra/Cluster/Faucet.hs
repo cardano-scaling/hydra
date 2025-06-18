@@ -59,7 +59,7 @@ seedFromFaucet backend receivingVerificationKey lovelace tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
   networkId <- Backend.queryNetworkId backend
   seedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk networkId
-  producedUTxO <- Backend.awaitTransaction backend seedTx
+  producedUTxO <- Backend.awaitTransaction backend seedTx receivingVerificationKey
   pure $ UTxO.filter (== toCtxUTxOTxOut (theOutput networkId)) producedUTxO
  where
   submitSeedTx faucetVk faucetSk networkId = do
@@ -185,7 +185,7 @@ returnFundsToFaucet' tracer backend senderSk = do
         let allLovelace = selectLovelace utxoValue
         tx <- sign senderSk <$> buildTxBody utxo faucetAddress
         Backend.submitTransaction backend tx
-        void $ Backend.awaitTransaction backend tx
+        void $ Backend.awaitTransaction backend tx faucetVk
         pure allLovelace
   traceWith tracer $ ReturnedFunds{returnAmount}
   pure returnAmount
@@ -218,7 +218,7 @@ createOutputAtAddress networkId backend atAddress datum val = do
       let body = getTxBody x
       let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
       Backend.submitTransaction backend tx
-      newUtxo <- Backend.awaitTransaction backend tx
+      newUtxo <- Backend.awaitTransaction backend tx faucetVk
       case UTxO.find (\out -> txOutAddress out == atAddress) newUtxo of
         Nothing -> failure $ "Could not find script output: " <> decodeUtf8 (encodePretty newUtxo)
         Just u -> pure u

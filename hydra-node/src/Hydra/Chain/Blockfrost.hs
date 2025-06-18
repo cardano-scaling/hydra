@@ -100,9 +100,9 @@ instance ChainBackend BlockfrostBackend where
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     void $ Blockfrost.runBlockfrostM prj $ Blockfrost.submitTransaction tx
 
-  awaitTransaction (BlockfrostBackend BlockfrostOptions{projectPath}) tx = do
+  awaitTransaction (BlockfrostBackend BlockfrostOptions{projectPath}) tx vk = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction tx
+    Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction tx vk
 
   getOptions (BlockfrostBackend blockfrostOptions) = Blockfrost blockfrostOptions
 
