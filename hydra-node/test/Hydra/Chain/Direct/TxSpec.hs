@@ -241,13 +241,15 @@ genBlueprintTxWithUTxO =
       ( utxo <> utxoToSpend
       , txbody
           & addTxIns
-            ( UTxO.toList $
-                ( \_ ->
-                    BuildTxWith $
-                      ScriptWitness ScriptWitnessForSpending $
-                        mkScriptWitness alwaysSucceedingScript (ScriptDatumForTxIn $ Just datum) redeemer
+            ( map
+                ( \(x, _) ->
+                    ( x
+                    , BuildTxWith $
+                        ScriptWitness ScriptWitnessForSpending $
+                          mkScriptWitness alwaysSucceedingScript (ScriptDatumForTxIn $ Just datum) redeemer
+                    )
                 )
-                  <$> utxoToSpend
+                (UTxO.toList utxoToSpend)
             )
       )
 

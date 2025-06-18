@@ -1,6 +1,42 @@
 module Hydra.Tx.Deposit where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api (
+  AddressInEra,
+  BuildTxWith (..),
+  CtxUTxO,
+  Network,
+  NetworkId,
+  SlotNo,
+  Tx,
+  TxId,
+  TxOut,
+  UTxO,
+  containsValue,
+  fromLedgerTx,
+  fromScriptData,
+  getTxBody,
+  getTxBodyContent,
+  mkScriptAddress,
+  mkTxOutDatumInline,
+  toCtxUTxOTxOut,
+  toLedgerTx,
+  toLedgerTxIn,
+  toLedgerTxOut,
+  toShelleyNetwork,
+  txIns',
+  txOutDatum,
+  txOutValue,
+  txOuts',
+  txValidityUpperBound,
+  upperBound,
+  pattern KeyWitness,
+  pattern KeyWitnessForSpending,
+  pattern ReferenceScriptNone,
+  pattern TxOut,
+  pattern TxOutDatumInline,
+  pattern TxValidityNoUpperBound,
+  pattern TxValidityUpperBound,
+ )
 import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -61,7 +97,7 @@ mkDepositOutput networkId headId depositUTxO deadline =
     depositDatum
     ReferenceScriptNone
  where
-  depositValue = foldMap txOutValue depositUTxO
+  depositValue = UTxO.totalValue depositUTxO
 
   deposits = mapMaybe Commit.serializeCommit $ UTxO.toList depositUTxO
 
@@ -128,7 +164,7 @@ observeDepositTxOut network depositOut = do
   headId <- currencySymbolToHeadId headCurrencySymbol
   deposit <- do
     depositedUTxO <- UTxO.fromList <$> traverse (Commit.deserializeCommit network) onChainDeposits
-    guard $ depositValue `containsValue` foldMap txOutValue depositedUTxO
+    guard $ depositValue `containsValue` UTxO.totalValue depositedUTxO
     pure depositedUTxO
   pure (headId, deposit, deadline)
  where

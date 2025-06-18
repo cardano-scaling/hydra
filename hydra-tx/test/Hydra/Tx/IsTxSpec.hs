@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 -- NOTE: Arbitrary UTxO and Tx instances
 import Test.Hydra.Tx.Gen ()
 
-import Cardano.Api.UTxO (fromApi, toApi)
+import Cardano.Api.UTxO
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Binary qualified as CB
 import Cardano.Ledger.Api (bodyTxL, certsTxBodyL, inputsTxBodyL, updateTxBodyL)
@@ -64,10 +64,6 @@ genConwayCompatibleBabbageTx = do
     tx
       & bodyTxL . certsTxBodyL .~ mempty
       & bodyTxL . updateTxBodyL .~ empty
-
-roundtripFromAndToApi :: UTxO -> Property
-roundtripFromAndToApi utxo =
-  fromApi (toApi utxo) === utxo
 
 roundtripTxId :: Tx -> Property
 roundtripTxId tx@(Tx body _) =

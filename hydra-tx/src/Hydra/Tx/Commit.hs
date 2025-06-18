@@ -1,6 +1,37 @@
 module Hydra.Tx.Commit where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api (
+  CtxUTxO,
+  Hash,
+  LedgerEra,
+  NetworkId (..),
+  PaymentKey,
+  Tx,
+  TxIn,
+  TxOut,
+  UTxO,
+  findTxOutByAddress,
+  fromLedgerTx,
+  fromPlutusCurrencySymbol,
+  fromScriptData,
+  mkScriptAddress,
+  mkTxOutDatumInline,
+  resolveInputsUTxO,
+  toLedgerData,
+  toLedgerKeyHash,
+  toLedgerTx,
+  toLedgerTxIn,
+  toLedgerTxOut,
+  toPlutusTxOutRef,
+  toScriptData,
+  toShelleyNetwork,
+  txIns',
+  txOutAddress,
+  txOutScriptData,
+  txOutValue,
+  pattern ReferenceScriptNone,
+  pattern TxOut,
+ )
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -131,7 +162,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     UTxO.fromList $ mapMaybe (\txin -> (txin,) <$> UTxO.resolveTxIn txin lookupUTxO) committedTxIns
 
   commitValue =
-    txOutValue out <> foldMap txOutValue utxoToCommit
+    txOutValue out <> UTxO.totalValue utxoToCommit
 
   commitDatum =
     mkTxOutDatumInline $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
@@ -195,7 +226,7 @@ observeCommitTx networkId utxo tx = do
  where
   isSpendingFromInitial :: Bool
   isSpendingFromInitial =
-    any (\o -> txOutAddress o == initialAddress) (resolveInputsUTxO utxo tx)
+    any (\o -> txOutAddress o == initialAddress) (UTxO.txOutputs $ resolveInputsUTxO utxo tx)
 
   initialAddress = mkScriptAddress networkId initialValidatorScript
 

@@ -128,7 +128,73 @@
 -- In the case of a failure we get a detailed report on the context of the failure.
 module Test.Hydra.Tx.Mutation where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api (
+  AssetId (..),
+  CtxTx,
+  CtxUTxO,
+  DebugPlutusFailure (..),
+  FromScriptData,
+  Hash,
+  HashableScriptData,
+  LedgerEra,
+  PaymentKey,
+  PlutusScript,
+  PolicyId,
+  Quantity,
+  ScriptExecutionError (..),
+  ToScriptData,
+  Tx,
+  TxBodyScriptData,
+  TxIn,
+  TxOut,
+  TxOutDatum,
+  TxValidityLowerBound,
+  TxValidityUpperBound,
+  UTxO,
+  Value,
+  VerificationKey,
+  fromLedgerData,
+  fromLedgerMultiAsset,
+  fromLedgerTxIn,
+  fromLedgerTxOut,
+  fromLedgerValidityInterval,
+  fromScriptData,
+  getTxBodyContent,
+  mkScriptAddress,
+  mkTxOutDatumInline,
+  modifyTxOutValue,
+  scriptPolicyId,
+  toCtxUTxOTxOut,
+  toLedgerData,
+  toLedgerKeyHash,
+  toLedgerPolicyID,
+  toLedgerScript,
+  toLedgerTxIn,
+  toLedgerTxOut,
+  toLedgerValidityInterval,
+  toLedgerValue,
+  txBody,
+  txMintValue,
+  txMintValueToValue,
+  txOutAddress,
+  txOutDatum,
+  txOutValue,
+  pattern ByronAddress,
+  pattern ByronAddressInEra,
+  pattern PlutusScript,
+  pattern ShelleyAddress,
+  pattern ShelleyAddressInEra,
+  pattern ShelleyTxBody,
+  pattern Tx,
+  pattern TxBodyNoScriptData,
+  pattern TxBodyScriptData,
+  pattern TxOut,
+  pattern TxOutDatumHash,
+  pattern TxOutDatumInline,
+  pattern TxOutDatumNone,
+  pattern TxOutSupplementalDatum,
+  pattern UTxO,
+ )
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
@@ -326,7 +392,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   ChangeInputHeadDatum d' ->
     ( tx
-    , replaceHeadDatum <$> utxo
+    , UTxO.map replaceHeadDatum utxo
     )
    where
     replaceHeadDatum o@(TxOut addr value _ refScript)

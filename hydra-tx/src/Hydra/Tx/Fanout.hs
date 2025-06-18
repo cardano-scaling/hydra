@@ -52,7 +52,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   headRedeemer =
     toScriptData $
       Head.Fanout
-        { numberOfFanoutOutputs = fromIntegral $ length $ toList utxo
+        { numberOfFanoutOutputs = fromIntegral $ UTxO.size utxo
         , numberOfCommitOutputs = fromIntegral $ length orderedTxOutsToCommit
         , numberOfDecommitOutputs = fromIntegral $ length orderedTxOutsToDecommit
         }
@@ -61,17 +61,17 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
     headTokensFromValue headTokenScript (txOutValue headOutput)
 
   orderedTxOutsToFanout =
-    fromCtxUTxOTxOut <$> toList utxo
+    fromCtxUTxOTxOut <$> UTxO.txOutputs utxo
 
   orderedTxOutsToCommit =
     case utxoToCommit of
       Nothing -> []
-      Just commitUTxO -> fromCtxUTxOTxOut <$> toList commitUTxO
+      Just commitUTxO -> fromCtxUTxOTxOut <$> UTxO.txOutputs commitUTxO
 
   orderedTxOutsToDecommit =
     case utxoToDecommit of
       Nothing -> []
-      Just decommitUTxO -> fromCtxUTxOTxOut <$> toList decommitUTxO
+      Just decommitUTxO -> fromCtxUTxOTxOut <$> UTxO.txOutputs decommitUTxO
 
 -- * Observation
 
