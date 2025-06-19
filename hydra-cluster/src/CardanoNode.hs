@@ -5,7 +5,7 @@ module CardanoNode where
 import Hydra.Prelude
 
 import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
-import CardanoClient (QueryPoint (QueryTip), RunningNode (..), queryEraHistory, queryGenesisParameters, querySystemStart, queryTipSlotNo)
+import CardanoClient (QueryPoint (QueryTip))
 import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
@@ -16,15 +16,18 @@ import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
   File (..),
-  GenesisParameters (..),
   NetworkId,
   NetworkMagic (..),
   SocketPath,
   getProgress,
  )
 import Hydra.Cardano.Api qualified as Api
+import Hydra.Chain.Backend (ChainBackend)
+import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Cluster.Util (readConfigFile)
+import Hydra.Options (DirectOptions (..))
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
@@ -122,7 +125,7 @@ getCardanoNodeVersion =
 -- | Tries to find an communicate with an existing cardano-node running in given
 -- work directory. NOTE: This is using the default node socket name as defined
 -- by 'defaultCardanoNodeArgs'.
-findRunningCardanoNode :: Tracer IO NodeLog -> FilePath -> KnownNetwork -> IO (Maybe RunningNode)
+findRunningCardanoNode :: Tracer IO NodeLog -> FilePath -> KnownNetwork -> IO (Maybe (NominalDiffTime, DirectBackend))
 findRunningCardanoNode tracer workDir knownNetwork = do
   findRunningCardanoNode' tracer knownNetworkId socketPath
  where
@@ -134,22 +137,14 @@ findRunningCardanoNode tracer workDir knownNetwork = do
 
 -- | Tries to find an communicate with an existing cardano-node running in given
 -- network id and socket path.
-findRunningCardanoNode' :: Tracer IO NodeLog -> NetworkId -> SocketPath -> IO (Maybe RunningNode)
+findRunningCardanoNode' :: Tracer IO NodeLog -> NetworkId -> SocketPath -> IO (Maybe (NominalDiffTime, DirectBackend))
 findRunningCardanoNode' tracer networkId nodeSocket = do
-  try (queryGenesisParameters networkId nodeSocket QueryTip) >>= \case
+  let backend = DirectBackend $ DirectOptions{networkId, nodeSocket}
+  try (Backend.getBlockTime backend) >>= \case
     Left (e :: SomeException) ->
       traceWith tracer MsgQueryGenesisParametersFailed{err = show e} $> Nothing
-    Right GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} ->
-      pure $
-        Just
-          RunningNode
-            { networkId
-            , nodeSocket
-            , blockTime =
-                computeBlockTime
-                  protocolParamSlotLength
-                  protocolParamActiveSlotsCoefficient
-            }
+    Right blockTime ->
+      pure $ Just (blockTime, backend)
 
 -- | Start a single cardano-node devnet using the config from config/ and
 -- credentials from config/credentials/. Only the 'Faucet' actor will receive
@@ -158,7 +153,7 @@ withCardanoNodeDevnet ::
   Tracer IO NodeLog ->
   -- | State directory in which credentials, db & logs are persisted.
   FilePath ->
-  (RunningNode -> IO a) ->
+  (NominalDiffTime -> DirectBackend -> IO a) ->
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
@@ -171,7 +166,7 @@ withCardanoNodeOnKnownNetwork ::
   FilePath ->
   -- | A well-known Cardano network to connect to.
   KnownNetwork ->
-  (RunningNode -> IO a) ->
+  (NominalDiffTime -> DirectBackend -> IO a) ->
   IO a
 withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
   copyKnownNetworkFiles
@@ -214,6 +209,11 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
     Preproduction -> "preprod"
     Mainnet -> "mainnet"
     Sanchonet -> "sanchonet"
+    -- NOTE: Here we map blockfrost networks to cardano ones since we expect to find actor keys
+    -- in known locations when running smoke-tests.
+    BlockfrostPreview -> "preview"
+    BlockfrostPreprod -> "preprod"
+    BlockfrostMainnet -> "mainnet"
 
   fetchConfigFile path =
     parseRequestThrow path >>= httpBS <&> getResponseBody
@@ -278,7 +278,7 @@ withCardanoNode ::
   Tracer IO NodeLog ->
   FilePath ->
   CardanoNodeArgs ->
-  (RunningNode -> IO a) ->
+  (NominalDiffTime -> DirectBackend -> IO a) ->
   IO a
 withCardanoNode tr stateDirectory args action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
@@ -304,12 +304,7 @@ withCardanoNode tr stateDirectory args action = do
     waitForSocket nodeSocketPath
     traceWith tr $ MsgSocketIsReady nodeSocketPath
     shelleyGenesis <- readShelleyGenesisJSON $ stateDirectory </> nodeShelleyGenesisFile args
-    action
-      RunningNode
-        { nodeSocket = File (stateDirectory </> nodeSocket)
-        , networkId = getShelleyGenesisNetworkId shelleyGenesis
-        , blockTime = getShelleyGenesisBlockTime shelleyGenesis
-        }
+    action (getShelleyGenesisBlockTime shelleyGenesis) (DirectBackend $ DirectOptions{networkId = getShelleyGenesisNetworkId shelleyGenesis, nodeSocket = File (stateDirectory </> nodeSocket)})
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $
@@ -325,7 +320,6 @@ withCardanoNode tr stateDirectory args action = do
       else do
         let magic = json ^?! key "networkMagic" . _Number
         Api.Testnet (Api.NetworkMagic $ truncate magic)
-
   -- Read expected time between blocks from shelley genesis
   getShelleyGenesisBlockTime :: Value -> NominalDiffTime
   getShelleyGenesisBlockTime json = do
@@ -342,20 +336,22 @@ computeBlockTime slotLength activeSlotsCoeff =
 -- | Wait until the node is fully caught up with the network. This can take a
 -- while!
 waitForFullySynchronized ::
+  ChainBackend backend =>
   Tracer IO NodeLog ->
-  RunningNode ->
+  backend ->
   IO ()
-waitForFullySynchronized tracer RunningNode{networkId, nodeSocket, blockTime} = do
-  systemStart <- querySystemStart networkId nodeSocket QueryTip
+waitForFullySynchronized tracer backend = do
+  systemStart <- Backend.querySystemStart backend QueryTip
   check systemStart
  where
   check systemStart = do
     targetTime <- toRelativeTime systemStart <$> getCurrentTime
-    eraHistory <- queryEraHistory networkId nodeSocket QueryTip
-    tipSlotNo <- queryTipSlotNo networkId nodeSocket
+    eraHistory <- Backend.queryEraHistory backend QueryTip
+    tipSlotNo <- fromMaybe 0 . Api.chainPointToSlotNo <$> Backend.queryTip backend
     (tipTime, _slotLength) <- either throwIO pure $ getProgress tipSlotNo eraHistory
     let timeDifference = diffRelativeTime targetTime tipTime
     let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
+    blockTime <- Backend.getBlockTime backend
     traceWith tracer $ MsgSynchronizing{percentDone}
     if timeDifference < blockTime
       then pure ()

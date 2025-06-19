@@ -1,14 +1,20 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module Main where
 
 import Hydra.Prelude
 
 import CardanoNode (findRunningCardanoNode, waitForFullySynchronized, withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
+import Hydra.Cardano.Api (TxId)
+import Hydra.Chain.Backend (ChainBackend, blockfrostProjectPath)
+import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
-import Hydra.Cluster.Fixture (Actor (Faucet))
+import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
 import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
-import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
+import Hydra.Logging (Tracer, Verbosity (Verbose), traceWith, withTracer)
+import Hydra.Options (BlockfrostOptions (..))
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
@@ -23,17 +29,23 @@ run options =
   withTracer (Verbose "hydra-cluster") $ \tracer -> do
     traceWith tracer ClusterOptions{options}
     let fromCardanoNode = contramap FromCardanoNode tracer
+    let blockfrostNetworks = [BlockfrostPreview]
     withStateDirectory $ \workDir ->
       case knownNetwork of
-        Just network ->
-          withRunningCardanoNode tracer workDir network $ \node -> do
-            waitForFullySynchronized fromCardanoNode node
-            publishOrReuseHydraScripts tracer node
-              >>= singlePartyHeadFullLifeCycle tracer workDir node
+        Just network -> do
+          if network `notElem` blockfrostNetworks
+            then withRunningCardanoNode tracer workDir network $ \_ backend -> do
+              waitForFullySynchronized fromCardanoNode backend
+              publishOrReuseHydraScripts tracer backend
+                >>= singlePartyHeadFullLifeCycle tracer workDir backend
+            else do
+              let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = blockfrostProjectPath}
+              publishOrReuseHydraScripts tracer backend
+                >>= singlePartyHeadFullLifeCycle tracer workDir backend
         Nothing -> do
-          withCardanoNodeDevnet fromCardanoNode workDir $ \node -> do
-            txId <- publishOrReuseHydraScripts tracer node
-            singlePartyOpenAHead tracer workDir node txId $ \client walletSk _headId -> do
+          withCardanoNodeDevnet fromCardanoNode workDir $ \_ backend -> do
+            txId <- publishOrReuseHydraScripts tracer backend
+            singlePartyOpenAHead tracer workDir backend txId $ \client walletSk _headId -> do
               case scenario of
                 Idle -> forever $ pure ()
                 RespendUTxO -> do
@@ -45,11 +57,11 @@ run options =
 
   withRunningCardanoNode tracer workDir network action =
     findRunningCardanoNode (contramap FromCardanoNode tracer) workDir network >>= \case
-      Just node ->
-        action node
+      Just (blockTime, backend) ->
+        action blockTime backend
       Nothing -> do
         when (useMithril == UseMithril) $ do
-          removeDirectoryRecursive $ workDir </> "db"
+          removeDirectoryRecursive (workDir </> "db") `catch` (\(_ :: SomeException) -> pure ())
           downloadLatestSnapshotTo (contramap FromMithril tracer) network workDir
         withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir network action
 
@@ -57,10 +69,11 @@ run options =
     Nothing -> withTempDir ("hydra-cluster-" <> show knownNetwork) action
     Just sd -> action sd
 
-  publishOrReuseHydraScripts tracer node =
+  publishOrReuseHydraScripts :: ChainBackend backend => Tracer IO EndToEndLog -> backend -> IO [TxId]
+  publishOrReuseHydraScripts tracer backend =
     case publishHydraScripts of
       Publish -> do
-        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+        hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
         traceWith tracer $ PublishedHydraScriptsAt{hydraScriptsTxId}
         pure hydraScriptsTxId
       Reuse hydraScriptsTxId -> do

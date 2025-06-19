@@ -6,13 +6,9 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (
-  buildAddress,
- )
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
-import Data.List qualified as List
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
@@ -20,6 +16,7 @@ import Hydra.Chain (
   PostChainTx (..),
   initHistory,
  )
+import Hydra.Chain.Backend (blockfrostProjectPath)
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
@@ -65,18 +62,17 @@ import Test.DirectChainSpec (
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
 
-blockfrostProjectPath :: FilePath
-blockfrostProjectPath = "./../blockfrost-project.txt"
-
 spec :: Spec
 spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChainSpec") $ do
   it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
+    pendingWith "Blockfrost tests should run only as part of smoke-tests because they are very slow"
     withTempDir "hydra-cluster" $ \tmp -> do
-      (vk, sk) <- keysFor Faucet
+      (_, sk) <- keysFor Faucet
       prj <- Blockfrost.projectFromFile blockfrostProjectPath
       (aliceCardanoVk, _) <- keysFor Alice
       (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-      hydraScriptsTxId <- publishHydraScripts (BlockfrostBackend $ BlockfrostOptions{projectPath = blockfrostProjectPath}) sk
+      let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = blockfrostProjectPath}
+      hydraScriptsTxId <- publishHydraScripts backend sk
 
       Blockfrost.Genesis
         { _genesisNetworkMagic
@@ -84,13 +80,8 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
         } <-
         Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
 
-      let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-      let faucetAddress = buildAddress vk networkId
-      -- wait to see the last txid propagated on the blockfrost network
-      void $ Blockfrost.runBlockfrostM prj $ Blockfrost.awaitUTxO networkId [faucetAddress] (List.last hydraScriptsTxId) 100
-
       -- Alice setup
-      aliceChainConfig <- chainConfigFor' Alice tmp (Left blockfrostProjectPath) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100)
+      aliceChainConfig <- chainConfigFor' Alice tmp backend hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100)
 
       withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
         \aliceChain@CardanoChainTest{postTx} -> do
@@ -103,7 +94,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           (headId, headSeed) <- observesInTimeSatisfying' aliceChain 500 $ hasInitTxWith headParameters participants
 
           let blueprintTx = txSpendingUTxO someUTxO
-          externalCommit' (Left blockfrostProjectPath) aliceChain [aliceExternalSk] headId someUTxO blueprintTx
+          externalCommit' backend aliceChain [aliceExternalSk] headId someUTxO blueprintTx
           aliceChain `observesInTime'` OnCommitTx headId alice someUTxO
 
           postTx $ CollectComTx someUTxO headId headParameters
@@ -144,10 +135,11 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
                 (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
                   `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
           observesInTimeSatisfying' aliceChain 500 $ \case
-            OnFanoutTx _ finalUTxO ->
-              if UTxO.containsOutputs finalUTxO expectedUTxO
-                then pure ()
-                else failure "OnFanoutTx does not contain expected UTxO"
+            OnFanoutTx{headId = headId', fanoutUTxO}
+              | headId' == headId ->
+                  if UTxO.containsOutputs fanoutUTxO expectedUTxO
+                    then pure ()
+                    else failure "OnFanoutTx does not contain expected UTxO"
             _ -> failure "expected OnFanoutTx"
  where
   onlyWithBlockfrostProjectFile action = do

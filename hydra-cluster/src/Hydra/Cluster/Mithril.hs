@@ -24,21 +24,24 @@ data MithrilLog
 downloadLatestSnapshotTo :: Tracer IO MithrilLog -> KnownNetwork -> FilePath -> IO ()
 downloadLatestSnapshotTo tracer network directory = do
   traceWith tracer StartSnapshotDownload{network, directory}
-  genesisKey <- parseRequest genesisKeyURL >>= httpBS <&> getResponseBody
-  ancillaryKey <- parseRequest ancillaryKeyURL >>= httpBS <&> getResponseBody
-  let cmd =
-        setStderr createPipe $
-          proc mithrilExe $
-            concat
-              [ ["--origin-tag", "HYDRA"]
-              , ["--aggregator-endpoint", aggregatorEndpoint]
-              , ["cardano-db", "download", "latest"]
-              , ["--genesis-verification-key", decodeUtf8 genesisKey]
-              , ["--ancillary-verification-key", decodeUtf8 ancillaryKey]
-              , ["--download-dir", directory]
-              , ["--json"]
-              ]
-  withProcessWait_ cmd traceStderr
+  case (genesisKeyURL, ancillaryKeyURL, aggregatorEndpoint) of
+    (Just genesisKeyURL', Just ancillaryKeyURL', Just aggregatorEndpoint') -> do
+      genesisKey <- parseRequest genesisKeyURL' >>= httpBS <&> getResponseBody
+      ancillaryKey <- parseRequest ancillaryKeyURL' >>= httpBS <&> getResponseBody
+      let cmd =
+            setStderr createPipe $
+              proc mithrilExe $
+                concat
+                  [ ["--origin-tag", "HYDRA"]
+                  , ["--aggregator-endpoint", aggregatorEndpoint']
+                  , ["cardano-db", "download", "latest"]
+                  , ["--genesis-verification-key", decodeUtf8 genesisKey]
+                  , ["--ancillary-verification-key", decodeUtf8 ancillaryKey]
+                  , ["--download-dir", directory]
+                  , ["--json"]
+                  ]
+      withProcessWait_ cmd traceStderr
+    _ -> error "Mithril should not be used with blockfrost chain backend"
  where
   -- Note: Minor hack; we use a different version of the mithril-client for
   -- these networks. Hopefully this can be removed, one day.
@@ -59,19 +62,28 @@ downloadLatestSnapshotTo tracer network directory = do
     handleJust (guard . isEOFError) (const $ pure ())
 
   genesisKeyURL = case network of
-    Mainnet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
-    Preproduction -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
-    Preview -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
-    Sanchonet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey"
+    Mainnet -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
+    Preproduction -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
+    Preview -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
+    Sanchonet -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey"
+    BlockfrostPreview -> Nothing
+    BlockfrostPreprod -> Nothing
+    BlockfrostMainnet -> Nothing
 
   ancillaryKeyURL = case network of
-    Mainnet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
-    Preproduction -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
-    Preview -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
-    Sanchonet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/ancillary.vkey"
+    Mainnet -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
+    Preproduction -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
+    Preview -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
+    Sanchonet -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/ancillary.vkey"
+    BlockfrostPreview -> Nothing
+    BlockfrostPreprod -> Nothing
+    BlockfrostMainnet -> Nothing
 
   aggregatorEndpoint = case network of
-    Mainnet -> "https://aggregator.release-mainnet.api.mithril.network/aggregator"
-    Preproduction -> "https://aggregator.release-preprod.api.mithril.network/aggregator"
-    Preview -> "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
-    Sanchonet -> "https://aggregator.testing-sanchonet.api.mithril.network/aggregator"
+    Mainnet -> Just "https://aggregator.release-mainnet.api.mithril.network/aggregator"
+    Preproduction -> Just "https://aggregator.release-preprod.api.mithril.network/aggregator"
+    Preview -> Just "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
+    Sanchonet -> Just "https://aggregator.testing-sanchonet.api.mithril.network/aggregator"
+    BlockfrostPreview -> Nothing
+    BlockfrostPreprod -> Nothing
+    BlockfrostMainnet -> Nothing

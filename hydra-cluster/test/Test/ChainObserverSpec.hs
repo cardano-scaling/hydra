@@ -10,7 +10,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (RunningNode (..), submitTx)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Lens ((^?))
@@ -20,11 +19,14 @@ import Data.ByteString (hGetLine)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile, utxoFromTx)
+import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (showLogsOnFailure)
+import Hydra.Options (DirectOptions (..))
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
@@ -39,19 +41,19 @@ spec = do
       showLogsOnFailure "ChainObserverSpec" $ \tracer -> do
         withTempDir "hydra-cluster" $ \tmpDir -> do
           -- Start a cardano devnet
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{networkId, nodeSocket} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
             -- Prepare a hydra-node
             let hydraTracer = contramap FromHydraNode tracer
-            hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
+            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             (aliceCardanoVk, _) <- keysFor Alice
-            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+            aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] cperiod
             withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
-              withChainObserver cardanoNode $ \observer -> do
-                seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              withChainObserver backend $ \observer -> do
+                seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                 (walletVk, walletSk) <- generate genKeyPair
 
-                commitUTxO <- seedFromFaucet cardanoNode walletVk 10_000_000 (contramap FromFaucet tracer)
+                commitUTxO <- seedFromFaucet backend walletVk 10_000_000 (contramap FromFaucet tracer)
 
                 send hydraNode $ input "Init" []
 
@@ -63,13 +65,14 @@ spec = do
 
                 commitTx <- requestCommitTx hydraNode commitUTxO
 
-                submitTx cardanoNode (signTx walletSk commitTx)
+                Backend.submitTransaction backend (signTx walletSk commitTx)
 
                 waitFor hydraTracer 5 [hydraNode] $
                   output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
                 chainObserverSees observer "HeadCommitTx" headId
                 chainObserverSees observer "HeadCollectComTx" headId
+                networkId <- Backend.queryNetworkId backend
 
                 let walletAddress = mkVkAddress networkId walletVk
 
@@ -142,8 +145,8 @@ data ChainObserverLog
   deriving anyclass (ToJSON)
 
 -- | Starts a 'hydra-chain-observer' on some Cardano network.
-withChainObserver :: RunningNode -> (ChainObserverHandle -> IO ()) -> IO ()
-withChainObserver cardanoNode action =
+withChainObserver :: DirectBackend -> (ChainObserverHandle -> IO ()) -> IO ()
+withChainObserver backend action =
   withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
     action
       ChainObserverHandle
@@ -174,4 +177,4 @@ withChainObserver cardanoNode action =
           Mainnet -> ["--mainnet"]
           Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
 
-  RunningNode{nodeSocket, networkId} = cardanoNode
+  DirectBackend DirectOptions{nodeSocket, networkId} = backend

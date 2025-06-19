@@ -36,7 +36,6 @@ import Data.Time.Clock.POSIX
 import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisParameters)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Crypto.Hash (hashToTextAsHex)
 import Cardano.Ledger.Api.PParams
 import Cardano.Ledger.BaseTypes (EpochInterval (..), EpochSize (..), NonNegativeInterval, UnitInterval, boundRational, unsafeNonZero)
 import Cardano.Ledger.Binary.Version (mkVersion)
@@ -112,8 +111,8 @@ queryScriptRegistry txIds = do
     } <-
     queryGenesisParameters
   let networkId = toCardanoNetworkId _genesisNetworkMagic
-  utxoList <- forM candidates $ \(TxIn (TxId candidateHash) _) -> queryUTxOByTxIn networkId $ hashToTextAsHex candidateHash
-  case newScriptRegistry $ fold utxoList of
+  utxo <- queryUTxOByTxIn networkId candidates
+  case newScriptRegistry utxo of
     Left e -> liftIO $ throwIO e
     Right sr -> pure sr
  where
@@ -415,14 +414,15 @@ queryEraHistory = do
       } = boundStart /= 0 && boundEnd /= 0
 
 -- | Query the Blockfrost API to get the 'UTxO' for 'TxIn' and convert to cardano 'UTxO'.
-queryUTxOByTxIn :: NetworkId -> Text -> BlockfrostClientT IO UTxO
-queryUTxOByTxIn networkId txHash = go (300 :: Int) -- TODO: make this configurable
+-- FIXME: make blockfrost wait times configurable.
+queryUTxOByTxIn :: NetworkId -> [TxIn] -> BlockfrostClientT IO UTxO
+queryUTxOByTxIn networkId = foldMapM (\(TxIn txid _) -> go (300 :: Int) (serialiseToRawBytesHexText txid))
  where
-  go 0 = liftIO $ throwIO $ BlockfrostError $ FailedUTxOForHash txHash
-  go n = do
+  go 0 txHash = liftIO $ throwIO $ BlockfrostError $ FailedUTxOForHash txHash
+  go n txHash = do
     res <- Blockfrost.tryError $ Blockfrost.getTxUtxos (Blockfrost.TxHash txHash)
     case res of
-      Left _e -> liftIO (threadDelay 1) >> go (n - 1)
+      Left _e -> liftIO (threadDelay 1) >> go (n - 1) txHash
       Right Blockfrost.TransactionUtxos{_transactionUtxosInputs, _transactionUtxosOutputs} ->
         foldMapM
           ( \Blockfrost.UtxoOutput{_utxoOutputOutputIndex, _utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} ->
@@ -450,7 +450,7 @@ queryScript scriptHashTxt = do
 queryUTxO :: NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
 queryUTxO networkId addresses = do
   let address' = Blockfrost.Address . serialiseAddress $ List.head addresses
-  utxoWithAddresses <- Blockfrost.getAddressUtxos' address' (Blockfrost.paged 1 1) Blockfrost.desc
+  utxoWithAddresses <- Blockfrost.getAddressUtxos address'
 
   foldMapM
     ( \Blockfrost.AddressUtxo
@@ -520,12 +520,11 @@ queryStakePools = do
   stakePools' <- Blockfrost.listPools
   pure $ Set.fromList (toCardanoPoolId <$> stakePools')
 
-awaitTransaction :: Tx -> BlockfrostClientT IO UTxO
-awaitTransaction tx = do
+awaitTransaction :: Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+awaitTransaction tx vk = do
   Blockfrost.Genesis{_genesisNetworkMagic} <- queryGenesisParameters
   let networkId = toCardanoNetworkId _genesisNetworkMagic
-  let TxId txhash = getTxId $ getTxBody tx
-  queryUTxOByTxIn networkId (hashToTextAsHex txhash)
+  awaitUTxO networkId [makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress] (getTxId $ getTxBody tx) 300
 
 -- | Await for specific UTxO at address - the one that is produced by the given 'TxId'.
 awaitUTxO ::
