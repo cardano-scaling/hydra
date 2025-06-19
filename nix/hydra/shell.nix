@@ -67,20 +67,12 @@ let
     pkgs.systemd
   ];
 
-  haskellNixShell = hsPkgs.shellFor {
+  haskellNixShell = (hsPkgs.shellFor {
     buildInputs = libs ++ buildInputs;
 
     withHoogle = true;
 
     # Always create missing golden files
-    CREATE_MISSING_GOLDEN = 1;
-
-    # Force a UTF-8 locale because many Haskell programs and tests
-    # assume this.
-    LANG = "en_US.UTF-8";
-
-    GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
-
     shellHook = ''
       if ! which cardano-node > /dev/null 2>&1; then
         echo "WARNING: 'cardano-node' not found"
@@ -89,6 +81,16 @@ let
         echo "WARNING: 'cardano-cli' not found"
       fi
     '';
+  }).overrideAttrs {
+
+    CREATE_MISSING_GOLDEN = 1;
+
+    # Force a UTF-8 locale because many Haskell programs and tests
+    # assume this.
+    LANG = "en_US.UTF-8";
+
+    GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+
   };
 
   # A "cabal-only" shell which does not use haskell.nix
