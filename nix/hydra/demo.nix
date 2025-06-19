@@ -39,6 +39,7 @@
               depends_on."cardano-node".condition = "process_log_ready";
             };
             hydra-node-alice = {
+              log_location = "./devnet/alice-logs.txt";
               command = pkgs.writeShellApplication {
                 name = "hydra-node-alice";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
@@ -70,6 +71,7 @@
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-node-bob = {
+              log_location = "./devnet/bob-logs.txt";
               command = pkgs.writeShellApplication {
                 name = "hydra-node-bob";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
@@ -101,6 +103,7 @@
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-node-carol = {
+              log_location = "./devnet/carol-logs.txt";
               command = pkgs.writeShellApplication {
                 name = "hydra-node-carol";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
