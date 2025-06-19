@@ -16,43 +16,19 @@ source-repository head
 common project-config
   default-language:   GHC2021
   default-extensions:
-    BangPatterns
-    BinaryLiterals
-    ConstraintKinds
     DataKinds
     DefaultSignatures
     DeriveAnyClass
-    DeriveDataTypeable
-    DeriveFoldable
-    DeriveFunctor
-    DeriveGeneric
-    DeriveTraversable
     DerivingStrategies
-    EmptyDataDecls
-    ExistentialQuantification
-    FlexibleContexts
-    FlexibleInstances
     FunctionalDependencies
     GADTs
-    GeneralizedNewtypeDeriving
-    InstanceSigs
-    KindSignatures
     LambdaCase
-    MultiParamTypeClasses
     MultiWayIf
-    NamedFieldPuns
     NoImplicitPrelude
-    NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures
-    PatternGuards
     PatternSynonyms
-    RankNTypes
-    ScopedTypeVariables
-    StandaloneDeriving
-    TupleSections
     TypeFamilies
-    TypeSynonymInstances
     ViewPatterns
 
   ghc-options:
