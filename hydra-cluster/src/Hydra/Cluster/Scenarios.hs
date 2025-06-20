@@ -1744,19 +1744,20 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
  where
   hydraTracer = contramap FromHydraNode tracer
 
-canResumeOnMemberAlreadyBootstrapped :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
-canResumeOnMemberAlreadyBootstrapped tracer workDir cardanoNode hydraScriptsTxId = do
+canResumeOnMemberAlreadyBootstrapped :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = do
   let clients = [Alice, Bob]
   [(aliceCardanoVk, _aliceCardanoSk), (bobCardanoVk, _)] <- forM clients keysFor
-  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
+  networkId <- Backend.queryNetworkId backend
   let contestationPeriod = 1
   aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
+    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] contestationPeriod
       <&> setNetworkId networkId
   bobChainConfig <-
-    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
+    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
       <&> setNetworkId networkId
 
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
@@ -1781,7 +1782,6 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir cardanoNode hydraScriptsTxId
     withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
     unsetEnv "ETCD_INITIAL_CLUSTER_STATE"
  where
-  RunningNode{nodeSocket, networkId} = cardanoNode
   hydraTracer = contramap FromHydraNode tracer
 
 -- | Three hydra nodes open a head and we assert that none of them sees errors if a party is duplicated.
