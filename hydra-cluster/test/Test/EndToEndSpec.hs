@@ -12,6 +12,7 @@ import CardanoClient (
  )
 import CardanoNode (
   withBackend,
+  withCardanoNodeDevnet,
  )
 import Control.Lens ((^..), (^?))
 import Control.Monad (foldM_)
@@ -659,9 +660,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "can resume when member has already been bootstrapped" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= canResumeOnMemberAlreadyBootstrapped tracer tmpDir node
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= canResumeOnMemberAlreadyBootstrapped tracer tmpDir backend
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
