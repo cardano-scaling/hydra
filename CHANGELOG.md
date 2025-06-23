@@ -50,6 +50,8 @@ changes.
 
 - Provide `--network` option to hydra-node in order to use pre-published hydra scripts.
 
+- chain state does not retain non-policy outputs in the spendable UTxO.
+
 ## [0.21.0] - 2025-04-28
 
 - New metric for counting the number of active peers: `hydra_head_peers_connected`
