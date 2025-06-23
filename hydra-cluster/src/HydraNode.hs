@@ -22,6 +22,7 @@ import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Cluster.Util (readConfigFile)
+import Hydra.HeadLogic (HeadState)
 import Hydra.HeadLogic.State (SeenSnapshot)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
@@ -250,6 +251,19 @@ getSnapshotLastSeen HydraClient{apiHost = Host{hostname, port}} =
       (Req.http hostname /: "snapshot" /: "last-seen")
       NoReqBody
       (Proxy :: Proxy (JsonResponse (SeenSnapshot Tx)))
+      (Req.port (fromInteger . toInteger $ port))
+
+-- | Get the latest head state from the hydra-node.
+getHeadState :: HydraClient -> IO (HeadState Tx)
+getHeadState HydraClient{apiHost = Host{hostname, port}} =
+  runReq defaultHttpConfig request <&> responseBody
+ where
+  request =
+    Req.req
+      GET
+      (Req.http hostname /: "head")
+      NoReqBody
+      (Proxy :: Proxy (JsonResponse (HeadState Tx)))
       (Req.port (fromInteger . toInteger $ port))
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString

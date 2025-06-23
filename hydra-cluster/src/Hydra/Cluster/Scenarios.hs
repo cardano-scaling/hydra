@@ -93,6 +93,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
@@ -100,6 +101,7 @@ import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
 import Hydra.Contract.Dummy (dummyRewardingScript)
+import Hydra.HeadLogic (getChainState)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
@@ -111,6 +113,7 @@ import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
+  getHeadState,
   getProtocolParameters,
   getSnapshotConfirmed,
   getSnapshotLastSeen,
@@ -482,6 +485,104 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
         send n1 $ input "Fanout" []
 
         waitForAllMatch (10 * blockTime) [n1] $ checkFanout headId utxoToCommit
+      traceRemainingFunds Alice
+      traceRemainingFunds AliceFunds
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+  traceRemainingFunds actor = do
+    (actorVk, _) <- keysFor actor
+    utxo <- Backend.queryUTxOFor backend QueryTip actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, utxo}
+
+checkSpendableUTxODoesNotRetainOldHeadOutput ::
+  ChainBackend backend =>
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  backend ->
+  [TxId] ->
+  IO ()
+checkSpendableUTxODoesNotRetainOldHeadOutput tracer workDir backend hydraScriptsTxId =
+  ( `finally`
+      do
+        returnFundsToFaucet tracer backend Alice
+        returnFundsToFaucet tracer backend AliceFunds
+  )
+    $ do
+      refuelIfNeeded tracer backend Alice 55_000_000
+      -- Start hydra-node on chain tip
+      tip <- Backend.queryTip backend
+      blockTime <- Backend.getBlockTime backend
+      networkId <- Backend.queryNetworkId backend
+      contestationPeriod <- CP.fromNominalDiffTime $ 10 * blockTime
+      aliceChainConfig <-
+        chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+          <&> modifyConfig (\config -> config{startChainFrom = Just tip})
+            . setNetworkId networkId
+      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+        ChainStateAt{spendableUTxO = u0} <- getChainState <$> getHeadState n1
+        u0 `shouldBe` mempty
+
+        -- Initialize & open head
+        send n1 $ input "Init" []
+        headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+        ChainStateAt{spendableUTxO = u1} <- getChainState <$> getHeadState n1
+        u1 `shouldNotBe` mempty
+
+        -- Commit something from external key
+        (walletVk, walletSk) <- keysFor AliceFunds
+        amount <- Coin <$> generate (choose (10_000_000, 50_000_000))
+        utxoToCommit <- seedFromFaucet backend walletVk amount (contramap FromFaucet tracer)
+        requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= Backend.submitTransaction backend
+
+        waitFor hydraTracer (10 * blockTime) [n1] $
+          output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+        ChainStateAt{spendableUTxO = u2} <- getChainState <$> getHeadState n1
+        u2 `shouldNotBe` mempty
+
+        -- Close & fanout head
+        send n1 $ input "Close" []
+        deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          guard $ v ^? key "headId" == Just (toJSON headId)
+          v ^? key "contestationDeadline" . _JSON
+
+        ChainStateAt{spendableUTxO = u3} <- getChainState <$> getHeadState n1
+        u3 `shouldNotBe` mempty
+
+        remainingTime <- diffUTCTime deadline <$> getCurrentTime
+        waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+          output "ReadyToFanout" ["headId" .= headId]
+        send n1 $ input "Fanout" []
+
+        waitForAllMatch (10 * blockTime) [n1] $ checkFanout headId utxoToCommit
+
+        ChainStateAt{spendableUTxO = u4} <- getChainState <$> getHeadState n1
+        u4 `shouldBe` mempty
+
+        -- Initialize & abort head
+        send n1 $ input "Init" []
+        headId2 <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+        ChainStateAt{spendableUTxO = u5} <- getChainState <$> getHeadState n1
+        u5 `shouldNotBe` mempty
+
+        send n1 $ input "Abort" []
+        waitFor hydraTracer 20 [n1] $
+          output "HeadIsAborted" ["utxo" .= object mempty, "headId" .= headId2]
+
+        ChainStateAt{spendableUTxO = u6} <- getChainState <$> getHeadState n1
+        u6 `shouldBe` mempty
+
+        -- Initialize
+        send n1 $ input "Init" []
+        void $ waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+        ChainStateAt{spendableUTxO = u7} <- getChainState <$> getHeadState n1
+        u7 `shouldNotBe` mempty
+
       traceRemainingFunds Alice
       traceRemainingFunds AliceFunds
  where

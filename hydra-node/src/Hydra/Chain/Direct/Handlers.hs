@@ -9,20 +9,24 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
+import Cardano.Api (AssetId (..))
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
+import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
   Tx,
   TxId,
+  UTxO,
   chainPointToSlotNo,
   getChainPoint,
   getTxBody,
   getTxId,
   throwError,
+  txOutValue,
  )
 import Hydra.Chain (
   Chain (..),
@@ -321,11 +325,30 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
       Just observedTx -> do
         let newChainState =
               ChainStateAt
-                { spendableUTxO = adjustUTxO tx spendableUTxO
+                { spendableUTxO = toPolicyUTxO (adjustUTxO tx spendableUTxO)
                 , recordedAt = Just point
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
+
+toPolicyUTxO :: UTxO -> UTxO
+toPolicyUTxO =
+  UTxO.fromList . toPolicyOutputs . UTxO.toList
+ where
+  filterPolicyAssets =
+    filter
+      ( \(assetId, _) ->
+          case assetId of
+            AdaAssetId -> False
+            AssetId{} -> True
+      )
+      . IsList.toList
+      . txOutValue
+
+  toPolicyOutputs =
+    fmap (\(txin, txout, _) -> (txin, txout))
+      . filter (\(_, _, assets) -> not . null $ assets)
+      . fmap (\(txin, txout) -> (txin, txout, filterPolicyAssets txout))
 
 convertObservation :: TimeHandle -> HeadObservation -> Maybe (OnChainTx Tx)
 convertObservation TimeHandle{slotToUTCTime} = \case

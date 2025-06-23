@@ -56,6 +56,7 @@ import Hydra.Cluster.Scenarios (
   canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
   checkFanout,
+  checkSpendableUTxODoesNotRetainOldHeadOutput,
   headIsInitializingWith,
   initWithWrongKeys,
   nodeCanSupportMultipleEtcdClusters,
@@ -249,6 +250,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
             publishHydraScriptsAs backend Faucet
               >>= singlePartyHeadFullLifeCycle tracer tmpDir backend
+      it "spendableUTxO does not retain old head outputs" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+            publishHydraScriptsAs backend Faucet
+              >>= checkSpendableUTxODoesNotRetainOldHeadOutput tracer tmpDir backend
       it "can close with long deadline" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
