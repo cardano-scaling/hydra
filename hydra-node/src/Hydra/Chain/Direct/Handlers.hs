@@ -325,15 +325,15 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
       Just observedTx -> do
         let newChainState =
               ChainStateAt
-                { spendableUTxO = toPolicyUTxO (adjustUTxO tx spendableUTxO)
+                { spendableUTxO = onlyPolicyUTxO (adjustUTxO tx spendableUTxO)
                 , recordedAt = Just point
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
 
-toPolicyUTxO :: UTxO -> UTxO
-toPolicyUTxO =
-  UTxO.fromList . toPolicyOutputs . UTxO.toList
+onlyPolicyUTxO :: UTxO -> UTxO
+onlyPolicyUTxO =
+  UTxO.fromList . onlyPolicyOutputs . UTxO.toList
  where
   filterPolicyAssets =
     filter
@@ -345,7 +345,7 @@ toPolicyUTxO =
       . IsList.toList
       . txOutValue
 
-  toPolicyOutputs =
+  onlyPolicyOutputs =
     fmap (\(txin, txout, _) -> (txin, txout))
       . filter (\(_, _, assets) -> not . null $ assets)
       . fmap (\(txin, txout) -> (txin, txout, filterPolicyAssets txout))
