@@ -11,9 +11,8 @@ module Hydra.Logging.Monitoring (
   withMonitoring,
 ) where
 
-import Hydra.Prelude
-
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
+import Control.Monad.Class.MonadAsync (link)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Hydra.HeadLogic (
@@ -24,6 +23,7 @@ import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
 import Hydra.Node (HydraNodeLog (..))
+import Hydra.Prelude
 import Hydra.Tx (IsTx (TxIdType), Snapshot (..), txId)
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, GaugeMetric, HistogramMetric))
@@ -38,7 +38,7 @@ import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, regis
 -- This is a no-op if given `Nothing`. This function is not polymorphic over the type of
 -- messages because it needs to understand them in order to provide meaningful metrics.
 withMonitoring ::
-  (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m) =>
+  (MonadIO m, MonadAsync m, MonadFork m, MonadMask m, IsTx tx, MonadMonotonicTime m) =>
   Maybe PortNumber ->
   Tracer m (HydraLog tx) ->
   (Tracer m (HydraLog tx) -> m ()) ->
@@ -46,11 +46,11 @@ withMonitoring ::
 withMonitoring Nothing tracer action = action tracer
 withMonitoring (Just monitoringPort) (Tracer tracer) action = do
   (traceMetric, registry) <- prepareRegistry
-  withAsync (serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry)) $ \_ ->
+  withAsync (serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry)) $ \t ->
     let wrappedTracer = Tracer $ \msg -> do
           traceMetric msg
           tracer msg
-     in action wrappedTracer
+     in link t >> action wrappedTracer
 
 -- | Register all relevant metrics.
 -- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication

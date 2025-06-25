@@ -57,6 +57,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..), (^?))
+import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens qualified as Aeson
@@ -147,7 +148,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         -- first rpc call will block until the connection has been established.
         withConnection (connParams doneVar) grpcServer $ \conn -> do
           -- REVIEW: checkVersion blocks if used on main thread - why?
-          withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
+          withAsync (checkVersion tracer conn protocolVersion callback) $ \t -> do
+            link t
             race_ (pollConnectivity tracer conn advertise callback) $
               race_ (waitMessages tracer conn persistenceDir callback) $ do
                 queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
