@@ -85,7 +85,7 @@ defaultQueueSize = 500
 -- is wrapping 'msg' into an 'Envelope' with metadata.
 withTracer ::
   forall m msg a.
-  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
+  (HasCallStack, MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
   Verbosity ->
   (Tracer m msg -> IO a) ->
   IO a
@@ -97,7 +97,7 @@ withTracer (Verbose namespace) = withTracerOutputTo stdout namespace
 -- with metadata.
 withTracerOutputTo ::
   forall m msg a.
-  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
+  (HasCallStack, MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
   Handle ->
   Text ->
   (Tracer m msg -> IO a) ->
