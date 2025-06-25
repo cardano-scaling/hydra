@@ -56,10 +56,12 @@ import Network.WebSockets (
  )
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
+import Hydra.Node.Environment (Environment(..))
 
 wsApp ::
   forall tx.
   IsChainState tx =>
+  Environment ->
   Party ->
   Tracer IO APIServerLog ->
   ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
@@ -72,7 +74,7 @@ wsApp ::
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp party tracer history callback headStateP headIdP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer history callback headStateP headIdP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -105,6 +107,7 @@ wsApp party tracer history callback headStateP headIdP responseChannel ServerOut
             , hydraHeadId
             , snapshotUtxo = getSnapshotUtxo headState
             , hydraNodeVersion = showVersion NetworkVersions.hydraNodeVersion
+            , env
             }
 
   Projection{getLatest} = headStateP
