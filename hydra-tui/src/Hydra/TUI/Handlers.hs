@@ -10,7 +10,7 @@ import Hydra.Prelude hiding (Down)
 import Brick
 import Hydra.Cardano.Api hiding (Active)
 import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
-
+import Hydra.Network (readHost)
 import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
@@ -20,6 +20,7 @@ import Graphics.Vty (
   Key (..),
   Modifier (MCtrl),
  )
+import Data.Text qualified as T
 import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (TimedServerOutput (..))
@@ -36,6 +37,7 @@ import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
 import Lens.Micro.Mtl (use, (%=), (.=))
+import Hydra.Node.Environment (Environment(..))
 
 handleEvent ::
   CardanoClient ->
@@ -83,9 +85,19 @@ handleHydraEventsConnectedState = \case
 
 handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
 handleHydraEventsConnection = \case
-  Update (ApiGreetings API.Greetings{me}) -> meL .= Identified me
-  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) -> peersL %= \cp -> nub $ cp <> [p]
-  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) -> peersL %= \cp -> cp \\ [p]
+  Update (ApiGreetings API.Greetings{me, env = Environment{configuredPeers}}) -> do
+    meL .= Identified me
+    let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
+    case traverse readHost peerStrs of
+      Left err -> do
+        liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
+        peersL .= mempty
+      Right peers ->
+        peersL .= fmap (,PeerIsDisconnected) peers
+  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->
+    peersL %= map (\(h, s) -> if h == p then (h, PeerIsConnected) else (h, s))
+  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) ->
+    peersL %= map (\(h, s) -> if h == p then (h, PeerIsDisconnected) else (h, s))
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkConnected}) -> do
     networkStateL .= Just NetworkConnected
     peersL .= []
