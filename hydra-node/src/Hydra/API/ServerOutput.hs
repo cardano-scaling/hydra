@@ -44,7 +44,7 @@ instance IsChainState tx => ToJSON (TimedServerOutput tx) where
     case toJSON output of
       Object o ->
         Object $ o <> KeyMap.fromList [("seq", toJSON seq), ("timestamp", toJSON time)]
-      _NotAnObject -> error "expected ServerOutput to serialize to an Object"
+      _NotAnObject -> error $ "expected ServerOutput to serialize to an Object: " <> show _NotAnObject
 
 instance IsChainState tx => FromJSON (TimedServerOutput tx) where
   parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
