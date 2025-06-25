@@ -34,6 +34,7 @@ import Control.Concurrent.Class.MonadSTM (
   readTVarIO,
   writeTBQueue,
  )
+import Control.Monad.Class.MonadAsync (link)
 import Control.Monad.Class.MonadFork (myThreadId)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
@@ -103,12 +104,13 @@ withTracerOutputTo ::
   IO a
 withTracerOutputTo hdl namespace action = do
   msgQueue <- newTBQueueIO @_ @(Envelope msg) defaultQueueSize
-  withAsync (writeLogs msgQueue) $ \_ ->
+  withAsync (writeLogs msgQueue) $ \t -> do
+    link t
     action (tracer msgQueue) `finally` flushLogs msgQueue
  where
   tracer queue =
-    Tracer $
-      mkEnvelope namespace >=> liftIO . atomically . writeTBQueue queue
+    Tracer $ \msg ->
+      mkEnvelope namespace msg >>= liftIO . atomically . writeTBQueue queue
 
   writeLogs queue =
     forever $ do
