@@ -27,6 +27,7 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
 import Test.QuickCheck (recursivelyShrink)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
+import Hydra.Node.Environment (Environment(..))
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -101,6 +102,7 @@ data Greetings tx = Greetings
   , hydraHeadId :: Maybe HeadId
   , snapshotUtxo :: Maybe (UTxOType tx)
   , hydraNodeVersion :: String
+  , env :: Environment
   }
   deriving (Generic)
 
