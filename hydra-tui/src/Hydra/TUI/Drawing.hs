@@ -286,14 +286,22 @@ drawNetworkState s =
             Just NetworkDisconnected -> withAttr negative $ txt "Disconnected"
     ]
 
-drawPeers :: ConnectedState -> [Host] -> Widget n
+drawPeers :: ConnectedState -> [(Host, PeerStatus)] -> Widget n
 drawPeers s peers = vBox $ str "Alive peers:" : rest
  where
   -- Note: We only show the list of alive peers if the network is connected;
   -- otherwise, it is not reliable.
   rest = case s of
-    Connected{connection = Connection{networkState = Just NetworkConnected}} -> map drawShow peers
+    Connected{connection = Connection{networkState = Just NetworkConnected}} -> 
+      map drawPeer peers
     _ -> [txt "Unknown"]
+  
+  drawPeer (host, status) =
+    withAttr (statusAttr status) (drawShow host)
+
+  statusAttr = \case
+    PeerIsConnected -> negative
+    PeerIsDisconnected -> positive
 
 drawHeadId :: HeadId -> Widget n
 drawHeadId x = txt $ "Head id: " <> serialiseToRawBytesHexText x
