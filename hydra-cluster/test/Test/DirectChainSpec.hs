@@ -157,7 +157,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 -- Expect that Alice got her committed value back to her
                 -- external address
                 utxo <- Backend.queryUTxO backend [aliceExternalAddress]
-                let aliceValues = txOutValue <$> toList utxo
+                let aliceValues = txOutValue <$> UTxO.txOutputs utxo
                 aliceValues `shouldContain` [lovelaceToValue aliceCommitment]
 
   it "cannot abort a non-participating head" $ \tracer ->

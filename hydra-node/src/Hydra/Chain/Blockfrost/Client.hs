@@ -547,6 +547,6 @@ awaitUTxO networkId addresses txid i = do
       Left _e -> liftIO (threadDelay 1) >> go (n - 1)
       Right utxo' ->
         let wantedUTxO = UTxO.fromList $ List.filter (\(TxIn txid' _, _) -> txid' == txid) (UTxO.toList utxo')
-         in if null wantedUTxO
+         in if UTxO.null wantedUTxO
               then liftIO (threadDelay 1) >> go (n - 1)
               else pure utxo'
