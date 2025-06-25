@@ -109,8 +109,8 @@ withTracerOutputTo hdl namespace action = do
     action (tracer msgQueue) `finally` flushLogs msgQueue
  where
   tracer queue =
-    Tracer $ \msg ->
-      mkEnvelope namespace msg >>= liftIO . atomically . writeTBQueue queue
+    Tracer $
+      mkEnvelope namespace >=> liftIO . atomically . writeTBQueue queue
 
   writeLogs queue =
     forever $ do
