@@ -149,7 +149,6 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         withConnection (connParams doneVar) grpcServer $ \conn -> do
           -- REVIEW: checkVersion blocks if used on main thread - why?
           withAsync (checkVersion tracer conn protocolVersion callback) $ \t -> do
-            link t
             race_ (pollConnectivity tracer conn advertise callback) $
               race_ (waitMessages tracer conn persistenceDir callback) $ do
                 queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100

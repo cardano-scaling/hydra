@@ -38,7 +38,7 @@ import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, regis
 -- This is a no-op if given `Nothing`. This function is not polymorphic over the type of
 -- messages because it needs to understand them in order to provide meaningful metrics.
 withMonitoring ::
-  (MonadIO m, MonadAsync m, MonadFork m, MonadMask m, IsTx tx, MonadMonotonicTime m) =>
+  (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m) =>
   Maybe PortNumber ->
   Tracer m (HydraLog tx) ->
   (Tracer m (HydraLog tx) -> m ()) ->
@@ -50,7 +50,7 @@ withMonitoring (Just monitoringPort) (Tracer tracer) action = do
     let wrappedTracer = Tracer $ \msg -> do
           traceMetric msg
           tracer msg
-     in link t >> action wrappedTracer
+     in action wrappedTracer
 
 -- | Register all relevant metrics.
 -- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication
