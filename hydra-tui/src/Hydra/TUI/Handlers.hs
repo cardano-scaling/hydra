@@ -8,28 +8,29 @@ module Hydra.TUI.Handlers where
 import Hydra.Prelude hiding (Down)
 
 import Brick
-import Hydra.Cardano.Api hiding (Active)
-import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
-import Hydra.Network (readHost)
 import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
 import Data.Map qualified as Map
+import Data.Text qualified as T
 import Graphics.Vty (
   Event (EvKey),
   Key (..),
   Modifier (MCtrl),
  )
-import Data.Text qualified as T
 import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (TimedServerOutput (..))
 import Hydra.API.ServerOutput qualified as API
+import Hydra.Cardano.Api hiding (Active)
 import Hydra.Cardano.Api.Prelude ()
+import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
+import Hydra.Network (readHost)
+import Hydra.Node.Environment (Environment (..))
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
@@ -37,7 +38,6 @@ import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
 import Lens.Micro.Mtl (use, (%=), (.=))
-import Hydra.Node.Environment (Environment(..))
 
 handleEvent ::
   CardanoClient ->

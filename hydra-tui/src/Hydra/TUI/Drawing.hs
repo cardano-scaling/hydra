@@ -292,10 +292,10 @@ drawPeers s peers = vBox $ str "Alive peers:" : rest
   -- Note: We only show the list of alive peers if the network is connected;
   -- otherwise, it is not reliable.
   rest = case s of
-    Connected{connection = Connection{networkState = Just NetworkConnected}} -> 
+    Connected{connection = Connection{networkState = Just NetworkConnected}} ->
       map drawPeer peers
     _ -> [txt "Unknown"]
-  
+
   drawPeer (host, status) =
     withAttr (statusAttr status) (drawShow host)
 

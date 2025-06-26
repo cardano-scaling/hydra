@@ -16,6 +16,7 @@ import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
 import Hydra.Tx qualified as Tx
@@ -27,7 +28,6 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
 import Test.QuickCheck (recursivelyShrink)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
-import Hydra.Node.Environment (Environment(..))
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
