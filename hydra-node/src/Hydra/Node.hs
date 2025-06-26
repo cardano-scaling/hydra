@@ -186,7 +186,7 @@ hydrate ::
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
 hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} eventSinks = do
-  let allSinks = eventSink : eventSinks
+  let allSinks = eventSinks
   traceWith tracer LoadingState
   (lastEventId, (headState, chainStateHistory)) <-
     runConduitRes $
@@ -215,7 +215,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
       , nodeState
       , inputQueue
       , eventSource
-      , eventSinks = allSinks
+      , eventSinks = eventSink : allSinks
       , chainStateHistory
       }
  where
