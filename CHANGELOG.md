@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.22.1] - 2025.06.27
+
+* Fix for bug where node got stalled at `ReplayingState` [#2089](https://github.com/cardano-scaling/hydra/issues/2089)
+
 ## [0.22.0] - 2025.06.17
 
 - Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
