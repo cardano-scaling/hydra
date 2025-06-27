@@ -186,7 +186,6 @@ hydrate ::
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
 hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} eventSinks = do
-  let allSinks = eventSink : eventSinks
   traceWith tracer LoadingState
   (lastEventId, (headState, chainStateHistory)) <-
     runConduitRes $
@@ -203,7 +202,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   traceWith tracer ReplayingState
   runConduitRes $
-    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks allSinks [e])
+    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
 
   nodeState <- createNodeState (getLast lastEventId) headState
   inputQueue <- createInputQueue
@@ -215,7 +214,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
       , nodeState
       , inputQueue
       , eventSource
-      , eventSinks = allSinks
+      , eventSinks = eventSink : eventSinks
       , chainStateHistory
       }
  where
