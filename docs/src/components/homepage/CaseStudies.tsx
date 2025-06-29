@@ -54,6 +54,7 @@ const CaseStudies: FC = () => {
                   : FeaturedCaseStudy.src
               }
               className="tablet:rounded-2xl rounded-none"
+              alt="Case studies blocks"
             />
           </motion.div>
         </div>
