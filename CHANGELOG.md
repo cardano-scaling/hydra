@@ -12,6 +12,10 @@ changes.
 
 - Hydra API server responds with the correct `Content-Type` header `application-json`.
 
+## [0.22.2] - 2025.06.30
+
+* Fix wrong hydra-script-tx-ids in networks.json
+
 ## [0.22.1] - 2025.06.27
 
 * Fix for bug where node got stalled at `ReplayingState` [#2089](https://github.com/cardano-scaling/hydra/issues/2089)
