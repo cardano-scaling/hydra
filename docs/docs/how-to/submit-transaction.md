@@ -32,14 +32,13 @@ Below is an example response:
 Assuming the single UTXO is owned by `some-payment-key.sk` and you want to send all of it to another address, you can use `cardano-cli` (or your preferred transaction builder) to construct and sign a transaction:
 
 ```shell title="Transaction building"
-cardano-cli transaction build-raw \
-  --babbage-era \
+cardano-cli conway transaction build-raw \
   --tx-in 8690d7618bb88825d6ec7cfbe2676779b8f4633cb137a1c12cd31b4c53f90f32#0 \
   --tx-out addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z+100000000 \
   --fee 0 \
   --out-file tx.json
 
-cardano-cli transaction sign \
+cardano-cli conway transaction sign \
   --tx-body-file tx.json \
   --signing-key-file some-payment-key.sk \
   --out-file tx-signed.json
@@ -53,4 +52,4 @@ This command generates a message suitable for submission to the `hydra-node` via
 cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .}' | websocat "ws://127.0.0.1:4001?history=no"
 ```
 
-The transaction will be validated by all connected `hydra-node` instances. It will result in either a `TxInvalid` message, providing a reason for rejection, or a `TxValid` message followed by a `SnapshotConfirmed`, updating the UTXO available in the head shortly after that.
+`Greetings` message will be displayed as always when calling the web socket api and the transaction will be validated by all connected `hydra-node` instances. It will result in either a `TxInvalid` message, providing a reason for rejection, or a `TxValid` message followed by a `SnapshotConfirmed`, updating the UTXO available in the head shortly after that.

@@ -66,7 +66,7 @@ You can use [jq](https://jqlang.github.io/jq/) to follow the logs and see the no
 following command:
 
 ```
-docker compose logs -f --no-log-prefix cardano-node | jq -Rr 'fromjson? | .data.val.kind'
+docker compose logs -f --no-log-prefix cardano-node | jq -Rr 'fromjson? | .data.kind'
 ```
 :::
 

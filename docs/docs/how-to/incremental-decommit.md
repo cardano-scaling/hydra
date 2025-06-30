@@ -57,7 +57,7 @@ For example, to spend the first UTXO queried above in a transaction sending the 
 
 ```shell
 LOVELACE=$(jq -r 'to_entries[0].value.value.lovelace' < utxo.json)
-cardano-cli transaction build-raw \
+cardano-cli conway transaction build-raw \
   --tx-in $(jq -r 'to_entries[0].key' < utxo.json) \
   --tx-out ${WALLET_ADDR}+${LOVELACE} \
   --fee 0 \
@@ -67,14 +67,14 @@ cardano-cli transaction build-raw \
 You can inspect the transaction with
 
 ```shell
-cardano-cli transaction view --tx-file decommit.json
+cardano-cli conway transaction view --tx-file decommit.json
 ```
 
 As the transaction spends from Alice's funds in the Hydra head, we also need to
 sign it with her key:
 
 ```shell
-cardano-cli transaction sign \
+cardano-cli conway transaction sign \
   --tx-file decommit.json \
   --signing-key-file ${WALLET_SK} \
   --out-file alice-decommit-tx-signed.json

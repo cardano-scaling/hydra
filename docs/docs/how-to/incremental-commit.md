@@ -59,12 +59,12 @@ curl -X POST localhost:4001/commit \
 
 Which we can submit to the cardano network:
 ```shell
-cardano-cli transaction sign \
+cardano-cli conway transaction sign \
   --tx-file deposit-tx.json \
   --signing-key-file ${WALLET_SK} \
   --out-file deposit-tx.signed.json
 
-cardano-cli transaction submit \
+cardano-cli conway transaction submit \
   --tx-file deposit-tx.signed.json
 ```
 
