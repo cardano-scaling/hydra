@@ -34,7 +34,7 @@ import Hydra.Tx (
   IsTx (..),
   UTxOType,
  )
-import Network.HTTP.Types (status200, status400, status404, status500)
+import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status400, status404, status500)
 import Network.Wai (
   Application,
   Request (pathInfo, requestMethod),
@@ -141,6 +141,9 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (SideLoad
   shrink = \case
     SideLoadSnapshotRequest snapshot -> SideLoadSnapshotRequest <$> shrink snapshot
 
+jsonContent :: ResponseHeaders
+jsonContent = [(hContentType, "application/json")]
+
 -- | Hydra HTTP server
 httpApp ::
   forall tx.
@@ -193,19 +196,19 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
         >>= handleRecoverCommitUtxo putClientInput (last . fromList $ pathInfo request)
         >>= respond
     ("GET", ["commits"]) ->
-      getPendingDeposits >>= respond . responseLBS status200 [] . Aeson.encode
+      getPendingDeposits >>= respond . responseLBS status200 jsonContent . Aeson.encode
     ("POST", ["decommit"]) ->
       consumeRequestBodyStrict request
         >>= handleDecommit putClientInput
         >>= respond
     ("GET", ["protocol-parameters"]) ->
-      respond . responseLBS status200 [] . Aeson.encode $ pparams
+      respond . responseLBS status200 jsonContent . Aeson.encode $ pparams
     ("POST", ["cardano-transaction"]) ->
       consumeRequestBodyStrict request
         >>= handleSubmitUserTx directChain
         >>= respond
     _ ->
-      respond $ responseLBS status400 [] "Resource not found"
+      respond $ responseLBS status400 jsonContent . Aeson.encode $ Aeson.String "Resource not found"
 
 -- * Handlers
 
@@ -225,7 +228,7 @@ handleDraftCommitUtxo ::
 handleDraftCommitUtxo env directChain getCommitInfo body = do
   case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
     Left err ->
-      pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right someCommitRequest ->
       getCommitInfo >>= \case
         NormalCommit headId ->
@@ -249,7 +252,7 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
     -- expires one deposit period before deadline.
     deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
     draftDepositTx headId commitBlueprint deadline <&> \case
-      Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
+      Left e -> responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
 
   draftCommit headId lookupUTxO blueprintTx = do
@@ -282,11 +285,11 @@ handleRecoverCommitUtxo putClientInput recoverPath _body = do
     Left err -> pure err
     Right recoverTxId -> do
       putClientInput Recover{recoverTxId}
-      pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
+      pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
  where
   parseTxIdFromPath txIdStr =
     case Aeson.eitherDecode (encodeUtf8 txIdStr) :: Either String (TxIdType tx) of
-      Left e -> Left (responseLBS status400 [] (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxId: " <> pack e))
+      Left e -> Left (responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxId: " <> pack e))
       Right txid -> Right txid
 
 -- | Handle request to submit a cardano transaction.
@@ -300,12 +303,12 @@ handleSubmitUserTx ::
 handleSubmitUserTx directChain body = do
   case Aeson.eitherDecode' body of
     Left err ->
-      pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right txToSubmit -> do
       try (submitTx txToSubmit) <&> \case
         Left (e :: PostTxError Tx) -> badRequest e
         Right _ ->
-          responseLBS status200 [] (Aeson.encode TransactionSubmitted)
+          responseLBS status200 jsonContent (Aeson.encode TransactionSubmitted)
  where
   Chain{submitTx} = directChain
 
@@ -313,10 +316,10 @@ handleDecommit :: forall tx. FromJSON tx => (ClientInput tx -> IO ()) -> LBS.Byt
 handleDecommit putClientInput body =
   case Aeson.eitherDecode' body :: Either String tx of
     Left err ->
-      pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right decommitTx -> do
       putClientInput Decommit{decommitTx}
-      pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
+      pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
 
 -- | Handle request to side load confirmed snapshot.
 handleSideLoadSnapshot ::
@@ -328,16 +331,16 @@ handleSideLoadSnapshot ::
 handleSideLoadSnapshot putClientInput body = do
   case Aeson.eitherDecode' body :: Either String (SideLoadSnapshotRequest tx) of
     Left err ->
-      pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right SideLoadSnapshotRequest{snapshot} -> do
       putClientInput $ SideLoadSnapshot snapshot
-      pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
+      pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
 
 badRequest :: IsChainState tx => PostTxError tx -> Response
-badRequest = responseLBS status400 [] . Aeson.encode . toJSON
+badRequest = responseLBS status400 jsonContent . Aeson.encode . toJSON
 
 notFound :: Response
-notFound = responseLBS status404 [] ""
+notFound = responseLBS status404 jsonContent (Aeson.encode $ Aeson.String "")
 
 okJSON :: ToJSON a => a -> Response
-okJSON = responseLBS status200 [] . Aeson.encode
+okJSON = responseLBS status200 jsonContent . Aeson.encode
