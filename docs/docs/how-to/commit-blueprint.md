@@ -70,8 +70,7 @@ cardano-cli query utxo \
 Select the first `UTXO`, which has eight ada available. Use five ada to commit and rely on `hydra-node` to balance the commit transaction:
 
 ```shell
-cardano-cli transaction build-raw \
-  --babbage-era \
+cardano-cli conway transaction build-raw \
   --tx-in 14ab373afb1112d925b0f6a84518ac26d4a8cfcc99231e1f47e6996182e843a9#0 \
   --tx-out addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z+5000000 \
   --fee 0 \
@@ -167,13 +166,13 @@ Next, sign and submit the draft of the commit transaction:
 
 ```shell
 
-cardano-cli transaction sign \
+cardano-cli conway transaction sign \
   --tx-file commit-tx.json \
   --signing-key-file hydra-cluster/config/credentials/alice-funds.sk \
   --out-file signed-tx.json
 
 
-cardano-cli transaction submit \
+cardano-cli conway transaction submit \
   --tx-file signed-tx.json \
   --socket-path testnets/preprod/node.socket \
   --testnet-magic 1
