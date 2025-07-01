@@ -35,6 +35,10 @@ The `HYDRA_BACKEND` environment variable is used to choose over which backend we
 end-to-end tests. Possible values are _direct_ and _blockfrost_ (eg. export HYDRA_BACKEND="blockfrost").
 If this env variable is not set, the tests will default to _direct_ backend.
 
+To run the e2e tests successfully using blockfrost backend there should be also
+a file named `blocfrost-project.txt` in the root of the repository with the
+appropriate api key for the network you want to run on.
+
 ## Smoke Testing
 
 The `hydra-cluster` executable spins up a `cardano-node` as a network
