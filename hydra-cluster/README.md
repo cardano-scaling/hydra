@@ -31,13 +31,25 @@ The `HYDRA_CONFIG_DIR` environment variable is used to control where the executa
 for its configuration files. By default those files are resolved using the cabal package's
 data structure which is not always convenient.
 
+The `HYDRA_BACKEND` environment variable is used to choose over which backend we will run our
+end-to-end tests. Possible values are _direct_ and _blockfrost_ (eg. export HYDRA_BACKEND="blockfrost").
+If this env variable is not set, the tests will default to _direct_ backend.
+
+To run the e2e tests successfully using blockfrost backend there should be also
+a file named `blocfrost-project.txt` in the root of the repository with the
+appropriate api key for the network you want to run on.
+
 ## Smoke Testing
 
 The `hydra-cluster` executable spins up a `cardano-node` as a network
 participant which synchronizes the block chain and then executes a
 single scenario (single party, full life cycle) using funds available
-to the `config/credentials/faucet.sk` on that network. The Hydra nodes
-can reference pre-existing contracts living at some well-known
+to the `config/credentials/faucet.sk` on that network.
+
+Smoke tests can also run using _Blockfrost_ in which case there is no need to
+start `cardano-node`.
+
+The Hydra nodes can reference pre-existing contracts living at some well-known
 transaction or can post a new transaction to use those contracts.
 
 :warning: do not provide actual funds to this faucet address as the
@@ -153,7 +165,7 @@ P95: 19.81722345ms
 P50: 18.532922ms
 Invalid txs: 0
 Writing report to: out/end-to-end-benchmarks.md
-         line 0: warning: Cannot find or open file "out/system.csv"                
+         line 0: warning: Cannot find or open file "out/system.csv"
 Created plot: out/results.png
 ```
 

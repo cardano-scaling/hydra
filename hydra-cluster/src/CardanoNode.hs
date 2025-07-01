@@ -24,10 +24,11 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Cluster.Util (readConfigFile)
-import Hydra.Options (DirectOptions (..))
+import Hydra.Options (BlockfrostOptions (..), DirectOptions (..))
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
@@ -158,6 +159,31 @@ withCardanoNodeDevnet ::
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
   withCardanoNode tracer stateDirectory args action
+
+withBlockfrostBackend ::
+  Tracer IO NodeLog ->
+  -- | State directory in which credentials, db & logs are persisted.
+  FilePath ->
+  (NominalDiffTime -> BlockfrostBackend -> IO a) ->
+  IO a
+withBlockfrostBackend _tracer stateDirectory action = do
+  args <- setupCardanoDevnet stateDirectory
+  shelleyGenesis <- readFileBS >=> unsafeDecodeJson $ stateDirectory </> nodeShelleyGenesisFile args
+  let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = ".." </> Backend.blockfrostProjectPath}
+  action (getShelleyGenesisBlockTime shelleyGenesis) backend
+
+withBackend ::
+  forall a.
+  Tracer IO NodeLog ->
+  FilePath ->
+  (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) ->
+  IO a
+withBackend tracer stateDirectory action = do
+  backend <- lookupEnv "HYDRA_BACKEND"
+  case backend of
+    Just "direct" -> withCardanoNodeDevnet tracer stateDirectory action
+    Just "blockfrost" -> withBlockfrostBackend tracer stateDirectory action
+    _ -> withCardanoNodeDevnet tracer stateDirectory action
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
@@ -320,12 +346,13 @@ withCardanoNode tr stateDirectory args action = do
       else do
         let magic = json ^?! key "networkMagic" . _Number
         Api.Testnet (Api.NetworkMagic $ truncate magic)
-  -- Read expected time between blocks from shelley genesis
-  getShelleyGenesisBlockTime :: Value -> NominalDiffTime
-  getShelleyGenesisBlockTime json = do
-    let slotLength = json ^?! key "slotLength" . _Number
-    let activeSlotsCoeff = json ^?! key "activeSlotsCoeff" . _Number
-    computeBlockTime (realToFrac slotLength) (toRational activeSlotsCoeff)
+
+-- Read expected time between blocks from shelley genesis
+getShelleyGenesisBlockTime :: Value -> NominalDiffTime
+getShelleyGenesisBlockTime json = do
+  let slotLength = json ^?! key "slotLength" . _Number
+  let activeSlotsCoeff = json ^?! key "activeSlotsCoeff" . _Number
+  computeBlockTime (realToFrac slotLength) (toRational activeSlotsCoeff)
 
 -- | Compute the block time (expected time between blocks) given a slot length
 -- as diff time and active slot coefficient.
