@@ -5,7 +5,7 @@ module Main where
 import Hydra.Prelude
 
 import CardanoNode (findRunningCardanoNode, waitForFullySynchronized, withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
-import Hydra.Cardano.Api (TxId)
+import Hydra.Cardano.Api (TxId, serialiseToRawBytesHexText)
 import Hydra.Chain.Backend (ChainBackend, blockfrostProjectPath)
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
@@ -45,6 +45,9 @@ run options =
         Nothing -> do
           withCardanoNodeDevnet fromCardanoNode workDir $ \_ backend -> do
             txId <- publishOrReuseHydraScripts tracer backend
+            let hydraScriptsTxId = intercalate "," $ toString . serialiseToRawBytesHexText <$> txId
+            let envPath = workDir </> ".env"
+            writeFile envPath $ "HYDRA_SCRIPTS_TX_ID=" <> hydraScriptsTxId
             singlePartyOpenAHead tracer workDir backend txId $ \client walletSk _headId -> do
               case scenario of
                 Idle -> forever $ pure ()
