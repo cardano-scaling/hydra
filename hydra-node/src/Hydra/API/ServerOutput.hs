@@ -128,6 +128,8 @@ instance IsChainState tx => FromJSON (Greetings tx) where
 instance ArbitraryIsTx tx => Arbitrary (Greetings tx) where
   arbitrary = genericArbitrary
 
+instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (Greetings tx)
+
 data InvalidInput = InvalidInput
   { reason :: String
   , input :: Text
