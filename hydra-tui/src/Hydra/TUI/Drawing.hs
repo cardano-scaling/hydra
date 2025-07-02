@@ -300,8 +300,8 @@ drawPeers s peers = vBox $ str "Alive peers:" : rest
     withAttr (statusAttr status) (drawShow host)
 
   statusAttr = \case
-    PeerIsConnected -> negative
-    PeerIsDisconnected -> positive
+    PeerIsConnected -> positive
+    PeerIsDisconnected -> negative
     PeerIsUnknown -> neutral
 
 drawHeadId :: HeadId -> Widget n
