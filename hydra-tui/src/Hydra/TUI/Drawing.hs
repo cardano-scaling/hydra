@@ -302,6 +302,7 @@ drawPeers s peers = vBox $ str "Alive peers:" : rest
   statusAttr = \case
     PeerIsConnected -> negative
     PeerIsDisconnected -> positive
+    PeerIsUnknown -> neutral
 
 drawHeadId :: HeadId -> Widget n
 drawHeadId x = txt $ "Head id: " <> serialiseToRawBytesHexText x

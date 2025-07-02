@@ -88,24 +88,27 @@ handleHydraEventsConnection = \case
   Update (ApiGreetings API.Greetings{me, env = Environment{configuredPeers}}) -> do
     meL .= Identified me
     let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
-    case traverse readHost peerStrs of
+    let peerAddrs = map (takeWhile (/= '=')) peerStrs
+    case traverse readHost peerAddrs of
       Left err -> do
         liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
         peersL .= mempty
       Right peers ->
-        peersL .= fmap (,PeerIsDisconnected) peers
+        peersL .= fmap (,PeerIsUnknown) peers
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->
-    peersL %= map (\(h, s) -> if h == p then (h, PeerIsConnected) else (h, s))
+    peersL %= updatePeerStatus p PeerIsConnected
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) ->
-    peersL %= map (\(h, s) -> if h == p then (h, PeerIsDisconnected) else (h, s))
+    peersL %= updatePeerStatus p PeerIsDisconnected
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkConnected}) -> do
     networkStateL .= Just NetworkConnected
-    peersL .= []
+    peersL %= map (\(h, _) -> (h, PeerIsUnknown))
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkDisconnected}) -> do
     networkStateL .= Just NetworkDisconnected
-    peersL .= []
+    peersL %= map (\(h, _) -> (h, PeerIsUnknown))
   e -> zoom headStateL $ handleHydraEventsHeadState e
-
+ where
+  updatePeerStatus host status peers =
+    (host, status) : filter ((/= host) . fst) peers
 handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
 handleHydraEventsHeadState e = do
   case e of

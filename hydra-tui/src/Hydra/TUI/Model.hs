@@ -36,7 +36,7 @@ data IdentifiedState
 -- | Connectivity of the hydra node to the hydra network.
 data NetworkState = NetworkConnected | NetworkDisconnected
 
-data PeerStatus = PeerIsConnected | PeerIsDisconnected
+data PeerStatus = PeerIsConnected | PeerIsDisconnected | PeerIsUnknown
 
 data Connection = Connection
   { me :: IdentifiedState
