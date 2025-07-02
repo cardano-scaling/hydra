@@ -250,11 +250,7 @@ queryUTxOByTxIn networkId socket queryPoint inputs =
     pure $ UTxO.fromApi eraUTxO
 
 assumeShelleyBasedEraOrThrow :: MonadThrow m => CardanoEra era -> m (ShelleyBasedEra era)
-assumeShelleyBasedEraOrThrow era = do
-  x <- requireShelleyBasedEra era
-  case x of
-    Just sbe -> pure sbe
-    Nothing -> throwIO $ QueryNotShelleyBasedEraException (anyCardanoEra era)
+assumeShelleyBasedEraOrThrow era = inEonForEra (throwIO $ QueryNotShelleyBasedEraException $ anyCardanoEra era) pure era
 
 -- | Query the whole UTxO from node at given point. Useful for debugging, but
 -- should obviously not be used in production code.
