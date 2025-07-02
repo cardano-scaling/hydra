@@ -93,8 +93,15 @@ handleHydraEventsConnection = \case
       Left err -> do
         liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
         peersL .= mempty
-      Right peers ->
-        peersL .= fmap (,PeerIsUnknown) peers
+      Right parsedPeers -> do
+        existing <- use peersL
+        let existingMap = Map.fromList existing
+            updatedMap =
+              Map.fromList $
+                [ (p, Map.findWithDefault PeerIsUnknown p existingMap)
+                | p <- parsedPeers
+                ]
+        peersL .= Map.toList updatedMap
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->
     peersL %= updatePeerStatus p PeerIsConnected
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) ->
@@ -109,6 +116,7 @@ handleHydraEventsConnection = \case
  where
   updatePeerStatus host status peers =
     (host, status) : filter ((/= host) . fst) peers
+
 handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
 handleHydraEventsHeadState e = do
   case e of
