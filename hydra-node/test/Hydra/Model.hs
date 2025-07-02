@@ -33,7 +33,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
-import Data.Foldable qualified as Foldable
 import Data.List (nub, (\\))
 import Data.List qualified as List
 import Data.Map ((!))
@@ -568,7 +567,7 @@ instance
     case action of
       Fanout{} ->
         case hydraState st of
-          Final{finalUTxO} -> sortTxOuts (toTxOuts finalUTxO) === sortTxOuts (Foldable.toList result)
+          Final{finalUTxO} -> sortTxOuts (toTxOuts finalUTxO) === sortTxOuts (UTxO.txOutputs result)
           _ -> pure False
       _ -> pure True
 
@@ -754,7 +753,7 @@ performDecommit party tx = do
 
   lift . waitUntilMatch (elems nodes) $ \case
     DecommitFinalized{distributedUTxO} ->
-      guard $ sortTxOuts (Foldable.toList distributedUTxO) == sortTxOuts (Foldable.toList $ utxoFromTx realTx)
+      guard $ sortTxOuts (UTxO.txOutputs distributedUTxO) == sortTxOuts (UTxO.txOutputs $ utxoFromTx realTx)
     _ -> Nothing
 
 performNewTx ::

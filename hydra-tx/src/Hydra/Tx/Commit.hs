@@ -131,7 +131,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     UTxO.fromList $ mapMaybe (\txin -> (txin,) <$> UTxO.resolveTxIn txin lookupUTxO) committedTxIns
 
   commitValue =
-    txOutValue out <> foldMap txOutValue utxoToCommit
+    txOutValue out <> UTxO.totalValue utxoToCommit
 
   commitDatum =
     mkTxOutDatumInline $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
@@ -195,7 +195,7 @@ observeCommitTx networkId utxo tx = do
  where
   isSpendingFromInitial :: Bool
   isSpendingFromInitial =
-    any (\o -> txOutAddress o == initialAddress) (resolveInputsUTxO utxo tx)
+    any (\o -> txOutAddress o == initialAddress) (UTxO.txOutputs $ resolveInputsUTxO utxo tx)
 
   initialAddress = mkScriptAddress networkId initialValidatorScript
 

@@ -118,7 +118,7 @@ healthyParties =
 
 propHasInitial :: (Tx, UTxO) -> Property
 propHasInitial (_, utxo) =
-  any paysToInitialScript utxo
+  any paysToInitialScript (UTxO.txOutputs utxo)
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Initial Script: " <> show addr)
  where
@@ -128,7 +128,7 @@ propHasInitial (_, utxo) =
 
 propHasCommit :: (Tx, UTxO) -> Property
 propHasCommit (_, utxo) =
-  any paysToCommitScript utxo
+  any paysToCommitScript (UTxO.txOutputs utxo)
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Commit Script: " <> show addr)
  where
@@ -304,7 +304,7 @@ generateCommitUTxOs parties = do
   let vks = (\p -> (genVerificationKey `genForParty` p, p)) <$> parties
   committedUTxO <-
     vectorOf (length parties) $
-      fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
+      UTxO.map adaOnly <$> (genOneUTxOFor =<< arbitrary)
   let commitUTxO =
         zip txins $
           uncurry mkCommitUTxO <$> zip vks committedUTxO
@@ -324,7 +324,7 @@ generateCommitUTxOs parties = do
     commitValue =
       mconcat
         [ lovelaceToValue (Coin 2000000)
-        , foldMap txOutValue utxo
+        , UTxO.totalValue utxo
         , fromList
             [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
             ]

@@ -55,7 +55,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           { signature = toPlutusSignatures signatures
           , snapshotNumber = fromIntegral number
           , numberOfDecommitOutputs =
-              fromIntegral $ length $ maybe [] toList utxoToDecommit
+              fromIntegral $ maybe 0 UTxO.size utxoToDecommit
           }
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
@@ -69,7 +69,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   decomittedValue = foldMap txOutValue decommitOutputs
 
-  decommitOutputs = maybe [] toList utxoToDecommit
+  decommitOutputs = maybe [] UTxO.txOutputs utxoToDecommit
 
   headScriptRef = fst (headReference scriptRegistry)
 

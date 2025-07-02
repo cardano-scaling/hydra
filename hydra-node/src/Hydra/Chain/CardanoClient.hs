@@ -122,7 +122,7 @@ awaitTransaction networkId socket tx =
   ins = keys (UTxO.toMap $ utxoFromTx tx)
   go = do
     utxo <- queryUTxOByTxIn networkId socket QueryTip ins
-    if null utxo
+    if UTxO.null utxo
       then go
       else pure utxo
 
