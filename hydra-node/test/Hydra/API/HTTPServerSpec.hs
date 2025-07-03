@@ -20,10 +20,13 @@ import Hydra.API.HTTPServer (
 import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
+  fromCtxUTxOTxOut,
   mkTxOutDatumInline,
   modifyTxOutDatum,
   renderTxIn,
   serialiseToTextEnvelope,
+  setMinUTxOValue,
+  toCtxUTxOTxOut,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
@@ -457,13 +460,32 @@ apiServerSpec = do
           )
           $ do
             post "/commit" (Aeson.encode request)
-              `shouldRespondWith` 200
+              `shouldRespondWith` 400
 
       let failingChainHandle postTxError =
             dummyChainHandle
               { draftCommitTx = \_ _ -> pure $ Left postTxError
               , draftDepositTx = \_ _ _ -> pure $ Left postTxError
               }
+
+      prop "reject deposits with less than min ADA" $ \(utxo :: UTxO.UTxO) ->
+        withApplication
+          ( httpApp
+              nullTracer
+              workingChainHandle
+              testEnvironment
+              defaultPParams
+              (pure initialHeadState)
+              getHeadId
+              getPendingDeposits
+              putClientInput
+          )
+          $ do
+            let minADAUTxO :: UTxO.UTxO = UTxO.fromList $ (\(txin, txout) -> (txin, setMinUTxOValue defaultPParams txout)) <$> UTxO.toList utxo
+            let request = SimpleCommitRequest minADAUTxO
+            post "/commit" (Aeson.encode request)
+              `shouldRespondWith` 400
+
       prop "handles PostTxErrors accordingly" $ \request postTxError -> do
         let coverage = case postTxError of
               CommittedTooMuchADAForMainnet{} -> cover 1 True "CommittedTooMuchADAForMainnet"
