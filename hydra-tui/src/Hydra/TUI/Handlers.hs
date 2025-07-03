@@ -8,13 +8,11 @@ module Hydra.TUI.Handlers where
 import Hydra.Prelude hiding (Down)
 
 import Brick
-import Hydra.Cardano.Api hiding (Active)
-import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
-
 import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
 import Data.Map qualified as Map
+import Data.Text qualified as T
 import Graphics.Vty (
   Event (EvKey),
   Key (..),
@@ -24,11 +22,15 @@ import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (TimedServerOutput (..))
 import Hydra.API.ServerOutput qualified as API
+import Hydra.Cardano.Api hiding (Active)
 import Hydra.Cardano.Api.Prelude ()
+import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
+import Hydra.Network (readHost)
+import Hydra.Node.Environment (Environment (..))
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
@@ -83,16 +85,37 @@ handleHydraEventsConnectedState = \case
 
 handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
 handleHydraEventsConnection = \case
-  Update (ApiGreetings API.Greetings{me}) -> meL .= Identified me
-  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) -> peersL %= \cp -> nub $ cp <> [p]
-  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) -> peersL %= \cp -> cp \\ [p]
+  Update (ApiGreetings API.Greetings{me, env = Environment{configuredPeers}}) -> do
+    meL .= Identified me
+    let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
+    let peerAddrs = map (takeWhile (/= '=')) peerStrs
+    case traverse readHost peerAddrs of
+      Left err -> do
+        liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
+        peersL .= mempty
+      Right parsedPeers -> do
+        existing <- use peersL
+        let existingMap = Map.fromList existing
+            updatedMap =
+              Map.fromList $
+                [ (p, Map.findWithDefault PeerIsUnknown p existingMap)
+                | p <- parsedPeers
+                ]
+        peersL .= Map.toList updatedMap
+  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->
+    peersL %= updatePeerStatus p PeerIsConnected
+  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) ->
+    peersL %= updatePeerStatus p PeerIsDisconnected
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkConnected}) -> do
     networkStateL .= Just NetworkConnected
-    peersL .= []
+    peersL %= map (\(h, _) -> (h, PeerIsUnknown))
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkDisconnected}) -> do
     networkStateL .= Just NetworkDisconnected
-    peersL .= []
+    peersL %= map (\(h, _) -> (h, PeerIsUnknown))
   e -> zoom headStateL $ handleHydraEventsHeadState e
+ where
+  updatePeerStatus host status peers =
+    (host, status) : filter ((/= host) . fst) peers
 
 handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
 handleHydraEventsHeadState e = do

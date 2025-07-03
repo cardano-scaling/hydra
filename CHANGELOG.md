@@ -12,6 +12,8 @@ changes.
 
 - Hydra API server responds with the correct `Content-Type` header `application-json`.
 
+- Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
+
 ## [0.22.2] - 2025.06.30
 
 * Fix wrong hydra-script-tx-ids in networks.json

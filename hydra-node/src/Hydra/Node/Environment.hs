@@ -24,6 +24,7 @@ data Environment = Environment
   -- ^ Configured peers for the network layer, used for comparison on etcd errors.
   }
   deriving stock (Generic, Show, Eq)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary Environment where
   arbitrary = genericArbitrary

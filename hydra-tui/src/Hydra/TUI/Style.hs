@@ -9,6 +9,7 @@ import Brick (
  )
 import Brick.Forms (focusedFormInputAttr, invalidFormInputAttr)
 import Graphics.Vty (
+  brightBlack,
   brightBlue,
   defAttr,
   green,
@@ -32,6 +33,9 @@ positive = attrName "positive"
 negative :: AttrName
 negative = attrName "negative"
 
+neutral :: AttrName
+neutral = attrName "neutral"
+
 own :: AttrName
 own = attrName "own"
 
@@ -42,6 +46,7 @@ style _ =
     [ (infoA, fg brightBlue)
     , (negative, fg red)
     , (positive, fg green)
+    , (neutral, fg brightBlack)
     , (own, fg yellow)
     , -- Brick forms
       (focusedFormInputAttr, fg brightBlue)

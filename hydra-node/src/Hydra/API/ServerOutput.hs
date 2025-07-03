@@ -16,6 +16,7 @@ import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
 import Hydra.Tx qualified as Tx
@@ -101,6 +102,7 @@ data Greetings tx = Greetings
   , hydraHeadId :: Maybe HeadId
   , snapshotUtxo :: Maybe (UTxOType tx)
   , hydraNodeVersion :: String
+  , env :: Environment
   }
   deriving (Generic)
 
@@ -125,6 +127,8 @@ instance IsChainState tx => FromJSON (Greetings tx) where
 
 instance ArbitraryIsTx tx => Arbitrary (Greetings tx) where
   arbitrary = genericArbitrary
+
+instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (Greetings tx)
 
 data InvalidInput = InvalidInput
   { reason :: String

@@ -809,6 +809,7 @@ components:
         - me
         - headStatus
         - hydraNodeVersion
+        - env
       properties:
         tag:
           type: string
@@ -825,6 +826,8 @@ components:
           $ref: "api.yaml#/components/schemas/UTCTime"
         hydraNodeVersion:
           $ref: "api.yaml#/components/schemas/HydraNodeVersion"
+        env:
+          $ref: "api.yaml#/components/schemas/Environment"
 
     # Client inputs
 
@@ -2787,6 +2790,45 @@ components:
       type: string
       description: |
         Current hydra-node version.
+
+    DepositPeriod:
+      type: number
+      description: |
+        A length of time, measured in whole seconds, to be used in deposit validity.
+      example: 60
+
+    Environment:
+      type: object
+      description: |
+        Running context derived from hydra-node run options.
+      required:
+      - party
+      - signingKey
+      - otherParties
+      - participants
+      - contestationPeriod
+      - depositPeriod
+      - configuredPeers
+      additionalProperties: false
+      properties:
+        party:
+          $ref: "api.yaml#/components/schemas/Party"
+        signingKey:
+          $ref: "api.yaml#/components/schemas/Signature"
+        otherParties:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Party"
+        participants:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/OnChainId"
+        contestationPeriod:
+          $ref: "api.yaml#/components/schemas/ContestationPeriod"
+        depositPeriod:
+          $ref: "api.yaml#/components/schemas/DepositPeriod"
+        configuredPeers:
+          type: string
 
     SequenceNumber:
       type: integer

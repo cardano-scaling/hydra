@@ -49,6 +49,7 @@ specSigningKey =
       (seedA /= seedB) ==>
         (generateSigningKey seedA =/= generateSigningKey seedB)
     propCollisionResistant "arbitrary @(SigningKey HydraKey)" (arbitrary @(SigningKey HydraKey))
+    roundtripAndGoldenSpecs (Proxy @(SigningKey HydraKey))
 
 specVerificationKey :: Spec
 specVerificationKey =
