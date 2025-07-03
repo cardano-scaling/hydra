@@ -780,7 +780,7 @@ spec = parallel $ do
 
                   waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
 
-        it "can close with decommit in flight" $
+        it "can fanout with decommit in flight" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 -> do
@@ -788,24 +788,19 @@ spec = parallel $ do
                   openHead2 chain n1 n2
                   let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
                   send n2 (Decommit{decommitTx})
+                  -- Close while the decommit is still in flight
                   send n1 Close
-                  -- XXX: Can't assert DecommitFinalized here as it is not
-                  -- emitted because an incorrect simulation of the chain here.
-                  -- The OnDecrementTx only reaches the nodes HeadLogic after
-                  -- the OnCloseTx. This is impossible using a proper chain so
-                  -- we don't assert it here.
-                  -- waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 42]}
 
-        it "fanout utxo is correct after a decommit" $
+        it "can fanout after a decommit" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 chain n1 n2
-                  let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
                   send n2 (Decommit{decommitTx})
                   waitUntil [n1, n2] $
                     DecommitApproved
@@ -816,7 +811,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1]}
 
         it "can fanout with empty utxo" $
           shouldRunInSim $ do
