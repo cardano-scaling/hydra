@@ -1268,15 +1268,19 @@ onClosedClientFanout closedState =
       { postChainTx =
           FanoutTx
             { utxo
+            -- XXX: Perhaps move this check down so it can be more readily
+            -- tested.
+            -- Here we check that to include in the fanout; if the versions
+            -- are the same, the utxoToCommit or utxoToDecommit has not been
+            -- used on chain yet; so we disregard, so we must not fan it out.
             , utxoToCommit =
-                -- NOTE: note that logic is flipped in the commit and decommit case here.
-                if toInteger snapshotVersion == max (toInteger version - 1) 0
-                  then utxoToCommit
-                  else Nothing
+                if snapshotVersion == version
+                   then Nothing
+                   else utxoToCommit
             , utxoToDecommit =
-                if toInteger snapshotVersion == max (toInteger version - 1) 0
-                  then Nothing
-                  else utxoToDecommit
+                if snapshotVersion == version
+                   then utxoToDecommit
+                   else Nothing
             , headSeed
             , contestationDeadline
             }
