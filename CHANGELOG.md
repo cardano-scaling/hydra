@@ -14,6 +14,8 @@ changes.
 
 - Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
 
+- Bugfix for incorrect logic around fanning out with decommit/commit in progress
+
 ## [0.22.2] - 2025.06.30
 
 * Fix wrong hydra-script-tx-ids in networks.json
