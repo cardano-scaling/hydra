@@ -4,6 +4,7 @@ import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 
+import Cardano.Api.Ledger (Coin)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
@@ -31,6 +32,13 @@ setMinUTxOValue ::
   TxOut ctx Era
 setMinUTxOValue pparams =
   fromLedgerTxOut . Ledger.setMinCoinTxOut pparams . toLedgerTxOut
+
+getMinUTxOValue ::
+  Ledger.PParams LedgerEra ->
+  TxOut CtxUTxO Era ->
+  Coin
+getMinUTxOValue pparams =
+  Ledger.getMinCoinTxOut pparams . toLedgerTxOut
 
 -- | Automatically balance a given output with the minimum required amount.
 -- Number of assets, presence of datum and/or reference scripts may affect this

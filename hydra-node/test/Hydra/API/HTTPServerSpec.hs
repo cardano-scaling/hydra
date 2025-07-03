@@ -17,7 +17,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted,
   httpApp,
  )
-import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
+import Hydra.API.ServerOutput (CommitInfo (CannotCommit, IncrementalCommit, NormalCommit), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
   fromCtxUTxOTxOut,
@@ -28,7 +28,8 @@ import Hydra.Cardano.Api (
   setMinUTxOValue,
   toCtxUTxOTxOut,
  )
-import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
+import Hydra.Chain (Chain (checkDeposit, draftCommitTx), PostTxError (..), draftDepositTx)
+import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
@@ -446,6 +447,7 @@ apiServerSpec = do
                   pure $ Right tx
               }
       let initialHeadState = Initial (generateWith arbitrary 42)
+      let openHeadState = Open (generateWith arbitrary 42)
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
         withApplication
           ( httpApp
@@ -468,15 +470,20 @@ apiServerSpec = do
               , draftDepositTx = \_ _ _ -> pure $ Left postTxError
               }
 
-      prop "reject deposits with less than min ADA" $ \(utxo :: UTxO.UTxO) ->
+      prop "reject deposits with less than min ADA" $ \(utxo :: UTxO.UTxO) -> do
+        let getIncementingHeadId = pure $ IncrementalCommit (generateWith arbitrary 42)
+        let chainHandle =
+              dummyChainHandle
+                { checkDeposit = \pparams depositUTxO -> rejectLowDeposits pparams depositUTxO
+                }
         withApplication
           ( httpApp
               nullTracer
-              workingChainHandle
+              chainHandle
               testEnvironment
               defaultPParams
-              (pure initialHeadState)
-              getHeadId
+              (pure openHeadState)
+              getIncementingHeadId
               getPendingDeposits
               putClientInput
           )

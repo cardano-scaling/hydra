@@ -10,18 +10,24 @@ module Hydra.Chain.Direct.Handlers where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Core (PParams)
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
+import Data.List qualified as List
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
+  LedgerEra,
   Tx,
   TxId,
   chainPointToSlotNo,
+  fromCtxUTxOTxOut,
   getChainPoint,
   getTxBody,
   getTxId,
+  minUTxOValue,
+  selectLovelace,
   throwError,
  )
 import Hydra.Chain (
@@ -69,6 +75,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
+  IsTx (..),
   UTxOType,
   headSeedToTxIn,
  )
@@ -193,7 +200,19 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
+    , -- Check if deposit value is higher than 'minUTxOValue'. Throw 'DepositTooLow' if
+      -- the provided UTxO value is too low.
+      checkDeposit = rejectLowDeposits
     }
+
+rejectLowDeposits :: MonadThrow m => PParams LedgerEra -> UTxO.UTxO -> m ()
+rejectLowDeposits pparams utxo = do
+  let providedValue = selectLovelace $ UTxO.totalValue utxo
+  let minimumValue = case UTxO.toList utxo of
+        [] -> 0
+        as -> selectLovelace $ List.head $ minUTxOValue pparams . fromCtxUTxOTxOut . snd <$> as
+  when (providedValue <= minimumValue) $
+    throwIO (DepositTooLow{providedValue, minimumValue} :: PostTxError Tx)
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
