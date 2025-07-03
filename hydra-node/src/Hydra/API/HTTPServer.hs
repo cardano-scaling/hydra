@@ -13,10 +13,7 @@ import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (CommitInfo (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
-import Hydra.Cardano.Api (
-  LedgerEra,
-  Tx,
- )
+import Hydra.Cardano.Api (LedgerEra, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (
   IsChainState,
@@ -189,7 +186,7 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
         >>= respond
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo env directChain getCommitInfo
+        >>= handleDraftCommitUtxo env pparams directChain getCommitInfo
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
@@ -219,13 +216,14 @@ handleDraftCommitUtxo ::
   forall tx.
   IsChainState tx =>
   Environment ->
+  PParams LedgerEra ->
   Chain tx IO ->
   -- | A means to get commit info.
   IO CommitInfo ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo env directChain getCommitInfo body = do
+handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
   case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
@@ -241,8 +239,10 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
         IncrementalCommit headId -> do
           case someCommitRequest of
             FullCommitRequest{blueprintTx, utxo} -> do
+              void $ checkDeposit pparams utxo
               deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo}
-            SimpleCommitRequest{utxoToCommit} ->
+            SimpleCommitRequest{utxoToCommit} -> do
+              void $ checkDeposit pparams utxoToCommit
               deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit}
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
@@ -264,11 +264,12 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
           CommittedTooMuchADAForMainnet _ _ -> badRequest e
           UnsupportedLegacyOutput _ -> badRequest e
           CannotFindOwnInitial _ -> badRequest e
+          DepositTooLow _ _ -> badRequest e
           _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx
 
-  Chain{draftCommitTx, draftDepositTx} = directChain
+  Chain{draftCommitTx, draftDepositTx, checkDeposit} = directChain
 
   Environment{depositPeriod} = env
 

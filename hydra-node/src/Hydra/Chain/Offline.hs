@@ -88,6 +88,7 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}
       , postTx = const $ pure ()
+      , checkDeposit = \_ _ -> pure $ Right ()
       }
 
   initializeOfflineHead = do

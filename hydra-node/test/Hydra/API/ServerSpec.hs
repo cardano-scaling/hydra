@@ -31,6 +31,7 @@ import Hydra.API.ServerOutput (InvalidInput (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.Chain (
   Chain (Chain),
+  checkDeposit,
   draftCommitTx,
   draftDepositTx,
   mkChainState,
@@ -380,6 +381,7 @@ dummyChainHandle =
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
     , submitTx = \_ -> error "unexpected call to submitTx"
+    , checkDeposit = \_ -> error "unexpected call to checkDeposit"
     }
 
 allowEverythingServerOutputFilter :: ServerOutputFilter tx

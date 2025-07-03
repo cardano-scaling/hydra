@@ -13,11 +13,14 @@ module Hydra.Chain where
 
 import Hydra.Prelude
 
+import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   Coin (..),
+  LedgerEra,
+  Lovelace,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
@@ -200,6 +203,7 @@ data PostTxError tx
   | FailedToConstructIncrementTx {failureReason :: Text}
   | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
+  | DepositTooLow {providedValue :: Lovelace, minimumValue :: Lovelace}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)
@@ -281,6 +285,7 @@ data Chain tx m = Chain
   --
   -- XXX: While technically they could be any of 'PostTxError tx', only
   -- `FailedToPostTx` errors are expected here.
+  , checkDeposit :: MonadThrow m => PParams LedgerEra -> UTxOType tx -> m (Either (PostTxError tx) ())
   }
 
 data ChainEvent tx
