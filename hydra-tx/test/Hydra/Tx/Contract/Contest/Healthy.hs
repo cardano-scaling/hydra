@@ -5,7 +5,7 @@ module Hydra.Tx.Contract.Contest.Healthy where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
-import Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain

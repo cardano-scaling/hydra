@@ -2,8 +2,8 @@ module Hydra.Model.MockChainSpec where
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Text (unpack)
-import Hydra.Cardano.Api (Tx, TxIn (TxIn), UTxO, prettyPrintJSON, renderUTxO)
-import Hydra.Cardano.Api.Pretty (renderTx)
+import Hydra.Cardano.Api (Tx, TxIn (TxIn), UTxO, prettyPrintJSON)
+import Hydra.Cardano.Api.Pretty (renderTx, renderUTxO)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger (Ledger (applyTransactions))
 import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
@@ -38,7 +38,7 @@ isOutputOfLastTransaction txs utxo =
       txId tx === txid
     (Just _, _) ->
       property False
-        & counterexample ("Resulting Utxo: " <> renderUTxO utxo)
+        & counterexample ("Resulting Utxo: " <> unpack (foldMap renderUTxO (UTxO.toList utxo)))
         & counterexample ("Txs: " <> show (txId <$> txs))
     (Nothing, _) ->
       property True
