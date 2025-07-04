@@ -4,7 +4,6 @@ module Hydra.Client where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Async (link)
 import Control.Concurrent.Class.MonadSTM (newTBQueueIO, readTBQueue, writeTBQueue)
 import Control.Exception (Handler (Handler), IOException, catches)

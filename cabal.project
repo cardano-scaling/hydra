@@ -31,3 +31,10 @@ test-show-details: direct
 program-options
   ghc-options: -fwrite-ide-info
 
+source-repository-package
+  type: git
+  location: https://github.com/locallycompact/cardano-api
+  tag: f761bdaa08acbe064512b75002c5695a360db775
+  --sha256: sha256-8SFObyYdNWA31IlINHAvbuLYiY/FcMwCac/eN7OEiMM=
+  subdir:
+    cardano-api

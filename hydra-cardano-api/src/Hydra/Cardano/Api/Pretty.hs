@@ -22,6 +22,10 @@ import Hydra.Cardano.Api.ScriptData (fromLedgerData)
 renderTx :: Api.Tx -> String
 renderTx = renderTxWithUTxO mempty
 
+renderUTxO :: (TxIn, TxOut ctx era) -> Text
+renderUTxO (k, TxOut _ (txOutValueToValue -> v) _ _) =
+  T.drop 54 (renderTxIn k) <> " ↦ " <> renderValue v
+
 -- | Like 'renderTx', but uses the given UTxO to resolve inputs.
 renderTxWithUTxO :: UTxO Era -> Api.Tx -> String
 renderTxWithUTxO utxo (Tx body _wits) =

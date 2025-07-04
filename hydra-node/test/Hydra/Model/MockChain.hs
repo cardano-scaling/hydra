@@ -6,6 +6,8 @@ module Hydra.Model.MockChain where
 import Hydra.Cardano.Api hiding (Network)
 import Hydra.Prelude hiding (Any, label)
 
+import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
+import Test.QuickCheck.Hedgehog (hedgehog)
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
@@ -217,7 +219,7 @@ mockChainAndNetwork tr seedKeys commits = do
       (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
         draftDepositTx headId (mkSimpleBlueprintTx utxoToDeposit) deadline >>= \case
           Left e -> throwIO e
-          Right tx -> submitTx tx $> txId tx
+          Right tx -> submitTx tx $> Hydra.Tx.txId tx
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
   closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
@@ -302,7 +304,7 @@ mockChainAndNetwork tr seedKeys commits = do
     modifyTVar chain $ \(slotNum, position, blocks, utxo) -> do
       -- NOTE: Assumes 1 slot = 1 second
       let newSlot = slotNum + ChainSlot (truncate blockTime)
-          header = genBlockHeaderAt (fromChainSlot newSlot) `generateWith` 42
+          header = (hedgehog $ genBlockHeaderAt (fromChainSlot newSlot)) `generateWith` 42
           -- NOTE: Transactions that do not apply to the current state (eg.
           -- UTxO) are silently dropped which emulates the chain behaviour that
           -- only the client is potentially witnessing the failure, and no

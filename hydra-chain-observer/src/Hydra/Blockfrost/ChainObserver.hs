@@ -4,6 +4,7 @@ module Hydra.Blockfrost.ChainObserver where
 
 import Hydra.Prelude
 
+import Data.Text qualified as T
 import Blockfrost.Client (
   BlockfrostClientT,
   runBlockfrost,
@@ -17,6 +18,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Retry (constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.Cardano.Api (
+  deserialiseFromRawBytes,
   ChainPoint (..),
   HasTypeProxy (..),
   Hash,
@@ -88,7 +90,7 @@ blockfrostClient tracer projectPath blockConfirmations = do
             case startChainFrom of
               Just point -> pure point
               Nothing -> do
-                toChainPoint <$> runBlockfrostM prj Blockfrost.getLatestBlock
+                toChainPoint =<< runBlockfrostM prj Blockfrost.getLatestBlock
 
           traceWith tracer StartObservingFrom{chainPoint}
 
@@ -164,7 +166,7 @@ rollForward tracer prj networkId observerHandler blockConfirmations (blockHash, 
   -- Convert to cardano-api Tx
   receivedTxs <- mapM (toTx . (\(Blockfrost.TxHashCBOR (_txHash, cbor)) -> cbor)) txHashesCBOR
   let receivedTxIds = txId <$> receivedTxs
-  let point = toChainPoint block
+  point <- toChainPoint block
   traceWith tracer RollForward{point, receivedTxIds}
 
   -- Collect head observations

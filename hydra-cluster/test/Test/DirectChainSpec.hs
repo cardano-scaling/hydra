@@ -18,12 +18,12 @@ import Control.Lens ((<>~))
 import Data.List.Split (splitWhen)
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
+  UTxO,
   ChainPoint (..),
   CtxUTxO,
   Key (SigningKey),
   PaymentKey,
   TxOut,
-  UTxO',
   fromLedgerTx,
   lovelaceToValue,
   signTx,
@@ -616,7 +616,7 @@ externalCommit ::
   CardanoChainTest Tx IO ->
   SigningKey PaymentKey ->
   HeadId ->
-  UTxO' (TxOut CtxUTxO) ->
+  UTxO ->
   IO ()
 externalCommit backend hydraClient externalSk headId utxoToCommit = do
   let blueprintTx = txSpendingUTxO utxoToCommit
@@ -628,7 +628,7 @@ externalCommit' ::
   CardanoChainTest Tx IO ->
   [SigningKey PaymentKey] ->
   HeadId ->
-  UTxO' (TxOut CtxUTxO) ->
+  UTxO ->
   Tx ->
   IO ()
 externalCommit' backend hydraClient externalSks headId utxoToCommit blueprintTx = do

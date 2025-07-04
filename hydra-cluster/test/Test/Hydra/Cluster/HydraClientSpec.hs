@@ -15,7 +15,7 @@ import Data.Aeson ((.=))
 import Data.Aeson.Lens (key)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
-import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
+import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Direct (DirectBackend (..))
@@ -320,7 +320,7 @@ prepareScenario backend nodes tracer = do
   pure (expectedSnapshotNumber, txId tx, headId, aliceKeys, bobKeys)
 
 -- NOTE: this is partial and will fail if we are not able to generate a payment
-sendTx :: NonEmpty HydraClient -> UTxO' (TxOut CtxUTxO) -> SigningKey PaymentKey -> VerificationKey PaymentKey -> Lovelace -> IO Tx
+sendTx :: NonEmpty HydraClient -> UTxO -> SigningKey PaymentKey -> VerificationKey PaymentKey -> Lovelace -> IO Tx
 sendTx nodes senderUTxO sender receiver amount = do
   let utxo = Prelude.head $ UTxO.toList senderUTxO
   let Right tx =

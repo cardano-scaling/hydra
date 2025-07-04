@@ -4,6 +4,8 @@ module Hydra.Chain.Direct.HandlersSpec where
 
 import Hydra.Prelude hiding (label)
 
+import Test.QuickCheck.Hedgehog (hedgehog)
+import Test.Gen.Cardano.Api.Typed (genBlockHeader)
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..), newTVarIO)
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
@@ -294,7 +296,7 @@ data TestBlock = TestBlock BlockHeader [Tx]
 -- | Thin wrapper which generates a 'TestBlock' at some specific slot.
 genBlockAt :: SlotNo -> [Tx] -> Gen TestBlock
 genBlockAt sl txs = do
-  header <- adjustSlot <$> arbitrary
+  header <- adjustSlot <$> hedgehog genBlockHeader
   pure $ TestBlock header txs
  where
   adjustSlot (BlockHeader _ hash blockNo) =

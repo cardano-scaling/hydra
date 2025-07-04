@@ -126,6 +126,7 @@ executable hydra-cluster
   main-is:            Main.hs
   ghc-options:        -threaded -rtsopts
   build-depends:
+    , cardano-api
     , directory
     , filepath
     , hydra-cardano-api
@@ -165,6 +166,7 @@ test-suite tests
     , async
     , base                >=4.7 && <5
     , bytestring
+    , cardano-api
     , cardano-ledger-api
     , containers
     , directory
