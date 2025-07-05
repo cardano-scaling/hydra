@@ -1,0 +1,204 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">-- | Things related to the Hydra smart contracts / script validators.</span></span><span>
+</span><span id="line-2"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/bytestring-0.11.5.3/src/Data.ByteString.html"><span class="hs-identifier">Data.ByteString</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><span class="hs-identifier">ScriptHash</span></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><span class="hs-identifier">hashScript</span></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><span class="hs-identifier">serialiseToRawBytes</span></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-keyword">pattern</span><span> </span><span class="annot"><span class="hs-identifier">PlutusScript</span></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.Head.html"><span class="hs-identifier">Hydra.Contract.Head</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Head</span></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadTokens.html"><span class="hs-identifier">Hydra.Contract.HeadTokens</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HeadTokens</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Plutus.html"><span class="hs-identifier">Hydra.Plutus</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Plutus.html#commitValidatorScript"><span class="hs-identifier">commitValidatorScript</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Plutus.html#depositValidatorScript"><span class="hs-identifier">depositValidatorScript</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Plutus.html#initialValidatorScript"><span class="hs-identifier">initialValidatorScript</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TxId</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxOutRef</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toBuiltin</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="annot"><span class="hs-comment">-- | Information about relevant Hydra scripts.</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">data</span><span> </span><span id="ScriptInfo"><span class="annot"><a href="Hydra.Contract.html#ScriptInfo"><span class="hs-identifier hs-var">ScriptInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ScriptInfo"><span class="annot"><a href="Hydra.Contract.html#ScriptInfo"><span class="hs-identifier hs-var">ScriptInfo</span></a></span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="mintingScriptHash"><span class="annot"><span class="annottext">ScriptInfo -&gt; ScriptHash
+</span><a href="Hydra.Contract.html#mintingScriptHash"><span class="hs-identifier hs-var hs-var">mintingScriptHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Hash of the &#956;Head minting script given some default parameters.</span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="mintingScriptSize"><span class="annot"><span class="annottext">ScriptInfo -&gt; Int
+</span><a href="Hydra.Contract.html#mintingScriptSize"><span class="hs-identifier hs-var hs-var">mintingScriptSize</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Size of the &#956;Head minting script given some default parameters.</span></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="initialScriptHash"><span class="annot"><span class="annottext">ScriptInfo -&gt; ScriptHash
+</span><a href="Hydra.Contract.html#initialScriptHash"><span class="hs-identifier hs-var hs-var">initialScriptHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="initialScriptSize"><span class="annot"><span class="annottext">ScriptInfo -&gt; Int
+</span><a href="Hydra.Contract.html#initialScriptSize"><span class="hs-identifier hs-var hs-var">initialScriptSize</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="commitScriptHash"><span class="annot"><span class="annottext">ScriptInfo -&gt; ScriptHash
+</span><a href="Hydra.Contract.html#commitScriptHash"><span class="hs-identifier hs-var hs-var">commitScriptHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="commitScriptSize"><span class="annot"><span class="annottext">ScriptInfo -&gt; Int
+</span><a href="Hydra.Contract.html#commitScriptSize"><span class="hs-identifier hs-var hs-var">commitScriptSize</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="headScriptHash"><span class="annot"><span class="annottext">ScriptInfo -&gt; ScriptHash
+</span><a href="Hydra.Contract.html#headScriptHash"><span class="hs-identifier hs-var hs-var">headScriptHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="headScriptSize"><span class="annot"><span class="annottext">ScriptInfo -&gt; Int
+</span><a href="Hydra.Contract.html#headScriptSize"><span class="hs-identifier hs-var hs-var">headScriptSize</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="depositScriptHash"><span class="annot"><span class="annottext">ScriptInfo -&gt; ScriptHash
+</span><a href="Hydra.Contract.html#depositScriptHash"><span class="hs-identifier hs-var hs-var">depositScriptHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="depositScriptSize"><span class="annot"><span class="annottext">ScriptInfo -&gt; Int
+</span><a href="Hydra.Contract.html#depositScriptSize"><span class="hs-identifier hs-var hs-var">depositScriptSize</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679489884"><span id="local-6989586621679489898"><span class="annot"><span class="annottext">ScriptInfo -&gt; ScriptInfo -&gt; Bool
+(ScriptInfo -&gt; ScriptInfo -&gt; Bool)
+-&gt; (ScriptInfo -&gt; ScriptInfo -&gt; Bool) -&gt; Eq ScriptInfo
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: ScriptInfo -&gt; ScriptInfo -&gt; Bool
+== :: ScriptInfo -&gt; ScriptInfo -&gt; Bool
+$c/= :: ScriptInfo -&gt; ScriptInfo -&gt; Bool
+/= :: ScriptInfo -&gt; ScriptInfo -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679489903"><span id="local-6989586621679489919"><span id="local-6989586621679489923"><span class="annot"><span class="annottext">Int -&gt; ScriptInfo -&gt; ShowS
+[ScriptInfo] -&gt; ShowS
+ScriptInfo -&gt; String
+(Int -&gt; ScriptInfo -&gt; ShowS)
+-&gt; (ScriptInfo -&gt; String)
+-&gt; ([ScriptInfo] -&gt; ShowS)
+-&gt; Show ScriptInfo
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ScriptInfo -&gt; ShowS
+showsPrec :: Int -&gt; ScriptInfo -&gt; ShowS
+$cshow :: ScriptInfo -&gt; String
+show :: ScriptInfo -&gt; String
+$cshowList :: [ScriptInfo] -&gt; ShowS
+showList :: [ScriptInfo] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679489927"><span id="local-6989586621679489929"><span class="annot"><span class="annottext">(forall x. ScriptInfo -&gt; Rep ScriptInfo x)
+-&gt; (forall x. Rep ScriptInfo x -&gt; ScriptInfo) -&gt; Generic ScriptInfo
+forall x. Rep ScriptInfo x -&gt; ScriptInfo
+forall x. ScriptInfo -&gt; Rep ScriptInfo x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. ScriptInfo -&gt; Rep ScriptInfo x
+from :: forall x. ScriptInfo -&gt; Rep ScriptInfo x
+$cto :: forall x. Rep ScriptInfo x -&gt; ScriptInfo
+to :: forall x. Rep ScriptInfo x -&gt; ScriptInfo
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679489933"><span id="local-6989586621679489940"><span id="local-6989586621679489943"><span id="local-6989586621679489946"><span id="local-6989586621679489949"><span class="annot"><span class="annottext">[ScriptInfo] -&gt; Value
+[ScriptInfo] -&gt; Encoding
+ScriptInfo -&gt; Bool
+ScriptInfo -&gt; Value
+ScriptInfo -&gt; Encoding
+(ScriptInfo -&gt; Value)
+-&gt; (ScriptInfo -&gt; Encoding)
+-&gt; ([ScriptInfo] -&gt; Value)
+-&gt; ([ScriptInfo] -&gt; Encoding)
+-&gt; (ScriptInfo -&gt; Bool)
+-&gt; ToJSON ScriptInfo
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: ScriptInfo -&gt; Value
+toJSON :: ScriptInfo -&gt; Value
+$ctoEncoding :: ScriptInfo -&gt; Encoding
+toEncoding :: ScriptInfo -&gt; Encoding
+$ctoJSONList :: [ScriptInfo] -&gt; Value
+toJSONList :: [ScriptInfo] -&gt; Value
+$ctoEncodingList :: [ScriptInfo] -&gt; Encoding
+toEncodingList :: [ScriptInfo] -&gt; Encoding
+$comitField :: ScriptInfo -&gt; Bool
+omitField :: ScriptInfo -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- | Gather 'ScriptInfo' from the current Hydra scripts. This is useful to</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- determine changes in between version of 'hydra-plutus'.</span><span>
+</span><span id="line-38"></span><span class="annot"><a href="Hydra.Contract.html#scriptInfo"><span class="hs-identifier hs-type">scriptInfo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.html#ScriptInfo"><span class="hs-identifier hs-type">ScriptInfo</span></a></span><span>
+</span><span id="line-39"></span><span id="scriptInfo"><span class="annot"><span class="annottext">scriptInfo :: ScriptInfo
+</span><a href="Hydra.Contract.html#scriptInfo"><span class="hs-identifier hs-var hs-var">scriptInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><a href="Hydra.Contract.html#ScriptInfo"><span class="hs-identifier hs-type">ScriptInfo</span></a></span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">mintingScriptHash :: ScriptHash
+</span><a href="Hydra.Contract.html#mintingScriptHash"><span class="hs-identifier hs-var">mintingScriptHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; ScriptHash
+</span><a href="#local-6989586621679490160"><span class="hs-identifier hs-var">scriptHash</span></a></span><span> </span><span class="annot"><span class="annottext">(PlutusScript -&gt; ScriptHash) -&gt; PlutusScript -&gt; ScriptHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutRef -&gt; PlutusScript
+</span><a href="Hydra.Contract.HeadTokens.html#mintingPolicyScript"><span class="hs-identifier hs-var">HeadTokens.mintingPolicyScript</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutRef
+</span><a href="#local-6989586621679490162"><span class="hs-identifier hs-var">defaultOutRef</span></a></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mintingScriptSize :: Int
+</span><a href="Hydra.Contract.html#mintingScriptSize"><span class="hs-identifier hs-var">mintingScriptSize</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; Int
+</span><a href="#local-6989586621679490163"><span class="hs-identifier hs-var">scriptSize</span></a></span><span> </span><span class="annot"><span class="annottext">(PlutusScript -&gt; Int) -&gt; PlutusScript -&gt; Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutRef -&gt; PlutusScript
+</span><a href="Hydra.Contract.HeadTokens.html#mintingPolicyScript"><span class="hs-identifier hs-var">HeadTokens.mintingPolicyScript</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutRef
+</span><a href="#local-6989586621679490162"><span class="hs-identifier hs-var">defaultOutRef</span></a></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">initialScriptHash :: ScriptHash
+</span><a href="Hydra.Contract.html#initialScriptHash"><span class="hs-identifier hs-var">initialScriptHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; ScriptHash
+</span><a href="#local-6989586621679490160"><span class="hs-identifier hs-var">scriptHash</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="Hydra.Plutus.html#initialValidatorScript"><span class="hs-identifier hs-var">initialValidatorScript</span></a></span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">initialScriptSize :: Int
+</span><a href="Hydra.Contract.html#initialScriptSize"><span class="hs-identifier hs-var">initialScriptSize</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; Int
+</span><a href="#local-6989586621679490163"><span class="hs-identifier hs-var">scriptSize</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="Hydra.Plutus.html#initialValidatorScript"><span class="hs-identifier hs-var">initialValidatorScript</span></a></span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">commitScriptHash :: ScriptHash
+</span><a href="Hydra.Contract.html#commitScriptHash"><span class="hs-identifier hs-var">commitScriptHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; ScriptHash
+</span><a href="#local-6989586621679490160"><span class="hs-identifier hs-var">scriptHash</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="Hydra.Plutus.html#commitValidatorScript"><span class="hs-identifier hs-var">commitValidatorScript</span></a></span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">commitScriptSize :: Int
+</span><a href="Hydra.Contract.html#commitScriptSize"><span class="hs-identifier hs-var">commitScriptSize</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; Int
+</span><a href="#local-6989586621679490163"><span class="hs-identifier hs-var">scriptSize</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="Hydra.Plutus.html#commitValidatorScript"><span class="hs-identifier hs-var">commitValidatorScript</span></a></span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">headScriptHash :: ScriptHash
+</span><a href="Hydra.Contract.html#headScriptHash"><span class="hs-identifier hs-var">headScriptHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; ScriptHash
+</span><a href="#local-6989586621679490160"><span class="hs-identifier hs-var">scriptHash</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="Hydra.Contract.Head.html#validatorScript"><span class="hs-identifier hs-var">Head.validatorScript</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">headScriptSize :: Int
+</span><a href="Hydra.Contract.html#headScriptSize"><span class="hs-identifier hs-var">headScriptSize</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; Int
+</span><a href="#local-6989586621679490163"><span class="hs-identifier hs-var">scriptSize</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="Hydra.Contract.Head.html#validatorScript"><span class="hs-identifier hs-var">Head.validatorScript</span></a></span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">depositScriptHash :: ScriptHash
+</span><a href="Hydra.Contract.html#depositScriptHash"><span class="hs-identifier hs-var">depositScriptHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; ScriptHash
+</span><a href="#local-6989586621679490160"><span class="hs-identifier hs-var">scriptHash</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="Hydra.Plutus.html#depositValidatorScript"><span class="hs-identifier hs-var">depositValidatorScript</span></a></span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">depositScriptSize :: Int
+</span><a href="Hydra.Contract.html#depositScriptSize"><span class="hs-identifier hs-var">depositScriptSize</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; Int
+</span><a href="#local-6989586621679490163"><span class="hs-identifier hs-var">scriptSize</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript
+</span><a href="Hydra.Plutus.html#depositValidatorScript"><span class="hs-identifier hs-var">depositValidatorScript</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-52"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-53"></span><span>  </span><span id="local-6989586621679490160"><span class="annot"><span class="annottext">scriptHash :: PlutusScript -&gt; ScriptHash
+</span><a href="#local-6989586621679490160"><span class="hs-identifier hs-var hs-var">scriptHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Script PlutusScriptV3 -&gt; ScriptHash
+forall lang. Script lang -&gt; ScriptHash
+</span><span class="hs-identifier hs-var">hashScript</span></span><span> </span><span class="annot"><span class="annottext">(Script PlutusScriptV3 -&gt; ScriptHash)
+-&gt; (PlutusScript -&gt; Script PlutusScriptV3)
+-&gt; PlutusScript
+-&gt; ScriptHash
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; Script PlutusScriptV3
+</span><span class="hs-identifier hs-var">PlutusScript</span></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span>  </span><span id="local-6989586621679490163"><span class="annot"><span class="annottext">scriptSize :: PlutusScript -&gt; Int
+</span><a href="#local-6989586621679490163"><span class="hs-identifier hs-var hs-var">scriptSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/bytestring-0.11.5.3/src/Data.ByteString.html#length"><span class="hs-identifier hs-var">BS.length</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Int)
+-&gt; (PlutusScript -&gt; ByteString) -&gt; PlutusScript -&gt; Int
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; ByteString
+forall a. SerialiseAsRawBytes a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">serialiseToRawBytes</span></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span>  </span><span id="local-6989586621679490162"><span class="annot"><span class="annottext">defaultOutRef :: TxOutRef
+</span><a href="#local-6989586621679490162"><span class="hs-identifier hs-var hs-var">defaultOutRef</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-58"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span>
+</span><span id="line-59"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">txOutRefId :: TxId
+</span><span class="hs-identifier hs-var">txOutRefId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; TxId
+</span><span class="hs-identifier hs-var">TxId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; BuiltinByteString
+ByteString -&gt; ToBuiltin ByteString
+forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
+</span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; BuiltinByteString)
+-&gt; ([Word8] -&gt; ByteString) -&gt; [Word8] -&gt; BuiltinByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">[Word8] -&gt; ByteString
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/bytestring-0.11.5.3/src/Data.ByteString.html#pack"><span class="hs-identifier hs-var">BS.pack</span></a></span><span> </span><span class="annot"><span class="annottext">([Word8] -&gt; BuiltinByteString) -&gt; [Word8] -&gt; BuiltinByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word8 -&gt; [Word8]
+forall a. Int -&gt; a -&gt; [a]
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.List.html#replicate"><span class="hs-identifier hs-var">replicate</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">32</span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-60"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">txOutRefIdx :: Integer
+</span><span class="hs-identifier hs-var">txOutRefIdx</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-61"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-62"></span></pre></body></html>
