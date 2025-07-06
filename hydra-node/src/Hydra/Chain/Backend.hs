@@ -137,7 +137,7 @@ buildTransactionWithBody pparams systemStart eraHistory stakePools changeAddress
       stakePools
       mempty
       mempty
-      (UTxO.toApi utxoToSpend)
+      utxoToSpend
       body
       changeAddress
       Nothing

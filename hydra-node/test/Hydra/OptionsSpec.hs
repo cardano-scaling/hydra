@@ -11,6 +11,8 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   NetworkId (..),
   NetworkMagic (..),
+  Hash,
+  BlockHeader,
   TxId,
   serialiseToRawBytesHexText,
  )
@@ -298,7 +300,7 @@ spec = parallel $
                     { startChainFrom =
                         Just $
                           ChainPoint 1000 $
-                            fromString "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                            deserialiseFromRawBytes (Proxy @(Proxy (Hash BlockHeader))) "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                     }
             }
 
