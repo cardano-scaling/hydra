@@ -1,0 +1,46 @@
+name: "Nightly CI"
+
+# Limit concurrent runs of this workflow within a single PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+on:
+  schedule:
+    # Everyday at 4:00 AM
+    - cron: "0 4 * * *"
+  # Allows to trigger runs on any branch
+  workflow_dispatch:
+
+permissions:
+  checks: write
+  pull-requests: write
+
+jobs:
+  build-test:
+    name: "Nightly Blockfrost e2d tests"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - package: hydra-cluster
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: ❓ E2E Blockfrost Test
+      run: |
+        if [[ "${{secrets.blockfrost_token}}" != '' ]]; then
+          echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
+          cd ${{ matrix.package }}
+          export HYDRA_BACKEND="blockfrost"
+          nix build .#${{ matrix.package }}-tests
+          nix develop
+          cabal test hydra-cluster --test-options '-m "End-to-end on Cardano devnet"'
+        else
+          echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
+        fi
