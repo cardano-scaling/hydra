@@ -1,6 +1,12 @@
 module Hydra.Cardano.Api.TxOutValue where
 
 import Hydra.Cardano.Api.Prelude
+    ( Value,
+      shelleyBasedEraConstraints,
+      toLedgerValue,
+      IsMaryBasedEra(..),
+      IsShelleyBasedEra(shelleyBasedEra),
+      TxOutValue(TxOutValueShelleyBased) )
 
 -- | Inject some 'Value' into a 'TxOutValue'
 mkTxOutValue ::

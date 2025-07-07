@@ -1,6 +1,16 @@
 module Hydra.Node.InputQueueSpec where
 
 import Hydra.Prelude
+    ( ($),
+      Eq,
+      Show,
+      Semigroup((<>)),
+      Int,
+      Word64,
+      forM,
+      (<$>),
+      (&),
+      show )
 
 import Control.Monad.IOSim (IOSim, runSimOrThrow)
 import Hydra.Node.InputQueue (Queued (queuedId), createInputQueue, dequeue, enqueue)

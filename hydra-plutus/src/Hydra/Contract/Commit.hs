@@ -5,6 +5,19 @@
 module Hydra.Contract.Commit where
 
 import PlutusTx.Prelude
+    ( Maybe(Nothing),
+      Either(Right, Left),
+      ToData(toBuiltinData),
+      Eq(..),
+      BuiltinByteString,
+      (=<<),
+      fromBuiltin,
+      toBuiltin,
+      (&&),
+      ($),
+      (.),
+      (<$>),
+      Applicative(pure) )
 
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.ByteString.Lazy (fromStrict, toStrict)

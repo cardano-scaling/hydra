@@ -1,7 +1,35 @@
 module Options where
 
 import Hydra.Cardano.Api
+    ( docToString,
+      deserialiseFromRawBytesHex,
+      Error(prettyError),
+      NetworkId(..),
+      TxId,
+      SlotNo(SlotNo),
+      NetworkMagic(NetworkMagic) )
 import Hydra.Prelude
+    ( ($),
+      Eq,
+      Monad((>>=), return),
+      Functor(fmap),
+      Num(fromInteger),
+      Show,
+      MonadFail(fail),
+      Applicative((<*), (<*>)),
+      Semigroup((<>)),
+      Monoid(mconcat),
+      String,
+      IO,
+      Either(Left, Right),
+      (<$>),
+      (<&>),
+      (.),
+      (<**>),
+      getArgs,
+      Alternative((<|>)),
+      FilePath,
+      UTCTime )
 
 import Data.Attoparsec.ByteString.Char8 qualified as Atto
 import Data.ByteString.Char8 qualified as BSC
@@ -9,6 +37,31 @@ import Data.Char qualified as Char
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Tx.HeadId (HeadId (..))
 import Options.Applicative
+    ( auto,
+      command,
+      completer,
+      defaultPrefs,
+      eitherReader,
+      flag',
+      fullDesc,
+      header,
+      help,
+      info,
+      long,
+      metavar,
+      option,
+      progDesc,
+      showDefault,
+      strOption,
+      value,
+      listCompleter,
+      execParserPure,
+      handleParseResult,
+      helper,
+      hsubparser,
+      Parser,
+      ParserInfo,
+      ParserResult )
 
 data Command
   = Deposit DepositOptions

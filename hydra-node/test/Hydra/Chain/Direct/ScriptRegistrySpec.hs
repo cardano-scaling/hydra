@@ -1,7 +1,7 @@
 module Hydra.Chain.Direct.ScriptRegistrySpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import Hydra.Prelude ( ($), Either(Right) )
+import Test.Hydra.Prelude ( prop, Spec )
 
 import Hydra.Tx.ScriptRegistry (
   newScriptRegistry,

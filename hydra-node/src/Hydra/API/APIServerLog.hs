@@ -1,6 +1,15 @@
 module Hydra.API.APIServerLog where
 
 import Hydra.Prelude
+    ( ($),
+      Eq,
+      Show,
+      Generic,
+      String,
+      ToJSON(toJSON),
+      Text,
+      ByteString,
+      ConvertUtf8(decodeUtf8) )
 
 import Data.Aeson qualified as Aeson
 import Hydra.Network (PortNumber)

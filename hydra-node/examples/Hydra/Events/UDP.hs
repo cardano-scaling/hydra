@@ -2,6 +2,14 @@
 module Hydra.Events.UDP where
 
 import Hydra.Prelude
+    ( ($),
+      Applicative(pure),
+      Semigroup((<>)),
+      Bool(False),
+      IO,
+      ToJSON,
+      MonadThrow(bracket),
+      LazyStrict(toStrict) )
 
 import Control.Monad.Trans.Resource (MonadResource, allocate)
 import Data.Aeson (encode)

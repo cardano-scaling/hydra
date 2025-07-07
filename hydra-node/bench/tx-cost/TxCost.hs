@@ -3,7 +3,42 @@
 
 module TxCost where
 
-import Hydra.Prelude hiding (catch)
+import Hydra.Prelude
+    ( ($),
+      fromIntegral,
+      guard,
+      Enum(succ),
+      Eq,
+      Integral,
+      Functor(fmap),
+      Num,
+      Ord((<)),
+      Real,
+      Show,
+      Applicative(pure),
+      Foldable(fold),
+      Traversable(mapM),
+      Semigroup((<>)),
+      Monoid(mempty),
+      Int,
+      Natural,
+      Maybe(..),
+      Either(Right, Left),
+      isRight,
+      all,
+      (<$>),
+      catMaybes,
+      isNothing,
+      maybeToList,
+      forM,
+      snd,
+      uncurry,
+      (.),
+      (=<<),
+      foldMapM,
+      Arbitrary(arbitrary),
+      Gen,
+      First(First, getFirst) )
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)

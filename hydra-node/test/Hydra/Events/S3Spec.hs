@@ -2,7 +2,28 @@
 module Hydra.Events.S3Spec where
 
 import Hydra.Prelude
+    ( ($),
+      fromIntegral,
+      Monad((>>=)),
+      IsString(fromString),
+      Applicative(pure),
+      Semigroup((<>)),
+      String,
+      Maybe(Just, Nothing),
+      Either(..),
+      forM_,
+      (&),
+      (=<<),
+      const,
+      lookupEnv,
+      show,
+      Arbitrary(shrink),
+      Gen,
+      MonadAsync(concurrently_),
+      MonadCatch(try),
+      MonadThrow(bracket_, bracket) )
 import Test.Hydra.Prelude
+    ( prop, around, it, pendingWith, shouldBe, shouldReturn, Spec )
 
 import Amazonka qualified as AWS
 import Amazonka.Auth qualified as AWS

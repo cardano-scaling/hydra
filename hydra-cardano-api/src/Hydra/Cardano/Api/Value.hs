@@ -1,6 +1,23 @@
 module Hydra.Cardano.Api.Value where
 
-import Hydra.Cardano.Api.Prelude hiding (toLedgerValue)
+import Hydra.Cardano.Api.Prelude
+    ( TxOut(..),
+      Value,
+      toCtxUTxOTxOut,
+      txOutValueToValue,
+      lovelaceToValue,
+      negateValue,
+      IsShelleyBasedEra(shelleyBasedEra),
+      CtxTx,
+      TxOutValue(TxOutValueShelleyBased),
+      AssetId(AssetId, AdaAssetId),
+      AssetName(..),
+      Quantity(Quantity),
+      toShelleyTxOut,
+      fromMaryValue,
+      toMaryValue,
+      Era,
+      LedgerEra )
 
 import Cardano.Api.Ledger (Coin (..), PParams)
 import Cardano.Ledger.Core (getMinCoinTxOut)

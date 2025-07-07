@@ -4,6 +4,26 @@
 module Hydra.Tx.Party where
 
 import Hydra.Prelude
+    ( ($),
+      Eq,
+      Ord((<=)),
+      Show,
+      MonadFail(..),
+      Applicative(pure),
+      Generic,
+      Semigroup((<>)),
+      Either(Right, Left),
+      (.),
+      Arbitrary,
+      FromJSON,
+      ToJSON,
+      FromCBOR(fromCBOR),
+      ToCBOR(toCBOR),
+      Text,
+      either,
+      (<$>),
+      show,
+      ConvertUtf8(encodeUtf8) )
 
 import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
 import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)

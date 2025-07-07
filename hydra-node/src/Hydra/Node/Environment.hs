@@ -1,6 +1,15 @@
 module Hydra.Node.Environment where
 
 import Hydra.Prelude
+    ( Eq,
+      Show,
+      Generic,
+      ToJSON,
+      FromJSON,
+      Text,
+      Arbitrary(..),
+      genericShrink,
+      genericArbitrary )
 
 import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)

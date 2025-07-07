@@ -3,9 +3,37 @@
 module Hydra.Tx.Contract.Contest.Healthy where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
+    ( Tx,
+      UTxO,
+      SlotNo,
+      TxIn,
+      CtxUTxO,
+      TxOut,
+      PaymentKey,
+      toPlutusCurrencySymbol,
+      mkTxOutDatumInline,
+      Key(VerificationKey, SigningKey) )
+import Hydra.Prelude
+    ( ($),
+      fromIntegral,
+      Eq((/=)),
+      Integral(toInteger),
+      Num(fromInteger),
+      Semigroup((<>)),
+      Monoid(mempty),
+      Integer,
+      Maybe(Just, Nothing),
+      UTCTime,
+      Arbitrary(arbitrary),
+      (&),
+      (<$>),
+      fromMaybe,
+      fst,
+      snd,
+      generateWith,
+      addUTCTime )
 
-import Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO as UTxO ( singleton )
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain

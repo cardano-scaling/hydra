@@ -1,6 +1,23 @@
 module Hydra.Cardano.Api.AddressInEra where
 
 import Hydra.Cardano.Api.Prelude
+    ( makeShelleyAddressInEra,
+      hashScript,
+      Address(ShelleyAddress, ByronAddress),
+      AddressInEra(..),
+      AddressTypeInEra(ShelleyAddressInEra, ByronAddressInAnyEra),
+      PaymentCredential(PaymentCredentialByScript,
+                        PaymentCredentialByKey),
+      StakeAddressReference(NoStakeAddress),
+      IsShelleyBasedEra(..),
+      Key(verificationKeyHash, VerificationKey),
+      PaymentKey,
+      NetworkId,
+      IsPlutusScriptLanguage(..),
+      PlutusScript,
+      Script(PlutusScript),
+      fromShelleyAddrIsSbe,
+      unsafeHashFromBytes )
 
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger

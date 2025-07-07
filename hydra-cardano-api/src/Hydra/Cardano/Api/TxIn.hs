@@ -3,6 +3,26 @@
 module Hydra.Cardano.Api.TxIn where
 
 import Hydra.Cardano.Api.Prelude
+    ( Arbitrary(arbitrary),
+      TxIn(..),
+      Set,
+      Gen,
+      getTxBodyContent,
+      getTxId,
+      getTxBody,
+      KeyWitnessInCtx(KeyWitnessForSpending),
+      WitCtxTxIn,
+      Witness(KeyWitness),
+      TxBodyContent(TxBodyContent, txIns),
+      BuildTx,
+      BuildTxWith(BuildTxWith),
+      Tx,
+      TxId(TxId),
+      TxIx(TxIx),
+      fromShelleyTxIn,
+      toShelleyTxIn,
+      unsafeHashFromBytes,
+      Era )
 
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary qualified as Ledger

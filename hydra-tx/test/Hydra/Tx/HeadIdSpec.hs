@@ -1,7 +1,8 @@
 module Hydra.Tx.HeadIdSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+    ( ($), Applicative(pure), Maybe(Just), (&), show )
+import Test.Hydra.Prelude ( Spec, prop, describe, parallel )
 
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Tx.HeadId (currencySymbolToHeadId, headIdToCurrencySymbol, headIdToPolicyId, headSeedToTxIn, mkHeadId, txInToHeadSeed)

@@ -1,6 +1,23 @@
 module Hydra.Node.DepositPeriod where
 
 import Hydra.Prelude
+    ( ($),
+      Enum,
+      Eq,
+      Fractional((/)),
+      Integral(quotRem, toInteger),
+      Num(fromInteger),
+      Ord,
+      Read,
+      Real,
+      RealFrac(round, properFraction),
+      Show,
+      (<$>),
+      (.),
+      Arbitrary(arbitrary),
+      FromJSON,
+      ToJSON,
+      NominalDiffTime )
 
 import Test.QuickCheck (choose)
 

@@ -1,6 +1,6 @@
 module Hydra.Data.ContestationPeriodSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude ( ($) )
 
 import Hydra.Data.ContestationPeriod (
   contestationPeriodFromDiffTime,

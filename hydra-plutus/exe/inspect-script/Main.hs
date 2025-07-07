@@ -1,7 +1,29 @@
 module Main where
 
 import Hydra.Cardano.Api
+    ( fromPlutusData,
+      hashScriptDataBytes,
+      scriptDataToJson,
+      unsafeHashableScriptData,
+      toPlutusCurrencySymbol,
+      toPlutusTxOutRef,
+      ScriptDataJsonSchema(ScriptDataJsonDetailedSchema),
+      TxId(TxId),
+      TxIn(TxIn),
+      TxIx(TxIx) )
 import Hydra.Prelude
+    ( ($),
+      Integral(div),
+      Semigroup((<>)),
+      String,
+      IO,
+      encodePretty,
+      forM_,
+      (.),
+      putLBSLn,
+      putTextLn,
+      show,
+      ToText(toText) )
 
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BL
@@ -9,6 +31,7 @@ import Data.Text (pack)
 import Hydra.Cardano.Api.Prelude (unsafeHashFromBytes)
 import Hydra.Contract (scriptInfo)
 import Hydra.Contract.HeadState as Head
+    ( Input(Abort), State(Final, Initial) )
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import PlutusLedgerApi.V3 (Data, toData)
 

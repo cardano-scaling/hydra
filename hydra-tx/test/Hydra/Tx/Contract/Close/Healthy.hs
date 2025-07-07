@@ -4,7 +4,27 @@
 module Hydra.Tx.Contract.Close.Healthy where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
+    ( UTxO,
+      Tx,
+      TxIn,
+      TxOut,
+      CtxUTxO,
+      PaymentKey,
+      SlotNo,
+      Key(VerificationKey, SigningKey),
+      TxOutDatum )
+import Hydra.Prelude
+    ( ($),
+      Num(fromInteger),
+      Int,
+      Integer,
+      UTCTime,
+      Arbitrary(arbitrary),
+      (&),
+      (<$>),
+      snd,
+      generateWith,
+      addUTCTime )
 
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain

@@ -2,6 +2,14 @@
 module Hydra.Node.EmbedTH where
 
 import Hydra.Prelude
+    ( ($),
+      Monad((>>=)),
+      MonadFail(fail),
+      Applicative(pure),
+      Semigroup((<>)),
+      String,
+      Maybe(Just, Nothing),
+      putStrLn )
 
 import Data.FileEmbed (embedFile)
 import Language.Haskell.TH (Exp, Q, runIO)

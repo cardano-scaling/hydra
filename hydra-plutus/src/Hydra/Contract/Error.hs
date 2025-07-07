@@ -24,6 +24,7 @@
 module Hydra.Contract.Error where
 
 import Hydra.Prelude
+    ( Applicative(pure), (.), ToString(toString), Text )
 
 import Language.Haskell.TH (Exp (..), Lit (StringL), Q)
 

@@ -3,6 +3,15 @@
 module Hydra.Cardano.Api.BlockHeader where
 
 import Hydra.Cardano.Api.Prelude
+    ( Arbitrary(arbitrary),
+      Gen,
+      Proxy(Proxy),
+      BlockHeader(..),
+      HasTypeProxy(proxyToAsType),
+      Hash,
+      SerialiseAsRawBytes(deserialiseFromRawBytes),
+      BlockNo(BlockNo),
+      SlotNo(SlotNo) )
 
 import Data.ByteString qualified as BS
 import Test.QuickCheck (vectorOf)

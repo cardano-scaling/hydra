@@ -27,7 +27,7 @@ common package-config
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
-    -Wmissing-deriving-strategies
+    -Wmissing-deriving-strategies -Wmissing-import-lists
 
 library
   import:          package-config

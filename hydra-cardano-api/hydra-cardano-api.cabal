@@ -34,6 +34,7 @@ common project-config
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
     -Wmissing-deriving-strategies -fprint-potential-instances
+    -Wmissing-import-lists
 
 library
   import:          project-config

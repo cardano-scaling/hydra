@@ -13,7 +13,7 @@
 -- conflicts.
 module Hydra.Events where
 
-import Hydra.Prelude
+import Hydra.Prelude ( ($), Monad, Word64, forM_, id )
 
 import Conduit (ConduitT, MonadUnliftIO, ResourceT, runResourceT, sourceToList)
 

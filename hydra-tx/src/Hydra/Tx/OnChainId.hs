@@ -5,6 +5,18 @@
 module Hydra.Tx.OnChainId where
 
 import Hydra.Prelude
+    ( Eq,
+      Ord,
+      Show,
+      Generic,
+      Either(Right),
+      (<$>),
+      (.),
+      Arbitrary(arbitrary),
+      Gen,
+      FromJSON,
+      ToJSON,
+      ByteString )
 
 import Test.QuickCheck (vectorOf)
 

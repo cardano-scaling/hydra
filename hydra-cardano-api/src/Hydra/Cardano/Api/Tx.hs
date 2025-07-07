@@ -8,6 +8,20 @@ module Hydra.Cardano.Api.Tx (
 where
 
 import Hydra.Cardano.Api.Prelude
+    ( UTxO,
+      getTxBodyContent,
+      toCtxUTxOTxOut,
+      getTxBody,
+      makeShelleyKeyWitness,
+      makeSignedTransaction,
+      IsShelleyBasedEra(..),
+      Key(SigningKey),
+      PaymentKey,
+      TxBodyContent(txOuts),
+      ShelleyWitnessSigningKey(WitnessPaymentKey),
+      Tx(..),
+      ShelleyLedgerEra,
+      Era )
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (

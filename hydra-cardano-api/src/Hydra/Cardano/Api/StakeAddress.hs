@@ -1,6 +1,14 @@
 module Hydra.Cardano.Api.StakeAddress where
 
 import Hydra.Cardano.Api.Prelude
+    ( makeStakeAddress,
+      hashScript,
+      StakeAddress,
+      StakeCredential(StakeCredentialByScript),
+      NetworkId,
+      IsPlutusScriptLanguage(..),
+      PlutusScript,
+      Script(PlutusScript) )
 
 -- | Construct a stake address from a Plutus script.
 mkScriptStakeAddress ::

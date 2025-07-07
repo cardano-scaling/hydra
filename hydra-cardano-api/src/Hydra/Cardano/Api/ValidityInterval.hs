@@ -3,6 +3,13 @@
 module Hydra.Cardano.Api.ValidityInterval where
 
 import Hydra.Cardano.Api.Prelude
+    ( Arbitrary(arbitrary),
+      IsAllegraBasedEra(allegraBasedEra),
+      IsShelleyBasedEra(shelleyBasedEra),
+      IsCardanoEra(cardanoEra),
+      TxValidityLowerBound(..),
+      TxValidityUpperBound(..),
+      Era )
 
 import Cardano.Ledger.Allegra.Scripts qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), maybeToStrictMaybe)

@@ -8,7 +8,30 @@
 --   cardano-api in the first place.
 module Cardano.Api.UTxO where
 
-import Cardano.Api hiding (UTxO, toLedgerUTxO)
+import Cardano.Api
+    ( FromJSON,
+      ToJSON,
+      anyAddressInShelleyBasedEra,
+      toAddressAny,
+      lovelaceToTxOutValue,
+      txOutValueToValue,
+      renderTxIn,
+      fromLedgerValue,
+      renderValue,
+      selectLovelace,
+      toLedgerValue,
+      AddressInEra(..),
+      IsAlonzoBasedEra(alonzoBasedEra),
+      IsBabbageBasedEra(babbageBasedEra),
+      IsMaryBasedEra(maryBasedEra),
+      IsShelleyBasedEra(shelleyBasedEra),
+      ConwayEra,
+      CtxUTxO,
+      TxOut(..),
+      TxOutDatum(TxOutDatumInline, TxOutDatumNone, TxOutDatumHash),
+      TxOutValue(..),
+      TxIn,
+      Value )
 import Cardano.Api qualified
 import Cardano.Api.Ledger (Coin)
 import Cardano.Api.Shelley (ReferenceScript (..))

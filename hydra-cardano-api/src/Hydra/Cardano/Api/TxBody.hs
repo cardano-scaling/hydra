@@ -1,6 +1,13 @@
 module Hydra.Cardano.Api.TxBody where
 
 import Hydra.Cardano.Api.Prelude
+    ( TxIn,
+      getTxBody,
+      Tx,
+      TxBody(ShelleyTxBody),
+      TxBodyScriptData(..),
+      Era,
+      LedgerEra )
 
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Api (

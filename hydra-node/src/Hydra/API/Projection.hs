@@ -16,6 +16,7 @@
 module Hydra.API.Projection where
 
 import Hydra.Prelude
+    ( ($), Applicative(pure), MonadSTM(readTVar, STM) )
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO)
 

@@ -2,8 +2,26 @@
 
 module Hydra.PersistenceSpec where
 
-import Hydra.Prelude hiding (label)
+import Hydra.Prelude
+    ( ($),
+      Monad((>>)),
+      Ord((>)),
+      Applicative(pure),
+      Foldable(length, null),
+      Semigroup((<>)),
+      Bool(..),
+      Maybe(..),
+      forever,
+      forM_,
+      (<$>),
+      (.),
+      writeFileBS,
+      Gen,
+      MonadAsync(race_),
+      MonadDelay(threadDelay),
+      Text )
 import Test.Hydra.Prelude
+    ( describe, it, shouldReturn, withTempDir, Spec )
 
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson

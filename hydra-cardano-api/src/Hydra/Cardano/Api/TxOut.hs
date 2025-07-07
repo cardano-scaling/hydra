@@ -1,6 +1,43 @@
 module Hydra.Cardano.Api.TxOut where
 
 import Hydra.Cardano.Api.Prelude
+    ( UTxO,
+      TxOut(..),
+      CtxUTxO,
+      TxIn,
+      Value,
+      shelleyBasedEraConstraints,
+      hashScript,
+      getTxBodyContent,
+      txOutValueToValue,
+      getTxBody,
+      toLedgerValue,
+      Address(ShelleyAddress),
+      AddressInEra(..),
+      AddressTypeInEra(ShelleyAddressInEra),
+      IsAlonzoBasedEra(alonzoBasedEra),
+      IsBabbageBasedEra(..),
+      IsMaryBasedEra(..),
+      IsShelleyBasedEra(..),
+      Hash(PaymentKeyHash),
+      Key(verificationKeyHash, VerificationKey),
+      PaymentKey,
+      IsPlutusScriptLanguage(..),
+      PlutusScript,
+      Script(PlutusScript),
+      TxBodyContent(TxBodyContent, txOuts),
+      CtxTx,
+      TxOutDatum(TxOutDatumInline, TxOutDatumNone, TxOutDatumHash),
+      TxOutValue(TxOutValueShelleyBased),
+      Tx,
+      ShelleyLedgerEra,
+      toShelleyScriptHash,
+      ReferenceScript(ReferenceScriptNone),
+      fromShelleyTxOut,
+      toShelleyTxOut,
+      HasCallStack,
+      Era,
+      LedgerEra )
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 

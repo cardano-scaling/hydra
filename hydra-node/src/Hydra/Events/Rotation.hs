@@ -1,6 +1,17 @@
 module Hydra.Events.Rotation where
 
 import Hydra.Prelude
+    ( ($),
+      Num((+)),
+      Ord((>=)),
+      Applicative(pure),
+      Natural,
+      MonadSTM(atomically, readTVar),
+      (.),
+      const,
+      UTCTime,
+      MonadTime(..),
+      whenM )
 
 import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)

@@ -2,7 +2,12 @@
 module Hydra.Events.UDPSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+    ( ($),
+      show,
+      MonadAsync(concurrently_),
+      MonadThrow(bracket),
+      MonadTrans(lift) )
+import Test.Hydra.Prelude ( describe, it, shouldContain, Spec )
 
 import Control.Monad.Trans.Resource (runResourceT)
 import Data.ByteString.Char8 qualified as BS8

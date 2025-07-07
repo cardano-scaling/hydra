@@ -3,6 +3,26 @@
 module Hydra.Tx.HeadId where
 
 import Hydra.Prelude
+    ( ($),
+      Eq,
+      Functor(fmap),
+      Ord,
+      Show,
+      MonadFail(..),
+      IsString(..),
+      Applicative(pure),
+      Generic,
+      Semigroup((<>)),
+      Maybe(Just, Nothing),
+      Either(Right),
+      (<$>),
+      (.),
+      show,
+      Arbitrary(arbitrary),
+      FromJSON,
+      ToJSON,
+      ByteString,
+      LazyStrict(toStrict) )
 
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS

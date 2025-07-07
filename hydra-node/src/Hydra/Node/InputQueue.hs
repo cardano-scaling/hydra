@@ -2,6 +2,20 @@
 module Hydra.Node.InputQueue where
 
 import Hydra.Prelude
+    ( ($),
+      Enum(pred, succ),
+      Eq((==)),
+      Applicative(pure),
+      Bool,
+      Integer,
+      Word64,
+      void,
+      (.),
+      (&&),
+      MonadAsync,
+      MonadSTM(readTVar, atomically),
+      MonadDelay(..),
+      DiffTime )
 
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,

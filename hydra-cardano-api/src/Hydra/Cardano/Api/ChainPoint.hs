@@ -3,6 +3,11 @@
 module Hydra.Cardano.Api.ChainPoint where
 
 import Hydra.Cardano.Api.Prelude
+    ( Arbitrary(arbitrary),
+      Gen,
+      BlockHeader(..),
+      ChainPoint(..),
+      SlotNo(SlotNo) )
 
 import Hydra.Cardano.Api.BlockHeader (genBlockHeaderHash)
 import Test.QuickCheck (frequency)
