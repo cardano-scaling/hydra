@@ -28,7 +28,7 @@ import Hydra.Tx.Observe (AbortObservation, CollectComObservation, CommitObservat
 import Hydra.Tx.Party (Party (..))
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture (pparams)
-import Test.QuickCheck (listOf, oneof, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
+import Test.QuickCheck (listOf, listOf1, oneof, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
 
 -- * TxOut
@@ -197,7 +197,22 @@ genAddressInEra :: NetworkId -> Gen AddressInEra
 genAddressInEra networkId =
   mkVkAddress networkId <$> genVerificationKey
 
--- TODO: Enable arbitrary datum in generators
+genScriptData :: Gen ScriptData
+genScriptData = oneof [ScriptDataBytes <$> arbitrary, ScriptDataNumber <$> arbitrary]
+
+genDatum :: Gen (TxOutDatum ctx)
+genDatum = do
+  scriptData <-
+    oneof
+      [ genScriptData
+      , ScriptDataList <$> listOf1 genScriptData
+      , ScriptDataMap <$> listOf1 ((,) <$> genScriptData <*> genScriptData)
+      ]
+  oneof
+    [ pure $ TxOutDatumHash $ hashScriptDataBytes $ unsafeHashableScriptData scriptData
+    , pure $ TxOutDatumInline $ unsafeHashableScriptData scriptData
+    ]
+
 -- TODO: This should better be called 'genOutputFor'
 genOutput ::
   forall ctx.
@@ -205,7 +220,8 @@ genOutput ::
   Gen (TxOut ctx)
 genOutput vk = do
   value <- genValue
-  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone ReferenceScriptNone
+  datum <- genDatum
+  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value datum ReferenceScriptNone
 
 genSigningKey :: Gen (SigningKey PaymentKey)
 genSigningKey = do

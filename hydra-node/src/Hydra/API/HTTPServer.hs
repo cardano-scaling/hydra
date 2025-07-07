@@ -236,20 +236,27 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
             SimpleCommitRequest{utxoToCommit} -> do
               let blueprintTx = txSpendingUTxO utxoToCommit
               draftCommit headId utxoToCommit blueprintTx
-        IncrementalCommit headId -> do
+        IncrementalCommit headId ->
           case someCommitRequest of
-            FullCommitRequest{blueprintTx, utxo} -> do
-              void $ checkDeposit pparams utxo
-              deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo}
-            SimpleCommitRequest{utxoToCommit} -> do
-              void $ checkDeposit pparams utxoToCommit
-              deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit}
+            FullCommitRequest{blueprintTx, utxo} ->
+              checkDeposit' utxo $
+                deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo}
+            SimpleCommitRequest{utxoToCommit} ->
+              checkDeposit' utxoToCommit $
+                deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit}
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
+  checkDeposit' utxo cont = do
+    depositCheck <- checkDeposit pparams utxo
+    case depositCheck of
+      Left e -> pure $ responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
+      Right _ -> cont
+
   deposit headId commitBlueprint = do
     -- NOTE: Three times deposit period means we have one deposit period time to
     -- increment because a deposit only activates after one deposit period and
     -- expires one deposit period before deadline.
+    --
     deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
     draftDepositTx headId commitBlueprint deadline <&> \case
       Left e -> responseLBS status400 jsonContent (Aeson.encode $ toJSON e)

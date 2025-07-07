@@ -10,7 +10,7 @@ module Hydra.Chain.Direct.Handlers where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Core (PParams, getMinCoinTxOut)
+import Cardano.Ledger.Core (PParams)
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
@@ -21,12 +21,14 @@ import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
   TxId,
+  calculateMinimumUTxO,
   chainPointToSlotNo,
+  fromCtxUTxOTxOut,
   getChainPoint,
   getTxBody,
   getTxId,
+  shelleyBasedEra,
   throwError,
-  toLedgerTxOut,
  )
 import Hydra.Chain (
   Chain (..),
@@ -208,9 +210,7 @@ rejectLowDeposits :: PParams LedgerEra -> UTxO.UTxO -> Either (PostTxError Tx) (
 rejectLowDeposits pparams utxo = do
   let insAndOuts = UTxO.toList utxo
   let providedValues = UTxO.totalLovelace . uncurry UTxO.singleton <$> insAndOuts
-  let minimumValue = case insAndOuts of
-        [] -> 0
-        as -> List.maximum $ getMinCoinTxOut pparams . toLedgerTxOut . snd <$> as
+  let minimumValue = List.maximum $ (\(_, o) -> calculateMinimumUTxO shelleyBasedEra pparams $ fromCtxUTxOTxOut o) <$> insAndOuts
   case List.find (< minimumValue) providedValues of
     Nothing -> Right ()
     Just providedValue ->

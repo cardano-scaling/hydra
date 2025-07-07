@@ -63,6 +63,7 @@ import Hydra.Cluster.Scenarios (
   oneOfThreeNodesStopsForAWhile,
   persistenceCanLoadWithEmptyCommit,
   refuelIfNeeded,
+  rejectCommit,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
   singlePartyCommitsFromExternal,
@@ -294,6 +295,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
             publishHydraScriptsAs backend Faucet
               >>= canCommit tracer tmpDir blockTime backend
+      it "reject commits with too low value" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
+            publishHydraScriptsAs backend Faucet
+              >>= rejectCommit tracer tmpDir blockTime backend
       it "can recover deposit" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do

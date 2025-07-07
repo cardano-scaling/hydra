@@ -20,7 +20,6 @@ import Hydra.Cardano.Api (
   ByronAddr,
   Coin (..),
   LedgerEra,
-  Lovelace,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
@@ -203,7 +202,7 @@ data PostTxError tx
   | FailedToConstructIncrementTx {failureReason :: Text}
   | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
-  | DepositTooLow {providedValue :: Lovelace, minimumValue :: Lovelace}
+  | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)
