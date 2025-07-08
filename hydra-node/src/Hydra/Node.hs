@@ -56,7 +56,7 @@ import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
+import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createPersistentInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
@@ -177,15 +177,22 @@ instance HasParty (DraftHydraNode tx m) where
 -- | Hydrate a 'DraftHydraNode' by loading events from source, re-aggregate node
 -- state and sending events to sinks while doing so.
 hydrate ::
-  (IsChainState tx, MonadDelay m, MonadLabelledSTM m, MonadAsync m, MonadThrow m, MonadUnliftIO m) =>
+  ( IsChainState tx
+  , MonadDelay m
+  , MonadLabelledSTM m
+  , MonadUnliftIO m
+  , MonadCatch m
+  , MonadFail m
+  ) =>
   Tracer m (HydraNodeLog tx) ->
   Environment ->
   Ledger tx ->
   ChainStateType tx ->
+  FilePath ->
   EventStore (StateEvent tx) m ->
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
-hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} eventSinks = do
+hydrate tracer env ledger initialChainState persistenceDir EventStore{eventSource, eventSink} eventSinks  = do
   traceWith tracer LoadingState
   (lastEventId, (headState, chainStateHistory)) <-
     runConduitRes $
@@ -205,7 +212,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
     sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
 
   nodeState <- createNodeState (getLast lastEventId) headState
-  inputQueue <- createInputQueue
+  inputQueue <- createPersistentInputQueue persistenceDir
   pure
     DraftHydraNode
       { tracer

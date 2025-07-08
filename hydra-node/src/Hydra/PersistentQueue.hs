@@ -67,9 +67,9 @@ writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
 
 -- | Get the next value from the queue without removing it, blocking if the
 -- queue is empty.
-peekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m a
+peekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m (Natural, a)
 peekPersistentQueue PersistentQueue{queue} = do
-  snd <$> atomically (peekTBQueue queue)
+  atomically (peekTBQueue queue)
 
 -- | Remove an element from the queue if it matches the given item. Use
 -- 'peekPersistentQueue' to wait for next items before popping it.
