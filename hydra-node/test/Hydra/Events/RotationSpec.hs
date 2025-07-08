@@ -33,9 +33,10 @@ spec = parallel $ do
           ) ->
           IO ()
         setupHydrate action =
-          showLogsOnFailure "RotationSpec" $ \tracer -> do
-            let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0}
-            action testHydrate
+          showLogsOnFailure "RotationSpec" $ \tracer ->
+            withTempDir "persistence-dir" $ \tmpDir -> do
+              let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0} tmpDir
+              action testHydrate
     around setupHydrate $ do
       it "rotates while running" $ \testHydrate -> do
         failAfter 1 $ do

@@ -336,7 +336,7 @@ broadcastMessages ::
   IO ()
 broadcastMessages tracer conn ourHost queue =
   withGrpcContext "broadcastMessages" . forever $ do
-    msg <- peekPersistentQueue queue
+    (_, msg) <- peekPersistentQueue queue
     (putMessage conn ourHost msg >> popPersistentQueue queue msg)
       `catch` \case
         GrpcException{grpcError, grpcErrorMessage}
