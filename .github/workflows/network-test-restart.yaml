@@ -32,7 +32,7 @@ jobs:
         peers:          [3]
         scaling_factor: [10]
         # Note: We only put here the configuration values we _expected to pass_.
-        restart_interval:     [30s, 60s]
+        restart_interval:     [5s, 10s]
     name: "Peers: ${{ matrix.peers }}, scaling: ${{ matrix.scaling_factor }}, restart_interval: ${{ matrix.restart_interval }}"
     steps:
     - uses: actions/checkout@v4
