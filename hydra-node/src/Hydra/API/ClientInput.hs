@@ -23,6 +23,8 @@ deriving stock instance IsTx tx => Eq (ClientInput tx)
 deriving stock instance IsTx tx => Show (ClientInput tx)
 deriving anyclass instance IsTx tx => ToJSON (ClientInput tx)
 deriving anyclass instance IsTx tx => FromJSON (ClientInput tx)
+deriving anyclass instance IsTx tx => ToCBOR (ClientInput tx)
+deriving anyclass instance IsTx tx => FromCBOR (ClientInput tx)
 
 instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
