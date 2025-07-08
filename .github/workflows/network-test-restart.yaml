@@ -1,0 +1,134 @@
+name: "Network fault tolerance (restart test)"
+
+on:
+  # We're using merge-chains; so this needs to run then.
+  merge_group:
+  push:
+    branches:
+    - master
+    - release
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
+        required: false
+        default: false
+
+jobs:
+  network-restart-test:
+    runs-on: ubuntu-latest
+    strategy:
+      # Hack: Minimise concurrency as this is blocking our GitHub runners.
+      # This can be removed when the matrix mode itself is removed and the
+      # network restart testing is done in pure Haskell.
+      max-parallel: 2
+      matrix:
+        # Note: At present we can only run for 3 peers; to configure this for
+        # more we need to make the docker-compose spin-up dynamic across
+        # however many we would like to configure here.
+        # Currently this is just a label and does not have any functional impact.
+        peers:          [3]
+        scaling_factor: [10]
+        # Note: We only put here the configuration values we _expected to pass_.
+        restart_interval:     [30s, 60s]
+    name: "Peers: ${{ matrix.peers }}, scaling: ${{ matrix.scaling_factor }}, restart_interval: ${{ matrix.restart_interval }}"
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: Set up and use the "demo" devShell
+      uses: nicknovitski/nix-develop@v1
+      with:
+        arguments: ".#demo"
+
+    - name: Build docker images for netem specifically (optional here, but retained for compatibility)
+      run: |
+        nix build .#docker-hydra-node-for-netem
+        docker load < result
+
+    - name: Setup containers for network restart testing
+      run: |
+        set -exo pipefail
+
+        cd demo
+        ./prepare-devnet.sh
+        docker compose up -d cardano-node
+        sleep 2
+        # :tear: socket permissions.
+        sudo chmod a+w devnet/node.socket
+        export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
+        ./seed-devnet.sh $(which cardano-cli) $(which hydra-node)
+        # Specify two docker compose yamls; the second one overrides the
+        # images to use the netem ones specifically
+        docker compose -f docker-compose.yaml -f docker-compose-netem.yaml up -d hydra-node-{1,2,3}
+        docker ps
+
+    - name: Build required nix and docker derivations
+      run: |
+        nix build .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e
+        nix build github:noonio/pumba/noon/add-flake
+
+    # Use tmate to get a shell onto the runner to do some temporary hacking
+    #
+    # <https://github.com/mxschmitt/action-tmate>
+    #
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+      with:
+        limit-access-to-actor: true
+
+    - name: Restart containers with pumba and run the benchmarks
+      run: |
+        # Extract inputs with defaults for non-workflow_dispatch events
+        # TODO: which defaults?
+        interval="${{ matrix.restart_interval }}"
+        scaling_factor="${{ matrix.scaling_factor }}"
+
+        # Randomly restart hydra-node containers at the given interval.
+        # This should make the benchmark progress reasonably, but under stress,
+        # simulating instability and testing the system's resilience and
+        # fault tolerance in the face of unexpected restarts.
+        nix run github:noonio/pumba/noon/add-flake -- -l info \
+          --random \
+          --interval ${interval} \
+          restart \
+          "re2:hydra-node" &
+
+        # Run benchmark on demo
+        mkdir -p benchmarks
+        nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
+          demo \
+          --output-directory=benchmarks \
+          --scaling-factor="$scaling_factor" \
+          --timeout=1200s \
+          --testnet-magic 42 \
+          --node-socket=demo/devnet/node.socket \
+          --hydra-client=localhost:4001 \
+          --hydra-client=localhost:4002 \
+          --hydra-client=localhost:4003
+
+    - name: Acquire logs
+      if: always()
+      run: |
+        cd demo
+        docker compose logs > docker-logs
+
+    - name: 💾 Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: "artifacts-restart-interval=${{ matrix.restart_interval }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
+        path: |
+          demo/docker-logs
+          benchmarks
+          demo/devnet/protocol-parameters.json
+        if-no-files-found: ignore
