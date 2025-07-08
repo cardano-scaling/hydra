@@ -174,3 +174,4 @@ instance IsTx Tx where
   outputsOfUTxO = UTxO.txOutputs
 
   withoutUTxO = UTxO.difference
+
