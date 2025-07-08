@@ -859,21 +859,6 @@
         "type": "github"
       }
     },
-    "flake-utils_7": {
-      "locked": {
-        "lastModified": 1644229661,
-        "narHash": "sha256-1YdnJAsNy69bpcjuoKdOYQX0YxZBiCYZo4Twxerqv7k=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "3cecb5b042f7f209c56ffd8371b2711a290ec797",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "type": "github"
-      }
-    },
     "formal-ledger": {
       "flake": false,
       "locked": {
@@ -1824,28 +1809,6 @@
         "flake-utils": "flake-utils_6",
         "nixpkgs": [
           "hydra-coding-standards",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1745917180,
-        "narHash": "sha256-PPo7GwCwhENsX5NuxiEdxmy++OoxUpxV+fOpTGaWYoM=",
-        "owner": "homotopic",
-        "repo": "lint-utils",
-        "rev": "62c2fa87ba9620e2d5470d957827175c6e1c128f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "homotopic",
-        "repo": "lint-utils",
-        "type": "github"
-      }
-    },
-    "lint-utils_2": {
-      "inputs": {
-        "flake-utils": "flake-utils_7",
-        "nixpkgs": [
-          "haskellNix",
           "nixpkgs"
         ]
       },
@@ -2911,7 +2874,6 @@
         "hydra-spec": "hydra-spec",
         "import-tree": "import-tree_4",
         "iohk-nix": "iohk-nix",
-        "lint-utils": "lint-utils_2",
         "mithril": "mithril",
         "mithril-unstable": "mithril-unstable",
         "nix-npm-buildpackage": "nix-npm-buildpackage",
