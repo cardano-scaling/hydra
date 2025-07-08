@@ -31,6 +31,12 @@ deriving stock instance IsChainState tx => Eq (Input tx)
 deriving stock instance IsChainState tx => Show (Input tx)
 deriving anyclass instance IsChainState tx => ToJSON (Input tx)
 
+instance IsChainState tx => ToCBOR (Input tx) where
+  toCBOR = toCBOR
+
+instance IsChainState tx => FromCBOR (Input tx) where
+  fromCBOR = fromCBOR
+
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Input tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink

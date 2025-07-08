@@ -61,9 +61,10 @@ spec :: Spec
 spec = parallel $ do
   -- Set up a hydrate function with fixtures curried
   let setupHydrate action =
-        showLogsOnFailure "NodeSpec" $ \tracer -> do
-          let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0}
-          action testHydrate
+        showLogsOnFailure "NodeSpec" $ \tracer ->
+          withTempDir "persistence-dir" $ \tmpDir -> do
+            let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0} tmpDir
+            action testHydrate
 
   describe "hydrate" $ do
     around setupHydrate $ do
@@ -425,7 +426,7 @@ runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}} = go
 -- | Creates a full 'HydraNode' with given parameters and primed 'Input's. Note
 -- that this node is 'notConnect'ed to any components.
 testHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m, MonadUnliftIO m) =>
+  (MonadDelay m, MonadLabelledSTM m, MonadUnliftIO m, MonadCatch m, MonadFail m) =>
   Tracer m (HydraNodeLog SimpleTx) ->
   SigningKey HydraKey ->
   [Party] ->
@@ -434,9 +435,10 @@ testHydraNode ::
   m (HydraNode SimpleTx m)
 testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
   let eventStore = mockEventStore []
-  hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} eventStore []
-    >>= notConnect
-    >>= primeWith inputs
+  withTempDir "persistence-dir" $ \tmpDir ->
+    hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} tmpDir eventStore []
+      >>= notConnect
+      >>= primeWith inputs
  where
   env =
     Environment

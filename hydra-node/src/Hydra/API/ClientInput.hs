@@ -24,6 +24,12 @@ deriving stock instance IsTx tx => Show (ClientInput tx)
 deriving anyclass instance IsTx tx => ToJSON (ClientInput tx)
 deriving anyclass instance IsTx tx => FromJSON (ClientInput tx)
 
+instance IsTx tx => ToCBOR (ClientInput tx) where
+  toCBOR = toCBOR
+
+instance IsTx tx => FromCBOR (ClientInput tx) where
+  fromCBOR = fromCBOR
+
 instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
 
