@@ -46,13 +46,8 @@ import Hydra.Prelude
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
-  modifyTVar',
-  newTBQueueIO,
   newTVarIO,
-  peekTBQueue,
-  readTBQueue,
   swapTVar,
-  writeTBQueue,
   writeTVar,
  )
 import Control.Exception (IOException)
@@ -65,7 +60,6 @@ import Data.Bits ((.|.))
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
-import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Text qualified as T
 import Hydra.Logging (Tracer, traceWith)
@@ -80,6 +74,13 @@ import Hydra.Network (
   WhichEtcd (..),
  )
 import Hydra.Node.EmbedTH (embedExecutable)
+import Hydra.PersistentQueue (
+  PersistentQueue (..),
+  newPersistentQueue,
+  peekPersistentQueue,
+  popPersistentQueue,
+  writePersistentQueue,
+ )
 import Network.GRPC.Client (
   Address (..),
   ConnParams (..),
@@ -101,7 +102,7 @@ import Network.GRPC.Etcd (
   Lease,
   Watch,
  )
-import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
+import System.Directory (createDirectoryIfMissing)
 import System.Environment.Blank (getEnvironment)
 import System.FilePath (takeDirectory, (</>))
 import System.IO.Error (isDoesNotExistError)
@@ -533,75 +534,6 @@ withProcessInterrupt config =
     race_
       (void $ waitExitCode p)
       (threadDelay 5 >> stopProcess p)
-
--- * Persistent queue
-
-data PersistentQueue m a = PersistentQueue
-  { queue :: TBQueue m (Natural, a)
-  , nextIx :: TVar m Natural
-  , directory :: FilePath
-  }
-
--- | Create a new persistent queue at file path and given capacity.
-newPersistentQueue ::
-  (MonadSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
-  FilePath ->
-  Natural ->
-  m (PersistentQueue m a)
-newPersistentQueue path capacity = do
-  queue <- newTBQueueIO capacity
-  highestId <-
-    try (loadExisting queue) >>= \case
-      Left (_ :: IOException) -> do
-        liftIO $ createDirectoryIfMissing True path
-        pure 0
-      Right highest -> pure highest
-  nextIx <- newTVarIO $ highestId + 1
-  pure PersistentQueue{queue, nextIx, directory = path}
- where
-  loadExisting queue = do
-    paths <- liftIO $ listDirectory path
-    case sort $ mapMaybe readMaybe paths of
-      [] -> pure 0
-      idxs -> do
-        forM_ idxs $ \(idx :: Natural) -> do
-          bs <- readFileBS (path </> show idx)
-          case decodeFull' bs of
-            Left err ->
-              fail $ "Failed to decode item: " <> show err
-            Right item ->
-              atomically $ writeTBQueue queue (idx, item)
-        pure $ List.last idxs
-
--- | Write a value to the queue, blocking if the queue is full.
-writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
-writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
-  next <- atomically $ do
-    next <- readTVar nextIx
-    modifyTVar' nextIx (+ 1)
-    pure next
-  writeFileBS (directory </> show next) $ serialize' item
-  atomically $ writeTBQueue queue (next, item)
-
--- | Get the next value from the queue without removing it, blocking if the
--- queue is empty.
-peekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m a
-peekPersistentQueue PersistentQueue{queue} = do
-  snd <$> atomically (peekTBQueue queue)
-
--- | Remove an element from the queue if it matches the given item. Use
--- 'peekPersistentQueue' to wait for next items before popping it.
-popPersistentQueue :: (MonadSTM m, MonadIO m, Eq a) => PersistentQueue m a -> a -> m ()
-popPersistentQueue PersistentQueue{queue, directory} item = do
-  popped <- atomically $ do
-    (ix, next) <- peekTBQueue queue
-    if next == item
-      then readTBQueue queue $> Just ix
-      else pure Nothing
-  case popped of
-    Nothing -> pure ()
-    Just index -> do
-      liftIO . removeFile $ directory </> show index
 
 -- * Tracing
 
