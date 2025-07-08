@@ -187,7 +187,7 @@ genKeyPair = do
   pure (getVerificationKey sk, sk)
 
 genValue :: Gen Value
-genValue = fmap ((lovelaceToValue $ Coin 10_000_000) <>) (scale (`div` 10) $ fromLedgerValue <$> arbitrary)
+genValue = fmap ((lovelaceToValue $ Coin 20_000_000) <>) (scale (`div` 10) $ fromLedgerValue <$> arbitrary)
 
 genVerificationKey :: Gen (VerificationKey PaymentKey)
 genVerificationKey = getVerificationKey <$> genSigningKey
