@@ -22,6 +22,7 @@ import Control.Monad.Trans.Writer (execWriter, tell)
 import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
+import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Cardano.Api (
   getVerificationKey,
  )
@@ -309,6 +310,7 @@ stepHydraNode ::
 stepHydraNode node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
+  processEffects node tracer queuedId [ClientEffect $ ServerOutput.DebugOutput{kind = "BeginInput", by = party, inputId = queuedId}]
   outcome <- atomically $ processNextInput node queuedItem
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
@@ -320,6 +322,7 @@ stepHydraNode node = do
       maybeReenqueue i
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
+  processEffects node tracer queuedId [ClientEffect $ ServerOutput.DebugOutput{kind = "EndInput", by = party, inputId = queuedId}]
  where
   maybeReenqueue q@Queued{queuedId, queuedItem} =
     case queuedItem of
