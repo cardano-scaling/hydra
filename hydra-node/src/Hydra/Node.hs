@@ -192,7 +192,7 @@ hydrate ::
   EventStore (StateEvent tx) m ->
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
-hydrate tracer env ledger initialChainState persistenceDir EventStore{eventSource, eventSink} eventSinks  = do
+hydrate tracer env ledger initialChainState persistenceDir EventStore{eventSource, eventSink} eventSinks = do
   traceWith tracer LoadingState
   (lastEventId, (headState, chainStateHistory)) <-
     runConduitRes $
@@ -327,6 +327,7 @@ stepHydraNode node = do
       maybeReenqueue i
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
+  done queuedItem
  where
   maybeReenqueue q@Queued{queuedId, queuedItem} =
     case queuedItem of
@@ -336,7 +337,7 @@ stepHydraNode node = do
 
   Environment{party} = env
 
-  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
+  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue, done}, env} = node
 
 -- | The maximum number of times to re-enqueue a network messages upon 'Wait'.
 -- outcome.
