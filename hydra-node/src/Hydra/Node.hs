@@ -313,8 +313,15 @@ stepHydraNode node = do
   case queuedItem of
     NetworkInput{networkEvent} ->
       case networkEvent of
-        ReceivedMessage{msg} ->
-          processEffects node tracer queuedId [ClientEffect $ ServerOutput.DebugOutput{kind = "BeginInput", by = party, inputId = queuedId, msg}]
+        ReceivedMessage{msg} -> do
+          let debugOutput =
+                ServerOutput.DebugOutput
+                  { kind = "BeginInput"
+                  , by = party
+                  , inputId = queuedId
+                  , msg
+                  }
+          processEffects node tracer queuedId [ClientEffect debugOutput]
         _ ->
           pure ()
     _ ->
@@ -333,8 +340,15 @@ stepHydraNode node = do
   case queuedItem of
     NetworkInput{networkEvent} ->
       case networkEvent of
-        ReceivedMessage{msg} ->
-          processEffects node tracer queuedId [ClientEffect $ ServerOutput.DebugOutput{kind = "EndInput", by = party, inputId = queuedId, msg}]
+        ReceivedMessage{msg} -> do
+          let debugOutput =
+                ServerOutput.DebugOutput
+                  { kind = "EndInput"
+                  , by = party
+                  , inputId = queuedId
+                  , msg
+                  }
+          processEffects node tracer queuedId [ClientEffect debugOutput]
         _ ->
           pure ()
     _ ->

@@ -1805,16 +1805,18 @@ canRestartAfterInputDequeue tracer workDir backend hydraScriptsTxId = do
         tx2 <- mkTransferTx testNetworkId utxo2 aliceCardanoSk aliceCardanoVk
         send n1 $ input "NewTx" ["transaction" .= tx2]
 
+        waitMatch (200 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "DebugOutput"
+          guard $ v ^? key "kind" == Just "BeginInput"
+          guard $ v ^? key "msg" . key "tag" == Just "ReqSn"
+          guard $ v ^? key "msg" . key "snapshotNumber" == Just (toJSON (2 :: Integer))
+
       -- Carol disconnects and the others observe it
       waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
       -- Carol reconnects, and then the snapshot can be confirmed
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
-        waitMatch (200 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "DebugOutput"
-          guard $ v ^? key "kind" == Just "BeginInput"
-
         -- Everyone confirms it
         -- Note: We can't use `waitForAllMatch` here as it expects them to
         -- emit the exact same datatype; but Carol will be behind in sequence
@@ -1826,10 +1828,6 @@ canRestartAfterInputDequeue tracer workDir backend hydraScriptsTxId = do
             -- Just check that everyone signed it.
             let sigs = v ^.. key "signatures" . key "multiSignature" . values
             guard $ length sigs == 3
-
-        waitMatch (200 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "DebugOutput"
-          guard $ v ^? key "kind" == Just "EndInput"
 
         -- Finally observe everyone having the same latest seen snapshot.
         seenSn1' <- getSnapshotLastSeen n1
