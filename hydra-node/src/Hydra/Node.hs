@@ -310,7 +310,15 @@ stepHydraNode ::
 stepHydraNode node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
-  processEffects node tracer queuedId [ClientEffect $ ServerOutput.DebugOutput{kind = "BeginInput", by = party, inputId = queuedId}]
+  case queuedItem of
+    NetworkInput{networkEvent} ->
+      case networkEvent of
+        ReceivedMessage{msg} ->
+          processEffects node tracer queuedId [ClientEffect $ ServerOutput.DebugOutput{kind = "BeginInput", by = party, inputId = queuedId, msg}]
+        _ ->
+          pure ()
+    _ ->
+      pure ()
   outcome <- atomically $ processNextInput node queuedItem
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
@@ -322,7 +330,15 @@ stepHydraNode node = do
       maybeReenqueue i
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
-  processEffects node tracer queuedId [ClientEffect $ ServerOutput.DebugOutput{kind = "EndInput", by = party, inputId = queuedId}]
+  case queuedItem of
+    NetworkInput{networkEvent} ->
+      case networkEvent of
+        ReceivedMessage{msg} ->
+          processEffects node tracer queuedId [ClientEffect $ ServerOutput.DebugOutput{kind = "EndInput", by = party, inputId = queuedId, msg}]
+        _ ->
+          pure ()
+    _ ->
+      pure ()
  where
   maybeReenqueue q@Queued{queuedId, queuedItem} =
     case queuedItem of

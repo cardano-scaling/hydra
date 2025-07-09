@@ -16,6 +16,7 @@ import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
+import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
@@ -73,7 +74,7 @@ instance ArbitraryIsTx tx => Arbitrary (DecommitInvalidReason tx) where
 data ClientMessage tx
   = CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | DebugOutput {kind :: Text, by :: Party, inputId :: Word64}
+  | DebugOutput {kind :: Text, by :: Party, inputId :: Word64, msg :: Message tx}
   deriving (Eq, Show, Generic)
 
 instance IsChainState tx => ToJSON (ClientMessage tx) where
