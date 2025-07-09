@@ -26,6 +26,7 @@ import Hydra.Cardano.Api (
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
+import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
@@ -41,8 +42,8 @@ import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, post, shouldRespondWith, with)
 import Test.Hspec.Wai.Internal (withApplication)
 import Test.Hydra.Node.Fixture (testEnvironment)
-import Test.Hydra.Tx.Fixture (defaultPParams)
-import Test.Hydra.Tx.Gen (genTxOut)
+import Test.Hydra.Tx.Fixture (defaultPParams, pparams)
+import Test.Hydra.Tx.Gen (genTxOut, genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (
   checkCoverage,
   counterexample,
@@ -443,6 +444,7 @@ apiServerSpec = do
                   pure $ Right tx
               }
       let initialHeadState = Initial (generateWith arbitrary 42)
+      let openHeadState = Open (generateWith arbitrary 42)
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
         withApplication
           ( httpApp
@@ -462,14 +464,26 @@ apiServerSpec = do
       let failingChainHandle postTxError =
             dummyChainHandle
               { draftCommitTx = \_ _ -> pure $ Left postTxError
-              , draftDepositTx = \_ _ _ -> pure $ Left postTxError
+              , draftDepositTx = \_ _ _ _ -> pure $ Left postTxError
               }
+
+      prop "reject deposits with less than min ADA" $ do
+        forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO.UTxO) -> do
+          let result = rejectLowDeposits pparams utxo
+          case result of
+            Left DepositTooLow{providedValue, minimumValue} ->
+              property $
+                minimumValue >= providedValue
+                  & counterexample ("Minimum value: " <> show minimumValue <> " Provided value: " <> show providedValue)
+            _ -> property True
+
       prop "handles PostTxErrors accordingly" $ \request postTxError -> do
         let coverage = case postTxError of
               CommittedTooMuchADAForMainnet{} -> cover 1 True "CommittedTooMuchADAForMainnet"
               UnsupportedLegacyOutput{} -> cover 1 True "UnsupportedLegacyOutput"
               InvalidHeadId{} -> cover 1 True "InvalidHeadId"
               CannotFindOwnInitial{} -> cover 1 True "CannotFindOwnInitial"
+              DepositTooLow{} -> cover 1 True "DepositTooLow"
               _ -> property
         checkCoverage
           $ coverage
@@ -479,7 +493,7 @@ apiServerSpec = do
                 (failingChainHandle postTxError)
                 testEnvironment
                 defaultPParams
-                (pure initialHeadState)
+                (pure openHeadState)
                 getHeadId
                 getPendingDeposits
                 putClientInput
@@ -490,6 +504,7 @@ apiServerSpec = do
                 CommittedTooMuchADAForMainnet{} -> 400
                 UnsupportedLegacyOutput{} -> 400
                 CannotFindOwnInitial{} -> 400
+                DepositTooLow{} -> 400
                 _ -> 500
 
 -- * Helpers

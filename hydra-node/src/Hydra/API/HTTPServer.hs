@@ -189,7 +189,7 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
         >>= respond
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo env directChain getCommitInfo
+        >>= handleDraftCommitUtxo env pparams directChain getCommitInfo
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
@@ -219,13 +219,14 @@ handleDraftCommitUtxo ::
   forall tx.
   IsChainState tx =>
   Environment ->
+  PParams LedgerEra ->
   Chain tx IO ->
   -- | A means to get commit info.
   IO CommitInfo ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo env directChain getCommitInfo body = do
+handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
   case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
@@ -251,7 +252,7 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
     -- increment because a deposit only activates after one deposit period and
     -- expires one deposit period before deadline.
     deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
-    draftDepositTx headId commitBlueprint deadline <&> \case
+    draftDepositTx headId pparams commitBlueprint deadline <&> \case
       Left e -> responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
 
@@ -264,6 +265,7 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
           CommittedTooMuchADAForMainnet _ _ -> badRequest e
           UnsupportedLegacyOutput _ -> badRequest e
           CannotFindOwnInitial _ -> badRequest e
+          DepositTooLow _ _ -> badRequest e
           _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx

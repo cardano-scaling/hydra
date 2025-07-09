@@ -10,18 +10,25 @@ module Hydra.Chain.Direct.Handlers where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Core (PParams)
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
+import Data.List qualified as List
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
+  LedgerEra,
   Tx,
   TxId,
+  calculateMinimumUTxO,
   chainPointToSlotNo,
+  fromCtxUTxOTxOut,
   getChainPoint,
   getTxBody,
   getTxId,
+  liftEither,
+  shelleyBasedEra,
   throwError,
  )
 import Hydra.Chain (
@@ -69,6 +76,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
+  IsTx (..),
   UTxOType,
   headSeedToTxIn,
  )
@@ -171,12 +179,13 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
           commit' ctx headId spendableUTxO commitBlueprintTx
-    , draftDepositTx = \headId commitBlueprintTx deadline -> do
+    , draftDepositTx = \headId pparams commitBlueprintTx deadline -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
         TimeHandle{currentPointInTime} <- queryTimeHandle
         -- XXX: What an error handling mess
         runExceptT $ do
+          liftEither $ rejectLowDeposits pparams lookupUTxO
           (currentSlot, currentTime) <- case currentPointInTime of
             Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
             Right (s, t) -> pure (s, t)
@@ -194,6 +203,25 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
       -- LocalTxSubmission protocol.
       submitTx
     }
+
+-- Check each UTxO entry against the minADAUTxO value.
+-- Throws 'DepositTooLow' exception.
+rejectLowDeposits :: PParams LedgerEra -> UTxO.UTxO -> Either (PostTxError Tx) ()
+rejectLowDeposits pparams utxo = do
+  let insAndOuts = UTxO.toList utxo
+  let providedValues = (\(i, o) -> (i, UTxO.totalLovelace $ UTxO.singleton i o)) <$> insAndOuts
+  let minimumValues = (\(i, o) -> (i, calculateMinimumUTxO shelleyBasedEra pparams $ fromCtxUTxOTxOut o)) <$> insAndOuts
+  let results =
+        ( \(i, minVal) ->
+            case List.find (\(ix, providedVal) -> i == ix && providedVal < minVal) providedValues of
+              Nothing -> Right ()
+              Just (_, tooLowValue) ->
+                Left (DepositTooLow{providedValue = tooLowValue, minimumValue = minVal} :: PostTxError Tx)
+        )
+          <$> minimumValues
+  case lefts results of
+    [] -> pure ()
+    (e : _) -> Left e
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::

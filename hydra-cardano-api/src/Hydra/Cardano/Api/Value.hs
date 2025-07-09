@@ -22,6 +22,8 @@ containsValue a b =
   positive (_, q) = q >= 0
 
 -- | Calculate minimum ada as 'Value' for a 'TxOut'.
+-- NOTE: This function can throw although you can't tell from the signature.
+-- 'toLedgerValue' can error out with _Illegal Value in TxOut_
 minUTxOValue ::
   PParams LedgerEra ->
   TxOut CtxTx Era ->

@@ -91,6 +91,7 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
+import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
@@ -150,7 +151,7 @@ import Network.HTTP.Types (urlEncode)
 import System.FilePath ((</>))
 import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.Hydra.Tx.Gen (genKeyPair)
+import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript)
 import Test.QuickCheck (choose, elements, generate)
 
 data EndToEndLog
@@ -1287,6 +1288,54 @@ canCommit tracer workDir blockTime backend hydraScriptsTxId =
           -- Assert final wallet balance
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
             `shouldReturn` balance (commitUTxO <> commitUTxO2)
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
+
+rejectCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
+rejectCommit tracer workDir blockTime backend hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer backend Alice) $ do
+    refuelIfNeeded tracer backend Alice 30_000_000
+    -- NOTE: Adapt periods to block times
+    let contestationPeriod = truncate $ 10 * blockTime
+        depositPeriod = truncate $ 100 * blockTime
+    networkId <- Backend.queryNetworkId backend
+    aliceChainConfig <-
+      chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+        <&> setNetworkId networkId . modifyConfig (\c -> c{depositPeriod})
+
+    let pparamsDecorator = atKey "utxoCostPerByte" ?~ toJSON (Aeson.Number 4310)
+    optionsWithUTxOCostPerByte <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] pparamsDecorator
+
+    withPreparedHydraNode hydraTracer workDir 1 optionsWithUTxOCostPerByte $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      -- Commit nothing
+      requestCommitTx n1 mempty >>= Backend.submitTransaction backend
+      waitFor hydraTracer (20 * blockTime) [n1] $
+        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+      -- Get some L1 funds
+      (walletVk, _) <- generate genKeyPair
+      commitUTxO' <- seedFromFaucet backend walletVk 1_000_000 (contramap FromFaucet tracer)
+      TxOut _ _ _ refScript <- generate genTxOutWithReferenceScript
+      datum <- generate genDatum
+      let commitUTxO :: UTxO.UTxO =
+            UTxO.fromList $
+              (\(i, TxOut addr _ _ _) -> (i, TxOut addr (lovelaceToValue 0) datum refScript))
+                <$> UTxO.toList commitUTxO'
+      response <-
+        L.parseRequest ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
+          <&> setRequestBodyJSON (commitUTxO :: UTxO.UTxO)
+            >>= httpJSON
+
+      let expectedError = getResponseBody response :: PostTxError Tx
+
+      expectedError `shouldSatisfy` \case
+        DepositTooLow{minimumValue, providedValue} -> providedValue < minimumValue
+        _ -> False
  where
   hydraTracer = contramap FromHydraNode tracer
 

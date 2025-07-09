@@ -118,7 +118,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
-  
+
   /head:
     servers:
       - localhost-http
@@ -2605,6 +2605,25 @@ components:
             tag:
               type: string
               enum: ["FailedToConstructFanoutTx"]
+        - title: DepositTooLow
+          description: |
+            Raised if the user requests a deposit using too small UTxO.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - minimumValue
+          - providedValue
+          properties:
+            tag:
+              type: string
+              enum: ["DepositTooLow"]
+            minimumValue:
+               type: integer
+               minimum: 0
+            providedValue:
+               type: integer
+               minimum: 0
 
     Signature:
       type: string
