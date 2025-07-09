@@ -88,7 +88,7 @@ createPersistentInputQueue ::
   FilePath ->
   m (InputQueue m e)
 createPersistentInputQueue persistenceDir = do
-  q <- newPersistentQueue (persistenceDir </> "input-queue") 100
+  q <- newPersistentQueue (persistenceDir </> "input-queue") 1000
   pure
     InputQueue
       { enqueue = writePersistentQueue q
