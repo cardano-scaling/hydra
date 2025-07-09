@@ -1811,6 +1811,10 @@ canRestartAfterInputDequeue tracer workDir backend hydraScriptsTxId = do
 
       -- Carol reconnects, and then the snapshot can be confirmed
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        waitMatch (200 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "DebugOutput"
+          guard $ v ^? key "kind" == Just "BeginInput"
+
         -- Everyone confirms it
         -- Note: We can't use `waitForAllMatch` here as it expects them to
         -- emit the exact same datatype; but Carol will be behind in sequence
@@ -1822,6 +1826,10 @@ canRestartAfterInputDequeue tracer workDir backend hydraScriptsTxId = do
             -- Just check that everyone signed it.
             let sigs = v ^.. key "signatures" . key "multiSignature" . values
             guard $ length sigs == 3
+
+        waitMatch (200 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "DebugOutput"
+          guard $ v ^? key "kind" == Just "EndInput"
 
         -- Finally observe everyone having the same latest seen snapshot.
         seenSn1' <- getSnapshotLastSeen n1
