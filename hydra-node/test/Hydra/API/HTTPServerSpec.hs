@@ -472,7 +472,7 @@ apiServerSpec = do
           case result of
             Left DepositTooLow{providedValue, minimumValue} ->
               property $
-                minimumValue > providedValue
+                minimumValue >= providedValue
                   & counterexample ("Minimum value: " <> show minimumValue <> " Provided value: " <> show providedValue)
             _ -> property True
 

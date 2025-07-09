@@ -209,12 +209,19 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
 rejectLowDeposits :: PParams LedgerEra -> UTxO.UTxO -> Either (PostTxError Tx) ()
 rejectLowDeposits pparams utxo = do
   let insAndOuts = UTxO.toList utxo
-  let providedValues = UTxO.totalLovelace . uncurry UTxO.singleton <$> insAndOuts
-  let minimumValue = List.maximum $ (\(_, o) -> calculateMinimumUTxO shelleyBasedEra pparams $ fromCtxUTxOTxOut o) <$> insAndOuts
-  case List.find (< minimumValue) providedValues of
-    Nothing -> Right ()
-    Just providedValue ->
-      Left (DepositTooLow{providedValue, minimumValue} :: PostTxError Tx)
+  let providedValues = (\(i, o) -> (i, UTxO.totalLovelace $ UTxO.singleton i o)) <$> insAndOuts
+  let minimumValues = (\(i, o) -> (i, calculateMinimumUTxO shelleyBasedEra pparams $ fromCtxUTxOTxOut o)) <$> insAndOuts
+  let results =
+        ( \(i, minVal) ->
+            case List.find (\(ix, providedVal) -> i == ix && providedVal < minVal) providedValues of
+              Nothing -> Right ()
+              Just (_, tooLowValue) ->
+                Left (DepositTooLow{providedValue = tooLowValue, minimumValue = minVal} :: PostTxError Tx)
+        )
+          <$> minimumValues
+  case lefts results of
+    [] -> pure ()
+    (e : _) -> Left e
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
