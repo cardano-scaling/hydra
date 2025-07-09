@@ -265,6 +265,7 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
           CommittedTooMuchADAForMainnet _ _ -> badRequest e
           UnsupportedLegacyOutput _ -> badRequest e
           CannotFindOwnInitial _ -> badRequest e
+          DepositTooLow _ _ -> badRequest e
           _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx

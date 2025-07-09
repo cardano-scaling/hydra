@@ -444,6 +444,7 @@ apiServerSpec = do
                   pure $ Right tx
               }
       let initialHeadState = Initial (generateWith arbitrary 42)
+      let openHeadState = Open (generateWith arbitrary 42)
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
         withApplication
           ( httpApp
@@ -492,7 +493,7 @@ apiServerSpec = do
                 (failingChainHandle postTxError)
                 testEnvironment
                 defaultPParams
-                (pure initialHeadState)
+                (pure openHeadState)
                 getHeadId
                 getPendingDeposits
                 putClientInput
