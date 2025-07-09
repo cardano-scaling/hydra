@@ -79,7 +79,7 @@ import Hydra.PersistentQueue (
   newPersistentQueue,
   peekPersistentQueue,
   popPersistentQueue,
-  writePersistentQueue,
+  writeDurablePersistentQueue,
  )
 import Network.GRPC.Client (
   Address (..),
@@ -155,7 +155,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                 race_ (broadcastMessages tracer conn advertise queue) $ do
                   action
                     Network
-                      { broadcast = writePersistentQueue queue
+                      { broadcast = writeDurablePersistentQueue queue
                       }
                   atomically (writeTVar doneVar True)
  where

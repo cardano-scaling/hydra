@@ -57,13 +57,23 @@ newPersistentQueue path capacity = do
         pure $ List.last idxs
 
 -- | Write a value to the queue, blocking if the queue is full.
+writeDurablePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
+writeDurablePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
+  next <- atomically $ do
+    next <- readTVar nextIx
+    modifyTVar' nextIx (+ 1)
+    pure next
+  writeBinaryFileDurable (directory </> show next) $ serialize' item
+  atomically $ writeTBQueue queue (next, item)
+
+-- | Write a value to the queue, blocking if the queue is full.
 writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
 writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
   next <- atomically $ do
     next <- readTVar nextIx
     modifyTVar' nextIx (+ 1)
     pure next
-  writeBinaryFileDurable (directory </> show next) $ serialize' item
+  writeFileBS (directory </> show next) $ serialize' item
   atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the
