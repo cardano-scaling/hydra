@@ -82,7 +82,7 @@ import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
-import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
 import Test.QuickCheck (getPositive)
 
@@ -215,7 +215,7 @@ mockChainAndNetwork tr seedKeys commits = do
     readTVarIO nodes >>= \case
       [] -> error "simulateDeposit: no MockHydraNode"
       (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
-        draftDepositTx headId (mkSimpleBlueprintTx utxoToDeposit) deadline >>= \case
+        draftDepositTx headId defaultPParams (mkSimpleBlueprintTx utxoToDeposit) deadline >>= \case
           Left e -> throwIO e
           Right tx -> submitTx tx $> txId tx
 

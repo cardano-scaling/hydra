@@ -25,7 +25,7 @@ import Hydra.Cardano.Api (
   renderTxIn,
   serialiseToTextEnvelope,
  )
-import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), checkDeposit, draftDepositTx)
+import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState)
@@ -463,8 +463,7 @@ apiServerSpec = do
       let failingChainHandle postTxError =
             dummyChainHandle
               { draftCommitTx = \_ _ -> pure $ Left postTxError
-              , draftDepositTx = \_ _ _ -> pure $ Left postTxError
-              , checkDeposit = \_ _ -> pure $ Left postTxError
+              , draftDepositTx = \_ _ _ _ -> pure $ Left postTxError
               }
 
       prop "reject deposits with less than min ADA" $ do

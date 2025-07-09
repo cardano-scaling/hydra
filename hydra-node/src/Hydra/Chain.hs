@@ -271,6 +271,7 @@ data Chain tx m = Chain
   , draftDepositTx ::
       MonadThrow m =>
       HeadId ->
+      PParams LedgerEra ->
       CommitBlueprintTx tx ->
       UTCTime ->
       m (Either (PostTxError tx) tx)
@@ -284,7 +285,6 @@ data Chain tx m = Chain
   --
   -- XXX: While technically they could be any of 'PostTxError tx', only
   -- `FailedToPostTx` errors are expected here.
-  , checkDeposit :: MonadThrow m => PParams LedgerEra -> UTxOType tx -> m (Either (PostTxError tx) ())
   }
 
 data ChainEvent tx

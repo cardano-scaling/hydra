@@ -27,6 +27,7 @@ import Hydra.Cardano.Api (
   getChainPoint,
   getTxBody,
   getTxId,
+  liftEither,
   shelleyBasedEra,
   throwError,
  )
@@ -178,12 +179,13 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
           commit' ctx headId spendableUTxO commitBlueprintTx
-    , draftDepositTx = \headId commitBlueprintTx deadline -> do
+    , draftDepositTx = \headId pparams commitBlueprintTx deadline -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
         TimeHandle{currentPointInTime} <- queryTimeHandle
         -- XXX: What an error handling mess
         runExceptT $ do
+          liftEither $ rejectLowDeposits pparams lookupUTxO
           (currentSlot, currentTime) <- case currentPointInTime of
             Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
             Right (s, t) -> pure (s, t)
@@ -200,12 +202,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
-    , -- Check if deposit value is higher than 'minUTxOValue'. Throw 'DepositTooLow' if
-      -- the provided UTxO value is too low.
-      checkDeposit = \pparams userUTxO -> pure $ rejectLowDeposits pparams userUTxO
     }
 
 -- Check each UTxO entry against the minADAUTxO value.
+-- Throws 'DepositTooLow' exception.
 rejectLowDeposits :: PParams LedgerEra -> UTxO.UTxO -> Either (PostTxError Tx) ()
 rejectLowDeposits pparams utxo = do
   let insAndOuts = UTxO.toList utxo

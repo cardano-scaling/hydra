@@ -1085,7 +1085,6 @@ simulatedChainAndNetwork initialChainState = do
                   , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
                   , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
                   , submitTx = \_ -> error "unexpected call to submitTx"
-                  , checkDeposit = \_ -> error "unexpected call to checkDeposit"
                   }
               mockNetwork = createMockNetwork draftNode nodes
               mockServer = Server{sendMessage = const $ pure ()}

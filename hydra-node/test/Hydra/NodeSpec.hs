@@ -345,9 +345,8 @@ mockChain =
     { mkChainState = error "mockChain: unexpected mkChainState"
     , postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
-    , draftDepositTx = \_ _ _ -> failure "mockChain: unexpected draftDepositTx"
+    , draftDepositTx = \_ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
-    , checkDeposit = \_ _ -> failure "mockChain: unexpected checkDeposit"
     }
 
 mockSink :: Monad m => EventSink a m
@@ -503,6 +502,5 @@ throwExceptionOnPostTx exception node =
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             , draftDepositTx = \_ -> error "draftDepositTx not implemented"
             , submitTx = \_ -> error "submitTx not implemented"
-            , checkDeposit = \_ _ -> error "checkDeposit not implemented"
             }
       }
