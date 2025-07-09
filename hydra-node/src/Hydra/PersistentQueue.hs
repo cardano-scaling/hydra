@@ -15,6 +15,7 @@ import Control.Exception (IOException)
 import Data.List qualified as List
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
+import UnliftIO.IO.File (writeBinaryFileDurable)
 
 -- * Persistent queue
 
@@ -62,7 +63,7 @@ writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
     next <- readTVar nextIx
     modifyTVar' nextIx (+ 1)
     pure next
-  writeFileBS (directory </> show next) $ serialize' item
+  writeBinaryFileDurable (directory </> show next) $ serialize' item
   atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the
