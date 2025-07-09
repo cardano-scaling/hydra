@@ -1745,6 +1745,93 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
  where
   hydraTracer = contramap FromHydraNode tracer
 
+canRestartAfterInputDequeue :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canRestartAfterInputDequeue tracer workDir backend hydraScriptsTxId = do
+  let clients = [Alice, Bob, Carol]
+  [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _), (carolCardanoVk, _)] <- forM clients keysFor
+  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  blockTime <- Backend.getBlockTime backend
+  let contestationPeriod = 1
+
+  networkId <- Backend.queryNetworkId backend
+  aliceChainConfig <-
+    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob, Carol] contestationPeriod
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice, Carol] contestationPeriod
+      <&> setNetworkId networkId
+  carolChainConfig <-
+    chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] contestationPeriod
+      <&> setNetworkId networkId
+
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+    aliceUTxO <- seedFromFaucet backend aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        send n1 $ input "Init" []
+        headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+
+        -- Alice commits something
+        requestCommitTx n1 aliceUTxO >>= Backend.submitTransaction backend
+
+        -- Everyone else commits nothing
+        mapConcurrently_ (\n -> requestCommitTx n mempty >>= Backend.submitTransaction backend) [n2, n3]
+
+        -- Observe open with the relevant UTxOs
+        waitFor hydraTracer (20 * blockTime) [n1, n2, n3] $
+          output "HeadIsOpen" ["utxo" .= toJSON aliceUTxO, "headId" .= headId]
+
+        -- Alice submits a new transaction
+        utxo <- getSnapshotUTxO n1
+        tx <- mkTransferTx testNetworkId utxo aliceCardanoSk aliceCardanoVk
+        send n1 $ input "NewTx" ["transaction" .= tx]
+
+        -- Everyone confirms it
+        -- Note: We can't use `waitForAllMatch` here as it expects them to
+        -- emit the exact same datatype; but Carol will be behind in sequence
+        -- numbers as she was offline.
+        flip mapConcurrently_ [n1, n2, n3] $ \n ->
+          waitMatch (200 * blockTime) n $ \v -> do
+            guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+            guard $ v ^? key "snapshot" . key "number" == Just (toJSON (1 :: Integer))
+            -- Just check that everyone signed it.
+            let sigs = v ^.. key "signatures" . key "multiSignature" . values
+            guard $ length sigs == 3
+
+        -- Alice submits a new transaction
+        utxo2 <- getSnapshotUTxO n1
+        tx2 <- mkTransferTx testNetworkId utxo2 aliceCardanoSk aliceCardanoVk
+        send n1 $ input "NewTx" ["transaction" .= tx2]
+
+      -- Carol disconnects and the others observe it
+      waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "PeerDisconnected"
+
+      -- Carol reconnects, and then the snapshot can be confirmed
+      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        -- Everyone confirms it
+        -- Note: We can't use `waitForAllMatch` here as it expects them to
+        -- emit the exact same datatype; but Carol will be behind in sequence
+        -- numbers as she was offline.
+        flip mapConcurrently_ [n1, n2, n3] $ \n ->
+          waitMatch (200 * blockTime) n $ \v -> do
+            guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+            guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
+            -- Just check that everyone signed it.
+            let sigs = v ^.. key "signatures" . key "multiSignature" . values
+            guard $ length sigs == 3
+
+        -- Finally observe everyone having the same latest seen snapshot.
+        seenSn1' <- getSnapshotLastSeen n1
+        seenSn2' <- getSnapshotLastSeen n2
+        seenSn1' `shouldBe` seenSn2'
+        seenSn3' <- getSnapshotLastSeen n3
+        seenSn2' `shouldBe` seenSn3'
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
 -- | Three hydra nodes open a head and we assert that none of them sees errors if a party is duplicated.
 threeNodesWithMirrorParty :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
