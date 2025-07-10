@@ -62,7 +62,7 @@ spec = parallel $ do
   -- Set up a hydrate function with fixtures curried
   let setupHydrate action =
         showLogsOnFailure "NodeSpec" $ \tracer ->
-          withTempDir "persistence-dir" $ \tmpDir -> do
+          withTempDir "node-spec" $ \tmpDir -> do
             let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0} tmpDir
             action testHydrate
 
@@ -222,7 +222,7 @@ spec = parallel $ do
 
         getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing Nothing]
 
-    it "processes out-of-order AckSn" $
+    it "processes out-of-order AckSn" $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let snapshot = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
             sigBob = sign bobSk snapshot
