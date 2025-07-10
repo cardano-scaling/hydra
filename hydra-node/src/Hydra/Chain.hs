@@ -161,6 +161,7 @@ data OnChainTx tx
 deriving stock instance IsTx tx => Eq (OnChainTx tx)
 deriving stock instance IsTx tx => Show (OnChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
+deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
 instance ArbitraryIsTx tx => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
@@ -310,6 +311,7 @@ data ChainEvent tx
 deriving stock instance (IsTx tx, IsChainState tx) => Eq (ChainEvent tx)
 deriving stock instance (IsTx tx, IsChainState tx) => Show (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
+deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
 
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ChainEvent tx) where
   arbitrary = genericArbitrary

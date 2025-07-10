@@ -18,10 +18,10 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Class.MonadAsync (async)
 import Hydra.PersistentQueue (
   PersistentQueue (..),
-  newPersistentQueue,
+  newPersistentQueueJson,
   peekPersistentQueue,
   popPersistentQueue,
-  writePersistentQueue,
+  writePersistentQueueJson,
  )
 import System.FilePath ((</>))
 
@@ -82,19 +82,20 @@ createPersistentInputQueue ::
   , MonadCatch m
   , MonadFail m
   , Eq e
-  , ToCBOR e
-  , FromCBOR e
+  , ToJSON e
+  , FromJSON e
   ) =>
   FilePath ->
+  Natural ->
   m (InputQueue m e)
-createPersistentInputQueue persistenceDir = do
-  q <- newPersistentQueue (persistenceDir </> "input-queue") 1000
+createPersistentInputQueue persistenceDir capacity = do
+  q <- newPersistentQueueJson (persistenceDir </> "input-queue") capacity
   pure
     InputQueue
-      { enqueue = writePersistentQueue q
+      { enqueue = writePersistentQueueJson q
       , reenqueue = \delay e -> do
           threadDelay delay
-          writePersistentQueue q (queuedItem e)
+          writePersistentQueueJson q (queuedItem e)
       , dequeue = do
           (n, item) <- peekPersistentQueue q
           pure $ Queued{queuedId = fromIntegral n, queuedItem = item}

@@ -26,12 +26,6 @@ deriving anyclass instance IsTx tx => FromJSON (ClientInput tx)
 deriving anyclass instance IsTx tx => ToCBOR (ClientInput tx)
 deriving anyclass instance IsTx tx => FromCBOR (ClientInput tx)
 
-instance IsTx tx => ToCBOR (ClientInput tx) where
-  toCBOR = toCBOR
-
-instance IsTx tx => FromCBOR (ClientInput tx) where
-  fromCBOR = fromCBOR
-
 instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
 
