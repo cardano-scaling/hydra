@@ -113,6 +113,17 @@ instance IsTx tx => FromJSON (Snapshot tx) where
               (Just utxo) -> pure utxo
           )
 
+instance IsTx tx => ToCBOR (Snapshot tx) where
+  toCBOR Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit} =
+    toCBOR ("Snapshot" :: Text) <> toCBOR headId <> toCBOR version <> toCBOR number <> foldMap toCBOR confirmed <> toCBOR utxo <> toCBOR utxoToCommit <> toCBOR utxoToDecommit
+
+instance IsTx tx => FromCBOR (Snapshot tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+     ("Snapshot" :: Text) -> Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+     msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
+
+
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
@@ -162,6 +173,20 @@ getSnapshot = \case
       , utxoToDecommit = Nothing
       }
   ConfirmedSnapshot{snapshot} -> snapshot
+
+instance IsTx tx => ToCBOR (ConfirmedSnapshot tx) where
+  toCBOR =
+    \case
+      InitialSnapshot headId initialUTxO -> toCBOR ("InitialSnapshot" :: Text) <> toCBOR headId <> toCBOR initialUTxO
+      ConfirmedSnapshot snapshot sigs -> toCBOR ("ConfirmedSnapshot" :: Text) <> toCBOR snapshot <> toCBOR sigs
+
+instance IsTx tx => FromCBOR (ConfirmedSnapshot tx) where
+  fromCBOR = do
+    fromCBOR >>= \case
+      ("InitialSnapshot" :: Text) -> InitialSnapshot <$> fromCBOR <*> fromCBOR
+      ("ConfirmedSnapshot" :: Text) -> ConfirmedSnapshot <$> fromCBOR <*> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
+
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
