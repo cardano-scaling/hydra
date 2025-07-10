@@ -12,9 +12,9 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
  )
 import Control.Exception (IOException)
-import Data.Aeson (encode, eitherDecode')
+import Data.Aeson (eitherDecode', encode)
 import Data.List qualified as List
-import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
+import System.Directory (createDirectoryIfMissing, doesPathExist, listDirectory, removeFile)
 import System.FilePath ((</>))
 import UnliftIO.IO.File (writeBinaryFileDurable)
 
@@ -98,15 +98,6 @@ writeDurablePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
   writeBinaryFileDurable (directory </> show next) $ serialize' item
   atomically $ writeTBQueue queue (next, item)
 
--- | Write a value to the queue, blocking if the queue is full.
-writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
-writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
-  next <- atomically $ do
-    next <- readTVar nextIx
-    modifyTVar' nextIx (+ 1)
-    pure next
-  writeFileBS (directory </> show next) $ serialize' item
-  atomically $ writeTBQueue queue (next, item)
 
 -- | Write a value to the queue, blocking if the queue is full.
 writePersistentQueueJson :: (ToJSON a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
@@ -115,7 +106,10 @@ writePersistentQueueJson PersistentQueue{queue, nextIx, directory} item = do
     next <- readTVar nextIx
     modifyTVar' nextIx (+ 1)
     pure next
-  writeFileBS (directory </> show next) $ toStrict (encode item)
+
+  liftIO $ createDirectoryIfMissing True directory
+  writeFileBS (directory </> show next) $
+    toStrict (encode item)
   atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the
@@ -136,4 +130,8 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
   case popped of
     Nothing -> pure ()
     Just index -> do
-      liftIO . removeFile $ directory </> show index
+      let path = directory </> show index
+      fileExists <- liftIO $ doesPathExist path
+      when fileExists $
+        liftIO $
+          removeFile path
