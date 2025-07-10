@@ -98,7 +98,6 @@ writeDurablePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
   writeBinaryFileDurable (directory </> show next) $ serialize' item
   atomically $ writeTBQueue queue (next, item)
 
-
 -- | Write a value to the queue, blocking if the queue is full.
 writePersistentQueueJson :: (ToJSON a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
 writePersistentQueueJson PersistentQueue{queue, nextIx, directory} item = do
