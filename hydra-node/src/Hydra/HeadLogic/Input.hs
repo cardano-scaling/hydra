@@ -32,6 +32,20 @@ deriving stock instance IsChainState tx => Show (Input tx)
 deriving anyclass instance IsChainState tx => ToJSON (Input tx)
 deriving anyclass instance IsChainState tx => FromJSON (Input tx)
 
+instance IsChainState tx => ToCBOR (Input tx) where
+  toCBOR = \case
+    ClientInput input -> toCBOR ("ClientInput" :: Text) <> toCBOR input
+    NetworkInput ttl networkEvent -> toCBOR ("NetworkInput" :: Text) <> toCBOR ttl <> toCBOR networkEvent
+    ChainInput chainEvent -> toCBOR ("ChainInput" :: Text) <> toCBOR chainEvent
+
+instance IsChainState tx => FromCBOR (Input tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ClientInput" :: Text) -> ClientInput <$> fromCBOR
+      "NetworkInput" -> NetworkInput <$> fromCBOR <*> fromCBOR
+      "ChainInput" -> ChainInput <$> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
+
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Input tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink
