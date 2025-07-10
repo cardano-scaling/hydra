@@ -1,22 +1,22 @@
 {
     "samples": [
         {
-            "tag": "SubmitHydraTxSubmitted"
+            "tag": "SubmitTxSubmitted"
         },
         {
-            "tag": "SubmitHydraTxInvalid",
+            "tag": "SubmitTxInvalid",
             "validationError": ""
         },
         {
-            "tag": "SubmitHydraTxInvalid",
+            "tag": "SubmitTxInvalid",
             "validationError": "\u0001)e"
         },
         {
-            "tag": "SubmitHydraTxInvalid",
+            "tag": "SubmitTxInvalid",
             "validationError": "=\u000e􂨤p"
         },
         {
-            "tag": "SubmitHydraTxSubmitted"
+            "tag": "SubmitTxSubmitted"
         }
     ],
     "seed": -1369626537

@@ -39,6 +39,7 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
+import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Hydra.Tx.HeadId (HeadSeed)
@@ -197,7 +198,7 @@ data RunOptions = RunOptions
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   , whichEtcd :: WhichEtcd
-  , apiTransactionTimeout :: NominalDiffTime
+  , apiTransactionTimeout :: ApiTransactionTimeout
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -750,14 +751,18 @@ monitoringPortParser =
           \empty, monitoring server is not started."
     )
 
-apiTransactionTimeoutParser :: Parser NominalDiffTime
+defaultApiTransactionTimeout :: ApiTransactionTimeout
+defaultApiTransactionTimeout = ApiTransactionTimeout 300
+
+apiTransactionTimeoutParser :: Parser ApiTransactionTimeout
 apiTransactionTimeoutParser =
   option
-    auto
+    (ApiTransactionTimeout <$> auto)
     ( long "api-transaction-timeout"
         <> metavar "SECONDS"
-        <> value 300
+        <> value defaultApiTransactionTimeout
         <> showDefault
+        <> completer (listCompleter ["3600", "7200", "43200"])
         <> help
           "Timeout for API transactions in seconds. If a transaction \
           \takes longer than this, it will be cancelled."

@@ -367,7 +367,7 @@ channels:
           $ref: "api.yaml#/components/schemas/Transaction"
       bindings:
         http:
-          type: response
+          type: request
           method: POST
           bindingVersion: '0.1.0'
     subscribe:
@@ -390,7 +390,7 @@ channels:
             $ref: "api.yaml#/components/schemas/PostTxError"
       bindings:
         http:
-          type: request
+          type: response
           method: POST
           bindingVersion: '0.1.0'
 
@@ -401,7 +401,7 @@ channels:
       operationId: submitHydraTxRequest
       message:
         summary: |
-          Hydra transaction to be submitted to the head.
+          A transaction to be submitted to the head.
           Accepts transactions encoded as Base16 CBOR string, TextEnvelope type or JSON.
         payload:
           $ref: "api.yaml#/components/schemas/Transaction"
@@ -414,7 +414,7 @@ channels:
       operationId: submitHydraTxResponse
       message:
         oneOf:
-        - name: SubmitHydraTxConfirmed
+        - name: SubmitTxConfirmed
           summary: 200 OK
           description: Transaction was included in a confirmed snapshot.
           payload:
@@ -423,11 +423,11 @@ channels:
             properties:
               tag:
                 type: string
-                enum: ["SubmitHydraTxConfirmed"]
+                enum: ["SubmitTxConfirmed"]
               snapshotNumber:
                 type: integer
                 minimum: 0
-        - name: SubmitHydraTxInvalid
+        - name: SubmitTxInvalid
           summary: 400 Bad Request
           description: Transaction was rejected due to validation errors.
           payload:
@@ -436,10 +436,10 @@ channels:
             properties:
               tag:
                 type: string
-                enum: ["SubmitHydraTxInvalid"]
+                enum: ["SubmitTxInvalid"]
               validationError:
                 type: string
-        - name: SubmitHydraTxSubmitted
+        - name: SubmitTxSubmitted
           summary: 202 Accepted
           description: Transaction was accepted but not yet confirmed.
           payload:
@@ -448,7 +448,7 @@ channels:
             properties:
               tag:
                 type: string
-                enum: ["SubmitHydraTxSubmitted"]
+                enum: ["SubmitTxSubmitted"]
       bindings:
         http:
           type: response
@@ -3326,7 +3326,7 @@ components:
 
     SubmitHydraTxResponse:
       oneOf:
-        - title: SubmitHydraTxConfirmed
+        - title: SubmitTxConfirmed
           type: object
           additionalProperties: false
           required:
@@ -3335,11 +3335,11 @@ components:
           properties:
             tag:
               type: string
-              enum: ["SubmitHydraTxConfirmed"]
+              enum: ["SubmitTxConfirmed"]
             snapshotNumber:
               type: integer
               minimum: 0
-        - title: SubmitHydraTxInvalid
+        - title: SubmitTxInvalid
           type: object
           additionalProperties: false
           required:
@@ -3348,10 +3348,10 @@ components:
           properties:
             tag:
               type: string
-              enum: ["SubmitHydraTxInvalid"]
+              enum: ["SubmitTxInvalid"]
             validationError:
               type: string
-        - title: SubmitHydraTxSubmitted
+        - title: SubmitTxSubmitted
           type: object
           additionalProperties: false
           required:
@@ -3359,7 +3359,7 @@ components:
           properties:
             tag:
               type: string
-              enum: ["SubmitHydraTxSubmitted"]
+              enum: ["SubmitTxSubmitted"]
 
     DepositStatus:
       oneOf:

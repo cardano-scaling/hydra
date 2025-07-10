@@ -21,6 +21,7 @@ import Hydra.Chain.Direct.State ()
 import Hydra.HeadLogic.State (HeadState (..))
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
@@ -124,45 +125,45 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (SideLoad
   shrink = \case
     SideLoadSnapshotRequest snapshot -> SideLoadSnapshotRequest <$> shrink snapshot
 
--- | Request to submit a Hydra transaction to the head
+-- | Request to submit a transaction to the head
 newtype SubmitHydraTxRequest tx = SubmitHydraTxRequest
   { submitHydraTx :: tx
   }
   deriving newtype (Eq, Show, Arbitrary)
   deriving newtype (ToJSON, FromJSON)
 
--- | Response for Hydra transaction submission
+-- | Response for transaction submission
 data SubmitHydraTxResponse
   = -- | Transaction was included in a confirmed snapshot
-    SubmitHydraTxConfirmed Integer
+    SubmitTxConfirmed Integer
   | -- | Transaction was rejected due to validation errors
-    SubmitHydraTxInvalidResponse Text
+    SubmitTxInvalidResponse Text
   | -- | Transaction was accepted but not yet confirmed
-    SubmitHydraTxSubmitted
+    SubmitTxSubmitted
   deriving stock (Eq, Show, Generic)
 
 instance ToJSON SubmitHydraTxResponse where
   toJSON = \case
-    SubmitHydraTxConfirmed snapshotNumber ->
+    SubmitTxConfirmed snapshotNumber ->
       object
-        [ "tag" .= Aeson.String "SubmitHydraTxConfirmed"
+        [ "tag" .= Aeson.String "SubmitTxConfirmed"
         , "snapshotNumber" .= snapshotNumber
         ]
-    SubmitHydraTxInvalidResponse validationError ->
+    SubmitTxInvalidResponse validationError ->
       object
-        [ "tag" .= Aeson.String "SubmitHydraTxInvalid"
+        [ "tag" .= Aeson.String "SubmitTxInvalid"
         , "validationError" .= validationError
         ]
-    SubmitHydraTxSubmitted -> object ["tag" .= Aeson.String "SubmitHydraTxSubmitted"]
+    SubmitTxSubmitted -> object ["tag" .= Aeson.String "SubmitTxSubmitted"]
 
 instance FromJSON SubmitHydraTxResponse where
-  parseJSON = withObject "SubmitHydraTxResponse" $ \o -> do
+  parseJSON = withObject "SubmitTxResponse" $ \o -> do
     tag <- o .: "tag"
     case tag :: Text of
-      "SubmitHydraTxConfirmed" -> SubmitHydraTxConfirmed <$> o .: "snapshotNumber"
-      "SubmitHydraTxInvalid" -> SubmitHydraTxInvalidResponse <$> o .: "validationError"
-      "SubmitHydraTxSubmitted" -> pure SubmitHydraTxSubmitted
-      _ -> fail "Expected tag to be SubmitHydraTxConfirmed, SubmitHydraTxInvalid, or SubmitHydraTxSubmitted"
+      "SubmitTxConfirmed" -> SubmitTxConfirmed <$> o .: "snapshotNumber"
+      "SubmitTxInvalid" -> SubmitTxInvalidResponse <$> o .: "validationError"
+      "SubmitTxSubmitted" -> pure SubmitTxSubmitted
+      _ -> fail "Expected tag to be SubmitTxConfirmed, SubmitTxInvalid, or SubmitTxSubmitted"
 
 instance Arbitrary SubmitHydraTxResponse where
   arbitrary = genericArbitrary
@@ -187,7 +188,7 @@ httpApp ::
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
   -- | Timeout for transaction submission
-  NominalDiffTime ->
+  ApiTransactionTimeout ->
   -- | Channel to listen for events
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   Application
@@ -377,7 +378,7 @@ handleSubmitHydraTx ::
   forall tx.
   IsChainState tx =>
   (ClientInput tx -> IO ()) ->
-  NominalDiffTime ->
+  ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   LBS.ByteString ->
   IO Response
@@ -390,15 +391,18 @@ handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel body = 
       putClientInput (NewTx submitHydraTx)
 
       let txid = txId submitHydraTx
-      result <- timeout (realToFrac apiTransactionTimeout) (waitForTransactionResult txid)
+      result <-
+        timeout
+          (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout))
+          (waitForTransactionResult txid)
 
       case result of
-        Just (SubmitHydraTxConfirmed snapshotNumber) ->
-          pure $ responseLBS status200 jsonContent (Aeson.encode $ SubmitHydraTxConfirmed snapshotNumber)
-        Just (SubmitHydraTxInvalidResponse validationError) ->
-          pure $ responseLBS status400 jsonContent (Aeson.encode $ SubmitHydraTxInvalidResponse validationError)
-        Just SubmitHydraTxSubmitted ->
-          pure $ responseLBS status202 jsonContent (Aeson.encode SubmitHydraTxSubmitted)
+        Just (SubmitTxConfirmed snapshotNumber) ->
+          pure $ responseLBS status200 jsonContent (Aeson.encode $ SubmitTxConfirmed snapshotNumber)
+        Just (SubmitTxInvalidResponse validationError) ->
+          pure $ responseLBS status400 jsonContent (Aeson.encode $ SubmitTxInvalidResponse validationError)
+        Just SubmitTxSubmitted ->
+          pure $ responseLBS status202 jsonContent (Aeson.encode SubmitTxSubmitted)
         Nothing ->
           -- Timeout occurred - return 202 Accepted with timeout info
           pure $
@@ -407,15 +411,14 @@ handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel body = 
               jsonContent
               ( Aeson.encode $
                   object
-                    [ "tag" .= Aeson.String "SubmitHydraTxSubmitted"
+                    [ "tag" .= Aeson.String "SubmitTxSubmitted"
                     , "timeout" .= Aeson.String ("Transaction submission timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
                     ]
               )
  where
   --  Wait for transaction result by listening to events
   waitForTransactionResult :: TxIdType tx -> IO SubmitHydraTxResponse
-  waitForTransactionResult txid = do
-    go
+  waitForTransactionResult txid = go
    where
     go = do
       event <- atomically $ readTChan responseChannel
@@ -423,14 +426,14 @@ handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel body = 
         Left (TimedServerOutput{output}) -> case output of
           TxValid{transactionId}
             | transactionId == txid ->
-                pure SubmitHydraTxSubmitted
+                pure SubmitTxSubmitted
           TxInvalid{transaction, validationError = ValidationError reason}
             | txId transaction == txid ->
-                pure $ SubmitHydraTxInvalidResponse reason
+                pure $ SubmitTxInvalidResponse reason
           SnapshotConfirmed{snapshot} ->
             -- Check if the transaction is in the confirmed snapshot
             if txid `elem` map txId (confirmed snapshot)
-              then pure $ SubmitHydraTxConfirmed (fromIntegral $ number snapshot)
+              then pure $ SubmitTxConfirmed (fromIntegral $ number snapshot)
               else go
           _ -> go
         Right _ -> go
