@@ -12,6 +12,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
  )
 import Control.Exception (IOException)
+import Data.Aeson (encode, eitherDecode')
 import Data.List qualified as List
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
@@ -56,6 +57,37 @@ newPersistentQueue path capacity = do
               atomically $ writeTBQueue queue (idx, item)
         pure $ List.last idxs
 
+-- | Create a new persistent queue at file path and given capacity.
+newPersistentQueueJson ::
+  (MonadSTM m, MonadIO m, FromJSON a, MonadCatch m, MonadFail m) =>
+  FilePath ->
+  Natural ->
+  m (PersistentQueue m a)
+newPersistentQueueJson path capacity = do
+  queue <- newTBQueueIO capacity
+  highestId <-
+    try (loadExisting queue) >>= \case
+      Left (_ :: IOException) -> do
+        liftIO $ createDirectoryIfMissing True path
+        pure 0
+      Right highest -> pure highest
+  nextIx <- newTVarIO $ highestId + 1
+  pure PersistentQueue{queue, nextIx, directory = path}
+ where
+  loadExisting queue = do
+    paths <- liftIO $ listDirectory path
+    case sort $ mapMaybe readMaybe paths of
+      [] -> pure 0
+      idxs -> do
+        forM_ idxs $ \(idx :: Natural) -> do
+          bs <- readFileLBS (path </> show idx)
+          case eitherDecode' bs of
+            Left err ->
+              fail $ "Failed to decode item: " <> show err
+            Right item ->
+              atomically $ writeTBQueue queue (idx, item)
+        pure $ List.last idxs
+
 -- | Write a value to the queue, blocking if the queue is full.
 writeDurablePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
 writeDurablePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
@@ -74,6 +106,16 @@ writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
     modifyTVar' nextIx (+ 1)
     pure next
   writeFileBS (directory </> show next) $ serialize' item
+  atomically $ writeTBQueue queue (next, item)
+
+-- | Write a value to the queue, blocking if the queue is full.
+writePersistentQueueJson :: (ToJSON a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
+writePersistentQueueJson PersistentQueue{queue, nextIx, directory} item = do
+  next <- atomically $ do
+    next <- readTVar nextIx
+    modifyTVar' nextIx (+ 1)
+    pure next
+  writeFileBS (directory </> show next) $ toStrict (encode item)
   atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the
