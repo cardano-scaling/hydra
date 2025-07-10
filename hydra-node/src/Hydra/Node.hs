@@ -311,19 +311,15 @@ stepHydraNode node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
   case queuedItem of
-    NetworkInput{networkEvent} ->
-      case networkEvent of
-        ReceivedMessage{msg} -> do
-          let debugOutput =
-                ServerOutput.DebugOutput
-                  { kind = "BeginInput"
-                  , by = party
-                  , inputId = queuedId
-                  , msg
-                  }
-          processEffects node tracer queuedId [ClientEffect debugOutput]
-        _ ->
-          pure ()
+    NetworkInput{networkEvent = ReceivedMessage{msg}} -> do
+      let debugOutput =
+            ServerOutput.DebugOutput
+              { kind = "BeginInput"
+              , by = party
+              , inputId = queuedId
+              , msg
+              }
+      processEffects node tracer queuedId [ClientEffect debugOutput]
     _ ->
       pure ()
   outcome <- atomically $ processNextInput node queuedItem
@@ -338,19 +334,15 @@ stepHydraNode node = do
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
   case queuedItem of
-    NetworkInput{networkEvent} ->
-      case networkEvent of
-        ReceivedMessage{msg} -> do
-          let debugOutput =
-                ServerOutput.DebugOutput
-                  { kind = "EndInput"
-                  , by = party
-                  , inputId = queuedId
-                  , msg
-                  }
-          processEffects node tracer queuedId [ClientEffect debugOutput]
-        _ ->
-          pure ()
+    NetworkInput{networkEvent = ReceivedMessage{msg}} -> do
+      let debugOutput =
+            ServerOutput.DebugOutput
+              { kind = "EndInput"
+              , by = party
+              , inputId = queuedId
+              , msg
+              }
+      processEffects node tracer queuedId [ClientEffect debugOutput]
     _ ->
       pure ()
  where
