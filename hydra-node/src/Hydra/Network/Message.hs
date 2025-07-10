@@ -24,6 +24,7 @@ data NetworkEvent msg
   | ReceivedMessage {sender :: Party, msg :: msg}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+  deriving anyclass (FromJSON)
 
 instance Arbitrary msg => Arbitrary (NetworkEvent msg) where
   arbitrary = genericArbitrary
