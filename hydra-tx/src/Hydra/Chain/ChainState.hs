@@ -20,6 +20,8 @@ class
   , FromJSON (ChainStateType tx)
   , ToJSON (ChainStateType tx)
   , Arbitrary (ChainStateType tx)
+  , ToCBOR (ChainStateType tx)
+  , FromCBOR (ChainStateType tx)
   ) =>
   IsChainState tx
   where
@@ -30,3 +32,14 @@ class
   -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: ChainStateType tx -> ChainSlot
+
+
+instance ToCBOR ChainSlot where
+  toCBOR = \case
+    ChainSlot n -> toCBOR ("ChainSlot" :: Text) <> toCBOR n
+
+instance FromCBOR ChainSlot where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ChainSlot" :: Text) -> ChainSlot <$> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
