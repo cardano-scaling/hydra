@@ -5,7 +5,7 @@ module Hydra.API.HTTPServer where
 import Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
-import Control.Concurrent.STM (TChan, readTChan)
+import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Data.Aeson (KeyValue ((.=)), object, withObject, (.:))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as LBS
@@ -387,6 +387,9 @@ handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel body = 
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right SubmitHydraTxRequest{submitHydraTx} -> do
+      -- Duplicate the channel to avoid consuming messages from other consumers.
+      dupChannel <- atomically $ dupTChan responseChannel
+
       -- Submit the transaction to the head
       putClientInput (NewTx submitHydraTx)
 
@@ -394,7 +397,7 @@ handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel body = 
       result <-
         timeout
           (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout))
-          (waitForTransactionResult txid)
+          (waitForTransactionResult dupChannel txid)
 
       case result of
         Just (SubmitTxConfirmed snapshotNumber) ->
@@ -417,11 +420,11 @@ handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel body = 
               )
  where
   --  Wait for transaction result by listening to events
-  waitForTransactionResult :: TxIdType tx -> IO SubmitHydraTxResponse
-  waitForTransactionResult txid = go
+  waitForTransactionResult :: TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> TxIdType tx -> IO SubmitHydraTxResponse
+  waitForTransactionResult dupChannel txid = go
    where
     go = do
-      event <- atomically $ readTChan responseChannel
+      event <- atomically $ readTChan dupChannel
       case event of
         Left (TimedServerOutput{output}) -> case output of
           TxValid{transactionId}

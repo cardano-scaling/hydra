@@ -210,9 +210,8 @@ apiServerSpec = do
         getPendingDeposits = pure []
         putClientInput = const (pure ())
         getHeadState = pure inIdleState
-    responseChannelSimple <- runIO newTChanIO
-    responseChannel <- runIO newTChanIO
     describe "GET /protocol-parameters" $ do
+      responseChannel <- runIO newTChanIO
       with
         ( return $
             httpApp @SimpleTx
@@ -244,6 +243,7 @@ apiServerSpec = do
                 }
 
     describe "GET /head" $ do
+      responseChannel <- runIO newTChanIO
       prop "responds correctly" $ \headState -> do
         withApplication
           ( httpApp @SimpleTx
@@ -261,6 +261,7 @@ apiServerSpec = do
           $ do
             get "/head"
               `shouldRespondWith` 200{matchBody = matchJSON headState}
+      responseChannelSimpleTx <- runIO newTChanIO
       prop "ok response matches schema" $ \headState -> do
         let isIdle = case headState of
               Idle{} -> True
@@ -292,7 +293,7 @@ apiServerSpec = do
                   getPendingDeposits
                   putClientInput
                   300
-                  responseChannelSimple
+                  responseChannelSimpleTx
               )
               $ do
                 get "/head"
@@ -303,6 +304,7 @@ apiServerSpec = do
                           (key "channels" . key "/head" . key "subscribe" . key "message")
                     }
     describe "GET /snapshot/last-seen" $ do
+      responseChannel <- runIO newTChanIO
       prop "responds correctly" $ \headState -> do
         let seenSnapshot :: SeenSnapshot SimpleTx = getSeenSnapshot headState
         withApplication
@@ -322,6 +324,7 @@ apiServerSpec = do
             get "/snapshot/last-seen"
               `shouldRespondWith` 200{matchBody = matchJSON seenSnapshot}
     describe "GET /snapshot" $ do
+      responseChannel <- runIO newTChanIO
       prop "responds correctly" $ \headState -> do
         let confirmedSnapshot :: Maybe (ConfirmedSnapshot SimpleTx) = getConfirmedSnapshot headState
         withApplication
@@ -342,7 +345,8 @@ apiServerSpec = do
               `shouldRespondWith` case confirmedSnapshot of
                 Nothing -> 404
                 Just confirmedSn -> 200{matchBody = matchJSON confirmedSn}
-      prop "ok response matches schema" $ \(closedState :: ClosedState tx) ->
+      responseChannelSimpleTx <- runIO newTChanIO
+      prop "ok response matches schema" $ \(closedState :: ClosedState tx) -> do
         withMaxSuccess 4
           . withJsonSpecifications
           $ \schemaDir -> do
@@ -357,7 +361,7 @@ apiServerSpec = do
                   getPendingDeposits
                   putClientInput
                   300
-                  responseChannelSimple
+                  responseChannelSimpleTx
               )
               $ do
                 get "/snapshot"
@@ -369,6 +373,7 @@ apiServerSpec = do
                     }
 
     describe "POST /snapshot" $ do
+      responseChannel <- runIO newTChanIO
       prop "responds on valid requests" $ \(request :: SideLoadSnapshotRequest Tx, headState) -> do
         withMaxSuccess 10
           . withApplication
@@ -382,13 +387,14 @@ apiServerSpec = do
                 getPendingDeposits
                 putClientInput
                 300
-                responseChannelSimple
+                responseChannel
             )
           $ do
             post "/snapshot" (Aeson.encode request)
             `shouldRespondWith` 200
 
     describe "GET /snapshot/utxo" $ do
+      responseChannel <- runIO newTChanIO
       prop "responds correctly" $ \headState -> do
         let utxo :: Maybe (UTxOType SimpleTx) = getSnapshotUtxo headState
         withApplication
@@ -409,6 +415,7 @@ apiServerSpec = do
               `shouldRespondWith` case utxo of
                 Nothing -> 404
                 Just u -> 200{matchBody = matchJSON u}
+      responseChannelSimpleTx <- runIO newTChanIO
       prop "ok response matches schema" $ \headState -> do
         let mUTxO = getSnapshotUtxo headState
             utxo :: UTxOType Tx = fromMaybe mempty mUTxO
@@ -428,7 +435,7 @@ apiServerSpec = do
                   getPendingDeposits
                   putClientInput
                   300
-                  responseChannelSimple
+                  responseChannelSimpleTx
               )
               $ do
                 get "/snapshot/utxo"
@@ -466,7 +473,7 @@ apiServerSpec = do
                 getPendingDeposits
                 putClientInput
                 300
-                responseChannelSimple
+                responseChannelSimpleTx
             )
             $ do
               get "/snapshot/utxo"
@@ -487,6 +494,7 @@ apiServerSpec = do
               }
       let initialHeadState = Initial (generateWith arbitrary 42)
       let openHeadState = Open (generateWith arbitrary 42)
+      responseChannel <- runIO newTChanIO
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
         withApplication
           ( httpApp
@@ -499,7 +507,7 @@ apiServerSpec = do
               getPendingDeposits
               putClientInput
               300
-              responseChannelSimple
+              responseChannel
           )
           $ do
             post "/commit" (Aeson.encode request)
@@ -542,7 +550,7 @@ apiServerSpec = do
                 getPendingDeposits
                 putClientInput
                 300
-                responseChannelSimple
+                responseChannel
             )
           $ do
             post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
@@ -560,6 +568,7 @@ apiServerSpec = do
       now <- runIO getCurrentTime
 
       prop "returns 202 Accepted on timeout" $ do
+        responseChannel <- newTChanIO
         withApplication
           ( httpApp @SimpleTx
               nullTracer
@@ -577,6 +586,7 @@ apiServerSpec = do
             post "/transaction" (mkReq testTx) `shouldRespondWith` 202
 
       prop "returns 200 OK on confirmed snapshot" $ do
+        responseChannel <- newTChanIO
         let snapshot =
               Snapshot
                 { headId = testHeadId
@@ -593,7 +603,6 @@ apiServerSpec = do
                 , seq = 0
                 , time = now
                 }
-        _ <- atomically $ writeTChan responseChannel (Left event)
         withApplication
           ( httpApp @SimpleTx
               nullTracer
@@ -603,7 +612,7 @@ apiServerSpec = do
               (pure inIdleState)
               (pure CannotCommit)
               (pure [])
-              (const $ pure ())
+              (const $ atomically $ writeTChan responseChannel (Left event))
               10
               responseChannel
           )
@@ -611,6 +620,7 @@ apiServerSpec = do
             post "/transaction" (mkReq testTx) `shouldRespondWith` 200
 
       prop "returns 400 Bad Request on invalid tx" $ do
+        responseChannel <- newTChanIO
         let validationError = ValidationError "some error"
             event =
               TimedServerOutput
@@ -624,7 +634,6 @@ apiServerSpec = do
                 , seq = 0
                 , time = now
                 }
-        _ <- atomically $ writeTChan responseChannel (Left event)
         withApplication
           ( httpApp @SimpleTx
               nullTracer
@@ -634,7 +643,7 @@ apiServerSpec = do
               (pure inIdleState)
               (pure CannotCommit)
               (pure [])
-              (const $ pure ())
+              (const $ atomically $ writeTChan responseChannel (Left event))
               10
               responseChannel
           )
