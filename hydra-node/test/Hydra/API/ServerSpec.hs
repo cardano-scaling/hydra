@@ -327,6 +327,7 @@ spec =
                     , port
                     , tlsCertPath = Just "test/tls/certificate.pem"
                     , tlsKeyPath = Just "test/tls/key.pem"
+                    , apiTransactionTimeout = 1000000
                     }
             withAPIServer @SimpleTx config testEnvironment alice (mockSource []) tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
@@ -401,7 +402,7 @@ withTestAPIServer ::
 withTestAPIServer port actor eventSource tracer action = do
   withAPIServer @SimpleTx config testEnvironment actor eventSource tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
  where
-  config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing}
+  config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
 
 -- | Connect to a websocket server running at given path. Fails if not connected
 -- within 2 seconds.

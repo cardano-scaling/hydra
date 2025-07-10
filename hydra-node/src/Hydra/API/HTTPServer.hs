@@ -5,6 +5,7 @@ module Hydra.API.HTTPServer where
 import Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
+import Control.Concurrent.STM (TChan, readTChan)
 import Data.Aeson (KeyValue ((.=)), object, withObject, (.:))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as LBS
@@ -12,37 +13,19 @@ import Data.ByteString.Short ()
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (CommitInfo (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
-import Hydra.Cardano.Api (
-  LedgerEra,
-  Tx,
- )
+import Hydra.API.ServerOutput (ClientMessage, CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
+import Hydra.Cardano.Api (LedgerEra, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
-import Hydra.Chain.ChainState (
-  IsChainState,
- )
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic.State (
-  HeadState (..),
- )
+import Hydra.HeadLogic.State (HeadState (..))
+import Hydra.Ledger (ValidationError (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Tx (
-  CommitBlueprintTx (..),
-  ConfirmedSnapshot,
-  IsTx (..),
-  UTxOType,
- )
-import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status400, status404, status500)
-import Network.Wai (
-  Application,
-  Request (pathInfo, requestMethod),
-  Response,
-  consumeRequestBodyStrict,
-  rawPathInfo,
-  responseLBS,
- )
+import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
+import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500)
+import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx
@@ -141,6 +124,49 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (SideLoad
   shrink = \case
     SideLoadSnapshotRequest snapshot -> SideLoadSnapshotRequest <$> shrink snapshot
 
+-- | Request to submit a Hydra transaction to the head
+newtype SubmitHydraTxRequest tx = SubmitHydraTxRequest
+  { submitHydraTx :: tx
+  }
+  deriving newtype (Eq, Show, Arbitrary)
+  deriving newtype (ToJSON, FromJSON)
+
+-- | Response for Hydra transaction submission
+data SubmitHydraTxResponse
+  = -- | Transaction was included in a confirmed snapshot
+    SubmitHydraTxConfirmed Integer
+  | -- | Transaction was rejected due to validation errors
+    SubmitHydraTxInvalidResponse Text
+  | -- | Transaction was accepted but not yet confirmed
+    SubmitHydraTxSubmitted
+  deriving stock (Eq, Show, Generic)
+
+instance ToJSON SubmitHydraTxResponse where
+  toJSON = \case
+    SubmitHydraTxConfirmed snapshotNumber ->
+      object
+        [ "tag" .= Aeson.String "SubmitHydraTxConfirmed"
+        , "snapshotNumber" .= snapshotNumber
+        ]
+    SubmitHydraTxInvalidResponse validationError ->
+      object
+        [ "tag" .= Aeson.String "SubmitHydraTxInvalid"
+        , "validationError" .= validationError
+        ]
+    SubmitHydraTxSubmitted -> object ["tag" .= Aeson.String "SubmitHydraTxSubmitted"]
+
+instance FromJSON SubmitHydraTxResponse where
+  parseJSON = withObject "SubmitHydraTxResponse" $ \o -> do
+    tag <- o .: "tag"
+    case tag :: Text of
+      "SubmitHydraTxConfirmed" -> SubmitHydraTxConfirmed <$> o .: "snapshotNumber"
+      "SubmitHydraTxInvalid" -> SubmitHydraTxInvalidResponse <$> o .: "validationError"
+      "SubmitHydraTxSubmitted" -> pure SubmitHydraTxSubmitted
+      _ -> fail "Expected tag to be SubmitHydraTxConfirmed, SubmitHydraTxInvalid, or SubmitHydraTxSubmitted"
+
+instance Arbitrary SubmitHydraTxResponse where
+  arbitrary = genericArbitrary
+
 jsonContent :: ResponseHeaders
 jsonContent = [(hContentType, "application/json")]
 
@@ -160,8 +186,12 @@ httpApp ::
   IO [TxIdType tx] ->
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
+  -- | Timeout for transaction submission
+  NominalDiffTime ->
+  -- | Channel to listen for events
+  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   Application
-httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDeposits putClientInput request respond = do
+httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -206,6 +236,10 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
     ("POST", ["cardano-transaction"]) ->
       consumeRequestBodyStrict request
         >>= handleSubmitUserTx directChain
+        >>= respond
+    ("POST", ["transaction"]) ->
+      consumeRequestBodyStrict request
+        >>= handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel
         >>= respond
     _ ->
       respond $ responseLBS status400 jsonContent . Aeson.encode $ Aeson.String "Resource not found"
@@ -337,6 +371,69 @@ handleSideLoadSnapshot putClientInput body = do
     Right SideLoadSnapshotRequest{snapshot} -> do
       putClientInput $ SideLoadSnapshot snapshot
       pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+
+-- | Handle request to submit a hydra transaction to the head.
+handleSubmitHydraTx ::
+  forall tx.
+  IsChainState tx =>
+  (ClientInput tx -> IO ()) ->
+  NominalDiffTime ->
+  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
+  LBS.ByteString ->
+  IO Response
+handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel body = do
+  case Aeson.eitherDecode' @(SubmitHydraTxRequest tx) body of
+    Left err ->
+      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
+    Right SubmitHydraTxRequest{submitHydraTx} -> do
+      -- Submit the transaction to the head
+      putClientInput (NewTx submitHydraTx)
+
+      let txid = txId submitHydraTx
+      result <- timeout (realToFrac apiTransactionTimeout) (waitForTransactionResult txid)
+
+      case result of
+        Just (SubmitHydraTxConfirmed snapshotNumber) ->
+          pure $ responseLBS status200 jsonContent (Aeson.encode $ SubmitHydraTxConfirmed snapshotNumber)
+        Just (SubmitHydraTxInvalidResponse validationError) ->
+          pure $ responseLBS status400 jsonContent (Aeson.encode $ SubmitHydraTxInvalidResponse validationError)
+        Just SubmitHydraTxSubmitted ->
+          pure $ responseLBS status202 jsonContent (Aeson.encode SubmitHydraTxSubmitted)
+        Nothing ->
+          -- Timeout occurred - return 202 Accepted with timeout info
+          pure $
+            responseLBS
+              status202
+              jsonContent
+              ( Aeson.encode $
+                  object
+                    [ "tag" .= Aeson.String "SubmitHydraTxSubmitted"
+                    , "timeout" .= Aeson.String ("Transaction submission timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
+                    ]
+              )
+ where
+  --  Wait for transaction result by listening to events
+  waitForTransactionResult :: TxIdType tx -> IO SubmitHydraTxResponse
+  waitForTransactionResult txid = do
+    go
+   where
+    go = do
+      event <- atomically $ readTChan responseChannel
+      case event of
+        Left (TimedServerOutput{output}) -> case output of
+          TxValid{transactionId}
+            | transactionId == txid ->
+                pure SubmitHydraTxSubmitted
+          TxInvalid{transaction, validationError = ValidationError reason}
+            | txId transaction == txid ->
+                pure $ SubmitHydraTxInvalidResponse reason
+          SnapshotConfirmed{snapshot} ->
+            -- Check if the transaction is in the confirmed snapshot
+            if txid `elem` map txId (confirmed snapshot)
+              then pure $ SubmitHydraTxConfirmed (fromIntegral $ number snapshot)
+              else go
+          _ -> go
+        Right _ -> go
 
 badRequest :: IsChainState tx => PostTxError tx -> Response
 badRequest = responseLBS status400 jsonContent . Aeson.encode . toJSON

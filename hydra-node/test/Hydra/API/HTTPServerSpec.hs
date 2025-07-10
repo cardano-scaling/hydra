@@ -4,6 +4,7 @@ import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Control.Concurrent.STM (newTChanIO, writeTChan)
 import Control.Lens ((^?))
 import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
 import Data.Aeson qualified as Aeson
@@ -13,11 +14,13 @@ import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   SideLoadSnapshotRequest (..),
+  SubmitHydraTxRequest (..),
+  SubmitHydraTxResponse (..),
   SubmitTxRequest (..),
   TransactionSubmitted,
   httpApp,
  )
-import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
+import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
   mkTxOutDatumInline,
@@ -30,8 +33,9 @@ import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
+import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer)
 import Hydra.Tx (ConfirmedSnapshot (..))
 import Hydra.Tx.IsTx (UTxOType)
@@ -63,6 +67,8 @@ spec = do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized TransactionSubmitted))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SideLoadSnapshotRequest Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (HeadState Tx)))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmitHydraTxResponse))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SubmitHydraTxRequest Tx)))
 
     prop "Validate /commit publish api schema" $
       prop_validateJSONSchema @(DraftCommitTxRequest Tx) "api.json" $
@@ -168,6 +174,20 @@ spec = do
           . key "subscribe"
           . key "message"
 
+    prop "Validate /transaction publish api schema" $
+      prop_validateJSONSchema @(SubmitHydraTxRequest Tx) "api.json" $
+        key "channels"
+          . key "/transaction"
+          . key "publish"
+          . key "message"
+          . key "payload"
+
+    prop "Validate /transaction subscribe api schema" $
+      prop_validateJSONSchema @SubmitHydraTxResponse "api.json" $
+        key "components"
+          . key "schemas"
+          . key "SubmitHydraTxResponse"
+
     apiServerSpec
     describe "SubmitTxRequest accepted tx formats" $ do
       prop "accepts json encoded transaction" $
@@ -190,6 +210,8 @@ apiServerSpec = do
         getPendingDeposits = pure []
         putClientInput = const (pure ())
         getHeadState = pure inIdleState
+    responseChannelSimple <- runIO newTChanIO
+    responseChannel <- runIO newTChanIO
     describe "GET /protocol-parameters" $ do
       with
         ( return $
@@ -202,6 +224,8 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              300
+              responseChannel
         )
         $ do
           it "matches schema" $
@@ -231,6 +255,8 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              300
+              responseChannel
           )
           $ do
             get "/head"
@@ -265,6 +291,8 @@ apiServerSpec = do
                   cantCommit
                   getPendingDeposits
                   putClientInput
+                  300
+                  responseChannelSimple
               )
               $ do
                 get "/head"
@@ -287,6 +315,8 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              300
+              responseChannel
           )
           $ do
             get "/snapshot/last-seen"
@@ -304,6 +334,8 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              300
+              responseChannel
           )
           $ do
             get "/snapshot"
@@ -324,6 +356,8 @@ apiServerSpec = do
                   cantCommit
                   getPendingDeposits
                   putClientInput
+                  300
+                  responseChannelSimple
               )
               $ do
                 get "/snapshot"
@@ -347,6 +381,8 @@ apiServerSpec = do
                 cantCommit
                 getPendingDeposits
                 putClientInput
+                300
+                responseChannelSimple
             )
           $ do
             post "/snapshot" (Aeson.encode request)
@@ -365,6 +401,8 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              300
+              responseChannel
           )
           $ do
             get "/snapshot/utxo"
@@ -389,6 +427,8 @@ apiServerSpec = do
                   cantCommit
                   getPendingDeposits
                   putClientInput
+                  300
+                  responseChannelSimple
               )
               $ do
                 get "/snapshot/utxo"
@@ -425,6 +465,8 @@ apiServerSpec = do
                 cantCommit
                 getPendingDeposits
                 putClientInput
+                300
+                responseChannelSimple
             )
             $ do
               get "/snapshot/utxo"
@@ -456,6 +498,8 @@ apiServerSpec = do
               getHeadId
               getPendingDeposits
               putClientInput
+              300
+              responseChannelSimple
           )
           $ do
             post "/commit" (Aeson.encode request)
@@ -497,6 +541,8 @@ apiServerSpec = do
                 getHeadId
                 getPendingDeposits
                 putClientInput
+                300
+                responseChannelSimple
             )
           $ do
             post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
@@ -506,6 +552,94 @@ apiServerSpec = do
                 CannotFindOwnInitial{} -> 400
                 DepositTooLow{} -> 400
                 _ -> 500
+
+    describe "POST /transaction" $ do
+      let mkReq tx = encode $ SubmitHydraTxRequest tx
+          testTx = SimpleTx 42 mempty mempty
+          testHeadId = generateWith arbitrary 42
+      now <- runIO getCurrentTime
+
+      prop "returns 202 Accepted on timeout" $ do
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ())
+              0
+              responseChannel
+          )
+          $ do
+            post "/transaction" (mkReq testTx) `shouldRespondWith` 202
+
+      prop "returns 200 OK on confirmed snapshot" $ do
+        let snapshot =
+              Snapshot
+                { headId = testHeadId
+                , version = 1
+                , number = 7
+                , confirmed = [testTx]
+                , utxo = mempty
+                , utxoToCommit = mempty
+                , utxoToDecommit = mempty
+                }
+            event =
+              TimedServerOutput
+                { output = SnapshotConfirmed{snapshot = snapshot, signatures = mempty, headId = testHeadId}
+                , seq = 0
+                , time = now
+                }
+        _ <- atomically $ writeTChan responseChannel (Left event)
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ())
+              10
+              responseChannel
+          )
+          $ do
+            post "/transaction" (mkReq testTx) `shouldRespondWith` 200
+
+      prop "returns 400 Bad Request on invalid tx" $ do
+        let validationError = ValidationError "some error"
+            event =
+              TimedServerOutput
+                { output =
+                    TxInvalid
+                      { headId = testHeadId
+                      , utxo = mempty
+                      , transaction = testTx
+                      , validationError = validationError
+                      }
+                , seq = 0
+                , time = now
+                }
+        _ <- atomically $ writeTChan responseChannel (Left event)
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ())
+              10
+              responseChannel
+          )
+          $ do
+            post "/transaction" (mkReq testTx) `shouldRespondWith` 400
 
 -- * Helpers
 

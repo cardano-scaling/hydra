@@ -16,6 +16,7 @@ data APIServerLog
       { method :: Method
       , path :: PathInfo
       }
+  | APITransactionSubmitted {txid :: String}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 

@@ -395,6 +395,7 @@ test-suite tests
     , req
     , resourcet
     , silently
+    , stm
     , temporary
     , text
     , time

@@ -197,6 +197,7 @@ data RunOptions = RunOptions
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   , whichEtcd :: WhichEtcd
+  , apiTransactionTimeout :: NominalDiffTime
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -225,6 +226,7 @@ instance Arbitrary RunOptions where
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     whichEtcd <- arbitrary
+    apiTransactionTimeout <- arbitrary
     pure $
       RunOptions
         { verbosity
@@ -244,6 +246,7 @@ instance Arbitrary RunOptions where
         , chainConfig
         , ledgerConfig
         , whichEtcd
+        , apiTransactionTimeout
         }
 
   shrink = genericShrink
@@ -269,6 +272,7 @@ defaultRunOptions =
     , chainConfig = Cardano defaultCardanoChainConfig
     , ledgerConfig = defaultLedgerConfig
     , whichEtcd = EmbeddedEtcd
+    , apiTransactionTimeout = 300
     }
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
@@ -294,6 +298,7 @@ runOptionsParser =
     <*> chainConfigParser
     <*> ledgerConfigParser
     <*> whichEtcdParser
+    <*> apiTransactionTimeoutParser
 
 whichEtcdParser :: Parser WhichEtcd
 whichEtcdParser =
@@ -745,6 +750,19 @@ monitoringPortParser =
           \empty, monitoring server is not started."
     )
 
+apiTransactionTimeoutParser :: Parser NominalDiffTime
+apiTransactionTimeoutParser =
+  option
+    auto
+    ( long "api-transaction-timeout"
+        <> metavar "SECONDS"
+        <> value 300
+        <> showDefault
+        <> help
+          "Timeout for API transactions in seconds. If a transaction \
+          \takes longer than this, it will be cancelled."
+    )
+
 startChainFromParser :: Parser ChainPoint
 startChainFromParser =
   option
@@ -951,6 +969,7 @@ toArgs
     , chainConfig
     , ledgerConfig
     , whichEtcd
+    , apiTransactionTimeout
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -969,6 +988,7 @@ toArgs
       <> maybe [] (\rotateAfter -> ["--persistence-rotate-after", show rotateAfter]) persistenceRotateAfter
       <> argsChainConfig chainConfig
       <> argsLedgerConfig
+      <> ["--api-transaction-timeout", show apiTransactionTimeout]
    where
     (NodeId nId) = nodeId
 

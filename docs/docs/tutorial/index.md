@@ -639,6 +639,19 @@ Submit the transaction through the already open WebSocket connection. Generate t
 cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .}'
 ```
 
+Alternatively, you can submit the transaction using the HTTP API endpoint:
+
+```shell
+curl -X POST 127.0.0.1:4001/transaction \
+  --data @tx-signed.json \
+  --header "Content-Type: application/json"
+```
+
+The HTTP endpoint provides a synchronous response with different status codes:
+- **200 OK**: Transaction was included in a confirmed snapshot (includes `snapshotNumber`)
+- **202 Accepted**: Transaction was accepted but not yet confirmed
+- **400 Bad Request**: Transaction was rejected due to validation errors (includes `validationError`)
+
 The transaction will be validated by both `hydra-node`s and either result in a
 `TxInvalid` message with a reason, or a `TxValid` message and a
 `SnapshotConfirmed` with the new UTXO available in the head shortly after.

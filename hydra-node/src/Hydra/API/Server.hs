@@ -72,6 +72,7 @@ data APIServerConfig = APIServerConfig
   , port :: PortNumber
   , tlsCertPath :: Maybe FilePath
   , tlsKeyPath :: Maybe FilePath
+  , apiTransactionTimeout :: NominalDiffTime
   }
 
 withAPIServer ::
@@ -135,6 +136,8 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                   (atomically $ getLatest commitInfoP)
                   (atomically $ getLatest pendingDepositsP)
                   callback
+                  (apiTransactionTimeout config)
+                  responseChannel
               )
       )
       ( do

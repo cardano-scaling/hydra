@@ -413,6 +413,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
           CardanoLedgerConfig
             { cardanoLedgerProtocolParametersFile
             }
+      , apiTransactionTimeout = 100000
       }
  where
   port = fromIntegral $ 5_000 + hydraNodeId

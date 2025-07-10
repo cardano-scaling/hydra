@@ -393,6 +393,68 @@ channels:
           type: request
           method: POST
           bindingVersion: '0.1.0'
+
+  /transaction:
+    servers:
+      - localhost-http
+    publish:
+      operationId: submitHydraTxRequest
+      message:
+        summary: |
+          Hydra transaction to be submitted to the head.
+          Accepts transactions encoded as Base16 CBOR string, TextEnvelope type or JSON.
+        payload:
+          $ref: "api.yaml#/components/schemas/Transaction"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: submitHydraTxResponse
+      message:
+        oneOf:
+        - name: SubmitHydraTxConfirmed
+          summary: 200 OK
+          description: Transaction was included in a confirmed snapshot.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["SubmitHydraTxConfirmed"]
+              snapshotNumber:
+                type: integer
+                minimum: 0
+        - name: SubmitHydraTxInvalid
+          summary: 400 Bad Request
+          description: Transaction was rejected due to validation errors.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["SubmitHydraTxInvalid"]
+              validationError:
+                type: string
+        - name: SubmitHydraTxSubmitted
+          summary: 202 Accepted
+          description: Transaction was accepted but not yet confirmed.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["SubmitHydraTxSubmitted"]
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+
 components:
   messages:
 
@@ -3261,6 +3323,43 @@ components:
           $ref: "api.yaml#/components/schemas/UTCTime"
         status:
           $ref: "api.yaml#/components/schemas/DepositStatus"
+
+    SubmitHydraTxResponse:
+      oneOf:
+        - title: SubmitHydraTxConfirmed
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - snapshotNumber
+          properties:
+            tag:
+              type: string
+              enum: ["SubmitHydraTxConfirmed"]
+            snapshotNumber:
+              type: integer
+              minimum: 0
+        - title: SubmitHydraTxInvalid
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - validationError
+          properties:
+            tag:
+              type: string
+              enum: ["SubmitHydraTxInvalid"]
+            validationError:
+              type: string
+        - title: SubmitHydraTxSubmitted
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["SubmitHydraTxSubmitted"]
 
     DepositStatus:
       oneOf:

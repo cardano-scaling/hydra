@@ -97,7 +97,7 @@ run opts = do
         withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
           -- API
-          let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
+          let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout}
           withAPIServer apiServerConfig env party eventSource (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
             -- Network
             let networkConfiguration =
@@ -156,6 +156,7 @@ run opts = do
     , tlsCertPath
     , tlsKeyPath
     , whichEtcd
+    , apiTransactionTimeout
     } = opts
 
 getGlobalsForChain :: ChainConfig -> IO Globals
