@@ -16,10 +16,13 @@ import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
+  AsType (AsHash),
   AssetId (..),
   AssetName (AssetName),
+  BlockHeader (..),
   ChainPoint (..),
   CtxUTxO,
+  HasTypeProxy (..),
   Key (SigningKey, VerificationKey, verificationKeyHash),
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
@@ -36,6 +39,7 @@ import Hydra.Cardano.Api (
   UTxO' (UTxO),
   Value,
   chainPointToSlotNo,
+  deserialiseFromRawBytes,
   fromCtxUTxOTxOut,
   fromScriptData,
   genTxIn,
@@ -148,6 +152,40 @@ data ChainStateAt = ChainStateAt
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR ChainPoint where
+  toCBOR = \case
+    ChainPointAtGenesis -> toCBOR ("ChainPointAtGenesis" :: Text)
+    ChainPoint slotNo bHash ->
+      toCBOR ("ChainPoint" :: Text)
+        <> toCBOR slotNo
+        <> toCBOR (serialiseToRawBytes bHash)
+
+-- TODO: HasBlockHeader needs to be exported from cardano-api but it is not
+instance FromCBOR ChainPoint where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ChainPointAtGenesis" :: Text) -> pure ChainPointAtGenesis
+      ("ChainPoint" :: Text) ->
+        ChainPoint
+          <$> fromCBOR
+          <*> ( fromCBOR >>= \bs ->
+                  pure $
+                    case deserialiseFromRawBytes (AsHash AsBlockHeader) bs of
+                      Left e -> fail (show e)
+                      Right h -> h
+              )
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded ChainPoint"
+
+instance ToCBOR ChainStateAt where
+  toCBOR ChainStateAt{spendableUTxO, recordedAt} =
+    toCBOR ("ChainStateAt" :: Text) <> toCBOR spendableUTxO <> toCBOR recordedAt
+
+instance FromCBOR ChainStateAt where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ChainStateAt" :: Text) -> ChainStateAt <$> fromCBOR <*> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 
 instance Arbitrary ChainStateAt where
   arbitrary = genericArbitrary

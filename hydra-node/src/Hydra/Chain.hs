@@ -16,10 +16,13 @@ import Hydra.Prelude
 import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
-  Address,
+  Address (..),
+  AsType (AsAddress, AsByronAddr),
   ByronAddr,
   Coin (..),
   LedgerEra,
+  deserialiseFromRawBytes,
+  serialiseToRawBytes,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
@@ -35,7 +38,7 @@ import Hydra.Tx (
   UTxOType,
  )
 import Hydra.Tx.IsTx (ArbitraryIsTx)
-import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.OnChainId (OnChainId (..))
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
@@ -93,6 +96,47 @@ deriving stock instance IsTx tx => Eq (PostChainTx tx)
 deriving stock instance IsTx tx => Show (PostChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (PostChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
+
+instance IsTx tx => ToCBOR (PostChainTx tx) where
+  toCBOR = \case
+    InitTx participants headParameters ->
+      toCBOR ("InitTx" :: Text) <> toCBOR participants <> toCBOR headParameters
+    AbortTx utxo headSeed ->
+      toCBOR ("AbortTx" :: Text) <> toCBOR utxo <> toCBOR headSeed
+    CollectComTx utxo headId headParameters ->
+      toCBOR ("CollectComTx" :: Text) <> toCBOR utxo <> toCBOR headId <> toCBOR headParameters
+    IncrementTx headId headParameters incrementingSnapshot depositTxId ->
+      toCBOR ("IncrementTx" :: Text) <> toCBOR headId <> toCBOR headParameters <> toCBOR incrementingSnapshot <> toCBOR depositTxId
+    RecoverTx headId recoverTxId deadline recoverUTxO ->
+      toCBOR ("RecoverTx" :: Text) <> toCBOR headId <> toCBOR recoverTxId <> toCBOR deadline <> toCBOR recoverUTxO
+    DecrementTx headId headParameters decrementingSnapshot ->
+      toCBOR ("DecrementTx" :: Text) <> toCBOR headId <> toCBOR headParameters <> toCBOR decrementingSnapshot
+    CloseTx headId headParameters openVersion closingSnapshot ->
+      toCBOR ("CloseTx" :: Text) <> toCBOR headId <> toCBOR headParameters <> toCBOR openVersion <> toCBOR closingSnapshot
+    ContestTx headId headParameters openVersion contestingSnapshot ->
+      toCBOR ("ContestTx" :: Text) <> toCBOR headId <> toCBOR headParameters <> toCBOR openVersion <> toCBOR contestingSnapshot
+    FanoutTx utxo utxoToCommit utxoToDecommit headSeed contestationDeadline ->
+      toCBOR ("FanoutTx" :: Text)
+        <> toCBOR utxo
+        <> toCBOR utxoToCommit
+        <> toCBOR utxoToDecommit
+        <> toCBOR headSeed
+        <> toCBOR contestationDeadline
+
+instance IsTx tx => FromCBOR (PostChainTx tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("InitTx" :: Text) -> InitTx <$> fromCBOR <*> fromCBOR
+      ("AbortTx" :: Text) -> AbortTx <$> fromCBOR <*> fromCBOR
+      ("CollectComTx" :: Text) -> CollectComTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("IncrementTx" :: Text) -> IncrementTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("RecoverTx" :: Text) -> RecoverTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("DecrementTx" :: Text) -> DecrementTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("CloseTx" :: Text) -> CloseTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("ContestTx" :: Text) -> ContestTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("FanoutTx" :: Text) ->
+        FanoutTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 
 instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
@@ -165,6 +209,47 @@ deriving stock instance IsTx tx => Show (OnChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
+instance IsTx tx => ToCBOR (OnChainTx tx) where
+  toCBOR = \case
+    OnInitTx headId headSeed headParameters participants ->
+      toCBOR ("OnInitTx" :: Text) <> toCBOR headId <> toCBOR headSeed <> toCBOR headParameters <> toCBOR participants
+    OnCommitTx headId party committed ->
+      toCBOR ("OnCommitTx" :: Text) <> toCBOR headId <> toCBOR party <> toCBOR committed
+    OnAbortTx headId ->
+      toCBOR ("OnAbortTx" :: Text) <> toCBOR headId
+    OnRecoverTx headId recoveredTxId recoveredUTxO ->
+      toCBOR ("OnRecoverTx" :: Text) <> toCBOR headId <> toCBOR recoveredTxId <> toCBOR recoveredUTxO
+    OnCollectComTx headId ->
+      toCBOR ("OnCollectComTx" :: Text) <> toCBOR headId
+    OnDepositTx headId depositTxId deposited created deadline ->
+      toCBOR ("OnDepositTx" :: Text) <> toCBOR headId <> toCBOR depositTxId <> toCBOR deposited <> toCBOR created <> toCBOR deadline
+    OnIncrementTx headId newVersion depositTxId ->
+      toCBOR ("OnIncrementTx" :: Text) <> toCBOR headId <> toCBOR newVersion <> toCBOR depositTxId
+    OnDecrementTx headId newVersion distributedUTxO ->
+      toCBOR ("OnDecrementTx" :: Text) <> toCBOR headId <> toCBOR newVersion <> toCBOR distributedUTxO
+    OnCloseTx headId snapshotNumber contestationDeadline ->
+      toCBOR ("OnCloseTx" :: Text) <> toCBOR headId <> toCBOR snapshotNumber <> toCBOR contestationDeadline
+    OnContestTx headId snapshotNumber contestationDeadline ->
+      toCBOR ("OnContestTx" :: Text) <> toCBOR headId <> toCBOR snapshotNumber <> toCBOR contestationDeadline
+    OnFanoutTx headId fanoutUTxO ->
+      toCBOR ("OnFanoutTx" :: Text) <> toCBOR headId <> toCBOR fanoutUTxO
+
+instance IsTx tx => FromCBOR (OnChainTx tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("OnInitTx" :: Text) -> OnInitTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("OnCommitTx" :: Text) -> OnCommitTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("OnAbortTx" :: Text) -> OnAbortTx <$> fromCBOR
+      ("OnRecoverTx" :: Text) -> OnRecoverTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("OnCollectComTx" :: Text) -> OnCollectComTx <$> fromCBOR
+      ("OnDepositComTx" :: Text) -> OnDepositTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("OnIncrementTx" :: Text) -> OnIncrementTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("OnDecrementTx" :: Text) -> OnDecrementTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("OnCloseTx" :: Text) -> OnCloseTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("OnContestTx" :: Text) -> OnContestTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("OnFanoutTx" :: Text) -> OnFanoutTx <$> fromCBOR <*> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
+
 instance ArbitraryIsTx tx => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
@@ -212,6 +297,85 @@ deriving anyclass instance IsChainState tx => ToJSON (PostTxError tx)
 deriving anyclass instance IsChainState tx => FromJSON (PostTxError tx)
 
 instance IsChainState tx => Exception (PostTxError tx)
+
+instance ToCBOR (Address ByronAddr) where
+  toCBOR = toCBOR . serialiseToRawBytes
+
+instance FromCBOR (Address ByronAddr) where
+  fromCBOR = do
+    bs <- fromCBOR
+    case deserialiseFromRawBytes (AsAddress AsByronAddr) bs of
+      Left err -> fail (show err)
+      Right v -> pure v
+
+instance IsChainState tx => ToCBOR (PostTxError tx) where
+  toCBOR = \case
+    NoSeedInput -> toCBOR ("NoSeedInput" :: Text)
+    InvalidSeed seed -> toCBOR ("InvalidSeed" :: Text) <> toCBOR seed
+    InvalidHeadId headId -> toCBOR ("InvalidHeadId" :: Text) <> toCBOR headId
+    CannotFindOwnInitial knownUTxO -> toCBOR ("CannotFindOwnInitial" :: Text) <> toCBOR knownUTxO
+    UnsupportedLegacyOutput byronAddress -> toCBOR ("UnsupportedLegacyOutput" :: Text) <> toCBOR byronAddress
+    InvalidStateToPost txTried chainState ->
+      toCBOR ("InvalidStateToPost" :: Text) <> toCBOR txTried <> toCBOR chainState
+    NotEnoughFuel failingTx -> toCBOR ("NotEnoughFuel" :: Text) <> toCBOR failingTx
+    NoFuelUTXOFound failingTx -> toCBOR ("NoFuelUTXOFound" :: Text) <> toCBOR failingTx
+    ScriptFailedInWallet redeemerPtr failureReason failingTx ->
+      toCBOR ("ScriptFailedInWallet" :: Text) <> toCBOR redeemerPtr <> toCBOR failureReason <> toCBOR failingTx
+    InternalWalletError headUTxO reason failingTx ->
+      toCBOR ("InternalWalletError" :: Text) <> toCBOR headUTxO <> toCBOR reason <> toCBOR failingTx
+    FailedToPostTx failureReason failingTx ->
+      toCBOR ("FailedToPostTx" :: Text) <> toCBOR failureReason <> toCBOR failingTx
+    CommittedTooMuchADAForMainnet userCommittedLovelace mainnetLimitLovelace ->
+      toCBOR ("CommittedTooMuchADAForMainnet" :: Text)
+        <> toCBOR userCommittedLovelace
+        <> toCBOR mainnetLimitLovelace
+    FailedToDraftTxNotInitializing -> toCBOR ("FailedToDraftTxNotInitializing" :: Text)
+    FailedToConstructAbortTx -> toCBOR ("FailedToConstructAbortTx" :: Text)
+    FailedToConstructCloseTx -> toCBOR ("FailedToConstructCloseTx" :: Text)
+    FailedToConstructContestTx -> toCBOR ("FailedToConstructContestTx" :: Text)
+    FailedToConstructCollectTx -> toCBOR ("FailedToConstructCollectTx" :: Text)
+    FailedToConstructDepositTx failureReason ->
+      toCBOR ("FailedToConstructDepositTx" :: Text) <> toCBOR failureReason
+    FailedToConstructRecoverTx failureReason ->
+      toCBOR ("FailedToConstructRecoverTx" :: Text) <> toCBOR failureReason
+    FailedToConstructIncrementTx failureReason ->
+      toCBOR ("FailedToConstructIncrementTx" :: Text) <> toCBOR failureReason
+    FailedToConstructDecrementTx failureReason ->
+      toCBOR ("FailedToConstructDecrementTx" :: Text) <> toCBOR failureReason
+    FailedToConstructFanoutTx -> toCBOR ("FailedToConstructFanoutTx" :: Text)
+    DepositTooLow providedValue minimumValue ->
+      toCBOR ("DepositTooLow" :: Text) <> toCBOR providedValue <> toCBOR minimumValue
+
+instance IsChainState tx => FromCBOR (PostTxError tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("NoSeedInput" :: Text) -> pure NoSeedInput
+      ("InvalidSeed" :: Text) -> InvalidSeed <$> fromCBOR
+      ("InvalidHeadId" :: Text) -> InvalidHeadId <$> fromCBOR
+      ("CannotFindOwnInitial" :: Text) -> CannotFindOwnInitial <$> fromCBOR
+      ("UnsupportedLegacyOutput" :: Text) -> UnsupportedLegacyOutput <$> fromCBOR
+      ("InvalidStateToPost" :: Text) -> InvalidStateToPost <$> fromCBOR <*> fromCBOR
+      ("NotEnoughFuel" :: Text) -> NotEnoughFuel <$> fromCBOR
+      ("NoFuelUTXOFound" :: Text) -> NoFuelUTXOFound <$> fromCBOR
+      ("ScriptFailedInWallet" :: Text) ->
+        ScriptFailedInWallet <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("InternalWalletError" :: Text) ->
+        InternalWalletError <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("FailedToPostTx" :: Text) -> FailedToPostTx <$> fromCBOR <*> fromCBOR
+      ("CommittedTooMuchADAForMainnet" :: Text) ->
+        CommittedTooMuchADAForMainnet <$> fromCBOR <*> fromCBOR
+      ("FailedToDraftTxNotInitializing" :: Text) -> pure FailedToDraftTxNotInitializing
+      ("FailedToConstructAbortTx" :: Text) -> pure FailedToConstructAbortTx
+      ("FailedToConstructCloseTx" :: Text) -> pure FailedToConstructCloseTx
+      ("FailedToConstructContestTx" :: Text) -> pure FailedToConstructContestTx
+      ("FailedToConstructCollectTx" :: Text) -> pure FailedToConstructCollectTx
+      ("FailedToConstructDepositTx" :: Text) -> FailedToConstructDepositTx <$> fromCBOR
+      ("FailedToConstructRecoverTx" :: Text) -> FailedToConstructRecoverTx <$> fromCBOR
+      ("FailedToConstructIncrementTx" :: Text) -> FailedToConstructIncrementTx <$> fromCBOR
+      ("FailedToConstructDecrementTx" :: Text) -> FailedToConstructDecrementTx <$> fromCBOR
+      ("FailedToConstructFanoutTx" :: Text) -> pure FailedToConstructFanoutTx
+      ("DepositTooLow" :: Text) -> DepositTooLow <$> fromCBOR <*> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
@@ -316,6 +480,22 @@ deriving stock instance (IsTx tx, IsChainState tx) => Eq (ChainEvent tx)
 deriving stock instance (IsTx tx, IsChainState tx) => Show (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
+
+instance IsChainState tx => ToCBOR (ChainEvent tx) where
+  toCBOR = \case
+    Observation observed newState -> toCBOR ("Observation" :: Text) <> toCBOR observed <> toCBOR newState
+    Rollback st -> toCBOR ("Rollback" :: Text) <> toCBOR st
+    Tick time slot -> toCBOR ("Tick" :: Text) <> toCBOR time <> toCBOR slot
+    PostTxError postChainTx postError tx -> toCBOR ("PostTxError" :: Text) <> toCBOR postChainTx <> toCBOR postError <> toCBOR tx
+
+instance IsChainState tx => FromCBOR (ChainEvent tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Observation" :: Text) -> Observation <$> fromCBOR <*> fromCBOR
+      "Rollback" -> Rollback <$> fromCBOR
+      "Tick" -> Tick <$> fromCBOR <*> fromCBOR
+      "PostTxError" -> PostTxError <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ChainEvent tx) where
   arbitrary = genericArbitrary

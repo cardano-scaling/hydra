@@ -30,6 +30,16 @@ instance SerialiseAsRawBytes HeadId where
   serialiseToRawBytes (UnsafeHeadId bytes) = bytes
   deserialiseFromRawBytes _ = Right . UnsafeHeadId
 
+instance ToCBOR HeadId where
+  toCBOR = toCBOR . serialiseToRawBytes
+
+instance FromCBOR HeadId where
+  fromCBOR = do
+    bs <- fromCBOR
+    case deserialiseFromRawBytes AsHeadId bs of
+      Left err -> fail (show err)
+      Right v -> pure v
+
 instance HasTypeProxy HeadId where
   data AsType HeadId = AsHeadId
   proxyToAsType _ = AsHeadId
@@ -60,6 +70,7 @@ mkHeadId = UnsafeHeadId . serialiseToRawBytes
 newtype HeadSeed = UnsafeHeadSeed ByteString
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadSeed)
+  deriving newtype (ToCBOR, FromCBOR)
 
 instance IsString HeadSeed where
   fromString = UnsafeHeadSeed . fromString
