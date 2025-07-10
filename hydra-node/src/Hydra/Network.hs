@@ -190,6 +190,7 @@ data Connectivity
       }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
+  deriving anyclass (FromJSON)
 
 instance Arbitrary Connectivity where
   arbitrary = genericArbitrary
