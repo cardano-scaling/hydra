@@ -320,8 +320,8 @@ stepHydraNode node = do
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     Continue{stateChanges, effects} -> do
-      processStateChanges node stateChanges
       processEffects node tracer queuedId effects
+      processStateChanges node stateChanges
     Wait{stateChanges} -> do
       processStateChanges node stateChanges
       maybeReenqueue i
