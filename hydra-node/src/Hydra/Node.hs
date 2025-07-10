@@ -212,7 +212,7 @@ hydrate tracer env ledger initialChainState persistenceDir EventStore{eventSourc
     sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
 
   nodeState <- createNodeState (getLast lastEventId) headState
-  inputQueue <- createPersistentInputQueue persistenceDir
+  inputQueue <- createPersistentInputQueue persistenceDir 100
   pure
     DraftHydraNode
       { tracer
