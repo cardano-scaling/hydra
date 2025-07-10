@@ -14,8 +14,8 @@ import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   SideLoadSnapshotRequest (..),
-  SubmitHydraTxRequest (..),
-  SubmitHydraTxResponse (..),
+  SubmitL2TxRequest (..),
+  SubmitL2TxResponse (..),
   SubmitTxRequest (..),
   TransactionSubmitted,
   httpApp,
@@ -67,8 +67,8 @@ spec = do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized TransactionSubmitted))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SideLoadSnapshotRequest Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (HeadState Tx)))
-    roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmitHydraTxResponse))
-    roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SubmitHydraTxRequest Tx)))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmitL2TxResponse))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SubmitL2TxRequest Tx)))
 
     prop "Validate /commit publish api schema" $
       prop_validateJSONSchema @(DraftCommitTxRequest Tx) "api.json" $
@@ -175,7 +175,7 @@ spec = do
           . key "message"
 
     prop "Validate /transaction publish api schema" $
-      prop_validateJSONSchema @(SubmitHydraTxRequest Tx) "api.json" $
+      prop_validateJSONSchema @(SubmitL2TxRequest Tx) "api.json" $
         key "channels"
           . key "/transaction"
           . key "publish"
@@ -183,10 +183,10 @@ spec = do
           . key "payload"
 
     prop "Validate /transaction subscribe api schema" $
-      prop_validateJSONSchema @SubmitHydraTxResponse "api.json" $
+      prop_validateJSONSchema @SubmitL2TxResponse "api.json" $
         key "components"
           . key "schemas"
-          . key "SubmitHydraTxResponse"
+          . key "SubmitL2TxResponse"
 
     apiServerSpec
     describe "SubmitTxRequest accepted tx formats" $ do
@@ -562,7 +562,7 @@ apiServerSpec = do
                 _ -> 500
 
     describe "POST /transaction" $ do
-      let mkReq tx = encode $ SubmitHydraTxRequest tx
+      let mkReq tx = encode $ SubmitL2TxRequest tx
           testTx = SimpleTx 42 mempty mempty
           testHeadId = generateWith arbitrary 42
       now <- runIO getCurrentTime

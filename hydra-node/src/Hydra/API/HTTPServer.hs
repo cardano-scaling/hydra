@@ -126,14 +126,14 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (SideLoad
     SideLoadSnapshotRequest snapshot -> SideLoadSnapshotRequest <$> shrink snapshot
 
 -- | Request to submit a transaction to the head
-newtype SubmitHydraTxRequest tx = SubmitHydraTxRequest
-  { submitHydraTx :: tx
+newtype SubmitL2TxRequest tx = SubmitL2TxRequest
+  { submitL2Tx :: tx
   }
   deriving newtype (Eq, Show, Arbitrary)
   deriving newtype (ToJSON, FromJSON)
 
 -- | Response for transaction submission
-data SubmitHydraTxResponse
+data SubmitL2TxResponse
   = -- | Transaction was included in a confirmed snapshot
     SubmitTxConfirmed Integer
   | -- | Transaction was rejected due to validation errors
@@ -142,7 +142,7 @@ data SubmitHydraTxResponse
     SubmitTxSubmitted
   deriving stock (Eq, Show, Generic)
 
-instance ToJSON SubmitHydraTxResponse where
+instance ToJSON SubmitL2TxResponse where
   toJSON = \case
     SubmitTxConfirmed snapshotNumber ->
       object
@@ -156,7 +156,7 @@ instance ToJSON SubmitHydraTxResponse where
         ]
     SubmitTxSubmitted -> object ["tag" .= Aeson.String "SubmitTxSubmitted"]
 
-instance FromJSON SubmitHydraTxResponse where
+instance FromJSON SubmitL2TxResponse where
   parseJSON = withObject "SubmitTxResponse" $ \o -> do
     tag <- o .: "tag"
     case tag :: Text of
@@ -165,7 +165,7 @@ instance FromJSON SubmitHydraTxResponse where
       "SubmitTxSubmitted" -> pure SubmitTxSubmitted
       _ -> fail "Expected tag to be SubmitTxConfirmed, SubmitTxInvalid, or SubmitTxSubmitted"
 
-instance Arbitrary SubmitHydraTxResponse where
+instance Arbitrary SubmitL2TxResponse where
   arbitrary = genericArbitrary
 
 jsonContent :: ResponseHeaders
@@ -240,7 +240,7 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
         >>= respond
     ("POST", ["transaction"]) ->
       consumeRequestBodyStrict request
-        >>= handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel
+        >>= handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel
         >>= respond
     _ ->
       respond $ responseLBS status400 jsonContent . Aeson.encode $ Aeson.String "Resource not found"
@@ -373,8 +373,8 @@ handleSideLoadSnapshot putClientInput body = do
       putClientInput $ SideLoadSnapshot snapshot
       pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
 
--- | Handle request to submit a hydra transaction to the head.
-handleSubmitHydraTx ::
+-- | Handle request to submit a transaction to the head.
+handleSubmitL2Tx ::
   forall tx.
   IsChainState tx =>
   (ClientInput tx -> IO ()) ->
@@ -382,18 +382,18 @@ handleSubmitHydraTx ::
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   LBS.ByteString ->
   IO Response
-handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel body = do
-  case Aeson.eitherDecode' @(SubmitHydraTxRequest tx) body of
+handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
+  case Aeson.eitherDecode' @(SubmitL2TxRequest tx) body of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
-    Right SubmitHydraTxRequest{submitHydraTx} -> do
+    Right SubmitL2TxRequest{submitL2Tx} -> do
       -- Duplicate the channel to avoid consuming messages from other consumers.
       dupChannel <- atomically $ dupTChan responseChannel
 
       -- Submit the transaction to the head
-      putClientInput (NewTx submitHydraTx)
+      putClientInput (NewTx submitL2Tx)
 
-      let txid = txId submitHydraTx
+      let txid = txId submitL2Tx
       result <-
         timeout
           (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout))
@@ -420,7 +420,7 @@ handleSubmitHydraTx putClientInput apiTransactionTimeout responseChannel body = 
               )
  where
   --  Wait for transaction result by listening to events
-  waitForTransactionResult :: TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> TxIdType tx -> IO SubmitHydraTxResponse
+  waitForTransactionResult :: TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> TxIdType tx -> IO SubmitL2TxResponse
   waitForTransactionResult dupChannel txid = go
    where
     go = do

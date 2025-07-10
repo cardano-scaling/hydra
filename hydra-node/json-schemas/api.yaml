@@ -398,7 +398,7 @@ channels:
     servers:
       - localhost-http
     publish:
-      operationId: submitHydraTxRequest
+      operationId: submitL2TxRequest
       message:
         summary: |
           A transaction to be submitted to the head.
@@ -411,7 +411,7 @@ channels:
           method: POST
           bindingVersion: '0.1.0'
     subscribe:
-      operationId: submitHydraTxResponse
+      operationId: submitL2TxResponse
       message:
         oneOf:
         - name: SubmitTxConfirmed
@@ -3324,7 +3324,7 @@ components:
         status:
           $ref: "api.yaml#/components/schemas/DepositStatus"
 
-    SubmitHydraTxResponse:
+    SubmitL2TxResponse:
       oneOf:
         - title: SubmitTxConfirmed
           type: object
