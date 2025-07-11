@@ -1,9 +1,0 @@
-credentials/
-
-**/db/
-**/logs/
-
-**/*.sk
-**/*.vk
-
-**/persistence/
