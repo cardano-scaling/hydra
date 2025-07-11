@@ -290,6 +290,7 @@ runHydraNode ::
   ( MonadCatch m
   , MonadAsync m
   , MonadTime m
+  , MonadDelay m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
@@ -303,6 +304,7 @@ stepHydraNode ::
   ( MonadCatch m
   , MonadAsync m
   , MonadTime m
+  , MonadDelay m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
@@ -320,6 +322,10 @@ stepHydraNode node = do
               , msg
               }
       processEffects node tracer queuedId [ClientEffect debugOutput]
+      case msg of
+        ReqSn{} -> threadDelay 1
+        AckSn{} -> threadDelay 1
+        _ -> pure ()
     _ ->
       pure ()
   outcome <- atomically $ processNextInput node queuedItem
