@@ -92,7 +92,7 @@ run opts = do
             =<< createPersistenceIncremental stateFile
         -- NOTE: Add any custom sinks here
         let eventSinks = []
-        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
+        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState persistenceDir eventStore eventSinks
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
