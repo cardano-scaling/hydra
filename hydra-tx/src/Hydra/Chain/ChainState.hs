@@ -33,7 +33,6 @@ class
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: ChainStateType tx -> ChainSlot
 
-
 instance ToCBOR ChainSlot where
   toCBOR = \case
     ChainSlot n -> toCBOR ("ChainSlot" :: Text) <> toCBOR n
