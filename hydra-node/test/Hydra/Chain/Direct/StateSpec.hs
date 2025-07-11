@@ -13,8 +13,10 @@ import Data.ByteString.Lazy qualified as LBS
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   NetworkId (Mainnet),
+  SlotNo,
   Tx,
   TxIn,
+  TxOut,
   UTxO,
   findRedeemerSpending,
   genTxIn,
@@ -465,6 +467,7 @@ prop_observeAnyTx =
             Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
             Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
  where
+  showTransition :: (a, b, c, d, Transition.ChainTransition) -> String
   showTransition (_, _, _, _, t) = show t
 
   chainStateHeadId = \case
@@ -476,13 +479,13 @@ prop_observeAnyTx =
 -- | Given a UTxO with more than one entry, we can split it into two non-empty UTxO.
 prop_splitUTxO :: UTxO -> Property
 prop_splitUTxO utxo =
-  (UTxO.size utxo > 1) ==>
-    let (inHead, toDecommit) = splitUTxO utxo
-     in conjoin
-          [ not (UTxO.null inHead) & counterexample "inHead is empty"
-          , not (UTxO.null toDecommit) & counterexample "toDecommit is empty"
-          , inHead /= toDecommit & counterexample "inHead == toDecommit"
-          ]
+  (UTxO.size utxo > 1)
+    ==> let (inHead, toDecommit) = splitUTxO utxo
+         in conjoin
+              [ not (UTxO.null inHead) & counterexample "inHead is empty"
+              , not (UTxO.null toDecommit) & counterexample "toDecommit is empty"
+              , inHead /= toDecommit & counterexample "inHead == toDecommit"
+              ]
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
@@ -574,6 +577,7 @@ propBelowSizeLimit txSizeLimit forAllTx =
             & counterexample (renderTx tx)
             & counterexample ("Actual size: " <> show len)
  where
+  showKB :: (Show i, Integral i) => i -> String
   showKB nb = show (nb `div` 1024) <> "kB"
 
 propIsValid ::
@@ -747,6 +751,7 @@ forAllContest action =
             & tabulate "Contestation period" (tabulateContestationPeriod ctxContestationPeriod)
             & tabulate "Close point (slot)" (tabulateNum $ fst closePointInTime)
  where
+  tabulateNum :: SlotNo -> [String]
   tabulateNum x
     | x > 0 = ["> 0"]
     | x < 0 = ["< 0"]
@@ -778,10 +783,13 @@ forAllFanout action =
      in action utxo tx
           & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
+  maxSupported :: Int
   maxSupported = 44
 
+  countAssets :: [TxOut ctx] -> Int
   countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
 
+  prettyLength :: Int -> String
   prettyLength len
     | len > maxSupported = "> " <> show maxSupported <> " ???"
     | len >= 40 = "40-" <> show maxSupported

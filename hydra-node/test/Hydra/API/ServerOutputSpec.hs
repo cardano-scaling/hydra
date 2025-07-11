@@ -26,7 +26,8 @@ spec = parallel $ do
   it "golden SnapshotConfirmed is good" $ do
     let goldenFile = "golden/ServerOutput/SnapshotConfirmed.json"
     samples <- readJsonFileThrow pure goldenFile <&> toListOf (key "samples" . values)
-    let isGood s =
+    let isGood :: Value -> Bool
+        isGood s =
           not . null $ s ^. key "snapshot" . key "confirmed" . _Array
     unless (any isGood samples) . failure $
       "None of the samples in " <> show goldenFile <> " contains confirmed transactions"

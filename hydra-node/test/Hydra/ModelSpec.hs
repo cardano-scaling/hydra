@@ -198,7 +198,8 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
   case world of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
       utxo <- run $ lift $ headUTxO node
-      let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
+      let sorted :: [TxOut x] -> [TxOut x]
+          sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
       let expected = sorted (toTxOuts confirmedUTxO)
       let actual = sorted (UTxO.txOutputs utxo)
       stop $
@@ -209,6 +210,7 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
     _ -> do
       pure ()
  where
+  renderTxOut :: TxOut x -> String
   renderTxOut o =
     toString $
       serialiseAddress (txOutAddress o) <> ": " <> renderValue (txOutValue o)
@@ -262,6 +264,7 @@ headOpensIfAllPartiesCommit = do
   everybodyCommit
   eventually' ObserveHeadIsOpen
  where
+  eventually' :: Action WorldState () -> DL WorldState ()
   eventually' a = action (Wait 1000) >> action_ a
 
   seedTheWorld = forAllNonVariableQ (withGenQ genSeed (const True) (const [])) >>= action_
@@ -310,6 +313,8 @@ propDoesNotGenerate0AdaUTxO (Actions actions) =
     _anyVar := (ActionWithPolarity (Model.Commit _ _anyParty utxos) _) -> any contains0Ada utxos
     _anyVar := (ActionWithPolarity (Model.NewTx _anyParty Payment.Payment{value}) _) -> value == lovelaceToValue 0
     _anyOtherStep -> False
+
+  contains0Ada :: (a, Value) -> Bool
   contains0Ada = (== lovelaceToValue 0) . snd
 
 -- * Utilities
@@ -344,6 +349,7 @@ runRunMonadIOSimGen f = do
         Left ex ->
           counterexample (show ex) False
  where
+  -- logsOnError :: SimTrace (HydraLog Tx) -> Property
   logsOnError tr =
     -- NOTE: Store trace dump in file when showing the counterexample. Behavior of
     -- this during shrinking is not 100% confirmed, show the trace directly if you

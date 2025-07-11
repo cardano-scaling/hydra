@@ -36,6 +36,7 @@ defaultGlobals =
     , Ledger.systemStart = SystemStart $ posixSecondsToUTCTime 0
     }
  where
+  unsafeBoundRational :: Ledger.BoundedRational a => Rational -> a
   unsafeBoundRational r =
     fromMaybe (error $ "Could not convert from Rational: " <> show r) $ Ledger.boundRational r
 

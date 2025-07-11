@@ -10,25 +10,31 @@ import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (
   GenesisParameters (..),
+  LedgerEra,
+  PParams,
   ProtocolParametersConversionError,
   ShelleyEra,
   SystemStart (..),
+  Tx,
   toShelleyNetwork,
  )
-import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Chain (ChainComponent, ChainStateHistory, maximumNumberOfParties)
 import Hydra.Chain.Backend (ChainBackend (queryGenesisParameters))
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Cardano (withCardanoChain)
+import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
+import Hydra.Events (EventSink)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (aggregate)
 import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
+import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
-import Hydra.Logging (traceWith, withTracer)
+import Hydra.Logging (Tracer, traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Node (
@@ -91,7 +97,7 @@ run opts = do
             =<< mkFileBasedEventStore stateFile
             =<< createPersistenceIncremental stateFile
         -- NOTE: Add any custom sinks here
-        let eventSinks = []
+        let eventSinks :: [EventSink (StateEvent Tx) IO] = []
         wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
@@ -119,14 +125,22 @@ run opts = do
                 -- Main loop
                 connect chain network server wetHydraNode
                   <&> addEventSink apiSink
-                    >>= runHydraNode
+                  >>= runHydraNode
  where
+  addEventSink :: EventSink (StateEvent tx) m -> HydraNode tx m -> HydraNode tx m
   addEventSink sink node = node{eventSinks = sink : eventSinks node}
 
+  withCardanoLedger :: PParams LedgerEra -> Globals -> (Ledger Tx -> m a) -> m a
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
      in action (cardanoLedger globals ledgerEnv)
 
+  prepareChainComponent ::
+    Monad m =>
+    Tracer IO (HydraLog tx) ->
+    Environment ->
+    ChainConfig ->
+    m (ChainStateHistory Tx -> ChainComponent Tx IO a)
   prepareChainComponent tracer Environment{party, otherParties} = \case
     Offline cfg -> pure $ withOfflineChain cfg party otherParties
     Cardano cfg -> pure $ withCardanoChain (contramap DirectChain tracer) cfg party
@@ -137,7 +151,8 @@ run opts = do
         pure eventStore
       Just rotationConfig -> do
         let initialState = Idle IdleState{chainState = initialChainState}
-        let aggregator s StateEvent{stateChanged} = aggregate s stateChanged
+        let aggregator :: IsChainState tx => HeadState tx -> StateEvent tx -> HeadState tx
+            aggregator s StateEvent{stateChanged} = aggregate s stateChanged
         newRotatedEventStore rotationConfig initialState aggregator mkCheckpoint eventStore
 
   RunOptions

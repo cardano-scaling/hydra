@@ -87,6 +87,7 @@ fromPlutusAddress network plutusAddress =
       (cred, Nothing) ->
         Ledger.Addr network (unsafeCredential cred) Ledger.StakeRefNull
  where
+  unsafeCredential :: Plutus.Credential -> Ledger.Credential keyRole
   unsafeCredential = \case
     PubKeyCredential (Plutus.PubKeyHash h) ->
       Ledger.KeyHashObj . Ledger.KeyHash . unsafeHashFromBytes $ fromBuiltin h

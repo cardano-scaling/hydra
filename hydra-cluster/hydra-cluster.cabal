@@ -64,7 +64,7 @@ common project-config
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
-    -fprint-potential-instances
+    -fprint-potential-instances -Wmissing-local-signatures
 
 library
   import:          project-config
@@ -208,6 +208,7 @@ benchmark bench-e2e
   build-depends:
     , aeson
     , base                  >=4.7 && <5
+    , bytestring
     , containers
     , directory
     , filepath

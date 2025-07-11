@@ -194,6 +194,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
       , localTxMonitoringClient = Nothing
       }
 
+  submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
   submitTx queue tx = do
     response <- atomically $ do
       response <- newEmptyTMVar

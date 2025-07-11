@@ -78,6 +78,7 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
       utxo <- o .: "utxo"
       pure FullCommitRequest{blueprintTx, utxo}
 
+    simpleVariant :: Value -> Parser (DraftCommitTxRequest tx)
     simpleVariant val = SimpleCommitRequest <$> parseJSON val
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where

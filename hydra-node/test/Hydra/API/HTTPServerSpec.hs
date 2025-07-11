@@ -10,6 +10,7 @@ import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
 import Data.Text qualified as Text
+import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
@@ -207,7 +208,10 @@ apiServerSpec :: Spec
 apiServerSpec = do
   describe "API should respond correctly" $ do
     let cantCommit = pure CannotCommit
+        getPendingDeposits :: IO [tx]
         getPendingDeposits = pure []
+
+        putClientInput :: ClientInput tx -> IO ()
         putClientInput = const (pure ())
         getHeadState = pure inIdleState
     describe "GET /protocol-parameters" $ do
@@ -513,7 +517,8 @@ apiServerSpec = do
             post "/commit" (Aeson.encode request)
               `shouldRespondWith` 200
 
-      let failingChainHandle postTxError =
+      let failingChainHandle :: PostTxError tx -> Chain tx IO
+          failingChainHandle postTxError =
             dummyChainHandle
               { draftCommitTx = \_ _ -> pure $ Left postTxError
               , draftDepositTx = \_ _ _ _ -> pure $ Left postTxError

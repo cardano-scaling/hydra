@@ -330,6 +330,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
       & bodyTxL . outputsTxBodyL %~ (|> change)
       & bodyTxL . feeTxBodyL .~ fee
  where
+  findUTxOToPayFees :: Map TxIn (Ledger.TxOut era) -> Either ErrCoverFee (TxIn, Ledger.TxOut era)
   findUTxOToPayFees utxo = case findLargestUTxO utxo of
     Nothing ->
       Left ErrNoFuelUTxOFound
@@ -341,6 +342,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
       Nothing -> Left $ ErrUnknownInput i
       Just o -> Right o
 
+  mkChange :: Ledger.TxOut era -> Set (TxIn, Ledger.TxOut era) -> [Ledger.TxOut era] -> Coin -> Either ChangeError (Ledger.TxOut era)
   mkChange feeTxOut resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
@@ -427,6 +429,8 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
       (Ledger.UTxO utxo)
       epochInfo
       systemStart
+
+  convertResult :: a -> Either a b -> Either ErrCoverFee b
   convertResult ptr = \case
     Right exUnits -> Right exUnits
     Left failure ->

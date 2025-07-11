@@ -14,7 +14,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   writeTVar,
  )
-import Control.Retry (constantDelay, retrying)
+import Control.Retry (RetryPolicyM, RetryStatus, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -104,10 +104,12 @@ blockfrostClient tracer projectPath blockConfirmations = do
                   pure $ Left ex
       }
  where
+  shouldRetry :: MonadIO m => RetryStatus -> Either APIBlockfrostError b -> m Bool
   shouldRetry _ = \case
     Right{} -> pure False
     Left err -> pure $ isRetryable err
 
+  retryPolicy :: DiffTime -> RetryPolicyM IO
   retryPolicy blockTime = constantDelay (truncate blockTime * 1000 * 1000)
 
 -- | Iterative process that follows the chain using a naive roll-forward approach,

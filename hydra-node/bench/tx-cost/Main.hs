@@ -29,6 +29,11 @@ import System.IO.Unsafe (unsafePerformIO)
 import Test.QuickCheck.Gen (Gen (MkGen), chooseAny, generate)
 import Test.QuickCheck.Random (mkQCGen)
 import TxCost (
+  CpuUnit,
+  MemUnit,
+  NumParties,
+  NumUTxO,
+  TxSize,
   computeAbortCost,
   computeCloseCost,
   computeCollectComCost,
@@ -179,6 +184,7 @@ genFromSeed (MkGen g) seed = g (mkQCGen seed) 30
 costOfInit :: Int -> Text
 costOfInit = markdownInitCost . genFromSeed computeInitCost
  where
+  markdownInitCost :: [(NumParties, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownInitCost stats =
     unlines $
       [ "## `Init` transaction costs"
@@ -205,6 +211,7 @@ costOfInit = markdownInitCost . genFromSeed computeInitCost
 costOfCommit :: Int -> Text
 costOfCommit = markdownCommitCost . genFromSeed computeCommitCost
  where
+  markdownCommitCost :: [(NumUTxO, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownCommitCost stats =
     unlines $
       [ "## `Commit` transaction costs"
@@ -232,6 +239,7 @@ costOfCommit = markdownCommitCost . genFromSeed computeCommitCost
 costOfCollectCom :: Int -> Text
 costOfCollectCom = markdownCollectComCost . genFromSeed computeCollectComCost
  where
+  markdownCollectComCost :: [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownCollectComCost stats =
     unlines $
       [ "## `CollectCom` transaction costs"
@@ -260,6 +268,7 @@ costOfCollectCom = markdownCollectComCost . genFromSeed computeCollectComCost
 costOfIncrement :: Int -> Text
 costOfIncrement = markdownIncrementCost . genFromSeed computeIncrementCost
  where
+  markdownIncrementCost :: [(NumParties, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownIncrementCost stats =
     unlines $
       [ "## Cost of Increment Transaction"
@@ -286,6 +295,7 @@ costOfIncrement = markdownIncrementCost . genFromSeed computeIncrementCost
 costOfDecrement :: Int -> Text
 costOfDecrement = markdownDecrementCost . genFromSeed computeDecrementCost
  where
+  markdownDecrementCost :: [(NumParties, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownDecrementCost stats =
     unlines $
       [ "## Cost of Decrement Transaction"
@@ -312,6 +322,7 @@ costOfDecrement = markdownDecrementCost . genFromSeed computeDecrementCost
 costOfClose :: Int -> Text
 costOfClose = markdownClose . genFromSeed computeCloseCost
  where
+  markdownClose :: [(NumParties, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownClose stats =
     unlines $
       [ "## `Close` transaction costs"
@@ -338,6 +349,7 @@ costOfClose = markdownClose . genFromSeed computeCloseCost
 costOfContest :: Int -> Text
 costOfContest = markdownContest . genFromSeed computeContestCost
  where
+  markdownContest :: [(NumParties, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownContest stats =
     unlines $
       [ "## `Contest` transaction costs"
@@ -364,6 +376,7 @@ costOfContest = markdownContest . genFromSeed computeContestCost
 costOfAbort :: Int -> Text
 costOfAbort = markdownAbortCost . genFromSeed computeAbortCost
  where
+  markdownAbortCost :: [(NumParties, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownAbortCost stats =
     unlines $
       [ "## `Abort` transaction costs"
@@ -391,6 +404,7 @@ costOfAbort = markdownAbortCost . genFromSeed computeAbortCost
 costOfFanOut :: Int -> Text
 costOfFanOut = markdownFanOutCost . genFromSeed computeFanOutCost
  where
+  markdownFanOutCost :: [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownFanOutCost stats =
     unlines $
       [ "## `FanOut` transaction costs"

@@ -637,6 +637,7 @@ externalCommit' backend hydraClient externalSks headId utxoToCommit blueprintTx 
   Backend.submitTransaction backend signedTx
   void $ Backend.queryUTxOByTxIn backend (txIns' signedTx)
  where
+  everybodySigns :: Tx -> [SigningKey PaymentKey] -> Tx
   everybodySigns tx' [] = tx'
   everybodySigns tx' (sk : sks) = everybodySigns (signTx sk tx') sks
 

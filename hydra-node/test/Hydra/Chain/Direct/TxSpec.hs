@@ -13,6 +13,7 @@ import Cardano.Ledger.Api (
   ConwayPlutusPurpose (ConwayRewarding, ConwaySpending),
   IsValid (..),
   Metadatum,
+  TxAuxData,
   auxDataHashTxBodyL,
   auxDataTxL,
   bodyTxL,
@@ -30,6 +31,7 @@ import Cardano.Ledger.Api (
   witsTxL,
   pattern ShelleyTxAuxData,
  )
+import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Credential (Credential (..))
 import Control.Lens ((.~), (^.))
 import Data.Map qualified as Map
@@ -127,7 +129,8 @@ spec =
         forAllBlind arbitrary $ \chainContext -> do
           let commitSigningKey = genSigningKey `generateWith` 42
           let commitVerificationKey = getVerificationKey commitSigningKey
-          let healthyInitialTxOut =
+          let healthyInitialTxOut :: TxOut CtxTx
+              healthyInitialTxOut =
                 setMinUTxOValue Fixture.pparams . toCtxUTxOTxOut $
                   mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput $
                     verificationKeyToOnChainId commitVerificationKey
@@ -169,8 +172,9 @@ spec =
                       & counterexample "Validity range mismatch"
                   , (blueprintBody ^. inputsTxBodyL) `propIsSubsetOf` (commitTxBody ^. inputsTxBodyL)
                       & counterexample "Blueprint inputs missing"
-                  , length (toLedgerTx blueprintTx ^. witsTxL . rdmrsTxWitsL & unRedeemers) + 1
-                      === length (toLedgerTx createdTx ^. witsTxL . rdmrsTxWitsL & unRedeemers)
+                  , length (toLedgerTx blueprintTx ^. witsTxL . rdmrsTxWitsL & unRedeemers)
+                      + 1
+                        === length (toLedgerTx createdTx ^. witsTxL . rdmrsTxWitsL & unRedeemers)
                       & counterexample "Blueprint witnesses missing"
                   , property
                       ((`all` (blueprintBody ^. outputsTxBodyL)) (`notElem` (commitTxBody ^. outputsTxBodyL)))
@@ -190,6 +194,7 @@ propHasValidAuxData tx =
     SJust auxData ->
       isValid auxData .&&. hashConsistent auxData
  where
+  isValid :: TxAuxData Ledger.ConwayEra -> Property
   isValid auxData =
     validateTxAuxData (pparams ^. ppProtocolVersionL) auxData
       & counterexample "Auxiliary data validation failed"
@@ -253,11 +258,13 @@ genBlueprintTxWithUTxO =
             )
       )
 
+  addSomeReferenceInputs :: (UTxO, TxBodyContent BuildTx) -> Gen (UTxO, TxBodyContent BuildTx)
   addSomeReferenceInputs (utxo, txbody) = do
     txout <- genTxOutWithReferenceScript
     txin <- arbitrary
     pure (utxo <> UTxO.singleton txin txout, txbody & addTxInsReference [txin] mempty)
 
+  addValidityRange :: (UTxO, TxBodyContent BuildTx) -> Gen (UTxO, TxBodyContent BuildTx)
   addValidityRange (utxo, txbody) = do
     (start, end) <- arbitrary
     pure
@@ -265,10 +272,12 @@ genBlueprintTxWithUTxO =
       , txbody{txValidityLowerBound = start, txValidityUpperBound = end}
       )
 
+  addRandomMetadata :: (UTxO, TxBodyContent BuildTx) -> Gen (UTxO, TxBodyContent BuildTx)
   addRandomMetadata (utxo, txbody) = do
     mtdt <- genMetadata
     pure (utxo, txbody{txMetadata = mtdt})
 
+  addCollateralInput :: (UTxO, TxBodyContent BuildTx) -> Gen (UTxO, TxBodyContent BuildTx)
   addCollateralInput (utxo, txbody) = do
     utxoToSpend <- genUTxOAdaOnlyOfSize 1
     pure
@@ -276,6 +285,7 @@ genBlueprintTxWithUTxO =
       , txbody{txInsCollateral = TxInsCollateral $ toList (UTxO.inputSet utxoToSpend)}
       )
 
+  sometimesAddRewardRedeemer :: (UTxO, TxBodyContent BuildTx) -> Gen (UTxO, TxBodyContent BuildTx)
   sometimesAddRewardRedeemer (utxo, txbody) =
     oneof
       [ pure (utxo, txbody)
@@ -333,9 +343,11 @@ prop_interestingBlueprintTx = do
             _ -> False
         )
 
+  hasReferenceInputs :: Tx -> Bool
   hasReferenceInputs tx =
     not . null $ toLedgerTx tx ^. bodyTxL . referenceInputsTxBodyL
 
+  spendsFromPubKey :: (UTxO, Tx) -> Bool
   spendsFromPubKey (utxo, tx) =
     any
       ( \txIn -> case UTxO.resolveTxIn (fromLedgerTxIn txIn) utxo of
@@ -347,6 +359,7 @@ prop_interestingBlueprintTx = do
   -- XXX: We do check both, the utxo and redeemers, because we
   -- don't do phase 1 validation of the resulting transactions
   -- and would not detect if redeemers are missing.
+  spendsFromScript :: (UTxO, Tx) -> Bool
   spendsFromScript (utxo, tx) =
     any
       ( \txIn -> case UTxO.resolveTxIn (fromLedgerTxIn txIn) utxo of

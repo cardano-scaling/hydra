@@ -108,6 +108,7 @@ data LocalChainState m tx = LocalChainState
 
 -- | Initialize a new local chain state from a given chain state history.
 newLocalChainState ::
+  forall m tx.
   (MonadSTM m, IsChainState tx) =>
   ChainStateHistory tx ->
   m (LocalChainState m tx)
@@ -121,11 +122,14 @@ newLocalChainState chainState = do
       , history = readTVar tv
       }
  where
+  getLatest :: TVar m (ChainStateHistory tx) -> STM m (ChainStateType tx)
   getLatest tv = currentState <$> readTVar tv
 
+  pushNew :: TVar m (ChainStateHistory tx) -> ChainStateType tx -> STM m ()
   pushNew tv cs =
     modifyTVar tv (pushNewState cs)
 
+  rollback :: TVar m (ChainStateHistory tx) -> ChainSlot -> STM m (ChainStateType tx)
   rollback tv chainSlot = do
     rolledBack <-
       readTVar tv
@@ -383,6 +387,7 @@ convertObservation TimeHandle{slotToUTCTime} = \case
     pure OnFanoutTx{headId, fanoutUTxO}
 
 prepareTxToPost ::
+  forall m.
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
   TinyWallet m ->
@@ -458,6 +463,7 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
             Right fanoutTx -> pure fanoutTx
  where
   -- XXX: Might want a dedicated exception type here
+  throwLeft :: Either Text a -> STM m a
   throwLeft = either (throwSTM . userError . toString) pure
 
   TimeHandle{currentPointInTime, slotFromUTCTime} = timeHandle

@@ -6,13 +6,13 @@ import Test.Hydra.Prelude
 import Data.List qualified as List
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
-import Hydra.Events (EventSink (..), HasEventId (..), getEvents)
+import Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (HeadState (..), IdleState (..), StateChanged (..), aggregate)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
-import Hydra.Ledger.Simple (SimpleChainState (..), simpleLedger)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx, simpleLedger)
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Node (hydrate)
+import Hydra.Node (DraftHydraNode, hydrate)
 import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, runToCompletion)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
@@ -24,7 +24,15 @@ spec :: Spec
 spec = parallel $ do
   describe "Log rotation" $ do
     -- Set up a hydrate function with fixtures curried
-    let setupHydrate action =
+    let setupHydrate ::
+          ( ( EventStore (StateEvent SimpleTx) IO ->
+              [EventSink (StateEvent SimpleTx) IO] ->
+              IO (DraftHydraNode SimpleTx IO)
+            ) ->
+            IO ()
+          ) ->
+          IO ()
+        setupHydrate action =
           showLogsOnFailure "RotationSpec" $ \tracer -> do
             let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0}
             action testHydrate
@@ -105,9 +113,12 @@ spec = parallel $ do
         unrotatedHistory <- getEvents eventSource
         toInteger (length unrotatedHistory) `shouldBe` totalEvents
         let rotationConfig = RotateAfter x
-        let s0 = []
-        let aggregator s e = e : s
-        let checkpointer s _ _ = trivialCheckpoint s
+        let s0 :: [TrivialEvent]
+            s0 = []
+        let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
+            aggregator s e = e : s
+        let checkpointer :: [TrivialEvent] -> EventId -> UTCTime -> TrivialEvent
+            checkpointer s _ _ = trivialCheckpoint s
         EventStore{eventSource = rotatedEventSource} <- newRotatedEventStore rotationConfig s0 aggregator checkpointer eventStore
         rotatedHistory <- getEvents rotatedEventSource
         length rotatedHistory `shouldBe` 1
@@ -120,9 +131,12 @@ spec = parallel $ do
       \(Positive x, Positive y) -> do
         mockEventStore <- createMockEventStore
         let rotationConfig = RotateAfter x
-        let s0 = []
-        let aggregator s e = e : s
-        let checkpointer s _ _ = trivialCheckpoint s
+        let s0 :: [TrivialEvent]
+            s0 = []
+        let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
+            aggregator s e = e : s
+        let checkpointer :: [TrivialEvent] -> EventId -> UTCTime -> TrivialEvent
+            checkpointer s _ _ = trivialCheckpoint s
         rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer mockEventStore
         let EventStore{eventSource, eventSink = EventSink{putEvent}} = rotatingEventStore
         let totalEvents = toInteger x * y
@@ -142,9 +156,12 @@ spec = parallel $ do
         let x = y + delta
         mockEventStore <- createMockEventStore
         let rotationConfig = RotateAfter x
-        let s0 = []
-        let aggregator s e = e : s
-        let checkpointer s _ _ = trivialCheckpoint s
+        let s0 :: [TrivialEvent]
+            s0 = []
+        let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
+            aggregator s e = e : s
+        let checkpointer :: [TrivialEvent] -> EventId -> UTCTime -> TrivialEvent
+            checkpointer s _ _ = trivialCheckpoint s
         rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer mockEventStore
         let EventStore{eventSource, eventSink = EventSink{putEvent}} = rotatingEventStore
         let totalEvents = toInteger x + toInteger y

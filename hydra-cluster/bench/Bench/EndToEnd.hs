@@ -22,6 +22,7 @@ import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
+import Data.ByteString.Lazy qualified as LBS
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Scientific (Scientific)
@@ -130,6 +131,12 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
                 (leader : followers) ->
                   (,[]) <$> scenario hydraTracer backend workDir dataset (leader :| followers)
  where
+  withHydraClientConnections ::
+    Tracer IO HydraNodeLog ->
+    [(Host, Int)] ->
+    [HydraClient] ->
+    ([HydraClient] -> IO a) ->
+    IO a
   withHydraClientConnections tracer apiHosts connections action = do
     case apiHosts of
       [] -> action connections
@@ -309,10 +316,14 @@ movingAverage confirmations =
       timeSlice t@UTCTime{utctDayTime} =
         t{utctDayTime = fromIntegral (floor (utctDayTime / window) * window :: Integer)}
 
+      fiveSecSlice :: (UTCTime, NominalDiffTime, NominalDiffTime) -> (UTCTime, NominalDiffTime, NominalDiffTime) -> Bool
       fiveSecSlice (timeSlice -> t1, _, _) (timeSlice -> t2, _, _) = t1 == t2
 
+      fst3 :: (a, b, c) -> a
       fst3 (a, _, _) = a
+      snd3 :: (a, b, c) -> b
       snd3 (_, a, _) = a
+      thd3 :: (a, b, c) -> c
       thd3 (_, _, a) = a
 
       average = \case
@@ -353,7 +364,7 @@ commitUTxO backend clients clientDatasets =
   doCommit (client, ClientDataset{initialUTxO, paymentKey}) = do
     requestCommitTx client initialUTxO
       <&> signTx paymentKey
-        >>= Backend.submitTransaction backend
+      >>= Backend.submitTransaction backend
     pure initialUTxO
 
 data Event = Event
@@ -481,21 +492,26 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
   waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
     maybeTxValid v <|> maybeTxInvalid v <|> maybeSnapshotConfirmed v
 
+  maybeTxValid :: Value -> Maybe WaitResult
   maybeTxValid v = do
     guard (v ^? key "tag" == Just "TxValid")
     v
-      ^? key "transactionId" . to fromJSON >>= \case
+      ^? key "transactionId" . to fromJSON
+      >>= \case
         Error _ -> Nothing
         Success txid -> pure $ TxValid txid
 
+  maybeTxInvalid :: Value -> Maybe WaitResult
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
     v
-      ^? key "transaction" . key "txId" . to fromJSON >>= \case
+      ^? key "transaction" . key "txId" . to fromJSON
+      >>= \case
         Error _ -> Nothing
         Success tx ->
           TxInvalid tx <$> v ^? key "validationError" . key "reason" . _String
 
+  maybeSnapshotConfirmed :: Value -> Maybe WaitResult
   maybeSnapshotConfirmed v = do
     guard (v ^? key "tag" == Just "SnapshotConfirmed")
     snapshot <- v ^? key "snapshot"
@@ -553,4 +569,5 @@ writeResultsCsv fp res = do
  where
   headers = "txId,confirmationTime"
 
+  toCsv :: (UTCTime, NominalDiffTime, NominalDiffTime, Int) -> LBS.ByteString
   toCsv (a, b, c, d) = show a <> "," <> encode b <> "," <> encode c <> "," <> encode d <> "\n"
