@@ -22,6 +22,7 @@ import Hydra.PersistentQueue (
   peekPersistentQueue,
   popPersistentQueue,
   writePersistentQueue,
+  writeDurablePersistentQueue,
  )
 import System.FilePath ((</>))
 
@@ -92,10 +93,10 @@ createPersistentInputQueue persistenceDir capacity = do
   q <- newPersistentQueue (persistenceDir </> "input-queue") capacity
   pure
     InputQueue
-      { enqueue = writePersistentQueue q
+      { enqueue = writeDurablePersistentQueue q
       , reenqueue = \delay e -> do
           threadDelay delay
-          writePersistentQueue q (queuedItem e)
+          writeDurablePersistentQueue q (queuedItem e)
       , dequeue = do
           (n, item) <- peekPersistentQueue q
           pure $ Queued{queuedId = fromIntegral n, queuedItem = item}
