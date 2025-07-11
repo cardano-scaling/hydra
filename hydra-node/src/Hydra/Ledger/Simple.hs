@@ -106,7 +106,7 @@ instance IsTx SimpleTx where
 newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-  deriving newtype (Arbitrary,  ToCBOR, FromCBOR)
+  deriving newtype (Arbitrary, ToCBOR, FromCBOR)
 
 instance IsChainState SimpleTx where
   type ChainStateType SimpleTx = SimpleChainState

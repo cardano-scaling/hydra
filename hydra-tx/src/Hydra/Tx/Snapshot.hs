@@ -120,9 +120,8 @@ instance IsTx tx => ToCBOR (Snapshot tx) where
 instance IsTx tx => FromCBOR (Snapshot tx) where
   fromCBOR =
     fromCBOR >>= \case
-     ("Snapshot" :: Text) -> Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-     msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
-
+      ("Snapshot" :: Text) -> Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
@@ -186,7 +185,6 @@ instance IsTx tx => FromCBOR (ConfirmedSnapshot tx) where
       ("InitialSnapshot" :: Text) -> InitialSnapshot <$> fromCBOR <*> fromCBOR
       ("ConfirmedSnapshot" :: Text) -> ConfirmedSnapshot <$> fromCBOR <*> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
-
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
