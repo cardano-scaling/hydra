@@ -52,6 +52,7 @@ import Hydra.Cluster.Scenarios (
   canCommit,
   canDecommit,
   canRecoverDeposit,
+  canRestartAfterInputDequeue,
   canSeePendingDeposits,
   canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
@@ -556,6 +557,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
               >>= canSideLoadSnapshot tracer tmpDir backend
+
+      fit "can resume from restart after dequeue of an input" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= canRestartAfterInputDequeue tracer tmpDir backend
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->

@@ -22,6 +22,7 @@ import Control.Monad.Trans.Writer (execWriter, tell)
 import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
+import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Cardano.Api (
   getVerificationKey,
  )
@@ -289,6 +290,7 @@ runHydraNode ::
   ( MonadCatch m
   , MonadAsync m
   , MonadTime m
+  , MonadDelay m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
@@ -302,6 +304,7 @@ stepHydraNode ::
   ( MonadCatch m
   , MonadAsync m
   , MonadTime m
+  , MonadDelay m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
@@ -309,6 +312,22 @@ stepHydraNode ::
 stepHydraNode node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
+  case queuedItem of
+    NetworkInput{networkEvent = ReceivedMessage{msg}} -> do
+      let debugOutput =
+            ServerOutput.DebugOutput
+              { kind = "BeginInput"
+              , by = party
+              , inputId = queuedId
+              , msg
+              }
+      processEffects node tracer queuedId [ClientEffect debugOutput]
+      case msg of
+        ReqSn{} -> threadDelay 1
+        AckSn{} -> threadDelay 1
+        _ -> pure ()
+    _ ->
+      pure ()
   outcome <- atomically $ processNextInput node queuedItem
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
@@ -320,6 +339,18 @@ stepHydraNode node = do
       maybeReenqueue i
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
+  case queuedItem of
+    NetworkInput{networkEvent = ReceivedMessage{msg}} -> do
+      let debugOutput =
+            ServerOutput.DebugOutput
+              { kind = "EndInput"
+              , by = party
+              , inputId = queuedId
+              , msg
+              }
+      processEffects node tracer queuedId [ClientEffect debugOutput]
+    _ ->
+      pure ()
  where
   maybeReenqueue q@Queued{queuedId, queuedItem} =
     case queuedItem of
