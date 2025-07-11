@@ -646,7 +646,7 @@ Alternatively, you can submit the transaction using the HTTP API endpoint:
 
 ```shell
 curl -X POST 127.0.0.1:4001/transaction \
-  --data @tx-signed.json \
+  --data @tx-signed.json
 ```
 
 The HTTP endpoint provides a synchronous response with different status codes:
