@@ -326,8 +326,8 @@ stepHydraNode node = do
       processStateChanges node stateChanges
       maybeReenqueue i
     Error{} -> pure ()
-  traceWith tracer EndInput{by = party, inputId = queuedId}
   done queuedItem
+  traceWith tracer EndInput{by = party, inputId = queuedId}
  where
   maybeReenqueue q@Queued{queuedId, queuedItem} =
     case queuedItem of
