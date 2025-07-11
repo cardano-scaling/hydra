@@ -391,7 +391,6 @@ waitMessages tracer conn directory NetworkCallback{deliver} = do
  where
   process res = do
     let revision = fromIntegral $ res ^. #header . #revision
-    putLastKnownRevision directory revision
     forM_ (res ^. #events) $ \event -> do
       let value = event ^. #kv . #value
       case decodeFull' value of
@@ -403,7 +402,9 @@ waitMessages tracer conn directory NetworkCallback{deliver} = do
               , value = encodeBase16 value
               , reason = show err
               }
-        Right msg -> deliver msg
+        Right msg -> do
+          deliver msg
+          putLastKnownRevision directory revision
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
