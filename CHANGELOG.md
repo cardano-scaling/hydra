@@ -18,6 +18,8 @@ changes.
 
 - Hydra node now rejects requests for incremental commits if provided UTxO is below the limit.
 
+- Add API endpoint `POST /transaction` to submit transaction to the head.
+
 ## [0.22.2] - 2025.06.30
 
 * Fix wrong hydra-script-tx-ids in networks.json

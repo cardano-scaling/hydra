@@ -90,6 +90,7 @@ library
     Hydra.Network.Message
     Hydra.NetworkVersions
     Hydra.Node
+    Hydra.Node.ApiTransactionTimeout
     Hydra.Node.DepositPeriod
     Hydra.Node.EmbedTH
     Hydra.Node.Environment
@@ -395,6 +396,7 @@ test-suite tests
     , req
     , resourcet
     , silently
+    , stm
     , temporary
     , text
     , time

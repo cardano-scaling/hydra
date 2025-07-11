@@ -41,6 +41,7 @@ import Hydra.HeadLogic.State (
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
+import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
 import Hydra.Tx (HeadId, IsTx (..), Party, txId)
 import Network.HTTP.Types (status500)
@@ -72,6 +73,7 @@ data APIServerConfig = APIServerConfig
   , port :: PortNumber
   , tlsCertPath :: Maybe FilePath
   , tlsKeyPath :: Maybe FilePath
+  , apiTransactionTimeout :: ApiTransactionTimeout
   }
 
 withAPIServer ::
@@ -135,6 +137,8 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                   (atomically $ getLatest commitInfoP)
                   (atomically $ getLatest pendingDepositsP)
                   callback
+                  (apiTransactionTimeout config)
+                  responseChannel
               )
       )
       ( do
