@@ -3,6 +3,14 @@
 module Hydra.API.ClientInput where
 
 import Hydra.Prelude
+    ( Eq,
+      Show,
+      Generic,
+      (<$>),
+      genericArbitrary,
+      Arbitrary(..),
+      FromJSON,
+      ToJSON )
 
 import Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)

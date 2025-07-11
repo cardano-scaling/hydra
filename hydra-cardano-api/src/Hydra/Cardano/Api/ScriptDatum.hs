@@ -1,6 +1,7 @@
 module Hydra.Cardano.Api.ScriptDatum where
 
 import Hydra.Cardano.Api.Prelude
+    ( ScriptDatum(ScriptDatumForTxIn), WitCtxTxIn )
 
 import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
 

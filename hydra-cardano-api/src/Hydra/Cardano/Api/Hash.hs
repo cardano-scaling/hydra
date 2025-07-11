@@ -1,6 +1,15 @@
 module Hydra.Cardano.Api.Hash where
 
 import Hydra.Cardano.Api.Prelude
+    ( ByteString,
+      Proxy(Proxy),
+      HasTypeProxy(proxyToAsType),
+      Hash(ScriptDataHash, PaymentKeyHash),
+      PaymentKey,
+      ScriptData,
+      SerialiseAsCBOR(..),
+      HasCallStack,
+      unsafeHashFromBytes )
 
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
 import Cardano.Ledger.Keys qualified as Ledger

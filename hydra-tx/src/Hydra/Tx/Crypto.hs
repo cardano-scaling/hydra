@@ -22,7 +22,42 @@ module Hydra.Tx.Crypto (
   module Hydra.Tx.Crypto,
 ) where
 
-import Hydra.Prelude hiding (Key, show)
+import Hydra.Prelude
+    ( filter,
+      otherwise,
+      ($),
+      Eq((==)),
+      Ord,
+      Show,
+      MonadFail(fail),
+      IsString(..),
+      Applicative(pure, (<*>)),
+      Foldable(null, foldr, length),
+      Generic,
+      Semigroup((<>)),
+      Monoid,
+      Bool(..),
+      Maybe(Just, Nothing),
+      Either(Left, Right),
+      Arbitrary(arbitrary),
+      FromJSON(parseJSON),
+      ToJSON(toJSON),
+      ByteString,
+      FromCBOR,
+      ToCBOR,
+      (.),
+      not,
+      (>=>),
+      (<$>),
+      maybe,
+      fst,
+      snd,
+      zipWith,
+      decodeBase16,
+      Proxy(..),
+      Map,
+      Hashable(..),
+      ConvertUtf8(decodeUtf8) )
 
 import Cardano.Crypto.DSIGN (
   ContextDSIGN,

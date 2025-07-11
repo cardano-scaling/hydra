@@ -17,7 +17,31 @@ import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Prelude hiding (seq)
+import Hydra.Prelude
+    ( ($),
+      Eq,
+      Show,
+      Applicative((<*>)),
+      Foldable(fold),
+      Generic,
+      Semigroup((<>)),
+      Monoid(mempty),
+      Bool(True),
+      String,
+      Natural,
+      Maybe(..),
+      ToJSON(toJSON),
+      FromJSON(parseJSON),
+      Text,
+      (<$>),
+      flip,
+      Arbitrary(..),
+      UTCTime,
+      (.),
+      (&),
+      fromMaybe,
+      genericArbitrary,
+      error )
 import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)

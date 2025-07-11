@@ -1,7 +1,22 @@
 module Hydra.NetworkVersionsSpec where
 
 import Hydra.Prelude
+    ( ($),
+      Foldable(null),
+      Semigroup((<>)),
+      Bool(True, False),
+      String,
+      Either(Right, Left),
+      forM_,
+      (&),
+      (<$>),
+      (.),
+      (&&),
+      not,
+      elem,
+      Arbitrary(arbitrary) )
 import Test.Hydra.Prelude
+    ( prop, describe, it, shouldSatisfy, failure, Spec )
 
 import Data.Version (Version, makeVersion)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)

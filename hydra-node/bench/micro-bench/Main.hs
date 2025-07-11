@@ -1,6 +1,19 @@
 module Main where
 
 import Hydra.Prelude
+    ( ($),
+      Monad((>>=)),
+      Int,
+      IO,
+      Either,
+      (<$>),
+      fromMaybe,
+      (.),
+      readMaybe,
+      lookupEnv,
+      Bifunctor(second),
+      ConvertUtf8(decodeUtf8),
+      Text )
 
 import Criterion (bench, bgroup, nf, whnf)
 import Criterion.Main (defaultMain)

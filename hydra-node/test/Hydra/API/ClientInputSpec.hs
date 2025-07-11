@@ -1,7 +1,17 @@
 module Hydra.API.ClientInputSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+    ( ($),
+      Bool(False, True),
+      Maybe(Just),
+      (.),
+      Arbitrary(arbitrary),
+      ToJSON(toJSON),
+      Proxy(Proxy),
+      MinimumSized,
+      ToString(toString),
+      ToText(toText) )
+import Test.Hydra.Prelude ( prop, describe, parallel, Spec )
 
 import Data.Aeson (Result (..), fromJSON)
 import Data.Aeson.Lens (key)

@@ -3,6 +3,11 @@
 module Hydra.Cardano.Api.TxId where
 
 import Hydra.Cardano.Api.Prelude
+    ( AsType(AsTxId),
+      SerialiseAsRawBytes(serialiseToRawBytes, deserialiseFromRawBytes),
+      TxId(..),
+      FromCBOR,
+      ToCBOR )
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Hash.Class qualified as CC

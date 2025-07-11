@@ -1,6 +1,18 @@
 module Hydra.Tx.ContestationPeriodSpec where
 
-import Hydra.Prelude hiding (label)
+import Hydra.Prelude
+    ( seq,
+      ($),
+      Enum(toEnum),
+      Fractional((/)),
+      Num(fromInteger),
+      Bool(True),
+      Maybe,
+      isJust,
+      isNothing,
+      (.),
+      SomeException(SomeException),
+      MonadEvaluate(evaluate) )
 
 import Data.Time (secondsToNominalDiffTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)

@@ -1,6 +1,29 @@
 module Hydra.Tx.ContestationPeriod where
 
-import Hydra.Prelude hiding (Show, show)
+import Hydra.Prelude
+    ( otherwise,
+      ($),
+      fromIntegral,
+      realToFrac,
+      Enum(fromEnum, toEnum),
+      Eq,
+      Integral(toInteger),
+      Num(..),
+      Ord((>)),
+      Real,
+      RealFrac(truncate, ceiling),
+      MonadFail(..),
+      Applicative(pure),
+      Semigroup((<>)),
+      Natural,
+      (<$>),
+      (.),
+      error,
+      Arbitrary(arbitrary),
+      FromJSON,
+      ToJSON,
+      ToText(toText),
+      NominalDiffTime )
 
 import Data.Fixed (Pico)
 import Data.Ratio ((%))

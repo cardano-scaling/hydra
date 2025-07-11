@@ -4,7 +4,7 @@
 
 module Hydra.Contract.HeadState where
 
-import PlutusTx.Prelude
+import PlutusTx.Prelude ( Integer, BuiltinByteString )
 
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)

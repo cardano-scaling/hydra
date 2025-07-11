@@ -1,13 +1,29 @@
 module Hydra.Ledger.SimpleSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+    ( ($),
+      fromIntegral,
+      Monad((>>=)),
+      Functor(fmap),
+      Num((+)),
+      Applicative(pure),
+      Monoid(mempty),
+      Integer,
+      isRight,
+      foldlM,
+      (<$>),
+      const,
+      reverse,
+      Gen,
+      Set )
+import Test.Hydra.Prelude ( prop, Spec )
 
 import Data.Foldable (maximum)
 import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Simple
+    ( SimpleTx(SimpleTx), simpleLedger, SimpleTxOut(..) )
 import Hydra.Tx.IsTx (IsTx (..))
 import Test.QuickCheck (Property, choose, forAllShrink, getSize, shrinkList, sublistOf)
 

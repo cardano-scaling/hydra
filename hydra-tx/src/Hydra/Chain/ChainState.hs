@@ -3,6 +3,15 @@
 module Hydra.Chain.ChainState where
 
 import Hydra.Prelude
+    ( Eq,
+      Num,
+      Ord,
+      Show,
+      Generic,
+      Natural,
+      Arbitrary,
+      FromJSON,
+      ToJSON )
 
 import Hydra.Tx (IsTx (..))
 

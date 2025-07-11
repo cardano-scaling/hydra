@@ -3,6 +3,7 @@
 module Hydra.Cardano.Api.ScriptHash where
 
 import Hydra.Cardano.Api.Prelude
+    ( hashScript, ScriptHash, ScriptInAnyLang(..) )
 
 -- * Extras
 

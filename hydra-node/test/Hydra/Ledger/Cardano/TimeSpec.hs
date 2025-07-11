@@ -1,6 +1,16 @@
 module Hydra.Ledger.Cardano.TimeSpec where
 
 import Hydra.Prelude
+    ( ($),
+      realToFrac,
+      Eq((==)),
+      Ord((<), (>=), (>)),
+      (&),
+      (<$>),
+      (.),
+      Arbitrary(arbitrary),
+      Gen,
+      UTCTime )
 
 import Cardano.Slotting.Slot (SlotNo (..))
 import Cardano.Slotting.Time (SlotLength, SystemStart (..), slotLengthFromMillisec)

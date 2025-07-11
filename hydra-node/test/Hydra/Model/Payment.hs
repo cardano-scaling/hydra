@@ -6,7 +6,40 @@
 module Hydra.Model.Payment where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (Any, label, toList)
+    ( lovelaceToValue,
+      FromJSON,
+      ToJSON,
+      Key(getVerificationKey, SigningKey, verificationKeyHash),
+      PaymentKey,
+      Value,
+      FromCBOR,
+      ToCBOR )
+import Hydra.Prelude
+    ( ($),
+      IsList(fromList),
+      Eq((==)),
+      Num(fromInteger),
+      Ord((<=)),
+      Show,
+      Foldable(foldMap),
+      Generic,
+      Semigroup((<>)),
+      Int,
+      FromJSON(parseJSON),
+      ToJSON(toJSON),
+      FromCBOR(fromCBOR),
+      ToCBOR(toCBOR),
+      (<$>),
+      snd,
+      (.),
+      id,
+      error,
+      show,
+      Arbitrary(arbitrary),
+      Gen,
+      Bifunctor(second),
+      ConvertUtf8(encodeUtf8),
+      Text )
 
 import Data.List qualified as List
 import Data.Set ((\\))

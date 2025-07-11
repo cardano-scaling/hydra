@@ -4,6 +4,18 @@
 module Hydra.Ledger where
 
 import Hydra.Prelude
+    ( Eq,
+      Num((+)),
+      Show,
+      Foldable(foldr),
+      Generic,
+      Semigroup((<>)),
+      Either(..),
+      genericArbitrary,
+      Arbitrary(arbitrary),
+      FromJSON,
+      ToJSON,
+      Text )
 
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Tx.IsTx (IsTx (..))

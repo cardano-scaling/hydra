@@ -4,7 +4,7 @@
 -- provided as parameters to the node and what's persisted.
 module Hydra.Node.ParameterMismatch where
 
-import Hydra.Prelude
+import Hydra.Prelude ( Eq, Show, Generic, Int, ToJSON, Exception )
 
 import Hydra.Tx (Party)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)

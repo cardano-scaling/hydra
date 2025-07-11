@@ -6,7 +6,7 @@
 -- | Simple asserting validators that are primarily useful for testing.
 module Hydra.Contract.Dummy where
 
-import Hydra.Prelude
+import Hydra.Prelude ( ($), Bool(False, True) )
 
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import PlutusLedgerApi.V3 (ScriptContext (..), ScriptInfo (..), serialiseCompiledCode, unsafeFromBuiltinData)

@@ -11,7 +11,26 @@
 module Hydra.Plutus.GoldenSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+    ( ($),
+      Eq((/=)),
+      IsString(fromString),
+      Applicative(pure),
+      Semigroup((<>)),
+      Bool(False),
+      String,
+      Maybe(Nothing, Just),
+      either,
+      void,
+      maybe,
+      (.),
+      (=<<),
+      when,
+      readFileBS,
+      writeFileBS,
+      die,
+      putTextLn,
+      show )
+import Test.Hydra.Prelude ( Spec, it, shouldBe )
 
 import Hydra.Cardano.Api (
   File (..),

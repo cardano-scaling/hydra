@@ -3,6 +3,23 @@ module Hydra.Cardano.Api.Pretty where
 
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Prelude
+    ( UTxO,
+      hashScript,
+      scriptDataToJson,
+      serialiseToRawBytesHexText,
+      getTxBodyContent,
+      getTxId,
+      txMintValueToValue,
+      renderTxIn,
+      renderValue,
+      ScriptDataJsonSchema(ScriptDataJsonNoSchema),
+      TxBodyContent(txMetadata, txOuts, txIns, txInsReference,
+                    txInsCollateral, txTotalCollateral, txReturnCollateral, txFee,
+                    txValidityLowerBound, txValidityUpperBound, txMintValue,
+                    txExtraKeyWits),
+      TxOutDatum(TxOutDatumNone),
+      Tx(Tx),
+      decodeUtf8 )
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)

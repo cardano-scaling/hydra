@@ -1,7 +1,19 @@
 module Hydra.API.ServerOutputSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+    ( ($),
+      Applicative(pure),
+      Foldable(null),
+      Semigroup((<>)),
+      unless,
+      any,
+      (<&>),
+      (.),
+      not,
+      show,
+      Proxy(Proxy),
+      MinimumSized )
+import Test.Hydra.Prelude ( prop, it, parallel, failure, Spec )
 
 import Control.Lens (toListOf, (^.))
 import Data.Aeson.Lens (key, values, _Array)

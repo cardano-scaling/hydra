@@ -3,6 +3,7 @@
 module Hydra.Cardano.Api.Address where
 
 import Hydra.Cardano.Api.Prelude
+    ( Arbitrary(arbitrary), Address, ByronAddr )
 
 import Test.Gen.Cardano.Api.Typed (genAddressByron)
 import Test.QuickCheck.Hedgehog (hedgehog)

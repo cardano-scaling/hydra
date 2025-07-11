@@ -2,6 +2,13 @@
 module Test.Network.Ports where
 
 import Hydra.Prelude
+    ( fromIntegral,
+      Monad(return, (>>=)),
+      Functor(fmap),
+      Int,
+      IO,
+      replicateM,
+      (<$>) )
 
 import Network.Socket (
   PortNumber,

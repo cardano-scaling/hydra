@@ -3,6 +3,11 @@
 module Hydra.Cardano.Api.PolicyId where
 
 import Hydra.Cardano.Api.Prelude
+    ( Arbitrary(arbitrary),
+      AsType(AsPolicyId),
+      SerialiseAsRawBytes(deserialiseFromRawBytes),
+      PolicyId(PolicyId),
+      toShelleyScriptHash )
 
 import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.Mary.Value qualified as Ledger

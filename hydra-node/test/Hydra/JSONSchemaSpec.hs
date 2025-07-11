@@ -1,8 +1,15 @@
 -- | Tests our JSON schema test utilities.
 module Hydra.JSONSchemaSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude ( ($), (.), id, UTCTime )
 import Test.Hydra.Prelude
+    ( describe,
+      it,
+      shouldThrow,
+      exceptionContaining,
+      withClearedPATH,
+      HUnitFailure,
+      Spec )
 
 import Control.Exception (IOException)
 import Data.Aeson (Value (..), object, (.=))

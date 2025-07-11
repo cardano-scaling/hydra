@@ -5,7 +5,46 @@
 module Hydra.Tx.Contract.Init where
 
 import Hydra.Cardano.Api
+    ( UTxO,
+      Tx,
+      TxIn,
+      scriptPolicyId,
+      PlutusScript,
+      PlutusScriptSerialised,
+      TxOutDatumInline,
+      TxOutDatumNone,
+      toPlutusCurrencySymbol,
+      toScriptData,
+      toPlutusTxOutRef,
+      modifyTxOutDatum,
+      modifyTxOutValue,
+      txOuts',
+      txOutValue )
 import Hydra.Prelude
+    ( zip,
+      ($),
+      fromIntegral,
+      Bounded,
+      Enum,
+      Eq((/=)),
+      Num((-)),
+      Show,
+      Applicative(pure, (<*>)),
+      Foldable(length),
+      Generic,
+      Int,
+      Integer,
+      Gen,
+      Arbitrary(arbitrary),
+      (.),
+      (<$>),
+      fst,
+      (=<<),
+      const,
+      flip,
+      drop,
+      generateWith,
+      (!!?) )
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)

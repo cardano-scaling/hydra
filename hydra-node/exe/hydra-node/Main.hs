@@ -2,7 +2,23 @@
 
 module Main where
 
-import Hydra.Prelude hiding (fromList, intercalate)
+import Hydra.Prelude
+    ( ($),
+      Applicative(pure),
+      Semigroup((<>)),
+      Maybe(Nothing),
+      IO,
+      either,
+      forM_,
+      (<$>),
+      (.),
+      (=<<),
+      die,
+      putBSLn,
+      show,
+      Exception(displayException),
+      SomeException(SomeException),
+      MonadCatch(catch) )
 
 import Control.Concurrent (mkWeakThreadId, myThreadId)
 import Control.Exception (AsyncException (UserInterrupt), throwTo)

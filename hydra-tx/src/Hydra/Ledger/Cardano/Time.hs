@@ -7,6 +7,13 @@
 module Hydra.Ledger.Cardano.Time where
 
 import Hydra.Prelude
+    ( ($),
+      fromIntegral,
+      Fractional((/)),
+      Num((*)),
+      RealFrac(truncate),
+      addUTCTime,
+      UTCTime )
 
 import Cardano.Slotting.Slot (SlotNo (..))
 import Cardano.Slotting.Time (RelativeTime (..), SlotLength, SystemStart, getSlotLength, getSystemStart, toRelativeTime)

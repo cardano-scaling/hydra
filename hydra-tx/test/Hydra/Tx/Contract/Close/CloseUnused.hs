@@ -4,7 +4,49 @@
 module Hydra.Tx.Contract.Close.CloseUnused where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
+    ( UTxO,
+      Tx,
+      SlotNo(SlotNo),
+      Key(verificationKeyHash),
+      TxValidityLowerBound,
+      TxValidityNoLowerBound,
+      TxValidityNoUpperBound,
+      TxValidityUpperBound,
+      toPlutusCurrencySymbol,
+      toScriptData,
+      modifyTxOutAddress,
+      txOuts',
+      mkTxOutDatumInline,
+      txOutValue )
+import Hydra.Prelude
+    ( ($),
+      fromIntegral,
+      Bounded(maxBound),
+      Enum,
+      Eq((/=)),
+      Integral(toInteger),
+      Num((+), (*), (-)),
+      Ord((>)),
+      Show,
+      Applicative(pure),
+      Foldable(length),
+      Generic,
+      Semigroup((<>)),
+      Maybe(Just, Nothing),
+      Word64,
+      Gen,
+      Arbitrary(arbitrary),
+      (.),
+      const,
+      (&),
+      fromMaybe,
+      (=<<),
+      (<$>),
+      (<&>),
+      drop,
+      take,
+      generateWith,
+      (!!?) )
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
