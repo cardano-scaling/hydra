@@ -161,7 +161,6 @@ instance ToCBOR ChainPoint where
         <> toCBOR slotNo
         <> toCBOR (serialiseToRawBytes bHash)
 
--- TODO: HasBlockHeader needs to be exported from cardano-api but it is not
 instance FromCBOR ChainPoint where
   fromCBOR =
     fromCBOR >>= \case
@@ -170,10 +169,9 @@ instance FromCBOR ChainPoint where
         ChainPoint
           <$> fromCBOR
           <*> ( fromCBOR >>= \bs ->
-                  pure $
-                    case deserialiseFromRawBytes (AsHash AsBlockHeader) bs of
-                      Left e -> fail (show e)
-                      Right h -> h
+                  case deserialiseFromRawBytes (AsHash (proxyToAsType (Proxy :: Proxy BlockHeader))) bs of
+                    Left e -> fail (show e)
+                    Right h -> pure h
               )
       msg -> fail $ show msg <> " is not a proper CBOR-encoded ChainPoint"
 
