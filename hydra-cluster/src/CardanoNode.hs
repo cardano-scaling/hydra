@@ -209,7 +209,7 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
       }
 
   -- Copy/download configuration files for a known network
-  copyKnownNetworkFiles =
+  copyKnownNetworkFiles = do
     forM_
       [ "config.json"
       , "topology.json"
@@ -222,6 +222,13 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
         createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
         fetchConfigFile (knownNetworkPath </> fn)
           >>= writeFileBS (stateDirectory </> fn)
+    case knownNetwork of
+      Mainnet -> forM_ ["checkpoints.json"] $
+        \fn -> do
+          createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
+          fetchConfigFile (knownNetworkPath </> fn)
+            >>= writeFileBS (stateDirectory </> fn)
+      _ -> pure ()
 
   knownNetworkPath =
     knownNetworkConfigBaseURL </> knownNetworkName

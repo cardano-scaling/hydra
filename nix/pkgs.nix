@@ -30,10 +30,6 @@
             inherit (inputs.cardano-node.packages.${system}) cardano-cli;
             inherit (inputs.cardano-node.packages.${system}) cardano-node;
             inherit (inputs.mithril.packages.${system}) mithril-client-cli;
-            mithril-client-cli-unstable =
-              pkgs.writeShellScriptBin "mithril-client-unstable" ''
-                exec ${inputs.mithril-unstable.packages.${system}.mithril-client-cli}/bin/mithril-client "$@"
-              '';
           })
         ];
       };

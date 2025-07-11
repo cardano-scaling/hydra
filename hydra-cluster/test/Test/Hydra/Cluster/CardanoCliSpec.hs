@@ -35,10 +35,10 @@ spec =
         output
           ^? key "type" . _String `shouldSatisfy` \case
             Nothing -> False
-            Just something -> something == "Witnessed Tx ConwayEra"
+            Just something -> something == "Tx ConwayEra"
 
     it "has expected cardano-cli version available" $
-      readProcess "cardano-cli" ["--version"] "" >>= (`shouldContain` "10.1.1.0")
+      readProcess "cardano-cli" ["--version"] "" >>= (`shouldContain` "10.8.0.0")
 
     around (showLogsOnFailure "CardanoCliSpec") $ do
       it "query protocol-parameters is compatible with our FromJSON instance" $ \tracer ->

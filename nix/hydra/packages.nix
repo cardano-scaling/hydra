@@ -148,7 +148,6 @@
               pkgs.cardano-node
               pkgs.cardano-cli
               pkgs.mithril-client-cli
-              pkgs.mithril-client-cli-unstable
               pkgs.check-jsonschema
             ];
         };

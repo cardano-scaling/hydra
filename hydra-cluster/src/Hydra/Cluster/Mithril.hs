@@ -45,11 +45,7 @@ downloadLatestSnapshotTo tracer network directory = do
  where
   -- Note: Minor hack; we use a different version of the mithril-client for
   -- these networks. Hopefully this can be removed, one day.
-  mithrilExe =
-    case network of
-      Preview -> "mithril-client-unstable"
-      Sanchonet -> "mithril-client-unstable"
-      _ -> "mithril-client"
+  mithrilExe = "mithril-client"
 
   traceStderr p =
     ignoreEOFErrors . forever $ do
