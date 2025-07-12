@@ -100,7 +100,7 @@ instance Key HydraKey where
   newtype VerificationKey HydraKey
     = HydraVerificationKey (VerKeyDSIGN Ed25519DSIGN)
     deriving stock (Eq, Ord)
-    deriving (Show, IsString) via UsingRawBytesHex (VerificationKey HydraKey)
+    deriving (Show) via UsingRawBytesHex (VerificationKey HydraKey)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
 
@@ -109,7 +109,7 @@ instance Key HydraKey where
   newtype SigningKey HydraKey
     = HydraSigningKey (SignKeyDSIGN Ed25519DSIGN)
     deriving stock (Eq, Ord)
-    deriving (Show, IsString) via UsingRawBytesHex (SigningKey HydraKey)
+    deriving (Show) via UsingRawBytesHex (SigningKey HydraKey)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
 

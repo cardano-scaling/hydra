@@ -179,7 +179,7 @@ genUTxOWithSimplifiedAddresses =
 -- * Others
 
 instance Arbitrary AssetName where
-  arbitrary = AssetName . BS.take 32 <$> arbitrary
+  arbitrary = UnsafeAssetName . BS.take 32 <$> arbitrary
 
 genKeyPair :: Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
 genKeyPair = do

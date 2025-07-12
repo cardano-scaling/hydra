@@ -25,6 +25,7 @@ import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
 import Hydra.Network (Host)
+import Hydra.Cardano.Api.Pretty (renderUTxO)
 import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, maybeWidget)
 import Hydra.TUI.Logging.Types (LogMessage (..), LogVerbosity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
@@ -369,7 +370,7 @@ drawUTxO f utxo =
         [ padTop (Pad 1) $
           vBox
             [ f addr
-            , padLeft (Pad 2) $ vBox (str . toString . UTxO.render <$> u)
+            , padLeft (Pad 2) $ vBox (str . toString . renderUTxO <$> u)
             ]
         | (addr, u) <- Map.toList byAddress
         ]
