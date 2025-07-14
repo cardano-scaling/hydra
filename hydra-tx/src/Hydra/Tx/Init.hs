@@ -17,6 +17,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Party (partyFromChain, partyToChain)
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, mkHydraHeadV1TxName, onChainIdToAssetName)
+import PlutusLedgerApi.Common (FromData)
 
 -- * Construction
 
@@ -136,6 +137,7 @@ observeInitTx tx = do
       , participants = assetNameToOnChainId <$> mintedTokenNames pid
       }
  where
+  matchHeadOutput :: FromData a => TxOut CtxTx -> Maybe (TxOut CtxTx, a)
   matchHeadOutput out = do
     guard $ isScriptTxOut Head.validatorScript out
     (out,) <$> (fromScriptData =<< txOutScriptData out)
