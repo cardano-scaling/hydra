@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   build-test:
-    name: "Nightly Blockfrost e2d tests"
+    name: "Nightly Blockfrost e2e tests"
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -36,11 +36,9 @@ jobs:
       run: |
         if [[ "${{secrets.blockfrost_token}}" != '' ]]; then
           echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
-          cd ${{ matrix.package }}
-          export HYDRA_BACKEND="blockfrost"
-          nix build .#${{ matrix.package }}-tests
-          nix develop
-          cabal test hydra-cluster --test-options '-m "End-to-end on Cardano devnet"'
+          cd hydra-cluster
+          export HYDRA_BACKEND="blockfrost";
+          nix develop .#hydra-cluster-tests --command tests -m "End-to-end on Cardano devnet"
         else
           echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
         fi
