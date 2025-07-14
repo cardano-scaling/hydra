@@ -14,7 +14,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Exception (IOException)
 import Data.Aeson (eitherDecode', encode)
 import Data.List qualified as List
-import System.Directory (createDirectoryIfMissing, doesPathExist, listDirectory, removeFile)
+import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
 import UnliftIO.IO.File (writeBinaryFileDurable)
 
@@ -142,7 +142,4 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
     Nothing -> pure ()
     Just index -> do
       let path = directory </> show index
-      fileExists <- liftIO $ doesPathExist path
-      when fileExists $
-        liftIO $
-          removeFile path
+      liftIO $ removeFile path
