@@ -24,7 +24,6 @@ data NetworkEvent msg
   | ReceivedMessage {sender :: Party, msg :: msg}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
-  deriving anyclass (FromJSON)
 
 instance ToCBOR msg => ToCBOR (NetworkEvent msg) where
   toCBOR = \case

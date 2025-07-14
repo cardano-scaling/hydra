@@ -12,7 +12,6 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
  )
 import Control.Exception (IOException)
-import Data.Aeson qualified as Aeson
 import Data.List qualified as List
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
@@ -63,14 +62,6 @@ newPersistentQueue encode decode path capacity = do
               atomically $ writeTBQueue queue (idx, item)
         pure $ List.last idxs
 
--- | Create a new persistent queue at file path and given capacity.
-newPersistentQueueJson ::
-  (MonadSTM m, MonadIO m, FromCBOR a, ToJSON a, FromJSON a, MonadCatch m, MonadFail m) =>
-  FilePath ->
-  Natural ->
-  m (PersistentQueue m a)
-newPersistentQueueJson = newPersistentQueue (toStrict . Aeson.encode) (Aeson.eitherDecode' . fromStrict)
-
 -- | Write a value to the queue, blocking if the queue is full.
 writeDurablePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
 writeDurablePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
@@ -91,19 +82,6 @@ writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
 
   liftIO $ createDirectoryIfMissing True directory
   writeFileBS (directory </> show next) $ serialize' item
-  atomically $ writeTBQueue queue (next, item)
-
--- | Write a value to the queue, blocking if the queue is full.
-writePersistentQueueJson :: (MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
-writePersistentQueueJson PersistentQueue{queue, nextIx, directory, encode} item = do
-  next <- atomically $ do
-    next <- readTVar nextIx
-    modifyTVar' nextIx (+ 1)
-    pure next
-
-  liftIO $ createDirectoryIfMissing True directory
-  writeFileBS (directory </> show next) $
-    encode item
   atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the

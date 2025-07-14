@@ -196,98 +196,102 @@ spec = parallel $ do
           getEventId <$> events `shouldSatisfy` isStrictlyMonotonic
 
     it "emits a single ReqSn as leader, even after multiple ReqTxs" $
-      showLogsOnFailure "NodeSpec" $ \tracer -> do
-        -- NOTE(SN): Sequence of parties in OnInitTx of
-        -- 'inputsToOpenHead' is relevant, so 10 is the (initial) snapshot leader
-        let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-            tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [4], txOutputs = utxoRefs [5]}
-            tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
-            inputs =
-              inputsToOpenHead
-                <> [ receiveMessage ReqTx{transaction = tx1}
-                   , receiveMessage ReqTx{transaction = tx2}
-                   , receiveMessage ReqTx{transaction = tx3}
-                   ]
-        (node, getNetworkEvents) <-
-          testHydraNode tracer aliceSk [bob, carol] cperiod inputs
-            >>= recordNetwork
-        runToCompletion node
-        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing]
+      showLogsOnFailure "NodeSpec" $ \tracer ->
+        withTempDir "persistence-dir" $ \tmpDir -> do
+          -- NOTE(SN): Sequence of parties in OnInitTx of
+          -- 'inputsToOpenHead' is relevant, so 10 is the (initial) snapshot leader
+          let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+              tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [4], txOutputs = utxoRefs [5]}
+              tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
+              inputs =
+                inputsToOpenHead
+                  <> [ receiveMessage ReqTx{transaction = tx1}
+                     , receiveMessage ReqTx{transaction = tx2}
+                     , receiveMessage ReqTx{transaction = tx3}
+                     ]
+          (node, getNetworkEvents) <-
+            testHydraNode tracer aliceSk [bob, carol] cperiod tmpDir inputs
+              >>= recordNetwork
+          runToCompletion node
+          getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing]
 
     it "rotates snapshot leaders" $
-      showLogsOnFailure "NodeSpec" $ \tracer -> do
-        let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-            sn1 = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
-            inputs =
-              inputsToOpenHead
-                <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, depositTxId = Nothing, decommitTx = Nothing}
-                   , receiveMessageFrom alice $ AckSn (sign aliceSk sn1) 1
-                   , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1
-                   , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
-                   , receiveMessage ReqTx{transaction = tx1}
-                   ]
+      showLogsOnFailure "NodeSpec" $ \tracer ->
+        withTempDir "persistence-dir" $ \tmpDir -> do
+          let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+              sn1 = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
+              inputs =
+                inputsToOpenHead
+                  <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, depositTxId = Nothing, decommitTx = Nothing}
+                     , receiveMessageFrom alice $ AckSn (sign aliceSk sn1) 1
+                     , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1
+                     , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
+                     , receiveMessage ReqTx{transaction = tx1}
+                     ]
 
-        (node, getNetworkEvents) <-
-          testHydraNode tracer bobSk [alice, carol] cperiod inputs
-            >>= recordNetwork
-        runToCompletion node
+          (node, getNetworkEvents) <-
+            testHydraNode tracer bobSk [alice, carol] cperiod tmpDir inputs
+              >>= recordNetwork
+          runToCompletion node
 
-        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing Nothing]
+          getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing Nothing]
 
-    it "processes out-of-order AckSn" $ do
-      showLogsOnFailure "NodeSpec" $ \tracer -> do
-        let snapshot = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
-            sigBob = sign bobSk snapshot
-            sigAlice = sign aliceSk snapshot
-            inputs =
-              inputsToOpenHead
-                <> [ receiveMessageFrom bob AckSn{signed = sigBob, snapshotNumber = 1}
-                   , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
-                   ]
-        (node, getNetworkEvents) <-
-          testHydraNode tracer aliceSk [bob, carol] cperiod inputs
-            >>= recordNetwork
-        runToCompletion node
-        getNetworkEvents `shouldReturn` [AckSn{signed = sigAlice, snapshotNumber = 1}]
+    it "processes out-of-order AckSn" $
+      showLogsOnFailure "NodeSpec" $ \tracer ->
+        withTempDir "persistence-dir" $ \tmpDir -> do
+          let snapshot = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
+              sigBob = sign bobSk snapshot
+              sigAlice = sign aliceSk snapshot
+              inputs =
+                inputsToOpenHead
+                  <> [ receiveMessageFrom bob AckSn{signed = sigBob, snapshotNumber = 1}
+                     , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
+                     ]
+          (node, getNetworkEvents) <-
+            testHydraNode tracer aliceSk [bob, carol] cperiod tmpDir inputs
+              >>= recordNetwork
+          runToCompletion node
+          getNetworkEvents `shouldReturn` [AckSn{signed = sigAlice, snapshotNumber = 1}]
 
     it "notifies client when postTx throws PostTxError" $
-      showLogsOnFailure "NodeSpec" $ \tracer -> do
-        let inputs :: [Input SimpleTx] = [ClientInput Init]
-        let tx = aValidTx 1
-        let expectedError = FailedToPostTx{failureReason = "unknown failure", failingTx = tx}
-        (node, getServerOutputs) <-
-          testHydraNode tracer aliceSk [bob, carol] cperiod inputs
-            >>= throwExceptionOnPostTx expectedError
-            >>= recordServerOutputs
+      showLogsOnFailure "NodeSpec" $ \tracer ->
+        withTempDir "persistence-dir" $ \tmpDir -> do
+          let inputs :: [Input SimpleTx] = [ClientInput Init]
+          let tx = aValidTx 1
+          let expectedError = FailedToPostTx{failureReason = "unknown failure", failingTx = tx}
+          (node, getServerOutputs) <-
+            testHydraNode tracer aliceSk [bob, carol] cperiod tmpDir inputs
+              >>= throwExceptionOnPostTx expectedError
+              >>= recordServerOutputs
 
-        runToCompletion node
+          runToCompletion node
 
-        outputs <- getServerOutputs
-        let isPostTxOnChainFailed :: Either (ServerOutput SimpleTx) (ClientMessage SimpleTx) -> Bool
-            isPostTxOnChainFailed = \case
-              Right PostTxOnChainFailed{postTxError} -> postTxError == expectedError
-              _ -> False
-
-        any isPostTxOnChainFailed outputs `shouldBe` True
+          outputs <- getServerOutputs
+          let isPostTxOnChainFailed :: Either (ServerOutput SimpleTx) (ClientMessage SimpleTx) -> Bool
+              isPostTxOnChainFailed = \case
+                Right PostTxOnChainFailed{postTxError} -> postTxError == expectedError
+                _ -> False
+          any isPostTxOnChainFailed outputs `shouldBe` True
 
     it "signs snapshot even if it has seen conflicting transactions" $
       failAfter 1 $
-        showLogsOnFailure "NodeSpec" $ \tracer -> do
-          let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-              tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}
-              snapshot = testSnapshot 1 0 [tx2] (utxoRefs [1, 3, 5])
-              sigBob = sign bobSk snapshot
-              inputs =
-                inputsToOpenHead
-                  <> [ NetworkInput testTTL $ ReceivedMessage{sender = bob, msg = ReqTx{transaction = tx1}}
-                     , NetworkInput testTTL $ ReceivedMessage{sender = bob, msg = ReqTx{transaction = tx2}}
-                     , NetworkInput testTTL $ ReceivedMessage{sender = alice, msg = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, depositTxId = Nothing}}
-                     ]
-          (node, getNetworkEvents) <-
-            testHydraNode tracer bobSk [alice, carol] cperiod inputs
-              >>= recordNetwork
-          runToCompletion node
-          getNetworkEvents `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
+        showLogsOnFailure "NodeSpec" $ \tracer ->
+          withTempDir "persistence-dir" $ \tmpDir -> do
+            let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+                tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}
+                snapshot = testSnapshot 1 0 [tx2] (utxoRefs [1, 3, 5])
+                sigBob = sign bobSk snapshot
+                inputs =
+                  inputsToOpenHead
+                    <> [ NetworkInput testTTL $ ReceivedMessage{sender = bob, msg = ReqTx{transaction = tx1}}
+                       , NetworkInput testTTL $ ReceivedMessage{sender = bob, msg = ReqTx{transaction = tx2}}
+                       , NetworkInput testTTL $ ReceivedMessage{sender = alice, msg = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, depositTxId = Nothing}}
+                       ]
+            (node, getNetworkEvents) <-
+              testHydraNode tracer bobSk [alice, carol] cperiod tmpDir inputs
+                >>= recordNetwork
+            runToCompletion node
+            getNetworkEvents `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
 
   describe "checkHeadState" $ do
     let defaultEnv =
@@ -450,15 +454,15 @@ testHydraNode ::
   SigningKey HydraKey ->
   [Party] ->
   ContestationPeriod ->
+  FilePath ->
   [Input SimpleTx] ->
   m (HydraNode SimpleTx m)
-testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
+testHydraNode tracer signingKey otherParties contestationPeriod tmpDir inputs = do
   let eventStore :: Monad m => EventStore (StateEvent SimpleTx) m
       eventStore = mockEventStore []
-  withTempDir "persistence-dir" $ \tmpDir ->
-    hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} tmpDir eventStore []
-      >>= notConnect
-      >>= primeWith inputs
+  hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} tmpDir eventStore []
+    >>= notConnect
+    >>= primeWith inputs
  where
   env =
     Environment
