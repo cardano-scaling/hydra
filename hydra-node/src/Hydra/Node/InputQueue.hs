@@ -3,6 +3,7 @@ module Hydra.Node.InputQueue where
 
 import Hydra.Prelude
 
+import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   isEmptyTBQueue,
@@ -16,6 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Monad.Class.MonadAsync (async)
+import Data.Text qualified as T
 import Hydra.PersistentQueue (
   PersistentQueue (..),
   newPersistentQueue,
@@ -89,7 +91,7 @@ createPersistentInputQueue ::
   Natural ->
   m (InputQueue m e)
 createPersistentInputQueue persistenceDir capacity = do
-  q <- newPersistentQueue (persistenceDir </> "input-queue") capacity
+  q <- newPersistentQueue serialize' (fmap (first (T.unpack . show)) decodeFull') (persistenceDir </> "input-queue") capacity
   pure
     InputQueue
       { enqueue = writePersistentQueue q

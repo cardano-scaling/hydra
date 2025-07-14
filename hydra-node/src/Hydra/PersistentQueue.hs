@@ -12,7 +12,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
  )
 import Control.Exception (IOException)
-import Data.Aeson (eitherDecode', encode)
+import Data.Aeson qualified as Aeson
 import Data.List qualified as List
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
@@ -24,15 +24,21 @@ data PersistentQueue m a = PersistentQueue
   { queue :: TBQueue m (Natural, a)
   , nextIx :: TVar m Natural
   , directory :: FilePath
+  , encode :: a -> ByteString
+  , decode :: ByteString -> Either String a
   }
 
 -- | Create a new persistent queue at file path and given capacity.
 newPersistentQueue ::
   (MonadSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
+  -- | encode message
+  (a -> ByteString) ->
+  -- | decode message
+  (ByteString -> Either String a) ->
   FilePath ->
   Natural ->
   m (PersistentQueue m a)
-newPersistentQueue path capacity = do
+newPersistentQueue encode decode path capacity = do
   queue <- newTBQueueIO capacity
   highestId <-
     try (loadExisting queue) >>= \case
@@ -41,7 +47,7 @@ newPersistentQueue path capacity = do
         pure 0
       Right highest -> pure highest
   nextIx <- newTVarIO $ highestId + 1
-  pure PersistentQueue{queue, nextIx, directory = path}
+  pure PersistentQueue{queue, nextIx, directory = path, encode, decode}
  where
   loadExisting queue = do
     paths <- liftIO $ listDirectory path
@@ -59,34 +65,11 @@ newPersistentQueue path capacity = do
 
 -- | Create a new persistent queue at file path and given capacity.
 newPersistentQueueJson ::
-  (MonadSTM m, MonadIO m, FromJSON a, MonadCatch m, MonadFail m) =>
+  (MonadSTM m, MonadIO m, FromCBOR a, ToJSON a, FromJSON a, MonadCatch m, MonadFail m) =>
   FilePath ->
   Natural ->
   m (PersistentQueue m a)
-newPersistentQueueJson path capacity = do
-  queue <- newTBQueueIO capacity
-  highestId <-
-    try (loadExisting queue) >>= \case
-      Left (_ :: IOException) -> do
-        liftIO $ createDirectoryIfMissing True path
-        pure 0
-      Right highest -> pure highest
-  nextIx <- newTVarIO $ highestId + 1
-  pure PersistentQueue{queue, nextIx, directory = path}
- where
-  loadExisting queue = do
-    paths <- liftIO $ listDirectory path
-    case sort $ mapMaybe readMaybe paths of
-      [] -> pure 0
-      idxs -> do
-        forM_ idxs $ \(idx :: Natural) -> do
-          bs <- readFileLBS (path </> show idx)
-          case eitherDecode' bs of
-            Left err ->
-              fail $ "Failed to decode item: " <> show err
-            Right item ->
-              atomically $ writeTBQueue queue (idx, item)
-        pure $ List.last idxs
+newPersistentQueueJson = newPersistentQueue (toStrict . Aeson.encode) (Aeson.eitherDecode' . fromStrict)
 
 -- | Write a value to the queue, blocking if the queue is full.
 writeDurablePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
@@ -111,8 +94,8 @@ writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
   atomically $ writeTBQueue queue (next, item)
 
 -- | Write a value to the queue, blocking if the queue is full.
-writePersistentQueueJson :: (ToJSON a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
-writePersistentQueueJson PersistentQueue{queue, nextIx, directory} item = do
+writePersistentQueueJson :: (MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
+writePersistentQueueJson PersistentQueue{queue, nextIx, directory, encode} item = do
   next <- atomically $ do
     next <- readTVar nextIx
     modifyTVar' nextIx (+ 1)
@@ -120,7 +103,7 @@ writePersistentQueueJson PersistentQueue{queue, nextIx, directory} item = do
 
   liftIO $ createDirectoryIfMissing True directory
   writeFileBS (directory </> show next) $
-    toStrict (encode item)
+    encode item
   atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the

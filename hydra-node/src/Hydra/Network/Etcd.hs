@@ -151,7 +151,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
           withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
             race_ (pollConnectivity tracer conn advertise callback) $
               race_ (waitMessages tracer conn persistenceDir callback) $ do
-                queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+                queue <- newPersistentQueue serialize' (fmap (first (T.unpack . show)) decodeFull') (persistenceDir </> "pending-broadcast") 100
                 race_ (broadcastMessages tracer conn advertise queue) $ do
                   action
                     Network
