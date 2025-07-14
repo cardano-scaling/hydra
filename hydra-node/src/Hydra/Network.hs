@@ -190,7 +190,6 @@ data Connectivity
       }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
-  deriving anyclass (FromJSON)
 
 instance ToCBOR Connectivity where
   toCBOR = \case
