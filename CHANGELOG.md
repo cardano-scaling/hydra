@@ -12,6 +12,8 @@ changes.
 
 - Don't keep around invalid transactions as they could lead to stuck Head.
 
+- Hydra node internal input queue is now persisted to disk.
+
 - Hydra API server responds with the correct `Content-Type` header `application-json`.
 
 - Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
