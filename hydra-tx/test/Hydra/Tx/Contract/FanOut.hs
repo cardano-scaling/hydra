@@ -53,6 +53,7 @@ healthyFanoutTx =
 
   headTokenScript = mkHeadTokenScript testSeedInput
 
+  headOutput' :: TxOut CtxUTxO
   headOutput' = mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyFanoutDatum)
 
   headOutput = modifyTxOutValue (<> participationTokens) headOutput'

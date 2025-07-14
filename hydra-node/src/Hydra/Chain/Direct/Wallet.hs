@@ -247,6 +247,7 @@ data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
 --
 -- XXX: All call sites of this function use cardano-api types
 coverFee_ ::
+  forall era.
   ( EraPlutusContext era
   , Ledger.EraCertState era
   , AlonzoEraTx era
@@ -342,7 +343,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
       Nothing -> Left $ ErrUnknownInput i
       Just o -> Right o
 
-  mkChange :: Ledger.TxOut era -> Set (TxIn, Ledger.TxOut era) -> [Ledger.TxOut era] -> Coin -> Either ChangeError (Ledger.TxOut era)
+  mkChange :: Ledger.TxOut era -> [Ledger.TxOut era] -> [Ledger.TxOut era] -> Coin -> Either ChangeError (Ledger.TxOut era)
   mkChange feeTxOut resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
@@ -359,8 +360,6 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
     changeOut = totalIn <> invert totalOut
 
   adjustRedeemers ::
-    forall era.
-    AlonzoEraScript era =>
     Set TxIn ->
     Set TxIn ->
     Map (PlutusPurpose AsIx era) ExUnits ->
@@ -430,7 +429,7 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
       epochInfo
       systemStart
 
-  convertResult :: a -> Either a b -> Either ErrCoverFee b
+  convertResult :: PlutusPurpose AsIx era -> Either (TransactionScriptFailure era) ExUnits -> Either ErrCoverFee ExUnits
   convertResult ptr = \case
     Right exUnits -> Right exUnits
     Left failure ->

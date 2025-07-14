@@ -875,11 +875,13 @@ hydraNodeCommand =
         <> header "hydra-node - Implementation of the Hydra Head protocol"
     )
  where
+  versionInfo :: Parser (a -> a)
   versionInfo =
     infoOption
       (showVersion hydraNodeVersion)
       (long "version" <> help "Show version")
 
+  scriptInfo :: Parser (a -> a)
   scriptInfo =
     infoOption
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
@@ -1005,6 +1007,7 @@ toArgs
       Quiet -> ["--quiet"]
       _ -> []
 
+    toArgPeer :: Host -> [String]
     toArgPeer p =
       ["--peer", show p]
 

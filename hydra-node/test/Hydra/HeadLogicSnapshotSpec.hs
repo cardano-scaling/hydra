@@ -220,5 +220,5 @@ prop_thereIsAlwaysALeader :: Property
 prop_thereIsAlwaysALeader =
   forAll arbitrary $ \sn ->
     forAll arbitrary $ \params@HeadParameters{parties} ->
-      not (null parties)
-        ==> any (\p -> isLeader params p sn) parties
+      not (null parties) ==>
+        any (\p -> isLeader params p sn) parties

@@ -346,6 +346,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     , utxo
     )
    where
+    removeAt :: Integral i => i -> [a] -> [a]
     removeAt i es =
       if fromIntegral i >= length es
         then error "trying to removeAt beyond end of list"
@@ -612,6 +613,7 @@ alterTxIns fn tx =
       )
       redeemersMap
 
+  rebuiltSpendingRedeemers :: Map.Map (ConwayPlutusPurpose AsIx LedgerEra) (Ledger.Data LedgerEra, Ledger.ExUnits)
   rebuiltSpendingRedeemers = Map.fromList $
     flip mapMaybe (zip [0 ..] newSortedInputs) $ \(i, (_, mRedeemer)) ->
       mRedeemer <&> \d ->

@@ -183,6 +183,7 @@ queryProtocolParameters networkId socket queryPoint =
     eraPParams <- queryInShelleyBasedEraExpr sbe QueryProtocolParameters
     liftIO $ coercePParamsToLedgerEra era eraPParams
  where
+  encodeToEra :: ToJSON a => CardanoEra era -> a -> IO (PParams LedgerEra)
   encodeToEra eraToEncode pparams =
     case eitherDecode' (encode pparams) of
       Left e -> throwIO $ QueryProtocolParamsEncodingFailureOnEra (anyCardanoEra eraToEncode) (Text.pack e)

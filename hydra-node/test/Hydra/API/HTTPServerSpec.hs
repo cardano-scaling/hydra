@@ -9,6 +9,7 @@ import Control.Lens ((^?))
 import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
+import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (
@@ -567,7 +568,8 @@ apiServerSpec = do
                 _ -> 500
 
     describe "POST /transaction" $ do
-      let mkReq tx = encode $ SubmitL2TxRequest tx
+      let mkReq :: SimpleTx -> LBS.ByteString
+          mkReq tx = encode $ SubmitL2TxRequest tx
           testTx = SimpleTx 42 mempty mempty
           testHeadId = generateWith arbitrary 42
       now <- runIO getCurrentTime

@@ -29,7 +29,7 @@ import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
-import Hydra.Network (readHost)
+import Hydra.Network (Host, readHost)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Handlers (info, report, warn)
@@ -114,6 +114,7 @@ handleHydraEventsConnection = \case
     peersL %= map (\(h, _) -> (h, PeerIsUnknown))
   e -> zoom headStateL $ handleHydraEventsHeadState e
  where
+  updatePeerStatus :: Host -> PeerStatus -> [(Host, PeerStatus)] -> [(Host, PeerStatus)]
   updatePeerStatus host status peers =
     (host, status) : filter ((/= host) . fst) peers
 

@@ -8,6 +8,7 @@ import Cardano.Ledger.Core (PParams)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Data.Aeson (KeyValue ((.=)), object, withObject, (.:))
 import Data.Aeson qualified as Aeson
+import Data.Aeson.Types (Parser)
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
 import Data.Text (pack)
@@ -78,7 +79,7 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
       utxo <- o .: "utxo"
       pure FullCommitRequest{blueprintTx, utxo}
 
-    simpleVariant :: Value -> Parser (DraftCommitTxRequest tx)
+    simpleVariant :: Aeson.Value -> Parser (DraftCommitTxRequest tx)
     simpleVariant val = SimpleCommitRequest <$> parseJSON val
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where

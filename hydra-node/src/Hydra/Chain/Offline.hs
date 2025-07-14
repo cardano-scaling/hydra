@@ -81,6 +81,7 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
 
   headId = offlineHeadId headSeed
 
+  chainHandle :: Chain Tx IO
   chainHandle =
     Chain
       { mkChainState = initialChainState

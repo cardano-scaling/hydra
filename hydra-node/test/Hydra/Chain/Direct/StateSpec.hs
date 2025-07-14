@@ -479,13 +479,13 @@ prop_observeAnyTx =
 -- | Given a UTxO with more than one entry, we can split it into two non-empty UTxO.
 prop_splitUTxO :: UTxO -> Property
 prop_splitUTxO utxo =
-  (UTxO.size utxo > 1)
-    ==> let (inHead, toDecommit) = splitUTxO utxo
-         in conjoin
-              [ not (UTxO.null inHead) & counterexample "inHead is empty"
-              , not (UTxO.null toDecommit) & counterexample "toDecommit is empty"
-              , inHead /= toDecommit & counterexample "inHead == toDecommit"
-              ]
+  (UTxO.size utxo > 1) ==>
+    let (inHead, toDecommit) = splitUTxO utxo
+     in conjoin
+          [ not (UTxO.null inHead) & counterexample "inHead is empty"
+          , not (UTxO.null toDecommit) & counterexample "toDecommit is empty"
+          , inHead /= toDecommit & counterexample "inHead == toDecommit"
+          ]
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do

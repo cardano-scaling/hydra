@@ -81,6 +81,7 @@ healthyIncrementTx =
       & addParticipationTokens healthyParticipants
       & modifyTxOutValue (<> UTxO.totalValue healthyUTxO)
 
+  depositUTxO :: UTxO
   depositUTxO =
     UTxO.singleton healthyDepositInput $
       mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited healthyDeadline

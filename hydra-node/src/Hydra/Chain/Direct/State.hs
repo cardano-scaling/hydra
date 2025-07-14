@@ -722,7 +722,7 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotN
 
   ChainContext{scriptRegistry} = ctx
 
-  checkHeadDatum :: (TxIn, TxOut CtxUTxO era) -> Either FanoutTxError (TxIn, TxOut CtxUTxO era)
+  checkHeadDatum :: (TxIn, TxOut CtxUTxO) -> Either FanoutTxError (TxIn, TxOut CtxUTxO)
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <-
       txOutScriptData (fromCtxUTxOTxOut headOutput) ?> MissingHeadDatumInFanout
@@ -793,7 +793,7 @@ observeInit _ctx _allVerificationKeys tx = do
       (bimap (mkTxIn tx) toCtxUTxOTxOut)
       initialOutputs
 
-  isInitial :: TxOut CtxUTxO era -> Bool
+  isInitial :: TxOut era -> Bool
   isInitial = isScriptTxOut initialValidatorScript
 
 -- ** InitialState transitions

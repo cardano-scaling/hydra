@@ -364,7 +364,7 @@ commitUTxO backend clients clientDatasets =
   doCommit (client, ClientDataset{initialUTxO, paymentKey}) = do
     requestCommitTx client initialUTxO
       <&> signTx paymentKey
-      >>= Backend.submitTransaction backend
+        >>= Backend.submitTransaction backend
     pure initialUTxO
 
 data Event = Event
@@ -496,20 +496,23 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
   maybeTxValid v = do
     guard (v ^? key "tag" == Just "TxValid")
     v
-      ^? key "transactionId" . to fromJSON
-      >>= \case
-        Error _ -> Nothing
-        Success txid -> pure $ TxValid txid
+      ^? key "transactionId"
+        . to fromJSON
+        >>= \case
+          Error _ -> Nothing
+          Success txid -> pure $ TxValid txid
 
   maybeTxInvalid :: Value -> Maybe WaitResult
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
     v
-      ^? key "transaction" . key "txId" . to fromJSON
-      >>= \case
-        Error _ -> Nothing
-        Success tx ->
-          TxInvalid tx <$> v ^? key "validationError" . key "reason" . _String
+      ^? key "transaction"
+        . key "txId"
+        . to fromJSON
+        >>= \case
+          Error _ -> Nothing
+          Success tx ->
+            TxInvalid tx <$> v ^? key "validationError" . key "reason" . _String
 
   maybeSnapshotConfirmed :: Value -> Maybe WaitResult
   maybeSnapshotConfirmed v = do

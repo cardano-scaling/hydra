@@ -38,7 +38,7 @@ common project-config
     -Wincomplete-uni-patterns -Wredundant-constraints
     -Wnoncanonical-monad-instances -fobject-code
     -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    -fno-strictness
+    -fno-strictness -Wmissing-local-signatures
 
 library
   import:          project-config

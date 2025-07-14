@@ -26,7 +26,7 @@ import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.TUI.Options (Options (..))
 import Network.HTTP.Req (defaultHttpConfig, responseBody, runReq)
 import Network.HTTP.Req qualified as Req
-import Network.WebSockets (ConnectionException, receiveData, runClient, sendBinaryData)
+import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 
 data HydraEvent tx
   = ClientConnected
@@ -102,6 +102,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
       Left err -> throwIO $ ClientJSONDecodeError err msg
       Right output -> callback $ Update output
 
+  sendInputs :: TBQueue IO (ClientInput tx) -> Connection -> IO ()
   sendInputs q con = forever $ do
     input <- atomically $ readTBQueue q
     sendBinaryData con $ encode input

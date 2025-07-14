@@ -113,7 +113,8 @@ spec = parallel $ do
         forAllShrink arbitrary shrink $ \env ->
           forAllShrink arbitrary shrink $ \now ->
             env
-              /= testEnvironment ==> do
+              /= testEnvironment
+              ==> do
                 -- XXX: This is very tied to the fact that 'HeadInitialized' results in
                 -- a head state that gets checked by 'checkHeadState'
                 let genEvent = do

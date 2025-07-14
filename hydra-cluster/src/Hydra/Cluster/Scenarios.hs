@@ -347,7 +347,7 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
       resp <-
         parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
           <&> setRequestBodyJSON commitUTxO
-          >>= httpJSON
+            >>= httpJSON
 
       let depositTransaction = getResponseBody resp :: Tx
       let tx = signTx aliceCardanoSk depositTransaction
@@ -610,8 +610,8 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
         -- Push it into L2
         requestCommitTx n1 utxoToCommit
           <&> signTx walletSk
-          >>= \tx -> do
-            Backend.submitTransaction backend tx
+            >>= \tx -> do
+              Backend.submitTransaction backend tx
 
         -- Check UTxO is present in L2
         waitFor hydraTracer (10 * blockTime) [n1] $
@@ -1243,7 +1243,7 @@ canCommit tracer workDir blockTime backend hydraScriptsTxId =
           resp <-
             parseUrlThrow ("POST " <> hydraNodeBaseUrl n2 <> "/commit")
               <&> setRequestBodyJSON commitUTxO
-              >>= httpJSON
+                >>= httpJSON
 
           let depositTransaction = getResponseBody resp :: Tx
           let tx = signTx walletSk depositTransaction
@@ -1260,7 +1260,7 @@ canCommit tracer workDir blockTime backend hydraScriptsTxId =
           resp2 <-
             parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
               <&> setRequestBodyJSON commitUTxO2
-              >>= httpJSON
+                >>= httpJSON
 
           let depositTransaction' = getResponseBody resp2 :: Tx
           let tx' = signTx walletSk depositTransaction'
@@ -1329,7 +1329,7 @@ rejectCommit tracer workDir blockTime backend hydraScriptsTxId =
       response <-
         L.parseRequest ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
           <&> setRequestBodyJSON (commitUTxO :: UTxO.UTxO)
-          >>= httpJSON
+            >>= httpJSON
 
       let expectedError = getResponseBody response :: PostTxError Tx
 
@@ -1338,8 +1338,6 @@ rejectCommit tracer workDir blockTime backend hydraScriptsTxId =
         _ -> False
  where
   hydraTracer = contramap FromHydraNode tracer
-
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
 
 -- | Open a a single participant head, deposit and then recover it.
 canRecoverDeposit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
@@ -1385,7 +1383,7 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
         depositTransaction <-
           parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
             <&> setRequestBodyJSON commitUTxO
-            >>= httpJSON
+              >>= httpJSON
             <&> getResponseBody
 
         let tx = signTx walletSk depositTransaction
@@ -1476,7 +1474,7 @@ canSeePendingDeposits tracer workDir blockTime backend hydraScriptsTxId =
           depositTransaction <-
             parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
               <&> setRequestBodyJSON utxo
-              >>= httpJSON
+                >>= httpJSON
               <&> getResponseBody
 
           let tx = signTx walletSk depositTransaction

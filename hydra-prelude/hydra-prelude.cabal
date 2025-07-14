@@ -44,3 +44,4 @@ library
 
   ghc-options:
     -Wall -Wcompat -Wunused-packages -Wmissing-deriving-strategies
+    -Wmissing-local-signatures

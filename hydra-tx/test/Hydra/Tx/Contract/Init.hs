@@ -125,6 +125,7 @@ genInitMutation (tx, _utxo) =
   alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
   fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV2
 
+  changeInitialOutputToFakeId :: Word -> TxOut CtxTx -> Mutation
   changeInitialOutputToFakeId ix out =
     ChangeOutput ix $
       modifyTxOutDatum
@@ -135,8 +136,10 @@ genInitMutation (tx, _utxo) =
         )
         out
 
+  removeInitialOutputDatum :: Word -> TxOut CtxTx -> Mutation
   removeInitialOutputDatum ix out =
     ChangeOutput ix $ modifyTxOutDatum (const TxOutDatumNone) out
 
+  changeInitialOutputToNotAHeadId :: Word -> TxOut CtxTx -> Mutation
   changeInitialOutputToNotAHeadId ix out =
     ChangeOutput ix $ modifyTxOutDatum (const $ TxOutDatumInline $ toScriptData (42 :: Integer)) out

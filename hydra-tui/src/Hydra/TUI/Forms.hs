@@ -80,6 +80,7 @@ depositIdRadioField txIdUTxO =
     ]
     (Prelude.head $ flattened txIdUTxO)
  where
+  flattened :: [(TxId, UTxO)] -> [(TxId, TxIn, TxOut CtxUTxO)]
   flattened =
     concatMap
       (\(txId, u) -> (\(i, o) -> (txId, i, o)) <$> Map.toList (UTxO.toMap u))
@@ -109,6 +110,7 @@ type CheckmarkChar = Char
 type RightBracketChar = Char
 
 checkboxGroupField ::
+  forall k a e n.
   (Ord k, Ord n) =>
   LeftBracketChar ->
   CheckmarkChar ->
@@ -160,11 +162,17 @@ checkboxGroupField lb check rb stLens options initialState =
                 )
                 <+> txt lbl
 
+  handleCheckboxEvent ::
+    (Bifunctor p, MonadState (Map k (p a Bool)) m) =>
+    k ->
+    BrickEvent n e ->
+    m ()
   handleCheckboxEvent k = \case
     (MouseDown n _ _ _) -> updateCheckbox k
     (VtyEvent (EvKey (KChar ' ') [])) -> updateCheckbox k
     _ -> return ()
 
+  updateCheckbox :: (MonadState (Map k (p a Bool)) m, Bifunctor p) => k -> m ()
   updateCheckbox k = do
     cur <- get
     case Map.lookup k cur of

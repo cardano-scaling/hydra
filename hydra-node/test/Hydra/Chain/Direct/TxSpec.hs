@@ -174,7 +174,7 @@ spec =
                       & counterexample "Blueprint inputs missing"
                   , length (toLedgerTx blueprintTx ^. witsTxL . rdmrsTxWitsL & unRedeemers)
                       + 1
-                        === length (toLedgerTx createdTx ^. witsTxL . rdmrsTxWitsL & unRedeemers)
+                      === length (toLedgerTx createdTx ^. witsTxL . rdmrsTxWitsL & unRedeemers)
                       & counterexample "Blueprint witnesses missing"
                   , property
                       ((`all` (blueprintBody ^. outputsTxBodyL)) (`notElem` (commitTxBody ^. outputsTxBodyL)))

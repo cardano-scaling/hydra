@@ -50,19 +50,23 @@ genTxOut =
     >>= realisticAda
     <&> ensureSomeAda . noRefScripts . noStakeRefPtr
  where
+  gen :: Gen (TxOut ctx)
   gen =
     oneof
       [ fromLedgerTxOut <$> arbitrary
       , notMultiAsset . fromLedgerTxOut <$> arbitrary
       ]
 
+  notMultiAsset :: TxOut ctx -> TxOut ctx
   notMultiAsset =
     modifyTxOutValue (lovelaceToValue . selectLovelace)
 
+  notByronAddress :: TxOut ctx -> Bool
   notByronAddress (TxOut addr _ _ _) = case addr of
     ByronAddressInEra{} -> False
     _ -> True
 
+  realisticAda :: TxOut ctx -> Gen (TxOut ctx)
   realisticAda o = sized $ \n -> do
     let maxSupply = 45_000_000_000_000_000
         realistic = Coin $ maxSupply `div` fromIntegral (max n 1)
@@ -72,9 +76,11 @@ genTxOut =
     pure $
       modifyTxOutValue makeRealistic o
 
+  ensureSomeAda :: TxOut CtxUTxO -> TxOut ctx
   ensureSomeAda =
     fromLedgerTxOut . ensureMinCoinTxOut pparams . toLedgerTxOut
 
+  noStakeRefPtr :: TxOut ctx -> TxOut ctx
   noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
     ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
       case sr of
@@ -84,6 +90,7 @@ genTxOut =
           TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat refScript
     _ -> out
 
+  noRefScripts :: TxOut ctx -> TxOut ctx
   noRefScripts out =
     out{txOutReferenceScript = ReferenceScriptNone}
 
@@ -137,6 +144,7 @@ genUTxOSized :: Int -> Gen UTxO
 genUTxOSized numUTxO =
   fold <$> vectorOf numUTxO gen
  where
+  gen :: Gen UTxO
   gen = UTxO.singleton <$> arbitrary <*> genTxOut
 
 -- | Generate a 'UTxO' with a single entry using given 'TxOut' generator.
@@ -156,6 +164,7 @@ genUTxOAdaOnlyOfSize :: Int -> Gen UTxO
 genUTxOAdaOnlyOfSize numUTxO =
   fold <$> vectorOf numUTxO gen
  where
+  gen :: Gen UTxO
   gen = UTxO.singleton <$> arbitrary <*> (genTxOutAdaOnly =<< arbitrary)
 
 -- | Generate a single UTXO owned by 'vk'.
@@ -174,6 +183,7 @@ genUTxOWithSimplifiedAddresses :: Gen UTxO
 genUTxOWithSimplifiedAddresses =
   UTxO.fromList <$> listOf genEntry
  where
+  genEntry :: Gen (TxIn, TxOut ctx)
   genEntry = (,) <$> genTxIn <*> genTxOut
 
 -- * Others

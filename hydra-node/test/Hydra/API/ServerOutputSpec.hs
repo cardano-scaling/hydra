@@ -4,6 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Lens (toListOf, (^.))
+import Data.Aeson (Value)
 import Data.Aeson.Lens (key, values, _Array)
 import Hydra.API.ServerOutput (ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
 import Hydra.Chain.Direct.State ()

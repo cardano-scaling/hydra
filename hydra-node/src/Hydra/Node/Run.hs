@@ -125,7 +125,7 @@ run opts = do
                 -- Main loop
                 connect chain network server wetHydraNode
                   <&> addEventSink apiSink
-                  >>= runHydraNode
+                    >>= runHydraNode
  where
   addEventSink :: EventSink (StateEvent tx) m -> HydraNode tx m -> HydraNode tx m
   addEventSink sink node = node{eventSinks = sink : eventSinks node}

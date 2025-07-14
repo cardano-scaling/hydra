@@ -83,7 +83,7 @@ import Test.Hydra.Prelude hiding (after)
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (newTVarIO)
 import Control.Monad.Class.MonadTimer ()
-import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
+import Control.Monad.IOSim (Failure (FailureException), IOSim, SimTrace, runSimTrace, traceResult)
 import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Set qualified as Set
@@ -349,7 +349,7 @@ runRunMonadIOSimGen f = do
         Left ex ->
           counterexample (show ex) False
  where
-  -- logsOnError :: SimTrace (HydraLog Tx) -> Property
+  logsOnError :: Testable prop => SimTrace a -> prop -> Property
   logsOnError tr =
     -- NOTE: Store trace dump in file when showing the counterexample. Behavior of
     -- this during shrinking is not 100% confirmed, show the trace directly if you
