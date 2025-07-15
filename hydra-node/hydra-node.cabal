@@ -247,6 +247,19 @@ executable hydra-node
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
+executable visualize-logs
+  import:         project-config
+  hs-source-dirs: exe/visualize-logs
+  main-is:        Main.hs
+  build-depends:
+    , base
+    , bytestring
+    , hydra-cardano-api
+    , hydra-node
+    , hydra-prelude
+    , unix
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 benchmark tx-cost
   import:         project-config
   hs-source-dirs: bench/tx-cost
