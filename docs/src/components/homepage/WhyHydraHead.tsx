@@ -21,9 +21,9 @@ const WhyHydraHead: FC = () => {
     >
       <div className="grid laptop:flex laptop:flex-row laptop:gap-6">
         <div className="flex flex-col basis-[41%] pt-4 order-2 laptop:-order-1 laptop:w-[472px] laptop:pt-0">
-          <h4 className="text-2xl text-primary font-medium pb-4">
+          <h3 className="text-2xl text-primary font-medium pb-4">
             {WhyHydraHeadContent.title}
-          </h4>
+          </h3>
           <p>{WhyHydraHeadContent.descriptionParagraphOne}</p>
 
           <motion.div
@@ -58,6 +58,7 @@ const WhyHydraHead: FC = () => {
         <div className="hidden basis-[59%] -order-1 laptop:order-2 tablet:block">
           <img
             src="hydra-docs-landing-graphic.png"
+            alt="Hydra Head blockchain flowchart"
             className="border-b border-solid border-primary laptop:border-none"
           />
         </div>

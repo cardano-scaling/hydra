@@ -37,6 +37,7 @@ export default function NavbarMobilePrimaryMenu() {
         target="_blank"
         rel="noopener noreferrer"
         className="hover:text-primary-light mx-3 py-1 inline-flex gap-3"
+        aria-label="Github link"
       >
         <GithubSmall /> Github
       </a>
@@ -45,6 +46,7 @@ export default function NavbarMobilePrimaryMenu() {
         target="_blank"
         rel="noopener noreferrer"
         className="hover:text-primary-light mx-3 py-1 inline-flex gap-3"
+        aria-label="Discord link"
       >
         <Discord className="mt-1" /> Discord
       </a>
