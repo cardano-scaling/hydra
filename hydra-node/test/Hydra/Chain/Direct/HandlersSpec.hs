@@ -118,7 +118,8 @@ spec = do
         chainContext <- pickBlind arbitrary
         chainState <- pickBlind arbitrary
         localChainState <- run $ newLocalChainState chainState
-        let chainSyncCallback = const $ failure "Unexpected callback"
+        let chainSyncCallback :: ChainEvent Tx -> IO ()
+            chainSyncCallback = const $ failure "Unexpected callback"
             handler =
               chainSyncHandler
                 nullTracer
@@ -282,8 +283,10 @@ recordEventsHandler ctx cs getTimeHandle = do
   let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState
   pure (handler, getEvents eventsVar)
  where
+  getEvents :: TVar IO [ChainEvent Tx] -> IO [ChainEvent Tx]
   getEvents = readTVarIO
 
+  recordEvents :: TVar IO [ChainEvent Tx] -> ChainEvent Tx -> IO ()
   recordEvents var event = do
     atomically $ modifyTVar var (event :)
 

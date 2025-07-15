@@ -87,6 +87,7 @@ cardanoLedger globals ledgerEnv =
    where
     -- As we use applyTx we only expect one ledger rule to run and one tx to
     -- fail validation, hence using the heads of non empty lists is fine.
+    toValidationError :: Ledger.ApplyTxError LedgerEra -> ValidationError
     toValidationError (Ledger.ApplyTxError (e :| _)) = case e of
       (ConwayUtxowFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure msg ctx :| _)))))) ->
         ValidationError $
@@ -262,6 +263,7 @@ genFixedSizeSequenceOfSimplePaymentTransactions numTxs = do
   -- Magic number is irrelevant.
   testNetworkId = Testnet $ NetworkMagic 42
 
+  go :: SigningKey PaymentKey -> (UTxO, [Tx]) -> Int -> Gen (UTxO, [Tx])
   go sk (utxo, txs) _ = do
     case mkTransferTx testNetworkId utxo sk (getVerificationKey sk) of
       Left err -> error $ "mkTransferTx failed: " <> err

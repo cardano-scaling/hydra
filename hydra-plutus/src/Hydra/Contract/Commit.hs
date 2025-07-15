@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -Wno-missing-local-signatures #-}
 
 -- | Datum and redeemer types, as well as helper functions for the commit
 -- validator implemented in aiken.

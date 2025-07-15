@@ -379,6 +379,7 @@ genCloseOutdatedMutation (tx, _utxo) =
 
   headTxOut = fromJust $ txOuts' tx !!? 0
 
+  datum :: TxOutDatum CtxUTxO
   datum = mkTxOutDatumInline healthyOutdatedOpenDatum
 
 -- | Generate not acceptable, but interesting deadlines.

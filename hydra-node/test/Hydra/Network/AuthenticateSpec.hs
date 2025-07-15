@@ -21,9 +21,11 @@ import Test.Util (noopCallback)
 
 spec :: Spec
 spec = parallel $ do
-  let captureOutgoing msgqueue _cb action =
+  let captureOutgoing :: MonadSTM m => TVar m [a] -> p -> (Network m a -> b) -> b
+      captureOutgoing msgqueue _cb action =
         action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)}
 
+      captureIncoming :: MonadSTM m => TVar m [mes] -> NetworkCallback mes m
       captureIncoming receivedMessages =
         NetworkCallback
           { deliver = \msg ->

@@ -454,15 +454,17 @@ waitMatch delay con match = do
   align _ [] = []
   align n (h : q) = h : fmap (T.replicate n " " <>) q
 
+  waitNext :: Connection -> IO Value
   waitNext connection = do
     bytes <- receiveData connection
     case Aeson.eitherDecode' bytes of
       Left err -> failure $ "WaitNext failed to decode msg: " <> err
       Right value -> pure value
 
-shouldSatisfyAll :: HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
+shouldSatisfyAll :: forall a. HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
 shouldSatisfyAll = go
  where
+  go :: [a] -> [a -> Bool] -> IO ()
   go [] [] = pure ()
   go [] _ = failure "shouldSatisfyAll: ran out of values"
   go _ [] = failure "shouldSatisfyAll: ran out of predicates"

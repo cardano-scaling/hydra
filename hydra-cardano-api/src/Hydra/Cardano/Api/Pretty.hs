@@ -9,6 +9,7 @@ import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BL
 import Data.Function (on)
@@ -137,6 +138,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
    where
     indent = "\n  " <> T.replicate n "    "
 
+  prettyDatumUtxo :: Api.TxOutDatum ctx -> String
   prettyDatumUtxo = \case
     TxOutDatumNone ->
       "TxOutDatumNone"
@@ -170,6 +172,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   totalScriptSize = sum $ BL.length . serialize <$> scripts
 
+  prettyScript :: Ledger.Script LedgerEra -> String
   prettyScript script =
     "Script (" <> show (Ledger.hashScript script) <> ")"
 
@@ -179,6 +182,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
       "== DATUMS (" <> show (length dats) <> ")"
         : (("- " <>) . showDatumAndHash <$> Map.toList dats)
 
+  showDatumAndHash :: (Ledger.SafeHash i, Ledger.Data era) -> String
   showDatumAndHash (k, v) =
     mconcat
       [ show (Ledger.extractHash k)
@@ -196,6 +200,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
        in "== REDEEMERS (" <> show (length rdmrs) <> ")"
             : (("- " <>) . prettyRedeemer <$> rdmrs)
 
+  prettyRedeemer :: forall p era. Show p => (p, (Ledger.Data era, Ledger.ExUnits)) -> String
   prettyRedeemer (purpose, (redeemerData, redeemerBudget)) =
     unwords
       [ show purpose

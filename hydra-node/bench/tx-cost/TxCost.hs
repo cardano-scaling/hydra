@@ -80,6 +80,7 @@ computeInitCost = do
       Nothing ->
         pure Nothing
 
+  genInitTx' :: Int -> Gen (Tx, UTxO)
   genInitTx' numParties = do
     ctx <- genHydraContextFor numParties
     cctx <- pickChainContext ctx

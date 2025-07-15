@@ -28,7 +28,7 @@ hydraNodeVersion =
 networkVersions :: ByteString
 networkVersions = $(makeRelativeToProject "./networks.json" >>= embedFile)
 
-parseNetworkTxIds :: MonadFail m => Version -> String -> m [TxId]
+parseNetworkTxIds :: forall m. MonadFail m => Version -> String -> m [TxId]
 parseNetworkTxIds hydraVersion network = do
   case networkVersions ^? key (network ^. _Key) of
     Nothing -> fail $ "Unknown network: " <> toString network
@@ -42,6 +42,7 @@ parseNetworkTxIds hydraVersion network = do
           Just (String s) -> mapM parseToTxId $ splitOn "," s
           _ -> fail "Failed to find released hydra-node version in networks.json."
 
+  parseToTxId :: Text -> m TxId
   parseToTxId textTxId = do
     case deserialiseFromRawBytesHex $ encodeUtf8 textTxId of
       Left _ -> fail $ "Failed to parse string to TxId: " <> toString textTxId

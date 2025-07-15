@@ -94,6 +94,7 @@ hydraChainObserverOptions =
         <> header "hydra-chain-observer"
     )
  where
+  versionInfo :: Parser (a -> a)
   versionInfo =
     infoOption
       (showVersion hydraNodeVersion)

@@ -61,6 +61,7 @@ newScriptRegistry =
     headReference <- lookupScriptHash "νHead" headScriptHash m
     pure $ ScriptRegistry{initialReference, commitReference, headReference}
 
+  lookupScriptHash :: Text -> ScriptHash -> Map ScriptHash (TxIn, TxOut CtxUTxO) -> Either NewScriptRegistryException (TxIn, TxOut CtxUTxO)
   lookupScriptHash name sh m =
     case lookup sh m of
       Nothing -> Left $ MissingScript name sh (Map.keysSet m)

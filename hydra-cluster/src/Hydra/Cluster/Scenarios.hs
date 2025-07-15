@@ -50,6 +50,7 @@ import Hydra.Cardano.Api (
   PaymentKey,
   Tx,
   TxId (..),
+  TxOutDatum,
   UTxO,
   addTxIns,
   addTxInsCollateral,
@@ -428,8 +429,6 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
         send n1 $ input "Fanout" []
 
         waitForAllMatch (10 * blockTime) [n1, n2] $ checkFanout headId' mempty
- where
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
 
 -- | Step through the full life cycle of a Hydra Head with only a single
 -- participant. This scenario is also used by the smoke test run via the
@@ -610,8 +609,9 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
 
         -- Push it into L2
         requestCommitTx n1 utxoToCommit
-          <&> signTx walletSk >>= \tx -> do
-            Backend.submitTransaction backend tx
+          <&> signTx walletSk
+            >>= \tx -> do
+              Backend.submitTransaction backend tx
 
         -- Check UTxO is present in L2
         waitFor hydraTracer (10 * blockTime) [n1] $
@@ -845,7 +845,8 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
   prepareScriptPayload lovelaceAmt = do
     networkId <- Backend.queryNetworkId backend
     let scriptAddress = mkScriptAddress networkId dummyValidatorScript
-    let datumHash = mkTxOutDatumHash ()
+    let datumHash :: TxOutDatum ctx
+        datumHash = mkTxOutDatumHash ()
     (scriptIn, scriptOut) <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue lovelaceAmt)
     let scriptUTxO = UTxO.singleton scriptIn scriptOut
 
@@ -1044,6 +1045,7 @@ canSubmitTransactionThroughAPI tracer workDir backend hydraScriptsTxId =
           (sendRequest hydraNodeId signedRequest <&> responseBody)
             `shouldReturn` TransactionSubmitted
  where
+  sendRequest :: (MonadIO m, ToJSON tx) => Int -> tx -> m (JsonResponse TransactionSubmitted)
   sendRequest hydraNodeId tx =
     runReq defaultHttpConfig $
       req
@@ -1291,8 +1293,6 @@ canCommit tracer workDir blockTime backend hydraScriptsTxId =
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
-
 rejectCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
 rejectCommit tracer workDir blockTime backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
@@ -1338,8 +1338,6 @@ rejectCommit tracer workDir blockTime backend hydraScriptsTxId =
         _ -> False
  where
   hydraTracer = contramap FromHydraNode tracer
-
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
 
 -- | Open a a single participant head, deposit and then recover it.
 canRecoverDeposit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
@@ -1433,8 +1431,6 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
-
 -- | Make sure to be able to see pending deposits.
 canSeePendingDeposits :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
 canSeePendingDeposits tracer workDir blockTime backend hydraScriptsTxId =
@@ -1520,8 +1516,6 @@ canSeePendingDeposits tracer workDir blockTime backend hydraScriptsTxId =
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
-
 -- | Open a a single participant head with some UTxO and incrementally decommit it.
 canDecommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 canDecommit tracer workDir backend hydraScriptsTxId =
@@ -1602,6 +1596,7 @@ canDecommit tracer workDir backend hydraScriptsTxId =
 
     guard $ distributedUTxO `UTxO.containsOutputs` decommitUTxO
 
+  expectFailureOnUnsignedDecommitTx :: HydraClient -> HeadId -> Tx -> IO ()
   expectFailureOnUnsignedDecommitTx n headId decommitTx = do
     let unsignedDecommitTx = makeSignedTransaction [] $ getTxBody decommitTx
     join . generate $
@@ -1910,3 +1905,7 @@ expectErrorStatus
     assertBodyContains (Just bodyContains) bodyChunk = bodyContains `isInfixOf` bodyChunk
     assertBodyContains Nothing _ = False
 expectErrorStatus _ _ _ = False
+
+-- | Get the base URL for HTTP API calls to a hydra-node.
+hydraNodeBaseUrl :: HydraClient -> String
+hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)

@@ -28,6 +28,7 @@ genBlockHeaderHash :: Gen (Hash BlockHeader)
 genBlockHeaderHash =
   unsafeBlockHeaderHashFromBytes . BS.pack <$> vectorOf 32 arbitrary
  where
+  unsafeBlockHeaderHashFromBytes :: ByteString -> Hash BlockHeader
   unsafeBlockHeaderHashFromBytes bytes =
     case deserialiseFromRawBytes (proxyToAsType Proxy) bytes of
       Left e ->

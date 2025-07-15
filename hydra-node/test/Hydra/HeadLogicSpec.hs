@@ -132,7 +132,8 @@ spec =
           `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
-        let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+        let reqSn :: Input tx
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         snapshotInProgress <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -324,7 +325,8 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a different snapshot" $ do
-        let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+        let reqSn :: Input tx
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
             snapshot' = testSnapshot 2 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
@@ -341,7 +343,8 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a different key" $ do
-        let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+        let reqSn :: Input tx
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
         waitingForLastAck <-
@@ -357,9 +360,12 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
-        let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+        let reqSn :: Input tx
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
+            ackFrom :: Crypto.SigningKey Crypto.HydraKey -> Party -> Input SimpleTx
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
+            invalidAckFrom :: Crypto.SigningKey Crypto.HydraKey -> Party -> Input SimpleTx
             invalidAckFrom sk vk =
               receiveMessageFrom vk $
                 AckSn (coerce $ sign sk ("foo" :: ByteString)) 1
@@ -376,7 +382,8 @@ spec =
             _ -> False
 
       it "rejects last AckSn if already received signature from this party" $ do
-        let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+        let reqSn :: Input tx
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         waitingForAck <-
@@ -421,12 +428,15 @@ spec =
       -- snapshot collection.
 
       it "rejects if we receive a too far future snapshot" $ do
-        let input = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
+        let input :: Input tx
+            input = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
             st = inOpenState threeParties
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
-        let reqSn1 = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+        let reqSn1 :: Input tx
+            reqSn1 = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn2 :: Input tx
             reqSn2 = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
         st <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -446,7 +456,8 @@ spec =
         update bobEnv ledger st input `hasEffect` NetworkEffect ack
 
       it "does not ack snapshots from non-leaders" $ do
-        let input = receiveMessageFrom notTheLeader $ ReqSn 0 1 [] Nothing Nothing
+        let input :: Input tx
+            input = receiveMessageFrom notTheLeader $ ReqSn 0 1 [] Nothing Nothing
             notTheLeader = bob
             st = inOpenState threeParties
         update bobEnv ledger st input `shouldSatisfy` \case
@@ -454,7 +465,8 @@ spec =
           _ -> False
 
       it "rejects too-old snapshots" $ do
-        let input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing
+        let input :: Input tx
+            input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing
             theLeader = alice
             snapshot = testSnapshot 2 0 [] mempty
             st =
@@ -463,7 +475,8 @@ spec =
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "rejects too-old snapshots when collecting signatures" $ do
-        let input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing
+        let input :: Input tx
+            input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing
             theLeader = alice
             snapshot = testSnapshot 2 0 [] mempty
             st =
@@ -475,7 +488,8 @@ spec =
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
       it "rejects too-new snapshots from the leader" $ do
-        let input = receiveMessageFrom theLeader $ ReqSn 0 3 [] Nothing Nothing
+        let input :: Input tx
+            input = receiveMessageFrom theLeader $ ReqSn 0 3 [] Nothing Nothing
             theLeader = carol
             st = inOpenState threeParties
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
@@ -961,6 +975,7 @@ prop_ignoresUnrelatedOnInitTx =
           IgnoredHeadInitializing{} -> True
           _ -> False
  where
+  genUnrelatedInit :: Environment -> Gen (OnChainTx tx)
   genUnrelatedInit env =
     oneof
       [ genOnInitWithDifferentContestationPeriod env
@@ -968,6 +983,7 @@ prop_ignoresUnrelatedOnInitTx =
       , genOnInitWithoutOnChainId env
       ]
 
+  genOnInitWithDifferentContestationPeriod :: Environment -> Gen (OnChainTx tx)
   genOnInitWithDifferentContestationPeriod Environment{party, contestationPeriod, participants} = do
     headId <- arbitrary
     headSeed <- arbitrary
@@ -981,6 +997,7 @@ prop_ignoresUnrelatedOnInitTx =
         , participants
         }
 
+  genOnInitWithoutParty :: Environment -> Gen (OnChainTx tx)
   genOnInitWithoutParty Environment{party, otherParties, contestationPeriod, participants} = do
     headId <- arbitrary
     headSeed <- arbitrary
@@ -995,6 +1012,7 @@ prop_ignoresUnrelatedOnInitTx =
         , participants
         }
 
+  genOnInitWithoutOnChainId :: Environment -> Gen (OnChainTx tx)
   genOnInitWithoutOnChainId Environment{party, otherParties, contestationPeriod, participants} = do
     headId <- arbitrary
     headSeed <- arbitrary

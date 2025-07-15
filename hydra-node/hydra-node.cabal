@@ -42,7 +42,7 @@ common project-config
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
-    -fprint-potential-instances
+    -fprint-potential-instances -Wmissing-local-signatures
 
 library
   import:          project-config
@@ -345,6 +345,7 @@ test-suite tests
   build-depends:
     , aeson
     , amazonka
+    , amazonka-s3
     , base
     , bytestring
     , cardano-api:gen

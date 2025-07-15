@@ -33,7 +33,7 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
-import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
+import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), OpenState (..))
@@ -155,7 +155,8 @@ spec = parallel $ do
 
               simulateCommit chain testHeadId alice (utxoRef 1)
               waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-              let veryLong = timeout 1000000
+              let veryLong :: MonadTimer m => m a -> m (Maybe a)
+                  veryLong = timeout 1000000
               veryLong (waitForNext n1) >>= (`shouldNotBe` Just HeadIsOpen{headId = testHeadId, utxo = utxoRef 1})
 
               simulateCommit chain testHeadId bob (utxoRef 2)
@@ -1087,6 +1088,7 @@ simulatedChainAndNetwork initialChainState = do
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   }
               mockNetwork = createMockNetwork draftNode nodes
+              mockServer :: Server tx m
               mockServer = Server{sendMessage = const $ pure ()}
           node <- connect mockChain mockNetwork mockServer draftNode
           atomically $ modifyTVar nodes (node :)
@@ -1130,6 +1132,11 @@ simulatedChainAndNetwork initialChainState = do
 
   advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
 
+  recordAndYieldEvent ::
+    TVar m [HydraNode tx m] ->
+    TVar m [ChainEvent tx] ->
+    ChainEvent tx ->
+    m ()
   recordAndYieldEvent nodes history chainEvent = do
     ns <- atomically $ do
       modifyTVar' history (chainEvent :)
@@ -1137,6 +1144,13 @@ simulatedChainAndNetwork initialChainState = do
     forM_ ns $ \n ->
       handleChainEvent n chainEvent
 
+  rollbackAndForward ::
+    IsChainState tx =>
+    TVar m [HydraNode tx m] ->
+    TVar m [ChainEvent tx] ->
+    LocalChainState m tx ->
+    Natural ->
+    m ()
   rollbackAndForward nodes history localChainState steps = do
     -- Split the history after given steps
     (toReplay, kept) <- atomically $ do

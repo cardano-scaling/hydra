@@ -23,6 +23,7 @@ import Hydra.Prelude hiding (toList)
 import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Lens ((^.))
 import Data.Aeson (Value (Object, String), defaultOptions, genericToJSON, withObject, (.:))
+import Data.Aeson qualified as Aeson (Value)
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (key, _Object, _String)
 import Hydra.Tx.Abort (AbortObservation (..), observeAbortTx)
@@ -63,6 +64,7 @@ data HeadObservation
 instance ToJSON HeadObservation where
   toJSON = mergeContents . genericToJSON defaultOptions
    where
+    mergeContents :: Aeson.Value -> Aeson.Value
     mergeContents v = do
       let tag = v ^. key "tag" . _String
       let km = v ^. key "contents" . _Object

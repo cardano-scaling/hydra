@@ -17,7 +17,7 @@ import Cardano.Ledger.Hashes (hashAnnotated)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Ledger.Val (Val (..), invert)
-import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
+import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Lens (view, (.~), (<>~), (^.))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict qualified as Map
@@ -124,6 +124,7 @@ setupQuery vk = do
         , tip
         }
 
+  assertQueryPoint :: MVar QueryPoint -> QueryPoint -> Expectation
   assertQueryPoint queryPointMVar point =
     takeMVar queryPointMVar `shouldReturn` point
 
@@ -164,6 +165,7 @@ prop_wellSuitedGenerators =
         & counterexample ("Our TxIns: " <> show (length $ ourDirectInputs utxo txs))
         & counterexample ("Our TxOuts: " <> show (length $ ourOutputs utxo txs))
  where
+  smallTxSets :: [Tx LedgerEra] -> Bool
   smallTxSets txs =
     length txs <= 10
 

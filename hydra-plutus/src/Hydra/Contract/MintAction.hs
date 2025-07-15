@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -Wno-missing-local-signatures #-}
 
 -- | Data type used in 'Hydra.Contract.HeadTokens' as a separate module because
 -- of TemplateHaskell stage restriction.

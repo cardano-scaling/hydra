@@ -34,6 +34,7 @@ import Hydra.Cardano.Api (
   TxOut,
   UTxO,
   UTxO' (UTxO),
+  Value,
   chainPointToSlotNo,
   fromCtxUTxOTxOut,
   fromScriptData,
@@ -721,6 +722,7 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotN
 
   ChainContext{scriptRegistry} = ctx
 
+  checkHeadDatum :: (TxIn, TxOut CtxUTxO) -> Either FanoutTxError (TxIn, TxOut CtxUTxO)
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <-
       txOutScriptData (fromCtxUTxOTxOut headOutput) ?> MissingHeadDatumInFanout
@@ -764,6 +766,7 @@ observeInit _ctx _allVerificationKeys tx = do
   let initialThreadUTxO = (mkTxIn tx 0, toCtxUTxOTxOut headOut)
   pure (toEvent observation, toState initialThreadUTxO observation)
  where
+  toEvent :: InitObservation -> OnChainTx Tx
   toEvent InitObservation{headParameters, headId, headSeed, participants} =
     OnInitTx{headId, headSeed, headParameters, participants}
 
@@ -790,6 +793,7 @@ observeInit _ctx _allVerificationKeys tx = do
       (bimap (mkTxIn tx) toCtxUTxOTxOut)
       initialOutputs
 
+  isInitial :: TxOut era -> Bool
   isInitial = isScriptTxOut initialValidatorScript
 
 -- ** InitialState transitions
@@ -1101,6 +1105,7 @@ genCommits' genUTxO ctx txInit = do
     let numberOfUTxOs = length commitUTxOs
      in map (UTxO.map (modifyTxOutValue (scaleQuantitiesDownBy numberOfUTxOs))) commitUTxOs
 
+  scaleQuantitiesDownBy :: Int -> Value -> Value
   scaleQuantitiesDownBy x =
     -- XXX: Foldable Value instance would be nice here
     IsList.fromList

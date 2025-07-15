@@ -688,6 +688,7 @@ seedWorld seedKeys seedCP futureCommits = do
 
   ledger = cardanoLedger defaultGlobals defaultLedgerEnv
 
+  pushThread :: MonadSTM m => Async m () -> RunMonad m ()
   pushThread t = modify $ \s ->
     s{threads = t : threads s}
 
@@ -852,6 +853,7 @@ performFanout party = do
   party `sendsInput` Input.Fanout
   findInOutput thisNode (100 :: Int)
  where
+  findInOutput :: (MonadDelay m, MonadThrow m) => TestHydraClient Tx m -> Int -> RunMonad m UTxO
   findInOutput node n
     | n == 0 = failure "Failed to perform Fanout"
     | otherwise = do
@@ -859,6 +861,8 @@ performFanout party = do
         case find headIsFinalized outputs of
           Just (HeadIsFinalized{utxo}) -> pure utxo
           _ -> lift (threadDelay 1) >> findInOutput node (n - 1)
+
+  headIsFinalized :: ServerOutput Tx -> Bool
   headIsFinalized = \case
     HeadIsFinalized{} -> True
     _otherwise -> False
@@ -929,6 +933,8 @@ x === y = do
   pure res
  where
   res = x == y
+
+  interpret :: Bool -> String
   interpret True = "=="
   interpret False = "/="
 
