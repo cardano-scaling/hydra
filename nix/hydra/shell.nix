@@ -33,7 +33,6 @@
         # To interact with mithril and integration tests
         pkgs.jq
         pkgs.mithril-client-cli
-        pkgs.mithril-client-cli-unstable
         pkgs.nixpkgs-fmt
         pkgs.nodejs
         pkgs.pkg-config
@@ -118,7 +117,6 @@
           pkgs.cardano-node
           pkgs.cardano-cli
           pkgs.mithril-client-cli
-          pkgs.mithril-client-cli-unstable
         ];
       };
 
