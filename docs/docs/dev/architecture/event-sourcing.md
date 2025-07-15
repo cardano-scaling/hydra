@@ -52,3 +52,11 @@ Note that, depending on the rotation configuration used, the current `state` fil
 Upon rotation, a server output is produced to notify external agents when a checkpoint occurs, allowing them to perform archival or cleanup actions without interrupting the Hydra Head.
 
 The appropriate value for `--persistence-rotate-after` depends on your specific use case and the expected transaction volume.
+
+> As a rough guideline, running `cabal run hydra-cluster -- --devnet --publish-hydra-scripts --busy --state-directory out` (which uses `--persistence-rotate-after 10000`) produces a rotated log file of approximately 7.7MB every 3 minutes.
+>
+> Keep in mind that the size and frequency of rotated files will vary depending on several factors:
+>  * Transaction sizes: Larger transactions result in larger event payloads.
+>  * Number of party members: More parties increase the number of L2 protocol messages per snapshot, generating more events.
+>  * Ledger UTxO size: A higher number of UTxOs increases the size of certain events like snapshots.
+>  * Transaction throughput (TPS): Higher TPS leads to more events being produced over time.
