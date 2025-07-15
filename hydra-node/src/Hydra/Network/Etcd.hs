@@ -616,4 +616,4 @@ data EtcdLog
   | NoKeepAliveResponse
   | MatchingProtocolVersion {version :: ProtocolVersion}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+  deriving anyclass (ToJSON, FromJSON)

@@ -20,4 +20,4 @@ data ParamMismatch
   | PartiesMismatch {loadedParties :: [Party], configuredParties :: [Party]}
   | SavedNetworkPartiesInconsistent {numberOfParties :: Int}
   deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON)
+  deriving anyclass (ToJSON, FromJSON)
