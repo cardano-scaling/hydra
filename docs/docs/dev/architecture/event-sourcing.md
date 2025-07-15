@@ -36,3 +36,15 @@ When implementing an event source or sink, you might want to consider testing th
   - [ ] Concurrent use of `sourceEvents` is possible
   
 - [ ] General: allocated resources are released (use with/bracket pattern)
+
+### Event Log Rotation
+
+Long-living Heads may produce a large number of persisted events, which can cause restarts after failure to take a significant amount of time.
+
+Event log rotation was introduced to improve recovery times by reducing the number of events that need to be replayed on startup. This is achieved by periodically replacing the current event log with a new one that starts from a checkpoint event, which captures the latest aggregated head state.
+
+Only rotated log files are saved with an incrementing `logId` suffix in their names, while the main state file name remains unchanged to preserve backward compatibility. Rotation can be enabled via the optional `--persistence-rotate-after` command-line option, which specifies the number of events after which rotation should occur.
+
+Note that, depending on the rotation configuration used, the current state file may already contain more events than the specified threshold, causing a rotation to occur immediately on startup before any new inputs are processed.
+
+Upon rotation, a server output is produced to notify external agents when a checkpoint occurs, allowing them to perform archival or cleanup actions without interrupting the Hydra Head.
