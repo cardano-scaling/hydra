@@ -6,6 +6,7 @@ import Data.ByteString.Char8 qualified as BSC
 import Data.List qualified as List
 import Hydra.Cardano.Api (TxId, deserialiseFromRawBytesHex)
 import Hydra.Cluster.Fixture (KnownNetwork (..))
+import Hydra.Options (persistenceRotateAfterParser)
 import Hydra.Prelude
 import Options.Applicative (Parser, eitherReader, flag, flag', help, long, metavar, strOption)
 import Options.Applicative.Builder (option)
@@ -16,6 +17,7 @@ data Options = Options
   , publishHydraScripts :: PublishOrReuse
   , useMithril :: UseMithril
   , scenario :: Scenario
+  , persistenceRotateAfter :: Maybe Natural
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON)
@@ -40,6 +42,7 @@ parseOptions =
     <*> parsePublishHydraScripts
     <*> parseUseMithril
     <*> parseScenario
+    <*> optional persistenceRotateAfterParser
  where
   parseKnownNetwork =
     flag' (Just Preview) (long "preview" <> help "The preview testnet")
