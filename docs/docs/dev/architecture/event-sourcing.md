@@ -53,7 +53,7 @@ Upon rotation, a server output is produced to notify external agents when a chec
 
 The appropriate value for `--persistence-rotate-after` depends on your specific use case and the expected transaction volume.
 
-> As a rough guideline, running `cabal run hydra-cluster -- --devnet --publish-hydra-scripts --busy --state-directory out` (which uses `--persistence-rotate-after 10000`) produces a rotated log file of approximately 7.7MB every 3 minutes.
+> As a rough guideline, in a simple scenario (running a single party on devnet that repeatedly re-spends the same committed UTxO) we observed that setting `--persistence-rotate-after 10000` results in rotated log files of about 8 MB every 3 minutes.
 >
 > Keep in mind that the size and frequency of rotated files will vary depending on several factors:
 >  * Transaction sizes: Larger transactions result in larger event payloads.
