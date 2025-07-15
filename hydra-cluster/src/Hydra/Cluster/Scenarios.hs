@@ -500,10 +500,11 @@ singlePartyOpenAHead ::
   FilePath ->
   backend ->
   [TxId] ->
+  Maybe Natural ->
   -- | Continuation called when the head is open
   (HydraClient -> SigningKey PaymentKey -> HeadId -> IO a) ->
   IO a
-singlePartyOpenAHead tracer workDir backend hydraScriptsTxId callback =
+singlePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAfter callback =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
     refuelIfNeeded tracer backend Alice 25_000_000
     -- Start hydra-node on chain tip
@@ -522,7 +523,7 @@ singlePartyOpenAHead tracer workDir backend hydraScriptsTxId callback =
 
     let hydraTracer = contramap FromHydraNode tracer
     options <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] id
-    let options' = options{persistenceRotateAfter = Just 10000}
+    let options' = options{persistenceRotateAfter}
     withPreparedHydraNode hydraTracer workDir 1 options' $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []

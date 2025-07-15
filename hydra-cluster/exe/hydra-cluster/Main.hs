@@ -48,7 +48,7 @@ run options =
             let hydraScriptsTxId = intercalate "," $ toString . serialiseToRawBytesHexText <$> txId
             let envPath = workDir </> ".env"
             writeFile envPath $ "HYDRA_SCRIPTS_TX_ID=" <> hydraScriptsTxId
-            singlePartyOpenAHead tracer workDir backend txId $ \client walletSk _headId -> do
+            singlePartyOpenAHead tracer workDir backend txId persistenceRotateAfter $ \client walletSk _headId -> do
               case scenario of
                 Idle -> forever $ pure ()
                 RespendUTxO -> do
@@ -56,7 +56,7 @@ run options =
                   -- XXX: Should make this configurable
                   respendUTxO client walletSk 0.1
  where
-  Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril, scenario} = options
+  Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril, scenario, persistenceRotateAfter} = options
 
   withRunningCardanoNode tracer workDir network action =
     findRunningCardanoNode (contramap FromCardanoNode tracer) workDir network >>= \case
