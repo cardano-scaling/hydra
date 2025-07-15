@@ -507,4 +507,4 @@ data CardanoChainLog
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+  deriving anyclass (ToJSON, FromJSON)

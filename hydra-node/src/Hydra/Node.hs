@@ -454,3 +454,4 @@ data HydraNodeLog tx
 deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
 deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
+deriving anyclass instance IsChainState tx => FromJSON (HydraNodeLog tx)

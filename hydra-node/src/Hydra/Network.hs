@@ -189,7 +189,7 @@ data Connectivity
       { clusterPeers :: Text
       }
   deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary Connectivity where
   arbitrary = genericArbitrary

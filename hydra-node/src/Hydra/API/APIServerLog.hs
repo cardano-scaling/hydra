@@ -1,8 +1,9 @@
 module Hydra.API.APIServerLog where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (encodeUtf8)
 
 import Data.Aeson qualified as Aeson
+import Data.Text.Encoding (encodeUtf8)
 import Hydra.Network (PortNumber)
 
 data APIServerLog
@@ -18,7 +19,7 @@ data APIServerLog
       }
   | APITransactionSubmitted {submittedTxId :: String}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | New type wrapper to define JSON instances.
 newtype PathInfo = PathInfo ByteString
@@ -27,6 +28,10 @@ newtype PathInfo = PathInfo ByteString
 instance ToJSON PathInfo where
   toJSON (PathInfo bytes) =
     Aeson.String $ decodeUtf8 bytes
+
+instance FromJSON PathInfo where
+  parseJSON = Aeson.withText "PathInfo" $ \t ->
+    pure $ PathInfo $ encodeUtf8 t
 
 -- | New type wrapper to define JSON instances.
 --
@@ -38,3 +43,7 @@ newtype Method = Method ByteString
 instance ToJSON Method where
   toJSON (Method bytes) =
     Aeson.String $ decodeUtf8 bytes
+
+instance FromJSON Method where
+  parseJSON = Aeson.withText "Method" $ \t ->
+    pure $ Method $ encodeUtf8 t
