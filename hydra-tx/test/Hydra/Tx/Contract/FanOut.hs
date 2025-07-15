@@ -62,7 +62,7 @@ healthyFanoutTx =
     fromList $
       map
         ( \party ->
-            (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1)
+            (AssetId testPolicyId (UnsafeAssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1)
         )
         healthyParties
 
