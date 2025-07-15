@@ -67,6 +67,11 @@ main = do
       [] -> pure fp
       _files -> die $ "ERROR: Output directory not empty: " <> fp
 
+  runSingle ::
+    Dataset ->
+    FilePath ->
+    (FilePath -> Dataset -> IO (Summary, SystemStats)) ->
+    IO (Either (Dataset, FilePath, Summary, BenchmarkFailed) (Summary, SystemStats))
   runSingle dataset dir action = do
     withArgs [] $ do
       try @_ @HUnitFailure (action dir dataset) >>= \case

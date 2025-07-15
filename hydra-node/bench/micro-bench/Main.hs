@@ -31,6 +31,7 @@ main = do
   nTxns <- fromMaybe 1 . (>>= readMaybe) <$> lookupEnv "N_TXNS"
   (utxo, tx) <- prepareTx nTxns
   let jsonNewTx = (Aeson.encode . NewTx) tx
+      toNewTx :: ByteString -> Value
       toNewTx bs = object ["tag" .= ("NewTx" :: Text), "transaction" .= String (decodeUtf8 bs)]
       cborNewTx = (Aeson.encode . toNewTx . serialiseToCBOR) tx
   defaultMain

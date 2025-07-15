@@ -8,17 +8,8 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogic (
-  CoordinatedHeadState (..),
-  Effect (..),
-  HeadState (..),
-  OpenState (OpenState),
-  SeenSnapshot (..),
-  coordinatedHeadState,
-  isLeader,
-  update,
- )
-import Hydra.HeadLogicSpec (getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', receiveMessage, receiveMessageFrom, runHeadLogic, step)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
+import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
@@ -26,7 +17,7 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (txId)
-import Hydra.Tx.Party (deriveParty)
+import Hydra.Tx.Party (Party, deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.Tx.Fixture (
   alice,
@@ -71,7 +62,8 @@ spec = do
             , decommitTx = Nothing
             , version = 0
             }
-    let sendReqSn = \case
+    let sendReqSn :: Effect tx -> Bool
+        sendReqSn = \case
           NetworkEffect ReqSn{} -> True
           _ -> False
     let snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
@@ -151,7 +143,8 @@ spec = do
         let
           notLeaderEnv = envFor carolSk
 
-        let initiateSigningASnapshot actor =
+        let initiateSigningASnapshot :: MonadState (StepState SimpleTx) m => Party -> m (Outcome SimpleTx)
+            initiateSigningASnapshot actor =
               step (receiveMessageFrom actor $ ReqSn 0 1 [] Nothing Nothing)
             newTxBeforeSnapshotAcknowledged =
               step (receiveMessageFrom carol $ ReqTx $ aValidTx 1)

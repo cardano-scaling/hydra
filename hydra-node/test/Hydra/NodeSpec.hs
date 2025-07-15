@@ -14,7 +14,7 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
-import Hydra.Events.Rotation (EventStore (..))
+import Hydra.Events.Rotation (EventStore (..), LogId)
 import Hydra.HeadLogic (Input (..), TTL)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
@@ -60,7 +60,15 @@ import Test.Util (isStrictlyMonotonic)
 spec :: Spec
 spec = parallel $ do
   -- Set up a hydrate function with fixtures curried
-  let setupHydrate action =
+  let setupHydrate ::
+        ( ( EventStore (StateEvent SimpleTx) IO ->
+            [EventSink (StateEvent SimpleTx) IO] ->
+            IO (DraftHydraNode SimpleTx IO)
+          ) ->
+          IO ()
+        ) ->
+        IO ()
+      setupHydrate action =
         showLogsOnFailure "NodeSpec" $ \tracer -> do
           let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0}
           action testHydrate
@@ -90,7 +98,9 @@ spec = parallel $ do
       it "fails if one sink fails" $ \testHydrate ->
         forAllShrink (listOf1 $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
-            let genSinks = elements [mockSink, failingSink]
+            let genSinks :: Gen (EventSink (StateEvent SimpleTx) IO)
+                genSinks = elements [mockSink, failingSink]
+                failingSink :: EventSink (StateEvent SimpleTx) IO
                 failingSink =
                   EventSink
                     { putEvent = \_ -> failure "failing putEvent sink called"
@@ -102,17 +112,19 @@ spec = parallel $ do
       it "checks head state" $ \testHydrate ->
         forAllShrink arbitrary shrink $ \env ->
           forAllShrink arbitrary shrink $ \now ->
-            env /= testEnvironment ==> do
-              -- XXX: This is very tied to the fact that 'HeadInitialized' results in
-              -- a head state that gets checked by 'checkHeadState'
-              let genEvent = do
-                    StateEvent
-                      <$> arbitrary
-                      <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
-                      <*> pure now
-              forAllShrink genEvent shrink $ \incompatibleEvent ->
-                testHydrate (mockEventStore [incompatibleEvent]) []
-                  `shouldThrow` \(_ :: ParameterMismatch) -> True
+            env
+              /= testEnvironment
+              ==> do
+                -- XXX: This is very tied to the fact that 'HeadInitialized' results in
+                -- a head state that gets checked by 'checkHeadState'
+                let genEvent = do
+                      StateEvent
+                        <$> arbitrary
+                        <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
+                        <*> pure now
+                forAllShrink genEvent shrink $ \incompatibleEvent ->
+                  testHydrate (mockEventStore [incompatibleEvent]) []
+                    `shouldThrow` \(_ :: ParameterMismatch) -> True
 
   describe "stepHydraNode" $ do
     around setupHydrate $ do
@@ -239,7 +251,7 @@ spec = parallel $ do
 
     it "notifies client when postTx throws PostTxError" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
-        let inputs = [ClientInput Init]
+        let inputs :: [Input SimpleTx] = [ClientInput Init]
         let tx = aValidTx 1
         let expectedError = FailedToPostTx{failureReason = "unknown failure", failingTx = tx}
         (node, getServerOutputs) <-
@@ -250,9 +262,11 @@ spec = parallel $ do
         runToCompletion node
 
         outputs <- getServerOutputs
-        let isPostTxOnChainFailed = \case
+        let isPostTxOnChainFailed :: Either (ServerOutput SimpleTx) (ClientMessage SimpleTx) -> Bool
+            isPostTxOnChainFailed = \case
               Right PostTxOnChainFailed{postTxError} -> postTxError == expectedError
               _ -> False
+
         any isPostTxOnChainFailed outputs `shouldBe` True
 
     it "signs snapshot even if it has seen conflicting transactions" $
@@ -307,6 +321,7 @@ spec = parallel $ do
     it "log error given configuration mismatches head state" $ do
       logs <- newTVarIO []
       let invalidPeriodEnv = defaultEnv{otherParties = []}
+          isContestationPeriodMismatch :: HydraNodeLog SimpleTx -> Bool
           isContestationPeriodMismatch = \case
             Misconfiguration{} -> True
             _ -> False
@@ -345,19 +360,23 @@ mockChain =
     { mkChainState = error "mockChain: unexpected mkChainState"
     , postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
-    , draftDepositTx = \_ _ _ -> failure "mockChain: unexpected draftDepositTx"
+    , draftDepositTx = \_ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
     }
 
 mockSink :: Monad m => EventSink a m
 mockSink = EventSink{putEvent = const $ pure ()}
 
-mockEventStore :: Monad m => [a] -> EventStore a m
+mockEventStore :: forall a m. Monad m => [a] -> EventStore a m
 mockEventStore events =
   EventStore{eventSource, eventSink, rotate}
  where
   eventSource = mockSource events
+
+  eventSink :: EventSink a m
   eventSink = mockSink
+
+  rotate :: LogId -> a -> m ()
   rotate = const . const $ pure ()
 
 mockSource :: Monad m => [a] -> EventSource a m
@@ -433,7 +452,8 @@ testHydraNode ::
   [Input SimpleTx] ->
   m (HydraNode SimpleTx m)
 testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
-  let eventStore = mockEventStore []
+  let eventStore :: Monad m => EventStore (StateEvent SimpleTx) m
+      eventStore = mockEventStore []
   hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} eventStore []
     >>= notConnect
     >>= primeWith inputs
@@ -485,6 +505,7 @@ messageRecorder = do
   ref <- newIORef []
   pure (appendMsg ref, readIORef ref)
  where
+  appendMsg :: IORef [msg] -> msg -> IO ()
   appendMsg ref x = atomicModifyIORef' ref $ \old -> (old <> [x], ())
 
 throwExceptionOnPostTx ::

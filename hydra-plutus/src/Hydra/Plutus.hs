@@ -50,6 +50,7 @@ initialValidatorScript =
 
   unappliedProgram = uncheckedDeserialiseUPLC unappliedScript
 
+  argumentProgram :: UPLC.Program UPLC.DeBruijn UPLC.DefaultUni UPLC.DefaultFun ()
   argumentProgram =
     UPLC.Program () plcVersion110 $
       UPLC.mkConstant () $

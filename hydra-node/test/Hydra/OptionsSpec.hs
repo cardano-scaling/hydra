@@ -228,6 +228,23 @@ spec = parallel $
       ["--deposit-period", "-1s"] `shouldParse` defaultWithDepositPeriod (-1)
       ["--deposit-period", "300s"] `shouldParse` defaultWithDepositPeriod 300
 
+    it "parses --api-transaction-timeout option as a number of seconds" $ do
+      let defaultWithApiTransactionTimeout apiTransactionTimeout =
+            Run
+              defaultRunOptions
+                { apiTransactionTimeout
+                }
+      shouldNotParse ["--api-transaction-timeout", "3"]
+      shouldNotParse ["--api-transaction-timeout", "1.5"]
+      shouldNotParse ["--api-transaction-timeout", "abc"]
+      shouldNotParse ["--api-transaction-timeout", "s"]
+      shouldNotParse ["--api-transaction-timeout", "-1"]
+      -- shouldNotParse ["--api-transaction-timeout", "-1s"]
+      ["--api-transaction-timeout", "0s"] `shouldParse` defaultWithApiTransactionTimeout 0
+      ["--api-transaction-timeout", "1s"] `shouldParse` defaultWithApiTransactionTimeout 1
+      ["--api-transaction-timeout", "-1s"] `shouldParse` defaultWithApiTransactionTimeout (-1)
+      ["--api-transaction-timeout", "300s"] `shouldParse` defaultWithApiTransactionTimeout 300
+
     it "parses --mainnet flag" $ do
       ["--mainnet"]
         `shouldParse` Run

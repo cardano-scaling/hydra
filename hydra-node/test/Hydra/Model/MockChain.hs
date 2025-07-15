@@ -78,11 +78,12 @@ import Hydra.NodeSpec (mockServer)
 import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
-import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
 import Test.QuickCheck (getPositive)
 
@@ -123,6 +124,7 @@ mockChainAndNetwork tr seedKeys commits = do
  where
   initialUTxO = seedUTxO <> commits <> registryUTxO scriptRegistry
 
+  seedUTxO :: UTxO
   seedUTxO = UTxO.fromList [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
 
   seedInput = genTxIn `generateWith` 42
@@ -200,6 +202,7 @@ mockChainAndNetwork tr seedKeys commits = do
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
+  simulateCommit :: TVar m [MockHydraNode m] -> HeadId -> Party -> UTxO -> m ()
   simulateCommit nodes headId party utxoToCommit = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
@@ -209,17 +212,19 @@ mockChainAndNetwork tr seedKeys commits = do
           Left e -> throwIO e
           Right tx -> submitTx tx
 
+  simulateDeposit :: TVar m [MockHydraNode m] -> HeadId -> UTxO -> UTCTime -> m TxId
   simulateDeposit nodes headId utxoToDeposit deadline = do
     -- XXX: Weird that we need a registered node here and cannot just draft the
     -- deposit tx directly?
     readTVarIO nodes >>= \case
       [] -> error "simulateDeposit: no MockHydraNode"
       (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
-        draftDepositTx headId (mkSimpleBlueprintTx utxoToDeposit) deadline >>= \case
+        draftDepositTx headId defaultPParams (mkSimpleBlueprintTx utxoToDeposit) deadline >>= \case
           Left e -> throwIO e
           Right tx -> submitTx tx $> txId tx
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
+  closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> (Party, UTxO) -> m ()
   closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
@@ -242,6 +247,7 @@ mockChainAndNetwork tr seedKeys commits = do
                   }
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
 
+  matchingParty :: Party -> MockHydraNode m -> Bool
   matchingParty us MockHydraNode{node = HydraNode{env = Environment{party}}} =
     party == us
 
@@ -258,6 +264,7 @@ mockChainAndNetwork tr seedKeys commits = do
       addNewBlockToChain chain transactions
     doRollForward nodes chain
 
+  doRollForward :: TVar m [MockHydraNode m] -> TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) -> m ()
   doRollForward nodes chain = do
     (slotNum, position, blocks, _) <- readTVarIO chain
     case Seq.lookup (fromIntegral position) blocks of
@@ -276,6 +283,11 @@ mockChainAndNetwork tr seedKeys commits = do
   -- chain. That is, the ledger switches to the longer chain state right away
   -- and we issue rollback and forwards to synchronize clients. However,
   -- submission will already validate against the new ledger state.
+  rollbackAndForward ::
+    TVar m [MockHydraNode m] ->
+    TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) ->
+    Natural ->
+    m ()
   rollbackAndForward nodes chain numberOfBlocks = do
     doRollBackward nodes chain numberOfBlocks
     replicateM_ (fromIntegral numberOfBlocks) $
@@ -286,6 +298,11 @@ mockChainAndNetwork tr seedKeys commits = do
     -- rollbacks / chain switches to be not more often than blocks being added.
     threadDelay blockTime
 
+  doRollBackward ::
+    TVar m [MockHydraNode m] ->
+    TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) ->
+    Natural ->
+    m ()
   doRollBackward nodes chain nbBlocks = do
     (slotNum, position, blocks, _) <- readTVarIO chain
     case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
@@ -298,6 +315,7 @@ mockChainAndNetwork tr seedKeys commits = do
       Nothing ->
         pure ()
 
+  addNewBlockToChain :: TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) -> [Tx] -> STM m ()
   addNewBlockToChain chain transactions =
     modifyTVar chain $ \(slotNum, position, blocks, utxo) -> do
       -- NOTE: Assumes 1 slot = 1 second
@@ -331,6 +349,7 @@ scriptLedger =
   -- XXX: We could easily add 'slot' validation here and this would already
   -- emulate the dropping of outdated transactions from the cardano-node
   -- mempool.
+  applyTransactions :: ChainSlot -> UTxO -> [Tx] -> Either (Tx, ValidationError) UTxO
   applyTransactions slot utxo = \case
     [] -> Right utxo
     (tx : txs) ->

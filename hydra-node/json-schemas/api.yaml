@@ -118,7 +118,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
-  
+
   /head:
     servers:
       - localhost-http
@@ -367,7 +367,7 @@ channels:
           $ref: "api.yaml#/components/schemas/Transaction"
       bindings:
         http:
-          type: response
+          type: request
           method: POST
           bindingVersion: '0.1.0'
     subscribe:
@@ -390,9 +390,71 @@ channels:
             $ref: "api.yaml#/components/schemas/PostTxError"
       bindings:
         http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+
+  /transaction:
+    servers:
+      - localhost-http
+    publish:
+      operationId: submitL2TxRequest
+      message:
+        summary: |
+          A transaction to be submitted to the head.
+          Accepts transactions encoded as Base16 CBOR string, TextEnvelope type or JSON.
+        payload:
+          $ref: "api.yaml#/components/schemas/Transaction"
+      bindings:
+        http:
           type: request
           method: POST
           bindingVersion: '0.1.0'
+    subscribe:
+      operationId: submitL2TxResponse
+      message:
+        oneOf:
+        - name: SubmitTxConfirmed
+          summary: 200 OK
+          description: Transaction was included in a confirmed snapshot.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["SubmitTxConfirmed"]
+              snapshotNumber:
+                type: integer
+                minimum: 0
+        - name: SubmitTxInvalid
+          summary: 400 Bad Request
+          description: Transaction was rejected due to validation errors.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["SubmitTxInvalid"]
+              validationError:
+                type: string
+        - name: SubmitTxSubmitted
+          summary: 202 Accepted
+          description: Transaction was accepted but not yet confirmed.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["SubmitTxSubmitted"]
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+
 components:
   messages:
 
@@ -2605,6 +2667,25 @@ components:
             tag:
               type: string
               enum: ["FailedToConstructFanoutTx"]
+        - title: DepositTooLow
+          description: |
+            Raised if the user requests a deposit using too small UTxO.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - minimumValue
+          - providedValue
+          properties:
+            tag:
+              type: string
+              enum: ["DepositTooLow"]
+            minimumValue:
+               type: integer
+               minimum: 0
+            providedValue:
+               type: integer
+               minimum: 0
 
     Signature:
       type: string
@@ -3242,6 +3323,43 @@ components:
           $ref: "api.yaml#/components/schemas/UTCTime"
         status:
           $ref: "api.yaml#/components/schemas/DepositStatus"
+
+    SubmitL2TxResponse:
+      oneOf:
+        - title: SubmitTxConfirmed
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - snapshotNumber
+          properties:
+            tag:
+              type: string
+              enum: ["SubmitTxConfirmed"]
+            snapshotNumber:
+              type: integer
+              minimum: 0
+        - title: SubmitTxInvalid
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - validationError
+          properties:
+            tag:
+              type: string
+              enum: ["SubmitTxInvalid"]
+            validationError:
+              type: string
+        - title: SubmitTxSubmitted
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["SubmitTxSubmitted"]
 
     DepositStatus:
       oneOf:

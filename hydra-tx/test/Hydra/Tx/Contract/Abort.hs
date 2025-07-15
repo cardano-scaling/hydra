@@ -109,6 +109,7 @@ healthyCommits :: [(TxIn, TxOut CtxUTxO, UTxO)]
   -- outputs
   generateWith (genAbortableOutputs healthyParties `suchThat` thereIsTwoEach) 42
  where
+  thereIsTwoEach :: ([a], [b]) -> Bool
   thereIsTwoEach (is, cs) = length is >= 2 && length cs >= 2
 
 healthyParties :: [Party]

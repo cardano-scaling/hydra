@@ -87,6 +87,7 @@ parseOptions =
               \See --publish-hydra-scripts or hydra-node publish-scripts"
         )
    where
+    parseTxIds :: String -> Either String [TxId]
     parseTxIds str =
       let parsed = fmap (deserialiseFromRawBytesHex . BSC.pack) (List.lines str)
        in if null (lefts parsed) then Right (rights parsed) else Left ("Invalid TxId" :: String)

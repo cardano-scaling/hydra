@@ -296,6 +296,7 @@ drawPeers s peers = vBox $ str "Alive peers:" : rest
       map drawPeer peers
     _ -> [txt "Unknown"]
 
+  drawPeer :: (Host, PeerStatus) -> Widget n
   drawPeer (host, status) =
     withAttr (statusAttr status) (drawShow host)
 

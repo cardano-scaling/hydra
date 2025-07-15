@@ -270,6 +270,7 @@ genCollectComMutation (tx, _utxo) =
         Head.Open Head.OpenDatum{parties, contestationPeriod, headId, version, utxoHash}
       st -> error $ "Unexpected state " <> show st
 
+  mutateState :: ByteString -> Head.State -> Head.State
   mutateState mutatedUTxOHash = \case
     Head.Open Head.OpenDatum{parties, contestationPeriod, headId, version} ->
       Head.Open Head.OpenDatum{Head.utxoHash = toBuiltin mutatedUTxOHash, parties, contestationPeriod, headId, version}

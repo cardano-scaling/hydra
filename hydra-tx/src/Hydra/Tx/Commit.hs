@@ -4,7 +4,8 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Core (AsIxItem (..))
+import Cardano.Ledger.Alonzo.Core (AlonzoEraTxBody, AlonzoEraTxWits, AsIxItem (..))
+import Cardano.Ledger.Alonzo.Scripts (PlutusPurpose)
 import Cardano.Ledger.Api (
   AsIx (..),
   ConwayPlutusPurpose (..),
@@ -21,7 +22,10 @@ import Cardano.Ledger.Api (
   witsTxL,
  )
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
+import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Plutus.Data (Data)
 import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
+import Cardano.Ledger.TxIn qualified as Ledger
 import Control.Lens ((.~), (<>~), (^.))
 import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
@@ -76,6 +80,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
               <> Redeemers (fromList $ mkRedeemers newRedeemers newInputs)
 
   -- Make redeemers (with zeroed units) from a TxIn -> Data map and a set of transaction inputs
+  mkRedeemers :: Ord k => Map k a -> Set k -> [(ConwayPlutusPurpose AsIx era, (a, ExUnits))]
   mkRedeemers resolved inputs =
     foldl'
       ( \newRedeemerData txin ->
@@ -89,6 +94,10 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
       inputs
 
   -- Create a TxIn -> Data map of all spending redeemers
+  resolveSpendingRedeemers ::
+    (AlonzoEraTxBody era, AlonzoEraTxWits era, Ledger.EraTx era, PlutusPurpose AsIxItem era ~ ConwayPlutusPurpose AsIxItem era) =>
+    Ledger.Tx era ->
+    Map Ledger.TxIn (Data era)
   resolveSpendingRedeemers tx =
     Map.foldMapWithKey
       ( \p (d, _ex) ->
@@ -99,6 +108,10 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
       )
       (unRedeemers $ tx ^. witsTxL . rdmrsTxWitsL)
 
+  nonSpendingRedeemers ::
+    (AlonzoEraTxBody era, AlonzoEraTxWits era, Ledger.EraTx era, PlutusPurpose AsIxItem era ~ ConwayPlutusPurpose AsIxItem era) =>
+    Ledger.Tx era ->
+    [(ConwayPlutusPurpose AsIx era2, (Data era, ExUnits))]
   nonSpendingRedeemers tx =
     Map.foldMapWithKey
       ( \p (d, ex) ->

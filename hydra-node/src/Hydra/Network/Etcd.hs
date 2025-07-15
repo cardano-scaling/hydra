@@ -527,6 +527,7 @@ withProcessInterrupt ::
 withProcessInterrupt config =
   bracket (startProcess $ config & setCreateGroup True) signalAndStopProcess
  where
+  signalAndStopProcess :: MonadIO m => Process stdin stdout stderr -> m ()
   signalAndStopProcess p = liftIO $ do
     interruptProcessGroupOf (unsafeProcessHandle p)
     race_

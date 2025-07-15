@@ -327,6 +327,7 @@ spec =
                     , port
                     , tlsCertPath = Just "test/tls/certificate.pem"
                     , tlsKeyPath = Just "test/tls/key.pem"
+                    , apiTransactionTimeout = 1000000
                     }
             withAPIServer @SimpleTx config testEnvironment alice (mockSource []) tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
@@ -401,7 +402,7 @@ withTestAPIServer ::
 withTestAPIServer port actor eventSource tracer action = do
   withAPIServer @SimpleTx config testEnvironment actor eventSource tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
  where
-  config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing}
+  config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
 
 -- | Connect to a websocket server running at given path. Fails if not connected
 -- within 2 seconds.
@@ -453,15 +454,17 @@ waitMatch delay con match = do
   align _ [] = []
   align n (h : q) = h : fmap (T.replicate n " " <>) q
 
+  waitNext :: Connection -> IO Value
   waitNext connection = do
     bytes <- receiveData connection
     case Aeson.eitherDecode' bytes of
       Left err -> failure $ "WaitNext failed to decode msg: " <> err
       Right value -> pure value
 
-shouldSatisfyAll :: HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
+shouldSatisfyAll :: forall a. HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
 shouldSatisfyAll = go
  where
+  go :: [a] -> [a -> Bool] -> IO ()
   go [] [] = pure ()
   go [] _ = failure "shouldSatisfyAll: ran out of values"
   go _ [] = failure "shouldSatisfyAll: ran out of predicates"

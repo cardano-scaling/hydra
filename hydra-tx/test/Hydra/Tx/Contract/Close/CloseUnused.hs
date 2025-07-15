@@ -96,6 +96,7 @@ healthyCloseCurrentTx =
     fromMaybe NoThing $
       setIncrementalActionMaybe (utxoToCommit $ getSnapshot closeUnusedSnapshot) (utxoToDecommit $ getSnapshot closeUnusedSnapshot)
 
+  datum :: TxOutDatum CtxUTxO
   datum = mkTxOutDatumInline healthyCurrentOpenDatum
 
   lookupUTxO =
@@ -318,6 +319,7 @@ genCloseCurrentMutation (tx, _utxo) =
 
   headTxOut = fromJust $ txOuts' tx !!? 0
 
+  datum :: TxOutDatum CtxUTxO
   datum = mkTxOutDatumInline healthyCurrentOpenDatum
 
 -- | Generate not acceptable, but interesting deadlines.

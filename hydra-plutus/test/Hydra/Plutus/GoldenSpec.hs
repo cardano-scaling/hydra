@@ -70,6 +70,7 @@ goldenScript name plutusScript =
   writeToFile fp script =
     void $ writeFileTextEnvelope (File fp) (Just $ fromString fullScriptName) script
 
+  readFromFile :: FilePath -> IO Script
   readFromFile fp =
     either (die . show) pure
       =<< readFileTextEnvelope (File fp)

@@ -19,9 +19,12 @@ containsValue :: Value -> Value -> Bool
 containsValue a b =
   all positive . toList $ a <> negateValue b
  where
+  positive :: (a, Quantity) -> Bool
   positive (_, q) = q >= 0
 
 -- | Calculate minimum ada as 'Value' for a 'TxOut'.
+-- NOTE: This function can throw although you can't tell from the signature.
+-- 'toLedgerValue' can error out with _Illegal Value in TxOut_
 minUTxOValue ::
   PParams LedgerEra ->
   TxOut CtxTx Era ->
@@ -79,6 +82,7 @@ fromPlutusValue :: Plutus.Value -> Maybe Value
 fromPlutusValue plutusValue = do
   fmap fromList . mapM convertAsset $ flattenValue plutusValue
  where
+  convertAsset :: (Plutus.CurrencySymbol, Plutus.TokenName, Integer) -> Maybe (AssetId, Quantity)
   convertAsset (cs, tk, i)
     | cs == adaSymbol && tk == adaToken =
         pure (AdaAssetId, Quantity i)

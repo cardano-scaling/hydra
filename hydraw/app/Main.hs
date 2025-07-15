@@ -39,19 +39,23 @@ main = do
             putStrLn $ "Listening on: tcp/" <> show port
         )
 
+  parseHost :: String -> IO Host
   parseHost str =
     case readHost str of
       Nothing -> fail $ "Could not parse host address: " <> str
       Just host -> pure host
 
   -- Like cardano-cli: "mainnet" or a number for a given testnet network magic.
+  parseNetwork :: String -> IO NetworkId
   parseNetwork str =
     case parseMainnet str <|> parseTestnetMagic str of
       Nothing -> fail $ "Could not parse network id: " <> str <> " (Expected 'mainnet' or a number)"
       Just nid -> pure nid
 
+  parseMainnet :: String -> Maybe NetworkId
   parseMainnet str = Mainnet <$ guard (str == "mainnet")
 
+  parseTestnetMagic :: String -> Maybe NetworkId
   parseTestnetMagic = fmap (Testnet . NetworkMagic) . readMaybe
 
 -- | Like 'lookupEnv' but terminate program with a message if environment

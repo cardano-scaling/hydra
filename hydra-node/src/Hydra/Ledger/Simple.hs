@@ -120,6 +120,7 @@ simpleLedger =
   Ledger{applyTransactions}
  where
   -- NOTE: _slot is unused as SimpleTx transactions don't have a notion of time.
+  applyTransactions :: Foldable t => p -> Set SimpleTxOut -> t SimpleTx -> Either (SimpleTx, ValidationError) (Set SimpleTxOut)
   applyTransactions _slot =
     foldlM $ \utxo tx@(SimpleTx _ ins outs) ->
       if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs

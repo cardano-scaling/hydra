@@ -55,13 +55,14 @@ withMonitoring (Just monitoringPort) (Tracer tracer) action = do
 -- | Register all relevant metrics.
 -- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication
 -- of metrics, whether push or pull, and a function for updating metrics given some trace event.
-prepareRegistry :: (MonadIO m, MonadSTM m, MonadMonotonicTime m, IsTx tx) => m (HydraLog tx -> m (), Registry)
+prepareRegistry :: forall m tx. (MonadIO m, MonadSTM m, MonadMonotonicTime m, IsTx tx) => m (HydraLog tx -> m (), Registry)
 prepareRegistry = do
   transactionsMap <- newTVarIO mempty
   first (monitor transactionsMap) <$> registerMetrics
  where
   registerMetrics = foldlM registerMetric (mempty, new) allMetrics
 
+  registerMetric :: (Map Name Metric, Registry) -> MetricDefinition -> m (Map Name Metric, Registry)
   registerMetric (metricsMap, registry) (MetricDefinition name ctor registration) = do
     (metric, registry') <- liftIO $ registration name registry
     pure (Map.insert name (ctor metric) metricsMap, registry')

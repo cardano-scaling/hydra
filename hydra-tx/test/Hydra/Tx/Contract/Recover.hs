@@ -41,6 +41,7 @@ healthyRecoverTx =
 
   depositTxId = arbitrary `generateWith` 42
 
+  depositTxOut :: TxOut CtxUTxO
   depositTxOut = mkDepositOutput testNetworkId testHeadId deposited depositDeadline
 
   deposited = genUTxOAdaOnlyOfSize 1 `generateWith` 42

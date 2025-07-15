@@ -10,6 +10,7 @@
                 "tag": "IPv4"
             },
             "apiPort": 18036,
+            "apiTransactionTimeout": 0,
             "chainConfig": {
                 "cardanoSigningKey": "a/c/b/c.sk",
                 "cardanoVerificationKeys": [
@@ -85,6 +86,7 @@
                 "tag": "IPv4"
             },
             "apiPort": 32191,
+            "apiTransactionTimeout": 27,
             "chainConfig": {
                 "initialUTxOFile": "b/b/c/a.json",
                 "ledgerGenesisFile": null,
@@ -143,6 +145,7 @@
                 "tag": "IPv4"
             },
             "apiPort": 20019,
+            "apiTransactionTimeout": 26,
             "chainConfig": {
                 "cardanoSigningKey": "c/b/a/b/c/b.sk",
                 "cardanoVerificationKeys": [
@@ -223,6 +226,7 @@
                 "tag": "IPv4"
             },
             "apiPort": 9965,
+            "apiTransactionTimeout": 17,
             "chainConfig": {
                 "initialUTxOFile": "b/c/b/a/a/c.json",
                 "ledgerGenesisFile": "b/c/a.json",
@@ -263,6 +267,7 @@
                 "tag": "IPv4"
             },
             "apiPort": 8054,
+            "apiTransactionTimeout": 23,
             "chainConfig": {
                 "cardanoSigningKey": "a/c/a.sk",
                 "cardanoVerificationKeys": [

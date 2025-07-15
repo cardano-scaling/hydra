@@ -972,9 +972,11 @@ onOpenChainTick env st chainTime =
 
   plusTime = flip addUTCTime
 
+  withNextActive :: forall tx. (Eq (UTxOType tx), Monoid (UTxOType tx)) => Map (TxIdType tx) (Deposit tx) -> (TxIdType tx -> Outcome tx) -> Outcome tx
   withNextActive deposits cont = do
     -- NOTE: Do not consider empty deposits.
-    let p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
+    let p :: (x, Deposit tx) -> Bool
+        p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
     maybe noop (cont . fst) . find p $ Map.toList deposits
 
   mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
@@ -1792,6 +1794,7 @@ aggregateState ::
 aggregateState s outcome =
   foldl' aggregate s $ collectStateChanged outcome
  where
+  collectStateChanged :: Outcome tx -> [StateChanged tx]
   collectStateChanged = \case
     Error{} -> []
     Wait{stateChanges} -> stateChanges

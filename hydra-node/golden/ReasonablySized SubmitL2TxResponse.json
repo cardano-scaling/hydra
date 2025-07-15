@@ -1,0 +1,23 @@
+{
+    "samples": [
+        {
+            "tag": "SubmitTxSubmitted"
+        },
+        {
+            "tag": "SubmitTxInvalid",
+            "validationError": ""
+        },
+        {
+            "tag": "SubmitTxInvalid",
+            "validationError": "\u0001)e"
+        },
+        {
+            "tag": "SubmitTxInvalid",
+            "validationError": "=\u000e􂨤p"
+        },
+        {
+            "tag": "SubmitTxSubmitted"
+        }
+    ],
+    "seed": -1369626537
+}

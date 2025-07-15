@@ -151,6 +151,7 @@ renderEvaluationReport :: EvaluationReport -> Text
 renderEvaluationReport =
   unlines . map render . Map.toList
  where
+  render :: (ScriptWitnessIndex, Either ScriptExecutionError ExecutionUnits) -> Text
   render (ix, Right exunits) =
     "- " <> show ix <> " OK and used " <> show exunits
   render (ix, Left err) =

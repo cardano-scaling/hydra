@@ -8,7 +8,7 @@ import Hydra.Prelude hiding (Down, State)
 import Brick
 import Hydra.Cardano.Api
 
-import Brick.BChan (newBChan, writeBChan)
+import Brick.BChan (BChan, newBChan, writeBChan)
 import Graphics.Vty (
   Vty,
   defaultConfig,
@@ -52,6 +52,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
 
   cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
 
+  timer :: BChan (HydraEvent tx) -> IO ()
   timer chan = forever $ do
     now <- getCurrentTime
     writeBChan chan $ Tick now

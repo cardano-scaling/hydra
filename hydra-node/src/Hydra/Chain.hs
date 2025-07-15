@@ -13,11 +13,13 @@ module Hydra.Chain where
 
 import Hydra.Prelude
 
+import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   Coin (..),
+  LedgerEra,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
@@ -200,6 +202,7 @@ data PostTxError tx
   | FailedToConstructIncrementTx {failureReason :: Text}
   | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
+  | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)
@@ -268,6 +271,7 @@ data Chain tx m = Chain
   , draftDepositTx ::
       MonadThrow m =>
       HeadId ->
+      PParams LedgerEra ->
       CommitBlueprintTx tx ->
       UTCTime ->
       m (Either (PostTxError tx) tx)

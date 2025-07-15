@@ -187,6 +187,7 @@ toPlutusTxOut =
   -- a 'Left', which we expect to throw away anyway on 'eitherToMaybe'.
   eitherToMaybe . Ledger.transTxOutV2 (error "TxOutSource used unexpectedly") . toLedgerTxOut
  where
+  eitherToMaybe :: Either a b -> Maybe b
   eitherToMaybe = \case
     Left _ -> Nothing
     Right x -> Just x

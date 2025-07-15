@@ -39,6 +39,7 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
+import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Hydra.Tx.HeadId (HeadSeed)
@@ -197,6 +198,7 @@ data RunOptions = RunOptions
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   , whichEtcd :: WhichEtcd
+  , apiTransactionTimeout :: ApiTransactionTimeout
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -225,6 +227,7 @@ instance Arbitrary RunOptions where
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     whichEtcd <- arbitrary
+    apiTransactionTimeout <- arbitrary
     pure $
       RunOptions
         { verbosity
@@ -244,6 +247,7 @@ instance Arbitrary RunOptions where
         , chainConfig
         , ledgerConfig
         , whichEtcd
+        , apiTransactionTimeout
         }
 
   shrink = genericShrink
@@ -269,6 +273,7 @@ defaultRunOptions =
     , chainConfig = Cardano defaultCardanoChainConfig
     , ledgerConfig = defaultLedgerConfig
     , whichEtcd = EmbeddedEtcd
+    , apiTransactionTimeout = 300
     }
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
@@ -294,6 +299,7 @@ runOptionsParser =
     <*> chainConfigParser
     <*> ledgerConfigParser
     <*> whichEtcdParser
+    <*> apiTransactionTimeoutParser
 
 whichEtcdParser :: Parser WhichEtcd
 whichEtcdParser =
@@ -745,6 +751,23 @@ monitoringPortParser =
           \empty, monitoring server is not started."
     )
 
+defaultApiTransactionTimeout :: ApiTransactionTimeout
+defaultApiTransactionTimeout = ApiTransactionTimeout 300
+
+apiTransactionTimeoutParser :: Parser ApiTransactionTimeout
+apiTransactionTimeoutParser =
+  option
+    (ApiTransactionTimeout <$> auto)
+    ( long "api-transaction-timeout"
+        <> metavar "SECONDS"
+        <> value defaultApiTransactionTimeout
+        <> showDefault
+        <> completer (listCompleter ["3600", "7200", "43200"])
+        <> help
+          "Timeout for API transactions in seconds. If a transaction \
+          \takes longer than this, it will be cancelled."
+    )
+
 startChainFromParser :: Parser ChainPoint
 startChainFromParser =
   option
@@ -852,11 +875,13 @@ hydraNodeCommand =
         <> header "hydra-node - Implementation of the Hydra Head protocol"
     )
  where
+  versionInfo :: Parser (a -> a)
   versionInfo =
     infoOption
       (showVersion hydraNodeVersion)
       (long "version" <> help "Show version")
 
+  scriptInfo :: Parser (a -> a)
   scriptInfo =
     infoOption
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
@@ -951,6 +976,7 @@ toArgs
     , chainConfig
     , ledgerConfig
     , whichEtcd
+    , apiTransactionTimeout
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -969,6 +995,7 @@ toArgs
       <> maybe [] (\rotateAfter -> ["--persistence-rotate-after", show rotateAfter]) persistenceRotateAfter
       <> argsChainConfig chainConfig
       <> argsLedgerConfig
+      <> ["--api-transaction-timeout", show apiTransactionTimeout]
    where
     (NodeId nId) = nodeId
 
@@ -980,6 +1007,7 @@ toArgs
       Quiet -> ["--quiet"]
       _ -> []
 
+    toArgPeer :: Host -> [String]
     toArgPeer p =
       ["--peer", show p]
 

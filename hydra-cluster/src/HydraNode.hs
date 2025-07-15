@@ -357,7 +357,7 @@ preparePParams chainConfig stateDir paramsDecorator = do
           prj <- Blockfrost.projectFromFile projectPath
           toJSON <$> Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
       Aeson.encodeFile cardanoLedgerProtocolParametersFile $
-        paramsDecorator protocolParameters
+        protocolParameters
           & atKey "txFeeFixed" ?~ toJSON (Number 0)
           & atKey "txFeePerByte" ?~ toJSON (Number 0)
           & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
@@ -365,6 +365,7 @@ preparePParams chainConfig stateDir paramsDecorator = do
           & atKey "utxoCostPerByte" ?~ toJSON (Number 0)
           & atKey "treasuryCut" ?~ toJSON (Number 0)
           & atKey "minFeeRefScriptCostPerByte" ?~ toJSON (Number 0)
+          & paramsDecorator
   pure cardanoLedgerProtocolParametersFile
 
 -- | Prepare 'RunOptions' to run a hydra-node with given 'ChainConfig' and using the config from
@@ -412,6 +413,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
           CardanoLedgerConfig
             { cardanoLedgerProtocolParametersFile
             }
+      , apiTransactionTimeout = 100000
       }
  where
   port = fromIntegral $ 5_000 + hydraNodeId

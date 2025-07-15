@@ -4,7 +4,7 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (newEmptyTMVar, newTQueueIO, newTVarIO, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
-import Control.Retry (constantDelay, retrying)
+import Control.Retry (RetryPolicyM, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
 import Hydra.Cardano.Api (
@@ -156,6 +156,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   BlockfrostBackend{options = BlockfrostOptions{projectPath}} = backend
   CardanoChainConfig{startChainFrom} = config
 
+  submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
   submitTx queue tx = do
     response <- atomically $ do
       response <- newEmptyTMVar
@@ -194,6 +195,7 @@ blockfrostChain tracer queue prj chainPoint handler wallet = do
       (blockfrostSubmissionClient prj tracer queue)
 
 blockfrostChainFollow ::
+  forall m.
   (MonadIO m, MonadCatch m, MonadSTM m, MonadDelay m) =>
   Tracer m CardanoChainLog ->
   Blockfrost.Project ->
@@ -219,10 +221,12 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
         `catch` \(ex :: APIBlockfrostError) ->
           pure $ Left ex
  where
+  shouldRetry :: x -> Either APIBlockfrostError a -> m Bool
   shouldRetry _ = \case
     Right{} -> pure False
     Left err -> pure $ isRetryable err
 
+  retryPolicy :: Double -> RetryPolicyM m
   retryPolicy blockTime' = constantDelay (truncate blockTime' * 1000 * 1000)
 
   loop stateTVar = do

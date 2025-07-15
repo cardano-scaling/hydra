@@ -12,10 +12,6 @@
     hydra-spec.url = "github:cardano-scaling/hydra-formal-specification/7f78e005b95ff3b9c55995632ceb3d6ab96a305e";
     import-tree.url = "github:vic/import-tree";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
-    lint-utils = {
-      url = "github:homotopic/lint-utils";
-      inputs.nixpkgs.follows = "haskellNix/nixpkgs";
-    };
     mithril.url = "github:input-output-hk/mithril/2517.1";
     mithril-unstable.url = "github:input-output-hk/mithril/unstable";
     nixpkgs.follows = "haskellNix/nixpkgs";

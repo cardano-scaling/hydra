@@ -241,6 +241,7 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
     BlockfrostPreprod -> "preprod"
     BlockfrostMainnet -> "mainnet"
 
+  fetchConfigFile :: String -> IO ByteString
   fetchConfigFile path =
     parseRequestThrow path >>= httpBS <&> getResponseBody
 

@@ -6,7 +6,8 @@ import Test.Hydra.Prelude
 
 import Amazonka qualified as AWS
 import Amazonka.Auth qualified as AWS
-import Hydra.Events (EventId, EventSink (..), getEvents)
+import Amazonka.S3 qualified as AWS
+import Hydra.Events (EventId, EventSink (..), EventSource, HasEventId, getEvents)
 import Hydra.Events.S3 (fromObjectKey, newS3EventStore, purgeEvents, toObjectKey)
 import Test.QuickCheck (chooseBoundedIntegral, counterexample, forAllShrink, ioProperty, sized, sublistOf, withMaxSuccess, (===))
 
@@ -69,6 +70,11 @@ spec = do
         events1 `shouldBe` events2
         events1 `shouldBe` [123, 456 :: EventId]
  where
+  withS3EventStore ::
+    (ToJSON e, FromJSON e, HasEventId e) =>
+    AWS.BucketName ->
+    ((EventSource e IO, EventSink e IO) -> IO a) ->
+    IO a
   withS3EventStore bucketName =
     bracket (newS3EventStore bucketName) (const $ cleanup bucketName)
 
@@ -76,6 +82,7 @@ spec = do
   --
   -- Also provides the BucketName to tests. We are using 'fromString' to avoid the
   -- dependency onto amazonka-s3 in the test suite.
+  onlyWithAWSEnv :: (AWS.BucketName -> IO ()) -> IO ()
   onlyWithAWSEnv action = do
     try (AWS.newEnv AWS.fromKeysEnv) >>= \case
       Left (_ :: AWS.AuthError) -> pendingWith "Requires AWS environment"

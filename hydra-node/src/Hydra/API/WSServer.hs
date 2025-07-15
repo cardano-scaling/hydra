@@ -113,18 +113,23 @@ wsApp env party tracer history callback headStateP headIdP responseChannel Serve
   Projection{getLatest} = headStateP
   Projection{getLatest = getLatestHeadId} = headIdP
 
+  mkServerOutputConfig :: [QueryParam] -> ServerOutputConfig
   mkServerOutputConfig qp =
     ServerOutputConfig
       { utxoInSnapshot = decideOnUTxODisplay qp
       , addressInTx = decideOnAddressDisplay qp
       }
 
+  decideOnUTxODisplay :: [QueryParam] -> WithUTxO
   decideOnUTxODisplay qp =
-    let k = [queryKey|snapshot-utxo|]
+    let k :: RText t
+        k = [queryKey|snapshot-utxo|]
+        v :: RText t
         v = [queryValue|no|]
         queryP = QueryParam k v
      in if queryP `elem` qp then WithoutUTxO else WithUTxO
 
+  decideOnAddressDisplay :: [QueryParam] -> WithAddressedTx
   decideOnAddressDisplay qp =
     case find queryByAddress qp of
       Just (QueryParam _ v) -> WithAddressedTx (unRText v)
@@ -134,6 +139,7 @@ wsApp env party tracer history callback headStateP headIdP responseChannel Serve
       (QueryParam key _) | key == [queryKey|address|] -> True
       _other -> False
 
+  shouldServeHistory :: [QueryParam] -> Bool
   shouldServeHistory qp =
     flip any qp $ \case
       (QueryParam key val)

@@ -279,6 +279,7 @@ toCardanoPolicyIdAndAssetName pid = do
 toCardanoValue :: [Blockfrost.Amount] -> BlockfrostClientT IO Value
 toCardanoValue = foldMapM convertAmount
  where
+  convertAmount :: Blockfrost.Amount -> BlockfrostClientT IO Value
   convertAmount (Blockfrost.AdaAmount lovelaces) =
     pure $
       fromList
