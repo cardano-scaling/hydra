@@ -39,7 +39,7 @@ When implementing an event source or sink, you might want to consider testing th
 
 ### Event Log Rotation
 
-Long-living Heads may produce a large number of persisted events, which can cause restarts after failure to take a significant amount of time.
+Long-living heads may produce a large number of persisted events, which can impact the restart time of the hydra-node as it needs to read in all the previous state.
 
 Event log rotation was introduced to improve recovery times by reducing the number of events that need to be replayed on startup. This is achieved by periodically replacing the current event log with a new one that starts from a checkpoint event, which captures the latest aggregated head state.
 
