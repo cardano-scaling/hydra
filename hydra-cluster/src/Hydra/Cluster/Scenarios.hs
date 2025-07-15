@@ -106,7 +106,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), startChainFrom)
+import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
@@ -521,7 +521,9 @@ singlePartyOpenAHead tracer workDir backend hydraScriptsTxId callback =
     utxoToCommit <- seedFromFaucet backend walletVk 100_000_000 (contramap FromFaucet tracer)
 
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    options <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] id
+    let options' = options{persistenceRotateAfter = Just 10000}
+    withPreparedHydraNode hydraTracer workDir 1 options' $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       blockTime <- Backend.getBlockTime backend
