@@ -61,6 +61,7 @@ import Hydra.Cluster.Scenarios (
   canSubmitTransactionThroughAPI,
   checkFanout,
   headIsInitializingWith,
+  hydraNodeBaseUrl,
   initWithWrongKeys,
   nodeCanSupportMultipleEtcdClusters,
   nodeReObservesOnChainTxs,
@@ -101,6 +102,8 @@ import HydraNode (
   withHydraNode,
   withPreparedHydraNode,
  )
+import Network.HTTP.Conduit (parseUrlThrow)
+import Network.HTTP.Simple (getResponseBody, httpJSON)
 import System.Directory (removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
 import Test.Hydra.Tx.Fixture (testNetworkId)
@@ -411,6 +414,102 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
                 send n1 $ input "Fanout" []
                 waitForAllMatch 10 [n1] $ checkFanout headId u0
+
+      it "Head can continue after TxInvalid" $ \tracer ->
+        -- failAfter 60 $
+        withClusterTempDir $ \tmpDir -> do
+          let clusterIx = 0
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+            let nodeSocket' = case Backend.getOptions backend of
+                  Direct DirectOptions{nodeSocket} -> nodeSocket
+                  _ -> error "Unexpected Blockfrost backend"
+            aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
+            bobKeys@(bobCardanoVk, _) <- generate genKeyPair
+            carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+
+            let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+                hydraKeys = [aliceSk, bobSk, carolSk]
+
+            let firstNodeId = clusterIx * 3
+
+            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+            let contestationPeriod = 2
+            let hydraTracer = contramap FromHydraNode tracer
+
+            withHydraCluster hydraTracer tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+              waitForNodesConnected hydraTracer 20 nodes
+              let [n1, n2, n3] = toList nodes
+
+              -- Funds to be used as fuel by Hydra protocol transactions
+              seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+              send n1 $ input "Init" []
+              headId <-
+                waitForAllMatch 10 [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+
+              -- Get some UTXOs to commit to a head
+              (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+              committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+              requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
+
+              (bobExternalVk, bobExternalSk) <- generate genKeyPair
+              committedUTxOByBob <- seedFromFaucet backend bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
+              requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
+
+              requestCommitTx n3 mempty >>= Backend.submitTransaction backend
+
+              let u0 = committedUTxOByAlice <> committedUTxOByBob
+
+              waitFor hydraTracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0, "headId" .= headId]
+
+              let firstCommittedUTxO = Prelude.head $ UTxO.toList committedUTxOByBob
+              let Right tx =
+                    mkSimpleTx
+                      firstCommittedUTxO
+                      (inHeadAddress bobExternalVk, lovelaceToValue paymentFromAliceToBob)
+                      bobExternalSk
+
+              let unsign (Tx body _) = Tx body []
+
+              send n1 $ input "NewTx" ["transaction" .= unsign tx]
+
+              validationError <- waitForAllMatch 10 [n1, n2, n3] $ \v -> do
+                guard $ v ^? key "tag" == Just "TxInvalid"
+                v ^? key "validationError" . key "reason" . _JSON
+
+              validationError `shouldContain` "MissingVKeyWitnessesUTXOW"
+
+              send n3 $ input "NewTx" ["transaction" .= tx]
+
+              waitFor hydraTracer 20 [n1, n2, n3] $
+                output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
+
+              waitForAllMatch 20 [n1, n2, n3] $ \v -> do
+                guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+
+              headUTxO :: UTxO.UTxO <-
+                parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/snapshot/utxo")
+                  >>= httpJSON
+                  <&> getResponseBody
+
+              send n1 $ input "Close" []
+
+              deadline <- waitMatch 3 n1 $ \v -> do
+                guard $ v ^? key "tag" == Just "HeadIsClosed"
+                guard $ v ^? key "headId" == Just (toJSON headId)
+                snapshotNumber <- v ^? key "snapshotNumber"
+                guard $ snapshotNumber == Aeson.Number 1
+                v ^? key "contestationDeadline" . _JSON
+
+              -- Expect to see ReadyToFanout within 3 seconds after deadline
+              remainingTime <- diffUTCTime deadline <$> getCurrentTime
+              waitFor hydraTracer (remainingTime + 3) [n1] $
+                output "ReadyToFanout" ["headId" .= headId]
+
+              send n1 $ input "Fanout" []
+              waitForAllMatch 10 [n1] $ checkFanout headId headUTxO
 
       it "supports mirror party" $ \tracer ->
         failAfter 60 $
