@@ -10,6 +10,8 @@ changes.
 
 ## [0.23.0] - UNRELEASED
 
+- Don't keep around invalid transactions as they could lead to stuck Head.
+
 - Hydra API server responds with the correct `Content-Type` header `application-json`.
 
 - Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
