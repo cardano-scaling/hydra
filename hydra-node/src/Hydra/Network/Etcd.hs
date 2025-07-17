@@ -226,6 +226,14 @@ connParams tracer to =
     traceWith tracer Reconnecting
     pure reconnectPolicy
 
+-- | Return the path of the etcd binary. Will either install it first, or just
+-- assume there is one available on the system path.
+getEtcdBinary :: FilePath -> WhichEtcd -> IO FilePath
+getEtcdBinary _ SystemEtcd = pure "etcd"
+getEtcdBinary persistenceDir EmbeddedEtcd =
+  let path = persistenceDir </> "bin" </> "etcd"
+   in installEtcd path >> pure path
+
 grpcServer :: NetworkConfiguration -> Server
 grpcServer config =
   ServerInsecure $
