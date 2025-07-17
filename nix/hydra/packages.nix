@@ -30,7 +30,8 @@
           # stdenv as the original drv (important to determine targetPlatform).
           drv.stdenv.mkDerivation {
             name = "${exe}";
-            phases = [ "buildPhase" ];
+            buildInputs = [ pkgs.cctools ];
+            phases = [ "buildPhase" "postFixup" ];
             buildPhase = ''
               set -e
 
@@ -45,6 +46,13 @@
               mkdir -p $out/bin
               sed 's/${placeholder}/${rev}/' ${drv}/bin/${exe} > $out/bin/${exe}
               chmod +x $out/bin/${exe}
+            '';
+            postFixup = ''
+              install_name_tool -add_rpath ${pkgs.zlib}/lib $out/bin/${exe}
+              install_name_tool -add_rpath ${pkgs.lmdb}/lib $out/bin/${exe}
+              install_name_tool -add_rpath ${pkgs.libcxx}/lib $out/bin/${exe}
+              install_name_tool -add_rpath ${pkgs.libiconv}/lib $out/bin/${exe}
+              install_name_tool -add_rpath ${pkgs.libffi}/lib $out/bin/${exe}
             '';
           };
 

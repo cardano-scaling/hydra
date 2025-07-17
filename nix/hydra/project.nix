@@ -45,9 +45,12 @@
               hydra-tx.writeHieFiles = true;
               hydra-tui.writeHieFiles = true;
               hydraw.writeHieFiles = true;
-              hydra-node.dontStrip = false;
-              hydra-tui.dontStrip = false;
-              hydraw.dontStrip = false;
+              # NOTE: This is needed to fix the "Killed: 9" error on macOS aarch64
+              # where the executable is being killed by the OS.
+              # See also: https://github.com/NixOS/nixpkgs/issues/112296
+              hydra-node.dontStrip = true;
+              hydra-tui.dontStrip = true;
+              hydraw.dontStrip = true;
             };
           }
           # Use different static libs on darwin
@@ -89,6 +92,11 @@
           # Add etcd as build dependency of hydra-node (template haskell embedding not tracked by cabal)
           {
             packages.hydra-node.components.library.build-tools = [ pkgs.etcd ];
+          }
+          {
+            packages.hydra-node.components.exes.hydra-node.preCheck = ''
+              export HOME=$(mktemp -d)
+            '';
           }
         ];
       };
