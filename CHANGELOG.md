@@ -8,15 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.22.2] - 2025.06.30
+## [0.22.3] - UNRELEASED
+
+* Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
+  revision if `last-known-revision` is missing or too old. This can happen if a
+  node is down for a long time and the `etcd` cluster compacted the last known
+  revision in the meantime
+  [#2136](https://github.com/cardano-scaling/hydra/issues/2136).
+
+## [0.22.2] - 2025-06-30
 
 * Fix wrong hydra-script-tx-ids in networks.json
 
-## [0.22.1] - 2025.06.27
+## [0.22.1] - 2025-06-27
 
 * Fix for bug where node got stalled at `ReplayingState` [#2089](https://github.com/cardano-scaling/hydra/issues/2089)
 
-## [0.22.0] - 2025.06.17
+## [0.22.0] - 2025-06-17
 
 - Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
 
