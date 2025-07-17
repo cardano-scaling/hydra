@@ -323,7 +323,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
         | ttl > 0 ->
             wait (WaitOnNotApplicableTx err)
         | otherwise ->
-            -- XXX: We might want to remove invalid txs from allTxs here to
+            -- XXX: We are removing invalid txs from allTxs here to
             -- prevent them piling up infinitely. However, this is not really
             -- covered by the spec and this could be problematic in case of
             -- conflicting transactions paired with network latency and/or
@@ -331,8 +331,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
             -- only tx2 is seen by a participant and eventually times out
             -- because of network latency when receiving tx1. The leader,
             -- however, saw both as valid and requests a snapshot including
-            -- both. This is a valid request and if we would have removed tx2
-            -- from allTxs, we would make the head stuck.
+            -- both. This is a valid request and it could make the head stuck.
             newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
 
   maybeRequestSnapshot nextSn outcome =
@@ -1783,7 +1782,10 @@ aggregate st = \case
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}
       _otherState -> st
   IgnoredHeadInitializing{} -> st
-  TxInvalid{} -> st
+  TxInvalid{transaction} -> case st of
+    Open ost@OpenState{coordinatedHeadState = coordState@CoordinatedHeadState{allTxs = allTransactions}} ->
+      Open ost{coordinatedHeadState = coordState{allTxs = foldr Map.delete allTransactions [txId transaction]}}
+    _otherState -> st
   Checkpoint state' -> state'
 
 aggregateState ::
