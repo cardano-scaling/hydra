@@ -30,8 +30,8 @@
           # stdenv as the original drv (important to determine targetPlatform).
           drv.stdenv.mkDerivation {
             name = "${exe}";
-            buildInputs = [ pkgs.cctools ];
-            phases = [ "buildPhase" "postFixup" ];
+            buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [ pkgs.cctools ];
+            phases = [ "buildPhase" ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [ "postFixup" ];
             buildPhase = ''
               set -e
 
@@ -47,7 +47,7 @@
               sed 's/${placeholder}/${rev}/' ${drv}/bin/${exe} > $out/bin/${exe}
               chmod +x $out/bin/${exe}
             '';
-            postFixup = ''
+            postFixup = pkgs.lib.optionalString pkgs.stdenv.isDarwin ''
               install_name_tool -add_rpath ${pkgs.zlib}/lib $out/bin/${exe}
               install_name_tool -add_rpath ${pkgs.lmdb}/lib $out/bin/${exe}
               install_name_tool -add_rpath ${pkgs.libcxx}/lib $out/bin/${exe}
