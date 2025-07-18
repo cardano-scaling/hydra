@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-node
-version:            0.22.2
+version:            0.22.3
 synopsis:           The Hydra node
 author:             IOG
 copyright:          2022 IOG
@@ -399,6 +399,7 @@ test-suite tests
     , text
     , time
     , tls
+    , typed-process
     , websockets
 
   build-tool-depends: hspec-discover:hspec-discover
