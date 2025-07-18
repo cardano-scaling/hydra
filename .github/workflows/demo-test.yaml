@@ -32,8 +32,9 @@ jobs:
 
       - name: Run demo in background
         run: |
-          nix run .#demo &
+          nix run .#demo > process-compose.out 2> process-compose.err &
           echo $! > process-compose.pid
+          sleep 5
 
       - name: Wait for hydra nodes to be ready
         run: |
@@ -45,7 +46,12 @@ jobs:
               sleep 5
               if ! ps -p $(cat process-compose.pid) > /dev/null; then
                 echo "Process-compose exited prematurely."
-                cat devnet/logs/process-compose.log
+                echo "--- stdout ---"
+                cat process-compose.out
+                echo "--- stderr ---"
+                cat process-compose.err
+                echo "--- process-compose.log ---"
+                cat devnet/logs/process-compose.log || echo "process-compose.log not found"
                 exit 1
               fi
             done
