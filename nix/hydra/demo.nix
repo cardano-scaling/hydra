@@ -16,7 +16,10 @@
 
           processes = {
             prepare-devnet = {
-              command = "${self}/demo/prepare-devnet.sh";
+              command = pkgs.writeShellScript "prepare-devnet-wrapped" ''
+                export PATH=${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.findutils}/bin:$PATH
+                exec ${self}/demo/prepare-devnet.sh
+              '';
             };
             cardano-node = {
               command = ''
