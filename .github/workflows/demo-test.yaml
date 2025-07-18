@@ -30,6 +30,9 @@ jobs:
         run: |
           sed -i.bak 's/is_foreground = true/is_foreground = false/g' nix/hydra/demo.nix
 
+      - name: Create devnet log directory
+        run: mkdir -p devnet/logs
+
       - name: Run demo in background
         run: |
           nix run .#demo > process-compose.out 2> process-compose.err &
@@ -40,24 +43,27 @@ jobs:
         run: |
           set -e
           echo "Waiting for hydra nodes to start..."
-          nix shell nixpkgs#coreutils -c timeout 300s bash -c '
+          if ! nix shell nixpkgs#coreutils -c timeout 300s bash -c '
             until [ $(grep "is ready" devnet/logs/process-compose.log 2>/dev/null | wc -l) -ge 3 ]; do
               echo -n "."
               sleep 5
               if ! ps -p $(cat process-compose.pid) > /dev/null; then
                 echo "Process-compose exited prematurely."
-                echo "--- stdout ---"
-                cat process-compose.out
-                echo "--- stderr ---"
-                cat process-compose.err
-                echo "--- process-compose.log ---"
-                cat devnet/logs/process-compose.log || echo "process-compose.log not found"
                 exit 1
               fi
             done
             echo "All hydra nodes are ready!"
-          '
+          '; then
+            echo "Timed out or process-compose exited prematurely."
+            echo "--- stdout ---"
+            cat process-compose.out
+            echo "--- stderr ---"
+            cat process-compose.err
+            echo "--- process-compose.log ---"
+            cat devnet/logs/process-compose.log || echo "process-compose.log not found"
+            exit 1
+          fi
       - name: Stop demo
         if: always()
         run: |
-          kill $(cat process-compose.pid) 
+          kill $(cat process-compose.pid) || true 
