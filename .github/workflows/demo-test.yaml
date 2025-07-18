@@ -26,6 +26,11 @@ jobs:
         with:
           authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
+      - name: Set up and use the "demo" devShell
+        uses: nicknovitski/nix-develop@v1
+        with:
+          arguments: ".#demo"
+
       - name: Modify demo to run headlessly
         run: |
           sed -i.bak 's/is_foreground = true/is_foreground = false/g' nix/hydra/demo.nix
