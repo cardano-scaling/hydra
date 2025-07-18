@@ -41,7 +41,7 @@ jobs:
           set -e
           echo "Waiting for hydra nodes to start..."
           nix shell nixpkgs#coreutils -c timeout 300s bash -c '
-            until [ $(grep -c "hydra-node-.* is ready" devnet/logs/process-compose.log 2>/dev/null || echo 0) -ge 3 ]; do
+            until [ $(grep "is ready" devnet/logs/process-compose.log 2>/dev/null | wc -l) -ge 3 ]; do
               echo -n "."
               sleep 5
               if ! ps -p $(cat process-compose.pid) > /dev/null; then
