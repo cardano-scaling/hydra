@@ -191,6 +191,32 @@ data Connectivity
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
+instance ToCBOR Connectivity where
+  toCBOR = \case
+    PeerConnected peer -> toCBOR ("PeerConnected" :: Text) <> toCBOR peer
+    PeerDisconnected peer -> toCBOR ("PeerDisconnected" :: Text) <> toCBOR peer
+    NetworkConnected -> toCBOR ("NetworkConnected" :: Text)
+    NetworkDisconnected -> toCBOR ("NetworkDisconnected" :: Text)
+    VersionMismatch ourVersion theirVersion ->
+      toCBOR ("VersionMismatch" :: Text)
+        <> toCBOR ourVersion
+        <> toCBOR theirVersion
+    ClusterIDMismatch clusterPeers ->
+      toCBOR ("ClusterIDMismatch" :: Text) <> toCBOR clusterPeers
+
+instance FromCBOR Connectivity where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("PeerConnected" :: Text) -> PeerConnected <$> fromCBOR
+      ("PeerDisconnected" :: Text) -> PeerDisconnected <$> fromCBOR
+      ("NetworkConnected" :: Text) -> pure NetworkConnected
+      ("NetworkDisconnected" :: Text) -> pure NetworkDisconnected
+      ("VersionMismatch" :: Text) ->
+        VersionMismatch <$> fromCBOR <*> fromCBOR
+      ("ClusterIDMismatch" :: Text) ->
+        ClusterIDMismatch <$> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Connectivity"
+
 instance Arbitrary Connectivity where
   arbitrary = genericArbitrary
 

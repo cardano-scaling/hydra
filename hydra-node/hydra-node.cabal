@@ -101,6 +101,7 @@ library
     Hydra.Node.Util
     Hydra.Options
     Hydra.Persistence
+    Hydra.PersistentQueue
     Hydra.Utils
 
   other-modules:   Paths_hydra_node

@@ -14,7 +14,7 @@ import Text.Show (Show (..))
 -- values of unknown sign.
 newtype ContestationPeriod = UnsafeContestationPeriod Natural
   deriving stock (Eq, Ord)
-  deriving newtype (Real, Integral, ToJSON, FromJSON)
+  deriving newtype (Real, Integral, ToJSON, FromJSON, ToCBOR, FromCBOR)
 
 instance Show ContestationPeriod where
   show (UnsafeContestationPeriod s) = show s <> "s"
