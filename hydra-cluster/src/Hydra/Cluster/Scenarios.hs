@@ -39,7 +39,7 @@ import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
  )
-import Hydra.API.ServerOutput (HeadStatus (Idle))
+import Hydra.API.ServerOutput (HeadStatus (..))
 import Hydra.Cardano.Api (
   Coin (..),
   Era,
@@ -149,6 +149,7 @@ import Network.HTTP.Req (
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
+import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
 import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
@@ -1740,6 +1741,46 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
         seenSn1' `shouldBe` seenSn2'
         seenSn3' <- getSnapshotLastSeen n3
         seenSn2' `shouldBe` seenSn3'
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+canResumeOnMemberAlreadyBootstrapped :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = do
+  let clients = [Alice, Bob]
+  [(aliceCardanoVk, _aliceCardanoSk), (bobCardanoVk, _)] <- forM clients keysFor
+  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  networkId <- Backend.queryNetworkId backend
+  let contestationPeriod = 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] contestationPeriod
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
+      <&> setNetworkId networkId
+
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
+    waitMatch 20 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "Greetings"
+      guard $ v ^? key "headStatus" == Just (toJSON Idle)
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
+      waitMatch 20 n2 $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+
+      threadDelay 5
+
+    callProcess "rm" ["-rf", workDir </> "state-2"]
+
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
+      `shouldThrow` \(e :: SomeException) ->
+        "hydra-node" `isInfixOf` show e
+          && "etcd" `isInfixOf` show e
+
+    setEnv "ETCD_INITIAL_CLUSTER_STATE" "existing"
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
+    unsetEnv "ETCD_INITIAL_CLUSTER_STATE"
  where
   hydraTracer = contramap FromHydraNode tracer
 
