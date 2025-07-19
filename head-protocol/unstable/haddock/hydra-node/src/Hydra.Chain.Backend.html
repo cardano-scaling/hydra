@@ -1,0 +1,492 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Chain.Backend</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html"><span class="hs-identifier">Hydra.Chain.CardanoClient</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">CardanoClient</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Options.html"><span class="hs-identifier">Hydra.Options</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Options.html#ChainBackendOptions"><span class="hs-identifier">ChainBackendOptions</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ScriptRegistry</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="annot"><a href="Hydra.Chain.Backend.html#blockfrostProjectPath"><span class="hs-identifier hs-type">blockfrostProjectPath</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span>
+</span><span id="line-12"></span><span id="blockfrostProjectPath"><span class="annot"><span class="annottext">blockfrostProjectPath :: FilePath
+</span><a href="Hydra.Chain.Backend.html#blockfrostProjectPath"><span class="hs-identifier hs-var hs-var">blockfrostProjectPath</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><span class="hs-string">&quot;./blockfrost-project.txt&quot;</span></span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">class</span><span> </span><span id="ChainBackend"><span class="annot"><a href="Hydra.Chain.Backend.html#ChainBackend"><span class="hs-identifier hs-var">ChainBackend</span></a></span></span><span> </span><span id="local-6989586621680507249"><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-15"></span><span>  </span><span id="queryGenesisParameters"><span class="annot"><a href="Hydra.Chain.Backend.html#queryGenesisParameters"><span class="hs-identifier hs-type">queryGenesisParameters</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507357"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507357"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507357"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507357"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">GenesisParameters</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyEra</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-16"></span><span>  </span><span id="queryScriptRegistry"><span class="annot"><a href="Hydra.Chain.Backend.html#queryScriptRegistry"><span class="hs-identifier hs-type">queryScriptRegistry</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507361"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507361"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507361"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507361"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptRegistry</span></span></span><span>
+</span><span id="line-17"></span><span>  </span><span id="queryNetworkId"><span class="annot"><a href="Hydra.Chain.Backend.html#queryNetworkId"><span class="hs-identifier hs-type">queryNetworkId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507364"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507364"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507364"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507364"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span></span><span>
+</span><span id="line-18"></span><span>  </span><span id="queryTip"><span class="annot"><a href="Hydra.Chain.Backend.html#queryTip"><span class="hs-identifier hs-type">queryTip</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507367"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507367"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507367"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507367"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainPoint</span></span></span><span>
+</span><span id="line-19"></span><span>  </span><span id="queryUTxO"><span class="annot"><a href="Hydra.Chain.Backend.html#queryUTxO"><span class="hs-identifier hs-type">queryUTxO</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507370"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507370"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507370"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Address</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyAddr</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507370"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span></span><span>
+</span><span id="line-20"></span><span>  </span><span id="queryUTxOByTxIn"><span class="annot"><a href="Hydra.Chain.Backend.html#queryUTxOByTxIn"><span class="hs-identifier hs-type">queryUTxOByTxIn</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507374"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507374"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507374"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507374"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span></span><span>
+</span><span id="line-21"></span><span>  </span><span id="queryEraHistory"><span class="annot"><a href="Hydra.Chain.Backend.html#queryEraHistory"><span class="hs-identifier hs-type">queryEraHistory</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507256"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507256"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507256"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#QueryPoint"><span class="hs-identifier hs-type">CardanoClient.QueryPoint</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507256"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">EraHistory</span></span></span><span>
+</span><span id="line-22"></span><span>  </span><span id="querySystemStart"><span class="annot"><a href="Hydra.Chain.Backend.html#querySystemStart"><span class="hs-identifier hs-type">querySystemStart</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507254"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507254"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507254"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#QueryPoint"><span class="hs-identifier hs-type">CardanoClient.QueryPoint</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507254"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SystemStart</span></span></span><span>
+</span><span id="line-23"></span><span>  </span><span id="queryProtocolParameters"><span class="annot"><a href="Hydra.Chain.Backend.html#queryProtocolParameters"><span class="hs-identifier hs-type">queryProtocolParameters</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507250"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507250"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507250"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#QueryPoint"><span class="hs-identifier hs-type">CardanoClient.QueryPoint</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507250"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">LedgerEra</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-24"></span><span>  </span><span id="queryStakePools"><span class="annot"><a href="Hydra.Chain.Backend.html#queryStakePools"><span class="hs-identifier hs-type">queryStakePools</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507258"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507258"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507258"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#QueryPoint"><span class="hs-identifier hs-type">CardanoClient.QueryPoint</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507258"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PoolId</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-25"></span><span>  </span><span id="queryUTxOFor"><span class="annot"><a href="Hydra.Chain.Backend.html#queryUTxOFor"><span class="hs-identifier hs-type">queryUTxOFor</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507380"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507380"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507380"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#QueryPoint"><span class="hs-identifier hs-type">CardanoClient.QueryPoint</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507380"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span></span><span>
+</span><span id="line-26"></span><span>  </span><span id="submitTransaction"><span class="annot"><a href="Hydra.Chain.Backend.html#submitTransaction"><span class="hs-identifier hs-type">submitTransaction</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507384"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507384"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507384"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507384"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-27"></span><span>  </span><span id="awaitTransaction"><span class="annot"><a href="Hydra.Chain.Backend.html#awaitTransaction"><span class="hs-identifier hs-type">awaitTransaction</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507386"><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507386"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507386"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507386"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span></span><span>
+</span><span id="line-28"></span><span>  </span><span id="getOptions"><span class="annot"><a href="Hydra.Chain.Backend.html#getOptions"><span class="hs-identifier hs-type">getOptions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Options.html#ChainBackendOptions"><span class="hs-identifier hs-type">ChainBackendOptions</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span id="getBlockTime"><span class="annot"><a href="Hydra.Chain.Backend.html#getBlockTime"><span class="hs-identifier hs-type">getBlockTime</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621680507389"><span class="annot"><a href="#local-6989586621680507249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507389"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507389"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507389"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#NominalDiffTime"><span class="hs-identifier hs-type">NominalDiffTime</span></a></span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span id="local-6989586621680507233"><span class="annot"><a href="Hydra.Chain.Backend.html#buildTransaction"><span class="hs-identifier hs-type">buildTransaction</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><a href="Hydra.Chain.Backend.html#ChainBackend"><span class="hs-identifier hs-type">ChainBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507233"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><a href="#local-6989586621680507233"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Change address to send</span></span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Unspent transaction outputs to spend.</span></span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Collateral inputs.</span></span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Outputs to create.</span></span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxBodyErrorAutoBalance</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-43"></span><span id="buildTransaction"><span class="annot"><span class="annottext">buildTransaction :: forall backend.
+ChainBackend backend =&gt;
+backend
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx]
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) Tx)
+</span><a href="Hydra.Chain.Backend.html#buildTransaction"><span class="hs-identifier hs-var hs-var">buildTransaction</span></a></span></span><span> </span><span id="local-6989586621680507401"><span class="annot"><span class="annottext">backend
+</span><a href="#local-6989586621680507401"><span class="hs-identifier hs-var">backend</span></a></span></span><span> </span><span id="local-6989586621680507402"><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621680507402"><span class="hs-identifier hs-var">changeAddress</span></a></span></span><span> </span><span id="local-6989586621680507403"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680507403"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span id="local-6989586621680507404"><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621680507404"><span class="hs-identifier hs-var">utxoToSpend</span></a></span></span><span> </span><span id="local-6989586621680507405"><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621680507405"><span class="hs-identifier hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-44"></span><span>  </span><span id="local-6989586621680507406"><span class="annot"><span class="annottext">PParams ConwayEra
+</span><a href="#local-6989586621680507406"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; QueryPoint -&gt; IO (PParams LedgerEra)
+forall a (m :: * -&gt; *).
+(ChainBackend a, MonadIO m, MonadThrow m) =&gt;
+a -&gt; QueryPoint -&gt; m (PParams LedgerEra)
+forall (m :: * -&gt; *).
+(MonadIO m, MonadThrow m) =&gt;
+backend -&gt; QueryPoint -&gt; m (PParams LedgerEra)
+</span><a href="Hydra.Chain.Backend.html#queryProtocolParameters"><span class="hs-identifier hs-var">queryProtocolParameters</span></a></span><span> </span><span class="annot"><span class="annottext">backend
+</span><a href="#local-6989586621680507401"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">CardanoClient.QueryTip</span></a></span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><span class="annottext">PParams LedgerEra
+-&gt; backend
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx]
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) Tx)
+forall backend.
+ChainBackend backend =&gt;
+PParams LedgerEra
+-&gt; backend
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx]
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) Tx)
+</span><a href="Hydra.Chain.Backend.html#buildTransactionWithPParams"><span class="hs-identifier hs-var">buildTransactionWithPParams</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra
+PParams LedgerEra
+</span><a href="#local-6989586621680507406"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">backend
+</span><a href="#local-6989586621680507401"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621680507402"><span class="hs-identifier hs-var">changeAddress</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680507403"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621680507404"><span class="hs-identifier hs-var">utxoToSpend</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621680507405"><span class="hs-identifier hs-var">outs</span></a></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- | Construct a simple payment consuming some inputs and producing some</span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- outputs (no certificates or withdrawals involved).</span><span>
+</span><span id="line-49"></span><span class="hs-comment">--</span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- On success, the returned transaction is fully balanced. On error, return</span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- `TxBodyErrorAutoBalance`.</span><span>
+</span><span id="line-52"></span><span id="local-6989586621680507251"><span class="annot"><a href="Hydra.Chain.Backend.html#buildTransactionWithPParams"><span class="hs-identifier hs-type">buildTransactionWithPParams</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-53"></span><span>  </span><span class="annot"><a href="Hydra.Chain.Backend.html#ChainBackend"><span class="hs-identifier hs-type">ChainBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507251"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-54"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Protocol parameters</span></span><span>
+</span><span id="line-55"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">LedgerEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><a href="#local-6989586621680507251"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-57"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Change address to send</span></span><span>
+</span><span id="line-58"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-59"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Unspent transaction outputs to spend.</span></span><span>
+</span><span id="line-60"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Collateral inputs.</span></span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Outputs to create.</span></span><span>
+</span><span id="line-64"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-65"></span><span>  </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxBodyErrorAutoBalance</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-66"></span><span id="buildTransactionWithPParams"><span class="annot"><span class="annottext">buildTransactionWithPParams :: forall backend.
+ChainBackend backend =&gt;
+PParams LedgerEra
+-&gt; backend
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx]
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) Tx)
+</span><a href="Hydra.Chain.Backend.html#buildTransactionWithPParams"><span class="hs-identifier hs-var hs-var">buildTransactionWithPParams</span></a></span></span><span> </span><span id="local-6989586621680507424"><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621680507424"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span id="local-6989586621680507425"><span class="annot"><span class="annottext">backend
+</span><a href="#local-6989586621680507425"><span class="hs-identifier hs-var">backend</span></a></span></span><span> </span><span id="local-6989586621680507426"><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621680507426"><span class="hs-identifier hs-var">changeAddress</span></a></span></span><span> </span><span id="local-6989586621680507427"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680507427"><span class="hs-identifier hs-var">utxoToSpend</span></a></span></span><span> </span><span id="local-6989586621680507428"><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621680507428"><span class="hs-identifier hs-var">collateral</span></a></span></span><span> </span><span id="local-6989586621680507429"><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621680507429"><span class="hs-identifier hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-67"></span><span>  </span><span id="local-6989586621680507430"><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680507430"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; QueryPoint -&gt; IO SystemStart
+forall a (m :: * -&gt; *).
+(ChainBackend a, MonadIO m, MonadThrow m) =&gt;
+a -&gt; QueryPoint -&gt; m SystemStart
+forall (m :: * -&gt; *).
+(MonadIO m, MonadThrow m) =&gt;
+backend -&gt; QueryPoint -&gt; m SystemStart
+</span><a href="Hydra.Chain.Backend.html#querySystemStart"><span class="hs-identifier hs-var">querySystemStart</span></a></span><span> </span><span class="annot"><span class="annottext">backend
+</span><a href="#local-6989586621680507425"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">CardanoClient.QueryTip</span></a></span><span>
+</span><span id="line-68"></span><span>  </span><span id="local-6989586621680507431"><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621680507431"><span class="hs-identifier hs-var">eraHistory</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; QueryPoint -&gt; IO EraHistory
+forall a (m :: * -&gt; *).
+(ChainBackend a, MonadIO m, MonadThrow m) =&gt;
+a -&gt; QueryPoint -&gt; m EraHistory
+forall (m :: * -&gt; *).
+(MonadIO m, MonadThrow m) =&gt;
+backend -&gt; QueryPoint -&gt; m EraHistory
+</span><a href="Hydra.Chain.Backend.html#queryEraHistory"><span class="hs-identifier hs-var">queryEraHistory</span></a></span><span> </span><span class="annot"><span class="annottext">backend
+</span><a href="#local-6989586621680507425"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">CardanoClient.QueryTip</span></a></span><span>
+</span><span id="line-69"></span><span>  </span><span id="local-6989586621680507432"><span class="annot"><span class="annottext">Set PoolId
+</span><a href="#local-6989586621680507432"><span class="hs-identifier hs-var">stakePools</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; QueryPoint -&gt; IO (Set PoolId)
+forall a (m :: * -&gt; *).
+(ChainBackend a, MonadIO m, MonadThrow m) =&gt;
+a -&gt; QueryPoint -&gt; m (Set PoolId)
+forall (m :: * -&gt; *).
+(MonadIO m, MonadThrow m) =&gt;
+backend -&gt; QueryPoint -&gt; m (Set PoolId)
+</span><a href="Hydra.Chain.Backend.html#queryStakePools"><span class="hs-identifier hs-var">queryStakePools</span></a></span><span> </span><span class="annot"><span class="annottext">backend
+</span><a href="#local-6989586621680507425"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">CardanoClient.QueryTip</span></a></span><span>
+</span><span id="line-70"></span><span>  </span><span class="annot"><span class="annottext">Either (TxBodyErrorAutoBalance Era) Tx
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) Tx)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Either (TxBodyErrorAutoBalance Era) Tx
+ -&gt; IO (Either (TxBodyErrorAutoBalance Era) Tx))
+-&gt; Either (TxBodyErrorAutoBalance Era) Tx
+-&gt; IO (Either (TxBodyErrorAutoBalance Era) Tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+-&gt; SystemStart
+-&gt; EraHistory
+-&gt; Set PoolId
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx]
+-&gt; Either (TxBodyErrorAutoBalance Era) Tx
+</span><a href="Hydra.Chain.Backend.html#buildTransactionWithPParams%27"><span class="hs-identifier hs-var">buildTransactionWithPParams'</span></a></span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621680507424"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680507430"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621680507431"><span class="hs-identifier hs-var">eraHistory</span></a></span><span> </span><span class="annot"><span class="annottext">Set PoolId
+</span><a href="#local-6989586621680507432"><span class="hs-identifier hs-var">stakePools</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621680507426"><span class="hs-identifier hs-var">changeAddress</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680507427"><span class="hs-identifier hs-var">utxoToSpend</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621680507428"><span class="hs-identifier hs-var">collateral</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621680507429"><span class="hs-identifier hs-var">outs</span></a></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="annot"><a href="Hydra.Chain.Backend.html#buildTransactionWithPParams%27"><span class="hs-identifier hs-type">buildTransactionWithPParams'</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Protocol parameters</span></span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">LedgerEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-75"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SystemStart</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-76"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">EraHistory</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-77"></span><span>  </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PoolId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-78"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Change address to send</span></span><span>
+</span><span id="line-79"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Unspent transaction outputs to spend.</span></span><span>
+</span><span id="line-81"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-82"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Collateral inputs.</span></span><span>
+</span><span id="line-83"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-84"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Outputs to create.</span></span><span>
+</span><span id="line-85"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxBodyErrorAutoBalance</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-87"></span><span id="buildTransactionWithPParams%27"><span class="annot"><span class="annottext">buildTransactionWithPParams' :: PParams LedgerEra
+-&gt; SystemStart
+-&gt; EraHistory
+-&gt; Set PoolId
+-&gt; AddressInEra
+-&gt; UTxO
+-&gt; [TxIn]
+-&gt; [TxOut CtxTx]
+-&gt; Either (TxBodyErrorAutoBalance Era) Tx
+</span><a href="Hydra.Chain.Backend.html#buildTransactionWithPParams%27"><span class="hs-identifier hs-var hs-var">buildTransactionWithPParams'</span></a></span></span><span> </span><span id="local-6989586621680507434"><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621680507434"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span id="local-6989586621680507435"><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680507435"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span id="local-6989586621680507436"><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621680507436"><span class="hs-identifier hs-var">eraHistory</span></a></span></span><span> </span><span id="local-6989586621680507437"><span class="annot"><span class="annottext">Set PoolId
+</span><a href="#local-6989586621680507437"><span class="hs-identifier hs-var">stakePools</span></a></span></span><span> </span><span id="local-6989586621680507438"><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621680507438"><span class="hs-identifier hs-var">changeAddress</span></a></span></span><span> </span><span id="local-6989586621680507439"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680507439"><span class="hs-identifier hs-var">utxoToSpend</span></a></span></span><span> </span><span id="local-6989586621680507440"><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621680507440"><span class="hs-identifier hs-var">collateral</span></a></span></span><span> </span><span id="local-6989586621680507441"><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621680507441"><span class="hs-identifier hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-88"></span><span>  </span><span class="annot"><span class="annottext">PParams LedgerEra
+-&gt; SystemStart
+-&gt; EraHistory
+-&gt; Set PoolId
+-&gt; AddressInEra
+-&gt; TxBodyContent BuildTx
+-&gt; UTxO
+-&gt; Either (TxBodyErrorAutoBalance Era) Tx
+</span><a href="Hydra.Chain.Backend.html#buildTransactionWithBody"><span class="hs-identifier hs-var">buildTransactionWithBody</span></a></span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621680507434"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680507435"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621680507436"><span class="hs-identifier hs-var">eraHistory</span></a></span><span> </span><span class="annot"><span class="annottext">Set PoolId
+</span><a href="#local-6989586621680507437"><span class="hs-identifier hs-var">stakePools</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621680507438"><span class="hs-identifier hs-var">changeAddress</span></a></span><span> </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621680507443"><span class="hs-identifier hs-var">bodyContent</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680507439"><span class="hs-identifier hs-var">utxoToSpend</span></a></span><span>
+</span><span id="line-89"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-90"></span><span>  </span><span class="hs-comment">-- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.</span><span>
+</span><span id="line-91"></span><span>  </span><span id="local-6989586621680507443"><span class="annot"><span class="annottext">bodyContent :: TxBodyContent BuildTx
+</span><a href="#local-6989586621680507443"><span class="hs-identifier hs-var hs-var">bodyContent</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-92"></span><span>    </span><span class="annot"><span class="annottext">TxIns BuildTx
+-&gt; TxInsCollateral
+-&gt; TxInsReference BuildTx
+-&gt; [TxOut CtxTx]
+-&gt; TxTotalCollateral Era
+-&gt; TxReturnCollateral CtxTx Era
+-&gt; TxFee
+-&gt; TxValidityLowerBound
+-&gt; TxValidityUpperBound
+-&gt; TxMetadataInEra
+-&gt; TxAuxScripts
+-&gt; TxExtraKeyWitnesses
+-&gt; BuildTxWith BuildTx (Maybe (LedgerProtocolParameters Era))
+-&gt; TxWithdrawals BuildTx Era
+-&gt; TxCertificates BuildTx Era
+-&gt; TxUpdateProposal Era
+-&gt; TxMintValue BuildTx
+-&gt; TxScriptValidity
+-&gt; Maybe
+     (Featured ConwayEraOnwards Era (TxProposalProcedures BuildTx Era))
+-&gt; Maybe
+     (Featured ConwayEraOnwards Era (TxVotingProcedures BuildTx Era))
+-&gt; Maybe (Featured ConwayEraOnwards Era (Maybe Coin))
+-&gt; Maybe (Featured ConwayEraOnwards Era Coin)
+-&gt; TxBodyContent BuildTx
+forall build.
+TxIns build
+-&gt; TxInsCollateral
+-&gt; TxInsReference build
+-&gt; [TxOut CtxTx]
+-&gt; TxTotalCollateral Era
+-&gt; TxReturnCollateral CtxTx Era
+-&gt; TxFee
+-&gt; TxValidityLowerBound
+-&gt; TxValidityUpperBound
+-&gt; TxMetadataInEra
+-&gt; TxAuxScripts
+-&gt; TxExtraKeyWitnesses
+-&gt; BuildTxWith build (Maybe (LedgerProtocolParameters Era))
+-&gt; TxWithdrawals build Era
+-&gt; TxCertificates build Era
+-&gt; TxUpdateProposal Era
+-&gt; TxMintValue build
+-&gt; TxScriptValidity
+-&gt; Maybe
+     (Featured ConwayEraOnwards Era (TxProposalProcedures build Era))
+-&gt; Maybe
+     (Featured ConwayEraOnwards Era (TxVotingProcedures build Era))
+-&gt; Maybe (Featured ConwayEraOnwards Era (Maybe Coin))
+-&gt; Maybe (Featured ConwayEraOnwards Era Coin)
+-&gt; TxBodyContent build
+</span><span class="hs-identifier hs-var">TxBodyContent</span></span><span>
+</span><span id="line-93"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn Era))
+</span><span class="hs-identifier hs-var">withWitness</span></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn Era)))
+-&gt; [TxIn] -&gt; TxIns BuildTx
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Set TxIn -&gt; [TxIn]
+forall a. Set a -&gt; [a]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO -&gt; Set TxIn
+forall out. UTxO' out -&gt; Set TxIn
+</span><span class="hs-identifier hs-var">UTxO.inputSet</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680507439"><span class="hs-identifier hs-var">utxoToSpend</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[TxIn] -&gt; TxInsCollateral
+</span><span class="hs-identifier hs-var">TxInsCollateral</span></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621680507440"><span class="hs-identifier hs-var">collateral</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>      </span><span class="annot"><span class="annottext">TxInsReference BuildTx
+forall build. TxInsReference build
+</span><span class="hs-identifier hs-var">TxInsReferenceNone</span></span><span>
+</span><span id="line-96"></span><span>      </span><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621680507441"><span class="hs-identifier hs-var">outs</span></a></span><span>
+</span><span id="line-97"></span><span>      </span><span class="annot"><span class="annottext">TxTotalCollateral Era
+forall era. TxTotalCollateral era
+</span><span class="hs-identifier hs-var">TxTotalCollateralNone</span></span><span>
+</span><span id="line-98"></span><span>      </span><span class="annot"><span class="annottext">TxReturnCollateral CtxTx Era
+forall ctx era. TxReturnCollateral ctx era
+</span><span class="hs-identifier hs-var">TxReturnCollateralNone</span></span><span>
+</span><span id="line-99"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Coin -&gt; TxFee
+</span><span class="hs-identifier hs-var">TxFeeExplicit</span></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>      </span><span class="annot"><span class="annottext">TxValidityLowerBound
+</span><span class="hs-identifier hs-var">TxValidityNoLowerBound</span></span><span>
+</span><span id="line-101"></span><span>      </span><span class="annot"><span class="annottext">TxValidityUpperBound
+</span><span class="hs-identifier hs-var">TxValidityNoUpperBound</span></span><span>
+</span><span id="line-102"></span><span>      </span><span class="annot"><span class="annottext">TxMetadataInEra
+</span><span class="hs-identifier hs-var">TxMetadataNone</span></span><span>
+</span><span id="line-103"></span><span>      </span><span class="annot"><span class="annottext">TxAuxScripts
+</span><span class="hs-identifier hs-var">TxAuxScriptsNone</span></span><span>
+</span><span id="line-104"></span><span>      </span><span class="annot"><span class="annottext">TxExtraKeyWitnesses
+</span><span class="hs-identifier hs-var">TxExtraKeyWitnessesNone</span></span><span>
+</span><span id="line-105"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (LedgerProtocolParameters Era)
+-&gt; BuildTxWith BuildTx (Maybe (LedgerProtocolParameters Era))
+forall a. a -&gt; BuildTxWith BuildTx a
+</span><span class="hs-identifier hs-var">BuildTxWith</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (LedgerProtocolParameters Era)
+ -&gt; BuildTxWith BuildTx (Maybe (LedgerProtocolParameters Era)))
+-&gt; Maybe (LedgerProtocolParameters Era)
+-&gt; BuildTxWith BuildTx (Maybe (LedgerProtocolParameters Era))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">LedgerProtocolParameters Era
+-&gt; Maybe (LedgerProtocolParameters Era)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(LedgerProtocolParameters Era
+ -&gt; Maybe (LedgerProtocolParameters Era))
+-&gt; LedgerProtocolParameters Era
+-&gt; Maybe (LedgerProtocolParameters Era)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra -&gt; LedgerProtocolParameters Era
+forall era.
+PParams (ShelleyLedgerEra era) -&gt; LedgerProtocolParameters era
+</span><span class="hs-identifier hs-var">LedgerProtocolParameters</span></span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621680507434"><span class="hs-identifier hs-var">pparams</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>      </span><span class="annot"><span class="annottext">TxWithdrawals BuildTx Era
+forall build era. TxWithdrawals build era
+</span><span class="hs-identifier hs-var">TxWithdrawalsNone</span></span><span>
+</span><span id="line-107"></span><span>      </span><span class="annot"><span class="annottext">TxCertificates BuildTx Era
+forall build era. TxCertificates build era
+</span><span class="hs-identifier hs-var">TxCertificatesNone</span></span><span>
+</span><span id="line-108"></span><span>      </span><span class="annot"><span class="annottext">TxUpdateProposal Era
+forall era. TxUpdateProposal era
+</span><span class="hs-identifier hs-var">TxUpdateProposalNone</span></span><span>
+</span><span id="line-109"></span><span>      </span><span class="annot"><span class="annottext">TxMintValue BuildTx
+forall build. TxMintValue build
+</span><span class="hs-identifier hs-var">TxMintValueNone</span></span><span>
+</span><span id="line-110"></span><span>      </span><span class="annot"><span class="annottext">TxScriptValidity
+</span><span class="hs-identifier hs-var">TxScriptValidityNone</span></span><span>
+</span><span id="line-111"></span><span>      </span><span class="annot"><span class="annottext">Maybe
+  (Featured ConwayEraOnwards Era (TxProposalProcedures BuildTx Era))
+forall a. Maybe a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-112"></span><span>      </span><span class="annot"><span class="annottext">Maybe
+  (Featured ConwayEraOnwards Era (TxVotingProcedures BuildTx Era))
+forall a. Maybe a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-113"></span><span>      </span><span class="annot"><span class="annottext">Maybe (Featured ConwayEraOnwards Era (Maybe Coin))
+forall a. Maybe a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-114"></span><span>      </span><span class="annot"><span class="annottext">Maybe (Featured ConwayEraOnwards Era Coin)
+forall a. Maybe a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span class="annot"><a href="Hydra.Chain.Backend.html#buildTransactionWithBody"><span class="hs-identifier hs-type">buildTransactionWithBody</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-117"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Protocol parameters</span></span><span>
+</span><span id="line-118"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PParams</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">LedgerEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-119"></span><span>  </span><span class="annot"><span class="hs-comment">-- | System start</span></span><span>
+</span><span id="line-120"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SystemStart</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-121"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Change address to send</span></span><span>
+</span><span id="line-122"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">EraHistory</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-123"></span><span>  </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PoolId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-124"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-125"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Body</span></span><span>
+</span><span id="line-126"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxBodyContent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuildTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-127"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Unspent transaction outputs to spend.</span></span><span>
+</span><span id="line-128"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-129"></span><span>  </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxBodyErrorAutoBalance</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-130"></span><span id="buildTransactionWithBody"><span class="annot"><span class="annottext">buildTransactionWithBody :: PParams LedgerEra
+-&gt; SystemStart
+-&gt; EraHistory
+-&gt; Set PoolId
+-&gt; AddressInEra
+-&gt; TxBodyContent BuildTx
+-&gt; UTxO
+-&gt; Either (TxBodyErrorAutoBalance Era) Tx
+</span><a href="Hydra.Chain.Backend.html#buildTransactionWithBody"><span class="hs-identifier hs-var hs-var">buildTransactionWithBody</span></a></span></span><span> </span><span id="local-6989586621680507466"><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621680507466"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span id="local-6989586621680507467"><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680507467"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span id="local-6989586621680507468"><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621680507468"><span class="hs-identifier hs-var">eraHistory</span></a></span></span><span> </span><span id="local-6989586621680507469"><span class="annot"><span class="annottext">Set PoolId
+</span><a href="#local-6989586621680507469"><span class="hs-identifier hs-var">stakePools</span></a></span></span><span> </span><span id="local-6989586621680507470"><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621680507470"><span class="hs-identifier hs-var">changeAddress</span></a></span></span><span> </span><span id="local-6989586621680507471"><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621680507471"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span id="local-6989586621680507472"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680507472"><span class="hs-identifier hs-var">utxoToSpend</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-131"></span><span>  </span><span class="annot"><span class="annottext">(BalancedTxBody -&gt; Tx)
+-&gt; Either (TxBodyErrorAutoBalance Era) BalancedTxBody
+-&gt; Either (TxBodyErrorAutoBalance Era) Tx
+forall b c a. (b -&gt; c) -&gt; Either a b -&gt; Either a c
+forall (p :: * -&gt; * -&gt; *) b c a.
+Bifunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#second"><span class="hs-identifier hs-var">second</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(TxBody -&gt; [KeyWitness] -&gt; Tx) -&gt; [KeyWitness] -&gt; TxBody -&gt; Tx
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody -&gt; [KeyWitness] -&gt; Tx
+</span><span class="hs-identifier hs-var">Tx</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">(TxBody -&gt; Tx)
+-&gt; (BalancedTxBody -&gt; TxBody) -&gt; BalancedTxBody -&gt; Tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">BalancedTxBody -&gt; TxBody
+</span><span class="hs-identifier hs-var">balancedTxBody</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either (TxBodyErrorAutoBalance Era) BalancedTxBody
+ -&gt; Either (TxBodyErrorAutoBalance Era) Tx)
+-&gt; Either (TxBodyErrorAutoBalance Era) BalancedTxBody
+-&gt; Either (TxBodyErrorAutoBalance Era) Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span class="annot"><span class="annottext">ShelleyBasedEra Era
+-&gt; SystemStart
+-&gt; LedgerEpochInfo
+-&gt; LedgerProtocolParameters Era
+-&gt; Set PoolId
+-&gt; Map StakeCredential Coin
+-&gt; Map (Credential 'DRepRole) Coin
+-&gt; UTxO Era
+-&gt; TxBodyContent BuildTx
+-&gt; AddressInEra
+-&gt; Maybe Word
+-&gt; Either (TxBodyErrorAutoBalance Era) BalancedTxBody
+forall era.
+HasCallStack =&gt;
+ShelleyBasedEra era
+-&gt; SystemStart
+-&gt; LedgerEpochInfo
+-&gt; LedgerProtocolParameters era
+-&gt; Set PoolId
+-&gt; Map StakeCredential Coin
+-&gt; Map (Credential 'DRepRole) Coin
+-&gt; UTxO era
+-&gt; TxBodyContent BuildTx era
+-&gt; AddressInEra era
+-&gt; Maybe Word
+-&gt; Either (TxBodyErrorAutoBalance era) (BalancedTxBody era)
+</span><span class="hs-identifier hs-var">makeTransactionBodyAutoBalance</span></span><span>
+</span><span id="line-133"></span><span>      </span><span class="annot"><span class="annottext">ShelleyBasedEra Era
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span>
+</span><span id="line-134"></span><span>      </span><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680507467"><span class="hs-identifier hs-var">systemStart</span></a></span><span>
+</span><span id="line-135"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">EraHistory -&gt; LedgerEpochInfo
+</span><span class="hs-identifier hs-var">toLedgerEpochInfo</span></span><span> </span><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621680507468"><span class="hs-identifier hs-var">eraHistory</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-136"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PParams LedgerEra -&gt; LedgerProtocolParameters Era
+forall era.
+PParams (ShelleyLedgerEra era) -&gt; LedgerProtocolParameters era
+</span><span class="hs-identifier hs-var">LedgerProtocolParameters</span></span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621680507466"><span class="hs-identifier hs-var">pparams</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-137"></span><span>      </span><span class="annot"><span class="annottext">Set PoolId
+</span><a href="#local-6989586621680507469"><span class="hs-identifier hs-var">stakePools</span></a></span><span>
+</span><span id="line-138"></span><span>      </span><span class="annot"><span class="annottext">Map StakeCredential Coin
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-139"></span><span>      </span><span class="annot"><span class="annottext">Map (Credential 'DRepRole) Coin
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-140"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO -&gt; UTxO Era
+</span><span class="hs-identifier hs-var">UTxO.toApi</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680507472"><span class="hs-identifier hs-var">utxoToSpend</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><a href="#local-6989586621680507471"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-142"></span><span>      </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621680507470"><span class="hs-identifier hs-var">changeAddress</span></a></span><span>
+</span><span id="line-143"></span><span>      </span><span class="annot"><span class="annottext">Maybe Word
+forall a. Maybe a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-144"></span></pre></body></html>
