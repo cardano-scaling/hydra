@@ -61,15 +61,15 @@ when the number of persisted `StateChanged` events exceeds the configured `--per
   preserving sequential order and making it easier to identify which rotated log file was used to compute it.
 
 
-## [0.22.2] - 2025.06.30
+## [0.22.2] - 2025-06-30
 
 * Fix wrong hydra-script-tx-ids in networks.json
 
-## [0.22.1] - 2025.06.27
+## [0.22.1] - 2025-06-27
 
 * Fix for bug where node got stalled at `ReplayingState` [#2089](https://github.com/cardano-scaling/hydra/issues/2089)
 
-## [0.22.0] - 2025.06.17
+## [0.22.0] - 2025-06-17
 
 - Tested with `cardano-node 10.1.4` and `cardano-cli 10.1.1.0`.
 

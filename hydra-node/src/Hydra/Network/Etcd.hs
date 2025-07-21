@@ -20,8 +20,7 @@
 -- only deliver messages that were not seen before. In case we are not connected
 -- to our 'etcd' instance or not enough peers (= on a minority cluster), we
 -- retry sending, but also store messages to broadcast in a 'PersistentQueue',
--- which makes the node resilient against crashes while sending. TODO: Is this
--- needed? performance limitation?
+-- which makes the node resilient against crashes while sending.
 --
 -- Connectivity and compatibility with other nodes on the cluster is tracked
 -- using the key-value service as well:
@@ -93,7 +92,6 @@ import Network.GRPC.Client (
  )
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
 import Network.GRPC.Common (GrpcError (..), GrpcException (..), HTTP2Settings (..), NextElem (..), def, defaultHTTP2Settings)
-import Network.GRPC.Common.NextElem (whileNext_)
 import Network.GRPC.Common.Protobuf (Proto (..), Protobuf, defMessage, (.~))
 import Network.GRPC.Etcd (
   Compare'CompareResult (..),
@@ -102,6 +100,7 @@ import Network.GRPC.Etcd (
   Lease,
   Watch,
  )
+import Network.Socket (PortNumber)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
 import System.FilePath ((</>))
@@ -175,7 +174,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         traceWith tracer Reconnecting
         pure $ reconnectPolicy doneVar
 
-  clientHost = Host{hostname = "127.0.0.1", port = clientPort}
+  clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
 
   grpcServer =
     ServerInsecure $
@@ -184,11 +183,6 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         , addressPort = port clientHost
         , addressAuthority = Nothing
         }
-
-  -- NOTE: Offset client port by the same amount as configured 'port' is offset
-  -- from the default '5001'. This will result in the default client port 2379
-  -- be used by default still.
-  clientPort = 2379 + port listen - 5001
 
   traceStderr p NetworkCallback{onConnectivity} =
     forever $ do
@@ -249,6 +243,14 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
 
+-- | Get the client port corresponding to a listen address.
+--
+-- The client port used by the started etcd port is offset by the same amount as
+-- the listen address is offset by the default port 5001. This will result in
+-- the default client port 2379 be used by default still.
+getClientPort :: NetworkConfiguration -> PortNumber
+getClientPort NetworkConfiguration{listen} = 2379 + port listen - 5001
+
 -- | Check and write version on etcd cluster. This will retry until we are on a
 -- majority cluster and succeed. If the version does not match a corresponding
 -- 'Connectivity' message is sent via 'NetworkCallback'.
@@ -282,8 +284,7 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
         Right theirVersion ->
           unless (theirVersion == ourVersion) $
             onConnectivity VersionMismatch{ourVersion, theirVersion = Just theirVersion}
-    else
-      traceWith tracer $ MatchingProtocolVersion{version = ourVersion}
+    else traceWith tracer $ MatchingProtocolVersion{version = ourVersion}
  where
   versionKey = "version"
 
@@ -361,11 +362,13 @@ waitMessages ::
   NetworkCallback msg IO ->
   IO ()
 waitMessages tracer conn directory NetworkCallback{deliver} = do
-  revision <- getLastKnownRevision directory
   withGrpcContext "waitMessages" . forever $ do
     -- NOTE: We have not observed the watch (subscription) fail even when peers
     -- leave and we end up on a minority cluster.
     biDiStreaming conn (rpc @(Protobuf Watch "watch")) $ \send recv -> do
+      revision <- getLastKnownRevision directory
+      let startRevision = fromIntegral (revision + 1)
+      traceWith tracer WatchMessagesStartRevision{startRevision}
       -- NOTE: Request all keys starting with 'msg'. See also section KeyRanges
       -- in https://etcd.io/docs/v3.5/learning/api/#key-value-api
       let watchRequest =
@@ -374,34 +377,48 @@ waitMessages tracer conn directory NetworkCallback{deliver} = do
               & #rangeEnd .~ "msh" -- NOTE: g+1 to query prefixes
               & #startRevision .~ fromIntegral (revision + 1)
       send . NextElem $ defMessage & #createRequest .~ watchRequest
-      whileNext_ recv process
+      loop send recv
     -- Wait before re-trying
     threadDelay 1
  where
-  process res = do
-    let revision = fromIntegral $ res ^. #header . #revision
-    putLastKnownRevision directory revision
-    forM_ (res ^. #events) $ \event -> do
-      let value = event ^. #kv . #value
-      case decodeFull' value of
-        Left err ->
-          traceWith
-            tracer
-            FailedToDecodeValue
-              { key = decodeUtf8 $ event ^. #kv . #key
-              , value = encodeBase16 value
-              , reason = show err
-              }
-        Right msg -> deliver msg
+  loop send recv =
+    recv >>= \case
+      NoNextElem -> pure ()
+      NextElem res ->
+        if res ^. #canceled
+          then do
+            let compactRevision = res ^. #compactRevision
+            traceWith tracer WatchMessagesFallbackTo{compactRevision}
+            putLastKnownRevision directory . fromIntegral $ (compactRevision - 1) `max` 0
+            -- Gracefully close watch stream
+            send NoNextElem
+          else do
+            let revision = res ^. #header . #revision
+            putLastKnownRevision directory . fromIntegral $ revision `max` 0
+            forM_ (res ^. #events) process
+            loop send recv
+
+  process event = do
+    let value = event ^. #kv . #value
+    case decodeFull' value of
+      Left err ->
+        traceWith
+          tracer
+          FailedToDecodeValue
+            { key = decodeUtf8 $ event ^. #kv . #key
+            , value = encodeBase16 value
+            , reason = show err
+            }
+      Right msg -> deliver msg
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
   liftIO $
     try (decodeFileStrict' $ directory </> "last-known-revision") >>= \case
       Right rev -> do
-        pure $ fromMaybe 1 rev
+        pure $ fromMaybe 0 rev
       Left (e :: IOException)
-        | isDoesNotExistError e -> pure 1
+        | isDoesNotExistError e -> pure 0
         | otherwise -> do
             fail $ "Failed to load last known revision: " <> show e
 
@@ -614,5 +631,7 @@ data EtcdLog
   | LowLeaseTTL {ttlRemaining :: Int64}
   | NoKeepAliveResponse
   | MatchingProtocolVersion {version :: ProtocolVersion}
+  | WatchMessagesStartRevision {startRevision :: Int64}
+  | WatchMessagesFallbackTo {compactRevision :: Int64}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)

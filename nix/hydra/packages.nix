@@ -144,6 +144,7 @@
           buildInputs = [
             nativePkgs.hydra-node.components.tests.tests
             pkgs.check-jsonschema
+            pkgs.etcd # For etcdctl command in tests
           ];
         };
         hydra-cluster-tests = pkgs.mkShellNoCC {
