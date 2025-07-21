@@ -20,12 +20,12 @@ jobs:
         with:
           submodules: true
 
-      - name: ❄ Setup Nix/Cachix
+      - name: Setup Nix/Cachix
         uses: ./.github/actions/nix-cachix-setup
         with:
           authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-      - name: ❄ Check demo test
+      - name: Check demo test
         run: |
           nix develop .#demo -c bash -c "cd demo && ./test.sh"
 
