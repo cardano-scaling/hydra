@@ -91,7 +91,6 @@ import Network.GRPC.Client (
  )
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
 import Network.GRPC.Common (GrpcError (..), GrpcException (..), HTTP2Settings (..), NextElem (..), def, defaultHTTP2Settings)
-import Network.GRPC.Common.NextElem (whileNext_)
 import Network.GRPC.Common.Protobuf (Proto (..), Protobuf, defMessage, (.~))
 import Network.GRPC.Etcd (
   Compare'CompareResult (..),
