@@ -16,6 +16,10 @@ changes.
   revision in the meantime
   [#2136](https://github.com/cardano-scaling/hydra/issues/2136).
 
+- Don't keep around invalid transactions as they could lead to stuck Head.
+
+- Hydra API server responds with the correct `Content-Type` header `application-json`.
+
 ## [0.22.2] - 2025-06-30
 
 * Fix wrong hydra-script-tx-ids in networks.json
