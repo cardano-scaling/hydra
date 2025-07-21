@@ -23,7 +23,7 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (withEtcdNetwork)
+import Hydra.Network.Etcd (getClientPort, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
@@ -202,14 +202,60 @@ spec = do
                 withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
                   broadcast n1 1001
                   waitCarol `shouldReturn` 1001
-                -- We can reset the last known view (internal implementation detail)
+
+      it "handles compaction and lost local state" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 20 $ do
+            PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
+            (recordBob, waitBob, _) <- newRecordingCallback
+            (recordCarol, waitCarol, _) <- newRecordingCallback
+            withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 ->
+              withEtcdNetwork @Int tracer v1 bobConfig recordBob $ \_ -> do
+                -- First we send 5 messages with carol online
+                withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
+                  forM_ [1 .. 5] $ \msg -> do
+                    broadcast n1 msg
+                    waitBob `shouldReturn` msg
+                    waitCarol `shouldReturn` msg
+                -- Carol stopped and we continue sending messages
+                forM_ [5 .. 100] $ \msg -> do
+                  broadcast n1 msg
+                  waitBob `shouldReturn` msg
+                -- Even while carol is down, the etcd component would
+                -- "auto-compact" messages. By default down to 1000 messages
+                -- after/every 5 minutes. This is interesting as it should
+                -- result in carol never some messages, but is hard to test
+                -- (without waiting 5 minutes). Instead we issue a direct etcd
+                -- command to compact everything before revision 50.
+                runProcess_ . shell $
+                  "etcdctl compact 50 --endpoints=127.0.0.1:" <> show (getClientPort aliceConfig)
+                -- When carol starts now we would expect it to start catching up
+                -- from the earliest possible revision 50. While missing some
+                -- messages.
+                withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
+                  -- NOTE: Revision 50 may not correspond to message 50, so we
+                  -- only assert its some message bigger than 25 and expect to
+                  -- see all further messages to 100.
+                  firstMsg <- waitCarol
+                  firstMsg `shouldSatisfy` (> 25)
+                  forM_ [firstMsg + 1 .. 100] $ \msg ->
+                    waitCarol `shouldReturn` msg
+                  -- Carol should be able to receive new messages just fine.
+                  forM_ [101 .. 105] $ \msg -> do
+                    broadcast n1 msg
+                    waitCarol `shouldReturn` msg
+                -- Similarly, should carol lose its local state, we expect it to
+                -- see everything from the last compacted revision 50. We can
+                -- enforce this by removing the corresponding file (an internal
+                -- implementation detail)
                 removeFile (persistenceDir carolConfig </> "last-known-revision")
                 withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
-                  -- NOTE: The etcd component would "auto-compact" messages down
-                  -- to 1000 messages after 5 minutes. This would result in
-                  -- starting at 1001 here, but is hard to test (without waiting
-                  -- 5 minutes).
-                  forM_ messages $ \msg ->
+                  -- NOTE: Revision 50 may not correspond to message 50, so we
+                  -- only assert its some message bigger than 25 and expect to
+                  -- see all further messages to 105.
+                  firstMsg <- waitCarol
+                  firstMsg `shouldSatisfy` (> 25)
+                  forM_ [firstMsg + 1 .. 105] $ \msg -> do
                     waitCarol `shouldReturn` msg
 
       it "emits cluster id mismatch" $ \tracer -> do
