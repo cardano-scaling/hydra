@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Binary (serialize')
 import CardanoClient (
   waitForUTxO,
  )
@@ -78,8 +79,11 @@ import Hydra.Cluster.Scenarios (
   threeNodesWithMirrorParty,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
+import Hydra.HeadLogic.Input (Input (..))
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.Network (Connectivity (..))
+import Hydra.Network.Message (NetworkEvent (..))
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
 import HydraNode (
@@ -789,6 +793,34 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             failAfter 10 $
               withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
                 threadDelay 0.1
+
+      fit "load persistent queue with capacity exceeded" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+          initialUTxO <- generate $ genUTxOFor aliceCardanoVk
+          Aeson.encodeFile (tmpDir </> "utxo.json") initialUTxO
+          let offlineConfig =
+                Offline
+                  OfflineChainConfig
+                    { offlineHeadSeed = "test"
+                    , initialUTxOFile = tmpDir </> "utxo.json"
+                    , ledgerGenesisFile = Nothing
+                    }
+          -- Start a hydra-node just to create necessary folders for the state
+          withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] [] $ \_ -> pure ()
+
+          -- write over 100 enqueue messages
+          let inputQueueDir = tmpDir </> "state-1" </> "input-queue"
+          let item :: Input Tx = NetworkInput{ttl = 0, networkEvent = ConnectivityEvent NetworkConnected}
+          let ixs = [1 .. 200 :: Int]
+          let items = zip ixs (replicate 200 item)
+          mapM_ (\(next, i) -> writeFileBS (inputQueueDir </> show next) $ serialize' i) items
+
+          withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] [] $ \node -> do
+            waitMatch 20 node $ \v -> do
+              guard $ v ^? key "tag" == Just "Greetings"
+              guard $ v ^? key "me" == Just (toJSON alice)
+              guard $ isJust (v ^? key "hydraNodeVersion")
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir $ \dir -> do

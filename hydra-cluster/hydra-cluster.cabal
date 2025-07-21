@@ -164,6 +164,7 @@ test-suite tests
     , async
     , base                >=4.7 && <5
     , bytestring
+    , cardano-binary
     , cardano-ledger-api
     , containers
     , directory
