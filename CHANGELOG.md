@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.22.3] - UNRELEASED
+## [0.22.3] - 2025-07-21
 
 * Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
   revision if `last-known-revision` is missing or too old. This can happen if a
