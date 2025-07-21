@@ -149,6 +149,7 @@ let
       pkgs.plantuml
       pkgs.jq
       pkgs.weeder
+      pkgs.etcd # For running etcdctl during test
     ];
   };
 
