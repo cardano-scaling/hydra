@@ -436,8 +436,6 @@ nodeReObservesOnChainTxs tracer workDir cardanoNode hydraScriptsTxId = do
  where
   RunningNode{nodeSocket, networkId, blockTime} = cardanoNode
 
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
-
 -- | Step through the full life cycle of a Hydra Head with only a single
 -- participant. This scenario is also used by the smoke test run via the
 -- `hydra-cluster` executable.
@@ -1287,8 +1285,6 @@ canCommit tracer workDir node hydraScriptsTxId =
 
   hydraTracer = contramap FromHydraNode tracer
 
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
-
 -- | Open a a single participant head, deposit and then recover it.
 canRecoverDeposit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 canRecoverDeposit tracer workDir node hydraScriptsTxId =
@@ -1383,8 +1379,6 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
 
   hydraTracer = contramap FromHydraNode tracer
 
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
-
 -- | Make sure to be able to see pending deposits.
 canSeePendingDeposits :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 canSeePendingDeposits tracer workDir node hydraScriptsTxId =
@@ -1471,8 +1465,6 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
   RunningNode{networkId, nodeSocket, blockTime} = node
 
   hydraTracer = contramap FromHydraNode tracer
-
-  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
 
 -- | Open a a single participant head with some UTxO and incrementally decommit it.
 canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
@@ -1859,3 +1851,7 @@ expectErrorStatus
     assertBodyContains (Just bodyContains) bodyChunk = bodyContains `isInfixOf` bodyChunk
     assertBodyContains Nothing _ = False
 expectErrorStatus _ _ _ = False
+
+-- | Get the base URL for HTTP API calls to a hydra-node.
+hydraNodeBaseUrl :: HydraClient -> String
+hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
