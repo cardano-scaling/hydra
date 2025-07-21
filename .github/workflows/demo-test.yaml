@@ -1,21 +1,20 @@
-name: "Demo Sanity Check"
+
+name: "Demo test"
 
 on:
+  # We're using merge-chains; so this needs to run then.
   merge_group:
   push:
     branches:
       - master
-      - release
   pull_request:
-  workflow_dispatch:
 
 jobs:
   demo-test:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    name: "Test demo on ${{ matrix.os }}"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,49 +25,7 @@ jobs:
         with:
           authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-      - name: Set up and use the "demo" devShell
-        uses: nicknovitski/nix-develop@v1
-        with:
-          arguments: ".#demo"
-
-      - name: Modify demo to run headlessly
+      - name: ❄ Check demo test
         run: |
-          sed -i.bak 's/is_foreground = true/is_foreground = false/g' nix/hydra/demo.nix
+          nix develop .#demo -c bash -c "cd demo && ./test.sh"
 
-      - name: Create devnet log directory
-        run: mkdir -p devnet/logs
-
-      - name: Run demo in background
-        run: |
-          nix run .#demo > process-compose.out 2> process-compose.err &
-          echo $! > process-compose.pid
-          sleep 5
-
-      - name: Wait for hydra nodes to be ready
-        run: |
-          set -e
-          echo "Waiting for hydra nodes to start..."
-          if ! nix shell nixpkgs#coreutils -c timeout 300s bash -c '
-            until [ $(grep "is ready" devnet/logs/process-compose.log 2>/dev/null | wc -l) -ge 3 ]; do
-              echo -n "."
-              sleep 5
-              if ! ps -p $(cat process-compose.pid) > /dev/null; then
-                echo "Process-compose exited prematurely."
-                exit 1
-              fi
-            done
-            echo "All hydra nodes are ready!"
-          '; then
-            echo "Timed out or process-compose exited prematurely."
-            echo "--- stdout ---"
-            cat process-compose.out
-            echo "--- stderr ---"
-            cat process-compose.err
-            echo "--- process-compose.log ---"
-            cat devnet/logs/process-compose.log || echo "process-compose.log not found"
-            exit 1
-          fi
-      - name: Stop demo
-        if: always()
-        run: |
-          kill $(cat process-compose.pid) || true 
