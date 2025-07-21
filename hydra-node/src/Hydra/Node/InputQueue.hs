@@ -88,13 +88,14 @@ createPersistentInputQueue ::
   , FromCBOR e
   ) =>
   FilePath ->
-  Natural ->
   m (InputQueue m e)
-createPersistentInputQueue persistenceDir capacity = do
-  q <- newPersistentQueue serialize' (fmap (first (T.unpack . show)) decodeFull') (persistenceDir </> "input-queue") capacity
+createPersistentInputQueue persistenceDir = do
+  q <- newPersistentQueue serialize' (fmap (first (T.unpack . show)) decodeFull') (persistenceDir </> "input-queue")
   pure
     InputQueue
-      { enqueue = writePersistentQueue q
+      { enqueue = \i -> do
+          threadDelay 0.1
+          writePersistentQueue q i
       , reenqueue = \delay e -> do
           threadDelay delay
           writePersistentQueue q (queuedItem e)

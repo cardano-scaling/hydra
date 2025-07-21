@@ -13,7 +13,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Exception (IOException)
 import Data.List qualified as List
-import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
+import System.Directory (createDirectoryIfMissing, doesPathExist, listDirectory, removeFile)
 import System.FilePath ((</>))
 import UnliftIO.IO.File (writeBinaryFileDurable)
 
@@ -35,12 +35,18 @@ newPersistentQueue ::
   -- | decode message
   (ByteString -> Either String a) ->
   FilePath ->
-  Natural ->
   m (PersistentQueue m a)
-newPersistentQueue encode decode path capacity = do
+newPersistentQueue encode decode path = do
+  pathExists <- liftIO $ doesPathExist path
+  (paths, capacity) <-
+    if pathExists
+      then do
+        paths <- liftIO $ listDirectory path
+        pure (paths, fromIntegral $ max (length paths) 100)
+      else pure ([], 100)
   queue <- newTBQueueIO capacity
   highestId <-
-    try (loadExisting queue) >>= \case
+    try (loadExisting queue paths) >>= \case
       Left (_ :: IOException) -> do
         liftIO $ createDirectoryIfMissing True path
         pure 0
@@ -48,8 +54,7 @@ newPersistentQueue encode decode path capacity = do
   nextIx <- newTVarIO $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path, encode, decode}
  where
-  loadExisting queue = do
-    paths <- liftIO $ listDirectory path
+  loadExisting queue paths = do
     case sort $ mapMaybe readMaybe paths of
       [] -> pure 0
       idxs -> do
@@ -81,8 +86,8 @@ writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
     pure next
 
   liftIO $ createDirectoryIfMissing True directory
-  writeFileBS (directory </> show next) $ serialize' item
   atomically $ writeTBQueue queue (next, item)
+  writeFileBS (directory </> show next) $ serialize' item
 
 -- | Get the next value from the queue without removing it, blocking if the
 -- queue is empty.

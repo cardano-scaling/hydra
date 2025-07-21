@@ -794,7 +794,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
                 threadDelay 0.1
 
-      fit "load persistent queue with capacity exceeded" $ \tracer -> do
+      it "load persistent queue with capacity exceeded" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
           initialUTxO <- generate $ genUTxOFor aliceCardanoVk
