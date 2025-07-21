@@ -434,10 +434,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- failAfter 60 $
         withClusterTempDir $ \tmpDir -> do
           let clusterIx = 0
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            let nodeSocket' = case Backend.getOptions backend of
-                  Direct DirectOptions{nodeSocket} -> nodeSocket
-                  _ -> error "Unexpected Blockfrost backend"
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
+            let nodeSocket' = nodeSocket
             aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
             bobKeys@(bobCardanoVk, _) <- generate genKeyPair
             carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -447,7 +445,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             let firstNodeId = clusterIx * 3
 
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             let contestationPeriod = 2
             let hydraTracer = contramap FromHydraNode tracer
 
@@ -456,9 +454,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               let [n1, n2, n3] = toList nodes
 
               -- Funds to be used as fuel by Hydra protocol transactions
-              seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-              seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-              seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ node carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
               send n1 $ input "Init" []
               headId <-
@@ -466,14 +464,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               -- Get some UTXOs to commit to a head
               (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-              committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
-              requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
+              committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+              requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
               (bobExternalVk, bobExternalSk) <- generate genKeyPair
-              committedUTxOByBob <- seedFromFaucet backend bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
-              requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
+              committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
+              requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
 
-              requestCommitTx n3 mempty >>= Backend.submitTransaction backend
+              requestCommitTx n3 mempty >>= submitTx node
 
               let u0 = committedUTxOByAlice <> committedUTxOByBob
 
