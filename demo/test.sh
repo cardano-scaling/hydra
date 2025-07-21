@@ -33,6 +33,13 @@ echo "--- Seeding devnet"
 export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
 ./seed-devnet.sh $(which cardano-cli) $(which hydra-node) --mainnet-era babbage
 
+echo "--- Checking for seed script output"
+if [ ! -f ".env" ] || ! grep -q "HYDRA_SCRIPTS_TX_ID" ".env"; then
+  echo "FAIL: Seed script did not produce a valid .env file"
+  exit 1
+fi
+echo ".env file found and seems valid."
+
 echo "--- Starting hydra-node"
 source .env
 hydra-node \
