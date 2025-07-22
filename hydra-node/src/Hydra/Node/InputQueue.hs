@@ -93,9 +93,7 @@ createPersistentInputQueue persistenceDir = do
   q <- newPersistentQueue serialize' (fmap (first (T.unpack . show)) decodeFull') (persistenceDir </> "input-queue")
   pure
     InputQueue
-      { enqueue = \i -> do
-          threadDelay 0.1
-          writePersistentQueue q i
+      { enqueue = writePersistentQueue q
       , reenqueue = \delay e -> do
           threadDelay delay
           writePersistentQueue q (queuedItem e)
