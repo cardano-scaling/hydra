@@ -457,21 +457,26 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
       -- Write our alive key using lease
       writeAlive leaseId
       traceWith tracer CreatedLease{leaseId}
-      withKeepAlive leaseId $ \keepAlive ->
-        forever $ do
-          -- Keep our lease alive
-          ttlRemaining <- keepAlive
-          when (ttlRemaining < 1) $
-            traceWith tracer LowLeaseTTL{ttlRemaining}
-          -- Determine alive peers
-          alive <- getAlive
-          let othersAlive = alive \\ [advertise]
-          seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
-          forM_ (othersAlive \\ seenAlive) $ onConnectivity . PeerConnected
-          forM_ (seenAlive \\ othersAlive) $ onConnectivity . PeerDisconnected
-          -- Wait roughly ttl / 2
-          threadDelay (ttlRemaining / 2)
+      withKeepAlive leaseId (aliveLoop seenAliveVar)
+        `catch`
+        -- Just log it and go back around to get the lease again
+        \_e@(LeaseTooLow ttlRemaining) -> traceWith tracer LowLeaseTTL{ttlRemaining}
  where
+  aliveLoop seenAliveVar keepAlive =
+    forever $ do
+      -- Keep our lease alive
+      ttlRemaining <- keepAlive
+      when (ttlRemaining < 1) $ do
+        -- If the ttl is too low it's a failure, go back and get a new one
+        throwIO $ LeaseTooLow ttlRemaining
+      -- Determine alive peers
+      alive <- getAlive
+      let othersAlive = alive \\ [advertise]
+      seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
+      forM_ (othersAlive \\ seenAlive) $ onConnectivity . PeerConnected
+      forM_ (seenAlive \\ othersAlive) $ onConnectivity . PeerDisconnected
+      threadDelay 1
+
   onGrpcException seenAliveVar GrpcException{grpcError}
     | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded = do
         onConnectivity NetworkDisconnected
@@ -618,6 +623,13 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
     Nothing -> pure ()
     Just index -> do
       liftIO . removeFile $ directory </> show index
+
+-- * Exceptions
+
+newtype EtcdLeaseException
+  = LeaseTooLow DiffTime
+  deriving stock (Show)
+  deriving anyclass (Exception)
 
 -- * Tracing
 
