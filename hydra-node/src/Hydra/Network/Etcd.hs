@@ -437,23 +437,27 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
       -- Write our alive key using lease
       writeAlive leaseId
       traceWith tracer CreatedLease{leaseId}
-      withKeepAlive leaseId $ \keepAlive ->
-        forever $ do
-          -- Keep our lease alive
-          ttlRemaining <- keepAlive
-          when (ttlRemaining < 1) $
-            traceWith tracer LowLeaseTTL{ttlRemaining}
-          -- Determine alive peers
-          alive <- getAlive
-          let othersAlive = alive \\ [advertise]
-          seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
-          forM_ (othersAlive \\ seenAlive) $ onConnectivity . PeerConnected
-          forM_ (seenAlive \\ othersAlive) $ onConnectivity . PeerDisconnected
-          -- Wait roughly ttl / 2
-          threadDelay (ttlRemaining / 2)
+      withKeepAlive leaseId (aliveLoop seenAliveVar)
  where
+  aliveLoop seenAliveVar keepAlive = do
+    -- Keep our lease alive
+    ttlRemaining <- keepAlive
+    if ttlRemaining <= 0
+      then
+        -- The keep alive did not work as no time to live remaining. Get a new lease instead
+        traceWith tracer LowLeaseTTL{ttlRemaining}
+      else do
+        -- Determine alive peers
+        alive <- getAlive
+        let othersAlive = alive \\ [advertise]
+        seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
+        forM_ (othersAlive \\ seenAlive) $ onConnectivity . PeerConnected
+        forM_ (seenAlive \\ othersAlive) $ onConnectivity . PeerDisconnected
+        threadDelay 1
+        aliveLoop seenAliveVar keepAlive
+
   onGrpcException seenAliveVar GrpcException{grpcError}
-    | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded = do
+    | grpcError `elem` [GrpcUnavailable, GrpcDeadlineExceeded, GrpcCancelled] = do
         onConnectivity NetworkDisconnected
         atomically $ writeTVar seenAliveVar []
         threadDelay 1
@@ -470,7 +474,7 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
       void . action $ do
         send $ NextElem $ defMessage & #id .~ leaseId
         recv >>= \case
-          NextElem res -> pure . fromIntegral $ res ^. #ttl
+          NextElem res -> pure $ res ^. #ttl
           NoNextElem -> do
             traceWith tracer NoKeepAliveResponse
             pure 0
@@ -613,7 +617,7 @@ data EtcdLog
   | FailedToDecodeLog {log :: Text, reason :: Text}
   | FailedToDecodeValue {key :: Text, value :: Text, reason :: Text}
   | CreatedLease {leaseId :: Int64}
-  | LowLeaseTTL {ttlRemaining :: DiffTime}
+  | LowLeaseTTL {ttlRemaining :: Int64}
   | NoKeepAliveResponse
   | MatchingProtocolVersion {version :: ProtocolVersion}
   | WatchMessagesStartRevision {startRevision :: Int64}
