@@ -115,7 +115,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
 
 instance IsTx tx => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit} =
-    toCBOR ("Snapshot" :: Text) <> toCBOR headId <> toCBOR version <> toCBOR number <> foldMap toCBOR confirmed <> toCBOR utxo <> toCBOR utxoToCommit <> toCBOR utxoToDecommit
+    toCBOR ("Snapshot" :: Text) <> toCBOR headId <> toCBOR version <> toCBOR number <> toCBOR confirmed <> toCBOR utxo <> toCBOR utxoToCommit <> toCBOR utxoToDecommit
 
 instance IsTx tx => FromCBOR (Snapshot tx) where
   fromCBOR =

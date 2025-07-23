@@ -172,6 +172,7 @@ test-suite tests
     Hydra.Tx.Contract.Init
     Hydra.Tx.Contract.Recover
     Hydra.Tx.HeadIdSpec
+    Hydra.Tx.HeadParametersSpec
     Hydra.Tx.IsTxSpec
     Spec
 

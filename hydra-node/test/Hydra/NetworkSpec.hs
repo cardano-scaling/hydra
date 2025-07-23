@@ -24,7 +24,7 @@ import Hydra.Network (
   WhichEtcd (..),
  )
 import Hydra.Network.Etcd (withEtcdNetwork)
-import Hydra.Network.Message (Message (..))
+import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
 import System.FilePath ((</>))
@@ -205,6 +205,9 @@ spec = do
 
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
+    prop "can roundtrip CBOR encoding/decoding of Connectivity" $ prop_canRoundtripCBOREncoding @Connectivity
+    prop "can roundtrip CBOR encoding/decoding of Host" $ prop_canRoundtripCBOREncoding @Host
+    prop "can roundtrip CBOR encoding/decoding of NetworkEvent" $ prop_canRoundtripCBOREncoding @(NetworkEvent (Message SimpleTx))
 
     roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(Message SimpleTx)
 
