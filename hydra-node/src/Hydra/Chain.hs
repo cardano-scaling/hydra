@@ -241,7 +241,7 @@ instance IsTx tx => FromCBOR (OnChainTx tx) where
       ("OnAbortTx" :: Text) -> OnAbortTx <$> fromCBOR
       ("OnRecoverTx" :: Text) -> OnRecoverTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
       ("OnCollectComTx" :: Text) -> OnCollectComTx <$> fromCBOR
-      ("OnDepositComTx" :: Text) -> OnDepositTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      ("OnDepositTx" :: Text) -> OnDepositTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
       ("OnIncrementTx" :: Text) -> OnIncrementTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
       ("OnDecrementTx" :: Text) -> OnDecrementTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
       ("OnCloseTx" :: Text) -> OnCloseTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
