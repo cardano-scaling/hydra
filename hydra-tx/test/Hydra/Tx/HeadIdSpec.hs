@@ -4,7 +4,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Tx.HeadId (currencySymbolToHeadId, headIdToCurrencySymbol, headIdToPolicyId, headSeedToTxIn, mkHeadId, txInToHeadSeed)
+import Hydra.Tx.HeadId (HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, headIdToPolicyId, headSeedToTxIn, mkHeadId, txInToHeadSeed)
+import Hydra.Tx.IsTxSpec (roundtripCBOR)
 import Test.QuickCheck (counterexample, (===))
 import Test.QuickCheck.Monadic (monadicIO)
 
@@ -28,3 +29,4 @@ spec =
         let cs = headIdToCurrencySymbol headId
         headId' <- currencySymbolToHeadId cs
         pure $ headId' === headId
+      prop "Roundtrip CBOR encoding HeadId" $ roundtripCBOR @HeadId

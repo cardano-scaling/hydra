@@ -5,6 +5,7 @@ module Test.Util where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe)
 
+import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSay (say)
 import Control.Monad.IOSim (
@@ -175,3 +176,10 @@ waitMatch waitNext delay match = do
 
   align _ [] = []
   align n (h : q) = h : fmap (Text.replicate n " " <>) q
+
+roundtripCBOR :: (Eq a, Show a, ToCBOR a, FromCBOR a) => a -> Property
+roundtripCBOR a =
+  let encoded = serialize' a
+      decoded = decodeFull' encoded
+   in decoded == Right a
+        & counterexample ("encoded: " <> show encoded <> ". decode: " <> show decoded)

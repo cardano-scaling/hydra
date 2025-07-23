@@ -70,6 +70,7 @@ import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, derive
 import Test.Hydra.Tx.Gen (genKeyPair, genOutput)
 import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
+import Test.Util (roundtripCBOR)
 
 spec :: Spec
 spec =
@@ -962,6 +963,8 @@ spec =
       update bobEnv ledger st input `shouldSatisfy` \case
         Wait WaitOnNotApplicableDecommitTx{notApplicableReason = DecommitTxInvalid{}} _ -> True
         _ -> False
+
+    prop "Roundtrip CBOR encoding Input" $ roundtripCBOR @(Input SimpleTx)
 
 -- * Properties
 

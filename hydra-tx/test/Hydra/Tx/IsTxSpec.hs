@@ -16,6 +16,7 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.Cardano.Api (Tx, UTxO, fromLedgerTx, getTxId, toLedgerTx, pattern Tx)
 import Hydra.Tx.IsTx (txId)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, counterexample, forAll, property, (.&&.), (===))
 
@@ -32,6 +33,8 @@ spec =
       prop "Same TxId as TxBody after JSON decoding" roundtripTxId'
       prop "Roundtrip to and from Ledger" roundtripLedger
       prop "Roundtrip CBOR encoding" $ roundtripCBOR @Tx
+      prop "Roundtrip CBOR encoding Snapshot" $ roundtripCBOR @(Snapshot Tx)
+      prop "Roundtrip CBOR encoding ConfirmedSnapshot" $ roundtripCBOR @(ConfirmedSnapshot Tx)
       prop "JSON decode Babbage era transactions" $
         forAll genConwayCompatibleBabbageTx $ \tx ->
           case Aeson.eitherDecode $ Aeson.encode $ fromLedgerTx tx of
