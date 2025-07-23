@@ -11,7 +11,6 @@ import Control.Concurrent.Class.MonadSTM (
   readTBQueue,
   writeTBQueue,
  )
-import Control.Exception (IOException)
 import Data.List qualified as List
 import System.Directory (createDirectoryIfMissing, doesPathExist, listDirectory, removeFile)
 import System.FilePath ((</>))
@@ -29,7 +28,7 @@ data PersistentQueue m a = PersistentQueue
 
 -- | Create a new persistent queue at file path and given capacity.
 newPersistentQueue ::
-  (MonadSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
+  (MonadSTM m, MonadIO m, FromCBOR a, MonadFail m) =>
   -- | encode message
   (a -> ByteString) ->
   -- | decode message
@@ -45,12 +44,7 @@ newPersistentQueue encode decode path = do
         pure (paths, fromIntegral $ max (length paths) 100)
       else pure ([], 100)
   queue <- newTBQueueIO capacity
-  highestId <-
-    try (loadExisting queue paths) >>= \case
-      Left (_ :: IOException) -> do
-        liftIO $ createDirectoryIfMissing True path
-        pure 0
-      Right highest -> pure highest
+  highestId <- loadExisting queue paths
   nextIx <- newTVarIO $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path, encode, decode}
  where
@@ -59,10 +53,11 @@ newPersistentQueue encode decode path = do
       [] -> pure 0
       idxs -> do
         forM_ idxs $ \(idx :: Natural) -> do
-          bs <- readFileBS (path </> show idx)
+          let filePath = path </> show idx
+          bs <- readFileBS filePath
           case decodeFull' bs of
             Left err ->
-              fail $ "Failed to decode item: " <> show err
+              fail $ "Failed to decode item: " <> show err <> " Path: " <> filePath
             Right item ->
               atomically $ writeTBQueue queue (idx, item)
         pure $ List.last idxs
