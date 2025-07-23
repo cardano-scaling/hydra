@@ -42,7 +42,9 @@ newPersistentQueue encode decode path = do
       then do
         paths <- liftIO $ listDirectory path
         pure (paths, fromIntegral $ max (length paths) 100)
-      else pure ([], 100)
+      else do
+        liftIO $ createDirectoryIfMissing True path
+        pure ([], 100)
   queue <- newTBQueueIO capacity
   highestId <- loadExisting queue paths
   nextIx <- newTVarIO $ highestId + 1
