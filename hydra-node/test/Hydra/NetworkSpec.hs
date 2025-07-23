@@ -6,13 +6,12 @@ module Hydra.NetworkSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Codec.CBOR.Read (deserialiseFromBytes)
-import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (
   newTQueue,
   readTQueue,
   writeTQueue,
  )
+import Hydra.CBORSpec (prop_canRoundtripCBOREncoding)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (
@@ -31,7 +30,6 @@ import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGoldenADTSpecsWithSettings)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
-import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
 import Test.Util (noopCallback, waitEq, waitMatch)
 
@@ -295,12 +293,6 @@ setup3Peers tmp = do
             , whichEtcd = EmbeddedEtcd
             }
       }
-
-prop_canRoundtripCBOREncoding ::
-  (ToCBOR a, FromCBOR a, Eq a, Show a) => a -> Property
-prop_canRoundtripCBOREncoding a =
-  let encoded = toLazyByteString $ toCBOR a
-   in (snd <$> deserialiseFromBytes fromCBOR encoded) === Right a
 
 newRecordingCallback :: MonadSTM m => m (NetworkCallback msg m, m msg, m Connectivity)
 newRecordingCallback = do

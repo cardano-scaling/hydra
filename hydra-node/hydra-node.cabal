@@ -301,6 +301,7 @@ test-suite tests
     Hydra.API.ServerOutputSpec
     Hydra.API.ServerSpec
     Hydra.BehaviorSpec
+    Hydra.CBORSpec
     Hydra.Chain.Direct.HandlersSpec
     Hydra.Chain.Direct.ScriptRegistrySpec
     Hydra.Chain.Direct.StateSpec

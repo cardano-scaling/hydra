@@ -18,6 +18,10 @@ result*
 .direnv/
 *~
 
+# MacOS
+.DS_Store
+**/.DS_Store
+
 # hydra-node
 .history
 *.hi
