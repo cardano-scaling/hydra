@@ -81,7 +81,6 @@ createPersistentInputQueue ::
   ( MonadDelay m
   , MonadIO m
   , MonadSTM m
-  , MonadCatch m
   , MonadFail m
   , Eq e
   , ToCBOR e
