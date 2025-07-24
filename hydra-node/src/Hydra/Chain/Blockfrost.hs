@@ -2,7 +2,7 @@ module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (newEmptyTMVar, newTQueueIO, newTVarIO, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTMVar, labelTVarIO, newEmptyTMVar, newTQueueIO, newTVarIO, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
 import Control.Retry (RetryPolicyM, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
@@ -160,6 +160,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   submitTx queue tx = do
     response <- atomically $ do
       response <- newEmptyTMVar
+      labelTMVar response "blockfrost-chain-submit-tx-response"
       writeTQueue queue (tx, response)
       return response
     atomically (takeTMVar response)
@@ -180,7 +181,7 @@ newtype BlockfrostConnectException = BlockfrostConnectException
 instance Exception BlockfrostConnectException
 
 blockfrostChain ::
-  (MonadIO m, MonadCatch m, MonadAsync m, MonadDelay m) =>
+  (MonadIO m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m CardanoChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   Blockfrost.Project ->
@@ -196,7 +197,7 @@ blockfrostChain tracer queue prj chainPoint handler wallet = do
 
 blockfrostChainFollow ::
   forall m.
-  (MonadIO m, MonadCatch m, MonadSTM m, MonadDelay m) =>
+  (MonadIO m, MonadCatch m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m CardanoChainLog ->
   Blockfrost.Project ->
   ChainPoint ->
@@ -214,6 +215,7 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
   let blockHash = fromChainPoint chainPoint genesisBlockHash
 
   stateTVar <- newTVarIO blockHash
+  labelTVarIO stateTVar "blockfrost-chain-state"
 
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do

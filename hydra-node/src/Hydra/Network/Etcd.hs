@@ -46,6 +46,7 @@ import Hydra.Prelude
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
+  labelTVarIO,
   newTVarIO,
   swapTVar,
   writeTVar,
@@ -145,6 +146,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
       race_ (traceStderr p callback) $ do
         -- XXX: cleanup reconnecting through policy if other threads fail
         doneVar <- newTVarIO False
+        labelTVarIO doneVar "etcd-done"
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
         withConnection (connParams doneVar) grpcServer $ \conn -> do
@@ -434,6 +436,7 @@ pollConnectivity ::
   IO ()
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
   seenAliveVar <- newTVarIO []
+  labelTVarIO seenAliveVar "etcd-seen-alive"
   withGrpcContext "pollConnectivity" $
     forever . handle (onGrpcException seenAliveVar) $ do
       leaseId <- createLease
