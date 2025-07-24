@@ -1048,7 +1048,7 @@ dummySimulatedChainNetwork =
 -- initial chain state to play back to our test nodes.
 -- NOTE: The simulated network has a block time of 20 (simulated) seconds.
 withSimulatedChainAndNetwork ::
-  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m) =>
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
   (SimulatedChainNetwork SimpleTx m -> m a) ->
   m a
 withSimulatedChainAndNetwork =
@@ -1062,7 +1062,7 @@ withSimulatedChainAndNetwork =
 -- possible.
 simulatedChainAndNetwork ::
   forall m.
-  (MonadTime m, MonadDelay m, MonadAsync m) =>
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
   ChainStateType SimpleTx ->
   m (SimulatedChainNetwork SimpleTx m)
 simulatedChainAndNetwork initialChainState = do

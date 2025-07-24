@@ -13,7 +13,8 @@ module Hydra.Logging.Monitoring (
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar', newTVarIO, readTVarIO)
+import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Hydra.HeadLogic (
@@ -38,7 +39,7 @@ import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, regis
 -- This is a no-op if given `Nothing`. This function is not polymorphic over the type of
 -- messages because it needs to understand them in order to provide meaningful metrics.
 withMonitoring ::
-  (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m) =>
+  (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m, MonadLabelledSTM m) =>
   Maybe PortNumber ->
   Tracer m (HydraLog tx) ->
   (Tracer m (HydraLog tx) -> m ()) ->
@@ -46,18 +47,25 @@ withMonitoring ::
 withMonitoring Nothing tracer action = action tracer
 withMonitoring (Just monitoringPort) (Tracer tracer) action = do
   (traceMetric, registry) <- prepareRegistry
-  withAsync (serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry)) $ \_ ->
-    let wrappedTracer = Tracer $ \msg -> do
-          traceMetric msg
-          tracer msg
-     in action wrappedTracer
+  withAsync
+    ( do
+        tid <- myThreadId
+        labelThread tid "monitoring-serveMetrics"
+        serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry)
+    )
+    $ \_ ->
+      let wrappedTracer = Tracer $ \msg -> do
+            traceMetric msg
+            tracer msg
+       in action wrappedTracer
 
 -- | Register all relevant metrics.
 -- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication
 -- of metrics, whether push or pull, and a function for updating metrics given some trace event.
-prepareRegistry :: forall m tx. (MonadIO m, MonadSTM m, MonadMonotonicTime m, IsTx tx) => m (HydraLog tx -> m (), Registry)
+prepareRegistry :: forall m tx. (MonadIO m, MonadMonotonicTime m, IsTx tx, MonadLabelledSTM m) => m (HydraLog tx -> m (), Registry)
 prepareRegistry = do
   transactionsMap <- newTVarIO mempty
+  labelTVarIO transactionsMap "monitoring-txs-map-registry"
   first (monitor transactionsMap) <$> registerMetrics
  where
   registerMetrics = foldlM registerMetric (mempty, new) allMetrics
