@@ -65,7 +65,7 @@ import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
-import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (labelTVarIO, newTVarIO, readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
@@ -157,6 +157,7 @@ newTinyWallet ::
   IO (TinyWallet IO)
 newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySomePParams = do
   walletInfoVar <- newTVarIO =<< initialize
+  labelTVarIO walletInfoVar "tiny-wallet"
   let getUTxO = readTVar walletInfoVar <&> walletUTxO
   pure
     TinyWallet

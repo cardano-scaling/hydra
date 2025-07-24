@@ -3,7 +3,7 @@ module Hydra.Events.Rotation where
 import Hydra.Prelude
 
 import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar', newTVarIO, readTVarIO, writeTVar)
 import Data.Conduit.Combinators qualified as C
 import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId (..))
 import Test.QuickCheck (Positive (..))
@@ -23,7 +23,7 @@ data EventStore e m
 
 -- | Creates an event store that rotates according to given config and 'StateAggregate'.
 newRotatedEventStore ::
-  (HasEventId e, MonadSTM m, MonadUnliftIO m, MonadTime m) =>
+  (HasEventId e, MonadUnliftIO m, MonadTime m, MonadLabelledSTM m) =>
   RotationConfig ->
   -- | Starting state of aggregate
   s ->
@@ -38,7 +38,9 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
     runResourceT . runConduit $
       sourceEvents eventSource .| C.foldl aggregateEvents (0, 0, s0)
   aggregateStateV <- newTVarIO currentAggregateState
+  labelTVarIO aggregateStateV "rotated-event-store-aggregate-state"
   numberOfEventsV <- newTVarIO currentNumberOfEvents
+  labelTVarIO numberOfEventsV "rotated-event-store-number-of-events"
   -- check rotation on startup
   whenM (shouldRotate numberOfEventsV) $ do
     rotateEventLog numberOfEventsV aggregateStateV lastEventId

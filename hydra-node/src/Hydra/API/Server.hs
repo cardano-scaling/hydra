@@ -99,12 +99,12 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
-    headStateP <- mkProjection (Idle $ IdleState mkChainState) aggregate
+    headStateP <- mkProjection "headStateP" (Idle $ IdleState mkChainState) aggregate
     -- XXX: We never subscribe to changes of commitInfoP et al directly so a
     -- single read model and normal functions mapping from HeadState ->
     -- CommitInfo etc. would suffice and are less fragile
-    commitInfoP <- mkProjection CannotCommit projectCommitInfo
-    pendingDepositsP <- mkProjection [] projectPendingDeposits
+    commitInfoP <- mkProjection "commitInfoP" CannotCommit projectCommitInfo
+    pendingDepositsP <- mkProjection "pendingDepositsP" [] projectPendingDeposits
     let historyTimedOutputs = sourceEvents .| map mkTimedServerOutputFromStateEvent .| catMaybes
     _ <-
       runConduitRes $

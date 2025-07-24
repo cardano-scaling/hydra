@@ -43,8 +43,10 @@ import Hydra.Prelude
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
+  MonadLabelledSTM,
   modifyTVar',
   newTBQueueIO,
+  labelTVarIO,
   newTVarIO,
   peekTBQueue,
   readTBQueue,
@@ -432,6 +434,7 @@ pollConnectivity ::
   IO ()
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
   seenAliveVar <- newTVarIO []
+  labelTVarIO seenAliveVar "etcd-seen-alive"
   withGrpcContext "pollConnectivity" $
     forever . handle (onGrpcException seenAliveVar) $ do
       leaseId <- createLease
@@ -548,7 +551,7 @@ data PersistentQueue m a = PersistentQueue
 
 -- | Create a new persistent queue at file path and given capacity.
 newPersistentQueue ::
-  (MonadSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
+  (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
   FilePath ->
   Natural ->
   m (PersistentQueue m a)
@@ -564,7 +567,7 @@ newPersistentQueue path capacity = do
         liftIO $ createDirectoryIfMissing True path
         pure 0
       Right highest -> pure highest
-  nextIx <- newTVarIO $ highestId + 1
+  nextIx <- newLabelledTVarIO "persistent-queue" $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path}
  where
   loadExisting queue = \case
