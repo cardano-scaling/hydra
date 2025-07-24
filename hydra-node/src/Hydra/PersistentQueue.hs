@@ -67,14 +67,20 @@ newPersistentQueue encode decode path = do
         pure $ List.last idxs
 
 -- | Write a value to the queue, blocking if the queue is full.
-writeDurablePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
-writeDurablePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
-  next <- atomically $ do
-    next <- readTVar nextIx
-    modifyTVar' nextIx (+ 1)
-    pure next
-  writeBinaryFileDurable (directory </> show next) $ serialize' item
-  atomically $ writeTBQueue queue (next, item)
+writeDurablePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m, MonadDelay m) => PersistentQueue m a -> a -> m ()
+writeDurablePersistentQueue pq@PersistentQueue{queue, nextIx, directory} item = do
+  full <- atomically $ isFullTBQueue queue
+  if full
+    then do
+      threadDelay 1
+      writeDurablePersistentQueue pq item
+    else do
+      next <- atomically $ do
+        next <- readTVar nextIx
+        modifyTVar' nextIx (+ 1)
+        pure next
+      writeBinaryFileDurable (directory </> show next) $ serialize' item
+      atomically $ writeTBQueue queue (next, item)
 
 -- | Write a value to the queue, blocking if the queue is full.
 writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m, MonadDelay m) => PersistentQueue m a -> a -> m ()
