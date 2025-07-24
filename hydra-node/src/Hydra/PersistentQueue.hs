@@ -4,17 +4,21 @@ import Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.Class.MonadSTM (
+  isEmptyTBQueue,
   isFullTBQueue,
   modifyTVar',
   newTBQueueIO,
   newTVarIO,
   peekTBQueue,
   readTBQueue,
+  readTVarIO,
   writeTBQueue,
  )
+import Control.Exception (IOException)
 import Data.List qualified as List
-import System.Directory (createDirectoryIfMissing, doesPathExist, listDirectory, removeFile)
+import System.Directory (createDirectoryIfMissing, doesPathExist, listDirectory, removeFile, renameFile)
 import System.FilePath ((</>))
+import System.Random (randomIO)
 import UnliftIO.IO.File (writeBinaryFileDurable)
 
 -- * Persistent queue
@@ -67,38 +71,45 @@ newPersistentQueue encode decode path = do
         pure $ List.last idxs
 
 -- | Write a value to the queue, blocking if the queue is full.
-writeDurablePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m, MonadDelay m) => PersistentQueue m a -> a -> m ()
-writeDurablePersistentQueue pq@PersistentQueue{queue, nextIx, directory} item = do
-  full <- atomically $ isFullTBQueue queue
-  if full
-    then do
-      threadDelay 1
-      writeDurablePersistentQueue pq item
-    else do
-      next <- atomically $ do
-        next <- readTVar nextIx
-        modifyTVar' nextIx (+ 1)
-        pure next
-      writeBinaryFileDurable (directory </> show next) $ serialize' item
-      atomically $ writeTBQueue queue (next, item)
+writeDurablePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
+writeDurablePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
+  next <- atomically $ do
+    next <- readTVar nextIx
+    modifyTVar' nextIx (+ 1)
+    pure next
+  writeBinaryFileDurable (directory </> show next) $ serialize' item
+  atomically $ writeTBQueue queue (next, item)
 
--- | Write a value to the queue, blocking if the queue is full.
+-- | Writes an item to a persistent queue, ensuring durability by writing to disk
+-- before adding to the in-memory queue.
+--
+-- The item is first written to a temporary file, then atomically added to the
+-- 'TBQueue' with its index. If the queue is full, the temporary file is removed,
+-- and the operation retries after a short delay. The temporary file is renamed to
+-- its final name (based on the index) only after the queue operation succeeds,
+-- avoiding file-locking conflicts.
 writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m, MonadDelay m) => PersistentQueue m a -> a -> m ()
 writePersistentQueue pq@PersistentQueue{queue, nextIx, directory} item = do
-  full <- atomically $ isFullTBQueue queue
-  if full
-    then do
+  liftIO $ createDirectoryIfMissing True directory
+  next <- readTVarIO nextIx
+  tempId :: Int <- liftIO $ abs <$> randomIO
+  let tempFilePath = directory </> ("temp-" ++ show tempId)
+      finalFilePath = directory </> show next
+  liftIO $ writeFileBS tempFilePath $ serialize' item
+  success <- atomically $ do
+    full <- isFullTBQueue queue
+    if full
+      then return False
+      else do
+        modifyTVar' nextIx (+ 1)
+        writeTBQueue queue (next, item)
+        return True
+  if success
+    then liftIO $ renameFile tempFilePath finalFilePath
+    else do
+      liftIO $ removeFile tempFilePath
       threadDelay 1
       writePersistentQueue pq item
-    else do
-      next <- atomically $ do
-        next <- readTVar nextIx
-        modifyTVar' nextIx (+ 1)
-        pure next
-
-      liftIO $ createDirectoryIfMissing True directory
-      writeFileBS (directory </> show next) $ serialize' item
-      atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the
 -- queue is empty.
@@ -106,17 +117,32 @@ peekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m (Natural, a)
 peekPersistentQueue PersistentQueue{queue} = do
   atomically (peekTBQueue queue)
 
--- | Remove an element from the queue if it matches the given item. Use
--- 'peekPersistentQueue' to wait for next items before popping it.
+-- | Attempts to remove a specific item from the head of a persistent queue and
+-- deletes its corresponding file from disk.
+--
+-- Checks if the item at the head of the 'TBQueue' matches the provided item. If it
+-- matches, the item is atomically removed from the queue, and its file is deleted.
+-- If the queue is empty or the item does not match, no action is taken. All queue
+-- operations (checking emptiness, peeking, and popping) are performed in a single
+-- atomic transaction to ensure consistency.
 popPersistentQueue :: (MonadSTM m, MonadIO m, Eq a) => PersistentQueue m a -> a -> m ()
 popPersistentQueue PersistentQueue{queue, directory} item = do
   popped <- atomically $ do
-    (ix, next) <- peekTBQueue queue
-    if next == item
-      then readTBQueue queue $> Just ix
-      else pure Nothing
+    emptyQueue <- isEmptyTBQueue queue
+    if emptyQueue
+      then pure Nothing
+      else do
+        (ix, next) <- peekTBQueue queue
+        if next == item
+          then do
+            _ <- readTBQueue queue
+            pure (Just ix)
+          else pure Nothing
   case popped of
     Nothing -> pure ()
     Just index -> do
       let path = directory </> show index
-      liftIO $ removeFile path -- `catch` \(_ :: SomeException) -> pure ()
+      result <- liftIO $ try $ removeFile path
+      case result of
+        Left (e :: IOException) -> putStrLn $ "Error removing file " ++ path ++ ": " ++ show e
+        Right () -> pure ()

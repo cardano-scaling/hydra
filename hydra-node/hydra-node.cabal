@@ -161,6 +161,7 @@ library
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
+    , random
     , resourcet
     , retry
     , safe-money
