@@ -20,6 +20,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Exception (IOException)
+import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Hydra.Cardano.Api (
   BlockInMode (..),
   CardanoEra (..),
@@ -166,7 +167,9 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
     race
-      ( handle onIOException $
+      ( handle onIOException $ do
+          tid <- myThreadId
+          labelThread tid "direct-chain-connection"
           connectToLocalNode
             (connectInfo networkId nodeSocket)
             (clientProtocols chainPoint queue handler)

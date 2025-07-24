@@ -35,7 +35,7 @@ import Control.Concurrent.Class.MonadSTM (
   readTVarIO,
   writeTBQueue,
  )
-import Control.Monad.Class.MonadFork (myThreadId)
+import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
   Tracer (..),
@@ -120,7 +120,9 @@ withTracerOutputTo hdl namespace action = do
     Tracer $
       mkEnvelope namespace >=> liftIO . atomically . writeTBQueue queue
 
-  writeLogs queue =
+  writeLogs queue = do
+    tid <- myThreadId
+    labelThread tid "logging-writeLogs-"
     forever $ do
       atomically (readTBQueue queue) >>= write . Aeson.encode
       hFlush hdl

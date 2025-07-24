@@ -14,6 +14,7 @@ module Hydra.Logging.Monitoring (
 import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar', newTVarIO, readTVarIO)
+import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Hydra.HeadLogic (
@@ -46,11 +47,17 @@ withMonitoring ::
 withMonitoring Nothing tracer action = action tracer
 withMonitoring (Just monitoringPort) (Tracer tracer) action = do
   (traceMetric, registry) <- prepareRegistry
-  withAsync (serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry)) $ \_ ->
-    let wrappedTracer = Tracer $ \msg -> do
-          traceMetric msg
-          tracer msg
-     in action wrappedTracer
+  withAsync
+    ( do
+        tid <- myThreadId
+        labelThread tid "monitoring-serveMetrics"
+        serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry)
+    )
+    $ \_ ->
+      let wrappedTracer = Tracer $ \msg -> do
+            traceMetric msg
+            tracer msg
+       in action wrappedTracer
 
 -- | Register all relevant metrics.
 -- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication
