@@ -27,6 +27,7 @@ import Hydra.Prelude
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
 import Control.Concurrent.Class.MonadSTM (
   flushTBQueue,
+  labelTBQueueIO,
   modifyTVar,
   newTBQueueIO,
   newTVarIO,
@@ -103,6 +104,7 @@ withTracerOutputTo ::
   IO a
 withTracerOutputTo hdl namespace action = do
   msgQueue <- newTBQueueIO @_ @(Envelope msg) defaultQueueSize
+  labelTBQueueIO msgQueue "logging-msg-queue"
   withAsync (writeLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue
  where
