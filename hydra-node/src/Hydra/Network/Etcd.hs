@@ -545,9 +545,12 @@ newPersistentQueue ::
   Natural ->
   m (PersistentQueue m a)
 newPersistentQueue path capacity = do
-  queue <- newTBQueueIO capacity
+  paths <- liftIO $ do
+    createDirectoryIfMissing True path
+    sort . mapMaybe readMaybe <$> listDirectory path
+  queue <- newTBQueueIO $ max (fromIntegral $ length paths) capacity
   highestId <-
-    try (loadExisting queue) >>= \case
+    try (loadExisting queue paths) >>= \case
       Left (_ :: IOException) -> do
         -- XXX: This swallows and not logs the error
         liftIO $ createDirectoryIfMissing True path
@@ -556,20 +559,17 @@ newPersistentQueue path capacity = do
   nextIx <- newTVarIO $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path}
  where
-  loadExisting queue = do
-    paths <- liftIO $ listDirectory path
-    case sort $ mapMaybe readMaybe paths of
-      [] -> pure 0
-      idxs -> do
-        -- FIXME: This blocks forever if length idxs > capacity
-        forM_ idxs $ \(idx :: Natural) -> do
-          bs <- readFileBS (path </> show idx)
-          case decodeFull' bs of
-            Left err ->
-              fail $ "Failed to decode item: " <> show err
-            Right item ->
-              atomically $ writeTBQueue queue (idx, item)
-        pure $ List.last idxs
+  loadExisting queue = \case
+    [] -> pure 0
+    idxs -> do
+      forM_ idxs $ \(idx :: Natural) -> do
+        bs <- readFileBS (path </> show idx)
+        case decodeFull' bs of
+          Left err ->
+            fail $ "Failed to decode item: " <> show err
+          Right item ->
+            atomically $ writeTBQueue queue (idx, item)
+      pure $ List.last idxs
 
 -- | Write a value to the queue, blocking if the queue is full.
 writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
