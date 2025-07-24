@@ -578,10 +578,8 @@ writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
     next <- readTVar nextIx
     modifyTVar' nextIx (+ 1)
     pure next
-  -- FIXME: if writeTBQueue blocks because the queue is full and we crash after
-  -- this, the directory contains more than capacity files.
   writeFileBS (directory </> show next) $ serialize' item
-  -- FIXME: We should detect when the queue is full
+  -- XXX: We should trace when the queue is full
   atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the
@@ -597,9 +595,10 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
   popped <- atomically $ do
     (ix, next) <- peekTBQueue queue
     if next == item
-      -- FIXME: why would we not call this?
+      -- FIXME: why would we not call this? We saw the persistent queue reach
+      -- capacity and writing blocked while nothing seemed to clear it.
       then readTBQueue queue $> Just ix
-      else error "should not happen because we only have one consumer"
+      else pure Nothing
   case popped of
     Nothing -> pure ()
     Just index -> do
