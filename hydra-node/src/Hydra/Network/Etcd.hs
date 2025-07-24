@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 -- | Implements a Hydra network component using [etcd](https://etcd.io/).
 --
@@ -60,7 +58,6 @@ import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens qualified as Aeson
 import Data.Aeson.Types (Value)
-import Data.Bits ((.|.))
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
@@ -76,9 +73,8 @@ import Hydra.Network (
   NetworkComponent,
   NetworkConfiguration (..),
   ProtocolVersion,
-  WhichEtcd (..),
  )
-import Hydra.Node.EmbedTH (embedExecutable)
+import Hydra.Network.EtcdBinary (getEtcdBinary)
 import Network.GRPC.Client (
   Address (..),
   ConnParams (..),
@@ -102,9 +98,8 @@ import Network.GRPC.Etcd (
 import Network.Socket (PortNumber)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
-import System.FilePath (takeDirectory, (</>))
+import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
-import System.Posix (ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
 import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
   Process,
@@ -250,21 +245,6 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 -- the default client port 2379 be used by default still.
 getClientPort :: NetworkConfiguration -> PortNumber
 getClientPort NetworkConfiguration{listen} = 2379 + port listen - 5001
-
--- | Return the path of the etcd binary. Will either install it first, or just
--- assume there is one available on the system path.
-getEtcdBinary :: FilePath -> WhichEtcd -> IO FilePath
-getEtcdBinary _ SystemEtcd = pure "etcd"
-getEtcdBinary persistenceDir EmbeddedEtcd =
-  let path = persistenceDir </> "bin" </> "etcd"
-   in installEtcd path >> pure path
-
--- | Install the embedded 'etcd' binary to given file path.
-installEtcd :: FilePath -> IO ()
-installEtcd fp = do
-  createDirectoryIfMissing True (takeDirectory fp)
-  BS.writeFile fp $(embedExecutable "etcd")
-  setFileMode fp (ownerReadMode .|. ownerWriteMode .|. ownerExecuteMode)
 
 -- | Check and write version on etcd cluster. This will retry until we are on a
 -- majority cluster and succeed. If the version does not match a corresponding

@@ -53,6 +53,8 @@ data NetworkCallback msg m = NetworkCallback
 -- A `NetworkComponent` can have different inbound and outbound message types.
 type NetworkComponent m inbound outbound a = NetworkCallback inbound m -> (Network m outbound -> m a) -> m a
 
+-- * Types used by concrete implementations
+
 data WhichEtcd = EmbeddedEtcd | SystemEtcd
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -60,8 +62,6 @@ data WhichEtcd = EmbeddedEtcd | SystemEtcd
 instance Arbitrary WhichEtcd where
   shrink = genericShrink
   arbitrary = genericArbitrary
-
--- * Types used by concrete implementations
 
 -- | Configuration for a `Node` network layer.
 data NetworkConfiguration = NetworkConfiguration

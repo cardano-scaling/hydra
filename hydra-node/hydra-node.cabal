@@ -87,6 +87,7 @@ library
     Hydra.Network
     Hydra.Network.Authenticate
     Hydra.Network.Etcd
+    Hydra.Network.EtcdBinary
     Hydra.Network.Message
     Hydra.NetworkVersions
     Hydra.Node
