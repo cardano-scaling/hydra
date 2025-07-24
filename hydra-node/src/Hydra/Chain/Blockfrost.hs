@@ -4,6 +4,7 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTMVar, labelTQueueIO, labelTVarIO, newEmptyTMVar, newTQueueIO, newTVarIO, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
+import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Control.Retry (RetryPolicyM, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
@@ -146,6 +147,8 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   res <-
     race
       ( handle onIOException $ do
+          tid <- myThreadId
+          labelThread tid "blockfrost-chain-connection"
           prj <- Blockfrost.projectFromFile projectPath
           blockfrostChain tracer queue prj chainPoint handler wallet
       )
@@ -193,8 +196,16 @@ blockfrostChain ::
 blockfrostChain tracer queue prj chainPoint handler wallet = do
   forever $
     race_
-      (blockfrostChainFollow tracer prj chainPoint handler wallet)
-      (blockfrostSubmissionClient prj tracer queue)
+      ( do
+          tid <- myThreadId
+          labelThread tid "blockfrost-chain-follow"
+          blockfrostChainFollow tracer prj chainPoint handler wallet
+      )
+      ( do
+          tid <- myThreadId
+          labelThread tid "blockfrost-submission"
+          blockfrostSubmissionClient prj tracer queue
+      )
 
 blockfrostChainFollow ::
   forall m.
