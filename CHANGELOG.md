@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.22.4] - UNRELEASED
+
+- Ignore snapshot signatures of already confirmed snapshots. This was previously
+  resulting in the node waiting for the accompanying snapshot request and
+  occurred when running heads with mirror nodes.
+
 ## [0.22.3] - 2025-07-21
 
 * Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
