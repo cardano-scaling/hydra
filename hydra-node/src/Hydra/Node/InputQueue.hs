@@ -3,8 +3,10 @@ module Hydra.Node.InputQueue where
 
 import Hydra.Prelude
 
+import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
+  isEmptyTBQueue,
   isEmptyTQueue,
   labelTQueueIO,
   labelTVarIO,
@@ -15,6 +17,15 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Monad.Class.MonadAsync (async)
+import Data.Text qualified as T
+import Hydra.PersistentQueue (
+  PersistentQueue (..),
+  newPersistentQueue,
+  peekPersistentQueue,
+  popPersistentQueue,
+  writePersistentQueue,
+ )
+import System.FilePath ((</>))
 
 -- | The single, required queue in the system from which a hydra head is "fed".
 -- NOTE(SN): this probably should be bounded and include proper logging
@@ -25,6 +36,7 @@ data InputQueue m e = InputQueue
   , reenqueue :: DiffTime -> Queued e -> m ()
   , dequeue :: m (Queued e)
   , isEmpty :: m Bool
+  , done :: e -> m ()
   }
 
 data Queued a = Queued {queuedId :: Word64, queuedItem :: a}
@@ -62,4 +74,31 @@ createInputQueue = do
             n <- readTVar numThreads
             isEmpty' <- isEmptyTQueue q
             pure (isEmpty' && n == 0)
+      , done = \_ -> pure ()
+      }
+
+createPersistentInputQueue ::
+  ( MonadDelay m
+  , MonadIO m
+  , MonadSTM m
+  , MonadFail m
+  , Eq e
+  , ToCBOR e
+  , FromCBOR e
+  ) =>
+  FilePath ->
+  m (InputQueue m e)
+createPersistentInputQueue persistenceDir = do
+  q <- newPersistentQueue serialize' (fmap (first (T.unpack . show)) decodeFull') (persistenceDir </> "input-queue")
+  pure
+    InputQueue
+      { enqueue = writePersistentQueue q
+      , reenqueue = \delay e -> do
+          threadDelay delay
+          writePersistentQueue q (queuedItem e)
+      , dequeue = do
+          (n, item) <- peekPersistentQueue q
+          pure $ Queued{queuedId = fromIntegral n, queuedItem = item}
+      , isEmpty = atomically $ isEmptyTBQueue (queue q)
+      , done = popPersistentQueue q
       }

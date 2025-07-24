@@ -15,6 +15,7 @@ import Test.Aeson.GenericSpecs (
   roundtripAndGoldenADTSpecsWithSettings,
  )
 import Test.QuickCheck (counterexample, forAll, property)
+import Test.Util (roundtripCBOR)
 
 spec :: Spec
 spec = parallel $ do
@@ -36,3 +37,5 @@ spec = parallel $ do
          in case fromJSON @Tx envelope of
               Success{} -> property True
               Error e -> counterexample (toString $ toText e) $ property False
+
+  prop "Roundtrip CBOR encoding ClientInput" $ roundtripCBOR @(ClientInput Tx)

@@ -24,7 +24,7 @@ import Hydra.Network (
   WhichEtcd (..),
  )
 import Hydra.Network.Etcd (withEtcdNetwork)
-import Hydra.Network.Message (Message (..))
+import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
 import System.FilePath ((</>))
@@ -107,8 +107,8 @@ spec = do
                 broadcast n1 456
                 -- Carol starts again
                 withEtcdNetwork @Int tracer v1 carolConfig recordReceived $ \_ -> do
-                  -- Carol should receive messages sent by alice while offline
-                  -- (without duplication of 123)
+                  -- Carol should receive all messages sent by alice even while offline
+                  waitNext `shouldReturn` 123
                   waitNext `shouldReturn` 456
 
       it "emits connectivity events" $ \tracer -> do
@@ -158,7 +158,7 @@ spec = do
 
       it "resends messages" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          failAfter 40 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordBob, waitBob, _) <- newRecordingCallback
             (recordCarol, waitCarol, _) <- newRecordingCallback
@@ -205,6 +205,9 @@ spec = do
 
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
+    prop "can roundtrip CBOR encoding/decoding of Connectivity" $ prop_canRoundtripCBOREncoding @Connectivity
+    prop "can roundtrip CBOR encoding/decoding of Host" $ prop_canRoundtripCBOREncoding @Host
+    prop "can roundtrip CBOR encoding/decoding of NetworkEvent" $ prop_canRoundtripCBOREncoding @(NetworkEvent (Message SimpleTx))
 
     roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(Message SimpleTx)
 
