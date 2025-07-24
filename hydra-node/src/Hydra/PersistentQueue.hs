@@ -4,6 +4,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.Class.MonadSTM (
+  isFullTBQueue,
   modifyTVar',
   newTBQueueIO,
   newTVarIO,
@@ -37,15 +38,16 @@ newPersistentQueue ::
   m (PersistentQueue m a)
 newPersistentQueue encode decode path = do
   pathExists <- liftIO $ doesPathExist path
+  let defaultCapacity :: Int = 100
   (paths, capacity) <-
     if pathExists
       then do
         paths <- liftIO $ listDirectory path
-        pure (paths, fromIntegral $ max (length paths) 100)
+        pure (paths, max (length paths) defaultCapacity)
       else do
         liftIO $ createDirectoryIfMissing True path
-        pure ([], 100)
-  queue <- newTBQueueIO capacity
+        pure ([], defaultCapacity)
+  queue <- newTBQueueIO $ fromIntegral capacity
   highestId <- loadExisting queue paths
   nextIx <- newTVarIO $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path, encode, decode}
@@ -75,16 +77,22 @@ writeDurablePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
   atomically $ writeTBQueue queue (next, item)
 
 -- | Write a value to the queue, blocking if the queue is full.
-writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
-writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
-  next <- atomically $ do
-    next <- readTVar nextIx
-    modifyTVar' nextIx (+ 1)
-    pure next
+writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m, MonadDelay m) => PersistentQueue m a -> a -> m ()
+writePersistentQueue pq@PersistentQueue{queue, nextIx, directory} item = do
+  full <- atomically $ isFullTBQueue queue
+  if full
+    then do
+      threadDelay 1
+      writePersistentQueue pq item
+    else do
+      next <- atomically $ do
+        next <- readTVar nextIx
+        modifyTVar' nextIx (+ 1)
+        pure next
 
-  liftIO $ createDirectoryIfMissing True directory
-  atomically $ writeTBQueue queue (next, item)
-  writeFileBS (directory </> show next) $ serialize' item
+      liftIO $ createDirectoryIfMissing True directory
+      writeFileBS (directory </> show next) $ serialize' item
+      atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the
 -- queue is empty.
@@ -105,4 +113,4 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
     Nothing -> pure ()
     Just index -> do
       let path = directory </> show index
-      liftIO $ removeFile path
+      liftIO $ removeFile path -- `catch` \(_ :: SomeException) -> pure ()
