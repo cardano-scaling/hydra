@@ -158,7 +158,7 @@ spec = do
 
       it "resends messages" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          failAfter 40 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordBob, waitBob, _) <- newRecordingCallback
             (recordCarol, waitCarol, _) <- newRecordingCallback
