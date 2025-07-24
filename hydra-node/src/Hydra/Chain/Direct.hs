@@ -11,6 +11,7 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
   labelTMVar,
+  labelTQueueIO,
   newEmptyTMVar,
   newTQueueIO,
   putTMVar,
@@ -144,6 +145,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newTQueueIO
+  labelTQueueIO queue "direct-chain-queue"
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip backend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
