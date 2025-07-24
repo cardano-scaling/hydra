@@ -594,6 +594,8 @@ writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
     next <- readTVar nextIx
     modifyTVar' nextIx (+ 1)
     pure next
+  -- FIXME: if writeTBQueue blocks because the queue is full and we crash after
+  -- this, the directory contains more than capacity files.
   writeFileBS (directory </> show next) $ serialize' item
   -- XXX: We should trace when the queue is full
   atomically $ writeTBQueue queue (next, item)
@@ -614,7 +616,7 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
       -- FIXME: why would we not call this? We saw the persistent queue reach
       -- capacity and writing blocked while nothing seemed to clear it.
       then readTBQueue queue $> Just ix
-      else pure Nothing
+      else error "should not happen because we only have one consumer"
   case popped of
     Nothing -> pure ()
     Just index -> do
