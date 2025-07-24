@@ -2,7 +2,7 @@ module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTMVar, labelTVarIO, newEmptyTMVar, newTQueueIO, newTVarIO, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTMVar, labelTQueueIO, labelTVarIO, newEmptyTMVar, newTQueueIO, newTVarIO, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
 import Control.Retry (RetryPolicyM, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
@@ -124,6 +124,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newTQueueIO
+  labelTQueueIO queue "blockfrost-chain-queue"
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip backend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
