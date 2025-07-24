@@ -71,14 +71,29 @@ newPersistentQueue encode decode path = do
         pure $ List.last idxs
 
 -- | Write a value to the queue, blocking if the queue is full.
-writeDurablePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
-writeDurablePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
-  next <- atomically $ do
-    next <- readTVar nextIx
-    modifyTVar' nextIx (+ 1)
-    pure next
-  writeBinaryFileDurable (directory </> show next) $ serialize' item
-  atomically $ writeTBQueue queue (next, item)
+-- TODO: refactor this with writePersistentQueue
+writeDurablePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m, MonadDelay m) => PersistentQueue m a -> a -> m ()
+writeDurablePersistentQueue pq@PersistentQueue{queue, nextIx, directory} item = do
+  liftIO $ createDirectoryIfMissing True directory
+  next <- readTVarIO nextIx
+  tempId :: Int <- liftIO $ abs <$> randomIO
+  let tempFilePath = directory </> ("temp-" ++ show tempId)
+      finalFilePath = directory </> show next
+  liftIO $ writeBinaryFileDurable tempFilePath $ serialize' item
+  success <- atomically $ do
+    full <- isFullTBQueue queue
+    if full
+      then return False
+      else do
+        modifyTVar' nextIx (+ 1)
+        writeTBQueue queue (next, item)
+        return True
+  if success
+    then liftIO $ renameFile tempFilePath finalFilePath
+    else do
+      liftIO $ removeFile tempFilePath
+      threadDelay 1
+      writeDurablePersistentQueue pq item
 
 -- | Writes an item to a persistent queue, ensuring durability by writing to disk
 -- before adding to the in-memory queue.
