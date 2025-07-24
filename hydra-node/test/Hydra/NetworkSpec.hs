@@ -107,8 +107,8 @@ spec = do
                 broadcast n1 456
                 -- Carol starts again
                 withEtcdNetwork @Int tracer v1 carolConfig recordReceived $ \_ -> do
-                  -- Carol should receive messages sent by alice while offline
-                  -- (without duplication of 123)
+                  -- Carol should receive all messages sent by alice even while offline
+                  waitNext `shouldReturn` 123
                   waitNext `shouldReturn` 456
 
       it "emits connectivity events" $ \tracer -> do
