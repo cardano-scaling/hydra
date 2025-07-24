@@ -10,6 +10,7 @@ module Hydra.Chain.Direct (
 import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
+  labelTMVar,
   newEmptyTMVar,
   newTQueueIO,
   putTMVar,
@@ -198,6 +199,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   submitTx queue tx = do
     response <- atomically $ do
       response <- newEmptyTMVar
+      labelTMVar response "direct-chain-submit-tx-response"
       writeTQueue queue (tx, response)
       return response
     atomically (takeTMVar response)
