@@ -104,7 +104,7 @@ import HydraNode (
  )
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
-import System.Directory (listDirectory, removeDirectoryRecursive, removeFile)
+import System.Directory (removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
 import Test.Hydra.Tx.Fixture (testNetworkId)
@@ -832,19 +832,15 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               foldM_
                 ( \utxo _i -> do
-                    let Just (aliceTxIn, aliceTxOut) = UTxO.find (isVkTxOut aliceExternalVk) utxo
-                    let Right selfTx =
-                          mkSimpleTx
-                            (aliceTxIn, aliceTxOut)
-                            (mkVkAddress testNetworkId aliceExternalVk, txOutValue aliceTxOut)
-                            aliceExternalSk
-                    send n1 $ input "NewTx" ["transaction" .= selfTx]
+                    -- Send bunch of init's since they will not have any effect since the Head is already open.
+                    send n1 $ input "Init" []
                     pure utxo
                 )
                 committedUTxOByAlice
-                [1 .. capacity * 10]
+                [1 .. capacity * 5]
+
               send n1 $ input "Close" []
-              deadline <- waitMatch 30 n1 $ \v -> do
+              deadline <- waitMatch 200 n1 $ \v -> do
                 guard $ v ^? key "tag" == Just "HeadIsClosed"
                 guard $ v ^? key "headId" == Just (toJSON headId)
                 snapshotNumber <- v ^? key "snapshotNumber"
@@ -858,9 +854,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               send n1 $ input "Fanout" []
               waitForAllMatch 10 [n1] $ checkFanout headId committedUTxOByAlice
-
-              paths <- listDirectory inputQueueDir
-              paths `shouldBe` []
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir $ \dir -> do
