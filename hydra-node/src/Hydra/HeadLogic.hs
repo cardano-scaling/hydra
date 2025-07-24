@@ -647,6 +647,11 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 
   waitOnSeenSnapshot continue =
     case seenSnapshot of
+      -- NOTE: Ignore any redundant AckSn for snapshots we have already seen as
+      -- confirmed. This is for example happening if a party runs multiple
+      -- instances of hydra-node using the same keys.
+      LastSeenSnapshot{lastSeen}
+        | sn <= lastSeen -> noop
       SeenSnapshot snapshot sigs
         | seenSn == sn -> continue snapshot sigs
       _ -> wait WaitOnSeenSnapshot
