@@ -17,6 +17,9 @@ changes.
 - Fix an internal persistent queue blocking after restart when it reached
   capacity.
 
+- Handle failing lease keep alive in network component and avoid bursts in
+  heartbeating.
+
 ## [0.22.3] - 2025-07-21
 
 * Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
