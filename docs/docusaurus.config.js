@@ -161,7 +161,7 @@ const config = {
       navbar: {
         title: "Hydra Head protocol",
         logo: {
-          alt: "Hydra Head protocol",
+          alt: "Hydra Head logo",
           src: "img/hydra.png",
           style: { height: 27, marginTop: 2.5 },
           srcDark: "img/hydra-white.png",
@@ -272,7 +272,7 @@ const config = {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
         additionalLanguages: ["haskell"],
-      }
+      },
     }),
 
   markdown: {
