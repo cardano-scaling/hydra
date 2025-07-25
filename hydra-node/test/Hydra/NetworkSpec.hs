@@ -28,6 +28,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
 import System.FilePath ((</>))
+import System.Process.Typed (readProcessStdout_, runProcess_, shell)
 import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGoldenADTSpecsWithSettings)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
@@ -138,6 +139,30 @@ spec = do
               withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
                 waitFor NetworkConnected
                 waitFor $ PeerConnected carolConfig.advertise
+
+      it "handles expired lease" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 5 $ do
+            PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
+            -- Record and assert connectivity events from alice's perspective
+            (recordReceived, _, waitConnectivity) <- newRecordingCallback
+            let
+              waitFor :: HasCallStack => Connectivity -> IO ()
+              waitFor = waitEq waitConnectivity 60
+            withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \_ -> do
+              withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
+                waitFor NetworkConnected
+                waitFor $ PeerConnected bobConfig.advertise
+                -- Expire all leases manually to simulate a keepAlive coming too
+                -- late. Note that we do not distinguish which is which so
+                -- alice's lease will also be killed, but does not matter here.
+                let endpoints = "--endpoints=" <> show (listen aliceConfig)
+                output <- readProcessStdout_ . shell $ "etcdctl lease list " <> endpoints
+                let leases = drop 1 $ lines $ decodeUtf8 output
+                forM_ leases $ \lease ->
+                  runProcess_ . shell $ "etcdctl lease revoke " <> endpoints <> " " <> toString lease
+                -- Alice sees bob disconnected and connected again
+                waitFor $ PeerConnected bobConfig.advertise
 
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
