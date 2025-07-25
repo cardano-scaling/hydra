@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 -- | Implements a Hydra network component using [etcd](https://etcd.io/).
 --
@@ -61,7 +59,6 @@ import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens qualified as Aeson
 import Data.Aeson.Types (Value)
-import Data.Bits ((.|.))
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
@@ -77,9 +74,8 @@ import Hydra.Network (
   NetworkComponent,
   NetworkConfiguration (..),
   ProtocolVersion,
-  WhichEtcd (..),
  )
-import Hydra.Node.EmbedTH (embedExecutable)
+import Hydra.Network.EtcdBinary (getEtcdBinary)
 import Network.GRPC.Client (
   Address (..),
   CallParams (..),
@@ -108,9 +104,8 @@ import Network.GRPC.Etcd (
  )
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
-import System.FilePath (takeDirectory, (</>))
+import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
-import System.Posix (ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
 import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
   Process,
@@ -253,21 +248,6 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
 
   NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
-
--- | Return the path of the etcd binary. Will either install it first, or just
--- assume there is one available on the system path.
-getEtcdBinary :: FilePath -> WhichEtcd -> IO FilePath
-getEtcdBinary _ SystemEtcd = pure "etcd"
-getEtcdBinary persistenceDir EmbeddedEtcd =
-  let path = persistenceDir </> "bin" </> "etcd"
-   in installEtcd path >> pure path
-
--- | Install the embedded 'etcd' binary to given file path.
-installEtcd :: FilePath -> IO ()
-installEtcd fp = do
-  createDirectoryIfMissing True (takeDirectory fp)
-  BS.writeFile fp $(embedExecutable "etcd")
-  setFileMode fp (ownerReadMode .|. ownerWriteMode .|. ownerExecuteMode)
 
 -- | Check and write version on etcd cluster. This will retry until we are on a
 -- majority cluster and succeed. If the version does not match a corresponding
@@ -563,29 +543,31 @@ newPersistentQueue ::
   Natural ->
   m (PersistentQueue m a)
 newPersistentQueue path capacity = do
-  queue <- newTBQueueIO capacity
+  paths <- liftIO $ do
+    createDirectoryIfMissing True path
+    sort . mapMaybe readMaybe <$> listDirectory path
+  queue <- newTBQueueIO $ max (fromIntegral $ length paths) capacity
   highestId <-
-    try (loadExisting queue) >>= \case
+    try (loadExisting queue paths) >>= \case
       Left (_ :: IOException) -> do
+        -- XXX: This swallows and not logs the error
         liftIO $ createDirectoryIfMissing True path
         pure 0
       Right highest -> pure highest
   nextIx <- newTVarIO $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path}
  where
-  loadExisting queue = do
-    paths <- liftIO $ listDirectory path
-    case sort $ mapMaybe readMaybe paths of
-      [] -> pure 0
-      idxs -> do
-        forM_ idxs $ \(idx :: Natural) -> do
-          bs <- readFileBS (path </> show idx)
-          case decodeFull' bs of
-            Left err ->
-              fail $ "Failed to decode item: " <> show err
-            Right item ->
-              atomically $ writeTBQueue queue (idx, item)
-        pure $ List.last idxs
+  loadExisting queue = \case
+    [] -> pure 0
+    idxs -> do
+      forM_ idxs $ \(idx :: Natural) -> do
+        bs <- readFileBS (path </> show idx)
+        case decodeFull' bs of
+          Left err ->
+            fail $ "Failed to decode item: " <> show err
+          Right item ->
+            atomically $ writeTBQueue queue (idx, item)
+      pure $ List.last idxs
 
 -- | Write a value to the queue, blocking if the queue is full.
 writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
@@ -595,6 +577,7 @@ writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
     modifyTVar' nextIx (+ 1)
     pure next
   writeFileBS (directory </> show next) $ serialize' item
+  -- XXX: We should trace when the queue is full
   atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the
@@ -610,6 +593,8 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
   popped <- atomically $ do
     (ix, next) <- peekTBQueue queue
     if next == item
+      -- FIXME: why would we not call this? We saw the persistent queue reach
+      -- capacity and writing blocked while nothing seemed to clear it.
       then readTBQueue queue $> Just ix
       else pure Nothing
   case popped of
