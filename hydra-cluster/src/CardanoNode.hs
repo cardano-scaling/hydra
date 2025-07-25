@@ -217,6 +217,7 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
       , "shelley-genesis.json"
       , "alonzo-genesis.json"
       , "conway-genesis.json"
+      , "peer-snapshot.json"
       ]
       $ \fn -> do
         createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
