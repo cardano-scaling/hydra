@@ -421,6 +421,7 @@ test-suite tests
     , text
     , time
     , tls
+    , typed-process
     , websockets
 
   build-tool-depends: hspec-discover:hspec-discover
