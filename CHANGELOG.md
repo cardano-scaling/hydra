@@ -14,6 +14,9 @@ changes.
   resulting in the node waiting for the accompanying snapshot request and
   occurred when running heads with mirror nodes.
 
+- Fix an internal persistent queue blocking after restart when it reached
+  capacity.
+
 ## [0.22.3] - 2025-07-21
 
 * Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
