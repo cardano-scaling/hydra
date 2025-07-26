@@ -1,0 +1,144 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.PartySpec</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Prelude</span></span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Party</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Party</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Aeson.GenericSpecs</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">roundtripAndGoldenSpecs</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Fixture</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">alice</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">bob</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">carol</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(==&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="annot"><a href="Hydra.PartySpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-12"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><a href="Hydra.PartySpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Ord&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-14"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; ((Party, Party, Party) -&gt; Property) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;is transitive&quot;</span></span><span> </span><span class="annot"><span class="annottext">(((Party, Party, Party) -&gt; Property) -&gt; Spec)
+-&gt; ((Party, Party, Party) -&gt; Property) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679619609"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619609"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679619610"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619610"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679619611"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619611"><span class="hs-identifier hs-var">z</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-15"></span><span>      </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619609"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619610"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619610"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619611"><span class="hs-identifier hs-var">z</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Property
+forall prop. Testable prop =&gt; Bool -&gt; prop -&gt; Property
+</span><span class="hs-operator hs-var">==&gt;</span></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619609"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619611"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (Party -&gt; Bool) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;is reflexive&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Party -&gt; Bool) -&gt; Spec) -&gt; (Party -&gt; Bool) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679619614"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619614"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-17"></span><span>      </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619614"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619614"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; ((Party, Party) -&gt; Bool) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;is antisymmetric&quot;</span></span><span> </span><span class="annot"><span class="annottext">(((Party, Party) -&gt; Bool) -&gt; Spec)
+-&gt; ((Party, Party) -&gt; Bool) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679619615"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619615"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679619616"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619616"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-19"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619615"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619616"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619616"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619615"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619615"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619616"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; ((Party, Party) -&gt; Bool) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;implements Eq and Ord correspondingly&quot;</span></span><span> </span><span class="annot"><span class="annottext">(((Party, Party) -&gt; Bool) -&gt; Spec)
+-&gt; ((Party, Party) -&gt; Bool) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679619617"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619617"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679619618"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619618"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Ordering
+forall a. Ord a =&gt; a -&gt; a -&gt; Ordering
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#compare"><span class="hs-identifier hs-var">compare</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619617"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619618"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">Ordering -&gt; Ordering -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Ordering
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#EQ"><span class="hs-identifier hs-var">EQ</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619617"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679619618"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><span class="annottext">Proxy Party -&gt; Spec
+forall a.
+(Arbitrary a, ToJSON a, FromJSON a, Typeable a) =&gt;
+Proxy a -&gt; Spec
+</span><span class="hs-identifier hs-var">roundtripAndGoldenSpecs</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall t. Proxy t
+forall {k} (t :: k). Proxy t
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Proxy.html#Proxy"><span class="hs-identifier hs-var">Proxy</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;has alice, bob, carol sorted&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-27"></span><span>    </span><span class="annot"><span class="annottext">[Party] -&gt; [Party]
+forall a. Ord a =&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.OldList.html#sort"><span class="hs-identifier hs-var">sort</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
+</span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
+</span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
+</span><span class="hs-identifier hs-var">carol</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[Party] -&gt; [Party] -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
+</span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
+</span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
+</span><span class="hs-identifier hs-var">carol</span></span><span class="hs-special">]</span><span>
+</span><span id="line-28"></span></pre></body></html>

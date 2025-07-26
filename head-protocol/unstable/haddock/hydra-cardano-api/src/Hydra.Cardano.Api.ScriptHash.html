@@ -1,0 +1,19 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cardano.Api.ScriptHash</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="annot"><span class="hs-comment">-- * Extras</span></span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="annot"><span class="hs-comment">-- | Like 'hashScript', but for a 'ScriptInAnyLang'.</span></span><span>
+</span><span id="line-10"></span><span class="annot"><a href="Hydra.Cardano.Api.ScriptHash.html#hashScriptInAnyLang"><span class="hs-identifier hs-type">hashScriptInAnyLang</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptInAnyLang</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span>
+</span><span id="line-11"></span><span id="hashScriptInAnyLang"><span class="annot"><span class="annottext">hashScriptInAnyLang :: ScriptInAnyLang -&gt; ScriptHash
+</span><a href="Hydra.Cardano.Api.ScriptHash.html#hashScriptInAnyLang"><span class="hs-identifier hs-var hs-var">hashScriptInAnyLang</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ScriptInAnyLang</span></span><span> </span><span class="annot"><span class="annottext">ScriptLanguage lang
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679291343"><span class="annot"><span class="annottext">Script lang
+</span><a href="#local-6989586621679291343"><span class="hs-identifier hs-var">script</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="annottext">Script lang -&gt; ScriptHash
+forall lang. Script lang -&gt; ScriptHash
+</span><span class="hs-identifier hs-var">hashScript</span></span><span> </span><span class="annot"><span class="annottext">Script lang
+</span><a href="#local-6989586621679291343"><span class="hs-identifier hs-var">script</span></a></span><span>
+</span><span id="line-13"></span></pre></body></html>
