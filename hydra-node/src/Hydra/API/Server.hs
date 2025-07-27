@@ -12,6 +12,7 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (map)
 import Data.Conduit.List (catMaybes)
+import Data.Map qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -31,13 +32,16 @@ import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
-import Hydra.HeadLogic (aggregate)
-import Hydra.HeadLogic.Outcome qualified as StateChanged
-import Hydra.HeadLogic.State (
+import Hydra.HeadLogic (
+  CoordinatedHeadState (..),
   Deposit (..),
-  HeadState (Idle),
+  HeadState (..),
   IdleState (..),
+  InitialState (..),
+  OpenState (..),
+  aggregate,
  )
+import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -259,6 +263,9 @@ mkTimedServerOutputFromStateEvent event =
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
 projectPendingDeposits txIds = \case
+  StateChanged.Checkpoint{state} -> case state of
+    Open OpenState{coordinatedHeadState = CoordinatedHeadState{pendingDeposits}} -> Map.keys pendingDeposits
+    _ -> txIds
   StateChanged.DepositRecorded{depositTxId} -> depositTxId : txIds
   StateChanged.DepositRecovered{depositTxId} -> filter (/= depositTxId) txIds
   StateChanged.CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
