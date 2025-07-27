@@ -12,6 +12,7 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (map)
 import Data.Conduit.List (catMaybes)
+import Data.Map qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -31,19 +32,22 @@ import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
-import Hydra.HeadLogic (aggregate)
-import Hydra.HeadLogic.Outcome qualified as StateChanged
-import Hydra.HeadLogic.State (
+import Hydra.HeadLogic (
+  CoordinatedHeadState (..),
   Deposit (..),
-  HeadState (Idle),
+  HeadState (..),
   IdleState (..),
+  InitialState (..),
+  OpenState (..),
+  aggregate,
  )
+import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
-import Hydra.Tx (HeadId, IsTx (..), Party, txId)
+import Hydra.Tx (IsTx (..), Party, txId)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
@@ -96,8 +100,10 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
     headStateP <- mkProjection (Idle $ IdleState mkChainState) aggregate
+    -- XXX: We never subscribe to changes of commitInfoP et al directly so a
+    -- single read model and normal functions mapping from HeadState ->
+    -- CommitInfo etc. would suffice and are less fragile
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
-    headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
     let historyTimedOutputs = sourceEvents .| map mkTimedServerOutputFromStateEvent .| catMaybes
     _ <-
@@ -108,7 +114,6 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                 lift $ atomically $ do
                   update headStateP stateChanged
                   update commitInfoP stateChanged
-                  update headIdP stateChanged
                   update pendingDepositsP stateChanged
             )
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
@@ -127,7 +132,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp env party tracer historyTimedOutputs callback headStateP headIdP responseChannel serverOutputFilter)
+              (wsApp env party tracer historyTimedOutputs callback headStateP responseChannel serverOutputFilter)
               ( httpApp
                   tracer
                   chain
@@ -150,7 +155,6 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                     atomically $ do
                       update headStateP stateChanged
                       update commitInfoP stateChanged
-                      update headIdP stateChanged
                       update pendingDepositsP stateChanged
                     -- Send to the client if it maps to a server output
                     case mkTimedServerOutputFromStateEvent event of
@@ -260,6 +264,9 @@ mkTimedServerOutputFromStateEvent event =
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
 projectPendingDeposits txIds = \case
+  StateChanged.Checkpoint{state} -> case state of
+    Open OpenState{coordinatedHeadState = CoordinatedHeadState{pendingDeposits}} -> Map.keys pendingDeposits
+    _ -> txIds
   StateChanged.DepositRecorded{depositTxId} -> depositTxId : txIds
   StateChanged.DepositRecovered{depositTxId} -> filter (/= depositTxId) txIds
   StateChanged.CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
@@ -270,18 +277,12 @@ projectPendingDeposits txIds = \case
 -- state since this is when Head parties need to commit some funds.
 projectCommitInfo :: CommitInfo -> StateChanged.StateChanged tx -> CommitInfo
 projectCommitInfo commitInfo = \case
+  StateChanged.Checkpoint{state} -> case state of
+    Initial InitialState{headId} -> NormalCommit headId
+    Open OpenState{headId} -> IncrementalCommit headId
+    _ -> CannotCommit
   StateChanged.HeadInitialized{headId} -> NormalCommit headId
   StateChanged.HeadOpened{headId} -> IncrementalCommit headId
   StateChanged.HeadAborted{} -> CannotCommit
   StateChanged.HeadClosed{} -> CannotCommit
   _other -> commitInfo
-
--- | Projection to obtain the 'HeadId' needed to draft a commit transaction.
--- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
--- state since this is when Head parties need to commit some funds.
-projectInitializingHeadId :: Maybe HeadId -> StateChanged.StateChanged tx -> Maybe HeadId
-projectInitializingHeadId mHeadId = \case
-  StateChanged.HeadInitialized{headId} -> Just headId
-  StateChanged.HeadOpened{} -> Nothing
-  StateChanged.HeadAborted{} -> Nothing
-  _other -> mHeadId
