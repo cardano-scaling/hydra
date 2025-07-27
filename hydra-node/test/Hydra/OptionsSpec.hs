@@ -197,6 +197,16 @@ spec = parallel $
                   )
             }
 
+    it "parses --persistence-rotate-after option as a positive number" $ do
+      let defaultWithRotateAfter rotateAfterX =
+            Run
+              defaultRunOptions
+                { persistenceRotateAfter = Just rotateAfterX
+                }
+      shouldNotParse ["--persistence-rotate-after", "-1"]
+      shouldNotParse ["--persistence-rotate-after", "0"]
+      ["--persistence-rotate-after", "1"] `shouldParse` defaultWithRotateAfter 1
+
     it "parses --contestation-period option as a number of seconds" $ do
       let defaultWithContestationPeriod contestationPeriod =
             Run

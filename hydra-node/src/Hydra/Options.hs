@@ -79,7 +79,7 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
-import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
+import Test.QuickCheck (choose, elements, listOf, listOf1, oneof, vectorOf)
 
 data Command
   = Run RunOptions
@@ -223,7 +223,7 @@ instance Arbitrary RunOptions where
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
     persistenceDir <- genDirPath
-    persistenceRotateAfter <- arbitrary
+    persistenceRotateAfter <- oneof [pure Nothing, Just . fromInteger <$> choose (1, 100000)]
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     whichEtcd <- arbitrary
@@ -855,12 +855,19 @@ persistenceDirParser =
 persistenceRotateAfterParser :: Parser Natural
 persistenceRotateAfterParser =
   option
-    auto
+    (eitherReader validateRotateAfter)
     ( long "persistence-rotate-after"
         <> metavar "NATURAL"
         <> help
-          "The number of Hydra events to trigger rotation (default: no rotation)"
+          "The number of Hydra events to trigger rotation (default: no rotation).\
+          \Note it must be a positive number."
     )
+ where
+  validateRotateAfter :: String -> Either String Natural
+  validateRotateAfter arg =
+    case readMaybe arg of
+      Just n | n > 0 -> Right n
+      _ -> Left "--persistence-rotate-after must be a positive number"
 
 hydraNodeCommand :: ParserInfo Command
 hydraNodeCommand =
