@@ -16,6 +16,10 @@ changes.
   being able to use `/commit` although the head is initializing or outdated
   information in the `Greetings` message.
 
+- Fix API not correctly handling event log rotation. This was evident in not
+  being able to use `/commit` although the head is initializing or outdated
+  information in the `Greetings` message.
+
 - Ignore snapshot signatures of already confirmed snapshots. This was previously
   resulting in the node waiting for the accompanying snapshot request and
   occurred when running heads with mirror nodes.
