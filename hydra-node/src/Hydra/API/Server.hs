@@ -94,6 +94,9 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
     headStateP <- mkProjection (Idle $ IdleState mkChainState) aggregate
+    -- XXX: We never subscribe to changes of commitInfoP et al directly so a
+    -- single read model and normal functions mapping from HeadState ->
+    -- CommitInfo etc. would suffice and are less fragile
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
@@ -266,6 +269,10 @@ projectPendingDeposits txIds = \case
 -- state since this is when Head parties need to commit some funds.
 projectCommitInfo :: CommitInfo -> StateChanged.StateChanged tx -> CommitInfo
 projectCommitInfo commitInfo = \case
+  StateChanged.Checkpoint{state} -> case state of
+    Initial InitialState{headId} -> NormalCommit headId
+    Open OpenState{headId} -> IncrementalCommit headId
+    _ -> CannotCommit
   StateChanged.HeadInitialized{headId} -> NormalCommit headId
   StateChanged.HeadOpened{headId} -> IncrementalCommit headId
   StateChanged.HeadAborted{} -> CannotCommit
