@@ -10,7 +10,31 @@ changes.
 
 ## [0.23.0] - UNRELEASED
 
+## [0.22.4] - UNRELEASED
+
 - Accept additional field `amount` when depositing to specify the amount of Lovelace that should be depositted to a Head returning any leftover to the user.
+
+- Fix API not correctly handling event log rotation. This was evident in not
+  being able to use `/commit` although the head is initializing or outdated
+  information in the `Greetings` message.
+
+- Ignore snapshot signatures of already confirmed snapshots. This was previously
+  resulting in the node waiting for the accompanying snapshot request and
+  occurred when running heads with mirror nodes.
+
+- Fix an internal persistent queue blocking after restart when it reached
+  capacity.
+
+- Handle failing lease keep alive in network component and avoid bursts in
+  heartbeating.
+
+## [0.22.3] - 2025-07-21
+
+* Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
+  revision if `last-known-revision` is missing or too old. This can happen if a
+  node is down for a long time and the `etcd` cluster compacted the last known
+  revision in the meantime
+  [#2136](https://github.com/cardano-scaling/hydra/issues/2136).
 
 - Don't keep around invalid transactions as they could lead to stuck Head.
 
