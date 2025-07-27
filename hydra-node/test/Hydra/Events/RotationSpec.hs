@@ -101,6 +101,44 @@ spec = parallel $ do
             events' <- getEvents (eventSource eventStore')
             let checkpoint' = foldl' mkAggregator s0 events'
             checkpoint `shouldBe` Checkpoint checkpoint'
+      it "a restarted and non-restarted node have consistent rotation" $ \testHydrate -> do
+        -- prepare inputs
+        now <- getCurrentTime
+        let contestationDeadline = toNominalDiffTime cperiod `addUTCTime` now
+        let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline
+        let inputs = inputsToOpenHead ++ [closeInput]
+        failAfter 1 $
+          do
+            -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
+            let rotationConfig = RotateAfter 3
+            let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+            -- run restarted node with prepared inputs
+            eventStore <- createMockEventStore
+            rotatingEventStore1 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
+            let inputs1 = take 3 inputs
+            let inputs2 = drop 3 inputs
+            testHydrate rotatingEventStore1 []
+              >>= notConnect
+              >>= primeWith inputs1
+              >>= runToCompletion
+            rotatingEventStore2 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint rotatingEventStore1
+            testHydrate rotatingEventStore2 []
+              >>= notConnect
+              >>= primeWith inputs2
+              >>= runToCompletion
+            -- run non-restarted node with prepared inputs
+            eventStore' <- createMockEventStore
+            rotatingEventStore' <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore'
+            testHydrate rotatingEventStore' []
+              >>= notConnect
+              >>= primeWith inputs
+              >>= runToCompletion
+            -- stored events should yield consistent checkpoint events
+            [StateEvent{eventId = eventId, stateChanged = checkpoint}] <- getEvents (eventSource rotatingEventStore2)
+            [StateEvent{eventId = eventId', stateChanged = checkpoint'}] <- getEvents (eventSource rotatingEventStore')
+            checkpoint `shouldBe` checkpoint'
+            -- stored events should yield consistent event ids
+            eventId `shouldBe` eventId'
 
   describe "Rotation algorithm" $ do
     prop "rotates on startup" $
