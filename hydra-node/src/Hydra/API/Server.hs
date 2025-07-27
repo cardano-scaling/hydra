@@ -46,7 +46,7 @@ import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Node.Environment (Environment)
-import Hydra.Tx (HeadId, IsTx (..), Party, txId)
+import Hydra.Tx (IsTx (..), Party, txId)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
@@ -102,7 +102,6 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     -- single read model and normal functions mapping from HeadState ->
     -- CommitInfo etc. would suffice and are less fragile
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
-    headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
     let historyTimedOutputs = sourceEvents .| map mkTimedServerOutputFromStateEvent .| catMaybes
     _ <-
@@ -113,7 +112,6 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                 lift $ atomically $ do
                   update headStateP stateChanged
                   update commitInfoP stateChanged
-                  update headIdP stateChanged
                   update pendingDepositsP stateChanged
             )
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
@@ -132,7 +130,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp party tracer historyTimedOutputs callback headStateP headIdP responseChannel serverOutputFilter)
+              (wsApp party tracer historyTimedOutputs callback headStateP responseChannel serverOutputFilter)
               ( httpApp
                   tracer
                   chain
@@ -153,7 +151,6 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                     atomically $ do
                       update headStateP stateChanged
                       update commitInfoP stateChanged
-                      update headIdP stateChanged
                       update pendingDepositsP stateChanged
                     -- Send to the client if it maps to a server output
                     case mkTimedServerOutputFromStateEvent event of
@@ -285,13 +282,3 @@ projectCommitInfo commitInfo = \case
   StateChanged.HeadAborted{} -> CannotCommit
   StateChanged.HeadClosed{} -> CannotCommit
   _other -> commitInfo
-
--- | Projection to obtain the 'HeadId' needed to draft a commit transaction.
--- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
--- state since this is when Head parties need to commit some funds.
-projectInitializingHeadId :: Maybe HeadId -> StateChanged.StateChanged tx -> Maybe HeadId
-projectInitializingHeadId mHeadId = \case
-  StateChanged.HeadInitialized{headId} -> Just headId
-  StateChanged.HeadOpened{} -> Nothing
-  StateChanged.HeadAborted{} -> Nothing
-  _other -> mHeadId
