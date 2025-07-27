@@ -66,9 +66,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
       -- aggregate new state
       modifyTVar' aggregateStateV (`aggregator` event)
       -- bump numberOfEvents
-      numberOfEvents <- readTVar numberOfEventsV
-      let numberOfEvents' = numberOfEvents + 1
-      writeTVar numberOfEventsV numberOfEvents'
+      modifyTVar' numberOfEventsV (+ 1)
     -- check rotation
     whenM (shouldRotate numberOfEventsV) $ do
       let eventId = getEventId event
