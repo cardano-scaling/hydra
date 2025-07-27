@@ -40,7 +40,8 @@ spec = parallel $ do
       it "rotates while running" $ \testHydrate -> do
         failAfter 1 $ do
           eventStore <- createMockEventStore
-          -- NOTE: this is hardcoded to ensure we get a checkpoint + a single event at the end
+          -- NOTE: because there will be 5 inputs processed in total,
+          -- this is hardcoded to ensure we get a checkpoint + a single event at the end
           let rotationConfig = RotateAfter 4
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
@@ -53,7 +54,8 @@ spec = parallel $ do
       it "consistent state after restarting with rotation" $ \testHydrate -> do
         failAfter 1 $ do
           eventStore <- createMockEventStore
-          -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
+          -- NOTE: because there will be 6 inputs processed in total,
+          -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter 3
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
@@ -81,7 +83,8 @@ spec = parallel $ do
         failAfter 1 $
           do
             eventStore <- createMockEventStore
-            -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
+            -- NOTE: because there will be 6 inputs processed in total,
+            -- this is hardcoded to ensure we get a single checkpoint event at the end
             let rotationConfig = RotateAfter 3
             -- run rotated event store with prepared inputs
             let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
@@ -107,16 +110,17 @@ spec = parallel $ do
         let contestationDeadline = toNominalDiffTime cperiod `addUTCTime` now
         let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline
         let inputs = inputsToOpenHead ++ [closeInput]
+        let inputs1 = take 3 inputs
+        let inputs2 = drop 3 inputs
         failAfter 1 $
           do
-            -- NOTE: this is hardcoded to ensure we get a single checkpoint event at the end
-            let rotationConfig = RotateAfter 3
             let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+            -- NOTE: because there will be 6 inputs processed in total,
+            -- this is hardcoded to ensure we get a single checkpoint event at the end
+            let rotationConfig = RotateAfter 3
             -- run restarted node with prepared inputs
             eventStore <- createMockEventStore
             rotatingEventStore1 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
-            let inputs1 = take 3 inputs
-            let inputs2 = drop 3 inputs
             testHydrate rotatingEventStore1 []
               >>= notConnect
               >>= primeWith inputs1
