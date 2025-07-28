@@ -279,6 +279,7 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
             FullCommitRequest{blueprintTx, utxo} -> do
               draftCommit headId utxo blueprintTx Nothing
             SimpleCommitRequest{utxoToCommit, amount} -> do
+              -- TODO: check if the provided amount is actually possible to extract from the utxoToCommit
               let blueprintTx = txSpendingUTxO utxoToCommit
               draftCommit headId utxoToCommit blueprintTx amount
         IncrementalCommit headId -> do
