@@ -75,6 +75,7 @@ import Hydra.Network (
 import Hydra.Network.EtcdBinary (getEtcdBinary)
 import Network.GRPC.Client (
   Address (..),
+  CallParams (..),
   ConnParams (..),
   Connection,
   ReconnectPolicy (..),
@@ -84,6 +85,7 @@ import Network.GRPC.Client (
   TimeoutUnit (..),
   TimeoutValue (..),
   rpc,
+  rpcWith,
   withConnection,
  )
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
@@ -366,6 +368,11 @@ putMessage tracer config ourHost msg = do
   withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn -> do
     void $ nonStreaming conn (rpc @(Protobuf KV "put")) req
  where
+  -- NOTE: Timeout puts after 3 seconds. This is not tested, but we saw the
+  -- 'pending-broadcast' queue fill up and suspect that 'put' requests in
+  -- 'broadcastMessages' were just not served and stay pending forever.
+  callParams = def{callTimeout = Just . Timeout Second $ TimeoutValue 3}
+
   req =
     defMessage
       & #key .~ key
@@ -630,8 +637,6 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
   popped <- atomically $ do
     (ix, next) <- peekTBQueue queue
     if next == item
-      -- FIXME: why would we not call this? We saw the persistent queue reach
-      -- capacity and writing blocked while nothing seemed to clear it.
       then readTBQueue queue $> Just ix
       else pure Nothing
   case popped of
