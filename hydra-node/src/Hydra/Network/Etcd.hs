@@ -82,12 +82,17 @@ import Hydra.Network (
 import Hydra.Node.EmbedTH (embedExecutable)
 import Network.GRPC.Client (
   Address (..),
+  CallParams (..),
   ConnParams (..),
   Connection,
   ReconnectPolicy (..),
   ReconnectTo (ReconnectToOriginal),
   Server (..),
+  Timeout (..),
+  TimeoutUnit (..),
+  TimeoutValue (..),
   rpc,
+  rpcWith,
   withConnection,
  )
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
@@ -323,8 +328,8 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
 
 -- | Broadcast messages from a queue to the etcd cluster.
 --
--- TODO: retrying on failure even needed?
--- Retries on failure to 'putMessage' in case we are on a minority cluster.
+-- Retries on failure to 'putMessage' in case we are on a minority cluster or
+-- when the grpc call timeouts.
 broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
   Tracer IO EtcdLog ->
@@ -353,8 +358,13 @@ putMessage ::
   msg ->
   IO ()
 putMessage conn ourHost msg =
-  void $ nonStreaming conn (rpc @(Protobuf KV "put")) req
+  void $ nonStreaming conn (rpcWith @(Protobuf KV "put") callParams) req
  where
+  -- NOTE: Timeout puts after 3 seconds. This is not tested, but we saw the
+  -- 'pending-broadcast' queue fill up and suspect that 'put' requests in
+  -- 'broadcastMessages' were just not served and stay pending forever.
+  callParams = def{callTimeout = Just . Timeout Second $ TimeoutValue 3}
+
   req =
     defMessage
       & #key .~ key
