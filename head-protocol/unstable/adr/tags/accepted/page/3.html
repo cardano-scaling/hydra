@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en" dir="ltr" class="blog-wrapper blog-tags-post-list-page plugin-blog plugin-id-default" data-has-hydrated="false">
+<head>
+<meta charset="UTF-8">
+<meta name="generator" content="Docusaurus v3.6.3">
+<title data-rh="true">26 posts tagged with &quot;Accepted&quot; | Hydra Head protocol documentation</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://hydra.family/head-protocol/unstable/adr/tags/accepted/page/3"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" property="og:title" content="26 posts tagged with &quot;Accepted&quot; | Hydra Head protocol documentation"><meta data-rh="true" name="docusaurus_tag" content="blog_tags_posts"><meta data-rh="true" name="docsearch:docusaurus_tag" content="blog_tags_posts"><link data-rh="true" rel="icon" href="/head-protocol/unstable/img/hydra.png"><link data-rh="true" rel="canonical" href="https://hydra.family/head-protocol/unstable/adr/tags/accepted/page/3"><link data-rh="true" rel="alternate" href="https://hydra.family/head-protocol/unstable/adr/tags/accepted/page/3" hreflang="en"><link data-rh="true" rel="alternate" href="https://hydra.family/head-protocol/unstable/adr/tags/accepted/page/3" hreflang="x-default"><link rel="alternate" type="application/rss+xml" href="/head-protocol/unstable/adr/rss.xml" title="Hydra Head protocol documentation RSS Feed">
+<link rel="alternate" type="application/atom+xml" href="/head-protocol/unstable/adr/atom.xml" title="Hydra Head protocol documentation Atom Feed">
+
+
+
+
+
+
+
+
+
+
+<script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.961f1934.css">
+<script src="/head-protocol/unstable/assets/js/runtime~main.0dee8a77.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/main.6734071f.js" defer="defer"></script>
+</head>
+<body class="navigation-with-keyboard">
+<script>!function(){function t(t){document.documentElement.setAttribute("data-theme",t)}var e=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme")}catch(t){}}();t(null!==e?e:"light")}(),function(){try{const n=new URLSearchParams(window.location.search).entries();for(var[t,e]of n)if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id="__docusaurus"><div role="region" aria-label="Skip to main content"><a class="skipToContent_fXgn" href="#__docusaurus_skipToContent_fallback">Skip to main content</a></div><header aria-label="Main" class="flex navbar tablet:py-[30px] !px-0 shadow-none z-50 border-b border-[#EAEAEB] pt-3 pb-4 tablet:px-2 navbar--fixed-top"><div class="w-full px-6"><div class="navbar__inner"><div class="navbar__items"><a class="navbar__brand" href="/head-protocol/unstable/"><div class="navbar__logo"><img src="/head-protocol/unstable/img/hydra.png" alt="Hydra Head logo" class="themedComponent_mlkZ themedComponent--light_NVdE" style="height:27px;margin-top:2.5px"><img src="/head-protocol/unstable/img/hydra-white.png" alt="Hydra Head logo" class="themedComponent_mlkZ themedComponent--dark_xIcU" style="height:27px;margin-top:2.5px"></div></a><a class="hover:text-primary-light navbar__item navbar__link" href="/head-protocol/unstable/docs">User manual</a><a class="hover:text-primary-light navbar__item navbar__link" href="/head-protocol/unstable/docs/dev">Developer documentation</a></div><div class="navbar__items navbar__items--right"><a class="hover:text-primary-light navbar__item navbar__link" href="/head-protocol/unstable/topologies">Topologies</a><a class="hover:text-primary-light navbar__item navbar__link" href="/head-protocol/unstable/use-cases">Use cases</a><a class="hover:text-primary-light navbar__item navbar__link" href="/head-protocol/unstable/docs/faqs">FAQs</a><button type="button" class="DocSearch DocSearch-Button" aria-label="Search (Command+K)"><span class="DocSearch-Button-Container"><svg width="20" height="20" class="DocSearch-Search-Icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M14.386 14.386l4.0877 4.0877-4.0877-4.0877c-2.9418 2.9419-7.7115 2.9419-10.6533 0-2.9419-2.9418-2.9419-7.7115 0-10.6533 2.9418-2.9419 7.7115-2.9419 10.6533 0 2.9419 2.9418 2.9419 7.7115 0 10.6533z" stroke="currentColor" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="DocSearch-Button-Placeholder">Search</span></span><span class="DocSearch-Button-Keys"></span></button><a href="https://github.com/cardano-scaling/hydra" target="_blank" rel="noopener noreferrer" class="hover:text-primary-light mx-3 py-1" aria-label="Github link"><svg xmlns="http://www.w3.org/2000/svg" width="25" height="24" viewBox="0 0 25 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.279 0C5.48905 0 0 5.49998 0 12.3042C0 17.7432 3.51702 22.3472 8.39607 23.9767C9.00607 24.0991 9.22952 23.7119 9.22952 23.3862C9.22952 23.1009 9.20941 22.1232 9.20941 21.1044C5.79368 21.8379 5.08238 19.6377 5.08238 19.6377C4.53345 18.2117 3.72011 17.8452 3.72011 17.8452C2.60214 17.0914 3.80154 17.0914 3.80154 17.0914C5.04166 17.1729 5.69239 18.3544 5.69239 18.3544C6.78999 20.2284 8.55869 19.6989 9.27023 19.3729C9.37178 18.5784 9.69726 18.0284 10.0429 17.7229C7.31857 17.4377 4.45227 16.3784 4.45227 11.6522C4.45227 10.3077 4.93987 9.20771 5.71249 8.35222C5.59059 8.04672 5.16356 6.78347 5.83464 5.09273C5.83464 5.09273 6.87143 4.76673 9.20916 6.35572C10.21 6.08639 11.2422 5.94938 12.279 5.94823C13.3158 5.94823 14.3727 6.09097 15.3487 6.35572C17.6867 4.76673 18.7234 5.09273 18.7234 5.09273C19.3945 6.78347 18.9672 8.04672 18.8453 8.35222C19.6383 9.20771 20.1058 10.3077 20.1058 11.6522C20.1058 16.3784 17.2395 17.4172 14.4949 17.7229C14.9423 18.1099 15.3283 18.8432 15.3283 20.0044C15.3283 21.6544 15.3082 22.9787 15.3082 23.3859C15.3082 23.7119 15.5319 24.0991 16.1417 23.9769C21.0207 22.3469 24.5377 17.7432 24.5377 12.3042C24.5578 5.49998 19.0487 0 12.279 0Z" fill="currentColor"></path></svg></a><a href="https://discord.com/invite/Qq5vNTg9PT" target="_blank" rel="noopener noreferrer" class="hover:text-primary-light mx-3 py-1" aria-label="Discord link"><svg xmlns="http://www.w3.org/2000/svg" width="23" height="18" viewBox="0 0 23 18"><path d="M19.4778 1.49632C18.0074 0.806713 16.4357 0.286253 14.7879 0C14.7626 0 14.7246 0 14.7119 0.0390345C14.5091 0.403356 14.2809 0.884782 14.1288 1.27513C12.3543 1.00189 10.6051 1.00189 8.8686 1.27513C8.71649 0.884782 8.47566 0.416368 8.27286 0.0390345C8.26019 0.0130115 8.22216 0 8.19681 0C6.54903 0.286253 4.9773 0.793701 3.51965 1.49632C3.50697 1.49632 3.4943 1.50933 3.4943 1.52234C0.50294 6.08938 -0.308275 10.5523 0.0973328 14.9632C0.0973328 14.9892 0.110008 15.0023 0.122683 15.0153C2.08734 16.4986 4.00131 17.3964 5.86457 17.9949C5.88992 17.9949 5.92794 17.9949 5.94062 17.9689C6.38425 17.3443 6.77718 16.6937 7.11941 16.0041C7.14476 15.9651 7.11941 15.9131 7.08139 15.9C6.4603 15.6528 5.86457 15.3536 5.2815 15.0283C5.2308 15.0023 5.2308 14.9372 5.2815 14.8982C5.40826 14.8071 5.52233 14.703 5.63641 14.6119C5.66176 14.5989 5.68711 14.5859 5.71246 14.6119C9.47701 16.3815 13.5584 16.3815 17.2723 14.6119C17.2976 14.6119 17.323 14.6119 17.3483 14.6119C17.4624 14.703 17.5892 14.8071 17.7032 14.8982C17.7413 14.9242 17.7413 15.0023 17.7032 15.0283C17.1328 15.3666 16.5371 15.6658 15.9034 15.9C15.8653 15.9131 15.84 15.9651 15.8653 16.0041C16.2076 16.6937 16.6005 17.3443 17.0441 17.9689C17.0568 17.9949 17.0948 18.0079 17.1202 17.9949C18.9961 17.3964 20.9101 16.4986 22.8747 15.0153C22.8874 15.0023 22.9001 14.9762 22.9001 14.9632C23.3817 9.86271 22.1015 5.4388 19.5031 1.52234C19.5031 1.50933 19.4904 1.49632 19.4778 1.49632ZM7.6898 12.2828C6.5617 12.2828 5.62374 11.2159 5.62374 9.90175C5.62374 8.58759 6.53635 7.52064 7.6898 7.52064C8.84325 7.52064 9.78121 8.6006 9.75586 9.90175C9.75586 11.2159 8.84325 12.2828 7.6898 12.2828ZM15.333 12.2828C14.2049 12.2828 13.2669 11.2159 13.2669 9.90175C13.2669 8.58759 14.1795 7.52064 15.333 7.52064C16.4864 7.52064 17.4244 8.6006 17.399 9.90175C17.399 11.2159 16.4864 12.2828 15.333 12.2828Z" fill="currentColor"></path></svg></a><button aria-label="Toggle navigation bar" aria-expanded="false" class="navbar__toggle clean-btn" type="button"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2" d="M4 7h22M4 15h22M4 23h22"></path></svg></button></div></div></div><div role="presentation" class="navbar-sidebar__backdrop"></div></header><div id="__docusaurus_skipToContent_fallback" class="main-wrapper mainWrapper_z2l0"><div class="container margin-vert--lg"><div class="row"><aside class="col col--3"><nav class="sidebar_re4s thin-scrollbar" aria-label="Blog recent posts navigation"><div class="sidebarItemTitle_pO2u margin-bottom--md">Architecture Decision Records</div><div role="group"><h3 class="yearGroupHeading_rMGB">2025</h3><ul class="sidebarItemList_Yudw clean-list"><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/32">32. Network layer properties, implementation using etcd
+</a></li></ul></div><div role="group"><h3 class="yearGroupHeading_rMGB">2024</h3><ul class="sidebarItemList_Yudw clean-list"><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/31">31. Achieve constant memory in hydra-node
+</a></li></ul></div><div role="group"><h3 class="yearGroupHeading_rMGB">2023</h3><ul class="sidebarItemList_Yudw clean-list"><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/23">23. Local chain state in chain layer
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/24">24. Persist state changes incrementally
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/25">25. Event-sourced, resource-based API
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/26">26. Stateless transaction observation &amp; construction
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/27">27. Network failures model
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/28">28. Offline mode
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/29">29. EventSource &amp; EventSink abstractions
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/30">30. Use CBOR in external representation of Cardano transactions
+</a></li></ul></div><div role="group"><h3 class="yearGroupHeading_rMGB">2022</h3><ul class="sidebarItemList_Yudw clean-list"><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/13">13. Plutus Contracts Testing Strategy
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/14">14. Token usage in Hydra Scripts
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/15">15. Configuration Through an Admin API
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/16">16. Keep Rejected ADRs
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/17">17. Use UDP protocol for Hydra networking
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/18">18. Single state in Hydra.Node.
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/19">19. Use of reference scripts
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/20">20. Handling time
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/21">21. Bounded transaction validity on Hydra protocol transactions
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/22">22. Test High-level Properties using Model-Based Testing
+</a></li></ul></div><div role="group"><h3 class="yearGroupHeading_rMGB">2021</h3><ul class="sidebarItemList_Yudw clean-list"><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/1">1. Record Architecture Decisions
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/2">2. Reactive Core
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/3">3. Asynchronous Duplex Client API</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/4">4. Use Handle to model Effects
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/5">5. Use io-classes
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/6">6. Network broadcasts all messages
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/7">7. Use with-pattern based component interfaces
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/8">8. Custom Prelude
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/9">9. Simplify Logging
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/10">10. Use direct connection to `cardano-node`
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/11">11. Use cardano-api
+</a></li><li class="sidebarItem__DBe"><a class="sidebarItemLink_mo7H" href="/head-protocol/unstable/adr/12">12. Top-down Test-driven Design
+</a></li></ul></div></nav></aside><main class="col col--7"><header class="margin-bottom--xl"><h1>26 posts tagged with &quot;Accepted&quot;</h1><a href="/head-protocol/unstable/adr/tags">View All Tags</a></header><article class="margin-bottom--xl"><header><h2 class="title_f1Hy"><a href="/head-protocol/unstable/adr/24">24. Persist state changes incrementally
+</a></h2><div class="container_mt6G margin-vert--md"><time datetime="2023-06-19T00:00:00.000Z">June 19, 2023</time> · <!-- -->3 min read</div><div class="margin-top--md margin-bottom--sm row"><div class="col col--12 authorCol_Hf19"><div class="avatar margin-bottom--sm"><a href="https://github.com/abailly-iohk" target="_blank" rel="noopener noreferrer" class="avatar__photo-link"><img class="avatar__photo authorImage_XqGP" src="https://github.com/abailly-iohk.png" alt="Arnaud Bailly"></a><div class="avatar__intro authorDetails_lV9A"><div class="avatar__name"><a href="https://github.com/abailly-iohk" target="_blank" rel="noopener noreferrer"><span class="authorName_yefp">Arnaud Bailly</span></a></div><small class="authorTitle_nd0D" title="Lead Architect">Lead Architect</small><div class="authorSocials_rSDt"></div></div></div></div></div></header><div class="markdown"><h2 class="anchor anchorWithStickyNavbar_LWe7" id="status">Status<a href="#status" class="hash-link" aria-label="Direct link to Status" title="Direct link to Status">​</a></h2>
+<p>Accepted</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="context">Context<a href="#context" class="hash-link" aria-label="Direct link to Context" title="Direct link to Context">​</a></h2>
+<ul>
+<li>The state of a Hydra Head is currently persisted as a whole upon each <code>NewState</code> <em>outcome</em> from the <code>update</code> function: The new state is serialised and the <code>state</code> file is overwritten with the corresponding bytes. While this is a straightforward strategy to implement, it has a huge impact on the performance of a Hydra Head as serialising a large data structure like the <code>HeadState</code> and completely overwriting a file is costly<!-- -->
+<ul>
+<li>We revisited our benchmarks and <a href="https://github.com/cardano-scaling/hydra/issues/186#issuecomment-1584292265" target="_blank" rel="noopener noreferrer">found</a> that persistence was the major bottleneck when measuring roundtrip confirmation time,e g. the time it takes from a client&#x27;s perspective to submit a transaction and observe in a <code>ConfirmedSnapshot</code></li>
+</ul>
+</li>
+<li>Furthermore, the way we currently handle changes to the <code>HeadState</code> in the hydra-node, while conceptually being an <code>Effect</code> is handled differently from other <code>Effect</code>s: The state is updated transactionally through a dedicated <code>modifyHeadState</code> function in the core loop of processing events, and <em>then</em> effects are processed.</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="decision">Decision<a href="#decision" class="hash-link" aria-label="Direct link to Decision" title="Direct link to Decision">​</a></h2>
+<p>Implement state persistence using <a href="https://thinkbeforecoding.com/post/2013/07/28/Event-Sourcing-vs-Command-Sourcing" target="_blank" rel="noopener noreferrer"><em>Event Sourcing</em></a>. Practically, this means:</p>
+<ol>
+<li>Replace the <code>NewState</code> outcome with a <code>StateChanged</code> <em>event</em> which can be part of the <code>Outcome</code> of <code>HeadLogic</code>&#x27;s <code>update</code> function, representing the <em>change</em> to be applied to the current state.</li>
+<li>Add an <code>aggregate</code> function to manage applying <code>StateChanged</code> events on top of the current <code>HeadState</code> to keep it updated in-memory.</li>
+<li>Persist <code>StateChanged</code>s in an append-only log using a dedicated <a href="/head-protocol/unstable/adr/4">handle</a>.</li>
+<li>Upon node startup, reread <code>StateChanged</code> events log and reapply those to reset the <code>HeadState</code>.</li>
+</ol>
+<p>The following sequence diagram illustrates new event handling in the <code>HeadLogic</code>:</p>
+<!-- -->
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="consequences">Consequences<a href="#consequences" class="hash-link" aria-label="Direct link to Consequences" title="Direct link to Consequences">​</a></h2>
+<ul>
+<li>
+<p>🐎<!-- --> The main expected consequence of this change is an increase of the overall performance of Hydra Head network.</p>
+</li>
+<li>
+<p>Need to pattern match twice on the <code>HeadState</code>, once in <code>update</code> and once in <code>aggregate</code>.</p>
+</li>
+<li>
+<p>Terms from the specification are distributed over <code>update</code> and <code>aggregate</code> function. For example, the statements about updating all seen transactions would now be in <code>aggregate</code> and not anymore in <code>update</code>.</p>
+</li>
+<li>
+<p>New possibilities this change introduces with respect to <code>ServerOutput</code> handling and client&#x27;s access to a head&#x27;s state:</p>
+<ul>
+<li>Instead of having the <code>HeadLogic</code> emits directly a <code>ClientEffect</code>, the latter could be the result of a client-centric <em>interpretation</em> of a <code>StateChanged</code>.</li>
+<li>Pushing this a little further, we could maintain a <em>Query Model</em> for clients with a dedicated <a href="https://github.com/cardano-scaling/hydra/discussions/686" target="_blank" rel="noopener noreferrer">Query API</a> to ease implementation of stateless clients.</li>
+</ul>
+</li>
+<li>
+<p>Calling <code>StateChanged</code> an <em>event</em> while treating it in the code alongside <em>effects</em> might introduce some confusion as we already use the word <a href="https://github.com/cardano-scaling/hydra/blob/45913954eb18ef550a31017daa443cee6720a00c/hydra-node/src/Hydra/HeadLogic.hs#L64" target="_blank" rel="noopener noreferrer">Event</a> to designate the inputs (a.k.a. commands) to the Head logic state machine. We might want at some later point to unify the terminology.</p>
+</li>
+</ul></div><footer class="row docusaurus-mt-lg"><div class="col"><b>Tags:</b><ul class="tags_jXut padding--none margin-left--sm"><li class="tag_QGVx"><a class="tag_zVej tagRegular_sFm0" href="/head-protocol/unstable/adr/tags/accepted">Accepted</a></li></ul></div></footer></article><article class="margin-bottom--xl"><header><h2 class="title_f1Hy"><a href="/head-protocol/unstable/adr/28">28. Offline mode
+</a></h2><div class="container_mt6G margin-vert--md"><time datetime="2023-10-16T00:00:00.000Z">October 16, 2023</time> · <!-- -->3 min read</div><div class="margin-top--md margin-bottom--sm row"><div class="col col--12 authorCol_Hf19"><div class="avatar margin-bottom--sm"><a href="https://github.com/cardenaso11" target="_blank" rel="noopener noreferrer" class="avatar__photo-link"><img class="avatar__photo authorImage_XqGP" src="https://github.com/cardenaso11.png" alt="Elaine Cardenas"></a><div class="avatar__intro authorDetails_lV9A"><div class="avatar__name"><a href="https://github.com/cardenaso11" target="_blank" rel="noopener noreferrer"><span class="authorName_yefp">Elaine Cardenas</span></a></div><small class="authorTitle_nd0D" title="Software Engineer">Software Engineer</small><div class="authorSocials_rSDt"></div></div></div></div></div></header><div class="markdown"><h2 class="anchor anchorWithStickyNavbar_LWe7" id="status">Status<a href="#status" class="hash-link" aria-label="Direct link to Status" title="Direct link to Status">​</a></h2>
+<p>Accepted</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="context">Context<a href="#context" class="hash-link" aria-label="Direct link to Context" title="Direct link to Context">​</a></h2>
+<p>Currently, the Hydra node requires a Layer 1 Cardano node running in order to operate; The L1 node is needed to submit and watch for L1 transactions. Generally speaking, the transactions watched are for learning the state of the Hydra node, as reflected by the L1 chain. The transactions submitted are to transition between states (e.g. after submitting a Commit tx to the L1, a node watches to see when all other nodes have also Committed.)</p>
+<p>There are applications for the Hydra node where interaction with an L1 chain is unnecessary. Offline mode will be a key component of the Gummiworm protocol, a Layer 2 protocol being built by Sundae Labs, which enables actors other than Hydra head participants to validate transactions that occur in the head.</p>
+<p>The Hydra node offline mode would remove the dependency on the L1 Cardano node, for applications like Gummiworm where it is unneeded. It would also remove the dependency on the L1 Cardano node for peer-to-peer Hydra node communication. This would be useful for other Layer 2s that build on top of Hydra instead of duplicating its efforts, and for anyone who wants to easily validate a set of Cardano transactions.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="decision">Decision<a href="#decision" class="hash-link" aria-label="Direct link to Decision" title="Direct link to Decision">​</a></h2>
+<p>Hydra node will be executable in offline mode, as an alternative to the default online mode. When online, the Hydra node depends on querying a Cardano node for Era History information and Genesis parameters. When offline this is not necessary, because the Hydra node will not connect to any Layer 1 .</p>
+<p>The initial state of the head will be specified in a flag, which makes any Commit redundant. The flag will specify a file for the starting Layer 2 UTXO. The Hydra node can be configured to write the current UTXO into a file, including the starting UTXO file.</p>
+<p>A node running in offline mode will not be able to switch between offline and online modes once started, as it is an unlikely use-case that would likely add more complexity.</p>
+<p>Commit endpoint will return 400 instead of building a transaction, in offline mode.</p>
+<p>Support for peer Hydra nodes in offline mode is considered out of scope, as it doesn&#x27;t seem immediately useful. A node running in offline mode will not be configurable with any peer nodes, nor will it make a network connection to any peer nodes.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="consequences">Consequences<a href="#consequences" class="hash-link" aria-label="Direct link to Consequences" title="Direct link to Consequences">​</a></h2>
+<p>The Hydra node would be usable offline, for transaction validation, and other custom L2 applications. The lifecycle &amp; state machine associated with a Hydra would remain unchanged in both online, and offline mode.</p>
+<p>The Hydra node can be deployed and run without an accompanying Cardano node, simplifying deployment and testing.</p></div><footer class="row docusaurus-mt-lg"><div class="col"><b>Tags:</b><ul class="tags_jXut padding--none margin-left--sm"><li class="tag_QGVx"><a class="tag_zVej tagRegular_sFm0" href="/head-protocol/unstable/adr/tags/accepted">Accepted</a></li></ul></div></footer></article><article class="margin-bottom--xl"><header><h2 class="title_f1Hy"><a href="/head-protocol/unstable/adr/29">29. EventSource &amp; EventSink abstractions
+</a></h2><div class="container_mt6G margin-vert--md"><time datetime="2023-11-07T00:00:00.000Z">November 7, 2023</time> · <!-- -->4 min read</div><div class="margin-top--md margin-bottom--sm row"><div class="col col--6 authorCol_Hf19"><div class="avatar margin-bottom--sm"><a href="https://github.com/cardenaso11" target="_blank" rel="noopener noreferrer" class="avatar__photo-link"><img class="avatar__photo authorImage_XqGP" src="https://github.com/cardenaso11.png" alt="Elaine Cardenas"></a><div class="avatar__intro authorDetails_lV9A"><div class="avatar__name"><a href="https://github.com/cardenaso11" target="_blank" rel="noopener noreferrer"><span class="authorName_yefp">Elaine Cardenas</span></a></div><small class="authorTitle_nd0D" title="Software Engineer">Software Engineer</small><div class="authorSocials_rSDt"></div></div></div></div><div class="col col--6 authorCol_Hf19"><div class="avatar margin-bottom--sm"><a href="https://github.com/quantumplation" target="_blank" rel="noopener noreferrer" class="avatar__photo-link"><img class="avatar__photo authorImage_XqGP" src="https://github.com/quantumplation.png" alt="Pi Lanningham"></a><div class="avatar__intro authorDetails_lV9A"><div class="avatar__name"><a href="https://github.com/quantumplation" target="_blank" rel="noopener noreferrer"><span class="authorName_yefp">Pi Lanningham</span></a></div><small class="authorTitle_nd0D" title="Chief Technology Officer, Sundae Labs">Chief Technology Officer, Sundae Labs</small><div class="authorSocials_rSDt"></div></div></div></div><div class="col col--6 authorCol_Hf19"><div class="avatar margin-bottom--sm"><a href="https://github.com/ch1bo" target="_blank" rel="noopener noreferrer" class="avatar__photo-link"><img class="avatar__photo authorImage_XqGP" src="https://github.com/ch1bo.png" alt="Sebastian Nagel"></a><div class="avatar__intro authorDetails_lV9A"><div class="avatar__name"><a href="https://github.com/ch1bo" target="_blank" rel="noopener noreferrer"><span class="authorName_yefp">Sebastian Nagel</span></a></div><small class="authorTitle_nd0D" title="Software Engineering Lead">Software Engineering Lead</small><div class="authorSocials_rSDt"></div></div></div></div></div></header><div class="markdown"><h2 class="anchor anchorWithStickyNavbar_LWe7" id="status">Status<a href="#status" class="hash-link" aria-label="Direct link to Status" title="Direct link to Status">​</a></h2>
+<p>Accepted</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="context">Context<a href="#context" class="hash-link" aria-label="Direct link to Context" title="Direct link to Context">​</a></h2>
+<ul>
+<li>
+<p>The Hydra node represents a significant engineering asset, providing layer 1 monitoring, peer to peer consensus, durable persistence, and an isomorphic Cardano ledger. Because of this, it is being eyed as a key building block not just in Hydra based applications, but other protocols as well.</p>
+</li>
+<li>
+<p>Currently the <code>hydra-node</code> uses a very basic persistence mechanism for it&#x27;s internal <code>HeadState</code>, that is saving <code>StateChanged</code> events to file on disk and reading them back to load and re-aggregate the <code>HeadState</code> upon startup.</p>
+<ul>
+<li>Some production setups would benefit from storing these events to a service like Amazon Kinesis data stream instead of local files.</li>
+</ul>
+</li>
+<li>
+<p>The <code>hydra-node</code> websocket-based API is the only available event stream right now and might not fit all purposes.</p>
+<ul>
+<li>See also ADR <a href="/head-protocol/unstable/adr/3">3</a> and <a href="/head-protocol/unstable/adr/25">25</a></li>
+<li>Internally, this is realized as a single <code>Server</code> handle which can <code>sendOutput :: ServerOutput tx -&gt; m ()</code></li>
+<li>These <code>ServerOutput</code>s closely relate to <code>StateChanged</code> events and <code>ClientEffect</code>s are yielded by the logic layer often together with the <code>StateChanged</code>. For example:</li>
+</ul>
+<div class="language-hs codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_biex"><pre tabindex="0" class="prism-code language-hs codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token hvariable">onInitialChainAbortTx</span><span class="token plain"> </span><span class="token hvariable">newChainState</span><span class="token plain"> </span><span class="token hvariable">committed</span><span class="token plain"> </span><span class="token hvariable">headId</span><span class="token plain"> </span><span class="token operator" style="color:#393A34">=</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">  </span><span class="token constant" style="color:#36acaa">StateChanged</span><span class="token plain"> </span><span class="token constant" style="color:#36acaa">HeadAborted</span><span class="token punctuation" style="color:#393A34">{</span><span class="token hvariable">chainState</span><span class="token plain"> </span><span class="token operator" style="color:#393A34">=</span><span class="token plain"> </span><span class="token hvariable">newChainState</span><span class="token punctuation" style="color:#393A34">}</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">    </span><span class="token operator" style="color:#393A34">&lt;&gt;</span><span class="token plain"> </span><span class="token constant" style="color:#36acaa">Effects</span><span class="token plain"> </span><span class="token punctuation" style="color:#393A34">[</span><span class="token constant" style="color:#36acaa">ClientEffect</span><span class="token plain"> </span><span class="token operator" style="color:#393A34">$</span><span class="token plain"> </span><span class="token constant" style="color:#36acaa">ServerOutput</span><span class="token constant punctuation" style="color:#393A34">.</span><span class="token constant" style="color:#36acaa">HeadIsAborted</span><span class="token punctuation" style="color:#393A34">{</span><span class="token hvariable">headId</span><span class="token punctuation" style="color:#393A34">,</span><span class="token plain"> </span><span class="token hvariable">utxo</span><span class="token plain"> </span><span class="token operator" style="color:#393A34">=</span><span class="token plain"> </span><span class="token hvariable">fold</span><span class="token plain"> </span><span class="token hvariable">committed</span><span class="token punctuation" style="color:#393A34">}</span><span class="token punctuation" style="color:#393A34">]</span><br></span></code></pre><div class="buttonGroup__atx"><button type="button" aria-label="Copy code to clipboard" title="Copy" class="clean-btn"><span class="copyButtonIcons_eSgA" aria-hidden="true"><svg viewBox="0 0 24 24" class="copyButtonIcon_y97N"><path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"></path></svg><svg viewBox="0 0 24 24" class="copyButtonSuccessIcon_LjdS"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"></path></svg></span></button></div></div></div>
+</li>
+<li>
+<p>Users of <code>hydra-node</code> are interested to add alternative implementations for storing, loading and consuming events of the Hydra protocol.</p>
+</li>
+</ul>
+<h1>Decision</h1>
+<ul>
+<li>
+<p>We create two new interfaces in the <code>hydra-node</code> architecture:</p>
+<ul>
+<li><code>data EventSource e m = EventSource { getEvents :: m [e] }</code></li>
+<li><code>data EventSink e m = EventSink { putEvent :: e -&gt; m () }</code></li>
+</ul>
+</li>
+<li>
+<p>We realize our current <code>PersistenceIncremental</code> used for persisting <code>StateChanged</code> events is both an <code>EventSource</code> and an <code>EventSink</code></p>
+</li>
+<li>
+<p>We drop the <code>persistence</code> from the main handle <code>HydraNode tx m</code>, add <strong>one</strong> <code>EventSource</code> and allow <strong>many</strong> <code>EventSinks</code></p>
+</li>
+</ul>
+<div class="language-hs codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_biex"><pre tabindex="0" class="prism-code language-hs codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token keyword" style="color:#00009f">data</span><span class="token plain"> </span><span class="token constant" style="color:#36acaa">HydraNode</span><span class="token plain"> </span><span class="token hvariable">tx</span><span class="token plain"> </span><span class="token hvariable">m</span><span class="token plain"> </span><span class="token operator" style="color:#393A34">=</span><span class="token plain"> </span><span class="token constant" style="color:#36acaa">HydraNode</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">  </span><span class="token punctuation" style="color:#393A34">{</span><span class="token plain"> </span><span class="token comment" style="color:#999988;font-style:italic">-- ...</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">  </span><span class="token punctuation" style="color:#393A34">,</span><span class="token plain"> </span><span class="token hvariable">eventSource</span><span class="token plain"> </span><span class="token operator" style="color:#393A34">::</span><span class="token plain"> </span><span class="token constant" style="color:#36acaa">EventSource</span><span class="token plain"> </span><span class="token punctuation" style="color:#393A34">(</span><span class="token constant" style="color:#36acaa">StateEvent</span><span class="token plain"> </span><span class="token hvariable">tx</span><span class="token punctuation" style="color:#393A34">)</span><span class="token plain"> </span><span class="token hvariable">m</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">  </span><span class="token punctuation" style="color:#393A34">,</span><span class="token plain"> </span><span class="token hvariable">eventSinks</span><span class="token plain"> </span><span class="token operator" style="color:#393A34">::</span><span class="token plain"> </span><span class="token punctuation" style="color:#393A34">[</span><span class="token constant" style="color:#36acaa">EventSink</span><span class="token plain"> </span><span class="token punctuation" style="color:#393A34">(</span><span class="token constant" style="color:#36acaa">StateEvent</span><span class="token plain"> </span><span class="token hvariable">tx</span><span class="token punctuation" style="color:#393A34">)</span><span class="token plain"> </span><span class="token hvariable">m</span><span class="token punctuation" style="color:#393A34">]</span><span class="token plain"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">  </span><span class="token punctuation" style="color:#393A34">}</span><br></span></code></pre><div class="buttonGroup__atx"><button type="button" aria-label="Copy code to clipboard" title="Copy" class="clean-btn"><span class="copyButtonIcons_eSgA" aria-hidden="true"><svg viewBox="0 0 24 24" class="copyButtonIcon_y97N"><path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"></path></svg><svg viewBox="0 0 24 24" class="copyButtonSuccessIcon_LjdS"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"></path></svg></span></button></div></div></div>
+<ul>
+<li>
+<p>The <code>hydra-node</code> will load events and <code>hydrate</code> its <code>HeadState</code> using <code>getEvents</code> of the single <code>eventSource</code>.</p>
+</li>
+<li>
+<p>The <code>stepHydraNode</code> main loop does call <code>putEvent</code> on all <code>eventSinks</code> in sequence. Any failure will make the <code>hydra-node</code> process terminate and require a restart.</p>
+</li>
+<li>
+<p>When loading events from <code>eventSource</code> on <code>hydra-node</code> startup, it will also re-submit events via <code>putEvent</code> to all <code>eventSinks</code>.</p>
+</li>
+<li>
+<p>The default <code>hydra-node</code> main loop does use the file-based <code>EventSource</code> and a single file-based <code>EventSink</code> (using the same file).</p>
+</li>
+<li>
+<p>We realize that the <code>EventSource</code> and <code>EventSink</code> handles, as well as their aggregation in <code>HydraNode</code> are used as an API by forks of the <code>hydra-node</code> and try to minimize changes to it.</p>
+</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="consequences">Consequences<a href="#consequences" class="hash-link" aria-label="Direct link to Consequences" title="Direct link to Consequences">​</a></h2>
+<ul>
+<li>
+<p>The default operation of the <code>hyda-node</code> remains unchanged.</p>
+</li>
+<li>
+<p>There are other things called <code>Event</code> and <code>EventQueue(putEvent)</code> right now in the <code>hydra-node</code>. This is getting confusing and when we implement this, we should also rename several things first (tidying).</p>
+</li>
+<li>
+<p>Interface first: Implementations of <code>EventSink</code> should specify their format in a non-ambiguous and versioned way, especially when a corresponding <code>EventSource</code> exists.</p>
+</li>
+<li>
+<p>The API <code>Server</code> can be modelled and refactored as an <code>EventSink</code>.</p>
+</li>
+<li>
+<p>Projects forking the hydra node have dedicated extension points for producing and consuming events.</p>
+</li>
+<li>
+<p>Sundae Labs can build a &quot;Save transaction batches to S3&quot; proof of concept <code>EventSink</code>.</p>
+</li>
+<li>
+<p>Sundae Labs can build a &quot;Scrolls source&quot; <code>EventSink</code>.</p>
+</li>
+<li>
+<p>Sundae Labs can build a &quot;Amazon Kinesis&quot; <code>EventSource</code> and <code>EventSink</code>.</p>
+</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="out-of-scope--future-work">Out of scope / future work<a href="#out-of-scope--future-work" class="hash-link" aria-label="Direct link to Out of scope / future work" title="Direct link to Out of scope / future work">​</a></h2>
+<ul>
+<li>
+<p>Available implementations for <code>EventSource</code> and <code>EventSink</code> could be</p>
+<ul>
+<li>configured upon <code>hydra-node</code> startup using for example URIs: <code>--event-source file://state</code> or <code>--event-sink s3://some-bucket</code></li>
+<li>dynamically loaded as plugins without having to fork <code>hydra-node</code>.</li>
+</ul>
+</li>
+<li>
+<p>The <code>Network</code> and <code>Chain</code> parts qualify as <code>EventSink</code>s as well or shall those be triggered by <code>Effect</code>s still?</p>
+</li>
+</ul></div><footer class="row docusaurus-mt-lg"><div class="col"><b>Tags:</b><ul class="tags_jXut padding--none margin-left--sm"><li class="tag_QGVx"><a class="tag_zVej tagRegular_sFm0" href="/head-protocol/unstable/adr/tags/accepted">Accepted</a></li></ul></div></footer></article><article class="margin-bottom--xl"><header><h2 class="title_f1Hy"><a href="/head-protocol/unstable/adr/30">30. Use CBOR in external representation of Cardano transactions
+</a></h2><div class="container_mt6G margin-vert--md"><time datetime="2023-12-06T00:00:00.000Z">December 6, 2023</time> · <!-- -->3 min read</div><div class="margin-top--md margin-bottom--sm row"><div class="col col--12 authorCol_Hf19"><div class="avatar margin-bottom--sm"><a href="https://github.com/abailly-iohk" target="_blank" rel="noopener noreferrer" class="avatar__photo-link"><img class="avatar__photo authorImage_XqGP" src="https://github.com/abailly-iohk.png" alt="Arnaud Bailly"></a><div class="avatar__intro authorDetails_lV9A"><div class="avatar__name"><a href="https://github.com/abailly-iohk" target="_blank" rel="noopener noreferrer"><span class="authorName_yefp">Arnaud Bailly</span></a></div><small class="authorTitle_nd0D" title="Lead Architect">Lead Architect</small><div class="authorSocials_rSDt"></div></div></div></div></div></header><div class="markdown"><h2 class="anchor anchorWithStickyNavbar_LWe7" id="status">Status<a href="#status" class="hash-link" aria-label="Direct link to Status" title="Direct link to Status">​</a></h2>
+<p>Accepted</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="context">Context<a href="#context" class="hash-link" aria-label="Direct link to Context" title="Direct link to Context">​</a></h2>
+<ul>
+<li>The <a href="https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano.hs#L127" target="_blank" rel="noopener noreferrer">Hydra.Ledger.Cardano</a> module provides <code>ToJSON/FromJSON</code> instances for <code>Tx</code> and <a href="https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano/Json.hs#L361" target="_blank" rel="noopener noreferrer">AlonzoTx</a>
+<ul>
+<li>We have specified this format as part of <a href="https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/json-schemas/api.yaml#L1473" target="_blank" rel="noopener noreferrer">Hydra API</a></li>
+</ul>
+</li>
+<li>These instances appear in a few places as part of Hydra API:<!-- -->
+<ul>
+<li>In the <a href="https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/API/ServerOutput.hs#L51" target="_blank" rel="noopener noreferrer">ServerOutput</a> sent by the node to clients</li>
+<li>In the <a href="https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Node.hs#L122" target="_blank" rel="noopener noreferrer">HydraNodeLog</a> as part of Hydra&#x27;s logging output</li>
+<li>In the <a href="https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/HeadLogic/Outcome.hs#L46" target="_blank" rel="noopener noreferrer">StateChanged</a> events which are persisted and allow hydra-node to restart gracefully after stopping</li>
+</ul>
+</li>
+<li>In other places the hydra-node produces, expects, or accepts a CBOR-encoded transaction:<!-- -->
+<ul>
+<li>In the <a href="https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Network/Message.hs#L20" target="_blank" rel="noopener noreferrer">Network.Message</a> exchanged between the nodes</li>
+<li>In the <a href="https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/API/ClientInput.hs#L9" target="_blank" rel="noopener noreferrer">ClientInput</a> from clients submitting <code>NewTx</code> commands</li>
+<li>In the <a href="https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/API/HTTPServer.hs#L297" target="_blank" rel="noopener noreferrer">HTTPServer</a> API</li>
+</ul>
+</li>
+<li>Note that in the latter 2 cases, the hydra-node <em>accepts</em> a hex-CBOR-encoded <em>JSON string</em> to represent a transaction and this particular case is handled directly in the <a href="https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano/Json.hs#L388" target="_blank" rel="noopener noreferrer">FromJSON</a> instance for transactions where 3 different representations are even accepted:<!-- -->
+<ul>
+<li>JSON object detailing the transaction</li>
+<li>A JSON string representing CBOR-encoding of a transaction</li>
+<li>Or a <code>TextEnvelope</code> which wraps the CBOR transaction in a simple JSON object</li>
+</ul>
+</li>
+<li>Using JSON-based representation of Cardano transactions is problematic because:<!-- -->
+<ul>
+<li>The representation we are providing is not <em>canonical</em> nor widely used, and therefore require maintenance when the underlying cardano-ledger API changes</li>
+<li><strong>More importantly</strong> the JSON representation contains a <code>txId</code> field which is computed from the CBOR encoding of the transaction. When this encoding changes, the transaction id changes even though no other part of the transaction has changed. This implies that we could send and receive transactions with incorrect or inconsistent identifiers.</li>
+</ul>
+</li>
+<li>This is true for any content-addressable piece of data, eg. any piece of data whose unique identifier is derived from the data itself, but not of say UTxO which is just data.</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="decision">Decision<a href="#decision" class="hash-link" aria-label="Direct link to Decision" title="Direct link to Decision">​</a></h2>
+<ul>
+<li>Drop support of &quot;structured&quot; JSON encoding of transactions in log messages, external APIs, and local storage of a node state</li>
+<li>Require JSON encoding for transactions that consists in:<!-- -->
+<ul>
+<li>A <code>cborHex</code> string field containing the base16 CBOR-encoded transaction</li>
+<li>An optional <code>txId</code> string field containing the Cardano transaction id, i.e. the base16 encoded Blake2b256 hash of the transaction body bytes</li>
+<li>When present, the <code>txId</code> MUST be consistent with the <code>cborHex</code>. This will be guaranteed for data produced by Hydra, but input data (eg. through a <code>NewTx</code> message) that does not respect this constraint will be rejected</li>
+</ul>
+</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="consequences">Consequences<a href="#consequences" class="hash-link" aria-label="Direct link to Consequences" title="Direct link to Consequences">​</a></h2>
+<ul>
+<li>This is a breaking change and client applications must decode the full transaction CBOR before accessing any part of it<!-- -->
+<ul>
+<li>Hydra clients like <code>hydraw</code>, <code>hydra-auction</code>, <code>hydra-pay</code>, <code>hydra-poll</code> and hydra-chess` need to be updated</li>
+</ul>
+</li>
+<li>By providing a <code>txId</code> field alongside the CBOR encoding, we still allow clients to observe the lifecycle of a transaction inside a Head as it gets validated and confirmed without requiring from them to be able to decode the CBOR body and compute the <code>txId</code> themselves<!-- -->
+<ul>
+<li>This is particularly important for monitoring which usually does not care about the details of transactions</li>
+</ul>
+</li>
+<li>We should point users to existing tools for decoding transactions&#x27; content in a human-readable format as this can be useful for troubleshooting:<!-- -->
+<ul>
+<li><code>cardano-cli transaction view --tx-file &lt;path to tx envelope file&gt;</code> is one example</li>
+</ul>
+</li>
+<li>We need to <em>version</em> the data that&#x27;s persisted and exchanged, e.g the Head state and network messages, in order to ensure nodes can either gracefully migrate stored data or detect explicitly versions inconsistency</li>
+<li>We should use the <a href="https://github.com/CardanoSolutions/cardanonical" target="_blank" rel="noopener noreferrer">cardanonical</a> schemas should the need arise to represent transaction in JSON again</li>
+</ul></div><footer class="row docusaurus-mt-lg"><div class="col"><b>Tags:</b><ul class="tags_jXut padding--none margin-left--sm"><li class="tag_QGVx"><a class="tag_zVej tagRegular_sFm0" href="/head-protocol/unstable/adr/tags/accepted">Accepted</a></li></ul></div></footer></article><article class="margin-bottom--xl"><header><h2 class="title_f1Hy"><a href="/head-protocol/unstable/adr/31">31. Achieve constant memory in hydra-node
+</a></h2><div class="container_mt6G margin-vert--md"><time datetime="2024-01-27T00:00:00.000Z">January 27, 2024</time> · <!-- -->2 min read</div><div class="margin-top--md margin-bottom--sm row"><div class="col col--12 authorCol_Hf19"><div class="avatar margin-bottom--sm"><a href="https://github.com/v0d1ch" target="_blank" rel="noopener noreferrer" class="avatar__photo-link"><img class="avatar__photo authorImage_XqGP" src="https://github.com/v0d1ch.png" alt="Sasha Bogicevic"></a><div class="avatar__intro authorDetails_lV9A"><div class="avatar__name"><a href="https://github.com/v0d1ch" target="_blank" rel="noopener noreferrer"><span class="authorName_yefp">Sasha Bogicevic</span></a></div><small class="authorTitle_nd0D" title="Senior Software Engineer">Senior Software Engineer</small><div class="authorSocials_rSDt"></div></div></div></div></div></header><div class="markdown"><h2 class="anchor anchorWithStickyNavbar_LWe7" id="status">Status<a href="#status" class="hash-link" aria-label="Direct link to Status" title="Direct link to Status">​</a></h2>
+<p>Accepted</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="context">Context<a href="#context" class="hash-link" aria-label="Direct link to Context" title="Direct link to Context">​</a></h2>
+<p>When testing out hydra-node operation under heavy or increased load we are
+noticing that memory consumption is far from ideal. So far we didn&#x27;t bother
+thinking about the performance so much but time has come to try and reduce
+memory footprint of a running hydra-node.</p>
+<p>There are some quick points to be scored here since our projections that are
+used to serve in-memory data are using a common haskell list as a data
+structure. We should stream the data keeping the memory bounded as the first
+optimisation.</p>
+<p>It is also not necessary to output the whole history of messages by default and
+only do that if clients request to see the whole history. Internally our
+<code>ServerOutput</code> type could be remapped to <code>StateChanged</code> since the two are
+almost identical. Any new information must be streamed to the clients
+automatically.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="decision">Decision<a href="#decision" class="hash-link" aria-label="Direct link to Decision" title="Direct link to Decision">​</a></h2>
+<ul>
+<li>Re-map <code>ServerOutput</code> to <code>StateChanged</code> by adding any missing constructor to <code>StateChanged</code> (eg. <code>PeerConnected</code>).</li>
+<li>Output new client messages on <code>newState</code> changes instead of using <code>ClientEffect</code>.</li>
+<li>Use <code>StateChanged</code> in all projections we server from the API (re-use <code>eventId</code> as sequence number).</li>
+<li>Make hydra-node output history of messages only on demand (breaking change is to be communicated in the changelog).</li>
+<li>Use <code>conduit</code> library to achieve constant memory by streaming the data in our projections.</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="consequences">Consequences<a href="#consequences" class="hash-link" aria-label="Direct link to Consequences" title="Direct link to Consequences">​</a></h2>
+<p>This should lead to much better performance of hydra-node in terms of used
+memory for the running process. This should be also confirmed by running the
+relevant <a href="https://github.com/cardano-scaling/hydra/issues/1724" target="_blank" rel="noopener noreferrer">benchmarks</a> and
+do a test (even manual or a script) to assert that the memory consumption is
+actually reduced.</p></div><footer class="row docusaurus-mt-lg"><div class="col"><b>Tags:</b><ul class="tags_jXut padding--none margin-left--sm"><li class="tag_QGVx"><a class="tag_zVej tagRegular_sFm0" href="/head-protocol/unstable/adr/tags/accepted">Accepted</a></li></ul></div></footer></article><article class="margin-bottom--xl"><header><h2 class="title_f1Hy"><a href="/head-protocol/unstable/adr/32">32. Network layer properties, implementation using etcd
+</a></h2><div class="container_mt6G margin-vert--md"><time datetime="2025-02-12T00:00:00.000Z">February 12, 2025</time> · <!-- -->4 min read</div><div class="margin-top--md margin-bottom--sm row"><div class="col col--12 authorCol_Hf19"><div class="avatar margin-bottom--sm"><a href="https://github.com/ch1bo" target="_blank" rel="noopener noreferrer" class="avatar__photo-link"><img class="avatar__photo authorImage_XqGP" src="https://github.com/ch1bo.png" alt="Sebastian Nagel"></a><div class="avatar__intro authorDetails_lV9A"><div class="avatar__name"><a href="https://github.com/ch1bo" target="_blank" rel="noopener noreferrer"><span class="authorName_yefp">Sebastian Nagel</span></a></div><small class="authorTitle_nd0D" title="Software Engineering Lead">Software Engineering Lead</small><div class="authorSocials_rSDt"></div></div></div></div></div></header><div class="markdown"><h2 class="anchor anchorWithStickyNavbar_LWe7" id="status">Status<a href="#status" class="hash-link" aria-label="Direct link to Status" title="Direct link to Status">​</a></h2>
+<p>Accepted</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="context">Context<a href="#context" class="hash-link" aria-label="Direct link to Context" title="Direct link to Context">​</a></h2>
+<ul>
+<li>
+<p>The communication primitive of <code>broadcast</code> is introduced in <a href="/head-protocol/unstable/adr/6">ADR 6</a>. The original protocol design in the <a href="https://eprint.iacr.org/2020/299.pdf" target="_blank" rel="noopener noreferrer">paper</a> and that ADR implicitly assume a <strong>reliable broadcast</strong>.</p>
+</li>
+<li>
+<p><a href="/head-protocol/unstable/adr/27">ADR 27</a> further specifies that the <code>hydra-node</code> should be tolerant to the <em>fail-recovery</em> failure model, and takes the decision to implement a <em>reliable broadcast</em> by persisting outgoing messages and using a <em>vector clock</em> and heartbeat mechanism, over a dumb transport layer.</p>
+<ul>
+<li>The current transport layer in use is a simple <em>FireForget</em> protocol over TCP connections implemented using <code>ouroboros-framework</code>.</li>
+<li><a href="/head-protocol/unstable/adr/17">ADR 17</a> proposed to use UDP instead</li>
+<li>Either this design or its implementation was discovered to be wrong, because this system did not survive fault injection tests with moderate package drops.</li>
+</ul>
+</li>
+<li>
+<p>This <a href="https://arxiv.org/pdf/1707.01873" target="_blank" rel="noopener noreferrer">research paper</a> explored various consensus protocols used in blockchain space and reminds us of the correspondence between consensus and broadcasts:</p>
+<blockquote>
+<p>the form of consensus relevant for blockchain is technically known as atomic broadcast</p>
+</blockquote>
+<p>It also states that (back then):</p>
+<blockquote>
+<p>The most important and most prominent way to implement atomic broadcast (i.e., consensus) in distributed systems prone to t &lt; n/2 node crashes is the family of protocols known today as Paxos and Viewstamped Replication (VSR).</p>
+</blockquote>
+</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="decision">Decision<a href="#decision" class="hash-link" aria-label="Direct link to Decision" title="Direct link to Decision">​</a></h2>
+<ul>
+<li>
+<p>We realize that the way the off-chain protocol is specified in the paper, the <code>broadcast</code> abstraction required from the <code>Network</code> interface is a so-called <em>uniform reliable broadcast</em>. Hence, any implementation of <code>Network</code> needs to satisfy the following <strong>properties</strong>:</p>
+<ol>
+<li><strong>Validity</strong>: If a correct process p broadcasts a message m, then p eventually delivers m.</li>
+<li><strong>No duplication</strong>: No message is delivered more than once.</li>
+<li><strong>No creation</strong>: If a process delivers a message m with sender s, then m was previously broadcast by process s.</li>
+<li><strong>Agreement</strong>: If a message m is delivered by some correct process, then m is eventually delivered by every correct process.</li>
+</ol>
+<p>See also Module 3.3 in <a href="https://www.distributedprogramming.net" target="_blank" rel="noopener noreferrer">Introduction to Reliable and Secure Distributed Programming</a> by Cachin et al, or <a href="https://arxiv.org/abs/2001.03244" target="_blank" rel="noopener noreferrer">Self-stabilizing Uniform Reliable Broadcast by Oskar Lundström</a></p>
+</li>
+<li>
+<p>Use <a href="https://etcd.io/" target="_blank" rel="noopener noreferrer"><code>etcd</code></a> as a proxy to achieve reliable broadcast via its <a href="https://raft.github.io/" target="_blank" rel="noopener noreferrer">raft</a> consensus</p>
+<ul>
+<li>Raft is an evolution of Paxos and similar to VSR</li>
+<li>Over-satisfies requirements as it provides &quot;Uniform total order&quot; (satisfies <a href="https://en.m.wikipedia.org/wiki/Atomic_broadcast" target="_blank" rel="noopener noreferrer">atomic broadcast</a> properties)</li>
+<li>Each <code>hydra-node</code> runs a <code>etcd</code> instance to realize its <code>Network</code> interface</li>
+<li>See the following architecture diagram which also contains some notes on <code>Network</code> interface properties:</li>
+</ul>
+</li>
+</ul>
+<p><img decoding="async" loading="lazy" src="/head-protocol/unstable/assets/images/2024-09-19-etcd-network-draft-d6e27ebc7b523df1ba6998ac119b3063.jpg" width="3734" height="1673" class="img_ev3q"></p>
+<ul>
+<li>We supersede <a href="/head-protocol/unstable/adr/17">ADR 17</a> and <a href="/head-protocol/unstable/adr/27">ADR 27</a> decisions on how to implement <code>Network</code> with the current ADR.<!-- -->
+<ul>
+<li>Drop existing implementation of <code>Ouroboros</code> and <code>Reliability</code> components</li>
+<li>Could be revisited, as in theory it would satisfy properties if implemented correctly?</li>
+<li>Uniform reliable broadcast = only deliver when seen by everyone = not what we had implemented?</li>
+</ul>
+</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="consequences">Consequences<a href="#consequences" class="hash-link" aria-label="Direct link to Consequences" title="Direct link to Consequences">​</a></h2>
+<ul>
+<li>
+<p>Crash tolerance of up to <code>n/2</code> failing nodes</p>
+</li>
+<li>
+<p>Using <code>etcd</code> as-is adds a run-time dependency onto that binary.</p>
+<ul>
+<li>Docker image users should not see any different UX</li>
+<li>We can ship the binary through <code>hydra-node</code>.</li>
+</ul>
+</li>
+<li>
+<p>Introspectability network as the <code>etcd</code> cluster is queryable could improve debugging experience</p>
+</li>
+<li>
+<p>Persisted state for networking changes as there will be no <code>acks</code>, but the <code>etcd</code> Write Ahead Log (WAL) and a last seen revision.</p>
+</li>
+<li>
+<p>Can keep same user experience on configuration</p>
+<ul>
+<li>Full, static topology with listing everyone as <code>--peer</code></li>
+<li>Simpler configuration via <a href="https://etcd.io/docs/v3.5/op-guide/clustering/#discovery" target="_blank" rel="noopener noreferrer">peer discovery</a> possible</li>
+</ul>
+</li>
+<li>
+<p><code>PeerConnected</code> semantics needs to change to an overall <code>HydraNetworkConnected</code></p>
+<ul>
+<li>We can only submit / receive messages when connected to the majority cluster</li>
+</ul>
+</li>
+<li>
+<p><code>etcd</code> has a few features out-of-the-box we could lean into, e.g.</p>
+<ul>
+<li>use TLS to secure peer connections</li>
+<li>separate advertised and binding addresses</li>
+</ul>
+</li>
+</ul></div><footer class="row docusaurus-mt-lg"><div class="col"><b>Tags:</b><ul class="tags_jXut padding--none margin-left--sm"><li class="tag_QGVx"><a class="tag_zVej tagRegular_sFm0" href="/head-protocol/unstable/adr/tags/accepted">Accepted</a></li></ul></div></footer></article><nav class="pagination-nav" aria-label="Blog list page navigation"><a class="pagination-nav__link pagination-nav__link--prev" href="/head-protocol/unstable/adr/tags/accepted/page/2"><div class="pagination-nav__label">Newer entries</div></a></nav></main></div></div></div><footer class="laptop:footer bg-white py-[56px]"><div class="flex justify-between flex-col-reverse laptop:flex-row w-full px-6 tablet:px-12 laptop:justify-normal laptop:gap-20"><div class="basis-1/6"><div class="flex flex-col gap-4 border border-solid border-primary-light p-6 rounded-lg mb-14 laptop:mb-[70px] w-[250px]"><div class="inline-flex items-center text-primary-light"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 29 29" fill="none" class="shrink-0"><path d="M20.9294 16.3976C20.9294 16.3976 20.9358 15.3266 20.3616 14.1253C19.0297 11.3398 14.9511 6.74717 2.44965 8.86911L0 13.0703L2.54633 15.0556C4.06401 14.4519 14.2443 8.67912 20.9294 16.3974V16.3976ZM4.08846 10.8233L3.24446 12.1819L1.88586 11.3379L4.08846 10.8233Z" fill="currentColor"></path><path d="M20.5776 20.3707C20.4668 19.713 19.3421 17.1372 16.296 15.7499C13.2916 14.3817 8.6545 14.2215 2.01156 18.1487L1.30078 22.5083L4.03963 23.745C4.03963 23.745 12.8396 14.251 20.5778 20.3704L20.5776 20.3707ZM3.72907 20.8007L2.16445 20.4564L4.07336 19.2358L3.72935 20.8004L3.72907 20.8007Z" fill="currentColor"></path><path d="M24.8502 4.43443C23.7434 3.24952 22.3305 2.38107 20.8536 1.74477L22.5703 0H12.2523L5.80469 2.91929L7.20152 5.91558C16.105 5.48023 22.8094 9.08584 23.1751 15.9556C23.5638 23.2615 16.3385 27.8964 9.38191 26.5819C7.07645 26.1462 5.89041 25.6401 5.89041 25.6401C7.46317 27.0198 10.67 28.7297 14.5114 28.7789C22.2549 28.8775 28.6281 22.5603 28.7751 14.6779C28.8495 10.6999 27.3408 7.08194 24.8496 4.43472L24.8502 4.43443ZM12.2526 3.01822L10.9311 1.69671H13.5741L12.2526 3.01822Z" fill="currentColor"></path></svg><span class="border-l pl-4 ml-4 text-xl leading-[27px]">Join the family</span></div><a class="px-4 py-3 justify-center text-center border text-sm border-solid bg-primary-lightest border-primary font-bold text-primary rounded-lg no-underline hover:bg-white hover:no-underline hover:text-primary" href="/head-protocol/unstable/docs/get-involved">Get involved</a></div><div class="text-primary-light inline-flex gap-4 text-center"><svg xmlns="http://www.w3.org/2000/svg" width="29" height="29" viewBox="0 0 29 29" fill="none"><path d="M20.9294 16.3976C20.9294 16.3976 20.9358 15.3266 20.3616 14.1253C19.0297 11.3398 14.9511 6.74717 2.44965 8.86911L0 13.0703L2.54633 15.0556C4.06401 14.4519 14.2443 8.67912 20.9294 16.3974V16.3976ZM4.08846 10.8233L3.24446 12.1819L1.88586 11.3379L4.08846 10.8233Z" fill="currentColor"></path><path d="M20.5776 20.3707C20.4668 19.713 19.3421 17.1372 16.296 15.7499C13.2916 14.3817 8.6545 14.2215 2.01156 18.1487L1.30078 22.5083L4.03963 23.745C4.03963 23.745 12.8396 14.251 20.5778 20.3704L20.5776 20.3707ZM3.72907 20.8007L2.16445 20.4564L4.07336 19.2358L3.72935 20.8004L3.72907 20.8007Z" fill="currentColor"></path><path d="M24.8502 4.43443C23.7434 3.24952 22.3305 2.38107 20.8536 1.74477L22.5703 0H12.2523L5.80469 2.91929L7.20152 5.91558C16.105 5.48023 22.8094 9.08584 23.1751 15.9556C23.5638 23.2615 16.3385 27.8964 9.38191 26.5819C7.07645 26.1462 5.89041 25.6401 5.89041 25.6401C7.46317 27.0198 10.67 28.7297 14.5114 28.7789C22.2549 28.8775 28.6281 22.5603 28.7751 14.6779C28.8495 10.6999 27.3408 7.08194 24.8496 4.43472L24.8502 4.43443ZM12.2526 3.01822L10.9311 1.69671H13.5741L12.2526 3.01822Z" fill="currentColor"></path></svg><span class="mt-0.5">© 2025</span></div></div><div class="grid gap-10 pb-10 max-w-md tablet:flex tablet:max-w-full laptop:pb-0 laptop:gap-7 basis-5/6 laptop:max-w-full"><div class="tablet:col basis-1/4"><div class="footer__title text-sm pb-1 laptop:pb-5 text-black">Contributing</div><ul class="footer__items clean-list space-y-2"><li class="footer__item"><a href="https://github.com/cardano-scaling/hydra/wiki/Coding-Standards" target="_blank" rel="noopener noreferrer" class="footer__link-item inline-flex hover:text-primary-light text-black">Coding standards</a></li><li class="footer__item"><a class="footer__link-item inline-flex hover:text-primary-light text-black" href="/head-protocol/unstable/adr">Architecture Decision Records</a></li><li class="footer__item"><a href="https://github.com/cardano-scaling/hydra/wiki/Testing-Strategy" target="_blank" rel="noopener noreferrer" class="footer__link-item inline-flex hover:text-primary-light text-black">Testing strategy</a></li></ul></div><div class="tablet:col basis-1/4"><div class="footer__title text-sm pb-1 laptop:pb-5 text-black">Community</div><ul class="footer__items clean-list space-y-2"><li class="footer__item"><a href="https://discord.gg/Qq5vNTg9PT" target="_blank" rel="noopener noreferrer" class="footer__link-item inline-flex hover:text-primary-light text-black">Discord</a></li><li class="footer__item"><a href="https://github.com/cardano-scaling/hydra/discussions" target="_blank" rel="noopener noreferrer" class="footer__link-item inline-flex hover:text-primary-light text-black">GitHub discussions</a></li><li class="footer__item"><a href="https://cardano.stackexchange.com/questions/tagged/hydra" target="_blank" rel="noopener noreferrer" class="footer__link-item inline-flex hover:text-primary-light text-black">Stack Exchange</a></li></ul></div><div class="tablet:col basis-1/4"><div class="footer__title text-sm pb-1 laptop:pb-5 text-black">More</div><ul class="footer__items clean-list space-y-2"><li class="footer__item"><a class="footer__link-item inline-flex hover:text-primary-light text-black" href="/head-protocol/unstable/docs/dev/haskell-packages">Haskell packages</a></li><li class="footer__item"><a href="https://cardano-scaling.github.io/website/monthly" target="_blank" rel="noopener noreferrer" class="footer__link-item inline-flex hover:text-primary-light text-black">Monthly reports</a></li><li class="footer__item"><a href="https://github.com/cardano-scaling/hydra/wiki/Logbook" target="_blank" rel="noopener noreferrer" class="footer__link-item inline-flex hover:text-primary-light text-black">Logbook</a></li></ul></div><div class="tablet:col basis-1/4"><div class="footer__title text-sm pb-1 laptop:pb-5 text-black">Legal</div><ul class="footer__items clean-list space-y-2"><li class="footer__item"><a href="https://static.iohk.io/terms/iog-terms-and-conditions.pdf" target="_blank" rel="noopener noreferrer" class="footer__link-item inline-flex hover:text-primary-light text-black">Terms and conditions</a></li><li class="footer__item"><a href="https://static.iohk.io/terms/iog-privacy-policy.pdf" target="_blank" rel="noopener noreferrer" class="footer__link-item inline-flex hover:text-primary-light text-black">Privacy policy</a></li><li class="footer__item"><a href="https://github.com/cardano-scaling/hydra/graphs/contributors" target="_blank" rel="noopener noreferrer" class="footer__link-item inline-flex hover:text-primary-light text-black">Contributors</a></li></ul></div></div></div></footer></div>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.HeadTokensError</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-2"></span><span>  </span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier">errorCode</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-3"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadTokensError.html"><span class="hs-identifier">Hydra.Contract.HeadTokensError</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-4"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html"><span class="hs-identifier">Hydra.Contract.Error</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier">ToErrorCode</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier">errorCode</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Text.Show.html"><span class="hs-identifier">Text.Show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier">Show</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">data</span><span> </span><span id="HeadTokensError"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#HeadTokensError"><span class="hs-identifier hs-var">HeadTokensError</span></a></span></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="SeedNotSpent"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#SeedNotSpent"><span class="hs-identifier hs-var">SeedNotSpent</span></a></span></span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WrongNumberOfTokensMinted"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#WrongNumberOfTokensMinted"><span class="hs-identifier hs-var">WrongNumberOfTokensMinted</span></a></span></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MissingST"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#MissingST"><span class="hs-identifier hs-var">MissingST</span></a></span></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WrongNumberOfInitialOutputs"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#WrongNumberOfInitialOutputs"><span class="hs-identifier hs-var">WrongNumberOfInitialOutputs</span></a></span></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WrongDatum"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#WrongDatum"><span class="hs-identifier hs-var">WrongDatum</span></a></span></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MintingNotAllowed"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#MintingNotAllowed"><span class="hs-identifier hs-var">MintingNotAllowed</span></a></span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="NoPT"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#NoPT"><span class="hs-identifier hs-var">NoPT</span></a></span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WrongQuantity"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#WrongQuantity"><span class="hs-identifier hs-var">WrongQuantity</span></a></span></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ExpectedHeadDatumType"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#ExpectedHeadDatumType"><span class="hs-identifier hs-var">ExpectedHeadDatumType</span></a></span></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ExpectedInlineDatum"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#ExpectedInlineDatum"><span class="hs-identifier hs-var">ExpectedInlineDatum</span></a></span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MultipleHeadOutput"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#MultipleHeadOutput"><span class="hs-identifier hs-var">MultipleHeadOutput</span></a></span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WrongInitialDatum"><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#WrongInitialDatum"><span class="hs-identifier hs-var">WrongInitialDatum</span></a></span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679485975"><span id="local-6989586621679485977"><span id="local-6989586621679485981"><span class="annot"><span class="annottext">Int -&gt; HeadTokensError -&gt; ShowS
+[HeadTokensError] -&gt; ShowS
+HeadTokensError -&gt; String
+(Int -&gt; HeadTokensError -&gt; ShowS)
+-&gt; (HeadTokensError -&gt; String)
+-&gt; ([HeadTokensError] -&gt; ShowS)
+-&gt; Show HeadTokensError
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; HeadTokensError -&gt; ShowS
+showsPrec :: Int -&gt; HeadTokensError -&gt; ShowS
+$cshow :: HeadTokensError -&gt; String
+show :: HeadTokensError -&gt; String
+$cshowList :: [HeadTokensError] -&gt; ShowS
+showList :: [HeadTokensError] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier hs-type">ToErrorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadTokensError.html#HeadTokensError"><span class="hs-identifier hs-type">HeadTokensError</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-25"></span><span>  </span><span id="local-6989586621679486000"><span class="annot"><span class="annottext">toErrorCode :: HeadTokensError -&gt; Text
+</span><a href="#local-6989586621679486000"><span class="hs-identifier hs-var hs-var hs-var hs-var">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-26"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#SeedNotSpent"><span class="hs-identifier hs-var">SeedNotSpent</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M01&quot;</span></span><span>
+</span><span id="line-27"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#WrongNumberOfTokensMinted"><span class="hs-identifier hs-var">WrongNumberOfTokensMinted</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M02&quot;</span></span><span>
+</span><span id="line-28"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#MissingST"><span class="hs-identifier hs-var">MissingST</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M03&quot;</span></span><span>
+</span><span id="line-29"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#WrongNumberOfInitialOutputs"><span class="hs-identifier hs-var">WrongNumberOfInitialOutputs</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M04&quot;</span></span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#WrongDatum"><span class="hs-identifier hs-var">WrongDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M05&quot;</span></span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#MintingNotAllowed"><span class="hs-identifier hs-var">MintingNotAllowed</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M06&quot;</span></span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#NoPT"><span class="hs-identifier hs-var">NoPT</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M07&quot;</span></span><span>
+</span><span id="line-33"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#WrongQuantity"><span class="hs-identifier hs-var">WrongQuantity</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M08&quot;</span></span><span>
+</span><span id="line-34"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#ExpectedHeadDatumType"><span class="hs-identifier hs-var">ExpectedHeadDatumType</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M09&quot;</span></span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#ExpectedInlineDatum"><span class="hs-identifier hs-var">ExpectedInlineDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M10&quot;</span></span><span>
+</span><span id="line-36"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#MultipleHeadOutput"><span class="hs-identifier hs-var">MultipleHeadOutput</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M11&quot;</span></span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="annottext">HeadTokensError
+</span><a href="Hydra.Contract.HeadTokensError.html#WrongInitialDatum"><span class="hs-identifier hs-var">WrongInitialDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;M12&quot;</span></span><span>
+</span><span id="line-38"></span></pre></body></html>

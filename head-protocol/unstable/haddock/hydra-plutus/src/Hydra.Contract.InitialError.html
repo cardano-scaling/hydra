@@ -1,0 +1,90 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.InitialError</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-2"></span><span>  </span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier">errorCode</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-3"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Hydra.Contract.InitialError.html"><span class="hs-identifier">Hydra.Contract.InitialError</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-4"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html"><span class="hs-identifier">Hydra.Contract.Error</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier">ToErrorCode</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier">errorCode</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Text.Show.html"><span class="hs-identifier">Text.Show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier">Show</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">data</span><span> </span><span id="InitialError"><span class="annot"><a href="Hydra.Contract.InitialError.html#InitialError"><span class="hs-identifier hs-var">InitialError</span></a></span></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="STNotBurned"><span class="annot"><a href="Hydra.Contract.InitialError.html#STNotBurned"><span class="hs-identifier hs-var">STNotBurned</span></a></span></span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MissingOrInvalidCommitAuthor"><span class="annot"><a href="Hydra.Contract.InitialError.html#MissingOrInvalidCommitAuthor"><span class="hs-identifier hs-var">MissingOrInvalidCommitAuthor</span></a></span></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="LockedValueDoesNotMatch"><span class="annot"><a href="Hydra.Contract.InitialError.html#LockedValueDoesNotMatch"><span class="hs-identifier hs-var">LockedValueDoesNotMatch</span></a></span></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MismatchCommittedTxOutInDatum"><span class="annot"><a href="Hydra.Contract.InitialError.html#MismatchCommittedTxOutInDatum"><span class="hs-identifier hs-var">MismatchCommittedTxOutInDatum</span></a></span></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="CouldNotFindTheCorrectCurrencySymbolInTokens"><span class="annot"><a href="Hydra.Contract.InitialError.html#CouldNotFindTheCorrectCurrencySymbolInTokens"><span class="hs-identifier hs-var">CouldNotFindTheCorrectCurrencySymbolInTokens</span></a></span></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MultipleHeadTokensOrMoreThan1PTsFound"><span class="annot"><a href="Hydra.Contract.InitialError.html#MultipleHeadTokensOrMoreThan1PTsFound"><span class="hs-identifier hs-var">MultipleHeadTokensOrMoreThan1PTsFound</span></a></span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MissingCommittedTxOutInOutputDatum"><span class="annot"><a href="Hydra.Contract.InitialError.html#MissingCommittedTxOutInOutputDatum"><span class="hs-identifier hs-var">MissingCommittedTxOutInOutputDatum</span></a></span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="CommittedTxOutMissingInOutputDatum"><span class="annot"><a href="Hydra.Contract.InitialError.html#CommittedTxOutMissingInOutputDatum"><span class="hs-identifier hs-var">CommittedTxOutMissingInOutputDatum</span></a></span></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MissingDatum"><span class="annot"><a href="Hydra.Contract.InitialError.html#MissingDatum"><span class="hs-identifier hs-var">MissingDatum</span></a></span></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="UnexpectedNonInlineDatum"><span class="annot"><a href="Hydra.Contract.InitialError.html#UnexpectedNonInlineDatum"><span class="hs-identifier hs-var">UnexpectedNonInlineDatum</span></a></span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ExpectedCommitDatumTypeGotSomethingElse"><span class="annot"><a href="Hydra.Contract.InitialError.html#ExpectedCommitDatumTypeGotSomethingElse"><span class="hs-identifier hs-var">ExpectedCommitDatumTypeGotSomethingElse</span></a></span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ExpectedSingleCommitOutput"><span class="annot"><a href="Hydra.Contract.InitialError.html#ExpectedSingleCommitOutput"><span class="hs-identifier hs-var">ExpectedSingleCommitOutput</span></a></span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WrongHeadIdInCommitDatum"><span class="annot"><a href="Hydra.Contract.InitialError.html#WrongHeadIdInCommitDatum"><span class="hs-identifier hs-var">WrongHeadIdInCommitDatum</span></a></span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MintingOrBurningIsForbidden"><span class="annot"><a href="Hydra.Contract.InitialError.html#MintingOrBurningIsForbidden"><span class="hs-identifier hs-var">MintingOrBurningIsForbidden</span></a></span></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="OutRefNotFound"><span class="annot"><a href="Hydra.Contract.InitialError.html#OutRefNotFound"><span class="hs-identifier hs-var">OutRefNotFound</span></a></span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679493232"><span id="local-6989586621679493234"><span id="local-6989586621679493238"><span class="annot"><span class="annottext">Int -&gt; InitialError -&gt; ShowS
+[InitialError] -&gt; ShowS
+InitialError -&gt; String
+(Int -&gt; InitialError -&gt; ShowS)
+-&gt; (InitialError -&gt; String)
+-&gt; ([InitialError] -&gt; ShowS)
+-&gt; Show InitialError
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; InitialError -&gt; ShowS
+showsPrec :: Int -&gt; InitialError -&gt; ShowS
+$cshow :: InitialError -&gt; String
+show :: InitialError -&gt; String
+$cshowList :: [InitialError] -&gt; ShowS
+showList :: [InitialError] -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier hs-type">ToErrorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.InitialError.html#InitialError"><span class="hs-identifier hs-type">InitialError</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-28"></span><span>  </span><span id="local-6989586621679493260"><span class="annot"><span class="annottext">toErrorCode :: InitialError -&gt; Text
+</span><a href="#local-6989586621679493260"><span class="hs-identifier hs-var hs-var hs-var hs-var">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-29"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#STNotBurned"><span class="hs-identifier hs-var">STNotBurned</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I01&quot;</span></span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#MissingOrInvalidCommitAuthor"><span class="hs-identifier hs-var">MissingOrInvalidCommitAuthor</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I02&quot;</span></span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#LockedValueDoesNotMatch"><span class="hs-identifier hs-var">LockedValueDoesNotMatch</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I03&quot;</span></span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#MismatchCommittedTxOutInDatum"><span class="hs-identifier hs-var">MismatchCommittedTxOutInDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I04&quot;</span></span><span>
+</span><span id="line-33"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#CouldNotFindTheCorrectCurrencySymbolInTokens"><span class="hs-identifier hs-var">CouldNotFindTheCorrectCurrencySymbolInTokens</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I05&quot;</span></span><span>
+</span><span id="line-34"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#MultipleHeadTokensOrMoreThan1PTsFound"><span class="hs-identifier hs-var">MultipleHeadTokensOrMoreThan1PTsFound</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I06&quot;</span></span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#MissingCommittedTxOutInOutputDatum"><span class="hs-identifier hs-var">MissingCommittedTxOutInOutputDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I07&quot;</span></span><span>
+</span><span id="line-36"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#CommittedTxOutMissingInOutputDatum"><span class="hs-identifier hs-var">CommittedTxOutMissingInOutputDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I08&quot;</span></span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#MissingDatum"><span class="hs-identifier hs-var">MissingDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I09&quot;</span></span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#UnexpectedNonInlineDatum"><span class="hs-identifier hs-var">UnexpectedNonInlineDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I10&quot;</span></span><span>
+</span><span id="line-39"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#ExpectedCommitDatumTypeGotSomethingElse"><span class="hs-identifier hs-var">ExpectedCommitDatumTypeGotSomethingElse</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I11&quot;</span></span><span>
+</span><span id="line-40"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#ExpectedSingleCommitOutput"><span class="hs-identifier hs-var">ExpectedSingleCommitOutput</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I12&quot;</span></span><span>
+</span><span id="line-41"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#WrongHeadIdInCommitDatum"><span class="hs-identifier hs-var">WrongHeadIdInCommitDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I13&quot;</span></span><span>
+</span><span id="line-42"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#MintingOrBurningIsForbidden"><span class="hs-identifier hs-var">MintingOrBurningIsForbidden</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I14&quot;</span></span><span>
+</span><span id="line-43"></span><span>    </span><span class="annot"><span class="annottext">InitialError
+</span><a href="Hydra.Contract.InitialError.html#OutRefNotFound"><span class="hs-identifier hs-var">OutRefNotFound</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;I15&quot;</span></span><span>
+</span><span id="line-44"></span></pre></body></html>

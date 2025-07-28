@@ -1,0 +1,189 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TypeFamilyDependencies #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Chain.ChainState</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.html"><span class="hs-identifier">Hydra.Tx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.IsTx.html#IsTx"><span class="hs-identifier">IsTx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="annot"><span class="hs-comment">-- | A generic description for a chain slot all implementions need to use.</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">newtype</span><span> </span><span id="ChainSlot"><span class="annot"><a href="Hydra.Chain.ChainState.html#ChainSlot"><span class="hs-identifier hs-var">ChainSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ChainSlot"><span class="annot"><a href="Hydra.Chain.ChainState.html#ChainSlot"><span class="hs-identifier hs-var">ChainSlot</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679433307"><span id="local-6989586621679433311"><span id="local-6989586621679433314"><span id="local-6989586621679433318"><span id="local-6989586621679433321"><span id="local-6989586621679433324"><span id="local-6989586621679433327"><span class="annot"><span class="annottext">Eq ChainSlot
+Eq ChainSlot =&gt;
+(ChainSlot -&gt; ChainSlot -&gt; Ordering)
+-&gt; (ChainSlot -&gt; ChainSlot -&gt; Bool)
+-&gt; (ChainSlot -&gt; ChainSlot -&gt; Bool)
+-&gt; (ChainSlot -&gt; ChainSlot -&gt; Bool)
+-&gt; (ChainSlot -&gt; ChainSlot -&gt; Bool)
+-&gt; (ChainSlot -&gt; ChainSlot -&gt; ChainSlot)
+-&gt; (ChainSlot -&gt; ChainSlot -&gt; ChainSlot)
+-&gt; Ord ChainSlot
+ChainSlot -&gt; ChainSlot -&gt; Bool
+ChainSlot -&gt; ChainSlot -&gt; Ordering
+ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+$ccompare :: ChainSlot -&gt; ChainSlot -&gt; Ordering
+compare :: ChainSlot -&gt; ChainSlot -&gt; Ordering
+$c&lt; :: ChainSlot -&gt; ChainSlot -&gt; Bool
+&lt; :: ChainSlot -&gt; ChainSlot -&gt; Bool
+$c&lt;= :: ChainSlot -&gt; ChainSlot -&gt; Bool
+&lt;= :: ChainSlot -&gt; ChainSlot -&gt; Bool
+$c&gt; :: ChainSlot -&gt; ChainSlot -&gt; Bool
+&gt; :: ChainSlot -&gt; ChainSlot -&gt; Bool
+$c&gt;= :: ChainSlot -&gt; ChainSlot -&gt; Bool
+&gt;= :: ChainSlot -&gt; ChainSlot -&gt; Bool
+$cmax :: ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+max :: ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+$cmin :: ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+min :: ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679433331"><span id="local-6989586621679433335"><span class="annot"><span class="annottext">ChainSlot -&gt; ChainSlot -&gt; Bool
+(ChainSlot -&gt; ChainSlot -&gt; Bool)
+-&gt; (ChainSlot -&gt; ChainSlot -&gt; Bool) -&gt; Eq ChainSlot
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: ChainSlot -&gt; ChainSlot -&gt; Bool
+== :: ChainSlot -&gt; ChainSlot -&gt; Bool
+$c/= :: ChainSlot -&gt; ChainSlot -&gt; Bool
+/= :: ChainSlot -&gt; ChainSlot -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679433339"><span id="local-6989586621679433345"><span id="local-6989586621679433349"><span class="annot"><span class="annottext">Int -&gt; ChainSlot -&gt; ShowS
+[ChainSlot] -&gt; ShowS
+ChainSlot -&gt; String
+(Int -&gt; ChainSlot -&gt; ShowS)
+-&gt; (ChainSlot -&gt; String)
+-&gt; ([ChainSlot] -&gt; ShowS)
+-&gt; Show ChainSlot
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ChainSlot -&gt; ShowS
+showsPrec :: Int -&gt; ChainSlot -&gt; ShowS
+$cshow :: ChainSlot -&gt; String
+show :: ChainSlot -&gt; String
+$cshowList :: [ChainSlot] -&gt; ShowS
+showList :: [ChainSlot] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679433353"><span id="local-6989586621679433355"><span class="annot"><span class="annottext">(forall x. ChainSlot -&gt; Rep ChainSlot x)
+-&gt; (forall x. Rep ChainSlot x -&gt; ChainSlot) -&gt; Generic ChainSlot
+forall x. Rep ChainSlot x -&gt; ChainSlot
+forall x. ChainSlot -&gt; Rep ChainSlot x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. ChainSlot -&gt; Rep ChainSlot x
+from :: forall x. ChainSlot -&gt; Rep ChainSlot x
+$cto :: forall x. Rep ChainSlot x -&gt; ChainSlot
+to :: forall x. Rep ChainSlot x -&gt; ChainSlot
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679433359"><span id="local-6989586621679433364"><span id="local-6989586621679433368"><span id="local-6989586621679433372"><span id="local-6989586621679433376"><span id="local-6989586621679433380"><span id="local-6989586621679433384"><span class="annot"><span class="annottext">Integer -&gt; ChainSlot
+ChainSlot -&gt; ChainSlot
+ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+(ChainSlot -&gt; ChainSlot -&gt; ChainSlot)
+-&gt; (ChainSlot -&gt; ChainSlot -&gt; ChainSlot)
+-&gt; (ChainSlot -&gt; ChainSlot -&gt; ChainSlot)
+-&gt; (ChainSlot -&gt; ChainSlot)
+-&gt; (ChainSlot -&gt; ChainSlot)
+-&gt; (ChainSlot -&gt; ChainSlot)
+-&gt; (Integer -&gt; ChainSlot)
+-&gt; Num ChainSlot
+forall a.
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Integer -&gt; a)
+-&gt; Num a
+$c+ :: ChainSlot -&gt; ChainSlot -&gt; ChainSlot
++ :: ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+$c- :: ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+- :: ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+$c* :: ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+* :: ChainSlot -&gt; ChainSlot -&gt; ChainSlot
+$cnegate :: ChainSlot -&gt; ChainSlot
+negate :: ChainSlot -&gt; ChainSlot
+$cabs :: ChainSlot -&gt; ChainSlot
+abs :: ChainSlot -&gt; ChainSlot
+$csignum :: ChainSlot -&gt; ChainSlot
+signum :: ChainSlot -&gt; ChainSlot
+$cfromInteger :: Integer -&gt; ChainSlot
+fromInteger :: Integer -&gt; ChainSlot
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Num.html#Num"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679433390"><span id="local-6989586621679433395"><span id="local-6989586621679433399"><span id="local-6989586621679433403"><span id="local-6989586621679433407"><span class="annot"><span class="annottext">[ChainSlot] -&gt; Value
+[ChainSlot] -&gt; Encoding
+ChainSlot -&gt; Bool
+ChainSlot -&gt; Value
+ChainSlot -&gt; Encoding
+(ChainSlot -&gt; Value)
+-&gt; (ChainSlot -&gt; Encoding)
+-&gt; ([ChainSlot] -&gt; Value)
+-&gt; ([ChainSlot] -&gt; Encoding)
+-&gt; (ChainSlot -&gt; Bool)
+-&gt; ToJSON ChainSlot
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: ChainSlot -&gt; Value
+toJSON :: ChainSlot -&gt; Value
+$ctoEncoding :: ChainSlot -&gt; Encoding
+toEncoding :: ChainSlot -&gt; Encoding
+$ctoJSONList :: [ChainSlot] -&gt; Value
+toJSONList :: [ChainSlot] -&gt; Value
+$ctoEncodingList :: [ChainSlot] -&gt; Encoding
+toEncodingList :: [ChainSlot] -&gt; Encoding
+$comitField :: ChainSlot -&gt; Bool
+omitField :: ChainSlot -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679433413"><span id="local-6989586621679433418"><span id="local-6989586621679433422"><span class="annot"><span class="annottext">Maybe ChainSlot
+Value -&gt; Parser [ChainSlot]
+Value -&gt; Parser ChainSlot
+(Value -&gt; Parser ChainSlot)
+-&gt; (Value -&gt; Parser [ChainSlot])
+-&gt; Maybe ChainSlot
+-&gt; FromJSON ChainSlot
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser ChainSlot
+parseJSON :: Value -&gt; Parser ChainSlot
+$cparseJSONList :: Value -&gt; Parser [ChainSlot]
+parseJSONList :: Value -&gt; Parser [ChainSlot]
+$comittedField :: Maybe ChainSlot
+omittedField :: Maybe ChainSlot
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679433428"><span id="local-6989586621679433433"><span class="annot"><span class="annottext">Gen ChainSlot
+Gen ChainSlot -&gt; (ChainSlot -&gt; [ChainSlot]) -&gt; Arbitrary ChainSlot
+ChainSlot -&gt; [ChainSlot]
+forall a. Gen a -&gt; (a -&gt; [a]) -&gt; Arbitrary a
+$carbitrary :: Gen ChainSlot
+arbitrary :: Gen ChainSlot
+$cshrink :: ChainSlot -&gt; [ChainSlot]
+shrink :: ChainSlot -&gt; [ChainSlot]
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Arbitrary</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- | Types that can be used on-chain by the Hydra protocol.</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- XXX: Find a better name for this. Maybe IsChainTx or IsL1Tx?</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">class</span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Hydra.Tx.IsTx.html#IsTx"><span class="hs-identifier hs-type">IsTx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679433298"><span class="hs-identifier hs-type">tx</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.ChainState.html#ChainStateType"><span class="hs-identifier hs-type">ChainStateType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679433298"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.ChainState.html#ChainStateType"><span class="hs-identifier hs-type">ChainStateType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679433298"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.ChainState.html#ChainStateType"><span class="hs-identifier hs-type">ChainStateType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679433298"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.ChainState.html#ChainStateType"><span class="hs-identifier hs-type">ChainStateType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679433298"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.ChainState.html#ChainStateType"><span class="hs-identifier hs-type">ChainStateType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679433298"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-24"></span><span>  </span><span id="IsChainState"><span class="annot"><a href="Hydra.Chain.ChainState.html#IsChainState"><span class="hs-identifier hs-var">IsChainState</span></a></span></span><span> </span><span id="local-6989586621679433298"><span class="annot"><a href="#local-6989586621679433298"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-comment">-- | Type of what to keep as L1 chain state.</span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-comment">-- XXX: Why is this not always UTxOType?</span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="ChainStateType"><span class="annot"><a href="Hydra.Chain.ChainState.html#ChainStateType"><span class="hs-identifier hs-var">ChainStateType</span></a></span></span><span> </span><span id="local-6989586621679433298"><span class="annot"><a href="#local-6989586621679433298"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679433444"><span class="annot"><a href="#local-6989586621679433444"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="#local-6989586621679433444"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679433298"><span class="hs-identifier hs-type">tx</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-comment">-- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'</span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-comment">-- encountered, we assume monotonically increasing slots.</span><span>
+</span><span id="line-32"></span><span>  </span><span id="chainStateSlot"><span class="annot"><a href="Hydra.Chain.ChainState.html#chainStateSlot"><span class="hs-identifier hs-type">chainStateSlot</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Chain.ChainState.html#ChainStateType"><span class="hs-identifier hs-type">ChainStateType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679433298"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.ChainState.html#ChainSlot"><span class="hs-identifier hs-type">ChainSlot</span></a></span><span>
+</span><span id="line-33"></span></pre></body></html>

@@ -1,0 +1,476 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.Contract.Contest.Healthy</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-keyword">label</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadState</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Head</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Data.ContestationPeriod</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">OnChain</span></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Data.Party</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">OnChain</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Ledger.Cardano.Time</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">slotNoToUTCTime</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Plutus.Extras</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">posixFromUTCTime</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Plutus.Orphans</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">registryUTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Contest</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ClosedThreadOutput</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">contestTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.ContestationPeriod</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ContestationPeriod</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromChain</span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Crypto</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HydraKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MultiSignature</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">aggregate</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">sign</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.HeadId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mkHeadId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Init</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mkHeadOutput</span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.IsTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">hashUTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Party</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Party</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">deriveParty</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">partyToChain</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Snapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Snapshot</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SnapshotNumber</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SnapshotVersion</span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Utils</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><span class="hs-identifier">IncrementalAction</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier">setIncrementalActionMaybe</span></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-identifier">splitUTxO</span></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V2</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">BuiltinByteString</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toBuiltin</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Fixture</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">aliceSk</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">bobSk</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">carolSk</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">slotLength</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">systemStart</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">testNetworkId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">testPolicyId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Gen</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-identifier">genForParty</span></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier">genOneUTxOFor</span></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier">genScriptRegistry</span></span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><span class="hs-identifier">genVerificationKey</span></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Mutation</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><span class="hs-identifier">addParticipationTokens</span></span><span class="hs-special">,</span><span>
+</span><span id="line-39"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">elements</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">suchThat</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Instances</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-comment">--</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- ContestTx</span><span>
+</span><span id="line-45"></span><span class="hs-comment">--</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- | Healthy contest tx where the contester is the first one to contest and</span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- correctly pushing out the deadline by the contestation period.</span><span>
+</span><span id="line-49"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestTx"><span class="hs-identifier hs-type">healthyContestTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span id="healthyContestTx"><span class="annot"><span class="annottext">healthyContestTx :: (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestTx"><span class="hs-identifier hs-var hs-var">healthyContestTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-51"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679426323"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679426324"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-53"></span><span>  </span><span id="local-6989586621679426324"><span class="annot"><span class="annottext">lookupUTxO :: UTxO
+</span><a href="#local-6989586621679426324"><span class="hs-identifier hs-var hs-var">lookupUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">TxIn -&gt; TxOut CtxUTxO Era -&gt; UTxO
+forall out. TxIn -&gt; out -&gt; UTxO' out
+</span><span class="hs-identifier hs-var">UTxO.singleton</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedHeadTxIn"><span class="hs-identifier hs-var">healthyClosedHeadTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedHeadTxOut"><span class="hs-identifier hs-var">healthyClosedHeadTxOut</span></a></span><span>
+</span><span id="line-55"></span><span>      </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry -&gt; UTxO
+</span><span class="hs-identifier hs-var">registryUTxO</span></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="#local-6989586621679426330"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span>  </span><span id="local-6989586621679426323"><span class="annot"><span class="annottext">tx :: Tx
+</span><a href="#local-6989586621679426323"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-58"></span><span>    </span><span class="annot"><span class="annottext">ScriptRegistry
+-&gt; VerificationKey PaymentKey
+-&gt; HeadId
+-&gt; ContestationPeriod
+-&gt; SnapshotVersion
+-&gt; Snapshot Tx
+-&gt; MultiSignature (Snapshot Tx)
+-&gt; PointInTime
+-&gt; ClosedThreadOutput
+-&gt; IncrementalAction
+-&gt; Tx
+</span><span class="hs-identifier hs-var">contestTx</span></span><span>
+</span><span id="line-59"></span><span>      </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="#local-6989586621679426330"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span>
+</span><span id="line-60"></span><span>      </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContesterVerificationKey"><span class="hs-identifier hs-var">healthyContesterVerificationKey</span></a></span><span>
+</span><span id="line-61"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; HeadId
+</span><span class="hs-identifier hs-var">mkHeadId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><span class="hs-identifier hs-var">testPolicyId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>      </span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationPeriod"><span class="hs-identifier hs-var">healthyContestationPeriod</span></a></span><span>
+</span><span id="line-63"></span><span>      </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyCloseSnapshotVersion"><span class="hs-identifier hs-var">healthyCloseSnapshotVersion</span></a></span><span>
+</span><span id="line-64"></span><span>      </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestSnapshot"><span class="hs-identifier hs-var">healthyContestSnapshot</span></a></span><span>
+</span><span id="line-65"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SnapshotNumber -&gt; MultiSignature (Snapshot Tx)
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySignature"><span class="hs-identifier hs-var">healthySignature</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestSnapshotNumber"><span class="hs-identifier hs-var">healthyContestSnapshotNumber</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlotNo
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySlotNo"><span class="hs-identifier hs-var">healthySlotNo</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
+</span><span class="hs-identifier hs-var">slotNoToUTCTime</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
+</span><span class="hs-identifier hs-var">systemStart</span></span><span> </span><span class="annot"><span class="annottext">SlotLength
+</span><span class="hs-identifier hs-var">slotLength</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySlotNo"><span class="hs-identifier hs-var">healthySlotNo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>      </span><span class="annot"><span class="annottext">ClosedThreadOutput
+</span><a href="#local-6989586621679426338"><span class="hs-identifier hs-var">closedThreadOutput</span></a></span><span>
+</span><span id="line-68"></span><span>      </span><span class="annot"><span class="annottext">IncrementalAction
+</span><a href="#local-6989586621679426339"><span class="hs-identifier hs-var">incrementalAction</span></a></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span>  </span><span id="local-6989586621679426339"><span class="annot"><span class="annottext">incrementalAction :: IncrementalAction
+</span><a href="#local-6989586621679426339"><span class="hs-identifier hs-var hs-var">incrementalAction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IncrementalAction -&gt; Maybe IncrementalAction -&gt; IncrementalAction
+forall a. a -&gt; Maybe a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromMaybe"><span class="hs-identifier hs-var">fromMaybe</span></a></span><span> </span><span class="annot"><span class="annottext">IncrementalAction
+</span><span class="hs-identifier hs-var">NoThing</span></span><span> </span><span class="annot"><span class="annottext">(Maybe IncrementalAction -&gt; IncrementalAction)
+-&gt; Maybe IncrementalAction -&gt; IncrementalAction
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe UTxO -&gt; Maybe UTxO -&gt; Maybe IncrementalAction
+</span><span class="hs-identifier hs-var">setIncrementalActionMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Snapshot Tx -&gt; Maybe (UTxOType Tx)
+forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
+</span><span class="hs-identifier hs-var">utxoToCommit</span></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestSnapshot"><span class="hs-identifier hs-var">healthyContestSnapshot</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Snapshot Tx -&gt; Maybe (UTxOType Tx)
+forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
+</span><span class="hs-identifier hs-var">utxoToDecommit</span></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestSnapshot"><span class="hs-identifier hs-var">healthyContestSnapshot</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>  </span><span id="local-6989586621679426330"><span class="annot"><span class="annottext">scriptRegistry :: ScriptRegistry
+</span><a href="#local-6989586621679426330"><span class="hs-identifier hs-var hs-var">scriptRegistry</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen ScriptRegistry
+</span><span class="hs-identifier hs-var">genScriptRegistry</span></span><span> </span><span class="annot"><span class="annottext">Gen ScriptRegistry -&gt; Int -&gt; ScriptRegistry
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679426338"><span class="annot"><span class="annottext">closedThreadOutput :: ClosedThreadOutput
+</span><a href="#local-6989586621679426338"><span class="hs-identifier hs-var hs-var">closedThreadOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-74"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ClosedThreadOutput</span></span><span>
+</span><span id="line-75"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:closedThreadUTxO:ClosedThreadOutput :: (TxIn, TxOut CtxUTxO Era)
+</span><span class="hs-identifier hs-var">closedThreadUTxO</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedHeadTxIn"><span class="hs-identifier hs-var">healthyClosedHeadTxIn</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedHeadTxOut"><span class="hs-identifier hs-var">healthyClosedHeadTxOut</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:closedParties:ClosedThreadOutput :: [Party]
+</span><span class="hs-identifier hs-var">closedParties</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-77"></span><span>          </span><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyOnChainParties"><span class="hs-identifier hs-var">healthyOnChainParties</span></a></span><span>
+</span><span id="line-78"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:closedContestationDeadline:ClosedThreadOutput :: POSIXTime
+</span><span class="hs-identifier hs-var">closedContestationDeadline</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; POSIXTime
+</span><span class="hs-identifier hs-var">posixFromUTCTime</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationDeadline"><span class="hs-identifier hs-var">healthyContestationDeadline</span></a></span><span>
+</span><span id="line-79"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:closedContesters:ClosedThreadOutput :: [PubKeyHash]
+</span><span class="hs-identifier hs-var">closedContesters</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-80"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestSnapshotNumber"><span class="hs-identifier hs-type">healthyContestSnapshotNumber</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotNumber</span></span><span>
+</span><span id="line-83"></span><span id="healthyContestSnapshotNumber"><span class="annot"><span class="annottext">healthyContestSnapshotNumber :: SnapshotNumber
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestSnapshotNumber"><span class="hs-identifier hs-var hs-var">healthyContestSnapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><span class="hs-number">4</span></span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyCloseSnapshotVersion"><span class="hs-identifier hs-type">healthyCloseSnapshotVersion</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotVersion</span></span><span>
+</span><span id="line-86"></span><span id="healthyCloseSnapshotVersion"><span class="annot"><span class="annottext">healthyCloseSnapshotVersion :: SnapshotVersion
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyCloseSnapshotVersion"><span class="hs-identifier hs-var hs-var">healthyCloseSnapshotVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">4</span></span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedUTxO"><span class="hs-identifier hs-type">healthyClosedUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-89"></span><span id="healthyClosedUTxO"><span class="annot"><span class="annottext">healthyClosedUTxO :: UTxO
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedUTxO"><span class="hs-identifier hs-var hs-var">healthyClosedUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-90"></span><span>  </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Gen UTxO
+</span><span class="hs-identifier hs-var">genOneUTxOFor</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContesterVerificationKey"><span class="hs-identifier hs-var">healthyContesterVerificationKey</span></a></span><span> </span><span class="annot"><span class="annottext">Gen UTxO -&gt; Int -&gt; UTxO
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestUTxO"><span class="hs-identifier hs-type">healthyContestUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-93"></span><span id="healthyContestUTxO"><span class="annot"><span class="annottext">healthyContestUTxO :: UTxO
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestUTxO"><span class="hs-identifier hs-var hs-var">healthyContestUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-94"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Gen UTxO
+</span><span class="hs-identifier hs-var">genOneUTxOFor</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContesterVerificationKey"><span class="hs-identifier hs-var">healthyContesterVerificationKey</span></a></span><span> </span><span class="annot"><span class="annottext">Gen UTxO -&gt; (UTxO -&gt; Bool) -&gt; Gen UTxO
+forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
+</span><span class="hs-operator hs-var">`suchThat`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedUTxO"><span class="hs-identifier hs-var">healthyClosedUTxO</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>    </span><span class="annot"><span class="annottext">Gen UTxO -&gt; Int -&gt; UTxO
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitContestUTxO"><span class="hs-identifier hs-type">splitContestUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span id="splitContestUTxO"><span class="annot"><span class="annottext">splitContestUTxO :: (UTxO, UTxO)
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitContestUTxO"><span class="hs-identifier hs-var hs-var">splitContestUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; (UTxO, UTxO)
+</span><span class="hs-identifier hs-var">splitUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestUTxO"><span class="hs-identifier hs-var">healthyContestUTxO</span></a></span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitUTxOInHead"><span class="hs-identifier hs-type">splitUTxOInHead</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-101"></span><span id="splitUTxOInHead"><span class="annot"><span class="annottext">splitUTxOInHead :: UTxO
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitUTxOInHead"><span class="hs-identifier hs-var hs-var">splitUTxOInHead</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UTxO, UTxO) -&gt; UTxO
+forall a b. (a, b) -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">(UTxO, UTxO)
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitContestUTxO"><span class="hs-identifier hs-var">splitContestUTxO</span></a></span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitUTxOToDecommit"><span class="hs-identifier hs-type">splitUTxOToDecommit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-104"></span><span id="splitUTxOToDecommit"><span class="annot"><span class="annottext">splitUTxOToDecommit :: UTxO
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitUTxOToDecommit"><span class="hs-identifier hs-var hs-var">splitUTxOToDecommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UTxO, UTxO) -&gt; UTxO
+forall a b. (a, b) -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#snd"><span class="hs-identifier hs-var">snd</span></a></span><span> </span><span class="annot"><span class="annottext">(UTxO, UTxO)
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitContestUTxO"><span class="hs-identifier hs-var">splitContestUTxO</span></a></span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestSnapshot"><span class="hs-identifier hs-type">healthyContestSnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-107"></span><span id="healthyContestSnapshot"><span class="annot"><span class="annottext">healthyContestSnapshot :: Snapshot Tx
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestSnapshot"><span class="hs-identifier hs-var hs-var">healthyContestSnapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-108"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:headId:Snapshot :: HeadId
+</span><span class="hs-identifier hs-var">headId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; HeadId
+</span><span class="hs-identifier hs-var">mkHeadId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><span class="hs-identifier hs-var">testPolicyId</span></span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:number:Snapshot :: SnapshotNumber
+</span><span class="hs-identifier hs-var">number</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestSnapshotNumber"><span class="hs-identifier hs-var">healthyContestSnapshotNumber</span></a></span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:utxo:Snapshot :: UTxOType Tx
+</span><span class="hs-identifier hs-var">utxo</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO
+UTxOType Tx
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitUTxOInHead"><span class="hs-identifier hs-var">splitUTxOInHead</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:confirmed:Snapshot :: [Tx]
+</span><span class="hs-identifier hs-var">confirmed</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:utxoToCommit:Snapshot :: Maybe (UTxOType Tx)
+</span><span class="hs-identifier hs-var">utxoToCommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe UTxO
+Maybe (UTxOType Tx)
+forall a. Maybe a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:utxoToDecommit:Snapshot :: Maybe (UTxOType Tx)
+</span><span class="hs-identifier hs-var">utxoToDecommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Maybe UTxO
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitUTxOToDecommit"><span class="hs-identifier hs-var">splitUTxOToDecommit</span></a></span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:version:Snapshot :: SnapshotVersion
+</span><span class="hs-identifier hs-var">version</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyCloseSnapshotVersion"><span class="hs-identifier hs-var">healthyCloseSnapshotVersion</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedState"><span class="hs-identifier hs-type">healthyClosedState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Head.State</span></span><span>
+</span><span id="line-119"></span><span id="healthyClosedState"><span class="annot"><span class="annottext">healthyClosedState :: State
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedState"><span class="hs-identifier hs-var hs-var">healthyClosedState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-120"></span><span>  </span><span class="annot"><span class="annottext">ClosedDatum -&gt; State
+</span><span class="hs-identifier hs-var">Head.Closed</span></span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Head.ClosedDatum</span></span><span>
+</span><span id="line-122"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:snapshotNumber:ClosedDatum :: SnapshotNumber
+</span><span class="hs-identifier hs-var">snapshotNumber</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber -&gt; SnapshotNumber
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedSnapshotNumber"><span class="hs-identifier hs-var">healthyClosedSnapshotNumber</span></a></span><span>
+</span><span id="line-123"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:utxoHash:ClosedDatum :: Hash
+</span><span class="hs-identifier hs-var">utxoHash</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedUTxOHash"><span class="hs-identifier hs-var">healthyClosedUTxOHash</span></a></span><span>
+</span><span id="line-124"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:alphaUTxOHash:ClosedDatum :: Hash
+</span><span class="hs-identifier hs-var">alphaUTxOHash</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-125"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:omegaUTxOHash:ClosedDatum :: Hash
+</span><span class="hs-identifier hs-var">omegaUTxOHash</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-126"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:parties:ClosedDatum :: [Party]
+</span><span class="hs-identifier hs-var">parties</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyOnChainParties"><span class="hs-identifier hs-var">healthyOnChainParties</span></a></span><span>
+</span><span id="line-127"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:contestationDeadline:ClosedDatum :: POSIXTime
+</span><span class="hs-identifier hs-var">contestationDeadline</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; POSIXTime
+</span><span class="hs-identifier hs-var">posixFromUTCTime</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationDeadline"><span class="hs-identifier hs-var">healthyContestationDeadline</span></a></span><span>
+</span><span id="line-128"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:contestationPeriod:ClosedDatum :: ContestationPeriod
+</span><span class="hs-identifier hs-var">contestationPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyOnChainContestationPeriod"><span class="hs-identifier hs-var">healthyOnChainContestationPeriod</span></a></span><span>
+</span><span id="line-129"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headId:ClosedDatum :: CurrencySymbol
+</span><span class="hs-identifier hs-var">headId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; CurrencySymbol
+</span><span class="hs-identifier hs-var">toPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><span class="hs-identifier hs-var">testPolicyId</span></span><span>
+</span><span id="line-130"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:contesters:ClosedDatum :: [PubKeyHash]
+</span><span class="hs-identifier hs-var">contesters</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-131"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:version:ClosedDatum :: SnapshotNumber
+</span><span class="hs-identifier hs-var">version</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion -&gt; SnapshotNumber
+forall a. Integral a =&gt; a -&gt; SnapshotNumber
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var">toInteger</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyCloseSnapshotVersion"><span class="hs-identifier hs-var">healthyCloseSnapshotVersion</span></a></span><span>
+</span><span id="line-132"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestUTxOHash"><span class="hs-identifier hs-type">healthyContestUTxOHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-135"></span><span id="healthyContestUTxOHash"><span class="annot"><span class="annottext">healthyContestUTxOHash :: Hash
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestUTxOHash"><span class="hs-identifier hs-var hs-var">healthyContestUTxOHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-136"></span><span>  </span><span class="annot"><span class="annottext">ByteString -&gt; ToBuiltin ByteString
+forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
+</span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ToBuiltin ByteString)
+-&gt; ByteString -&gt; ToBuiltin ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">forall tx. IsTx tx =&gt; UTxOType tx -&gt; ByteString
+</span><span class="hs-identifier hs-var">hashUTxO</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+UTxOType Tx
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitUTxOInHead"><span class="hs-identifier hs-var">splitUTxOInHead</span></a></span><span>
+</span><span id="line-137"></span><span>
+</span><span id="line-138"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestUTxOToDecommitHash"><span class="hs-identifier hs-type">healthyContestUTxOToDecommitHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-139"></span><span id="healthyContestUTxOToDecommitHash"><span class="annot"><span class="annottext">healthyContestUTxOToDecommitHash :: Hash
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestUTxOToDecommitHash"><span class="hs-identifier hs-var hs-var">healthyContestUTxOToDecommitHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-140"></span><span>  </span><span class="annot"><span class="annottext">ByteString -&gt; ToBuiltin ByteString
+forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
+</span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ToBuiltin ByteString)
+-&gt; ByteString -&gt; ToBuiltin ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">forall tx. IsTx tx =&gt; UTxOType tx -&gt; ByteString
+</span><span class="hs-identifier hs-var">hashUTxO</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+UTxOType Tx
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#splitUTxOToDecommit"><span class="hs-identifier hs-var">splitUTxOToDecommit</span></a></span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedUTxOHash"><span class="hs-identifier hs-type">healthyClosedUTxOHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-143"></span><span id="healthyClosedUTxOHash"><span class="annot"><span class="annottext">healthyClosedUTxOHash :: Hash
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedUTxOHash"><span class="hs-identifier hs-var hs-var">healthyClosedUTxOHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-144"></span><span>  </span><span class="annot"><span class="annottext">ByteString -&gt; ToBuiltin ByteString
+forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
+</span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ToBuiltin ByteString)
+-&gt; ByteString -&gt; ToBuiltin ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">forall tx. IsTx tx =&gt; UTxOType tx -&gt; ByteString
+</span><span class="hs-identifier hs-var">hashUTxO</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+UTxOType Tx
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedUTxO"><span class="hs-identifier hs-var">healthyClosedUTxO</span></a></span><span>
+</span><span id="line-145"></span><span>
+</span><span id="line-146"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedSnapshotNumber"><span class="hs-identifier hs-type">healthyClosedSnapshotNumber</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotNumber</span></span><span>
+</span><span id="line-147"></span><span id="healthyClosedSnapshotNumber"><span class="annot"><span class="annottext">healthyClosedSnapshotNumber :: SnapshotNumber
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedSnapshotNumber"><span class="hs-identifier hs-var hs-var">healthyClosedSnapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><span class="hs-number">3</span></span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySlotNo"><span class="hs-identifier hs-type">healthySlotNo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span>
+</span><span id="line-150"></span><span id="healthySlotNo"><span class="annot"><span class="annottext">healthySlotNo :: SlotNo
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySlotNo"><span class="hs-identifier hs-var hs-var">healthySlotNo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen SlotNo
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen SlotNo -&gt; Int -&gt; SlotNo
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedHeadTxIn"><span class="hs-identifier hs-type">healthyClosedHeadTxIn</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span>
+</span><span id="line-153"></span><span id="healthyClosedHeadTxIn"><span class="annot"><span class="annottext">healthyClosedHeadTxIn :: TxIn
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedHeadTxIn"><span class="hs-identifier hs-var hs-var">healthyClosedHeadTxIn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen TxIn -&gt; Int -&gt; TxIn
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-identifier hs-var">generateWith</span></span><span> </span><span class="annot"><span class="annottext">Gen TxIn
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedHeadTxOut"><span class="hs-identifier hs-type">healthyClosedHeadTxOut</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span>
+</span><span id="line-156"></span><span id="healthyClosedHeadTxOut"><span class="annot"><span class="annottext">healthyClosedHeadTxOut :: TxOut CtxUTxO Era
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedHeadTxOut"><span class="hs-identifier hs-var hs-var">healthyClosedHeadTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-157"></span><span>  </span><span class="annot"><span class="annottext">NetworkId -&gt; PolicyId -&gt; TxOutDatum CtxUTxO -&gt; TxOut CtxUTxO Era
+forall ctx. NetworkId -&gt; PolicyId -&gt; TxOutDatum ctx -&gt; TxOut ctx
+</span><span class="hs-identifier hs-var">mkHeadOutput</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><span class="hs-identifier hs-var">testNetworkId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><span class="hs-identifier hs-var">testPolicyId</span></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO
+</span><a href="#local-6989586621679426386"><span class="hs-identifier hs-var">headTxOutDatum</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+-&gt; (TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era) -&gt; TxOut CtxUTxO Era
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">[VerificationKey PaymentKey]
+-&gt; TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era
+</span><span class="hs-identifier hs-var">addParticipationTokens</span></span><span> </span><span class="annot"><span class="annottext">[VerificationKey PaymentKey]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyParticipants"><span class="hs-identifier hs-var">healthyParticipants</span></a></span><span>
+</span><span id="line-159"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-160"></span><span>  </span><span class="annot"><a href="#local-6989586621679426386"><span class="hs-identifier hs-type">headTxOutDatum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutDatum</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span>
+</span><span id="line-161"></span><span>  </span><span id="local-6989586621679426386"><span class="annot"><span class="annottext">headTxOutDatum :: TxOutDatum CtxUTxO
+</span><a href="#local-6989586621679426386"><span class="hs-identifier hs-var hs-var">headTxOutDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">State -&gt; TxOutDatum CtxUTxO
+forall era a ctx.
+(ToScriptData a, IsBabbageBasedEra era) =&gt;
+a -&gt; TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">mkTxOutDatumInline</span></span><span> </span><span class="annot"><span class="annottext">State
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyClosedState"><span class="hs-identifier hs-var">healthyClosedState</span></a></span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyOnChainContestationPeriod"><span class="hs-identifier hs-type">healthyOnChainContestationPeriod</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OnChain.ContestationPeriod</span></span><span>
+</span><span id="line-164"></span><span id="healthyOnChainContestationPeriod"><span class="annot"><span class="annottext">healthyOnChainContestationPeriod :: ContestationPeriod
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyOnChainContestationPeriod"><span class="hs-identifier hs-var hs-var">healthyOnChainContestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ContestationPeriod
+</span><span class="hs-identifier hs-var">OnChain.contestationPeriodFromDiffTime</span></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; ContestationPeriod)
+-&gt; NominalDiffTime -&gt; ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber -&gt; NominalDiffTime
+forall a. Num a =&gt; SnapshotNumber -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationPeriodSeconds"><span class="hs-identifier hs-var">healthyContestationPeriodSeconds</span></a></span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationPeriod"><span class="hs-identifier hs-type">healthyContestationPeriod</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span>
+</span><span id="line-167"></span><span id="healthyContestationPeriod"><span class="annot"><span class="annottext">healthyContestationPeriod :: ContestationPeriod
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationPeriod"><span class="hs-identifier hs-var hs-var">healthyContestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; ContestationPeriod
+</span><span class="hs-identifier hs-var">fromChain</span></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyOnChainContestationPeriod"><span class="hs-identifier hs-var">healthyOnChainContestationPeriod</span></a></span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationPeriodSeconds"><span class="hs-identifier hs-type">healthyContestationPeriodSeconds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-170"></span><span id="healthyContestationPeriodSeconds"><span class="annot"><span class="annottext">healthyContestationPeriodSeconds :: SnapshotNumber
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationPeriodSeconds"><span class="hs-identifier hs-var hs-var">healthyContestationPeriodSeconds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><span class="hs-number">10</span></span><span>
+</span><span id="line-171"></span><span>
+</span><span id="line-172"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyParticipants"><span class="hs-identifier hs-type">healthyParticipants</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">]</span><span>
+</span><span id="line-173"></span><span id="healthyParticipants"><span class="annot"><span class="annottext">healthyParticipants :: [VerificationKey PaymentKey]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyParticipants"><span class="hs-identifier hs-var hs-var">healthyParticipants</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-174"></span><span>  </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey)
+-&gt; Party -&gt; VerificationKey PaymentKey
+forall a. Gen a -&gt; Party -&gt; a
+</span><span class="hs-identifier hs-var">genForParty</span></span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey)
+</span><span class="hs-identifier hs-var">genVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">(Party -&gt; VerificationKey PaymentKey)
+-&gt; [Party] -&gt; [VerificationKey PaymentKey]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyParties"><span class="hs-identifier hs-var">healthyParties</span></a></span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContesterVerificationKey"><span class="hs-identifier hs-type">healthyContesterVerificationKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span>
+</span><span id="line-177"></span><span id="healthyContesterVerificationKey"><span class="annot"><span class="annottext">healthyContesterVerificationKey :: VerificationKey PaymentKey
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContesterVerificationKey"><span class="hs-identifier hs-var hs-var">healthyContesterVerificationKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-178"></span><span>  </span><span class="annot"><span class="annottext">[VerificationKey PaymentKey] -&gt; Gen (VerificationKey PaymentKey)
+forall a. HasCallStack =&gt; [a] -&gt; Gen a
+</span><span class="hs-identifier hs-var">elements</span></span><span> </span><span class="annot"><span class="annottext">[VerificationKey PaymentKey]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyParticipants"><span class="hs-identifier hs-var">healthyParticipants</span></a></span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey)
+-&gt; Int -&gt; VerificationKey PaymentKey
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySigningKeys"><span class="hs-identifier hs-type">healthySigningKeys</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HydraKey</span></span><span class="hs-special">]</span><span>
+</span><span id="line-181"></span><span id="healthySigningKeys"><span class="annot"><span class="annottext">healthySigningKeys :: [SigningKey HydraKey]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySigningKeys"><span class="hs-identifier hs-var hs-var">healthySigningKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><span class="hs-identifier hs-var">aliceSk</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><span class="hs-identifier hs-var">bobSk</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><span class="hs-identifier hs-var">carolSk</span></span><span class="hs-special">]</span><span>
+</span><span id="line-182"></span><span>
+</span><span id="line-183"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyParties"><span class="hs-identifier hs-type">healthyParties</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">]</span><span>
+</span><span id="line-184"></span><span id="healthyParties"><span class="annot"><span class="annottext">healthyParties :: [Party]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyParties"><span class="hs-identifier hs-var hs-var">healthyParties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party
+</span><span class="hs-identifier hs-var">deriveParty</span></span><span> </span><span class="annot"><span class="annottext">(SigningKey HydraKey -&gt; Party) -&gt; [SigningKey HydraKey] -&gt; [Party]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[SigningKey HydraKey]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySigningKeys"><span class="hs-identifier hs-var">healthySigningKeys</span></a></span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyOnChainParties"><span class="hs-identifier hs-type">healthyOnChainParties</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">OnChain.Party</span></span><span class="hs-special">]</span><span>
+</span><span id="line-187"></span><span id="healthyOnChainParties"><span class="annot"><span class="annottext">healthyOnChainParties :: [Party]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyOnChainParties"><span class="hs-identifier hs-var hs-var">healthyOnChainParties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party
+</span><span class="hs-identifier hs-var">partyToChain</span></span><span> </span><span class="annot"><span class="annottext">(Party -&gt; Party) -&gt; [Party] -&gt; [Party]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyParties"><span class="hs-identifier hs-var">healthyParties</span></a></span><span>
+</span><span id="line-188"></span><span>
+</span><span id="line-189"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySignature"><span class="hs-identifier hs-type">healthySignature</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MultiSignature</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-190"></span><span id="healthySignature"><span class="annot"><span class="annottext">healthySignature :: SnapshotNumber -&gt; MultiSignature (Snapshot Tx)
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySignature"><span class="hs-identifier hs-var hs-var">healthySignature</span></a></span></span><span> </span><span id="local-6989586621679426395"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621679426395"><span class="hs-identifier hs-var">number</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-191"></span><span>  </span><span class="annot"><span class="annottext">[Signature (Snapshot Tx)] -&gt; MultiSignature (Snapshot Tx)
+forall {k} (a :: k). [Signature a] -&gt; MultiSignature a
+</span><span class="hs-identifier hs-var">aggregate</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Snapshot Tx -&gt; Signature (Snapshot Tx)
+forall a.
+SignableRepresentation a =&gt;
+SigningKey HydraKey -&gt; a -&gt; Signature a
+</span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679426396"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="#local-6989586621679426397"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679426396"><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679426396"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[SigningKey HydraKey]
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySigningKeys"><span class="hs-identifier hs-var">healthySigningKeys</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-192"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-193"></span><span>  </span><span id="local-6989586621679426397"><span class="annot"><span class="annottext">snapshot :: Snapshot Tx
+</span><a href="#local-6989586621679426397"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestSnapshot"><span class="hs-identifier hs-var">healthyContestSnapshot</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var hs-type">number</span></span><span class="hs-special">}</span><span>
+</span><span id="line-194"></span><span>
+</span><span id="line-195"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationDeadline"><span class="hs-identifier hs-type">healthyContestationDeadline</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
+</span><span id="line-196"></span><span id="healthyContestationDeadline"><span class="annot"><span class="annottext">healthyContestationDeadline :: UTCTime
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationDeadline"><span class="hs-identifier hs-var hs-var">healthyContestationDeadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-197"></span><span>  </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UTCTime -&gt; UTCTime
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCDiff.html#addUTCTime"><span class="hs-identifier hs-var">addUTCTime</span></a></span><span>
+</span><span id="line-198"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SnapshotNumber -&gt; NominalDiffTime
+forall a. Num a =&gt; SnapshotNumber -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContestationPeriodSeconds"><span class="hs-identifier hs-var">healthyContestationPeriodSeconds</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-199"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
+</span><span class="hs-identifier hs-var">slotNoToUTCTime</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
+</span><span class="hs-identifier hs-var">systemStart</span></span><span> </span><span class="annot"><span class="annottext">SlotLength
+</span><span class="hs-identifier hs-var">slotLength</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySlotNo"><span class="hs-identifier hs-var">healthySlotNo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-200"></span></pre></body></html>

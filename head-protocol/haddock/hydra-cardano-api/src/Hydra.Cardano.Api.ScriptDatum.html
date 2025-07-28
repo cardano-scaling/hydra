@@ -1,0 +1,25 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cardano.Api.ScriptDatum</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.ScriptData.html"><span class="hs-identifier">Hydra.Cardano.Api.ScriptData</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.ScriptData.html#ToScriptData"><span class="hs-identifier">ToScriptData</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.ScriptData.html#toScriptData"><span class="hs-identifier">toScriptData</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="annot"><span class="hs-comment">-- * Extras</span></span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="annot"><span class="hs-comment">-- | Construct a 'ScriptDatum' for use as transaction witness.</span></span><span>
+</span><span id="line-10"></span><span id="local-6989586621679289372"><span class="annot"><a href="Hydra.Cardano.Api.ScriptDatum.html#mkScriptDatum"><span class="hs-identifier hs-type">mkScriptDatum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.ScriptData.html#ToScriptData"><span class="hs-identifier hs-type">ToScriptData</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679289372"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679289372"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptDatum</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">WitCtxTxIn</span></span></span><span>
+</span><span id="line-11"></span><span id="mkScriptDatum"><span class="annot"><span class="annottext">mkScriptDatum :: forall a. ToScriptData a =&gt; a -&gt; ScriptDatum WitCtxTxIn
+</span><a href="Hydra.Cardano.Api.ScriptDatum.html#mkScriptDatum"><span class="hs-identifier hs-var hs-var">mkScriptDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="annottext">Maybe HashableScriptData -&gt; ScriptDatum WitCtxTxIn
+</span><span class="hs-identifier hs-var">ScriptDatumForTxIn</span></span><span> </span><span class="annot"><span class="annottext">(Maybe HashableScriptData -&gt; ScriptDatum WitCtxTxIn)
+-&gt; (a -&gt; Maybe HashableScriptData) -&gt; a -&gt; ScriptDatum WitCtxTxIn
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe HashableScriptData
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(HashableScriptData -&gt; Maybe HashableScriptData)
+-&gt; (a -&gt; HashableScriptData) -&gt; a -&gt; Maybe HashableScriptData
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; HashableScriptData
+forall a. ToScriptData a =&gt; a -&gt; HashableScriptData
+</span><a href="Hydra.Cardano.Api.ScriptData.html#toScriptData"><span class="hs-identifier hs-var">toScriptData</span></a></span><span>
+</span><span id="line-13"></span></pre></body></html>
