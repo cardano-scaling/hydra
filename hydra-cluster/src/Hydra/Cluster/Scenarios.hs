@@ -36,6 +36,7 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (
+  DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
  )
@@ -108,6 +109,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
+import Hydra.Tx.Commit (capUTxO)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
@@ -563,12 +565,15 @@ singlePartyCommitsFromExternal tracer workDir backend hydraScriptsTxId =
 
         (walletVk, walletSk) <- keysFor AliceFunds
         utxoToCommit <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
+        let amount = 2_000_000
+        let (toCommit, _leftover) = capUTxO utxoToCommit amount
+
         res <-
           runReq defaultHttpConfig $
             req
               POST
               (http "127.0.0.1" /: "commit")
-              (ReqBodyJson utxoToCommit)
+              (ReqBodyJson $ SimpleCommitRequest @Tx utxoToCommit (Just amount))
               (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
               (port $ 4000 + hydraNodeId)
 
@@ -579,7 +584,7 @@ singlePartyCommitsFromExternal tracer workDir backend hydraScriptsTxId =
           guard $ v ^? key "headId" == Just (toJSON headId)
           guard $ v ^? key "tag" == Just "HeadIsOpen"
           pure $ v ^? key "utxo"
-        lockedUTxO `shouldBe` Just (toJSON utxoToCommit)
+        lockedUTxO `shouldBe` Just (toJSON toCommit)
 
 singlePartyUsesScriptOnL2 ::
   ChainBackend backend =>
