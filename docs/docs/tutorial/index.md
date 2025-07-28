@@ -77,8 +77,8 @@ unzip -d bin hydra-aarch64-darwin-${hydra_version}.zip
 
 cardano_node_version=10.4.1
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-macos.tar.gz
-tar xf cardano-node-${cardano_node_version}-macos.tar.gz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
-tar xf cardano-node-${cardano_node_version}-macos.tar.gz ./share/preprod --strip-components=3
+tar xf cardano-node-${cardano_node_version}-macos.tar.gz ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
+tar xf cardano-node-${cardano_node_version}-macos.tar.gz --strip-components=3 ./share/preprod/
 
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
 
