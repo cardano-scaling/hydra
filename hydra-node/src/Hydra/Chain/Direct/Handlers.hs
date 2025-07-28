@@ -18,6 +18,7 @@ import Data.List qualified as List
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
+  Coin,
   LedgerEra,
   Tx,
   TxId,
@@ -178,18 +179,18 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
             >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
-    , draftCommitTx = \headId commitBlueprintTx -> do
+    , draftCommitTx = \headId commitBlueprintTx amount -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
-          commit' ctx headId spendableUTxO commitBlueprintTx
-    , draftDepositTx = \headId pparams commitBlueprintTx deadline -> do
+          commit' ctx headId spendableUTxO commitBlueprintTx amount
+    , draftDepositTx = \headId pparams commitBlueprintTx deadline amount -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
         TimeHandle{currentPointInTime} <- queryTimeHandle
         -- XXX: What an error handling mess
         runExceptT $ do
-          liftEither $ rejectLowDeposits pparams lookupUTxO
+          liftEither $ rejectLowDeposits pparams lookupUTxO amount
           (currentSlot, currentTime) <- case currentPointInTime of
             Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
             Right (s, t) -> pure (s, t)
@@ -210,14 +211,14 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
 
 -- Check each UTxO entry against the minADAUTxO value.
 -- Throws 'DepositTooLow' exception.
-rejectLowDeposits :: PParams LedgerEra -> UTxO.UTxO -> Either (PostTxError Tx) ()
-rejectLowDeposits pparams utxo = do
+rejectLowDeposits :: PParams LedgerEra -> UTxO.UTxO -> Maybe Coin -> Either (PostTxError Tx) ()
+rejectLowDeposits pparams utxo amount = do
   let insAndOuts = UTxO.toList utxo
   let providedValues = (\(i, o) -> (i, UTxO.totalLovelace $ UTxO.singleton i o)) <$> insAndOuts
   let minimumValues = (\(i, o) -> (i, calculateMinimumUTxO shelleyBasedEra pparams $ fromCtxUTxOTxOut o)) <$> insAndOuts
   let results =
         ( \(i, minVal) ->
-            case List.find (\(ix, providedVal) -> i == ix && providedVal < minVal) providedValues of
+            case List.find (\(ix, providedVal) -> i == ix && providedVal < minVal || maybe False (< minVal) amount) providedValues of
               Nothing -> Right ()
               Just (_, tooLowValue) ->
                 Left (DepositTooLow{providedValue = tooLowValue, minimumValue = minVal} :: PostTxError Tx)

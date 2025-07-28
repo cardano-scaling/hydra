@@ -19,6 +19,7 @@ import Hydra.Cardano.Api (
   AssetId (..),
   AssetName (AssetName),
   ChainPoint (..),
+  Coin,
   CtxUTxO,
   Key (SigningKey, VerificationKey, verificationKeyHash),
   NetworkId (Mainnet, Testnet),
@@ -328,10 +329,11 @@ commit ::
   UTxO ->
   -- | 'UTxO' to commit. All outputs are assumed to be owned by public keys
   UTxO ->
+  Maybe Coin ->
   Either (PostTxError Tx) Tx
-commit ctx headId spendableUTxO lookupUTxO =
+commit ctx headId spendableUTxO lookupUTxO amount =
   let blueprintTx = txSpendingUTxO lookupUTxO
-   in commit' ctx headId spendableUTxO CommitBlueprintTx{lookupUTxO, blueprintTx}
+   in commit' ctx headId spendableUTxO CommitBlueprintTx{lookupUTxO, blueprintTx} amount
 
 -- | Construct a commit transaction based on known, spendable UTxO and some
 -- user UTxO inputs to commit. This does look for "our initial output" to spend
@@ -345,13 +347,14 @@ commit' ::
   -- | Spendable 'UTxO'
   UTxO ->
   CommitBlueprintTx Tx ->
+  Maybe Coin ->
   Either (PostTxError Tx) Tx
-commit' ctx headId spendableUTxO commitBlueprintTx = do
+commit' ctx headId spendableUTxO commitBlueprintTx amount = do
   pid <- headIdToPolicyId headId ?> InvalidHeadId{headId}
   (i, o) <- ownInitial pid ?> CannotFindOwnInitial{knownUTxO = spendableUTxO}
   rejectByronAddress lookupUTxO
   rejectMoreThanMainnetLimit networkId lookupUTxO
-  pure $ commitTx networkId scriptRegistry headId ownParty commitBlueprintTx (i, o, vkh)
+  pure $ commitTx networkId scriptRegistry headId ownParty commitBlueprintTx (i, o, vkh) amount
  where
   CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
 
@@ -937,7 +940,7 @@ genChainStateWithTx =
     (cctx, stInitial) <- genStInitial ctx
     utxo <- genCommit
     let InitialState{headId} = stInitial
-    let tx = unsafeCommit cctx headId (getKnownUTxO stInitial) utxo
+    let tx = unsafeCommit cctx headId (getKnownUTxO stInitial) utxo Nothing
     pure (cctx, Initial stInitial, mempty, tx, Commit)
 
   genCollectWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
@@ -1098,7 +1101,7 @@ genCommits' genUTxO ctx txInit = do
   allChainContexts <- deriveChainContexts ctx
   forM (zip allChainContexts scaledCommitUTxOs) $ \(cctx, toCommit) -> do
     let stInitial@InitialState{headId} = unsafeObserveInit cctx (ctxVerificationKeys ctx) txInit
-    pure $ unsafeCommit cctx headId (getKnownUTxO stInitial) toCommit
+    pure $ unsafeCommit cctx headId (getKnownUTxO stInitial) toCommit Nothing
  where
   scaleCommitUTxOs :: [UTxO] -> [UTxO]
   scaleCommitUTxOs commitUTxOs =
@@ -1317,9 +1320,10 @@ unsafeCommit ::
   UTxO ->
   -- | 'UTxO' to commit. All outputs are assumed to be owned by public keys.
   UTxO ->
+  Maybe Coin ->
   Tx
-unsafeCommit ctx headId spendableUTxO utxoToCommit =
-  either (error . show) id $ commit ctx headId spendableUTxO utxoToCommit
+unsafeCommit ctx headId spendableUTxO utxoToCommit amount =
+  either (error . show) id $ commit ctx headId spendableUTxO utxoToCommit amount
 
 unsafeAbort ::
   HasCallStack =>

@@ -175,7 +175,7 @@ withBlockfrostChainTest tracer config party action = do
         { postTx
         , waitCallback = atomically $ takeTMVar eventMVar
         , draftCommitTx = \headId utxo blueprintTx -> do
-            eTx <- draftCommitTx headId $ CommitBlueprintTx{lookupUTxO = utxo, blueprintTx}
+            eTx <- draftCommitTx headId CommitBlueprintTx{lookupUTxO = utxo, blueprintTx} Nothing
             case eTx of
               Left e -> throwIO e
               Right tx -> pure tx

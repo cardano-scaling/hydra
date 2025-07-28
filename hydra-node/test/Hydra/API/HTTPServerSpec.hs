@@ -493,7 +493,7 @@ apiServerSpec = do
       let getHeadId = pure $ NormalCommit (generateWith arbitrary 42)
       let workingChainHandle =
             dummyChainHandle
-              { draftCommitTx = \_ _ -> do
+              { draftCommitTx = \_ _ _ -> do
                   tx <- generate $ arbitrary @Tx
                   pure $ Right tx
               }
@@ -521,13 +521,13 @@ apiServerSpec = do
       let failingChainHandle :: PostTxError tx -> Chain tx IO
           failingChainHandle postTxError =
             dummyChainHandle
-              { draftCommitTx = \_ _ -> pure $ Left postTxError
-              , draftDepositTx = \_ _ _ _ -> pure $ Left postTxError
+              { draftCommitTx = \_ _ _ -> pure $ Left postTxError
+              , draftDepositTx = \_ _ _ _ _ -> pure $ Left postTxError
               }
 
       prop "reject deposits with less than min ADA" $ do
         forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO.UTxO) -> do
-          let result = rejectLowDeposits pparams utxo
+          let result = rejectLowDeposits pparams utxo Nothing
           case result of
             Left DepositTooLow{providedValue, minimumValue} ->
               property $

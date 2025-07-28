@@ -276,7 +276,7 @@ spec = parallel $ do
         (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutByron
         pure $
-          case commit ctx headId (getKnownUTxO stInitial) utxo of
+          case commit ctx headId (getKnownUTxO stInitial) utxo Nothing of
             Left UnsupportedLegacyOutput{} -> property True
             _ -> property False
 
@@ -287,7 +287,7 @@ spec = parallel $ do
         utxo <- pickBlind genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
         let mainnetChainContext = ctx{networkId = Mainnet}
         pure $
-          case commit mainnetChainContext headId (getKnownUTxO stInitial) utxo of
+          case commit mainnetChainContext headId (getKnownUTxO stInitial) utxo Nothing of
             Left CommittedTooMuchADAForMainnet{userCommittedLovelace, mainnetLimitLovelace} ->
               -- check that user committed more than our limit but also use 'maxMainnetLovelace'
               -- to be sure we didn't construct 'CommittedTooMuchADAForMainnet' wrongly
@@ -630,7 +630,7 @@ forAllCommit' action = do
       forAllBlind (genCommitFor $ ownVerificationKey ctx) $ \toCommit ->
         -- TODO: generate script inputs here? <- SB: what script inputs?
         let InitialState{headId} = stInitial
-            tx = unsafeCommit ctx headId (getKnownUTxO ctx <> getKnownUTxO stInitial) toCommit
+            tx = unsafeCommit ctx headId (getKnownUTxO ctx <> getKnownUTxO stInitial) toCommit Nothing
          in action ctx stInitial toCommit tx
               & classify
                 (UTxO.null toCommit)
