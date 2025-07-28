@@ -63,6 +63,7 @@ healthyCommitTx =
       commitParty
       CommitBlueprintTx{lookupUTxO = healthyCommittedUTxO, blueprintTx}
       (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut, initialPubKeyHash)
+      Nothing
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
