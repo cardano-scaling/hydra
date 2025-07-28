@@ -208,7 +208,7 @@ mockChainAndNetwork tr seedKeys commits = do
     case find (matchingParty party) hydraNodes of
       Nothing -> error "simulateCommit: Could not find matching HydraNode"
       Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftCommitTx}}} ->
-        draftCommitTx headId (mkSimpleBlueprintTx utxoToCommit) >>= \case
+        draftCommitTx headId (mkSimpleBlueprintTx utxoToCommit) Nothing >>= \case
           Left e -> throwIO e
           Right tx -> submitTx tx
 
@@ -219,7 +219,7 @@ mockChainAndNetwork tr seedKeys commits = do
     readTVarIO nodes >>= \case
       [] -> error "simulateDeposit: no MockHydraNode"
       (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
-        draftDepositTx headId defaultPParams (mkSimpleBlueprintTx utxoToDeposit) deadline >>= \case
+        draftDepositTx headId defaultPParams (mkSimpleBlueprintTx utxoToDeposit) deadline Nothing >>= \case
           Left e -> throwIO e
           Right tx -> submitTx tx $> txId tx
 

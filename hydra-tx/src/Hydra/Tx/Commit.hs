@@ -54,8 +54,10 @@ commitTx ::
   -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
+  -- | Commit amount. If the value is 'Nothing' then complete 'UTxO' value will be used.
+  Maybe Coin ->
   Tx
-commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, out, vkh) =
+commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, out, vkh) amount =
   -- NOTE: We use the cardano-ledger-api functions here such that we can use the
   -- blueprint transaction as a starting point (cardano-api does not allow
   -- convenient transaction modifications).
@@ -144,7 +146,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     UTxO.fromList $ mapMaybe (\txin -> (txin,) <$> UTxO.resolveTxIn txin lookupUTxO) committedTxIns
 
   commitValue =
-    txOutValue out <> UTxO.totalValue utxoToCommit
+    txOutValue out <> maybe (UTxO.totalValue utxoToCommit) (fromLedgerValue . mkAdaValue ShelleyBasedEraConway) amount
 
   commitDatum =
     mkTxOutDatumInline $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
