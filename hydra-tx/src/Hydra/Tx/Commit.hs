@@ -27,6 +27,7 @@ import Cardano.Ledger.Plutus.Data (Data)
 import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import Cardano.Ledger.TxIn qualified as Ledger
 import Control.Lens ((.~), (<>~), (^.))
+import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -64,7 +65,10 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
   fromLedgerTx $
     toLedgerTx blueprintTx
       & spendFromInitial
-      & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut commitOutput)
+      & bodyTxL . outputsTxBodyL
+        .~ ( StrictSeq.singleton (toLedgerTxOut commitOutput)
+              <> if txOutValue leftoverOutput == mempty then mempty else StrictSeq.singleton (toLedgerTxOut leftoverOutput)
+           )
       & bodyTxL . mintTxBodyL .~ mempty
       & addMetadata (mkHydraHeadV1TxName "CommitTx") blueprintTx
  where
@@ -72,7 +76,8 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     let newRedeemers =
           resolveSpendingRedeemers tx
             & Map.insert (toLedgerTxIn initialInput) (toLedgerData @LedgerEra initialRedeemer)
-        newInputs = tx ^. bodyTxL . inputsTxBodyL <> Set.singleton (toLedgerTxIn initialInput)
+        newInputs =
+          tx ^. bodyTxL . inputsTxBodyL <> Set.singleton (toLedgerTxIn initialInput)
      in tx
           & bodyTxL . inputsTxBodyL .~ newInputs
           & bodyTxL . referenceInputsTxBodyL <>~ Set.singleton (toLedgerTxIn initialScriptRef)
@@ -127,6 +132,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
             SNothing -> []
       )
       (unRedeemers $ tx ^. witsTxL . rdmrsTxWitsL)
+
   initialScriptRef =
     fst (initialReference scriptRegistry)
 
@@ -134,22 +140,29 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     toScriptData . Initial.redeemer $
       Initial.ViaCommit (toPlutusTxOutRef <$> committedTxIns)
 
-  committedTxIns = txIns' blueprintTx
+  committedTxIns = toList $ UTxO.inputSet utxoToCommit'
+
+  (utxoToCommit', leftoverUTxO') = maybe (lookupUTxO, mempty) (capUTxO lookupUTxO) amount
+
+  (utxoToCommit, leftoverUTxO) =
+    (UTxO.fromList $ mapMaybe (\txin -> (txin,) <$> UTxO.resolveTxIn txin lookupUTxO) committedTxIns, leftoverUTxO')
 
   commitOutput =
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
 
+  leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
+
+  leftoverOutput =
+    TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
+
   commitAddress =
     mkScriptAddress networkId commitValidatorScript
 
-  utxoToCommit =
-    UTxO.fromList $ mapMaybe (\txin -> (txin,) <$> UTxO.resolveTxIn txin lookupUTxO) committedTxIns
-
   commitValue =
-    txOutValue out <> maybe (UTxO.totalValue utxoToCommit) (fromLedgerValue . mkAdaValue ShelleyBasedEraConway) amount
+    txOutValue out <> UTxO.totalValue utxoToCommit
 
   commitDatum =
-    mkTxOutDatumInline $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
+    mkTxOutDatumInline $ mkCommitDatum party utxoToCommit' (headIdToCurrencySymbol headId)
 
   CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
 
@@ -159,6 +172,82 @@ mkCommitDatum party utxo headId =
  where
   commits =
     mapMaybe Commit.serializeCommit $ UTxO.toList utxo
+
+-- | Helper to create a new TxOut with a specified lovelace value
+updateTxOutValue :: TxOut ctx -> Coin -> TxOut ctx
+updateTxOutValue (TxOut addr _ datum refScript) newValue =
+  TxOut addr (fromLedgerValue $ mkAdaValue ShelleyBasedEraConway newValue) datum refScript
+
+-- | Generates a new TxIn by appending an index to avoid collisions
+newTxIn :: TxIn -> Word -> TxIn
+newTxIn (TxIn txId (TxIx txIx)) suffix = TxIn txId (TxIx $ txIx + suffix)
+
+-- | Caps a UTxO set to a specified target amount of Lovelace, splitting outputs if necessary.
+--
+-- Given a 'UTxO' set and a target 'Coin' value (in Lovelace), this function selects unspent transaction outputs
+-- (UTxOs) to form a subset that sums as close as possible to the target value without exceeding it. If an output
+-- needs to be split to meet the target exactly, it creates two new outputs: one contributing to the target and
+-- another for the remaining value. The function ensures that the total Lovelace in the selected outputs does not
+-- exceed the target.
+--
+-- === Algorithm
+-- 1. **Base Cases**:
+--    - If the target is 0, return an empty 'UTxO' as the selected set and the original 'UTxO' as leftovers.
+--    - If the input 'UTxO' is empty, return two empty 'UTxO' sets.
+-- 2. **Main Logic**:
+--    - Sort the UTxO entries by their Lovelace value (ascending) to prioritize smaller outputs for efficiency.
+--    - Use a recursive helper function 'go' to iterate through the sorted UTxO list, accumulating outputs until
+--      the target value is reached or no suitable outputs remain.
+--    - For each output:
+--      - If adding the output's Lovelace value does not exceed the target, include it fully in the selected set
+--        and remove it from the leftovers.
+--      - If adding the output would exceed the target, split the output into two parts:
+--        - One part contributes exactly the remaining amount needed to reach the target.
+--        - The other part holds the excess Lovelace.
+--        - Reuse 'TxIn' identifiers for the split outputs.
+--      - Continue processing until the target is met or no outputs remain.
+-- 3. **Termination**:
+--    - The function stops when the accumulated Lovelace equals the target or when no more outputs are available.
+--    - Returns a pair of 'UTxO' sets: the selected outputs (summing to at most the target) and the remaining outputs.
+capUTxO :: UTxO -> Coin -> (UTxO, UTxO)
+capUTxO utxo target
+  | target == 0 = (mempty, utxo)
+  | UTxO.null utxo = (mempty, mempty)
+  | otherwise = go mempty utxo 0 (sortBy (comparing (selectLovelace . txOutValue . snd)) (UTxO.toList utxo))
+ where
+  -- \| Helper function to recursively select and split UTxO outputs to reach the target value.
+  go foundSoFar leftovers currentSum sorted
+    | currentSum == target = (foundSoFar, leftovers)
+    | null sorted = (foundSoFar, leftovers)
+    | otherwise = case take 1 sorted of
+        [] -> (foundSoFar, leftovers)
+        (txIn, txOut) : _ ->
+          let x = selectLovelace (txOutValue txOut)
+           in if currentSum + x <= target
+                then
+                  -- Include the entire output if it doesn't exceed the target.
+                  go
+                    (foundSoFar <> UTxO.singleton txIn txOut)
+                    (UTxO.difference leftovers $ UTxO.singleton txIn txOut)
+                    (currentSum + x)
+                    (removeOne (txIn, txOut) sorted)
+                else
+                  -- Split the output to meet the target exactly.
+                  let cappedValue = target - currentSum
+                      leftoverVal = x - cappedValue
+                      newTxIn1 = txIn
+                      newTxIn2 = txIn
+                      cappedTxOut = updateTxOutValue txOut cappedValue
+                      leftoverTxOut = updateTxOutValue txOut leftoverVal
+                   in go
+                        (foundSoFar <> UTxO.singleton newTxIn1 cappedTxOut)
+                        (UTxO.difference leftovers (UTxO.singleton txIn txOut) <> UTxO.singleton newTxIn2 leftoverTxOut)
+                        (currentSum + cappedValue)
+                        (removeOne (txIn, txOut) sorted)
+
+  -- \| Removes the first occurrence of a specific (TxIn, TxOut) pair from a list.
+  removeOne :: (TxIn, TxOut CtxUTxO) -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, TxOut CtxUTxO)]
+  removeOne x xs' = let (before, after) = break (== x) xs' in before ++ drop 1 after
 
 -- * Observation
 
