@@ -25,6 +25,10 @@ changes.
 - Fix an internal persistent queue blocking after restart when it reached
   capacity.
 
+- Timeout and retry broadcast of network messages after 3 seconds in case the
+  `etcd` grpc server is not responsive. This should avoid build-up on the
+  outbound persistent queue.
+
 - Handle failing lease keep alive in network component and avoid bursts in
   heartbeating.
 
