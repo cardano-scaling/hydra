@@ -4,11 +4,10 @@ import Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.Class.MonadSTM (
+  MonadLabelledSTM,
   isEmptyTBQueue,
   isFullTBQueue,
   modifyTVar',
-  newTBQueueIO,
-  newTVarIO,
   peekTBQueue,
   readTBQueue,
   readTVarIO,
@@ -33,7 +32,7 @@ data PersistentQueue m a = PersistentQueue
 
 -- | Create a new persistent queue at file path and given capacity.
 newPersistentQueue ::
-  (MonadSTM m, MonadIO m, FromCBOR a, MonadFail m) =>
+  (MonadIO m, FromCBOR a, MonadFail m, MonadLabelledSTM m) =>
   -- | encode message
   (a -> ByteString) ->
   -- | decode message
@@ -51,9 +50,9 @@ newPersistentQueue encode decode path = do
       else do
         liftIO $ createDirectoryIfMissing True path
         pure ([], defaultCapacity)
-  queue <- newTBQueueIO $ fromIntegral capacity
+  queue <- newLabelledTBQueueIO "persistent-queue" $ fromIntegral capacity
   highestId <- loadExisting queue paths
-  nextIx <- newTVarIO $ highestId + 1
+  nextIx <- newLabelledTVarIO "persistent-queue-next-ix" $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path, encode, decode}
  where
   loadExisting queue paths = do

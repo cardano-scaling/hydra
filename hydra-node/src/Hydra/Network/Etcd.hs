@@ -46,7 +46,6 @@ import Hydra.Prelude
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
-  newTVarIO,
   swapTVar,
   writeTVar,
  )
@@ -141,23 +140,28 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- bailing out on loading.
   envVars <- Map.fromList <$> getEnvironment
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
-    race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
-      race_ (traceStderr p callback) $ do
-        -- XXX: cleanup reconnecting through policy if other threads fail
-        doneVar <- newTVarIO False
-        -- NOTE: The connection to the server is set up asynchronously; the
-        -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) grpcServer $ \conn -> do
-          -- REVIEW: checkVersion blocks if used on main thread - why?
-          withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
-            race_ (pollConnectivity tracer conn advertise callback) $
-              race_ (waitMessages tracer conn persistenceDir callback) $ do
-                race_ (broadcastMessages tracer conn advertise queue) $ do
-                  action
-                    Network
-                      { broadcast = writeDurablePersistentQueue queue
-                      }
-                  atomically (writeTVar doneVar True)
+    race_
+      ( do
+          threadLabelMe "etcd-waitExitCode-2"
+          waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec
+      )
+      $ do
+        race_ (traceStderr p callback) $ do
+          -- XXX: cleanup reconnecting through policy if other threads fail
+          doneVar <- newLabelledTVarIO "etcd-done" False
+          -- NOTE: The connection to the server is set up asynchronously; the
+          -- first rpc call will block until the connection has been established.
+          withConnection (connParams doneVar) grpcServer $ \conn -> do
+            -- REVIEW: checkVersion blocks if used on main thread - why?
+            withAsyncLabelled ("etcd-checkVersion", checkVersion tracer conn protocolVersion callback) $ \_ -> do
+              race_ (pollConnectivity tracer conn advertise callback) $
+                race_ (waitMessages tracer conn persistenceDir callback) $ do
+                  race_ (broadcastMessages tracer conn advertise queue) $ do
+                    action
+                      Network
+                        { broadcast = writeDurablePersistentQueue queue
+                        }
+                    atomically (writeTVar doneVar True)
  where
   connParams doneVar =
     def
@@ -191,7 +195,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- be used by default still.
   clientPort = 2379 + port listen - 5001
 
-  traceStderr p NetworkCallback{onConnectivity} =
+  traceStderr p NetworkCallback{onConnectivity} = do
+    threadLabelMe "etcd-traceStderr"
     forever $ do
       bs <- BS.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bs of
@@ -334,7 +339,8 @@ broadcastMessages ::
   Host ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages tracer conn ourHost queue =
+broadcastMessages tracer conn ourHost queue = do
+  threadLabelMe "etcd-broadcastMessages"
   withGrpcContext "broadcastMessages" . forever $ do
     (_, msg) <- peekPersistentQueue queue
     (putMessage conn ourHost msg >> popPersistentQueue queue msg)
@@ -372,6 +378,7 @@ waitMessages ::
   NetworkCallback msg IO ->
   IO ()
 waitMessages tracer conn directory NetworkCallback{deliver} = do
+  threadLabelMe "etcd-waitMessages"
   revision <- getLastKnownRevision directory
   withGrpcContext "waitMessages" . forever $ do
     -- NOTE: We have not observed the watch (subscription) fail even when peers
@@ -433,7 +440,8 @@ pollConnectivity ::
   NetworkCallback msg IO ->
   IO ()
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
-  seenAliveVar <- newTVarIO []
+  threadLabelMe "etcd-pollConnectivity"
+  seenAliveVar <- newLabelledTVarIO "etcd-seen-alive" []
   withGrpcContext "pollConnectivity" $
     forever . handle (onGrpcException seenAliveVar) $ do
       leaseId <- createLease
@@ -532,9 +540,9 @@ withProcessInterrupt config =
   signalAndStopProcess :: MonadIO m => Process stdin stdout stderr -> m ()
   signalAndStopProcess p = liftIO $ do
     interruptProcessGroupOf (unsafeProcessHandle p)
-    race_
-      (void $ waitExitCode p)
-      (threadDelay 5 >> stopProcess p)
+    raceLabelled_
+      ("etcd-waitExitCode-1", void $ waitExitCode p)
+      ("etcd-stopProcess", threadDelay 5 >> stopProcess p)
 
 -- * Tracing
 

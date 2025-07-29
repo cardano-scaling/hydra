@@ -80,11 +80,11 @@ createInputQueue = do
 createPersistentInputQueue ::
   ( MonadDelay m
   , MonadIO m
-  , MonadSTM m
   , MonadFail m
   , Eq e
   , ToCBOR e
   , FromCBOR e
+  , MonadLabelledSTM m
   ) =>
   FilePath ->
   m (InputQueue m e)

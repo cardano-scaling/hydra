@@ -69,7 +69,7 @@ withOfflineChain ::
 withOfflineChain config party otherParties chainStateHistory callback action = do
   initializeOfflineHead
   genesis <- loadGenesisFile ledgerGenesisFile
-  withAsync (tickForever genesis callback) $ \tickThread -> do
+  withAsyncLabelled ("offline-chain-tickForever", tickForever genesis callback) $ \tickThread -> do
     link tickThread
     action chainHandle
  where
