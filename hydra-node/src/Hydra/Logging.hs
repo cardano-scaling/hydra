@@ -27,15 +27,12 @@ import Hydra.Prelude
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
 import Control.Concurrent.Class.MonadSTM (
   flushTBQueue,
-  labelTBQueueIO,
   modifyTVar,
-  newTBQueueIO,
   newTVarIO,
   readTBQueue,
   readTVarIO,
   writeTBQueue,
  )
-import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
   Tracer (..),
@@ -103,18 +100,15 @@ withTracerOutputTo ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracerOutputTo hdl namespace action = do
-  msgQueue <- newTBQueueIO @_ @(Envelope msg) defaultQueueSize
-  labelTBQueueIO msgQueue "logging-msg-queue"
-  withAsync (writeLogs msgQueue) $ \_ ->
+  msgQueue <- newLabelledTBQueueIO @_ @(Envelope msg) "logging-msg-queue" defaultQueueSize
+  withAsyncLabelled ("logging-writeLogs", writeLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue
  where
   tracer queue =
     Tracer $
       mkEnvelope namespace >=> liftIO . atomically . writeTBQueue queue
 
-  writeLogs queue = do
-    tid <- myThreadId
-    labelThread tid "logging-writeLogs-"
+  writeLogs queue =
     forever $ do
       atomically (readTBQueue queue) >>= write . Aeson.encode
       hFlush hdl

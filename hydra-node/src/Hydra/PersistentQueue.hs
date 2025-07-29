@@ -7,11 +7,7 @@ import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   isEmptyTBQueue,
   isFullTBQueue,
-  labelTBQueueIO,
-  labelTVarIO,
   modifyTVar',
-  newTBQueueIO,
-  newTVarIO,
   peekTBQueue,
   readTBQueue,
   readTVarIO,
@@ -54,11 +50,9 @@ newPersistentQueue encode decode path = do
       else do
         liftIO $ createDirectoryIfMissing True path
         pure ([], defaultCapacity)
-  queue <- newTBQueueIO $ fromIntegral capacity
-  labelTBQueueIO queue "persistent-queue"
+  queue <- newLabelledTBQueueIO "persistent-queue" $ fromIntegral capacity
   highestId <- loadExisting queue paths
-  nextIx <- newTVarIO $ highestId + 1
-  labelTVarIO nextIx "persistent-queue-next-ix"
+  nextIx <- newLabelledTVarIO "persistent-queue-next-ix" $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path, encode, decode}
  where
   loadExisting queue paths = do

@@ -17,7 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently)
+import Control.Monad.Class.MonadAsync (MonadAsync (async), cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List

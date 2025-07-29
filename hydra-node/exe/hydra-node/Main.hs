@@ -4,7 +4,7 @@ module Main where
 
 import Hydra.Prelude hiding (fromList, intercalate)
 
-import Control.Concurrent (mkWeakThreadId, myThreadId)
+import Control.Concurrent (mkWeakThreadId)
 import Control.Exception (AsyncException (UserInterrupt), throwTo)
 import Data.ByteString (intercalate)
 import GHC.Weak (deRefWeak)

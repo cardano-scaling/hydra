@@ -6,7 +6,7 @@ module Hydra.Events.FileBased where
 import Hydra.Prelude
 
 import Conduit (mapMC, (.|))
-import Control.Concurrent.Class.MonadSTM (labelTVarIO, newTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (writeTVar)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Persistence (PersistenceIncremental (..))
@@ -20,8 +20,7 @@ mkFileBasedEventStore ::
   PersistenceIncremental e IO ->
   IO (EventStore e IO)
 mkFileBasedEventStore stateDir persistence = do
-  eventIdV <- newTVarIO Nothing
-  labelTVarIO eventIdV "file-based-event-store-event-id"
+  eventIdV <- newLabelledTVarIO "file-based-event-store-event-id" Nothing
   let
     getLastSeenEventId = readTVar eventIdV
 
