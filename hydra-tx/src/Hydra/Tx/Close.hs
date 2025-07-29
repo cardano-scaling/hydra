@@ -2,7 +2,43 @@
 
 module Hydra.Tx.Close where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api (
+  BuildTxWith (..),
+  CtxUTxO,
+  PaymentKey,
+  ScriptDatum (..),
+  SlotNo,
+  Tx,
+  TxIn,
+  TxOut,
+  UTxO,
+  VerificationKey,
+  addTxExtraKeyWits,
+  addTxIns,
+  addTxInsReference,
+  addTxOuts,
+  defaultTxBodyContent,
+  findRedeemerSpending,
+  findTxOutByScript,
+  fromCtxUTxOTxOut,
+  fromScriptData,
+  mkScriptReference,
+  mkTxOutDatumInline,
+  modifyTxOutDatum,
+  resolveInputsUTxO,
+  scriptWitnessInCtx,
+  setTxMetadata,
+  setTxValidityLowerBound,
+  setTxValidityUpperBound,
+  toScriptData,
+  txOutScriptData,
+  utxoFromTx,
+  verificationKeyHash,
+  pattern ScriptWitness,
+  pattern TxMetadataInEra,
+  pattern TxValidityLowerBound,
+  pattern TxValidityUpperBound,
+ )
 import Hydra.Prelude
 
 import Hydra.Contract.Head qualified as Head
