@@ -123,6 +123,9 @@ handleHydraEventsHeadState e = do
   case e of
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsInitializing{parties, headId}}) ->
       put $ Active (newActiveLink (toList parties) headId)
+    -- Note: We only need to use the greetings when there is a headId present.
+    Update (ApiGreetings API.Greetings{hydraHeadId = Just headId, parties}) ->
+      put $ Active (newActiveLink (toList parties) headId)
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsAborted{}}) ->
       put Idle
     _ -> pure ()
