@@ -44,7 +44,8 @@ import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState,
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.NetworkVersions qualified as NetworkVersions
-import Hydra.Tx (Party)
+import Hydra.Tx (HeadParameters (..), Party)
+import Hydra.Tx.HeadId (HeadId (..))
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
@@ -101,9 +102,16 @@ wsApp party tracer history callback headStateP responseChannel ServerOutputFilte
             , hydraHeadId = getHeadId headState
             , snapshotUtxo = getSnapshotUtxo headState
             , hydraNodeVersion = showVersion NetworkVersions.hydraNodeVersion
+            , parties = getParties headState
             }
 
   Projection{getLatest} = headStateP
+
+  getHeadId = \case
+    HeadState.Idle{} -> Nothing
+    HeadState.Initial InitialState{headId} -> Just headId
+    HeadState.Open OpenState{headId} -> Just headId
+    HeadState.Closed ClosedState{headId} -> Just headId
 
   mkServerOutputConfig qp =
     ServerOutputConfig
@@ -171,16 +179,18 @@ wsApp party tracer history callback headStateP responseChannel ServerOutputFilte
         WithAddressedTx addr -> txContainsAddr tx addr
         WithoutAddressedTx -> True
 
-  getHeadStatus = \case
-    HeadState.Idle{} -> Idle
-    HeadState.Initial{} -> Initializing
-    HeadState.Open{} -> Open
-    HeadState.Closed ClosedState{readyToFanoutSent}
-      | readyToFanoutSent -> FanoutPossible
-      | otherwise -> Closed
+-- | Get the content of 'parties' field in 'Greetings' message from the full 'HeadState'.
+getParties :: HeadState tx -> [Party]
+getParties = \case
+  HeadState.Open (HeadState.OpenState{parameters = HeadParameters{parties}}) -> parties
+  _ -> []
 
-  getHeadId = \case
-    HeadState.Idle{} -> Nothing
-    HeadState.Initial InitialState{headId} -> Just headId
-    HeadState.Open OpenState{headId} -> Just headId
-    HeadState.Closed ClosedState{headId} -> Just headId
+-- | Get the content of 'headStatus' field in 'Greetings' message from the full 'HeadState'.
+getHeadStatus :: HeadState tx -> HeadStatus
+getHeadStatus = \case
+  HeadState.Idle{} -> Idle
+  HeadState.Initial{} -> Initializing
+  HeadState.Open{} -> Open
+  HeadState.Closed ClosedState{readyToFanoutSent}
+    | readyToFanoutSent -> FanoutPossible
+    | otherwise -> Closed
