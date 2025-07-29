@@ -7,7 +7,6 @@ import Cardano.Api.Internal.GenesisParameters (fromShelleyGenesis)
 import Cardano.Ledger.Slot (unSlotNo)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
-import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
 import Hydra.Cardano.Api (GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), Tx)
@@ -70,7 +69,7 @@ withOfflineChain ::
 withOfflineChain config party otherParties chainStateHistory callback action = do
   initializeOfflineHead
   genesis <- loadGenesisFile ledgerGenesisFile
-  withAsync (tickForever genesis callback) $ \tickThread -> do
+  withAsyncLabelled ("offline-chain-tickForever", tickForever genesis callback) $ \tickThread -> do
     link tickThread
     action chainHandle
  where
@@ -144,8 +143,6 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
 
 tickForever :: GenesisParameters ShelleyEra -> (ChainEvent Tx -> IO ()) -> IO ()
 tickForever genesis callback = do
-  tid <- myThreadId
-  labelThread tid "offline-chain-tickForever"
   initialSlot <- slotNoFromUTCTime systemStart slotLength <$> getCurrentTime
   traverse_ nextTick [initialSlot ..]
  where
