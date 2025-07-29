@@ -2,9 +2,8 @@ module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTMVar, labelTQueueIO, labelTVarIO, newEmptyTMVar, newTQueueIO, newTVarIO, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
-import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Control.Retry (RetryPolicyM, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
@@ -124,8 +123,7 @@ withBlockfrostChain ::
 withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
-  queue <- newTQueueIO
-  labelTQueueIO queue "blockfrost-chain-queue"
+  queue <- newLabelledTQueueIO "blockfrost-chain-queue"
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip backend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
@@ -147,8 +145,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   res <-
     race
       ( handle onIOException $ do
-          tid <- myThreadId
-          labelThread tid "blockfrost-chain-connection"
+          threadLabelMe "blockfrost-chain-connection"
           prj <- Blockfrost.projectFromFile projectPath
           blockfrostChain tracer queue prj chainPoint handler wallet
       )
@@ -163,8 +160,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
   submitTx queue tx = do
     response <- atomically $ do
-      response <- newEmptyTMVar
-      labelTMVar response "blockfrost-chain-submit-tx-response"
+      response <- newLabelledEmptyTMVar "blockfrost-chain-submit-tx-response"
       writeTQueue queue (tx, response)
       return response
     atomically (takeTMVar response)
@@ -195,17 +191,9 @@ blockfrostChain ::
   m ()
 blockfrostChain tracer queue prj chainPoint handler wallet = do
   forever $
-    race_
-      ( do
-          tid <- myThreadId
-          labelThread tid "blockfrost-chain-follow"
-          blockfrostChainFollow tracer prj chainPoint handler wallet
-      )
-      ( do
-          tid <- myThreadId
-          labelThread tid "blockfrost-submission"
-          blockfrostSubmissionClient prj tracer queue
-      )
+    raceLabelled_
+      ("blockfrost-chain-follow", blockfrostChainFollow tracer prj chainPoint handler wallet)
+      ("blockfrost-submission", blockfrostSubmissionClient prj tracer queue)
 
 blockfrostChainFollow ::
   forall m.
@@ -226,8 +214,7 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
 
   let blockHash = fromChainPoint chainPoint genesisBlockHash
 
-  stateTVar <- newTVarIO blockHash
-  labelTVarIO stateTVar "blockfrost-chain-state"
+  stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
 
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do

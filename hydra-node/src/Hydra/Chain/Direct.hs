@@ -10,17 +10,12 @@ module Hydra.Chain.Direct (
 import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
-  labelTMVar,
-  labelTQueueIO,
-  newEmptyTMVar,
-  newTQueueIO,
   putTMVar,
   readTQueue,
   takeTMVar,
   writeTQueue,
  )
 import Control.Exception (IOException)
-import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Hydra.Cardano.Api (
   BlockInMode (..),
   CardanoEra (..),
@@ -145,8 +140,7 @@ withDirectChain ::
 withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
-  queue <- newTQueueIO
-  labelTQueueIO queue "direct-chain-queue"
+  queue <- newLabelledTQueueIO "direct-chain-queue"
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip backend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
@@ -168,8 +162,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   res <-
     race
       ( handle onIOException $ do
-          tid <- myThreadId
-          labelThread tid "direct-chain-connection"
+          threadLabelMe "direct-chain-connection"
           connectToLocalNode
             (connectInfo networkId nodeSocket)
             (clientProtocols chainPoint queue handler)
@@ -203,8 +196,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
   submitTx queue tx = do
     response <- atomically $ do
-      response <- newEmptyTMVar
-      labelTMVar response "direct-chain-submit-tx-response"
+      response <- newLabelledEmptyTMVar "direct-chain-submit-tx-response"
       writeTQueue queue (tx, response)
       return response
     atomically (takeTMVar response)

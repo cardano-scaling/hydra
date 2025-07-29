@@ -56,7 +56,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..), (^?))
-import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens qualified as Aeson
@@ -140,8 +139,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_
       ( do
-          tid <- myThreadId
-          labelThread tid "etcd-waitExitCode-2"
+          threadLabelMe "etcd-waitExitCode-2"
           waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec
       )
       ( race_ (traceStderr p callback) $ do
@@ -149,7 +147,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
           -- first rpc call will block until the connection has been established.
           withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
             -- REVIEW: checkVersion blocks if used on main thread - why?
-            withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
+            withAsyncLabelled ("etcd-checkVersion", checkVersion tracer conn protocolVersion callback) $ \_ -> do
               race_ (pollConnectivity tracer conn advertise callback) $
                 race_ (waitMessages tracer conn persistenceDir callback) $ do
                   queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
@@ -162,8 +160,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
  where
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
   traceStderr p NetworkCallback{onConnectivity} = do
-    tid <- myThreadId
-    labelThread tid "etcd-traceStderr"
+    threadLabelMe "etcd-traceStderr"
     forever $ do
       bs <- BS.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bs of
@@ -266,8 +263,6 @@ checkVersion ::
   NetworkCallback msg IO ->
   IO ()
 checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
-  tid <- myThreadId
-  labelThread tid "etcd-checkVersion"
   -- Get or write our version into kv store
   res <-
     nonStreaming conn (rpc @(Protobuf KV "txn")) $
@@ -327,8 +322,7 @@ broadcastMessages ::
   PersistentQueue IO msg ->
   IO ()
 broadcastMessages tracer config ourHost queue = do
-  tid <- myThreadId
-  labelThread tid "etcd-broadcastMessages"
+  threadLabelMe "etcd-broadcastMessages"
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
     (putMessage tracer config ourHost msg >> popPersistentQueue queue msg)
@@ -370,8 +364,7 @@ waitMessages ::
   NetworkCallback msg IO ->
   IO ()
 waitMessages tracer conn directory NetworkCallback{deliver} = do
-  tid <- myThreadId
-  labelThread tid "etcd-waitMessages"
+  threadLabelMe "etcd-waitMessages"
   withGrpcContext "waitMessages" . forever $ do
     -- NOTE: We have not observed the watch (subscription) fail even when peers
     -- leave and we end up on a minority cluster.
@@ -448,10 +441,8 @@ pollConnectivity ::
   NetworkCallback msg IO ->
   IO ()
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
-  tid <- myThreadId
-  labelThread tid "etcd-pollConnectivity"
-  seenAliveVar <- newTVarIO []
-  labelTVarIO seenAliveVar "etcd-seen-alive"
+  threadLabelMe "etcd-pollConnectivity"
+  seenAliveVar <- newLabelledTVarIO "etcd-seen-alive" []
   withGrpcContext "pollConnectivity" $
     forever . handle (onGrpcException seenAliveVar) $ do
       leaseId <- createLease
@@ -554,17 +545,9 @@ withProcessInterrupt config =
   signalAndStopProcess :: MonadIO m => Process stdin stdout stderr -> m ()
   signalAndStopProcess p = liftIO $ do
     interruptProcessGroupOf (unsafeProcessHandle p)
-    race_
-      ( do
-          tid <- myThreadId
-          labelThread tid "etcd-waitExitCode-1"
-          void $ waitExitCode p
-      )
-      ( do
-          tid <- myThreadId
-          labelThread tid "etcd-stopProcess"
-          threadDelay 5 >> stopProcess p
-      )
+    raceLabelled_
+      ("etcd-waitExitCode-1", void $ waitExitCode p)
+      ("etcd-stopProcess", threadDelay 5 >> stopProcess p)
 
 -- * Persistent queue
 

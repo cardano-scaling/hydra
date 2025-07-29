@@ -13,8 +13,7 @@ module Hydra.Logging.Monitoring (
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar', newTVarIO, readTVarIO)
-import Control.Monad.Class.MonadFork (labelThread, myThreadId)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, modifyTVar', readTVarIO)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Hydra.HeadLogic (
@@ -47,12 +46,8 @@ withMonitoring ::
 withMonitoring Nothing tracer action = action tracer
 withMonitoring (Just monitoringPort) (Tracer tracer) action = do
   (traceMetric, registry) <- prepareRegistry
-  withAsync
-    ( do
-        tid <- myThreadId
-        labelThread tid "monitoring-serveMetrics"
-        serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry)
-    )
+  withAsyncLabelled
+    ("monitoring-serveMetrics", serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry))
     $ \_ ->
       let wrappedTracer = Tracer $ \msg -> do
             traceMetric msg
@@ -64,8 +59,7 @@ withMonitoring (Just monitoringPort) (Tracer tracer) action = do
 -- of metrics, whether push or pull, and a function for updating metrics given some trace event.
 prepareRegistry :: forall m tx. (MonadIO m, MonadMonotonicTime m, IsTx tx, MonadLabelledSTM m) => m (HydraLog tx -> m (), Registry)
 prepareRegistry = do
-  transactionsMap <- newTVarIO mempty
-  labelTVarIO transactionsMap "monitoring-txs-map-registry"
+  transactionsMap <- newLabelledTVarIO "monitoring-txs-map-registry" mempty
   first (monitor transactionsMap) <$> registerMetrics
  where
   registerMetrics = foldlM registerMetric (mempty, new) allMetrics

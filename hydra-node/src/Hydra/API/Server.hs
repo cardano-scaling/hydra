@@ -10,7 +10,6 @@ import Conduit (mapM_C, runConduitRes, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
-import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Data.Conduit.Combinators (map)
 import Data.Conduit.List (catMaybes)
 import Data.Map qualified as Map
@@ -128,8 +127,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             & setBeforeMainLoop notifyServerRunning
     race_
       ( do
-          tid <- myThreadId
-          labelThread tid "api-server"
+          threadLabelMe "api-server"
           traceWith tracer (APIServerStarted port)
           startServer serverSettings
             . simpleCors
@@ -150,8 +148,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
               )
       )
       ( do
-          tid <- myThreadId
-          labelThread tid "api-server-eventsink"
+          threadLabelMe "api-server-eventsink"
           waitForServerRunning
           action
             ( EventSink

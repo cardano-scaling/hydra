@@ -9,7 +9,6 @@ import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
 import Control.Lens ((.~))
-import Control.Monad.Class.MonadFork (labelThread, myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey)
 import Data.Conduit.Combinators (filter)
@@ -88,17 +87,9 @@ wsApp env party tracer history callback headStateP responseChannel ServerOutputF
   forwardGreetingOnly outConfig con
 
   withPingThread con 30 (pure ()) $
-    race_
-      ( do
-          tid <- myThreadId
-          labelThread tid "ws-con-receive-inputs"
-          receiveInputs con
-      )
-      ( do
-          tid <- myThreadId
-          labelThread tid "ws-con-send-outputs"
-          sendOutputs chan con outConfig
-      )
+    raceLabelled_
+      ("ws-con-receive-inputs", receiveInputs con)
+      ("ws-con-send-outputs", sendOutputs chan con outConfig)
  where
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the
