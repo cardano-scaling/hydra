@@ -44,9 +44,6 @@ module Hydra.Prelude (
   newLabelledTVar,
   newLabelledTVarIO,
   newLabelledEmptyTMVar,
-  newLabelledEmptyTMVarIO,
-  newLabelledTMVar,
-  newLabelledTMVarIO,
   newLabelledTQueueIO,
   threadLabelMe,
   raceLabelled,
@@ -322,18 +319,6 @@ newLabelledEmptyTMVar lbl = do
   tmv <- newEmptyTMVar
   labelTMVar tmv lbl
   pure tmv
-
-newLabelledEmptyTMVarIO :: MonadLabelledSTM m => String -> m (TMVar m a)
-newLabelledEmptyTMVarIO = atomically . newLabelledEmptyTMVar
-
-newLabelledTMVar :: MonadLabelledSTM m => String -> a -> STM m (TMVar m a)
-newLabelledTMVar lbl val = do
-  tmv <- newTMVar val
-  labelTMVar tmv lbl
-  pure tmv
-
-newLabelledTMVarIO :: MonadLabelledSTM m => String -> a -> m (TMVar m a)
-newLabelledTMVarIO = (atomically .) . newLabelledTMVar
 
 -- * Helpers for labeling TQueue
 
