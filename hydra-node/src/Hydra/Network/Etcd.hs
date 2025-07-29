@@ -48,11 +48,12 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   peekTBQueue,
   readTBQueue,
+  readTVarIO,
   swapTVar,
   writeTBQueue,
   writeTVar,
  )
-import Control.Exception (IOException)
+import Control.Exception (Handler (..), IOException, catches)
 import Control.Lens ((^.), (^..), (^?))
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
@@ -77,17 +78,12 @@ import Hydra.Network (
 import Hydra.Network.EtcdBinary (getEtcdBinary)
 import Network.GRPC.Client (
   Address (..),
-  CallParams (..),
   ConnParams (..),
   Connection,
   ReconnectPolicy (..),
   ReconnectTo (ReconnectToOriginal),
   Server (..),
-  Timeout (..),
-  TimeoutUnit (..),
-  TimeoutValue (..),
   rpc,
-  rpcWith,
   withConnection,
  )
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
@@ -120,7 +116,6 @@ import System.Process.Typed (
   unsafeProcessHandle,
   waitExitCode,
  )
-import UnliftIO (readTVarIO)
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
@@ -322,15 +317,29 @@ broadcastMessages ::
 broadcastMessages tracer conn ourHost queue =
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
-    (putMessage conn ourHost msg >> popPersistentQueue queue msg)
-      `catch` \case
-        GrpcException{grpcError, grpcErrorMessage}
-          | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
-              traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
-              threadDelay 1
-        e -> throwIO e
+    handleExceptions $ do
+      putMessage conn ourHost msg
+      popPersistentQueue queue msg
+ where
+  handleExceptions =
+    flip
+      catches
+      [ Handler $ \case
+          GrpcException{grpcError, grpcErrorMessage}
+            | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
+                traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
+                threadDelay 1
+          e -> throwIO e
+      , Handler $ \BroadcastPutTimedOut -> do
+          traceWith tracer $ BroadcastFailed{reason = "put timeout"}
+          threadDelay 1
+      ]
+
+data BroadcastFailedException = BroadcastPutTimedOut
+  deriving (Show, Eq, Exception)
 
 -- | Broadcast a message to the etcd cluster.
+-- Throws: BroadcastFailedException on timeout
 putMessage ::
   ToCBOR msg =>
   Connection ->
@@ -339,13 +348,10 @@ putMessage ::
   msg ->
   IO ()
 putMessage conn ourHost msg =
-  void $ nonStreaming conn (rpcWith @(Protobuf KV "put") callParams) req
+  timeout 3 (nonStreaming conn (rpc @(Protobuf KV "put")) req) >>= \case
+    Nothing -> throwIO BroadcastPutTimedOut
+    Just _ -> pure ()
  where
-  -- NOTE: Timeout puts after 3 seconds. This is not tested, but we saw the
-  -- 'pending-broadcast' queue fill up and suspect that 'put' requests in
-  -- 'broadcastMessages' were just not served and stay pending forever.
-  callParams = def{callTimeout = Just . Timeout Second $ TimeoutValue 3}
-
   req =
     defMessage
       & #key .~ key
@@ -453,8 +459,7 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
     -- Keep our lease alive
     ttlRemaining <- keepAlive
     if ttlRemaining <= 0
-      then
-        -- The keep alive did not work as no time to live remaining. Get a new lease instead
+      then -- The keep alive did not work as no time to live remaining. Get a new lease instead
         traceWith tracer LowLeaseTTL{ttlRemaining}
       else do
         -- Determine alive peers
