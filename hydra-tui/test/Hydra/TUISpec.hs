@@ -183,23 +183,23 @@ setupRotatedStateTUI action = do
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \_ backend -> do
-        hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-        chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
+      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
+        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+        chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] tuiContestationPeriod
         let nodeId = 1
         let externalKeyFilePath = tmpDir </> "external.sk"
         externalSKey <- createAndSaveSigningKey externalKeyFilePath
         let externalVKey = getVerificationKey externalSKey
-        seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
-        let DirectBackend DirectOptions{nodeSocket, networkId} = backend
+        seedFromFaucet_ node externalVKey 42_000_000 (contramap FromFaucet tracer)
 
         options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] [nodeId] id
         let options' = options{persistenceRotateAfter = Just 1}
 
         -- Init
         withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \n@HydraClient{hydraNodeId} -> do
-          seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+          seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
           send n $ input "Init" []
+
         -- TODO: Check that it rotates _after_ Init
 
         withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \HydraClient{hydraNodeId} -> do
