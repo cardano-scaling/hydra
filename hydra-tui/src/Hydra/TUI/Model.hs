@@ -211,18 +211,11 @@ emptyConnection =
     , headState = Idle
     }
 
-newActiveLink :: [Party] -> HeadId -> ActiveLink
-newActiveLink parties headId =
+newActiveLink :: [Party] -> HeadId -> ActiveHeadState -> ActiveLink
+newActiveLink parties headId headState =
   ActiveLink
     { parties
-    , activeHeadState =
-        Initializing
-          { initializingState =
-              InitializingState
-                { remainingParties = parties
-                , initializingScreen = InitializingHome
-                }
-          }
+    , activeHeadState = headState
     , utxo = mempty
     , pendingUTxOToDecommit = mempty
     , pendingIncrements = mempty
