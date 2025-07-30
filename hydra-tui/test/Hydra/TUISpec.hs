@@ -10,6 +10,7 @@ import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import Data.ByteString qualified as BS
+import Data.Set qualified as Set
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),
@@ -36,8 +37,10 @@ import Hydra.Cluster.Faucet (
  )
 import Hydra.Cluster.Fixture (
   Actor (..),
+  alice,
   aliceSk,
  )
+import Hydra.Cluster.Scenarios (headIsInitializingWith)
 import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
@@ -52,6 +55,7 @@ import HydraNode (
   input,
   prepareHydraNode,
   send,
+  waitForAllMatch,
   withHydraNode,
   withPreparedHydraNode,
  )
@@ -74,10 +78,11 @@ spec = do
 
     around setupRotatedStateTUI $ do
       it "tui-rotated starts" $ do
-        \TUITest{sendInputEvent, shouldRender} -> do
-          threadDelay 5
+        \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
+          threadDelay 1
           sendInputEvent $ EvKey (KChar 'h') []
           threadDelay 1
+          shouldNotRender "HeadIsInitializing"
           shouldRender "Checkpoint triggered"
           sendInputEvent $ EvKey (KChar 's') []
           threadDelay 1
@@ -173,11 +178,6 @@ spec = do
           threadDelay 1
           shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
 
--- Set up a node
--- Do event rotatation
--- Reload
--- See that it's in the right state on the websocket.
-
 setupRotatedStateTUI :: (TUITest -> IO ()) -> IO ()
 setupRotatedStateTUI action = do
   showLogsOnFailure "TUISpec" $ \tracer ->
@@ -195,12 +195,11 @@ setupRotatedStateTUI action = do
         options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] [nodeId] id
         let options' = options{persistenceRotateAfter = Just 1}
 
-        -- Init
-        withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \n@HydraClient{hydraNodeId} -> do
+        withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \n -> do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
           send n $ input "Init" []
-
-      -- TODO: Check that it rotates _after_ Init
+          void $ waitForAllMatch (10 * 200) [n] $ headIsInitializingWith (Set.fromList [alice])
+          -- Note: We don't wait for checking rotated here - but maybe we could - because we just check for the message in the TUI
 
         withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \HydraClient{hydraNodeId} -> do
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
