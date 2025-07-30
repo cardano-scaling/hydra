@@ -45,7 +45,6 @@ import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Tx (HeadParameters (..), Party)
-import Hydra.Tx.HeadId (HeadId (..))
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
