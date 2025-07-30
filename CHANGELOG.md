@@ -24,6 +24,8 @@ changes.
 
 - Tested with `cardano-node 10.4.1` and `cardano-cli 10.8.0.0`.
 
+- Fix rotation log id after restart.
+
 ## [0.22.2] - 2025.06.30
 
 * Fix wrong hydra-script-tx-ids in networks.json
