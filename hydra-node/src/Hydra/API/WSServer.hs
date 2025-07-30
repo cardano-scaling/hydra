@@ -107,12 +107,6 @@ wsApp party tracer history callback headStateP responseChannel ServerOutputFilte
 
   Projection{getLatest} = headStateP
 
-  getHeadId = \case
-    HeadState.Idle{} -> Nothing
-    HeadState.Initial InitialState{headId} -> Just headId
-    HeadState.Open OpenState{headId} -> Just headId
-    HeadState.Closed ClosedState{headId} -> Just headId
-
   mkServerOutputConfig qp =
     ServerOutputConfig
       { utxoInSnapshot = decideOnUTxODisplay qp
@@ -179,18 +173,22 @@ wsApp party tracer history callback headStateP responseChannel ServerOutputFilte
         WithAddressedTx addr -> txContainsAddr tx addr
         WithoutAddressedTx -> True
 
+  getHeadStatus = \case
+    HeadState.Idle{} -> Idle
+    HeadState.Initial{} -> Initializing
+    HeadState.Open{} -> Open
+    HeadState.Closed ClosedState{readyToFanoutSent}
+      | readyToFanoutSent -> FanoutPossible
+      | otherwise -> Closed
+
+  getHeadId = \case
+    HeadState.Idle{} -> Nothing
+    HeadState.Initial InitialState{headId} -> Just headId
+    HeadState.Open OpenState{headId} -> Just headId
+    HeadState.Closed ClosedState{headId} -> Just headId
+
 -- | Get the content of 'parties' field in 'Greetings' message from the full 'HeadState'.
 getParties :: HeadState tx -> [Party]
 getParties = \case
   HeadState.Open (HeadState.OpenState{parameters = HeadParameters{parties}}) -> parties
   _ -> []
-
--- | Get the content of 'headStatus' field in 'Greetings' message from the full 'HeadState'.
-getHeadStatus :: HeadState tx -> HeadStatus
-getHeadStatus = \case
-  HeadState.Idle{} -> Idle
-  HeadState.Initial{} -> Initializing
-  HeadState.Open{} -> Open
-  HeadState.Closed ClosedState{readyToFanoutSent}
-    | readyToFanoutSent -> FanoutPossible
-    | otherwise -> Closed
