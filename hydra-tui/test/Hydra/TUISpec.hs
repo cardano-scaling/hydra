@@ -41,7 +41,7 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
-import Hydra.Options (DirectOptions (..), persistenceRotateAfter)
+import Hydra.Options (persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
