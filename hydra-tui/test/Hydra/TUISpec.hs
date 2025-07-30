@@ -200,7 +200,7 @@ setupRotatedStateTUI action = do
           seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
           send n $ input "Init" []
 
-        -- TODO: Check that it rotates _after_ Init
+      -- TODO: Check that it rotates _after_ Init
 
         withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \HydraClient{hydraNodeId} -> do
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
