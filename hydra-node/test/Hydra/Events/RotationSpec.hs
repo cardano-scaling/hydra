@@ -42,7 +42,7 @@ spec = parallel $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 5 inputs processed in total,
           -- this is hardcoded to ensure we get a checkpoint + a single event at the end
-          let rotationConfig = RotateAfter 4
+          let rotationConfig = RotateAfter 3
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
@@ -56,7 +56,7 @@ spec = parallel $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 6 inputs processed in total,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
-          let rotationConfig = RotateAfter 3
+          let rotationConfig = RotateAfter 1
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
@@ -85,7 +85,7 @@ spec = parallel $ do
             eventStore <- createMockEventStore
             -- NOTE: because there will be 6 inputs processed in total,
             -- this is hardcoded to ensure we get a single checkpoint event at the end
-            let rotationConfig = RotateAfter 3
+            let rotationConfig = RotateAfter 1
             -- run rotated event store with prepared inputs
             let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
             rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
@@ -117,7 +117,7 @@ spec = parallel $ do
             let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
             -- NOTE: because there will be 6 inputs processed in total,
             -- this is hardcoded to ensure we get a single checkpoint event at the end
-            let rotationConfig = RotateAfter 3
+            let rotationConfig = RotateAfter 1
             -- run restarted node with prepared inputs
             eventStore <- createMockEventStore
             rotatingEventStore1 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
@@ -167,7 +167,7 @@ spec = parallel $ do
 
     -- given some event store (source + sink)
     -- lets configure a rotated event store that rotates after x events
-    -- forall y > 0: put x*y events
+    -- forall y > 0: put x*y+1 events
     -- load all events returns a suffix of put events with length <= x
     prop "rotates after configured number of events" $
       \(Positive x, Positive y) -> do
@@ -181,18 +181,17 @@ spec = parallel $ do
             checkpointer s _ _ = trivialCheckpoint s
         rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer mockEventStore
         let EventStore{eventSource, eventSink = EventSink{putEvent}} = rotatingEventStore
-        let totalEvents = toInteger x * y
+        let totalEvents = toInteger x * y + 1
         let events = TrivialEvent . fromInteger <$> [1 .. totalEvents]
         forM_ events putEvent
         currentHistory <- getEvents eventSource
-        let rotatedElements = fromInteger totalEvents
-        let expectRotated = take rotatedElements events
-        let expectRemaining = drop rotatedElements events
+        let expectRotated = events
+        let expectRemaining :: [TrivialEvent] = []
         let expectedCurrentHistory = trivialCheckpoint expectRotated : expectRemaining
         expectedCurrentHistory `shouldBe` currentHistory
 
     -- forall y. y > 0 && y < x: put x+y events (= ensures rotation)
-    -- load one event === checkpoint of first x of events
+    -- checkpoint of first x + 1 of events === load first event
     prop "puts checkpoint event as first event" $
       \(Positive y, Positive delta) -> do
         let x = y + delta
@@ -210,7 +209,7 @@ spec = parallel $ do
         let events = TrivialEvent . fromInteger <$> [1 .. totalEvents]
         forM_ events putEvent
         currentHistory <- getEvents eventSource
-        let expectRotated = take (fromInteger $ toInteger x) events
+        let expectRotated = take (fromInteger $ toInteger x + 1) events
         trivialCheckpoint expectRotated `shouldBe` List.head currentHistory
 
 newtype TrivialEvent = TrivialEvent Word64

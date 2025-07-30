@@ -58,7 +58,10 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
 
   shouldRotate numberOfEventsV = do
     currentNumberOfEvents <- readTVarIO numberOfEventsV
-    pure $ currentNumberOfEvents >= rotateAfterX
+    -- since rotateAfterX can be any positive number (including 1),
+    -- we use (>) instead of (>=) to avoid triggering a rotation immediately after a checkpoint,
+    -- which would lead to an infinite loop
+    pure $ currentNumberOfEvents > rotateAfterX
 
   rotatedPutEvent numberOfEventsV aggregateStateV event = do
     putEvent event
@@ -73,14 +76,18 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
       rotateEventLog numberOfEventsV aggregateStateV eventId
 
   rotateEventLog numberOfEventsV aggregateStateV lastEventId = do
-    -- build checkpoint event
+    -- build the checkpoint event
     now <- getCurrentTime
     aggregateState <- readTVarIO aggregateStateV
-    let checkpoint = checkpointer aggregateState (lastEventId + 1) now
-    -- rotate with checkpoint
+    -- the checkpoint has the same event id as the last event persisted
+    let checkpoint = checkpointer aggregateState lastEventId now
+    -- the rotated log file name suffix (logId) matches the last event persisted,
+    -- while the checkpoint event is appended to the new (current) state log file
     rotate lastEventId checkpoint
-    -- clear numberOfEvents + bump logId
+    -- reset `numberOfEvents` to 1 because
+    -- the checkpoint event was just appended during rotation
+    -- and will be sourced from the event store on restart
     atomically $ do
-      writeTVar numberOfEventsV 0
+      writeTVar numberOfEventsV 1
 
   EventStore{eventSource, eventSink = EventSink{putEvent}, rotate} = eventStore
