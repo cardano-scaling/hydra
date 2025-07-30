@@ -124,13 +124,12 @@ handleHydraEventsHeadState e = do
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsInitializing{parties, headId}}) ->
       put $ Active (newActiveLink (toList parties) headId)
     -- -- Note: We only need to use the greetings when there is a headId present.
-    -- Update (ApiGreetings API.Greetings{}) ->
-    -- TODO: This is still wrong. We need to use the actual headStatus from
-    -- greetings, and not just set it to "Initializing" (which is what
-    -- "newActiveLink" does.)
-    Update (ApiGreetings g@API.Greetings{hydraHeadId, parties}) ->
-      error $ "Greetings observed: " <> show g
-    -- put $ Active (newActiveLink (toList parties) headId)
+    Update (ApiGreetings g@API.Greetings{headStatus, hydraHeadId = Just headId, parties}) ->
+      -- TODO: Update to handle _every_ head status:
+      --  Open
+      --  Closed
+      --  ...
+      put $ Active (newActiveLink (toList parties) headId)
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsAborted{}}) ->
       put Idle
     _ -> pure ()
