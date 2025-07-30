@@ -122,18 +122,41 @@ handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
 handleHydraEventsHeadState e = do
   case e of
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsInitializing{parties, headId}}) ->
-      put $ Active (newActiveLink (toList parties) headId)
+      put $ Active (newActiveLink (toList parties) headId (initState parties))
     -- -- Note: We only need to use the greetings when there is a headId present.
     Update (ApiGreetings g@API.Greetings{headStatus, hydraHeadId = Just headId, parties}) ->
-      -- TODO: Update to handle _every_ head status:
-      --  Open
-      --  Closed
-      --  ...
-      put $ Active (newActiveLink (toList parties) headId)
+      case headStatus of
+        API.Initializing{} ->
+          put $ Active (newActiveLink (toList parties) headId (initState parties))
+        API.Closed{} ->
+          put $ Active (newActiveLink (toList parties) headId closedState)
+        API.Open{} ->
+          put $ Active (newActiveLink (toList parties) headId openState)
+        _ -> pure ()
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsAborted{}}) ->
       put Idle
     _ -> pure ()
   zoom activeLinkL $ handleHydraEventsActiveLink e
+ where
+  closedState =
+    Closed
+      { -- TODO: We need to include this in the greetings.
+        closedState = ClosedState{contestationDeadline = error "Get from greetings"}
+      }
+
+  openState =
+    Open
+      { openState = OpenHome
+      }
+
+  initState parties =
+    Initializing
+      { initializingState =
+          InitializingState
+            { remainingParties = parties
+            , initializingScreen = InitializingHome
+            }
+      }
 
 handleHydraEventsActiveLink :: HydraEvent Tx -> EventM Name ActiveLink ()
 handleHydraEventsActiveLink e = do
