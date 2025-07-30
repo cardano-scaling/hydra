@@ -125,6 +125,9 @@ handleHydraEventsHeadState e = do
       put $ Active (newActiveLink (toList parties) headId)
     -- -- Note: We only need to use the greetings when there is a headId present.
     -- Update (ApiGreetings API.Greetings{}) ->
+    -- TODO: This is still wrong. We need to use the actual headStatus from
+    -- greetings, and not just set it to "Initializing" (which is what
+    -- "newActiveLink" does.)
     Update (ApiGreetings g@API.Greetings{hydraHeadId, parties}) ->
       error $ "Greetings observed: " <> show g
     -- put $ Active (newActiveLink (toList parties) headId)
