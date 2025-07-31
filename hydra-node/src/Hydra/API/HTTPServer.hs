@@ -8,6 +8,7 @@ import Cardano.Ledger.Core (PParams)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Data.Aeson (KeyValue ((.=)), object, withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
+import Data.Aeson.Types (Parser)
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
 import Data.Text (pack)
@@ -75,7 +76,7 @@ instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DraftCommitTxRequest tx) w
         ]
 
 instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest tx) where
-  parseJSON v = fullVariant v <|> simpleVariant v
+  parseJSON v = fullVariant v <|> simpleVariant v <|> simpleDirectVariant v
    where
     fullVariant = withObject "FullCommitRequest" $ \o -> do
       blueprintTx :: tx <- o .: "blueprintTx"
@@ -86,6 +87,9 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
       utxoToCommit <- o .: "utxoToCommit"
       amount <- o .:? "amount"
       pure SimpleCommitRequest{utxoToCommit, amount}
+
+    simpleDirectVariant :: Aeson.Value -> Parser (DraftCommitTxRequest tx)
+    simpleDirectVariant val = SimpleCommitRequest <$> parseJSON val <*> pure Nothing
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary
