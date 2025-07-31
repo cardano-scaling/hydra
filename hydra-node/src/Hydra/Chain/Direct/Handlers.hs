@@ -203,7 +203,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           -- -- NOTE: But also not make it smaller than 10 slots.
           let validBeforeSlot = currentSlot + fromInteger (truncate graceTime `max` 10)
           lift . finalizeTx wallet ctx spendableUTxO lookupUTxO $
-            depositTx (networkId ctx) headId commitBlueprintTx validBeforeSlot deadline
+            depositTx (networkId ctx) headId commitBlueprintTx validBeforeSlot deadline amount
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx

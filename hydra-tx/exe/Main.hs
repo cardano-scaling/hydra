@@ -20,7 +20,7 @@ main =
         Right (utxo :: UTxO) -> do
           writeFileLBS outFile
             . textEnvelopeToJSON Nothing
-            $ depositTx networkId headId (mkSimpleBlueprintTx utxo) depositSlotNo depositDeadline
+            $ depositTx networkId headId (mkSimpleBlueprintTx utxo) depositSlotNo depositDeadline Nothing
           putStrLn $ "Wrote deposit transaction to " <> outFile
     Recover RecoverOptions{networkId, outFile, recoverTxId, utxoFilePath, recoverSlotNo} -> do
       -- XXX: Only requires network discriminator / not networkId
