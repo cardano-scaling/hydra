@@ -211,6 +211,37 @@
               # Ensure test starts only after devnet has been prepared
               depends_on."prepare-devnet".condition = "process_completed";
             };
+            monitoring = {
+              working_dir = "./demo";
+              command = pkgs.writeShellApplication {
+                name = "monitoring";
+                runtimeInputs = [ ];
+                text = ''
+                  if ! command -v docker-compose >/dev/null; then
+                    echo "[monitoring] Skipped: docker-compose not found in PATH"
+                    exit 0
+                  fi
+
+                  if ! docker info >/dev/null 2>&1; then
+                    echo "[monitoring] Skipped: Docker daemon not running"
+                    exit 0
+                  fi
+
+                  docker-compose up -d prometheus grafana
+
+                  # Stop containers when this process receives a signal
+                  trap 'echo "[monitoring] Stopping docker-compose"; docker-compose down' EXIT
+
+                  # Keep process alive so trap gets triggered on stop
+                  sleep infinity
+                '';
+              };
+              depends_on = {
+                "hydra-node-alice".condition = "process_started";
+                "hydra-node-bob".condition = "process_started";
+                "hydra-node-carol".condition = "process_started";
+              };
+            };
           };
         };
       };
