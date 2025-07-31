@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
-import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
+import Hydra.Chain.Direct.Handlers (checkAmount, rejectLowDeposits)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
@@ -533,6 +533,16 @@ apiServerSpec = do
               property $
                 minimumValue >= providedValue
                   & counterexample ("Minimum value: " <> show minimumValue <> " Provided value: " <> show providedValue)
+            _ -> property True
+
+      prop "reject partial deposits with less ADA then in the UTxO" $ \amt ->
+        forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO.UTxO) -> do
+          let result = checkAmount utxo (Just amt)
+          case result of
+            Left AmountTooLow{providedValue, totalUTxOValue} ->
+              property $
+                providedValue < totalUTxOValue
+                  & counterexample ("Total UTxO value: " <> show totalUTxOValue <> " Provided value: " <> show providedValue)
             _ -> property True
 
       prop "handles PostTxErrors accordingly" $ \request postTxError -> do
