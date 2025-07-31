@@ -45,9 +45,12 @@ Event log rotation was introduced to improve recovery times by reducing the numb
 
 Only rotated log files are saved with an incrementing `logId` suffix in their names, while the main `state` log file remains unchanged to preserve backward compatibility. This `logId` suffix corresponds to the ID of the last event included in that file.
 Rotation can be enabled via the optional `--persistence-rotate-after` command-line argument, which specifies the number of events after which rotation should occur.
-> For example, with `--persistence-rotate-after 100`, you’ll get rotated files named: state-99, state-199, state-299, and so on, each containing 100 events. This is because event IDs start at 0.
+> For example, with `--persistence-rotate-after 100`, you’ll get rotated files named: state-100, state-200, state-300, and so on, each containing 101 events. This is because event IDs start at 0, so state-100 includes 101 state changed events (0–100) without a checkpoint. Subsequent rotated files include a checkpoint plus 100 new state changed events.
 
-Note that, depending on the rotation configuration used, the current `state` file may already contain more events than the specified threshold, causing a rotation to occur immediately on startup before any new inputs are processed.
+Note that a checkpoint event id matches the last persisted event id from the previous rotated log file, preserving the sequential order of event ids across logs.
+This also makes it easier to identify which rotated log file was used to compute the checkpoint, as its event id matches the file name suffix.
+
+Depending on the rotation configuration used, the current `state` file may already contain more events than the specified threshold, causing a rotation to occur immediately on startup before any new inputs are processed.
 
 Upon rotation, a server output is produced to notify external agents when a checkpoint occurs, allowing them to perform archival or cleanup actions without interrupting the Hydra Head.
 
