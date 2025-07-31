@@ -208,7 +208,7 @@ mockChainAndNetwork tr seedKeys commits = do
     case find (matchingParty party) hydraNodes of
       Nothing -> error "simulateCommit: Could not find matching HydraNode"
       Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftCommitTx}}} ->
-        draftCommitTx headId (mkSimpleBlueprintTx utxoToCommit) Nothing >>= \case
+        draftCommitTx headId (mkSimpleBlueprintTx utxoToCommit) >>= \case
           Left e -> throwIO e
           Right tx -> submitTx tx
 

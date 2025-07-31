@@ -265,7 +265,6 @@ data Chain tx m = Chain
       MonadThrow m =>
       HeadId ->
       CommitBlueprintTx tx ->
-      Maybe Coin ->
       m (Either (PostTxError tx) tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
   -- a _blueprint_ transaction which spends these outputs.

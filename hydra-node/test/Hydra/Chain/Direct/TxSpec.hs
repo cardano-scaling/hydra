@@ -147,7 +147,6 @@ spec =
                       ownParty
                       CommitBlueprintTx{lookupUTxO, blueprintTx}
                       (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut, verificationKeyHash ownVerificationKey)
-                      Nothing
               counterexample ("\n\n\nCommit tx: " <> renderTxWithUTxO lookupUTxO createdTx) $ do
                 let blueprintBody = toLedgerTx blueprintTx ^. bodyTxL
                 let commitTxBody = toLedgerTx createdTx ^. bodyTxL
