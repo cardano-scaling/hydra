@@ -35,7 +35,10 @@ scrape_configs:
 
     static_configs:
     - targets: [
-      'hydra-node-1:6001', # hydra-nodes
+      'hydra-node-1:6001', # hydra-nodes (docker demo)
       'hydra-node-2:6001',
-      'hydra-node-3:6001'
+      'hydra-node-3:6001',
+      'host.docker.internal:6001', # hydra-nodes (nix demo)
+      'host.docker.internal:6002',
+      'host.docker.internal:6003'
       ]
