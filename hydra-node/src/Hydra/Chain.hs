@@ -203,6 +203,7 @@ data PostTxError tx
   | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
   | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
+  | AmountTooLow {providedValue :: Coin, totalUTxOValue :: Coin}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)
