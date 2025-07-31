@@ -3,6 +3,7 @@ module Hydra.Events.RotationSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Control.Monad (foldM)
 import Data.List qualified as List
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
@@ -17,7 +18,7 @@ import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, obser
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
 import Test.Hydra.Tx.Fixture (cperiod)
-import Test.QuickCheck (Positive (..))
+import Test.QuickCheck (Positive (..), choose, sized)
 import Test.QuickCheck.Instances.Natural ()
 
 spec :: Spec
@@ -210,8 +211,61 @@ spec = parallel $ do
         let expectRotated = take (fromInteger $ toInteger x + 1) events
         trivialCheckpoint expectRotated `shouldBe` List.head currentHistory
 
+    prop "a restarted and non-restarted store have consistent rotation" $
+      \(Positive x, ChunkedEvents chunks) -> do
+        let rotationConfig = RotateAfter x
+        let s0 :: [TrivialEvent]
+            s0 = []
+        let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
+            aggregator s e = e : s
+        let checkpointer :: [TrivialEvent] -> EventId -> UTCTime -> TrivialEvent
+            checkpointer s _ _ = trivialCheckpoint s
+        failAfter 1 $ do
+          -- run restarted in chunks
+          mockEventStore <- createMockEventStore
+          EventStore{eventSource = restartedEventSource} <-
+            foldM
+              ( \store chunk -> do
+                  rotated <- newRotatedEventStore rotationConfig s0 aggregator checkpointer store
+                  let EventStore{eventSink = EventSink{putEvent}} = rotated
+                  forM_ chunk putEvent
+                  pure rotated
+              )
+              mockEventStore
+              chunks
+          -- run non-restarted full
+          mockEventStore' <- createMockEventStore
+          rotated' <- newRotatedEventStore rotationConfig s0 aggregator checkpointer mockEventStore'
+          let EventStore{eventSource = nonRestartedEventSource, eventSink = EventSink{putEvent}} = rotated'
+          let events = concat chunks
+          forM_ events putEvent
+          -- stored events should yield consistent checkpoint event ids
+          restartedHistory <- getEvents restartedEventSource
+          nonRestartedHistory <- getEvents nonRestartedEventSource
+          getEventId (List.last restartedHistory) `shouldBe` getEventId (List.last nonRestartedHistory)
+
 newtype TrivialEvent = TrivialEvent Word64
   deriving newtype (Num, Show, Eq)
+
+newtype ChunkedEvents = ChunkedEvents [[TrivialEvent]]
+  deriving (Show)
+
+instance Arbitrary ChunkedEvents where
+  arbitrary = sized $ \n -> do
+    -- ensure at least one event
+    let total = fromInteger . toInteger $ 1 `max` n
+    let events = map TrivialEvent [1 .. total]
+    chunks <- chunkRandomly (events, [])
+    pure (ChunkedEvents chunks)
+   where
+    chunkRandomly :: ([a], [[a]]) -> Gen [[a]]
+    chunkRandomly = \case
+      ([], acc) -> pure (reverse acc)
+      (xs, acc) -> do
+        -- allow random-sized chunks, including empty ones
+        chunkSize <- choose (0, length xs)
+        let (chunk, rest) = splitAt chunkSize xs
+        chunkRandomly (rest, chunk : acc)
 
 instance HasEventId TrivialEvent where
   getEventId (TrivialEvent w) = w
