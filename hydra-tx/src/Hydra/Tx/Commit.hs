@@ -67,7 +67,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
       & spendFromInitial
       & bodyTxL . outputsTxBodyL
         .~ ( StrictSeq.singleton (toLedgerTxOut commitOutput)
-              <> if txOutValue leftoverOutput == mempty then mempty else StrictSeq.singleton (toLedgerTxOut leftoverOutput)
+              <> StrictSeq.singleton (toLedgerTxOut leftoverOutput)
            )
       & bodyTxL . mintTxBodyL .~ mempty
       & addMetadata (mkHydraHeadV1TxName "CommitTx") blueprintTx
@@ -149,7 +149,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
 
   commitOutput =
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
-
+  -- TODO: don't use head here
   leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
 
   leftoverOutput =

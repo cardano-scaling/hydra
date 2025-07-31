@@ -6,6 +6,7 @@ import Hydra.Prelude hiding (toList)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), ValidityInterval (..), bodyTxL, inputsTxBodyL, outputsTxBodyL)
 import Control.Lens ((.~), (^.))
+import Data.List qualified as List
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -15,6 +16,7 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
 import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId)
+import Hydra.Tx.Commit (capUTxO)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (POSIXTime)
 
@@ -29,12 +31,19 @@ depositTx ::
   SlotNo ->
   -- | Deposit deadline from which onward the deposit can be recovered.
   UTCTime ->
+  -- | Optional amount to create partial deposit
+  Maybe Coin ->
   Tx
-depositTx networkId headId commitBlueprintTx upperSlot deadline =
+depositTx networkId headId commitBlueprintTx upperSlot deadline amount =
   fromLedgerTx $
     toLedgerTx blueprintTx
       & addDepositInputs
-      & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId depositUTxO deadline)
+      & bodyTxL . outputsTxBodyL
+        .~ ( StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId utxoToDeposit deadline)
+              <> if txOutValue leftoverOutput == mempty
+                then mempty
+                else StrictSeq.singleton (toLedgerTxOut leftoverOutput)
+           )
       & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
       & addMetadata (mkHydraHeadV1TxName "DepositTx") blueprintTx
  where
@@ -44,7 +53,15 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline =
 
   CommitBlueprintTx{lookupUTxO = depositUTxO, blueprintTx} = commitBlueprintTx
 
-  depositInputsList = toList (UTxO.inputSet depositUTxO)
+  (utxoToDeposit, leftoverUTxO) = maybe (depositUTxO, mempty) (capUTxO depositUTxO) amount
+
+  -- TODO: don't use head here
+  leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
+
+  leftoverOutput =
+    TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
+
+  depositInputsList = toList (UTxO.inputSet utxoToDeposit)
 
   depositInputs = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> depositInputsList
 
