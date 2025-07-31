@@ -2686,6 +2686,25 @@ components:
             providedValue:
                type: integer
                minimum: 0
+        - title: AmountTooLow
+          description: |
+            Raised if the user requests a partial deposit using too small amount.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - providedValue
+          - totalUTxOValue
+          properties:
+            tag:
+              type: string
+              enum: ["AmountTooLow"]
+            providedValue:
+               type: integer
+               minimum: 0
+            totalUTxOValue:
+               type: integer
+               minimum: 0
 
     Signature:
       type: string

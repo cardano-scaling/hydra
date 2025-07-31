@@ -541,7 +541,7 @@ apiServerSpec = do
           case result of
             Left AmountTooLow{providedValue, totalUTxOValue} ->
               property $
-                providedValue < totalUTxOValue
+                totalUTxOValue < providedValue
                   & counterexample ("Total UTxO value: " <> show totalUTxOValue <> " Provided value: " <> show providedValue)
             _ -> property True
 
@@ -552,6 +552,7 @@ apiServerSpec = do
               InvalidHeadId{} -> cover 1 True "InvalidHeadId"
               CannotFindOwnInitial{} -> cover 1 True "CannotFindOwnInitial"
               DepositTooLow{} -> cover 1 True "DepositTooLow"
+              AmountTooLow{} -> cover 1 True "AmountTooLow"
               _ -> property
         checkCoverage
           $ coverage
@@ -575,6 +576,7 @@ apiServerSpec = do
                 UnsupportedLegacyOutput{} -> 400
                 CannotFindOwnInitial{} -> 400
                 DepositTooLow{} -> 400
+                AmountTooLow{} -> 400
                 _ -> 500
 
     describe "POST /transaction" $ do
