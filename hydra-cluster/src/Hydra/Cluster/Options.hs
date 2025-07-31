@@ -10,6 +10,7 @@ import Hydra.Options (persistenceRotateAfterParser)
 import Hydra.Prelude
 import Options.Applicative (Parser, eitherReader, flag, flag', help, long, metavar, strOption)
 import Options.Applicative.Builder (option)
+import Test.QuickCheck (Positive)
 
 data Options = Options
   { knownNetwork :: Maybe KnownNetwork
@@ -17,7 +18,7 @@ data Options = Options
   , publishHydraScripts :: PublishOrReuse
   , useMithril :: UseMithril
   , scenario :: Scenario
-  , persistenceRotateAfter :: Maybe Natural
+  , persistenceRotateAfter :: Maybe (Positive Natural)
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON)

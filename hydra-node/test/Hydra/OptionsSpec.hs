@@ -42,7 +42,7 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
+import Test.QuickCheck (Positive (..), Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
 
 spec :: Spec
@@ -205,7 +205,7 @@ spec = parallel $
                 }
       shouldNotParse ["--persistence-rotate-after", "-1"]
       shouldNotParse ["--persistence-rotate-after", "0"]
-      ["--persistence-rotate-after", "1"] `shouldParse` defaultWithRotateAfter 1
+      ["--persistence-rotate-after", "1"] `shouldParse` defaultWithRotateAfter (Positive 1)
 
     it "parses --contestation-period option as a number of seconds" $ do
       let defaultWithContestationPeriod contestationPeriod =

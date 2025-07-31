@@ -6,8 +6,9 @@ import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
 import Data.Conduit.Combinators qualified as C
 import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId (..))
+import Test.QuickCheck (Positive (..))
 
-newtype RotationConfig = RotateAfter Natural
+newtype RotationConfig = RotateAfter (Positive Natural)
 
 type LogId = EventId
 
@@ -52,7 +53,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
         rotate = const . const $ pure ()
       }
  where
-  RotateAfter rotateAfterX = config
+  RotateAfter (Positive rotateAfterX) = config
 
   aggregateEvents (!n, !_evId, !acc) e = (n + 1, getEventId e, aggregator acc e)
 

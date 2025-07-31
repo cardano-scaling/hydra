@@ -43,7 +43,7 @@ spec = parallel $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 5 inputs processed in total,
           -- this is hardcoded to ensure we get a checkpoint + a single event at the end
-          let rotationConfig = RotateAfter 3
+          let rotationConfig = RotateAfter (Positive 3)
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
@@ -57,7 +57,7 @@ spec = parallel $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 6 inputs processed in total,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
-          let rotationConfig = RotateAfter 1
+          let rotationConfig = RotateAfter (Positive 1)
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
@@ -85,7 +85,7 @@ spec = parallel $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 6 inputs processed in total,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
-          let rotationConfig = RotateAfter 1
+          let rotationConfig = RotateAfter (Positive 1)
           -- run rotated event store with prepared inputs
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
@@ -116,7 +116,7 @@ spec = parallel $ do
           let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
           -- NOTE: because there will be 6 inputs processed in total,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
-          let rotationConfig = RotateAfter 1
+          let rotationConfig = RotateAfter (Positive 1)
           -- run restarted node with prepared inputs
           eventStore <- createMockEventStore
           rotatingEventStore1 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
@@ -153,7 +153,7 @@ spec = parallel $ do
         mapM_ (putEvent eventSink) events
         unrotatedHistory <- getEvents eventSource
         toInteger (length unrotatedHistory) `shouldBe` totalEvents
-        let rotationConfig = RotateAfter x
+        let rotationConfig = RotateAfter (Positive x)
         let s0 :: [TrivialEvent]
             s0 = []
         let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
@@ -171,7 +171,7 @@ spec = parallel $ do
     prop "rotates after configured number of events" $
       \(Positive x, Positive y) -> do
         mockEventStore <- createMockEventStore
-        let rotationConfig = RotateAfter x
+        let rotationConfig = RotateAfter (Positive x)
         let s0 :: [TrivialEvent]
             s0 = []
         let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
@@ -195,7 +195,7 @@ spec = parallel $ do
       \(Positive y, Positive delta) -> do
         let x = y + delta
         mockEventStore <- createMockEventStore
-        let rotationConfig = RotateAfter x
+        let rotationConfig = RotateAfter (Positive x)
         let s0 :: [TrivialEvent]
             s0 = []
         let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
@@ -212,7 +212,7 @@ spec = parallel $ do
         trivialCheckpoint expectRotated `shouldBe` List.head currentHistory
 
     prop "a restarted and non-restarted store have consistent rotation" $
-      \(Positive x, ChunkedEvents chunks) -> do
+      \(x, ChunkedEvents chunks) -> do
         let rotationConfig = RotateAfter x
         let s0 :: [TrivialEvent]
             s0 = []

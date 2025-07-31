@@ -154,7 +154,7 @@ import System.FilePath ((</>))
 import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript)
-import Test.QuickCheck (choose, elements, generate)
+import Test.QuickCheck (Positive, choose, elements, generate)
 
 data EndToEndLog
   = ClusterOptions {options :: Options}
@@ -501,7 +501,7 @@ singlePartyOpenAHead ::
   FilePath ->
   backend ->
   [TxId] ->
-  Maybe Natural ->
+  Maybe (Positive Natural) ->
   -- | Continuation called when the head is open
   (HydraClient -> SigningKey PaymentKey -> HeadId -> IO a) ->
   IO a

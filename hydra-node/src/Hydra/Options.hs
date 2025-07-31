@@ -79,7 +79,7 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
-import Test.QuickCheck (choose, elements, listOf, listOf1, oneof, vectorOf)
+import Test.QuickCheck (Positive (..), choose, elements, listOf, listOf1, oneof, vectorOf)
 
 data Command
   = Run RunOptions
@@ -194,7 +194,7 @@ data RunOptions = RunOptions
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
   , persistenceDir :: FilePath
-  , persistenceRotateAfter :: Maybe Natural
+  , persistenceRotateAfter :: Maybe (Positive Natural)
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   , whichEtcd :: WhichEtcd
@@ -202,6 +202,13 @@ data RunOptions = RunOptions
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+-- Orphan instances
+instance ToJSON a => ToJSON (Positive a) where
+  toJSON (Positive a) = toJSON a
+
+instance FromJSON a => FromJSON (Positive a) where
+  parseJSON v = Positive <$> parseJSON v
 
 -- Orphan instance
 instance Arbitrary IP where
@@ -223,7 +230,7 @@ instance Arbitrary RunOptions where
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
     persistenceDir <- genDirPath
-    persistenceRotateAfter <- oneof [pure Nothing, Just . fromInteger <$> choose (1, 100000)]
+    persistenceRotateAfter <- oneof [pure Nothing, Just . Positive . fromInteger <$> choose (1, 100000)]
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     whichEtcd <- arbitrary
@@ -852,7 +859,7 @@ persistenceDirParser =
           \Do not edit these files manually!"
     )
 
-persistenceRotateAfterParser :: Parser Natural
+persistenceRotateAfterParser :: Parser (Positive Natural)
 persistenceRotateAfterParser =
   option
     (eitherReader validateRotateAfter)
@@ -863,10 +870,10 @@ persistenceRotateAfterParser =
           \Note it must be a positive number."
     )
  where
-  validateRotateAfter :: String -> Either String Natural
+  validateRotateAfter :: String -> Either String (Positive Natural)
   validateRotateAfter arg =
     case readMaybe arg of
-      Just n | n > 0 -> Right n
+      Just n | n > 0 -> Right (Positive n)
       _ -> Left "--persistence-rotate-after must be a positive number"
 
 hydraNodeCommand :: ParserInfo Command
@@ -999,7 +1006,7 @@ toArgs
       <> concatMap toArgPeer peers
       <> maybe [] (\port -> ["--monitoring-port", show port]) monitoringPort
       <> ["--persistence-dir", persistenceDir]
-      <> maybe [] (\rotateAfter -> ["--persistence-rotate-after", show rotateAfter]) persistenceRotateAfter
+      <> maybe [] (\rotateAfter -> ["--persistence-rotate-after", showPositive rotateAfter]) persistenceRotateAfter
       <> argsChainConfig chainConfig
       <> argsLedgerConfig
       <> ["--api-transaction-timeout", show apiTransactionTimeout]
@@ -1069,6 +1076,9 @@ toArgs
     CardanoLedgerConfig
       { cardanoLedgerProtocolParametersFile
       } = ledgerConfig
+
+    showPositive :: Show a => Positive a -> String
+    showPositive (Positive x) = show x
 
 toArgNodeSocket :: SocketPath -> [String]
 toArgNodeSocket nodeSocket = ["--node-socket", unFile nodeSocket]
