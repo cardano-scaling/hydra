@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Binary (serialize')
 import CardanoClient (
   waitForUTxO,
  )
@@ -26,6 +27,7 @@ import Data.Set qualified as Set
 import Data.Text (isInfixOf)
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
+import Hydra.Chain (ChainEvent (..))
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Direct.State ()
@@ -78,6 +80,7 @@ import Hydra.Cluster.Scenarios (
   threeNodesWithMirrorParty,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
+import Hydra.HeadLogic.Input (Input (..))
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
@@ -106,7 +109,7 @@ import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair, genUTxOFor)
-import Test.QuickCheck (generate)
+import Test.QuickCheck (generate, vectorOf)
 import Prelude qualified
 
 allNodeIds :: [Int]
@@ -789,6 +792,68 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             failAfter 10 $
               withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
                 threadDelay 0.1
+
+      it "load persistent queue with capacity exceeded" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+            let hydraTracer = contramap FromHydraNode tracer
+            (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+            aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] 100
+            (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+            committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+            headId <- withHydraNode (contramap FromHydraNode tracer) aliceChainConfig tmpDir 1 aliceSk [] [] $ \n1 -> do
+              seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              waitForNodesConnected hydraTracer 20 $ n1 :| []
+              send n1 $ input "Init" []
+              headId <- waitForAllMatch 3 [n1] $ headIsInitializingWith (Set.fromList [alice])
+
+              _ <- requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
+
+              waitFor hydraTracer 20 [n1] $
+                output "HeadIsOpen" ["utxo" .= toJSON committedUTxOByAlice, "headId" .= headId]
+              pure headId
+
+            -- Simulate enqueueing more messages than the queue capacity
+            let inputQueueDir = tmpDir </> "state-1" </> "input-queue"
+            let capacity = 200
+            -- generate ChainInputs since those should not interfere too much with our scenario.
+            generatedItems <- generate $ vectorOf capacity (arbitrary :: Gen (ChainEvent Tx))
+            -- generate at least one PostTxError since that causes new call to enqueue in the Node.
+            postTxError <- generate $ PostTxError <$> arbitrary <*> arbitrary <*> arbitrary
+            let ixs = [1 .. capacity + 1]
+            let items = zip ixs ((ChainInput <$> generatedItems) <> [ChainInput postTxError])
+            mapM_ (\(next, i) -> writeFileBS (inputQueueDir </> show next) $ serialize' i) items
+
+            withHydraNode (contramap FromHydraNode tracer) aliceChainConfig tmpDir 1 aliceSk [] [] $ \n1 -> do
+              waitForNodesConnected hydraTracer 20 $ n1 :| []
+              waitFor hydraTracer 50 [n1] $
+                output "HeadIsOpen" ["utxo" .= toJSON committedUTxOByAlice, "headId" .= headId]
+
+              foldM_
+                ( \utxo _i -> do
+                    -- Send bunch of init's since they will not have any effect since the Head is already open.
+                    send n1 $ input "Init" []
+                    pure utxo
+                )
+                committedUTxOByAlice
+                [1 .. capacity * 5]
+
+              send n1 $ input "Close" []
+              deadline <- waitMatch 200 n1 $ \v -> do
+                guard $ v ^? key "tag" == Just "HeadIsClosed"
+                guard $ v ^? key "headId" == Just (toJSON headId)
+                snapshotNumber <- v ^? key "snapshotNumber"
+                guard $ snapshotNumber == Aeson.Number 0
+                v ^? key "contestationDeadline" . _JSON
+
+              -- Expect to see ReadyToFanout within 3 seconds after deadline
+              remainingTime <- diffUTCTime deadline <$> getCurrentTime
+              waitFor hydraTracer (remainingTime + 3) [n1] $
+                output "ReadyToFanout" ["headId" .= headId]
+
+              send n1 $ input "Fanout" []
+              waitForAllMatch 10 [n1] $ checkFanout headId committedUTxOByAlice
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir $ \dir -> do

@@ -14,6 +14,16 @@ data HeadParameters = HeadParameters
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR HeadParameters where
+  toCBOR HeadParameters{contestationPeriod, parties} =
+    toCBOR ("HeadParameters" :: Text) <> toCBOR contestationPeriod <> toCBOR parties
+
+instance FromCBOR HeadParameters where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("HeadParameters" :: Text) -> HeadParameters <$> fromCBOR <*> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
+
 instance Arbitrary HeadParameters where
   arbitrary = dedupParties <$> genericArbitrary
    where
