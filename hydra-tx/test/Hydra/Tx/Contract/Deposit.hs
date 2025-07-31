@@ -30,6 +30,7 @@ genHealthyDepositTx = do
           (mkSimpleBlueprintTx toDeposit)
           slot
           healthyDeadline
+          Nothing
   pure (tx, toDeposit)
  where
   slot = chooseEnum (0, healthyDeadlineSlot) `generateWith` 42

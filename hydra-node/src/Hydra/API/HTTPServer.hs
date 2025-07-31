@@ -279,7 +279,6 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
             FullCommitRequest{blueprintTx, utxo} -> do
               draftCommit headId utxo blueprintTx Nothing
             SimpleCommitRequest{utxoToCommit, amount} -> do
-              -- TODO: check if the provided amount is actually possible to extract from the utxoToCommit
               let blueprintTx = txSpendingUTxO utxoToCommit
               draftCommit headId utxoToCommit blueprintTx amount
         IncrementalCommit headId -> do
@@ -309,6 +308,7 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
           UnsupportedLegacyOutput _ -> badRequest e
           CannotFindOwnInitial _ -> badRequest e
           DepositTooLow _ _ -> badRequest e
+          AmountTooLow _ _ -> badRequest e
           _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx
