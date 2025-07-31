@@ -179,12 +179,11 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
             >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
-    , draftCommitTx = \headId commitBlueprintTx amount -> do
+    , draftCommitTx = \headId commitBlueprintTx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
-        traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $ do
-          checkAmount lookupUTxO amount
-          commit' ctx headId spendableUTxO commitBlueprintTx amount
+        traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
+          commit' ctx headId spendableUTxO commitBlueprintTx
     , draftDepositTx = \headId pparams commitBlueprintTx deadline amount -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest

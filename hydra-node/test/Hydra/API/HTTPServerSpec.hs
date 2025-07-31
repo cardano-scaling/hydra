@@ -493,7 +493,7 @@ apiServerSpec = do
       let getHeadId = pure $ NormalCommit (generateWith arbitrary 42)
       let workingChainHandle =
             dummyChainHandle
-              { draftCommitTx = \_ _ _ -> do
+              { draftCommitTx = \_ _ -> do
                   tx <- generate $ arbitrary @Tx
                   pure $ Right tx
               }
@@ -521,7 +521,7 @@ apiServerSpec = do
       let failingChainHandle :: PostTxError tx -> Chain tx IO
           failingChainHandle postTxError =
             dummyChainHandle
-              { draftCommitTx = \_ _ _ -> pure $ Left postTxError
+              { draftCommitTx = \_ _ -> pure $ Left postTxError
               , draftDepositTx = \_ _ _ _ _ -> pure $ Left postTxError
               }
 

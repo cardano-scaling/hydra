@@ -281,10 +281,10 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
         NormalCommit headId ->
           case someCommitRequest of
             FullCommitRequest{blueprintTx, utxo} -> do
-              draftCommit headId utxo blueprintTx Nothing
-            SimpleCommitRequest{utxoToCommit, amount} -> do
+              draftCommit headId utxo blueprintTx
+            SimpleCommitRequest{utxoToCommit} -> do
               let blueprintTx = txSpendingUTxO utxoToCommit
-              draftCommit headId utxoToCommit blueprintTx amount
+              draftCommit headId utxoToCommit blueprintTx
         IncrementalCommit headId -> do
           case someCommitRequest of
             FullCommitRequest{blueprintTx, utxo} -> do
@@ -302,8 +302,8 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
       Left e -> responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
 
-  draftCommit headId lookupUTxO blueprintTx amount = do
-    draftCommitTx headId CommitBlueprintTx{lookupUTxO, blueprintTx} amount <&> \case
+  draftCommit headId lookupUTxO blueprintTx = do
+    draftCommitTx headId CommitBlueprintTx{lookupUTxO, blueprintTx} <&> \case
       Left e ->
         -- Distinguish between errors users can actually benefit from and
         -- other errors that are turned into 500 responses.
