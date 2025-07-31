@@ -194,6 +194,24 @@ services:
       hydra_net:
         ipv4_address: 172.16.238.5
 
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - DS_PROMETHEUS=prometheus
+    volumes:
+      - "./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml"
+      - "./grafana/dashboard.json:/var/lib/grafana/dashboards/dashboard.json"
+      - "./grafana/default.yaml:/etc/grafana/provisioning/dashboards/default.yaml"
+    depends_on:
+      - prometheus
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.7
+
 networks:
   hydra_net:
     driver: bridge
