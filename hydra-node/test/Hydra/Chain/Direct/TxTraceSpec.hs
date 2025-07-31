@@ -826,6 +826,7 @@ newDepositTx _ utxoToDeposit = do
         blueprint
         validBefore
         deadline
+        Nothing
 
 -- | Creates a increment transaction using given utxo and given snapshot.
 newIncrementTx :: Actor -> ConfirmedSnapshot Tx -> AppM (Either IncrementTxError Tx)

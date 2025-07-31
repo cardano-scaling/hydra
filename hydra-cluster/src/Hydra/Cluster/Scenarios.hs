@@ -124,6 +124,7 @@ import HydraNode (
   postDecommit,
   prepareHydraNode,
   requestCommitTx,
+  requestCommitTx',
   send,
   waitFor,
   waitForAllMatch,
@@ -1282,6 +1283,86 @@ canCommit tracer workDir blockTime backend hydraScriptsTxId =
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx')]
 
           getSnapshotUTxO n1 `shouldReturn` commitUTxO <> commitUTxO2
+
+          send n2 $ input "Close" []
+
+          deadline <- waitMatch (10 * blockTime) n2 $ \v -> do
+            guard $ v ^? key "tag" == Just "HeadIsClosed"
+            v ^? key "contestationDeadline" . _JSON
+
+          remainingTime <- diffUTCTime deadline <$> getCurrentTime
+          waitFor hydraTracer (remainingTime + 3 * blockTime) [n1, n2] $
+            output "ReadyToFanout" ["headId" .= headId]
+          send n2 $ input "Fanout" []
+          waitMatch (10 * blockTime) n2 $ \v ->
+            guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+          -- Assert final wallet balance
+          (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+            `shouldReturn` balance (commitUTxO <> commitUTxO2)
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+-- | Open a a two participant head and incrementally commit part of the UTxO.
+canDepositPartially :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
+canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer backend Alice) $ do
+    (`finally` returnFundsToFaucet tracer backend Bob) $ do
+      refuelIfNeeded tracer backend Alice 30_000_000
+      refuelIfNeeded tracer backend Bob 30_000_000
+      -- NOTE: Adapt periods to block times
+      let contestationPeriod = truncate $ 10 * blockTime
+          depositPeriod = truncate $ 100 * blockTime
+      networkId <- Backend.queryNetworkId backend
+      aliceChainConfig <-
+        chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] contestationPeriod
+          <&> setNetworkId networkId . modifyConfig (\c -> c{depositPeriod})
+      bobChainConfig <-
+        chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
+          <&> setNetworkId networkId . modifyConfig (\c -> c{depositPeriod})
+      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+        withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+          send n1 $ input "Init" []
+          headId <- waitMatch (10 * blockTime) n2 $ headIsInitializingWith (Set.fromList [alice, bob])
+
+          -- Commit nothing
+          requestCommitTx n1 mempty >>= Backend.submitTransaction backend
+          requestCommitTx n2 mempty >>= Backend.submitTransaction backend
+          waitFor hydraTracer (20 * blockTime) [n1, n2] $
+            output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+          -- Get some L1 funds
+          (walletVk, walletSk) <- generate genKeyPair
+          commitUTxO <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
+          commitUTxO2 <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
+
+          let expectedCommit = fst $ capUTxO commitUTxO 2_000_000
+          let expectedCommit2 = fst $ capUTxO commitUTxO2 3_000_000
+
+          depositTransaction <- requestCommitTx' n2 commitUTxO (Just 2_000_000)
+
+          let tx = signTx walletSk depositTransaction
+
+          Backend.submitTransaction backend tx
+
+          waitFor hydraTracer (2 * realToFrac depositPeriod) [n1, n2] $
+            output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= expectedCommit]
+          waitFor hydraTracer (20 * blockTime) [n1, n2] $
+            output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
+
+          getSnapshotUTxO n1 `shouldReturn` expectedCommit
+
+          depositTransaction' <- requestCommitTx' n1 commitUTxO2 (Just 3_000_000)
+          let tx' = signTx walletSk depositTransaction'
+
+          Backend.submitTransaction backend tx'
+
+          waitFor hydraTracer (2 * realToFrac depositPeriod) [n1, n2] $
+            output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= expectedCommit2]
+          waitFor hydraTracer (20 * blockTime) [n1, n2] $
+            output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx')]
+
+          getSnapshotUTxO n1 `shouldReturn` expectedCommit <> expectedCommit2
 
           send n2 $ input "Close" []
 

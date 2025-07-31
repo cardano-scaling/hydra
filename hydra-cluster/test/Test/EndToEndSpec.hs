@@ -52,6 +52,7 @@ import Hydra.Cluster.Scenarios (
   canCloseWithLongContestationPeriod,
   canCommit,
   canDecommit,
+  canDepositPartially,
   canRecoverDeposit,
   canResumeOnMemberAlreadyBootstrapped,
   canSeePendingDeposits,
@@ -320,6 +321,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
               >>= singlePartyCommitsScriptBlueprint tracer tmpDir backend
+      it "can deposit partial UTxO" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= canDepositPartially tracer tmpDir blockTime backend
       it "persistence can load with empty commit" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
