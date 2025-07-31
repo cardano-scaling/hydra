@@ -40,9 +40,7 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount =
       & addDepositInputs
       & bodyTxL . outputsTxBodyL
         .~ ( StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId utxoToDeposit deadline)
-              <> if txOutValue leftoverOutput == mempty
-                then mempty
-                else StrictSeq.singleton (toLedgerTxOut leftoverOutput)
+              <> leftoverOutput
            )
       & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
       & addMetadata (mkHydraHeadV1TxName "DepositTx") blueprintTx
@@ -55,11 +53,14 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount =
 
   (utxoToDeposit, leftoverUTxO) = maybe (depositUTxO, mempty) (capUTxO depositUTxO) amount
 
-  -- TODO: don't use head here
-  leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
-
   leftoverOutput =
-    TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
+    if UTxO.null leftoverUTxO
+      then StrictSeq.empty
+      else
+        let leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
+         in StrictSeq.singleton $
+              toLedgerTxOut $
+                TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
 
   depositInputsList = toList (UTxO.inputSet utxoToDeposit)
 

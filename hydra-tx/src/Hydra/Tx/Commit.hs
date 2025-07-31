@@ -67,7 +67,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
       & spendFromInitial
       & bodyTxL . outputsTxBodyL
         .~ ( StrictSeq.singleton (toLedgerTxOut commitOutput)
-              <> StrictSeq.singleton (toLedgerTxOut leftoverOutput)
+              <> leftoverOutput
            )
       & bodyTxL . mintTxBodyL .~ mempty
       & addMetadata (mkHydraHeadV1TxName "CommitTx") blueprintTx
@@ -149,11 +149,15 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
 
   commitOutput =
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
-  -- TODO: don't use head here
-  leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
 
   leftoverOutput =
-    TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
+    if UTxO.null leftoverUTxO
+      then StrictSeq.empty
+      else
+        let leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
+         in StrictSeq.singleton $
+              toLedgerTxOut $
+                TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
 
   commitAddress =
     mkScriptAddress networkId commitValidatorScript
@@ -177,10 +181,6 @@ mkCommitDatum party utxo headId =
 updateTxOutValue :: TxOut ctx -> Coin -> TxOut ctx
 updateTxOutValue (TxOut addr _ datum refScript) newValue =
   TxOut addr (fromLedgerValue $ mkAdaValue ShelleyBasedEraConway newValue) datum refScript
-
--- | Generates a new TxIn by appending an index to avoid collisions
-newTxIn :: TxIn -> Word -> TxIn
-newTxIn (TxIn txId (TxIx txIx)) suffix = TxIn txId (TxIx $ txIx + suffix)
 
 -- | Caps a UTxO set to a specified target amount of Lovelace, splitting outputs if necessary.
 --
