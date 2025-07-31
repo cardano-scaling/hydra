@@ -50,7 +50,7 @@ function dcfile() {
 }
 
 function ccli() {
-    dc -f ~/docker/docker-compose.yaml exec cardano-node cardano-cli ${@}
+    docker exec -it cardano-node cardano-cli ${@}
 }
 
 function balance() {
@@ -60,3 +60,5 @@ function balance() {
 function xbalance() {
     ccli query utxo $(ctag) --address $(cat ~/credentials/external.addr)
 }
+
+alias fuel='~/scripts/create-fuel.sh'

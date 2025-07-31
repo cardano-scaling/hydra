@@ -2,8 +2,9 @@
 
 services:
   cardano-node:
-    image: inputoutput/cardano-node:8.7.3
+    image: ghcr.io/intersectmbo/cardano-node:10.4.1
     restart: always
+    container_name: cardano-node
     logging:
       driver: "awslogs"
       options:
@@ -28,6 +29,7 @@ services:
   hydra-node:
     image: ghcr.io/input-output-hk/hydra-node@sha256:3b7f78962ff8fc212644e1ef4faf8742ead6f7c31353cdf5cc251d4d825edac7
     restart: always
+    container_name: hydra-node
     logging:
       driver: "journald"
       # driver: "awslogs"
@@ -84,6 +86,7 @@ services:
 
   hydra-tui:
     image: ghcr.io/cardano-scaling/hydra-tui:unstable
+    container_name: hydra-tui
     profiles:
       - tui
     command:
@@ -99,6 +102,7 @@ services:
 
   hydraw:
     image: ghcr.io/cardano-scaling/hydraw:latest
+    container_name: hydraw
     profiles:
       - hydraw
     environment:
