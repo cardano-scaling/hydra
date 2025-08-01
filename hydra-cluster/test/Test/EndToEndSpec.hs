@@ -108,7 +108,7 @@ import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair, genUTxOFor)
-import Test.QuickCheck (generate)
+import Test.QuickCheck (Positive (..), generate)
 import Prelude qualified
 
 allNodeIds :: [Int]
@@ -206,7 +206,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
         -- Measure restart after rotation
         options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] [] id
-        let options' = options{persistenceRotateAfter = Just 10}
+        let options' = options{persistenceRotateAfter = Just (Positive 10)}
         t1 <- getCurrentTime
         diff2 <- withPreparedHydraNode (contramap FromHydraNode tracer) tmpDir 1 options' $ \_ -> do
           t2 <- getCurrentTime
