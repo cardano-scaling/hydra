@@ -360,7 +360,7 @@ mockChain =
     { mkChainState = error "mockChain: unexpected mkChainState"
     , postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
-    , draftDepositTx = \_ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
+    , draftDepositTx = \_ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
     }
 

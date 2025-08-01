@@ -203,6 +203,7 @@ data PostTxError tx
   | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
   | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
+  | AmountTooLow {providedValue :: Coin, totalUTxOValue :: Coin}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)
@@ -274,6 +275,7 @@ data Chain tx m = Chain
       PParams LedgerEra ->
       CommitBlueprintTx tx ->
       UTCTime ->
+      Maybe Coin ->
       m (Either (PostTxError tx) tx)
   -- ^ Create a deposit transaction using user provided utxos (zero or many) ,
   -- _blueprint_ transaction which spends these outputs and a deadline for
