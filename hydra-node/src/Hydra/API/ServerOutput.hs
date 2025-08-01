@@ -102,7 +102,6 @@ data Greetings tx = Greetings
   , hydraHeadId :: Maybe HeadId
   , snapshotUtxo :: Maybe (UTxOType tx)
   , hydraNodeVersion :: String
-  , parties :: [Party]
   , env :: Environment
   }
   deriving (Generic)
