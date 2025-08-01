@@ -136,26 +136,18 @@ handleHydraEventsHeadState now e = do
       case headStatus of
         API.Initializing{} ->
           put $ Active (newActiveLink (toList parties) headId (initState parties))
+        API.Open{} ->
+          put $ Active (newActiveLink (toList parties) headId (Open OpenHome))
         API.Closed{} ->
           put $ Active (newActiveLink (toList parties) headId (closedState contestationPeriod))
-        API.Open{} ->
-          put $ Active (newActiveLink (toList parties) headId openState)
-        _ -> pure ()
+        API.FanoutPossible{} ->
+          put $ Active (newActiveLink (toList parties) headId FanoutPossible)
+        _ -> put Idle
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsAborted{}}) ->
       put Idle
     _ -> pure ()
   zoom activeLinkL $ handleHydraEventsActiveLink e
  where
-  closedState contestationPeriod =
-    Closed
-      { closedState = ClosedState{contestationDeadline = addUTCTime (CP.toNominalDiffTime contestationPeriod) now}
-      }
-
-  openState =
-    Open
-      { openState = OpenHome
-      }
-
   initState parties =
     Initializing
       { initializingState =
@@ -163,6 +155,10 @@ handleHydraEventsHeadState now e = do
             { remainingParties = parties
             , initializingScreen = InitializingHome
             }
+      }
+  closedState contestationPeriod =
+    Closed
+      { closedState = ClosedState{contestationDeadline = addUTCTime (CP.toNominalDiffTime contestationPeriod) now}
       }
 
 handleHydraEventsActiveLink :: HydraEvent Tx -> EventM Name ActiveLink ()

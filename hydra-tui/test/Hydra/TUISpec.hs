@@ -87,6 +87,7 @@ spec = do
           sendInputEvent $ EvKey (KChar 's') []
           threadDelay 1
           shouldRender "Initializing"
+          shouldRender "Head id"
 
     around setupNodeAndTUI $ do
       it "starts & renders" $
