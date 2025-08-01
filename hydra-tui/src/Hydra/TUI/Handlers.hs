@@ -37,6 +37,7 @@ import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severit
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
+import Hydra.Tx.ContestationPeriod qualified as CP
 import Lens.Micro.Mtl (use, (%=), (.=))
 
 handleEvent ::
@@ -47,9 +48,10 @@ handleEvent ::
 handleEvent cardanoClient client = \case
   AppEvent e -> do
     handleTick e
+    now <- use nowL
     zoom connectedStateL $ do
       handleHydraEventsConnectedState e
-      zoom connectionL $ handleHydraEventsConnection e
+      zoom connectionL $ handleHydraEventsConnection now e
     zoom (logStateL . logMessagesL) $
       handleHydraEventsInfo e
   MouseDown{} -> pure ()
@@ -83,26 +85,30 @@ handleHydraEventsConnectedState = \case
   ClientDisconnected -> put Disconnected
   _ -> pure ()
 
-handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
-handleHydraEventsConnection = \case
-  e @ Update (ApiGreetings API.Greetings{me, env = Environment{configuredPeers}}) -> do
+handleHydraEventsConnection :: UTCTime -> HydraEvent Tx -> EventM Name Connection ()
+handleHydraEventsConnection now = \case
+  e@(Update (ApiGreetings API.Greetings{me, env = Environment{configuredPeers}})) -> do
     meL .= Identified me
-    let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
-    let peerAddrs = map (takeWhile (/= '=')) peerStrs
-    case traverse readHost peerAddrs of
-      Left err -> do
-        liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
+    if T.null configuredPeers
+      then
         peersL .= mempty
-      Right parsedPeers -> do
-        existing <- use peersL
-        let existingMap = Map.fromList existing
-            updatedMap =
-              Map.fromList $
-                [ (p, Map.findWithDefault PeerIsUnknown p existingMap)
-                | p <- parsedPeers
-                ]
-        peersL .= Map.toList updatedMap
-    zoom headStateL $ handleHydraEventsHeadState e
+      else do
+        let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
+        let peerAddrs = map (takeWhile (/= '=')) peerStrs
+        case traverse readHost peerAddrs of
+          Left err -> do
+            liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
+            peersL .= mempty
+          Right parsedPeers -> do
+            existing <- use peersL
+            let existingMap = Map.fromList existing
+                updatedMap =
+                  Map.fromList $
+                    [ (p, Map.findWithDefault PeerIsUnknown p existingMap)
+                    | p <- parsedPeers
+                    ]
+            peersL .= Map.toList updatedMap
+    zoom headStateL $ handleHydraEventsHeadState now e
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->
     peersL %= updatePeerStatus p PeerIsConnected
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) ->
@@ -113,24 +119,25 @@ handleHydraEventsConnection = \case
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkDisconnected}) -> do
     networkStateL .= Just NetworkDisconnected
     peersL %= map (\(h, _) -> (h, PeerIsUnknown))
-  e -> zoom headStateL $ handleHydraEventsHeadState e
+  e -> zoom headStateL $ handleHydraEventsHeadState now e
  where
   updatePeerStatus :: Host -> PeerStatus -> [(Host, PeerStatus)] -> [(Host, PeerStatus)]
   updatePeerStatus host status peers =
     (host, status) : filter ((/= host) . fst) peers
 
-handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
-handleHydraEventsHeadState e = do
+handleHydraEventsHeadState :: UTCTime -> HydraEvent Tx -> EventM Name HeadState ()
+handleHydraEventsHeadState now e = do
   case e of
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsInitializing{parties, headId}}) ->
       put $ Active (newActiveLink (toList parties) headId (initState parties))
-    -- -- Note: We only need to use the greetings when there is a headId present.
-    Update (ApiGreetings g@API.Greetings{headStatus, hydraHeadId = Just headId, parties}) ->
+    -- Note: We only need to use the greetings when there is a headId present.
+    Update (ApiGreetings API.Greetings{headStatus, hydraHeadId = Just headId, env = Environment{party, otherParties, contestationPeriod}}) -> do
+      let parties = party : otherParties
       case headStatus of
         API.Initializing{} ->
           put $ Active (newActiveLink (toList parties) headId (initState parties))
         API.Closed{} ->
-          put $ Active (newActiveLink (toList parties) headId closedState)
+          put $ Active (newActiveLink (toList parties) headId (closedState contestationPeriod))
         API.Open{} ->
           put $ Active (newActiveLink (toList parties) headId openState)
         _ -> pure ()
@@ -139,10 +146,9 @@ handleHydraEventsHeadState e = do
     _ -> pure ()
   zoom activeLinkL $ handleHydraEventsActiveLink e
  where
-  closedState =
+  closedState contestationPeriod =
     Closed
-      { -- TODO: We need to include this in the greetings.
-        closedState = ClosedState{contestationDeadline = error "Get from greetings"}
+      { closedState = ClosedState{contestationDeadline = addUTCTime (CP.toNominalDiffTime contestationPeriod) now}
       }
 
   openState =
