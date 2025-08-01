@@ -52,6 +52,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
   writeTVar,
  )
+import Control.Concurrent (myThreadId)
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..), (^?))
 import Data.Aeson (decodeFileStrict', encodeFile)
@@ -307,6 +308,11 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
               & #value .~ serialize' ourVersion
            )
 
+
+pp m = liftIO $ do
+  t <- myThreadId
+  putStrLn $ "#" <> show t <> " > " <> m
+
 -- | Broadcast messages from a queue to the etcd cluster.
 --
 -- Retries on failure to 'putMessage' in case we are on a minority cluster or
@@ -321,7 +327,9 @@ broadcastMessages ::
   IO ()
 broadcastMessages tracer conn ourHost queue =
   withGrpcContext "broadcastMessages" . forever $ do
+    pp "Peeking before broadcast"
     msg <- peekPersistentQueue queue
+    pp "Peeked in broadcast"
     (putMessage conn ourHost msg >> popPersistentQueue queue msg)
       `catch` \case
         GrpcException{grpcError, grpcErrorMessage}
@@ -338,7 +346,8 @@ putMessage ::
   Host ->
   msg ->
   IO ()
-putMessage conn ourHost msg =
+putMessage conn ourHost msg = do
+  pp "Before put"
   void $ nonStreaming conn (rpcWith @(Protobuf KV "put") callParams) req
  where
   -- NOTE: Timeout puts after 3 seconds. This is not tested, but we saw the
@@ -363,6 +372,7 @@ waitMessages ::
   IO ()
 waitMessages tracer conn directory NetworkCallback{deliver} = do
   withGrpcContext "waitMessages" . forever $ do
+    pp "Setting up watch"
     -- NOTE: We have not observed the watch (subscription) fail even when peers
     -- leave and we end up on a minority cluster.
     biDiStreaming conn (rpc @(Protobuf Watch "watch")) $ \send recv -> do
@@ -371,6 +381,7 @@ waitMessages tracer conn directory NetworkCallback{deliver} = do
       traceWith tracer WatchMessagesStartRevision{startRevision}
       -- NOTE: Request all keys starting with 'msg'. See also section KeyRanges
       -- in https://etcd.io/docs/v3.5/learning/api/#key-value-api
+      pp "Watch request"
       let watchRequest =
             defMessage
               & #key .~ "msg"
@@ -379,24 +390,28 @@ waitMessages tracer conn directory NetworkCallback{deliver} = do
       send . NextElem $ defMessage & #createRequest .~ watchRequest
       loop send recv
     -- Wait before re-trying
+    pp "Retrying"
     threadDelay 1
  where
   loop send recv =
-    recv >>= \case
-      NoNextElem -> pure ()
-      NextElem res ->
-        if res ^. #canceled
-          then do
-            let compactRevision = res ^. #compactRevision
-            traceWith tracer WatchMessagesFallbackTo{compactRevision}
-            putLastKnownRevision directory . fromIntegral $ (compactRevision - 1) `max` 0
-            -- Gracefully close watch stream
-            send NoNextElem
-          else do
-            let revision = res ^. #header . #revision
-            putLastKnownRevision directory . fromIntegral $ revision `max` 0
-            forM_ (res ^. #events) process
-            loop send recv
+    recv >>= \x -> do
+      pp "Looping"
+      case x of
+        NoNextElem -> pure ()
+        NextElem res -> do
+          pp $ "Res = " <> show (res ^. #header)
+          if res ^. #canceled
+            then do
+              let compactRevision = res ^. #compactRevision
+              traceWith tracer WatchMessagesFallbackTo{compactRevision}
+              putLastKnownRevision directory . fromIntegral $ (compactRevision - 1) `max` 0
+              -- Gracefully close watch stream
+              send NoNextElem
+            else do
+              let revision = res ^. #header . #revision
+              putLastKnownRevision directory . fromIntegral $ revision `max` 0
+              forM_ (res ^. #events) process
+              loop send recv
 
   process event = do
     let value = event ^. #kv . #value
@@ -588,13 +603,16 @@ newPersistentQueue path capacity = do
 -- | Write a value to the queue, blocking if the queue is full.
 writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
 writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
+  pp "Getting next index"
   next <- atomically $ do
     next <- readTVar nextIx
     modifyTVar' nextIx (+ 1)
     pure next
   writeFileBS (directory </> show next) $ serialize' item
   -- XXX: We should trace when the queue is full
+  pp "Writing to queue"
   atomically $ writeTBQueue queue (next, item)
+  pp "Done Writing to queue"
 
 -- | Get the next value from the queue without removing it, blocking if the
 -- queue is empty.
@@ -606,14 +624,19 @@ peekPersistentQueue PersistentQueue{queue} = do
 -- 'peekPersistentQueue' to wait for next items before popping it.
 popPersistentQueue :: (MonadSTM m, MonadIO m, Eq a) => PersistentQueue m a -> a -> m ()
 popPersistentQueue PersistentQueue{queue, directory} item = do
+  pp "Taking a peek ..."
   popped <- atomically $ do
     (ix, next) <- peekTBQueue queue
     if next == item
       then readTBQueue queue $> Just ix
-      else pure Nothing
+      else do
+        pure Nothing
+  pp "Completed taking a peek"
   case popped of
-    Nothing -> pure ()
+    Nothing ->
+      liftIO $ pp "next /= item !!!"
     Just index -> do
+      pp $ "Removing " <> show index
       liftIO . removeFile $ directory </> show index
 
 -- * Tracing
