@@ -23,7 +23,7 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (getClientPort, withEtcdNetwork)
+import Hydra.Network.Etcd (getClientPort, withEtcdNetwork, putMessage)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
@@ -72,6 +72,25 @@ spec = do
               withEtcdNetwork @Int tracer v1 bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
                 waitNext `shouldReturn` 123
+
+      it "Broadcast 100KiB messages 1M times" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          putStrLn $ "Folder " ++ show tmp
+          PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
+          (recordReceived, waitNext, _) <- newRecordingCallback
+          -- Create a 100KiB message (100 * 1024 characters)
+          let largeMessage = toText $ replicate (100 * 1024) 'a'
+          -- setEnv "ETCD_LISTEN_METRICS_URLS" "http://0.0.0.0:9109"
+          withEtcdNetwork @Text tracer v1 aliceConfig recordReceived $ \n1 -> do
+            -- setEnv "ETCD_LISTEN_METRICS_URLS" "http://0.0.0.0:9110"
+            withEtcdNetwork @Text tracer v1 bobConfig noopCallback $ \_ -> do
+              forM_ [1::Integer .. 1000000] $ \i -> do
+                let msgWithId = largeMessage <> " - Message #" <> show i
+                when (i `mod` 10000 == 0) $
+                  putStrLn $ "Broadcasting 100KiB message #" <> show i <> " (size: " <> show (length (toString msgWithId)) <> " chars)"
+                broadcast n1 msgWithId
+                _ <- waitNext
+                threadDelay 0.001
 
       it "handles broadcast to minority" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
@@ -303,7 +322,7 @@ setup2Peers tmp = do
             , peers = [bobHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       , bobConfig =
           NetworkConfiguration
