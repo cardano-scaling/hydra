@@ -45,8 +45,7 @@ import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Tx (HeadParameters (..), Party)
-import Hydra.Tx.HeadId (HeadId (..))
+import Hydra.Tx (Party)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
@@ -104,7 +103,6 @@ wsApp env party tracer history callback headStateP responseChannel ServerOutputF
             , hydraHeadId = getHeadId headState
             , snapshotUtxo = getSnapshotUtxo headState
             , hydraNodeVersion = showVersion NetworkVersions.hydraNodeVersion
-            , parties = getParties headState
             , env
             }
 
@@ -189,9 +187,3 @@ wsApp env party tracer history callback headStateP responseChannel ServerOutputF
     HeadState.Initial InitialState{headId} -> Just headId
     HeadState.Open OpenState{headId} -> Just headId
     HeadState.Closed ClosedState{headId} -> Just headId
-
--- | Get the content of 'parties' field in 'Greetings' message from the full 'HeadState'.
-getParties :: HeadState tx -> [Party]
-getParties = \case
-  HeadState.Open (HeadState.OpenState{parameters = HeadParameters{parties}}) -> parties
-  _ -> []
