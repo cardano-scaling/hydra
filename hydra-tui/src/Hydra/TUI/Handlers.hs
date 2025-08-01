@@ -85,7 +85,7 @@ handleHydraEventsConnectedState = \case
 
 handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
 handleHydraEventsConnection = \case
-  Update (ApiGreetings API.Greetings{me, env = Environment{configuredPeers}}) -> do
+  e @ Update (ApiGreetings API.Greetings{me, env = Environment{configuredPeers}}) -> do
     meL .= Identified me
     let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
     let peerAddrs = map (takeWhile (/= '=')) peerStrs
@@ -102,6 +102,7 @@ handleHydraEventsConnection = \case
                 | p <- parsedPeers
                 ]
         peersL .= Map.toList updatedMap
+    zoom headStateL $ handleHydraEventsHeadState e
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->
     peersL %= updatePeerStatus p PeerIsConnected
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) ->
