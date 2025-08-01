@@ -2,35 +2,29 @@
     "samples": [
         {
             "env": {
-                "configuredPeers": "\u0012",
-                "contestationPeriod": 43200,
-                "depositPeriod": 10295,
+                "configuredPeers": "",
+                "contestationPeriod": 86400,
+                "depositPeriod": 68866,
                 "otherParties": [
                     {
-                        "vkey": "bf72a86c937f59cae89f1ec36934551317f2d404f8aaa9ab8a94d48777b8c517"
+                        "vkey": "03ebab3cb4efd7f378482ea5b958352d407775c488559f72d0fab721bc92a4ef"
                     }
                 ],
-                "participants": [
-                    "01010101000000000101000100010100000101000001000101000001"
-                ],
+                "participants": [],
                 "party": {
-                    "vkey": "12db94043094359ba21ec7c9cb073275601346fad00e2a9cae59b089fe0eb3a5"
+                    "vkey": "005d49889bed4d18056564af48c37a73601b07dc65244a41f2f3fb5701e551f7"
                 },
-                "signingKey": "b1a94cb5616013b63ff5c692042a3877e4438a6b80730cc75b5ee2a54a99ba21"
+                "signingKey": "591bbc78af380b0ea297e0e3b5a590ab5d1fba2046debf756d165948036575df"
             },
             "headStatus": "Idle",
-            "hydraHeadId": "01010101000001000101010100000000",
-            "hydraNodeVersion": "",
+            "hydraHeadId": "01010001010101000100000000000000",
+            "hydraNodeVersion": "u",
             "me": {
-                "vkey": "5a6af715a48e4b438c8fda8f71e6a23bd4ac73d18758a0b69f4db9f7592dbbfc"
+                "vkey": "df1dad2cf485484380d92fe113a254e37582be0f719ba8232cb8cc8e8f5e7e32"
             },
-            "parties": [
-                {
-                    "vkey": "747d3c011d99920ac9b06904e199f4f35a0e28c283ef9df9fac420159aa4449b"
-                }
-            ],
+            "parties": [],
             "tag": "Greetings"
         }
     ],
-    "seed": -903006919
+    "seed": -1442114872
 }

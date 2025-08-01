@@ -43,6 +43,8 @@ changes.
 
 ## [0.22.2] - 2025-06-30
 
+- Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
+
 * Fix wrong hydra-script-tx-ids in networks.json
 
 ## [0.22.1] - 2025-06-27

@@ -130,7 +130,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp party tracer historyTimedOutputs callback headStateP responseChannel serverOutputFilter)
+              (wsApp env party tracer historyTimedOutputs callback headStateP responseChannel serverOutputFilter)
               ( httpApp
                   tracer
                   chain

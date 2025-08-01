@@ -187,6 +187,18 @@ instance HasTextEnvelope (VerificationKey HydraKey) where
     "HydraVerificationKey_"
       <> fromString (algorithmNameDSIGN (Proxy :: Proxy Ed25519DSIGN))
 
+instance ToJSON (SigningKey HydraKey) where
+  toJSON = toJSON . serialiseToRawBytesHexText
+
+instance FromJSON (SigningKey HydraKey) where
+  parseJSON = Aeson.withText "SigningKey" $ decodeBase16 >=> deserialiseKey
+   where
+    deserialiseKey =
+      maybe
+        (fail "unable to deserialize SigningKey, wrong length")
+        (pure . HydraSigningKey)
+        . rawDeserialiseSignKeyDSIGN
+
 -- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
 -- not random and insecure, so don't use this in production code!
 generateSigningKey :: ByteString -> SigningKey HydraKey
