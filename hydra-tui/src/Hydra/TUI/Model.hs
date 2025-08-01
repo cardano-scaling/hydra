@@ -36,9 +36,11 @@ data IdentifiedState
 -- | Connectivity of the hydra node to the hydra network.
 data NetworkState = NetworkConnected | NetworkDisconnected
 
+data PeerStatus = PeerIsConnected | PeerIsDisconnected | PeerIsUnknown
+
 data Connection = Connection
   { me :: IdentifiedState
-  , peers :: [Host]
+  , peers :: [(Host, PeerStatus)]
   , networkState :: Maybe NetworkState
   , headState :: HeadState
   }
@@ -209,18 +211,11 @@ emptyConnection =
     , headState = Idle
     }
 
-newActiveLink :: [Party] -> HeadId -> ActiveLink
-newActiveLink parties headId =
+newActiveLink :: [Party] -> HeadId -> ActiveHeadState -> ActiveLink
+newActiveLink parties headId headState =
   ActiveLink
     { parties
-    , activeHeadState =
-        Initializing
-          { initializingState =
-              InitializingState
-                { remainingParties = parties
-                , initializingScreen = InitializingHome
-                }
-          }
+    , activeHeadState = headState
     , utxo = mempty
     , pendingUTxOToDecommit = mempty
     , pendingIncrements = mempty

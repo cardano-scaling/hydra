@@ -11,6 +11,7 @@ import CardanoClient (RunningNode (..))
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import Data.ByteString qualified as BS
+import Data.Set qualified as Set
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),
@@ -36,16 +37,28 @@ import Hydra.Cluster.Faucet (
  )
 import Hydra.Cluster.Fixture (
   Actor (..),
+  alice,
   aliceSk,
  )
+import Hydra.Cluster.Scenarios (headIsInitializingWith)
 import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
+import Hydra.Options (persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
-import HydraNode (HydraClient (HydraClient, hydraNodeId), HydraNodeLog, withHydraNode)
+import HydraNode (
+  HydraClient (HydraClient, hydraNodeId),
+  HydraNodeLog,
+  input,
+  prepareHydraNode,
+  send,
+  waitForAllMatch,
+  withHydraNode,
+  withPreparedHydraNode,
+ )
 import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
@@ -62,6 +75,20 @@ spec = do
         sendInputEvent $ EvKey (KChar 'q') []
         threadDelay 1
         shouldNotRender "Connecting"
+
+    around setupRotatedStateTUI $ do
+      it "tui-rotated starts" $ do
+        \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
+          threadDelay 1
+          sendInputEvent $ EvKey (KChar 'h') []
+          threadDelay 1
+          shouldNotRender "HeadIsInitializing"
+          shouldRender "Checkpoint triggered"
+          sendInputEvent $ EvKey (KChar 's') []
+          threadDelay 1
+          shouldRender "Initializing"
+          shouldRender "Head id"
+
     around setupNodeAndTUI $ do
       it "starts & renders" $
         \TUITest{sendInputEvent, shouldRender} -> do
@@ -151,6 +178,49 @@ spec = do
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
           shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
+
+setupRotatedStateTUI :: (TUITest -> IO ()) -> IO ()
+setupRotatedStateTUI action = do
+  showLogsOnFailure "TUISpec" $ \tracer ->
+    withTempDir "tui-end-to-end" $ \tmpDir -> do
+      (aliceCardanoVk, _) <- keysFor Alice
+      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
+        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+        chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] tuiContestationPeriod
+        let nodeId = 1
+        let externalKeyFilePath = tmpDir </> "external.sk"
+        externalSKey <- createAndSaveSigningKey externalKeyFilePath
+        let externalVKey = getVerificationKey externalSKey
+        seedFromFaucet_ node externalVKey 42_000_000 (contramap FromFaucet tracer)
+
+        options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] [nodeId] id
+        let options' = options{persistenceRotateAfter = Just 1}
+
+        withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \n -> do
+          seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+          send n $ input "Init" []
+          void $ waitForAllMatch (10 * 200) [n] $ headIsInitializingWith (Set.fromList [alice])
+        -- Note: We don't wait for checking rotated here - but maybe we could - because we just check for the message in the TUI
+
+        withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \HydraClient{hydraNodeId} -> do
+          withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
+            race_
+              ( runWithVty
+                  buildVty
+                  Options
+                    { hydraNodeHost =
+                        Host
+                          { hostname = "127.0.0.1"
+                          , port = fromIntegral $ 4000 + hydraNodeId
+                          }
+                    , cardanoNodeSocket =
+                        nodeSocket
+                    , cardanoNetworkId =
+                        networkId
+                    , cardanoSigningKey = externalKeyFilePath
+                    }
+              )
+              $ action brickTest
 
 setupNodeAndTUI' :: Text -> Coin -> (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI' hostname lovelace action =
@@ -247,7 +317,7 @@ withTUITest region action = do
   findBytes bytes = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
 
   buildVty q frameBuffer = do
-    input <- buildInput defaultConfig =<< defaultSettings
+    input' <- buildInput defaultConfig =<< defaultSettings
     -- NOTE(SN): This is used by outputPicture and we hack it such that it
     -- always has the initial state to get a full rendering of the picture. That
     -- way we can capture output bytes line-by-line and drop the cursor moving.
@@ -261,7 +331,7 @@ withTUITest region action = do
     let output = testOut realOut as frameBuffer
     pure $
       Vty
-        { inputIface = input -- TODO(SN): this is not used
+        { inputIface = input' -- TODO(SN): this is not used
         , nextEvent = atomically $ readTQueue q
         , nextEventNonblocking = atomically $ tryReadTQueue q
         , outputIface = output
@@ -275,7 +345,7 @@ withTUITest region action = do
             dc <- displayContext output region
             outputPicture dc p
         , refresh = pure ()
-        , shutdown = shutdownInput input
+        , shutdown = shutdownInput input'
         , isShutdown = pure True
         }
 

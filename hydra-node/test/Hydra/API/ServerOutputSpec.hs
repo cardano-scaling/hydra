@@ -20,6 +20,7 @@ import Test.QuickCheck (conjoin, withMaxSuccess)
 spec :: Spec
 spec = parallel $ do
   roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (ServerOutput Tx))
+  roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (Greetings Tx))
 
   -- NOTE: Kupo and maybe other downstream projects use this file as a test vector.
   it "golden SnapshotConfirmed is good" $ do

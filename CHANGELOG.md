@@ -28,6 +28,9 @@ changes.
 - Handle failing lease keep alive in network component and avoid bursts in
   heartbeating.
 
+- Fix bug where TUI would have out-of-date head status information in the
+  presence of event rotation.
+
 ## [0.22.3] - 2025-07-21
 
 * Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
@@ -39,6 +42,8 @@ changes.
 - Don't keep around invalid transactions as they could lead to stuck Head.
 
 ## [0.22.2] - 2025-06-30
+
+- Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
 
 * Fix wrong hydra-script-tx-ids in networks.json
 
