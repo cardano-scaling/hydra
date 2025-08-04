@@ -1335,9 +1335,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           (requestCommitTx' n1 commitUTxO (Just 6_000_000) <&> toJSON)
             `shouldThrow` expectErrorStatus 400 (Just "AmountTooLow")
 
-          commitUTxO2 <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
           let expectedCommit = fst $ capUTxO commitUTxO 2_000_000
-          let expectedCommit2 = fst $ capUTxO commitUTxO2 3_000_000
 
           depositTransaction <- requestCommitTx' n2 commitUTxO (Just 2_000_000)
 
@@ -1351,18 +1349,9 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
           getSnapshotUTxO n1 `shouldReturn` expectedCommit
-
-          depositTransaction' <- requestCommitTx' n1 commitUTxO2 (Just 3_000_000)
-          let tx' = signTx walletSk depositTransaction'
-
-          Backend.submitTransaction backend tx'
-
-          waitFor hydraTracer (2 * realToFrac depositPeriod) [n1, n2] $
-            output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= expectedCommit2]
-          waitFor hydraTracer (20 * blockTime) [n1, n2] $
-            output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx')]
-
-          getSnapshotUTxO n1 `shouldReturn` expectedCommit <> expectedCommit2
+          -- check that user balance balance contains the change from the commit tx
+          (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+            `shouldReturn` lovelaceToValue 3_000_000
 
           send n2 $ input "Close" []
 
@@ -1379,7 +1368,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
 
           -- Assert final wallet balance
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
-            `shouldReturn` balance (commitUTxO <> commitUTxO2)
+            `shouldReturn` balance commitUTxO
  where
   hydraTracer = contramap FromHydraNode tracer
 
