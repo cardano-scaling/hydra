@@ -2971,9 +2971,18 @@ components:
       type: object
       items:
         oneof:
-          - $ref: "api.yaml#/components/schemas/UTxO"
+          - $ref: "api.yaml#/components/schemas/SimpleCommitRequest"
           - $ref: "api.yaml#/components/schemas/FullCommitRequest"
 
+    SimpleCommitRequest:
+      type: object
+      required:
+        - utxoToCommit
+      properties:
+        utxoToCommit:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        amount:
+          $ref: "api.yaml#/components/schemas/Coin"
     FullCommitRequest:
       type: object
       required:
