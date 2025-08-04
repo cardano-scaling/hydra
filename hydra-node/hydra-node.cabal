@@ -254,6 +254,7 @@ executable visualize-logs
   build-depends:
     , aeson
     , base
+    , conduit
     , bytestring
     , containers
     , hydra-cardano-api
