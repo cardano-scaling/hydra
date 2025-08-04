@@ -125,7 +125,6 @@ capUTxO utxo target
   -- \| Helper function to recursively select and split UTxO outputs to reach the target value.
   go foundSoFar leftovers currentSum sorted
     | currentSum == target = (foundSoFar, leftovers)
-    | null sorted = (foundSoFar, leftovers)
     | otherwise = case take 1 sorted of
         [] -> (foundSoFar, leftovers)
         (txIn, txOut) : _ ->
@@ -142,13 +141,11 @@ capUTxO utxo target
                   -- Split the output to meet the target exactly.
                   let cappedValue = target - currentSum
                       leftoverVal = x - cappedValue
-                      newTxIn1 = txIn
-                      newTxIn2 = txIn
                       cappedTxOut = updateTxOutValue txOut cappedValue
                       leftoverTxOut = updateTxOutValue txOut leftoverVal
                    in go
-                        (foundSoFar <> UTxO.singleton newTxIn1 cappedTxOut)
-                        (UTxO.difference leftovers (UTxO.singleton txIn txOut) <> UTxO.singleton newTxIn2 leftoverTxOut)
+                        (foundSoFar <> UTxO.singleton txIn cappedTxOut)
+                        (UTxO.difference leftovers (UTxO.singleton txIn txOut) <> UTxO.singleton txIn leftoverTxOut)
                         (currentSum + cappedValue)
                         (removeOne (txIn, txOut) sorted)
 
