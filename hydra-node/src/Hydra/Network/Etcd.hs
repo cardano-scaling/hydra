@@ -48,7 +48,7 @@ import Control.Concurrent.Class.MonadSTM (
   readTBQueue,
   swapTVar,
   writeTBQueue,
-  writeTVar
+  writeTVar,
  )
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..), (^?))
