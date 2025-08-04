@@ -111,17 +111,115 @@ import System.Process.Typed (
   Process,
   ProcessConfig,
   createPipe,
+  shell,
+  nullStream,
+  setStdout,
   getStderr,
   proc,
   setCreateGroup,
   setEnv,
   setStderr,
   startProcess,
+  runProcess,
   stopProcess,
   unsafeProcessHandle,
   waitExitCode,
  )
-import UnliftIO (readTVarIO)
+
+
+-- HACK: Just run a simple action.
+withOnlySimpleAction tracer config callback action = do
+  etcdBinPath <- getEtcdBinary persistenceDir whichEtcd
+  envVars <- Map.fromList <$> getEnvironment
+  withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
+    race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
+      race_ (traceStderr p callback) $ do
+        -- Just run the action.
+        let withConn = withConnection connParams grpcServer
+         in action withConn
+ where
+  connParams =
+    def
+      { connReconnectPolicy = reconnectPolicy
+      , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
+        -- comment on 'http2OverridePingRateLimit'.
+        connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
+      }
+
+  reconnectPolicy = ReconnectAfter ReconnectToOriginal $ do
+    threadDelay 1
+    traceWith tracer Reconnecting
+    pure reconnectPolicy
+
+  clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
+
+  grpcServer =
+    ServerInsecure $
+      Address
+        { addressHost = toString $ hostname clientHost
+        , addressPort = port clientHost
+        , addressAuthority = Nothing
+        }
+
+  traceStderr p NetworkCallback{onConnectivity} =
+    forever $ do
+      bs <- BS.hGetLine (getStderr p)
+      case Aeson.eitherDecodeStrict bs of
+        Left err -> traceWith tracer FailedToDecodeLog{log = decodeUtf8 bs, reason = show err}
+        Right v -> do
+          let expectedClusterMismatch = do
+                level' <- bs ^? Aeson.key "level" . Aeson.nonNull
+                msg' <- bs ^? Aeson.key "msg" . Aeson.nonNull
+                pure (level', msg')
+          case expectedClusterMismatch of
+            Just (Aeson.String "error", Aeson.String "request sent was ignored due to cluster ID mismatch") ->
+              onConnectivity ClusterIDMismatch{clusterPeers = T.pack clusterPeers}
+            _ -> traceWith tracer $ EtcdLog{etcd = v}
+
+  -- XXX: Could use TLS to secure peer connections
+  -- XXX: Could use discovery to simplify configuration
+  -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
+  etcdCmd etcdBinPath envVars =
+    -- NOTE: We map prefers the left; so we need to mappend default at the end.
+    setEnv (Map.toList $ envVars <> defaultEnv)
+      . setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
+      . setStderr createPipe
+      . proc etcdBinPath
+      $ concat
+        [ -- NOTE: Must be used in clusterPeers
+          ["--name", show advertise]
+        , ["--data-dir", persistenceDir </> "etcd" </> hashToStringAsHex (hashWithSerialiser @SHA256 toCBOR $ BS8.pack clusterPeers)]
+        , ["--listen-peer-urls", httpUrl listen]
+        , ["--initial-advertise-peer-urls", httpUrl advertise]
+        , ["--listen-client-urls", httpUrl clientHost]
+        , -- Pick a random port for http api (and use above only for grpc)
+          ["--listen-client-http-urls", "http://localhost:0"]
+        , -- Client access only on configured 'host' interface.
+          ["--advertise-client-urls", httpUrl clientHost]
+        , -- XXX: Could use unique initial-cluster-tokens to isolate clusters
+          ["--initial-cluster-token", "hydra-network-1"]
+        , ["--initial-cluster", clusterPeers]
+        ]
+
+  defaultEnv :: Map.Map String String
+  defaultEnv =
+    -- Keep up to 1000 revisions. See also:
+    -- https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction
+    Map.fromList
+      [ ("ETCD_AUTO_COMPACTION_MODE", "revision")
+      , ("ETCD_AUTO_COMPACTION_RETENTION", "1000")
+      ]
+
+  -- NOTE: Building a canonical list of labels from the advertised addresses
+  clusterPeers =
+    intercalate ","
+      . map (\h -> show h <> "=" <> httpUrl h)
+      $ (advertise : peers)
+
+  httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
+
+  NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
+
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
@@ -141,11 +239,9 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p callback) $ do
-        -- XXX: cleanup reconnecting through policy if other threads fail
-        doneVar <- newTVarIO False
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) grpcServer $ \conn -> do
+        withConnection connParams grpcServer $ \conn -> do
           -- REVIEW: checkVersion blocks if used on main thread - why?
           withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
             race_ (pollConnectivity tracer conn advertise callback) $
@@ -156,24 +252,19 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                     Network
                       { broadcast = writePersistentQueue queue
                       }
-                  atomically (writeTVar doneVar True)
  where
-  connParams doneVar =
+  connParams =
     def
-      { connReconnectPolicy = reconnectPolicy doneVar
+      { connReconnectPolicy = reconnectPolicy
       , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
         -- comment on 'http2OverridePingRateLimit'.
         connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
       }
 
-  reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
-    done <- readTVarIO doneVar
-    if done
-      then pure DontReconnect
-      else do
-        threadDelay 1
-        traceWith tracer Reconnecting
-        pure $ reconnectPolicy doneVar
+  reconnectPolicy = ReconnectAfter ReconnectToOriginal $ do
+    threadDelay 1
+    traceWith tracer Reconnecting
+    pure reconnectPolicy
 
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
 
@@ -338,6 +429,28 @@ broadcastMessages tracer conn ourHost queue =
               threadDelay 1
         e -> throwIO e
 
+
+-- | Broadcast a message to the etcd cluster.
+-- putMessageC ::
+--   ToCBOR msg =>
+--   Connection ->
+--   -- | Used to identify sender.
+--   Host ->
+--   msg ->
+--   IO ()
+putMessageC withConn ourHost msg = do
+  withConn $ \conn -> do
+    print =<< nonStreaming conn (rpcWith @(Protobuf KV "put") callParams) req
+ where
+  callParams = def{callTimeout = Just . Timeout Second $ TimeoutValue 3}
+
+  req =
+    defMessage
+      & #key .~ key
+      & #value .~ serialize' msg
+
+  key = encodeUtf8 @Text $ "msg-" <> show ourHost
+
 -- | Broadcast a message to the etcd cluster.
 putMessage ::
   ToCBOR msg =>
@@ -347,8 +460,8 @@ putMessage ::
   msg ->
   IO ()
 putMessage conn ourHost msg = do
-  pp "Before put"
-  void $ nonStreaming conn (rpcWith @(Protobuf KV "put") callParams) req
+  -- pp $ "Before put: " <> show $ (drop (100 * 1024) msg)
+  print =<< nonStreaming conn (rpcWith @(Protobuf KV "put") callParams) req
  where
   -- NOTE: Timeout puts after 3 seconds. This is not tested, but we saw the
   -- 'pending-broadcast' queue fill up and suspect that 'put' requests in
@@ -635,6 +748,7 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
   case popped of
     Nothing ->
       liftIO $ pp "next /= item !!!"
+      -- pure ()
     Just index -> do
       pp $ "Removing " <> show index
       liftIO . removeFile $ directory </> show index
