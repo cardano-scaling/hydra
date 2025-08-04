@@ -36,7 +36,6 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (
-  DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
  )
@@ -1333,7 +1332,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           (walletVk, walletSk) <- generate genKeyPair
           commitUTxO <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
           -- This one is expected to fail since there is 5 ADA at the wallet address but we specified 6 ADA to commit
-          sendRequest 2 commitUTxO (Just 6_000_000)
+          (requestCommitTx' n1 commitUTxO (Just 6_000_000) <&> toJSON)
             `shouldThrow` expectErrorStatus 400 (Just "AmountTooLow")
 
           commitUTxO2 <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
@@ -1383,16 +1382,6 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
             `shouldReturn` balance (commitUTxO <> commitUTxO2)
  where
   hydraTracer = contramap FromHydraNode tracer
-
-  sendRequest :: MonadIO m => Int -> UTxO.UTxO -> Maybe Coin -> m (JsonResponse Aeson.Value)
-  sendRequest hydraNodeId utxo amt =
-    runReq defaultHttpConfig $
-      req
-        POST
-        (http "127.0.0.1" /: "commit")
-        (ReqBodyJson $ SimpleCommitRequest @Tx utxo amt)
-        (Proxy :: Proxy (JsonResponse Aeson.Value))
-        (port $ 4000 + hydraNodeId)
 
 rejectCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
 rejectCommit tracer workDir blockTime backend hydraScriptsTxId =
