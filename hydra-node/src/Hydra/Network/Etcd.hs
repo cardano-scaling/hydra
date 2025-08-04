@@ -50,7 +50,7 @@ import Control.Concurrent.Class.MonadSTM (
   readTBQueue,
   swapTVar,
   writeTBQueue,
-  writeTVar
+  writeTVar,
  )
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..), (^?))
@@ -118,7 +118,7 @@ import System.Process.Typed (
   unsafeProcessHandle,
   waitExitCode,
  )
-import UnliftIO (readTVarIO )
+import UnliftIO (readTVarIO)
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
@@ -215,40 +215,35 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
 
-
-
 connParams :: Tracer IO EtcdLog -> TVar IO Bool -> Maybe Timeout -> ConnParams
 connParams tracer doneVarRef to =
-    def
-      { connReconnectPolicy = reconnectPolicy doneVarRef
-      , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
-        -- comment on 'http2OverridePingRateLimit'.
-        connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
-      , connDefaultTimeout = to
-      }
-    where
-      reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
-        done <- readTVarIO doneVar
-        if done
-          then pure DontReconnect
-          else do
-            threadDelay 1
-            traceWith tracer Reconnecting
-            pure $ reconnectPolicy doneVar
+  def
+    { connReconnectPolicy = reconnectPolicy doneVarRef
+    , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
+      -- comment on 'http2OverridePingRateLimit'.
+      connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
+    , connDefaultTimeout = to
+    }
+ where
+  reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
+    done <- readTVarIO doneVar
+    if done
+      then pure DontReconnect
+      else do
+        threadDelay 1
+        traceWith tracer Reconnecting
+        pure $ reconnectPolicy doneVar
 
 grpcServer :: NetworkConfiguration -> Server
 grpcServer config =
-    ServerInsecure $
-      Address
-        { addressHost = toString $ hostname clientHost
-        , addressPort = port clientHost
-        , addressAuthority = Nothing
-        }
-    where
-      clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
-
-
-
+  ServerInsecure $
+    Address
+      { addressHost = toString $ hostname clientHost
+      , addressPort = port clientHost
+      , addressAuthority = Nothing
+      }
+ where
+  clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
 
 -- | Get the client port corresponding to a listen address.
 --
