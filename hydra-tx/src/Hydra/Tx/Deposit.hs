@@ -125,9 +125,9 @@ capUTxO utxo target
   -- \| Helper function to recursively select and split UTxO outputs to reach the target value.
   go foundSoFar leftovers currentSum sorted
     | currentSum == target = (foundSoFar, leftovers)
-    | otherwise = case take 1 sorted of
+    | otherwise = case sorted of
         [] -> (foundSoFar, leftovers)
-        (txIn, txOut) : _ ->
+        (txIn, txOut) : rest ->
           let x = selectLovelace (txOutValue txOut)
            in if currentSum + x <= target
                 then
@@ -136,7 +136,7 @@ capUTxO utxo target
                     (foundSoFar <> UTxO.singleton txIn txOut)
                     (UTxO.difference leftovers $ UTxO.singleton txIn txOut)
                     (currentSum + x)
-                    (removeOne (txIn, txOut) sorted)
+                    rest
                 else
                   -- Split the output to meet the target exactly.
                   let cappedValue = target - currentSum
@@ -147,11 +147,7 @@ capUTxO utxo target
                         (foundSoFar <> UTxO.singleton txIn cappedTxOut)
                         (UTxO.difference leftovers (UTxO.singleton txIn txOut) <> UTxO.singleton txIn leftoverTxOut)
                         (currentSum + cappedValue)
-                        (removeOne (txIn, txOut) sorted)
-
-  -- \| Removes the first occurrence of a specific (TxIn, TxOut) pair from a list.
-  removeOne :: (TxIn, TxOut CtxUTxO) -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, TxOut CtxUTxO)]
-  removeOne x xs' = let (before, after) = break (== x) xs' in before ++ drop 1 after
+                        rest
 
 -- | Helper to create a new TxOut with a specified lovelace value
 updateTxOutValue :: TxOut ctx -> Coin -> TxOut ctx
