@@ -129,13 +129,14 @@ capUTxO utxo target
         [] -> (foundSoFar, leftovers)
         (txIn, txOut) : rest ->
           let x = selectLovelace (txOutValue txOut)
-           in if currentSum + x <= target
+              newSum = currentSum + x
+           in if newSum <= target
                 then
                   -- Include the entire output if it doesn't exceed the target.
                   go
                     (foundSoFar <> UTxO.singleton txIn txOut)
                     (UTxO.difference leftovers $ UTxO.singleton txIn txOut)
-                    (currentSum + x)
+                    newSum
                     rest
                 else
                   -- Split the output to meet the target exactly.
@@ -146,7 +147,7 @@ capUTxO utxo target
                    in go
                         (foundSoFar <> UTxO.singleton txIn cappedTxOut)
                         (UTxO.difference leftovers (UTxO.singleton txIn txOut) <> UTxO.singleton txIn leftoverTxOut)
-                        (currentSum + cappedValue)
+                        target
                         rest
 
 -- | Helper to create a new TxOut with a specified lovelace value
