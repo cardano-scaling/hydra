@@ -42,6 +42,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
+import Control.Concurrent (myThreadId)
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar',
   newTBQueueIO,
@@ -52,7 +53,6 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
   writeTVar,
  )
-import Control.Concurrent (myThreadId)
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..), (^?))
 import Data.Aeson (decodeFileStrict', encodeFile)
@@ -141,39 +141,31 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p callback) $ do
-        -- XXX: cleanup reconnecting through policy if other threads fail
-        doneVar <- newTVarIO False
-        -- NOTE: The connection to the server is set up asynchronously; the
-        -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) grpcServer $ \conn -> do
-          -- REVIEW: checkVersion blocks if used on main thread - why?
-          withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
-            race_ (pollConnectivity tracer conn advertise callback) $
-              race_ (waitMessages tracer conn persistenceDir callback) $ do
-                queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-                race_ (broadcastMessages tracer conn advertise queue) $ do
-                  action
-                    Network
-                      { broadcast = writePersistentQueue queue
-                      }
-                  atomically (writeTVar doneVar True)
+        -- NOTE: Provide a means to open a connection to each thread.
+        let withConn = withConnection connParams grpcServer
+        -- REVIEW: checkVersion blocks if used on main thread - why?
+        withAsync (checkVersion tracer withConn protocolVersion callback) $ \_ -> do
+          race_ (pollConnectivity tracer withConn advertise callback) $
+            race_ (waitMessages tracer withConn persistenceDir callback) $ do
+              queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+              race_ (broadcastMessages tracer withConn advertise queue) $ do
+                action
+                  Network
+                    { broadcast = writePersistentQueue queue
+                    }
  where
-  connParams doneVar =
+  connParams =
     def
-      { connReconnectPolicy = reconnectPolicy doneVar
+      { connReconnectPolicy = reconnectPolicy
       , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
         -- comment on 'http2OverridePingRateLimit'.
         connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
       }
 
-  reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
-    done <- readTVarIO doneVar
-    if done
-      then pure DontReconnect
-      else do
-        threadDelay 1
-        traceWith tracer Reconnecting
-        pure $ reconnectPolicy doneVar
+  reconnectPolicy = ReconnectAfter ReconnectToOriginal $ do
+    threadDelay 1
+    traceWith tracer Reconnecting
+    pure reconnectPolicy
 
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
 
@@ -308,7 +300,6 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
               & #value .~ serialize' ourVersion
            )
 
-
 pp m = liftIO $ do
   t <- myThreadId
   putStrLn $ "#" <> show t <> " > " <> m
@@ -320,23 +311,24 @@ pp m = liftIO $ do
 broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
   Tracer IO EtcdLog ->
-  Connection ->
+  ((Connection -> IO a) -> IO a) ->
   -- | Used to identify sender.
   Host ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages tracer conn ourHost queue =
-  withGrpcContext "broadcastMessages" . forever $ do
-    pp "Peeking before broadcast"
-    msg <- peekPersistentQueue queue
-    pp "Peeked in broadcast"
-    (putMessage conn ourHost msg >> popPersistentQueue queue msg)
-      `catch` \case
-        GrpcException{grpcError, grpcErrorMessage}
-          | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
-              traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
-              threadDelay 1
-        e -> throwIO e
+broadcastMessages tracer withConn ourHost queue =
+  withConn $ \conn ->
+    withGrpcContext "broadcastMessages" . forever $ do
+      pp "Peeking before broadcast"
+      msg <- peekPersistentQueue queue
+      pp "Peeked in broadcast"
+      (putMessage conn ourHost msg >> popPersistentQueue queue msg)
+        `catch` \case
+          GrpcException{grpcError, grpcErrorMessage}
+            | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
+                traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
+                threadDelay 1
+          e -> throwIO e
 
 -- | Broadcast a message to the etcd cluster.
 putMessage ::
