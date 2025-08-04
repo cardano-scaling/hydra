@@ -141,14 +141,13 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p callback) $ do
-        -- NOTE: Provide a means to open a connection to each thread.
         let withConn = withConnection connParams grpcServer
         -- REVIEW: checkVersion blocks if used on main thread - why?
-        withAsync (checkVersion tracer withConn protocolVersion callback) $ \_ -> do
-          race_ (pollConnectivity tracer withConn advertise callback) $
-            race_ (waitMessages tracer withConn persistenceDir callback) $ do
+        withAsync (withConn $ checkVersion tracer protocolVersion callback) $ \_ -> do
+          race_ (withConn $ pollConnectivity tracer advertise callback) $
+            race_ (withConn $ waitMessages tracer persistenceDir callback) $ do
               queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-              race_ (broadcastMessages tracer withConn advertise queue) $ do
+              race_ (withConn $ broadcastMessages tracer advertise queue) $ do
                 action
                   Network
                     { broadcast = writePersistentQueue queue
@@ -249,11 +248,11 @@ getClientPort NetworkConfiguration{listen} = 2379 + port listen - 5001
 -- 'Connectivity' message is sent via 'NetworkCallback'.
 checkVersion ::
   Tracer IO EtcdLog ->
-  Connection ->
   ProtocolVersion ->
   NetworkCallback msg IO ->
+  Connection ->
   IO ()
-checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
+checkVersion tracer ourVersion NetworkCallback{onConnectivity} conn = do
   -- Get or write our version into kv store
   res <-
     nonStreaming conn (rpc @(Protobuf KV "txn")) $
@@ -311,24 +310,23 @@ pp m = liftIO $ do
 broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
   Tracer IO EtcdLog ->
-  ((Connection -> IO a) -> IO a) ->
   -- | Used to identify sender.
   Host ->
   PersistentQueue IO msg ->
+  Connection ->
   IO ()
-broadcastMessages tracer withConn ourHost queue =
-  withConn $ \conn ->
-    withGrpcContext "broadcastMessages" . forever $ do
-      pp "Peeking before broadcast"
-      msg <- peekPersistentQueue queue
-      pp "Peeked in broadcast"
-      (putMessage conn ourHost msg >> popPersistentQueue queue msg)
-        `catch` \case
-          GrpcException{grpcError, grpcErrorMessage}
-            | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
-                traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
-                threadDelay 1
-          e -> throwIO e
+broadcastMessages tracer ourHost queue conn =
+  withGrpcContext "broadcastMessages" . forever $ do
+    pp "Peeking before broadcast"
+    msg <- peekPersistentQueue queue
+    pp "Peeked in broadcast"
+    (putMessage conn ourHost msg >> popPersistentQueue queue msg)
+      `catch` \case
+        GrpcException{grpcError, grpcErrorMessage}
+          | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
+              traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
+              threadDelay 1
+        e -> throwIO e
 
 -- | Broadcast a message to the etcd cluster.
 putMessage ::
@@ -358,11 +356,11 @@ putMessage conn ourHost msg = do
 waitMessages ::
   FromCBOR msg =>
   Tracer IO EtcdLog ->
-  Connection ->
   FilePath ->
   NetworkCallback msg IO ->
+  Connection ->
   IO ()
-waitMessages tracer conn directory NetworkCallback{deliver} = do
+waitMessages tracer directory NetworkCallback{deliver} conn = do
   withGrpcContext "waitMessages" . forever $ do
     pp "Setting up watch"
     -- NOTE: We have not observed the watch (subscription) fail even when peers
@@ -439,12 +437,12 @@ putLastKnownRevision directory rev = do
 -- the cluster.
 pollConnectivity ::
   Tracer IO EtcdLog ->
-  Connection ->
   -- | Local host
   Host ->
   NetworkCallback msg IO ->
+  Connection ->
   IO ()
-pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
+pollConnectivity tracer advertise NetworkCallback{onConnectivity} conn = do
   seenAliveVar <- newTVarIO []
   withGrpcContext "pollConnectivity" $
     forever . handle (onGrpcException seenAliveVar) $ do
