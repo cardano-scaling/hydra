@@ -63,6 +63,29 @@ spec = do
                 broadcast n ("asdf" :: Text)
                 waitNext `shouldReturn` "asdf"
 
+      -- Note: This test is disabled as it takes took long; but it is
+      -- important to keep around. Successfully completion of this test looks
+      -- like either a "mvcc database size exceeded" error; or no error at
+      -- all. Failures looks like complete blocking
+      -- XXX: Maybe run this one nightly; when we start doing nightly tests.
+      xit "broadcasts 100KiB messages 1M times" $ \tracer ->
+        withTempDir "test-etcd" $ \tmp -> do
+          putStrLn $ "Folder " ++ show tmp
+          PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
+          (recordReceived, waitNext, _) <- newRecordingCallback
+          -- Create a 100KiB message (100 * 1024 characters)
+          let largeMessage = toText $ replicate (100 * 1024) 'a'
+          withEtcdNetwork @Text tracer v1 aliceConfig recordReceived $ \n1 -> do
+            withEtcdNetwork @Text tracer v1 bobConfig noopCallback $ \_ -> do
+              forM_ [1 :: Integer .. 1000000] $ \i -> do
+                let msgWithId = largeMessage <> " - Message #" <> show i
+                when (i `mod` 10000 == 0) $
+                  putStrLn $
+                    "Broadcasting 100KiB message #" <> show i <> " (size: " <> show (length (toString msgWithId)) <> " chars)"
+                broadcast n1 msgWithId
+                _ <- waitNext
+                threadDelay 0.02
+
       it "broadcasts messages to single connected peer" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
           failAfter 5 $ do
