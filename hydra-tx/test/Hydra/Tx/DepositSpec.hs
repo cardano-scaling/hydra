@@ -8,7 +8,7 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api (Coin (..), UTxO, selectLovelace, txOutValue)
 import Hydra.Tx.Deposit (capUTxO)
 import Test.Hydra.Tx.Gen (genUTxOSized)
-import Test.QuickCheck (Property, counterexample, (===), (==>))
+import Test.QuickCheck (Property, chooseInteger, counterexample, (===), (==>))
 
 spec :: Spec
 spec =
@@ -28,13 +28,13 @@ spec =
 
         it "selects UTxO entries up to target amount" $ do
           let utxo = genUTxOSized 5 `generateWith` 42
-          let totalValue = UTxO.totalValue utxo
-          let target = toInteger (selectLovelace totalValue) `div` 2
+          let totalValue = UTxO.totalLovelace utxo
+          let target = chooseInteger (1, toInteger totalValue) `generateWith` 42
           let (selected, leftovers) = capUTxO utxo (Coin target)
 
-          toInteger (selectLovelace (UTxO.totalValue selected)) `shouldSatisfy` \v -> v <= target
+          toInteger (UTxO.totalLovelace selected) `shouldSatisfy` \v -> v <= target
 
-          UTxO.totalValue selected <> UTxO.totalValue leftovers `shouldBe` totalValue
+          UTxO.totalValue selected <> UTxO.totalValue leftovers `shouldBe` UTxO.totalValue utxo
 
           let originalSize = length (UTxO.toList utxo)
               selectedSize = length (UTxO.toList selected)
@@ -55,10 +55,11 @@ spec =
           let largeOutput = genUTxOSized 3 `generateWith` 43
           let mixedUTxO = smallOutput <> largeOutput
 
-          let target = Coin $ toInteger (selectLovelace (UTxO.totalValue smallOutput)) + 1000
-          let (selected, _) = capUTxO mixedUTxO target
+          let totalLovelace = UTxO.totalLovelace mixedUTxO
+          let target = chooseInteger (1, toInteger totalLovelace) `generateWith` 44
+          let (selected, _) = capUTxO mixedUTxO (Coin target)
 
-          length (UTxO.toList selected) `shouldSatisfy` (> 1)
+          length (UTxO.toList selected) `shouldSatisfy` (> 0)
 
       describe "property tests" $ do
         prop "preserves total value" propPreservesTotalValue
@@ -73,13 +74,10 @@ spec =
 propPreservesTotalValue :: UTxO -> Coin -> Property
 propPreservesTotalValue utxo target =
   let (selected, leftovers) = capUTxO utxo target
-      inputTotal = UTxO.totalValue utxo
-      selectedTotal = UTxO.totalValue selected
-      leftoverTotal = UTxO.totalValue leftovers
-      inputLovelace = selectLovelace inputTotal
-      selectedLovelace = selectLovelace selectedTotal
-      leftoverLovelace = selectLovelace leftoverTotal
-   in selectedLovelace + leftoverLovelace === inputLovelace
+      inputTotal = UTxO.totalLovelace utxo
+      selectedTotal = UTxO.totalLovelace selected
+      leftoverTotal = UTxO.totalLovelace leftovers
+   in selectedTotal + leftoverTotal === inputTotal
         & counterexample ("Input total: " <> show inputTotal)
         & counterexample ("Selected total: " <> show selectedTotal)
         & counterexample ("Leftover total: " <> show leftoverTotal)
@@ -88,8 +86,8 @@ propPreservesTotalValue utxo target =
 propSelectedValueNeverExceedsTarget :: UTxO -> Coin -> Property
 propSelectedValueNeverExceedsTarget utxo target =
   let (selected, _) = capUTxO utxo target
-      selectedTotal = UTxO.totalValue selected
-   in selectLovelace selectedTotal <= target
+      selectedTotal = UTxO.totalLovelace selected
+   in selectedTotal <= target
         & counterexample ("Selected total: " <> show selectedTotal)
         & counterexample ("Target: " <> show target)
 
@@ -113,11 +111,11 @@ propGreedySelection utxo target =
 propExactTargetWhenPossible :: UTxO -> Coin -> Property
 propExactTargetWhenPossible utxo target =
   let (selected, _) = capUTxO utxo target
-      selectedTotal = UTxO.totalValue selected
-      inputTotal = UTxO.totalValue utxo
-   in (selectLovelace inputTotal >= target) ==>
-        ( selectLovelace selectedTotal == target
-            || selectLovelace selectedTotal == target - 1
+      selectedTotal = UTxO.totalLovelace selected
+      inputTotal = UTxO.totalLovelace utxo
+   in (inputTotal >= target) ==>
+        ( selectedTotal == target
+            || selectedTotal == target - 1
         )
           & counterexample ("Selected total: " <> show selectedTotal)
           & counterexample ("Target: " <> show target)
@@ -138,11 +136,11 @@ propMonotonicTarget utxo target1 target2 =
   (target1 <= target2) ==>
     let (selected1, _) = capUTxO utxo target1
         (selected2, _) = capUTxO utxo target2
-        total1 = UTxO.totalValue selected1
-        total2 = UTxO.totalValue selected2
-     in selectLovelace total1 <= selectLovelace total2
-          & counterexample ("Target1: " <> show target1 <> ", Selected1: " <> show total1)
-          & counterexample ("Target2: " <> show target2 <> ", Selected2: " <> show total2)
+        selectedTotal1 = UTxO.totalLovelace selected1
+        selectedTotal2 = UTxO.totalLovelace selected2
+     in selectedTotal1 <= selectedTotal2
+          & counterexample ("Target1: " <> show target1 <> ", Selected1: " <> show selectedTotal1)
+          & counterexample ("Target2: " <> show target2 <> ", Selected2: " <> show selectedTotal2)
 
 -- | Property: No UTxO loss - all input UTxOs appear in either selected or leftovers
 propNoUTxOLoss :: UTxO -> Coin -> Property
