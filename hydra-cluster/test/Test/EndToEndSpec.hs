@@ -12,6 +12,7 @@ import CardanoClient (
  )
 import CardanoNode (
   withBackend,
+  withCardanoNodeDevnet,
  )
 import Control.Lens ((^..), (^?))
 import Control.Monad (foldM_)
@@ -52,6 +53,7 @@ import Hydra.Cluster.Scenarios (
   canCommit,
   canDecommit,
   canRecoverDeposit,
+  canResumeOnMemberAlreadyBootstrapped,
   canSeePendingDeposits,
   canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
@@ -106,7 +108,7 @@ import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair, genUTxOFor)
-import Test.QuickCheck (generate)
+import Test.QuickCheck (Positive (..), generate)
 import Prelude qualified
 
 allNodeIds :: [Int]
@@ -204,7 +206,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
         -- Measure restart after rotation
         options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] [] id
-        let options' = options{persistenceRotateAfter = Just 10}
+        let options' = options{persistenceRotateAfter = Just (Positive 10)}
         t1 <- getCurrentTime
         diff2 <- withPreparedHydraNode (contramap FromHydraNode tracer) tmpDir 1 options' $ \_ -> do
           t2 <- getCurrentTime
@@ -655,6 +657,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
               >>= canSideLoadSnapshot tracer tmpDir backend
+
+      it "can resume when member has already been bootstrapped" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= canResumeOnMemberAlreadyBootstrapped tracer tmpDir backend
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->

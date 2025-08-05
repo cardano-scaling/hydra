@@ -264,7 +264,7 @@ withOSStats workDir tvar action =
         race
           ( do
               -- Write the header
-              atomically $ writeTVar tvar [" | Time | Used | Free | ", "|------|------|------|"]
+              atomically $ writeTVar tvar [" | Time | Used | Free | ", "|------------------------------------|------|------|"]
               collectStats tvar out
           )
           action
@@ -272,7 +272,7 @@ withOSStats workDir tvar action =
             Left _ -> failure "dool process failed unexpectedly"
             Right a -> pure a
  where
-  process = (proc "dool" ["-cm", "-n", "-N", "lo", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
+  process = (proc "dool" ["-m", "--noupdate"]){cwd = Just workDir}
 
   collectStats _ Nothing = pure ()
   collectStats tvar' (Just hdl) =
@@ -281,9 +281,9 @@ withOSStats workDir tvar action =
 
   processStat :: TVar IO [Text] -> String -> IO ()
   processStat tvar' stat = do
-    let matches = getAllTextMatches (stat =~ ("[0-9.]+.|([A-Z])" :: String)) :: [String]
+    let matches = getAllTextMatches (stat =~ ("[0-9.]+([A-Z])" :: String)) :: [String]
     case matches of
-      (_ : _ : _ : _ : _ : memUsed : memFree : _) -> do
+      (memUsed : memFree : _ : _) -> do
         now <- getCurrentTime
         let str =
               pack $
