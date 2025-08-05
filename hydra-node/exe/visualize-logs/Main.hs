@@ -3,7 +3,7 @@
 
 module Main where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api (Tx)
 import Hydra.Prelude hiding (encodeUtf8)
 import Hydra.Prelude qualified as P
 
@@ -71,7 +71,7 @@ visualize paths = do
                                 BeginEffect{effect} ->
                                   case effect of
                                     ClientEffect{} -> pure DropLog
-                                    NetworkEffect{message} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "NETWORK EFFECT" (show message) green)
+                                    NetworkEffect{message} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "NETWORK EFFECT" (show message) magenta)
                                     OnChainEffect{postChainTx} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "POSTING" (show postChainTx) blue)
                                 EndEffect{} -> pure DropLog
                                 LogicOutcome{outcome} ->
@@ -79,28 +79,28 @@ visualize paths = do
                                     Continue{stateChanges} ->
                                       foldM
                                         ( \b a -> case a of
-                                            HeadInitialized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadInitialized" "" green)
-                                            HeadOpened{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadOpened" "" green)
-                                            CommittedUTxO{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommittedUTxO" "" green)
-                                            HeadAborted{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadAborted" "" green)
-                                            SnapshotRequestDecided{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotRequestDecided" "" green)
-                                            SnapshotRequested{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotRequested" "" green)
-                                            PartySignedSnapshot{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "PartySignedSnapshot" "" green)
-                                            SnapshotConfirmed{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotConfirmed" "" green)
-                                            DepositRecorded{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositRecorded" "" green)
-                                            DepositActivated{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositActivated" "" green)
+                                            HeadInitialized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadInitialized" "" cyan)
+                                            HeadOpened{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadOpened" "" cyan)
+                                            CommittedUTxO{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommittedUTxO" "" cyan)
+                                            HeadAborted{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadAborted" "" red)
+                                            SnapshotRequestDecided{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotRequestDecided" "" cyan)
+                                            SnapshotRequested{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotRequested" "" cyan)
+                                            PartySignedSnapshot{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "PartySignedSnapshot" "" cyan)
+                                            SnapshotConfirmed{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotConfirmed" "" cyan)
+                                            DepositRecorded{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositRecorded" "" cyan)
+                                            DepositActivated{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositActivated" "" cyan)
                                             DepositExpired{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositExpired" "" red)
-                                            DepositRecovered{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositRecovered" "" green)
-                                            CommitApproved{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommitApproved" "" green)
-                                            CommitFinalized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommitFinalized" "" green)
-                                            DecommitRecorded{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitRecorded" "" green)
-                                            DecommitApproved{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitApproved" "" green)
-                                            DecommitInvalid{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitInvalid" "" green)
-                                            DecommitFinalized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitFinalized" "" green)
+                                            DepositRecovered{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositRecovered" "" cyan)
+                                            CommitApproved{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommitApproved" "" cyan)
+                                            CommitFinalized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommitFinalized" "" cyan)
+                                            DecommitRecorded{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitRecorded" "" cyan)
+                                            DecommitApproved{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitApproved" "" cyan)
+                                            DecommitInvalid{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitInvalid" "" red)
+                                            DecommitFinalized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitFinalized" "" cyan)
                                             HeadClosed{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadClosed" "" green)
-                                            HeadContested{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadContested" "" green)
-                                            HeadIsReadyToFanout{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadIsReadyToFanout" "" green)
-                                            HeadFannedOut{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadFannedOut" "" green)
+                                            HeadContested{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadContested" "" cyan)
+                                            HeadIsReadyToFanout{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadIsReadyToFanout" "" cyan)
+                                            HeadFannedOut{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadFannedOut" "" cyan)
                                             IgnoredHeadInitializing{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "IgnoredHeadInitializing" "" red)
                                             TxInvalid{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "TxInvalid" "" red)
                                             _ -> pure b
@@ -129,7 +129,8 @@ decodeAs l _ =
 
 render :: Decoded tx -> IO ()
 render = \case
-  DecodedHydraLog{t, n, info = InfoLine{header, line, color}} -> putTextLn $ color <> unlines ["[" <> show t <> "]", "NAMESPACE:" <> show n, header, line]
+  DecodedHydraLog{t, n, info = InfoLine{header, line, color}} -> do
+    putTextLn $ color <> unlines ["[" <> show t <> "]", "NAMESPACE:" <> show n, header, line] <> reset
   DropLog -> putTextLn ""
 
 -- ANSI escape codes for colors
@@ -141,6 +142,12 @@ green = "\ESC[32m"
 
 blue :: Text
 blue = "\ESC[34m"
+
+cyan :: Text
+cyan = "\ESC[36m"
+
+magenta :: Text
+magenta = "\ESC[45m"
 
 reset :: Text
 reset = "\ESC[0m"
