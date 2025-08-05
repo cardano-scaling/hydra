@@ -118,7 +118,6 @@ import System.Process.Typed (
   unsafeProcessHandle,
   waitExitCode,
  )
-import UnliftIO (readTVarIO)
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
@@ -138,11 +137,9 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p callback) $ do
-        -- XXX: cleanup reconnecting through policy if other threads fail
-        doneVar <- newTVarIO False
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
-        withConnection (connParams tracer doneVar Nothing) (grpcServer config) $ \conn -> do
+        withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
           -- REVIEW: checkVersion blocks if used on main thread - why?
           withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
             race_ (pollConnectivity tracer conn advertise callback) $
@@ -153,7 +150,6 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                     Network
                       { broadcast = writePersistentQueue queue
                       }
-                  atomically (writeTVar doneVar True)
  where
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
   traceStderr p NetworkCallback{onConnectivity} =
@@ -215,24 +211,20 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
 
-connParams :: Tracer IO EtcdLog -> TVar IO Bool -> Maybe Timeout -> ConnParams
-connParams tracer doneVarRef to =
+connParams :: Tracer IO EtcdLog -> Maybe Timeout -> ConnParams
+connParams tracer to =
   def
-    { connReconnectPolicy = reconnectPolicy doneVarRef
+    { connReconnectPolicy = reconnectPolicy
     , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
       -- comment on 'http2OverridePingRateLimit'.
       connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
     , connDefaultTimeout = to
     }
  where
-  reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
-    done <- readTVarIO doneVar
-    if done
-      then pure DontReconnect
-      else do
-        threadDelay 1
-        traceWith tracer Reconnecting
-        pure $ reconnectPolicy doneVar
+  reconnectPolicy = ReconnectAfter ReconnectToOriginal $ do
+    threadDelay 1
+    traceWith tracer Reconnecting
+    pure reconnectPolicy
 
 grpcServer :: NetworkConfiguration -> Server
 grpcServer config =
@@ -342,8 +334,9 @@ putMessage ::
   msg ->
   IO ()
 putMessage tracer config ourHost msg = do
-  reconnect <- newTVarIO True
-  withConnection (connParams tracer reconnect (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn -> do
+  -- XXX: Here we open a new connection _for every message_! This is
+  -- effectively a work-around for https://github.com/cardano-scaling/hydra/issues/2167.
+  withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn -> do
     void $ nonStreaming conn (rpc @(Protobuf KV "put")) req
  where
   req =
