@@ -77,7 +77,6 @@ import Hydra.Network (
 import Hydra.Network.EtcdBinary (getEtcdBinary)
 import Network.GRPC.Client (
   Address (..),
-  CallParams (..),
   ConnParams (..),
   Connection,
   ReconnectPolicy (..),
@@ -87,7 +86,6 @@ import Network.GRPC.Client (
   TimeoutUnit (..),
   TimeoutValue (..),
   rpc,
-  rpcWith,
   withConnection,
  )
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
@@ -120,7 +118,6 @@ import System.Process.Typed (
   unsafeProcessHandle,
   waitExitCode,
  )
-import UnliftIO (readTVarIO)
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
@@ -140,50 +137,21 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p callback) $ do
-        -- XXX: cleanup reconnecting through policy if other threads fail
-        doneVar <- newTVarIO False
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) grpcServer $ \conn -> do
+        withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
           -- REVIEW: checkVersion blocks if used on main thread - why?
           withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
             race_ (pollConnectivity tracer conn advertise callback) $
               race_ (waitMessages tracer conn persistenceDir callback) $ do
                 queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-                race_ (broadcastMessages tracer conn advertise queue) $ do
+                race_ (broadcastMessages tracer config advertise queue) $ do
                   action
                     Network
                       { broadcast = writePersistentQueue queue
                       }
-                  atomically (writeTVar doneVar True)
  where
-  connParams doneVar =
-    def
-      { connReconnectPolicy = reconnectPolicy doneVar
-      , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
-        -- comment on 'http2OverridePingRateLimit'.
-        connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
-      }
-
-  reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
-    done <- readTVarIO doneVar
-    if done
-      then pure DontReconnect
-      else do
-        threadDelay 1
-        traceWith tracer Reconnecting
-        pure $ reconnectPolicy doneVar
-
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
-
-  grpcServer =
-    ServerInsecure $
-      Address
-        { addressHost = toString $ hostname clientHost
-        , addressPort = port clientHost
-        , addressAuthority = Nothing
-        }
-
   traceStderr p NetworkCallback{onConnectivity} =
     forever $ do
       bs <- BS.hGetLine (getStderr p)
@@ -242,6 +210,32 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
 
   NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
+
+connParams :: Tracer IO EtcdLog -> Maybe Timeout -> ConnParams
+connParams tracer to =
+  def
+    { connReconnectPolicy = reconnectPolicy
+    , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
+      -- comment on 'http2OverridePingRateLimit'.
+      connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
+    , connDefaultTimeout = to
+    }
+ where
+  reconnectPolicy = ReconnectAfter ReconnectToOriginal $ do
+    threadDelay 1
+    traceWith tracer Reconnecting
+    pure reconnectPolicy
+
+grpcServer :: NetworkConfiguration -> Server
+grpcServer config =
+  ServerInsecure $
+    Address
+      { addressHost = toString $ hostname clientHost
+      , addressPort = port clientHost
+      , addressAuthority = Nothing
+      }
+ where
+  clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
 
 -- | Get the client port corresponding to a listen address.
 --
@@ -314,15 +308,15 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
 broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
   Tracer IO EtcdLog ->
-  Connection ->
+  NetworkConfiguration ->
   -- | Used to identify sender.
   Host ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages tracer conn ourHost queue =
+broadcastMessages tracer config ourHost queue =
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
-    (putMessage conn ourHost msg >> popPersistentQueue queue msg)
+    (putMessage tracer config ourHost msg >> popPersistentQueue queue msg)
       `catch` \case
         GrpcException{grpcError, grpcErrorMessage}
           | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
@@ -333,19 +327,18 @@ broadcastMessages tracer conn ourHost queue =
 -- | Broadcast a message to the etcd cluster.
 putMessage ::
   ToCBOR msg =>
-  Connection ->
+  Tracer IO EtcdLog ->
+  NetworkConfiguration ->
   -- | Used to identify sender.
   Host ->
   msg ->
   IO ()
-putMessage conn ourHost msg =
-  void $ nonStreaming conn (rpcWith @(Protobuf KV "put") callParams) req
+putMessage tracer config ourHost msg = do
+  -- XXX: Here we open a new connection _for every message_! This is
+  -- effectively a work-around for https://github.com/cardano-scaling/hydra/issues/2167.
+  withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn -> do
+    void $ nonStreaming conn (rpc @(Protobuf KV "put")) req
  where
-  -- NOTE: Timeout puts after 3 seconds. This is not tested, but we saw the
-  -- 'pending-broadcast' queue fill up and suspect that 'put' requests in
-  -- 'broadcastMessages' were just not served and stay pending forever.
-  callParams = def{callTimeout = Just . Timeout Second $ TimeoutValue 3}
-
   req =
     defMessage
       & #key .~ key
