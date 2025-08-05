@@ -28,8 +28,5 @@ jobs:
       - name: Check demo test
         run: |
           cd demo
-          nix run .#demo -- -D
-          sleep 30  # Give time for startup
-          cat devnet/alice-logs.txt | grep "APIServerStarted" || exit 1
-          nix run .#demo -- down
+          nix run .#demo -- run test
 
