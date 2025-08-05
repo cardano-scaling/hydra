@@ -9,32 +9,38 @@ import Hydra.Prelude qualified as P
 
 import Conduit
 import Control.Lens ((^?))
+import Control.Monad (foldM)
 import Data.Aeson (eitherDecode')
 import Data.Aeson.Lens (key, _String)
 import Data.ByteString.Lazy.Char8 qualified as C8
-import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
-import GHC.Show (show)
 import Hydra.Chain (ChainEvent (..))
-import Hydra.HeadLogic (Effect (..), Input (..), Outcome (..))
+import Hydra.HeadLogic (Effect (..), Input (..), Outcome (..), StateChanged (..))
 import Hydra.Logging (Envelope (..))
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Node (HydraNodeLog (..))
 
-data Decoded tx
-  = DecodedHydraLog Text
-  | DropLog
-  deriving (Eq)
+data InfoLine = InfoLine {header :: Text, line :: Text, color :: Text} deriving (Eq, Show)
 
-instance Show (Decoded tx) where
-  show (DecodedHydraLog txt) = T.unpack txt
-  show DropLog = ""
+data Decoded tx
+  = DecodedHydraLog {t :: UTCTime, n :: Text, info :: InfoLine}
+  | DropLog
+  deriving (Eq, Show)
+
+instance Ord (Decoded tx) where
+  compare DropLog DropLog = EQ
+  compare DropLog DecodedHydraLog{} = LT
+  compare DecodedHydraLog{} DropLog = GT
+  compare (DecodedHydraLog t1 _ _) (DecodedHydraLog t2 _ _) = compare t1 t2
 
 main :: IO ()
-main = do
+main = visualize ["../devnet/alice-logs.txt", "../devnet/bob-logs.txt"]
+
+visualize :: [FilePath] -> IO ()
+visualize paths = do
   decodedLines <-
     runConduitRes $
-      sourceFileBS "../devnet/alice-logs.txt"
+      mapM_ sourceFileBS paths
         .| linesUnboundedAsciiC
         .| mapMC
           ( \l ->
@@ -43,50 +49,75 @@ main = do
                 Just line ->
                   let envelope = fromStrict $ encodeUtf8 line
                    in case decodeAs envelope (undefined :: Envelope (HydraLog Tx)) of
-                        Left e -> P.error $ P.show e <> line
+                        Left e -> P.error $ show e <> line
                         Right decoded ->
                           case decoded.message of
-                            NodeOptions opt -> pure $ DecodedHydraLog $ "NODE STARTING: \n" <> P.show opt
+                            NodeOptions opt -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "NODE OPTIONS" (show opt) green)
                             Node msg ->
                               case msg of
                                 BeginInput{input} ->
                                   case input of
                                     ClientInput{clientInput} ->
-                                      pure $ DecodedHydraLog $ "NODE LOG: \n" <> P.show clientInput
+                                      pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CLIENT SENT" (show clientInput) green)
                                     NetworkInput{} -> pure DropLog
                                     ChainInput{chainEvent} ->
                                       case chainEvent of
-                                        Observation{observedTx} -> pure $ DecodedHydraLog $ "OBESERVATION: " <> P.show observedTx
+                                        Observation{observedTx} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "OBESERVATION" (show observedTx) blue)
                                         Rollback{} -> pure DropLog
                                         Tick{} -> pure DropLog
                                         PostTxError{postTxError} ->
-                                          pure $ DecodedHydraLog $ "ERROR: " <> P.show postTxError
+                                          pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "ERROR" (show postTxError) red)
                                 EndInput{} -> pure DropLog
                                 BeginEffect{effect} ->
                                   case effect of
                                     ClientEffect{} -> pure DropLog
-                                    NetworkEffect{message} -> pure $ DecodedHydraLog $ P.show message
-                                    OnChainEffect{postChainTx} -> pure $ DecodedHydraLog $ "POSTING: " <> P.show postChainTx
+                                    NetworkEffect{message} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "NETWORK EFFECT" (show message) green)
+                                    OnChainEffect{postChainTx} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "POSTING" (show postChainTx) blue)
                                 EndEffect{} -> pure DropLog
                                 LogicOutcome{outcome} ->
                                   case outcome of
-                                    Continue{} -> pure DropLog
+                                    Continue{stateChanges} ->
+                                      foldM
+                                        ( \b a -> case a of
+                                            HeadOpened{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadOpened" "" green)
+                                            _ -> pure b
+                                        )
+                                        DropLog
+                                        stateChanges
                                     Wait{} -> pure DropLog
-                                    Error{error = err} -> pure $ DecodedHydraLog $ "LOGIC ERROR: " <> P.show err
+                                    Error{error = err} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "LOGIC ERROR" (show err) red)
                                 DroppedFromQueue{} -> pure DropLog
-                                LoadingState -> pure $ DecodedHydraLog "Loading state..."
-                                LoadedState{} -> pure $ DecodedHydraLog "Loaded."
-                                ReplayingState -> pure $ DecodedHydraLog "Replaying state..."
-                                Misconfiguration{} -> pure $ DecodedHydraLog "MISCONFIG!"
+                                LoadingState -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "Loading state..." "" green)
+                                LoadedState{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "Loaded." "" green)
+                                ReplayingState -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "Replaying state..." "" green)
+                                Misconfiguration{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "MISCONFIG!" "" red)
                             _ -> pure DropLog
           )
-        .| filterC (\a -> P.show a /= ("" :: Text))
+        .| filterC (/= DropLog)
         .| sinkList
-  forM_ decodedLines $ \l ->
-    putTextLn (P.show l)
+  forM_ (sort decodedLines) $ \l ->
+    render l
 
 decodeAs :: forall a. FromJSON a => C8.ByteString -> a -> Either String a
 decodeAs l _ =
   case eitherDecode' l :: Either String a of
     Left e -> Left e
     Right decoded -> pure decoded
+
+render :: Decoded tx -> IO ()
+render = \case
+  DecodedHydraLog{t, n, info = InfoLine{header, line, color}} -> putTextLn $ color <> unlines ["[" <> show t <> "]", "NAMESPACE:" <> show n, header, line]
+  DropLog -> putTextLn ""
+
+-- ANSI escape codes for colors
+red :: Text
+red = "\ESC[31m"
+
+green :: Text
+green = "\ESC[32m"
+
+blue :: Text
+blue = "\ESC[34m"
+
+reset :: Text
+reset = "\ESC[0m"
