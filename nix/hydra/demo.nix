@@ -230,10 +230,10 @@
                 command = ''
                 ${pkgs.grafana}/bin/grafana server \
                     --homepath ${pkgs.grafana}/share/grafana \
-                    --config ./grafana/nix/grafana.ini \
                     cfg:default.paths.data=$(pwd)/devnet/grafana/data \
                     cfg:default.paths.logs=$(pwd)/devnet/grafana/logs \
-                    cfg:default.paths.plugins=$(pwd)/devnet/grafana/plugins
+                    cfg:default.paths.plugins=$(pwd)/devnet/grafana/plugins \
+                    cfg:default.paths.provisioning=$(pwd)/grafana/nix
                 '';
                 depends_on."prometheus".condition = "process_started";
             };
