@@ -32,6 +32,11 @@ changes.
 - Handle failing lease keep alive in network component and avoid bursts in
   heartbeating.
 
+- Fix for blocking bug when broadcasting messages via etcd. See:
+  https://github.com/cardano-scaling/hydra/issues/2167. This is not a full fix
+  but is enough to resolve the problem until we can identify the central cause
+  of the issue.
+
 ## [0.22.3] - 2025-07-21
 
 * Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
