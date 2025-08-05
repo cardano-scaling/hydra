@@ -120,10 +120,12 @@
                   --hydra-signing-key ${self}/demo/carol.sk \
                   --hydra-verification-key ${self}/demo/alice.vk \
                   --hydra-verification-key ${self}/demo/bob.vk \
+                  --hydra-verification-key ${self}/demo/carol.vk \
                   --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
                   --cardano-signing-key devnet/credentials/carol.sk \
                   --cardano-verification-key devnet/credentials/alice.vk \
                   --cardano-verification-key devnet/credentials/bob.vk \
+                  --cardano-verification-key devnet/credentials/carol.vk \
                   --ledger-protocol-parameters devnet/protocol-parameters.json \
                   --testnet-magic 42 \
                   --node-socket devnet/node.socket \
@@ -169,6 +171,18 @@
               '';
               is_foreground = true;
               depends_on."hydra-node-carol".condition = "process_started";
+            };
+            test = {
+              command = pkgs.writeShellApplication {
+                name = "demo-test";
+                text = ''
+                  echo "Waiting for demo to be ready..."
+                  # Wait for alice to be ready
+                  timeout 60 bash -c 'until grep -q "APIServerStarted" devnet/alice-logs.txt; do sleep 1; done'
+                  echo "✅ Demo is ready!"
+                '';
+              };
+              depends_on."hydra-node-alice".condition = "process_log_ready";
             };
           };
         };
