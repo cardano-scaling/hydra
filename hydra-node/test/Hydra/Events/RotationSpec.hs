@@ -154,12 +154,9 @@ spec = parallel $ do
         unrotatedHistory <- getEvents eventSource
         toInteger (length unrotatedHistory) `shouldBe` totalEvents
         let rotationConfig = RotateAfter (Positive x)
-        let s0 :: [TrivialEvent]
-            s0 = []
-        let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
-            aggregator s e = e : s
-        let checkpointer :: [TrivialEvent] -> EventId -> UTCTime -> TrivialEvent
-            checkpointer s _ _ = trivialCheckpoint s
+        let s0 = []
+        let aggregator s e = e : s
+        let checkpointer s _ _ = trivialCheckpoint s
         EventStore{eventSource = rotatedEventSource} <- newRotatedEventStore rotationConfig s0 aggregator checkpointer eventStore
         rotatedHistory <- getEvents rotatedEventSource
         length rotatedHistory `shouldBe` 1
@@ -172,12 +169,9 @@ spec = parallel $ do
       \(Positive x, Positive y) -> do
         mockEventStore <- createMockEventStore
         let rotationConfig = RotateAfter (Positive x)
-        let s0 :: [TrivialEvent]
-            s0 = []
-        let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
-            aggregator s e = e : s
-        let checkpointer :: [TrivialEvent] -> EventId -> UTCTime -> TrivialEvent
-            checkpointer s _ _ = trivialCheckpoint s
+        let s0 = []
+        let aggregator s e = e : s
+        let checkpointer s _ _ = trivialCheckpoint s
         rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer mockEventStore
         let EventStore{eventSource, eventSink = EventSink{putEvent}} = rotatingEventStore
         let totalEvents = toInteger x * y + 1
@@ -196,12 +190,9 @@ spec = parallel $ do
         let x = y + delta
         mockEventStore <- createMockEventStore
         let rotationConfig = RotateAfter (Positive x)
-        let s0 :: [TrivialEvent]
-            s0 = []
-        let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
-            aggregator s e = e : s
-        let checkpointer :: [TrivialEvent] -> EventId -> UTCTime -> TrivialEvent
-            checkpointer s _ _ = trivialCheckpoint s
+        let s0 = []
+        let aggregator s e = e : s
+        let checkpointer s _ _ = trivialCheckpoint s
         rotatingEventStore <- newRotatedEventStore rotationConfig s0 aggregator checkpointer mockEventStore
         let EventStore{eventSource, eventSink = EventSink{putEvent}} = rotatingEventStore
         let totalEvents = toInteger x + toInteger y
@@ -214,12 +205,9 @@ spec = parallel $ do
     prop "a restarted and non-restarted store have consistent rotation" $
       \(x, ChunkedEvents chunks) -> do
         let rotationConfig = RotateAfter x
-        let s0 :: [TrivialEvent]
-            s0 = []
-        let aggregator :: [TrivialEvent] -> TrivialEvent -> [TrivialEvent]
-            aggregator s e = e : s
-        let checkpointer :: [TrivialEvent] -> EventId -> UTCTime -> TrivialEvent
-            checkpointer s _ _ = trivialCheckpoint s
+        let s0 = []
+        let aggregator s e = e : s
+        let checkpointer s _ _ = trivialCheckpoint s
         failAfter 1 $ do
           -- run restarted in chunks
           mockEventStore <- createMockEventStore
