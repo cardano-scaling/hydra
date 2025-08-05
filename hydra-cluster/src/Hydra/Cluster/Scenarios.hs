@@ -108,7 +108,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Options (CardanoChainConfig (..), startChainFrom)
+import Hydra.Options (CardanoChainConfig (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
@@ -155,7 +155,7 @@ import System.FilePath ((</>))
 import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (choose, elements, generate)
+import Test.QuickCheck (Positive, choose, elements, generate)
 
 data EndToEndLog
   = ClusterOptions {options :: Options}
@@ -504,10 +504,11 @@ singlePartyOpenAHead ::
   FilePath ->
   RunningNode ->
   [TxId] ->
+  Maybe (Positive Natural) ->
   -- | Continuation called when the head is open
   (HydraClient -> SigningKey PaymentKey -> HeadId -> IO a) ->
   IO a
-singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
+singlePartyOpenAHead tracer workDir node hydraScriptsTxId persistenceRotateAfter callback =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     -- Start hydra-node on chain tip
@@ -525,7 +526,9 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
     utxoToCommit <- seedFromFaucet node walletVk 100_000_000 (contramap FromFaucet tracer)
 
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    options <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] id
+    let options' = options{persistenceRotateAfter}
+    withPreparedHydraNode hydraTracer workDir 1 options' $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])

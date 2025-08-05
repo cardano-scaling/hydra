@@ -36,3 +36,30 @@ When implementing an event source or sink, you might want to consider testing th
   - [ ] Concurrent use of `sourceEvents` is possible
   
 - [ ] General: allocated resources are released (use with/bracket pattern)
+
+### Event Log Rotation
+
+Long-living heads may produce a large number of persisted events, which can impact the restart time of the hydra-node as it needs to read in all the previous to recreate its state.
+
+Event log rotation was introduced to improve recovery times by reducing the number of events that need to be replayed on startup. This is achieved by periodically replacing the current event log with a new one that starts from a checkpoint event, which captures the latest aggregated head state.
+
+Only rotated log files are saved with an incrementing `logId` suffix in their names, while the main `state` log file remains unchanged to preserve backward compatibility. This `logId` suffix corresponds to the ID of the last event included in that file.
+Rotation can be enabled via the optional `--persistence-rotate-after` command-line argument, which specifies the number of events after which rotation should occur.
+> For example, with `--persistence-rotate-after 100`, you’ll get rotated files named: state-100, state-200, state-300, and so on, each containing 101 events. This is because event IDs start at 0, so state-100 includes 101 state changed events (0–100) without a checkpoint. Subsequent rotated files include a checkpoint plus 100 new state changed events.
+
+Note that a checkpoint event id matches the last persisted event id from the previous rotated log file, preserving the sequential order of event ids across logs.
+This also makes it easier to identify which rotated log file was used to compute the checkpoint, as its event id matches the file name suffix.
+
+Depending on the rotation configuration used, the current `state` file may already contain more events than the specified threshold, causing a rotation to occur immediately on startup before any new inputs are processed.
+
+Upon rotation, a server output is produced to notify external agents when a checkpoint occurs, allowing them to perform archival or cleanup actions without interrupting the Hydra Head.
+
+The appropriate value for `--persistence-rotate-after` depends on your specific use case and the expected transaction volume.
+
+> As a rough guideline, in a simple scenario (running a single party on devnet that repeatedly re-spends the same committed UTxO) we observed that setting `--persistence-rotate-after 10000` results in rotated log files of about 8 MB every 3 minutes.
+>
+> Keep in mind that the size and frequency of rotated files will vary depending on several factors:
+>  * Transaction sizes: Larger transactions result in larger event payloads.
+>  * Number of party members: More parties increase the number of L2 protocol messages per snapshot, generating more events.
+>  * Ledger UTxO size: A higher number of UTxOs increases the size of certain events like snapshots.
+>  * Transaction throughput (TPS): Higher TPS leads to more events being produced over time.

@@ -33,7 +33,7 @@ run options =
         Nothing -> do
           withCardanoNodeDevnet fromCardanoNode workDir $ \node -> do
             txId <- publishOrReuseHydraScripts tracer node
-            singlePartyOpenAHead tracer workDir node txId $ \client walletSk _headId -> do
+            singlePartyOpenAHead tracer workDir node txId persistenceRotateAfter $ \client walletSk _headId -> do
               case scenario of
                 Idle -> forever $ pure ()
                 RespendUTxO -> do
@@ -41,7 +41,7 @@ run options =
                   -- XXX: Should make this configurable
                   respendUTxO client walletSk 0.1
  where
-  Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril, scenario} = options
+  Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril, scenario, persistenceRotateAfter} = options
 
   withRunningCardanoNode tracer workDir network action =
     findRunningCardanoNode (contramap FromCardanoNode tracer) workDir network >>= \case
