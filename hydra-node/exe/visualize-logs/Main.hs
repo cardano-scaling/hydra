@@ -79,7 +79,30 @@ visualize paths = do
                                     Continue{stateChanges} ->
                                       foldM
                                         ( \b a -> case a of
+                                            HeadInitialized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadInitialized" "" green)
                                             HeadOpened{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadOpened" "" green)
+                                            CommittedUTxO{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommittedUTxO" "" green)
+                                            HeadAborted{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadAborted" "" green)
+                                            SnapshotRequestDecided{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotRequestDecided" "" green)
+                                            SnapshotRequested{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotRequested" "" green)
+                                            PartySignedSnapshot{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "PartySignedSnapshot" "" green)
+                                            SnapshotConfirmed{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotConfirmed" "" green)
+                                            DepositRecorded{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositRecorded" "" green)
+                                            DepositActivated{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositActivated" "" green)
+                                            DepositExpired{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositExpired" "" red)
+                                            DepositRecovered{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositRecovered" "" green)
+                                            CommitApproved{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommitApproved" "" green)
+                                            CommitFinalized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommitFinalized" "" green)
+                                            DecommitRecorded{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitRecorded" "" green)
+                                            DecommitApproved{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitApproved" "" green)
+                                            DecommitInvalid{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitInvalid" "" green)
+                                            DecommitFinalized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitFinalized" "" green)
+                                            HeadClosed{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadClosed" "" green)
+                                            HeadContested{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadContested" "" green)
+                                            HeadIsReadyToFanout{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadIsReadyToFanout" "" green)
+                                            HeadFannedOut{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadFannedOut" "" green)
+                                            IgnoredHeadInitializing{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "IgnoredHeadInitializing" "" red)
+                                            TxInvalid{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "TxInvalid" "" red)
                                             _ -> pure b
                                         )
                                         DropLog
