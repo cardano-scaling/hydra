@@ -141,7 +141,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_
       ( do
-          threadLabelMe "etcd-waitExitCode-2"
+          labelMyThread "etcd-waitExitCode-2"
           waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec
       )
       $ do
@@ -196,7 +196,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   clientPort = 2379 + port listen - 5001
 
   traceStderr p NetworkCallback{onConnectivity} = do
-    threadLabelMe "etcd-traceStderr"
+    labelMyThread "etcd-traceStderr"
     forever $ do
       bs <- BS.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bs of
@@ -340,7 +340,7 @@ broadcastMessages ::
   PersistentQueue IO msg ->
   IO ()
 broadcastMessages tracer conn ourHost queue = do
-  threadLabelMe "etcd-broadcastMessages"
+  labelMyThread "etcd-broadcastMessages"
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
     (putMessage conn ourHost msg >> popPersistentQueue queue msg)
@@ -378,7 +378,7 @@ waitMessages ::
   NetworkCallback msg IO ->
   IO ()
 waitMessages tracer conn directory NetworkCallback{deliver} = do
-  threadLabelMe "etcd-waitMessages"
+  labelMyThread "etcd-waitMessages"
   revision <- getLastKnownRevision directory
   withGrpcContext "waitMessages" . forever $ do
     -- NOTE: We have not observed the watch (subscription) fail even when peers
@@ -439,7 +439,7 @@ pollConnectivity ::
   NetworkCallback msg IO ->
   IO ()
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
-  threadLabelMe "etcd-pollConnectivity"
+  labelMyThread "etcd-pollConnectivity"
   seenAliveVar <- newLabelledTVarIO "etcd-seen-alive" []
   withGrpcContext "pollConnectivity" $
     forever . handle (onGrpcException seenAliveVar) $ do
