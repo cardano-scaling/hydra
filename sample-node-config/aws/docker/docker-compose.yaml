@@ -8,7 +8,7 @@ services:
     logging:
       driver: "awslogs"
       options:
-        awslogs-region: "eu-west-3"                             # defined in variables.tf
+        awslogs-region: "${REGION}"                             # defined in sample-node-config/aws/terraform.tfvars
         awslogs-group: "${KEY_NAME}-${NETWORK}_instance_logs"   # defined in cloudwatch.tf
         awslogs-stream: "cardano_node-${NETWORK}"               # defined in cloudwatch.tf
         tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
@@ -27,7 +27,7 @@ services:
       ]
 
   hydra-node:
-    image: ghcr.io/input-output-hk/hydra-node@sha256:3b7f78962ff8fc212644e1ef4faf8742ead6f7c31353cdf5cc251d4d825edac7
+    image: ghcr.io/cardano-scaling/hydra-node:0.22.4
     restart: always
     container_name: hydra-node
     logging:
@@ -51,7 +51,8 @@ services:
     command:
       [ "--node-id", "${KEY_NAME}"
       , "--api-host", "0.0.0.0"
-      , "--host", "0.0.0.0"
+      , "--listen", "0.0.0.0:6000"
+      # , "--advertise", ""
       , "--monitoring-port", "6000"
       , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
       , "--hydra-signing-key", "/credentials/hydra-key.sk"
@@ -82,6 +83,10 @@ services:
       , "--peer", "hydra.horizon-haskell.net:5005"
       , "--hydra-verification-key", "/members/dan.hydra.vk"
       , "--cardano-verification-key", "/members/dan.cardano.vk"
+      # Veronika
+      , "--peer", "63.177.91.204:5001"
+      , "--hydra-verification-key", "/members/veronika.hydra.vk"
+      , "--cardano-verification-key", "/members/veronika.cardano.vk"
       ]
 
   hydra-tui:
