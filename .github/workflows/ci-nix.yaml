@@ -157,7 +157,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Download generated documentation
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         path: artifact
         pattern: benchmarks-*
@@ -268,20 +268,20 @@ jobs:
         cache-dependency-path: docs/yarn.lock
 
     - name: 📥 Download benchmark results
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         path: docs/benchmarks
         pattern: benchmarks-*
         merge-multiple: true
 
     - name: 📥 Download haddock documentation
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: haddocks
         path: docs/static/haddock
 
     - name: 📥 Download specification PDF
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: hydra-spec
         path: docs/static/
