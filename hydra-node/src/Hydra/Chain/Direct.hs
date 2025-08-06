@@ -162,7 +162,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   res <-
     race
       ( handle onIOException $ do
-          threadLabelMe "direct-chain-connection"
+          labelMyThread "direct-chain-connection"
           connectToLocalNode
             (connectInfo networkId nodeSocket)
             (clientProtocols chainPoint queue handler)

@@ -122,7 +122,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             & setBeforeMainLoop notifyServerRunning
     race_
       ( do
-          threadLabelMe "api-server"
+          labelMyThread "api-server"
           traceWith tracer (APIServerStarted port)
           startServer serverSettings
             . simpleCors
@@ -143,7 +143,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
               )
       )
       ( do
-          threadLabelMe "api-server-eventsink"
+          labelMyThread "api-server-eventsink"
           waitForServerRunning
           action
             ( EventSink
