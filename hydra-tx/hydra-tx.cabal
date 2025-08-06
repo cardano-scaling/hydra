@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-tx
-version:       0.22.3
+version:       0.22.4
 synopsis:      Hydra transaction library
 author:        IOG
 copyright:     2024 IOG

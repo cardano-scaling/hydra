@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.22.4] - UNRELEASED
+## [0.22.4] - 2025-08-05
 
 - Fix API not correctly handling event log rotation. This was evident in not
   being able to use `/commit` although the head is initializing or outdated
