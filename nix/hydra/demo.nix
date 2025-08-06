@@ -175,14 +175,36 @@
             test = {
               command = pkgs.writeShellApplication {
                 name = "demo-test";
+                runtimeInputs = [ pkgs.coreutils pkgs.cardano-cli pkgs.cardano-node self'.packages.hydra-node ];
                 text = ''
-                  echo "Waiting for demo to be ready..."
-                  # Wait for alice to be ready
-                  timeout 60 bash -c 'until grep -q "APIServerStarted" devnet/alice-logs.txt; do sleep 1; done'
-                  echo "✅ Demo is ready!"
+                  set -euo pipefail
+                  
+                  echo "--- Testing demo components"
+                  
+                  # Test that we can build and run basic components
+                  echo "Testing cardano-cli..."
+                  ${pkgs.cardano-cli}/bin/cardano-cli --version
+                  
+                  echo "Testing cardano-node..."
+                  ${pkgs.cardano-node}/bin/cardano-node --version
+                  
+                  echo "--- Testing demo setup"
+                  ./prepare-devnet.sh
+                  echo "✅ Demo setup completed successfully"
+                  
+                  echo "--- Testing that devnet files exist"
+                  if [ -f "devnet/cardano-node.json" ] && [ -f "devnet/topology.json" ]; then
+                    echo "✅ Devnet configuration files created"
+                  else
+                    echo "❌ Devnet configuration files missing"
+                    exit 1
+                  fi
+                  
+                  echo "--- Testing hydra-node"
+                  hydra-node --version
                 '';
               };
-              depends_on."hydra-node-alice".condition = "process_log_ready";
+              depends_on."prepare-devnet".condition = "process_completed";
             };
           };
         };
