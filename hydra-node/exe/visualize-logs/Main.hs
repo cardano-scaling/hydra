@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedRecordDot #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Main where
 
@@ -12,7 +11,6 @@ import Control.Lens ((^?))
 import Control.Monad (foldM)
 import Data.Aeson (eitherDecode')
 import Data.Aeson.Lens (key, _String)
-import Data.ByteString.Lazy.Char8 qualified as C8
 import Data.Text.Encoding (encodeUtf8)
 import Hydra.Chain (ChainEvent (..))
 import Hydra.HeadLogic (Effect (..), Input (..), Outcome (..), StateChanged (..))
@@ -20,18 +18,60 @@ import Hydra.Logging (Envelope (..))
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Node (HydraNodeLog (..))
 
-data InfoLine = InfoLine {header :: Text, line :: Text, color :: Text} deriving (Eq, Show)
+data InfoLine = InfoLine {toplabel :: LogType, details :: Text} deriving (Eq, Show)
 
 data Decoded tx
   = DecodedHydraLog {t :: UTCTime, n :: Text, info :: InfoLine}
   | DropLog
   deriving (Eq, Show)
 
+-- | This instance is needed to sort results by timestamp
 instance Ord (Decoded tx) where
   compare DropLog DropLog = EQ
   compare DropLog DecodedHydraLog{} = LT
   compare DecodedHydraLog{} DropLog = GT
   compare (DecodedHydraLog t1 _ _) (DecodedHydraLog t2 _ _) = compare t1 t2
+
+-- | Log type labels for visualization
+data LogType
+  = NodeOptionsLabel
+  | ClientSentLabel
+  | ObservationLabel
+  | NetworkLabel
+  | ChainEffectLabel
+  | ErrorLabel
+  | LogicLabel Text
+  | LogicError Text
+  | Other Text
+  deriving (Eq, Show)
+
+labelLog :: LogType -> Text
+labelLog NodeOptionsLabel = "NODE OPTIONS"
+labelLog ClientSentLabel = "CLIENT SENT"
+labelLog ObservationLabel = "OBSERVATION"
+labelLog NetworkLabel = "NETWORK EFFECT"
+labelLog ChainEffectLabel = "POSTING TX"
+labelLog ErrorLabel = "ERROR"
+labelLog (LogicLabel t) = unlines ["LOGIC", t]
+labelLog (LogicError t) = unlines ["LOGIC ERROR", t]
+labelLog (Other t) = unlines ["OTHER", t]
+
+colorLog :: LogType -> Text
+colorLog = \case
+  NodeOptionsLabel -> green
+  ClientSentLabel -> green
+  ObservationLabel -> blue
+  NetworkLabel -> magenta
+  ChainEffectLabel -> blue
+  ErrorLabel -> red
+  LogicLabel t -> case t of
+    "DepositExpired" -> red
+    "DecommitInvalid" -> red
+    "IgnoredHeadInitializing" -> red
+    "TxInvalid" -> red
+    _ -> cyan
+  LogicError _ -> red
+  Other _ -> green
 
 main :: IO ()
 main = visualize ["../devnet/alice-logs.txt", "../devnet/bob-logs.txt"]
@@ -42,95 +82,117 @@ visualize paths = do
     runConduitRes $
       mapM_ sourceFileBS paths
         .| linesUnboundedAsciiC
-        .| mapMC
-          ( \l ->
-              case l ^? key "message" . _String of
-                Nothing -> P.error "Failed to find key 'message' which was expected"
-                Just line ->
-                  let envelope = fromStrict $ encodeUtf8 line
-                   in case decodeAs envelope (undefined :: Envelope (HydraLog Tx)) of
-                        Left e -> P.error $ show e <> line
-                        Right decoded ->
-                          case decoded.message of
-                            NodeOptions opt -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "NODE OPTIONS" (show opt) green)
-                            Node msg ->
-                              case msg of
-                                BeginInput{input} ->
-                                  case input of
-                                    ClientInput{clientInput} ->
-                                      pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CLIENT SENT" (show clientInput) green)
-                                    NetworkInput{} -> pure DropLog
-                                    ChainInput{chainEvent} ->
-                                      case chainEvent of
-                                        Observation{observedTx} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "OBESERVATION" (show observedTx) blue)
-                                        Rollback{} -> pure DropLog
-                                        Tick{} -> pure DropLog
-                                        PostTxError{postTxError} ->
-                                          pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "ERROR" (show postTxError) red)
-                                EndInput{} -> pure DropLog
-                                BeginEffect{effect} ->
-                                  case effect of
-                                    ClientEffect{} -> pure DropLog
-                                    NetworkEffect{message} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "NETWORK EFFECT" (show message) magenta)
-                                    OnChainEffect{postChainTx} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "POSTING" (show postChainTx) blue)
-                                EndEffect{} -> pure DropLog
-                                LogicOutcome{outcome} ->
-                                  case outcome of
-                                    Continue{stateChanges} ->
-                                      foldM
-                                        ( \b a -> case a of
-                                            HeadInitialized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadInitialized" "" cyan)
-                                            HeadOpened{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadOpened" "" cyan)
-                                            CommittedUTxO{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommittedUTxO" "" cyan)
-                                            HeadAborted{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadAborted" "" red)
-                                            SnapshotRequestDecided{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotRequestDecided" "" cyan)
-                                            SnapshotRequested{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotRequested" "" cyan)
-                                            PartySignedSnapshot{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "PartySignedSnapshot" "" cyan)
-                                            SnapshotConfirmed{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "SnapshotConfirmed" "" cyan)
-                                            DepositRecorded{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositRecorded" "" cyan)
-                                            DepositActivated{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositActivated" "" cyan)
-                                            DepositExpired{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositExpired" "" red)
-                                            DepositRecovered{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DepositRecovered" "" cyan)
-                                            CommitApproved{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommitApproved" "" cyan)
-                                            CommitFinalized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "CommitFinalized" "" cyan)
-                                            DecommitRecorded{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitRecorded" "" cyan)
-                                            DecommitApproved{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitApproved" "" cyan)
-                                            DecommitInvalid{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitInvalid" "" red)
-                                            DecommitFinalized{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "DecommitFinalized" "" cyan)
-                                            HeadClosed{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadClosed" "" green)
-                                            HeadContested{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadContested" "" cyan)
-                                            HeadIsReadyToFanout{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadIsReadyToFanout" "" cyan)
-                                            HeadFannedOut{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "HeadFannedOut" "" cyan)
-                                            IgnoredHeadInitializing{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "IgnoredHeadInitializing" "" red)
-                                            TxInvalid{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "TxInvalid" "" red)
-                                            _ -> pure b
-                                        )
-                                        DropLog
-                                        stateChanges
-                                    Wait{} -> pure DropLog
-                                    Error{error = err} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "LOGIC ERROR" (show err) red)
-                                DroppedFromQueue{} -> pure DropLog
-                                LoadingState -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "Loading state..." "" green)
-                                LoadedState{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "Loaded." "" green)
-                                ReplayingState -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "Replaying state..." "" green)
-                                Misconfiguration{} -> pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine "MISCONFIG!" "" red)
-                            _ -> pure DropLog
-          )
+        .| mapMC decodeAndProcess
         .| filterC (/= DropLog)
         .| sinkList
-  forM_ (sort decodedLines) $ \l ->
-    render l
 
-decodeAs :: forall a. FromJSON a => C8.ByteString -> a -> Either String a
-decodeAs l _ =
-  case eitherDecode' l :: Either String a of
-    Left e -> Left e
-    Right decoded -> pure decoded
+  forM_ (sort decodedLines) render
+
+decodeAndProcess :: ByteString -> ResourceT IO (Decoded Tx)
+decodeAndProcess l =
+  case l ^? key "message" . _String of
+    Nothing -> P.error "Failed to find key 'message' which was expected"
+    Just line ->
+      let envelope = fromStrict $ encodeUtf8 line
+       in case eitherDecode' envelope :: Either String (Envelope (HydraLog Tx)) of
+            Left e -> P.error $ "Decoding failed" <> show e <> "for line: " <> line
+            Right decoded -> lift $ processLogs decoded
+
+-- | Ideally we would have Data instances for all types so we could get data type String representation
+-- instead of providing strings but that would add some compilation time overhead so not worth it.
+processLogs :: Envelope (HydraLog Tx) -> IO (Decoded Tx)
+processLogs decoded =
+  case decoded.message of
+    NodeOptions opt -> logIt NodeOptionsLabel (show opt)
+    Node msg ->
+      case msg of
+        BeginInput{input} ->
+          case input of
+            ClientInput{clientInput} -> logIt ClientSentLabel (show clientInput)
+            NetworkInput{} -> pure DropLog
+            ChainInput{chainEvent} ->
+              case chainEvent of
+                Observation{observedTx} -> logIt ObservationLabel (show observedTx)
+                Rollback{} -> pure DropLog
+                Tick{} -> pure DropLog
+                PostTxError{postTxError} -> logIt ErrorLabel (show postTxError)
+        EndInput{} -> pure DropLog
+        BeginEffect{effect} ->
+          case effect of
+            ClientEffect{} -> pure DropLog
+            NetworkEffect{message} -> logIt NetworkLabel (show message)
+            OnChainEffect{postChainTx} -> logIt ChainEffectLabel (show postChainTx)
+        EndEffect{} -> pure DropLog
+        LogicOutcome{outcome} ->
+          case outcome of
+            Continue{stateChanges} ->
+              foldM
+                ( \_ a -> case a of
+                    HeadInitialized{} -> logIt (LogicLabel "HeadInitialized") ""
+                    HeadOpened{} -> logIt (LogicLabel "HeadOpened") ""
+                    CommittedUTxO{} -> logIt (LogicLabel "CommittedUTxO") ""
+                    HeadAborted{} -> logIt (LogicLabel "HeadAborted") ""
+                    SnapshotRequestDecided{} -> logIt (LogicLabel "SnapshotRequestDecided") ""
+                    SnapshotRequested{} -> logIt (LogicLabel "SnapshotRequested") ""
+                    PartySignedSnapshot{} -> logIt (LogicLabel "PartySignedSnapshot") ""
+                    SnapshotConfirmed{} -> logIt (LogicLabel "SnapshotConfirmed") ""
+                    DepositRecorded{} -> logIt (LogicLabel "DepositRecorded") ""
+                    DepositActivated{} -> logIt (LogicLabel "DepositActivated") ""
+                    DepositExpired{} -> logIt (LogicLabel "DepositExpired") ""
+                    DepositRecovered{} -> logIt (LogicLabel "DepositRecovered") ""
+                    CommitApproved{} -> logIt (LogicLabel "CommitApproved") ""
+                    CommitFinalized{} -> logIt (LogicLabel "CommitFinalized") ""
+                    DecommitRecorded{} -> logIt (LogicLabel "DecommitRecorded") ""
+                    DecommitApproved{} -> logIt (LogicLabel "DecommitApproved") ""
+                    DecommitInvalid{} -> logIt (LogicLabel "DecommitInvalid") ""
+                    DecommitFinalized{} -> logIt (LogicLabel "DecommitFinalized") ""
+                    HeadClosed{} -> logIt (LogicLabel "HeadClosed") ""
+                    HeadContested{} -> logIt (LogicLabel "HeadContested") ""
+                    HeadIsReadyToFanout{} -> logIt (LogicLabel "HeadIsReadyToFanout") ""
+                    HeadFannedOut{} -> logIt (LogicLabel "HeadFannedOut") ""
+                    IgnoredHeadInitializing{} -> logIt (LogicLabel "IgnoredHeadInitializing") ""
+                    TxInvalid{} -> logIt (LogicLabel "TxInvalid") ""
+                    NetworkConnected{} -> pure DropLog
+                    NetworkDisconnected{} -> pure DropLog
+                    PeerConnected{} -> pure DropLog
+                    PeerDisconnected{} -> pure DropLog
+                    NetworkVersionMismatch{} -> pure DropLog
+                    NetworkClusterIDMismatch{} -> pure DropLog
+                    TransactionReceived{} -> pure DropLog
+                    TransactionAppliedToLocalUTxO{} -> pure DropLog
+                    ChainRolledBack{} -> pure DropLog
+                    TickObserved{} -> pure DropLog
+                    LocalStateCleared{} -> pure DropLog
+                    Checkpoint{} -> pure DropLog
+                )
+                DropLog
+                stateChanges
+            Wait{} -> pure DropLog
+            Error{error = err} -> logIt (LogicError "LOGIC ERROR") (show err)
+        DroppedFromQueue{} -> pure DropLog
+        LoadingState -> logIt (Other "Loading state...") ""
+        LoadedState{} -> logIt (Other "Loaded.") ""
+        ReplayingState -> logIt (Other "Replaying state...") ""
+        Misconfiguration{} -> logIt (Other "MISCONFIG!") ""
+    _ -> pure DropLog
+ where
+  logIt :: LogType -> Text -> IO (Decoded Tx)
+  logIt l s =
+    pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine l s)
 
 render :: Decoded tx -> IO ()
 render = \case
-  DecodedHydraLog{t, n, info = InfoLine{header, line, color}} -> do
-    putTextLn $ color <> unlines ["[" <> show t <> "]", "NAMESPACE:" <> show n, header, line] <> reset
+  DecodedHydraLog{t, n, info = InfoLine{toplabel, details}} -> do
+    putTextLn $
+      unlines
+        [ "-----------------------------------"
+        , "[" <> show t <> "]"
+        , "NAMESPACE:" <> show n
+        , colorLog toplabel
+        , labelLog toplabel
+        , details
+        , reset
+        ]
   DropLog -> putTextLn ""
 
 -- ANSI escape codes for colors
