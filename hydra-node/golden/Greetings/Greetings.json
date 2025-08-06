@@ -1,0 +1,29 @@
+{
+    "samples": [
+        {
+            "env": {
+                "configuredPeers": "",
+                "contestationPeriod": 86400,
+                "depositPeriod": 68866,
+                "otherParties": [
+                    {
+                        "vkey": "03ebab3cb4efd7f378482ea5b958352d407775c488559f72d0fab721bc92a4ef"
+                    }
+                ],
+                "participants": [],
+                "party": {
+                    "vkey": "005d49889bed4d18056564af48c37a73601b07dc65244a41f2f3fb5701e551f7"
+                },
+                "signingKey": "591bbc78af380b0ea297e0e3b5a590ab5d1fba2046debf756d165948036575df"
+            },
+            "headStatus": "Idle",
+            "hydraHeadId": "01010001010101000100000000000000",
+            "hydraNodeVersion": "u",
+            "me": {
+                "vkey": "df1dad2cf485484380d92fe113a254e37582be0f719ba8232cb8cc8e8f5e7e32"
+            },
+            "tag": "Greetings"
+        }
+    ],
+    "seed": -1442114872
+}

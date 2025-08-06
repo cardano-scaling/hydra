@@ -39,6 +39,9 @@ when the number of persisted `StateChanged` events exceeds the configured `--per
   * `Checkpoint` event ids now match the suffix of their preceding rotated log file and the last `StateChanged` event id within it,
   preserving sequential order and making it easier to identify which rotated log file was used to compute it.
 
+- Fix bug where TUI would have out-of-date head status information in the
+  presence of event rotation.
+
 ## [0.22.3] - 2025-07-21
 
 * Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
@@ -50,6 +53,8 @@ when the number of persisted `StateChanged` events exceeds the configured `--per
 - Don't keep around invalid transactions as they could lead to stuck Head.
 
 ## [0.22.2] - 2025-06-30
+
+- Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
 
 * Fix wrong hydra-script-tx-ids in networks.json
 

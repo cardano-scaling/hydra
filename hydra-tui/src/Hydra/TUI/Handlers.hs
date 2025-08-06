@@ -8,13 +8,11 @@ module Hydra.TUI.Handlers where
 import Hydra.Prelude hiding (Down)
 
 import Brick
-import Hydra.Cardano.Api hiding (Active)
-import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
-
 import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
 import Data.Map qualified as Map
+import Data.Text qualified as T
 import Graphics.Vty (
   Event (EvKey),
   Key (..),
@@ -24,17 +22,22 @@ import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (TimedServerOutput (..))
 import Hydra.API.ServerOutput qualified as API
+import Hydra.Cardano.Api hiding (Active)
 import Hydra.Cardano.Api.Prelude ()
+import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
+import Hydra.Network (readHost)
+import Hydra.Node.Environment (Environment (..))
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
+import Hydra.Tx.ContestationPeriod qualified as CP
 import Lens.Micro.Mtl (use, (%=), (.=))
 
 handleEvent ::
@@ -45,9 +48,10 @@ handleEvent ::
 handleEvent cardanoClient client = \case
   AppEvent e -> do
     handleTick e
+    now <- use nowL
     zoom connectedStateL $ do
       handleHydraEventsConnectedState e
-      zoom connectionL $ handleHydraEventsConnection e
+      zoom connectionL $ handleHydraEventsConnection now e
     zoom (logStateL . logMessagesL) $
       handleHydraEventsInfo e
   MouseDown{} -> pure ()
@@ -81,28 +85,80 @@ handleHydraEventsConnectedState = \case
   ClientDisconnected -> put Disconnected
   _ -> pure ()
 
-handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
-handleHydraEventsConnection = \case
-  Update (ApiGreetings API.Greetings{me}) -> meL .= Identified me
-  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) -> peersL %= \cp -> nub $ cp <> [p]
-  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) -> peersL %= \cp -> cp \\ [p]
+handleHydraEventsConnection :: UTCTime -> HydraEvent Tx -> EventM Name Connection ()
+handleHydraEventsConnection now = \case
+  e@(Update (ApiGreetings API.Greetings{me, env = Environment{configuredPeers}})) -> do
+    meL .= Identified me
+    if T.null configuredPeers
+      then
+        peersL .= mempty
+      else do
+        let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
+        let peerAddrs = map (takeWhile (/= '=')) peerStrs
+        case traverse readHost peerAddrs of
+          Left err -> do
+            liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
+            peersL .= mempty
+          Right parsedPeers -> do
+            existing <- use peersL
+            let existingMap = Map.fromList existing
+                updatedMap =
+                  Map.fromList $
+                    [ (p, Map.findWithDefault PeerIsUnknown p existingMap)
+                    | p <- parsedPeers
+                    ]
+            peersL .= Map.toList updatedMap
+    zoom headStateL $ handleHydraEventsHeadState now e
+  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->
+    peersL %= updatePeerStatus p PeerIsConnected
+  Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) ->
+    peersL %= updatePeerStatus p PeerIsDisconnected
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkConnected}) -> do
     networkStateL .= Just NetworkConnected
-    peersL .= []
+    peersL %= map (\(h, _) -> (h, PeerIsUnknown))
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkDisconnected}) -> do
     networkStateL .= Just NetworkDisconnected
-    peersL .= []
-  e -> zoom headStateL $ handleHydraEventsHeadState e
+    peersL %= map (\(h, _) -> (h, PeerIsUnknown))
+  e -> zoom headStateL $ handleHydraEventsHeadState now e
+ where
+  updatePeerStatus host status peers =
+    (host, status) : filter ((/= host) . fst) peers
 
-handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
-handleHydraEventsHeadState e = do
+handleHydraEventsHeadState :: UTCTime -> HydraEvent Tx -> EventM Name HeadState ()
+handleHydraEventsHeadState now e = do
   case e of
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsInitializing{parties, headId}}) ->
-      put $ Active (newActiveLink (toList parties) headId)
+      put $ Active (newActiveLink (toList parties) headId (initState parties))
+    -- Note: We only need to use the greetings when there is a headId present.
+    Update (ApiGreetings API.Greetings{headStatus, hydraHeadId = Just headId, env = Environment{party, otherParties, contestationPeriod}}) -> do
+      let parties = party : otherParties
+      case headStatus of
+        API.Initializing{} ->
+          put $ Active (newActiveLink (toList parties) headId (initState parties))
+        API.Open{} ->
+          put $ Active (newActiveLink (toList parties) headId (Open OpenHome))
+        API.Closed{} ->
+          put $ Active (newActiveLink (toList parties) headId (closedState contestationPeriod))
+        API.FanoutPossible{} ->
+          put $ Active (newActiveLink (toList parties) headId FanoutPossible)
+        _ -> put Idle
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsAborted{}}) ->
       put Idle
     _ -> pure ()
   zoom activeLinkL $ handleHydraEventsActiveLink e
+ where
+  initState parties =
+    Initializing
+      { initializingState =
+          InitializingState
+            { remainingParties = parties
+            , initializingScreen = InitializingHome
+            }
+      }
+  closedState contestationPeriod =
+    Closed
+      { closedState = ClosedState{contestationDeadline = addUTCTime (CP.toNominalDiffTime contestationPeriod) now}
+      }
 
 handleHydraEventsActiveLink :: HydraEvent Tx -> EventM Name ActiveLink ()
 handleHydraEventsActiveLink e = do
