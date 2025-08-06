@@ -145,7 +145,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   res <-
     race
       ( handle onIOException $ do
-          threadLabelMe "blockfrost-chain-connection"
+          labelMyThread "blockfrost-chain-connection"
           prj <- Blockfrost.projectFromFile projectPath
           blockfrostChain tracer queue prj chainPoint handler wallet
       )

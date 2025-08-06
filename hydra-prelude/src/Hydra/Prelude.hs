@@ -45,7 +45,7 @@ module Hydra.Prelude (
   newLabelledTVarIO,
   newLabelledEmptyTMVar,
   newLabelledTQueueIO,
-  threadLabelMe,
+  labelMyThread,
   raceLabelled,
   raceLabelled_,
   withAsyncLabelled,
@@ -344,17 +344,17 @@ newLabelledTBQueueIO = (atomically .) . newLabelledTBQueue
 
 -- * Helpers for labeling Threads
 
-threadLabelMe :: MonadThread m => String -> m ()
-threadLabelMe lbl = myThreadId >>= flip labelThread lbl
+labelMyThread :: MonadThread m => String -> m ()
+labelMyThread lbl = myThreadId >>= flip labelThread lbl
 
 raceLabelled :: (MonadThread m, MonadAsync m) => (String, m a) -> (String, m b) -> m (Either a b)
 raceLabelled (lblA, mA) (lblB, mB) =
   race
-    (threadLabelMe lblA >> mA)
-    (threadLabelMe lblB >> mB)
+    (labelMyThread lblA >> mA)
+    (labelMyThread lblB >> mB)
 
 raceLabelled_ :: (MonadThread m, MonadAsync m) => (String, m a) -> (String, m b) -> m ()
 raceLabelled_ = (void .) . raceLabelled
 
 withAsyncLabelled :: MonadAsync m => (String, m a) -> (Async m a -> m b) -> m b
-withAsyncLabelled (lbl, ma) = withAsync (threadLabelMe lbl >> ma)
+withAsyncLabelled (lbl, ma) = withAsync (labelMyThread lbl >> ma)
