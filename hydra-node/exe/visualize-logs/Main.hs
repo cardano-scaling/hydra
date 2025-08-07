@@ -98,60 +98,60 @@ decodeAndProcess l =
             Left e -> P.error $ "Decoding failed" <> show e <> "for line: " <> line
             Right decoded -> lift $ processLogs decoded
 
--- | Ideally we would have Data instances for all types so we could get data type String representation
--- instead of providing strings but that would add some compilation time overhead so not worth it.
+-- | Ideally we would have Data instances for all types so we could get data type string representation
+-- instead of providing strings directly but that would add some compilation time overhead so not worth it.
 processLogs :: Envelope (HydraLog Tx) -> IO (Decoded Tx)
 processLogs decoded =
   case decoded.message of
-    NodeOptions opt -> logIt NodeOptionsLabel (show opt)
+    NodeOptions opt -> logIt NodeOptionsLabel opt
     Node msg ->
       case msg of
         BeginInput{input} ->
           case input of
-            ClientInput{clientInput} -> logIt ClientSentLabel (show clientInput)
+            ClientInput{clientInput} -> logIt ClientSentLabel clientInput
             NetworkInput{} -> pure DropLog
             ChainInput{chainEvent} ->
               case chainEvent of
-                Observation{observedTx} -> logIt ObservationLabel (show observedTx)
+                Observation{observedTx} -> logIt ObservationLabel observedTx
                 Rollback{} -> pure DropLog
                 Tick{} -> pure DropLog
-                PostTxError{postTxError} -> logIt ErrorLabel (show postTxError)
+                PostTxError{postTxError} -> logIt ErrorLabel postTxError
         EndInput{} -> pure DropLog
         BeginEffect{effect} ->
           case effect of
             ClientEffect{} -> pure DropLog
-            NetworkEffect{message} -> logIt NetworkLabel (show message)
-            OnChainEffect{postChainTx} -> logIt ChainEffectLabel (show postChainTx)
+            NetworkEffect{message} -> logIt NetworkLabel message
+            OnChainEffect{postChainTx} -> logIt ChainEffectLabel postChainTx
         EndEffect{} -> pure DropLog
         LogicOutcome{outcome} ->
           case outcome of
             Continue{stateChanges} ->
               foldM
                 ( \_ a -> case a of
-                    HeadInitialized{} -> logIt (LogicLabel "HeadInitialized") ""
-                    HeadOpened{} -> logIt (LogicLabel "HeadOpened") ""
-                    CommittedUTxO{} -> logIt (LogicLabel "CommittedUTxO") ""
-                    HeadAborted{} -> logIt (LogicLabel "HeadAborted") ""
-                    SnapshotRequestDecided{} -> logIt (LogicLabel "SnapshotRequestDecided") ""
-                    SnapshotRequested{} -> logIt (LogicLabel "SnapshotRequested") ""
-                    PartySignedSnapshot{} -> logIt (LogicLabel "PartySignedSnapshot") ""
-                    SnapshotConfirmed{} -> logIt (LogicLabel "SnapshotConfirmed") ""
-                    DepositRecorded{} -> logIt (LogicLabel "DepositRecorded") ""
-                    DepositActivated{} -> logIt (LogicLabel "DepositActivated") ""
-                    DepositExpired{} -> logIt (LogicLabel "DepositExpired") ""
-                    DepositRecovered{} -> logIt (LogicLabel "DepositRecovered") ""
-                    CommitApproved{} -> logIt (LogicLabel "CommitApproved") ""
-                    CommitFinalized{} -> logIt (LogicLabel "CommitFinalized") ""
-                    DecommitRecorded{} -> logIt (LogicLabel "DecommitRecorded") ""
-                    DecommitApproved{} -> logIt (LogicLabel "DecommitApproved") ""
-                    DecommitInvalid{} -> logIt (LogicLabel "DecommitInvalid") ""
-                    DecommitFinalized{} -> logIt (LogicLabel "DecommitFinalized") ""
-                    HeadClosed{} -> logIt (LogicLabel "HeadClosed") ""
-                    HeadContested{} -> logIt (LogicLabel "HeadContested") ""
-                    HeadIsReadyToFanout{} -> logIt (LogicLabel "HeadIsReadyToFanout") ""
-                    HeadFannedOut{} -> logIt (LogicLabel "HeadFannedOut") ""
-                    IgnoredHeadInitializing{} -> logIt (LogicLabel "IgnoredHeadInitializing") ""
-                    TxInvalid{} -> logIt (LogicLabel "TxInvalid") ""
+                    details@HeadInitialized{} -> logIt (LogicLabel "HeadInitialized") details
+                    details@HeadOpened{} -> logIt (LogicLabel "HeadOpened") details
+                    details@CommittedUTxO{} -> logIt (LogicLabel "CommittedUTxO") details
+                    details@HeadAborted{} -> logIt (LogicLabel "HeadAborted") details
+                    details@SnapshotRequestDecided{} -> logIt (LogicLabel "SnapshotRequestDecided") details
+                    details@SnapshotRequested{} -> logIt (LogicLabel "SnapshotRequested") details
+                    details@PartySignedSnapshot{} -> logIt (LogicLabel "PartySignedSnapshot") details
+                    details@SnapshotConfirmed{} -> logIt (LogicLabel "SnapshotConfirmed") details
+                    details@DepositRecorded{} -> logIt (LogicLabel "DepositRecorded") details
+                    details@DepositActivated{} -> logIt (LogicLabel "DepositActivated") details
+                    details@DepositExpired{} -> logIt (LogicLabel "DepositExpired") details
+                    details@DepositRecovered{} -> logIt (LogicLabel "DepositRecovered") details
+                    details@CommitApproved{} -> logIt (LogicLabel "CommitApproved") details
+                    details@CommitFinalized{} -> logIt (LogicLabel "CommitFinalized") details
+                    details@DecommitRecorded{} -> logIt (LogicLabel "DecommitRecorded") details
+                    details@DecommitApproved{} -> logIt (LogicLabel "DecommitApproved") details
+                    details@DecommitInvalid{} -> logIt (LogicLabel "DecommitInvalid") details
+                    details@DecommitFinalized{} -> logIt (LogicLabel "DecommitFinalized") details
+                    details@HeadClosed{} -> logIt (LogicLabel "HeadClosed") details
+                    details@HeadContested{} -> logIt (LogicLabel "HeadContested") details
+                    details@HeadIsReadyToFanout{} -> logIt (LogicLabel "HeadIsReadyToFanout") details
+                    details@HeadFannedOut{} -> logIt (LogicLabel "HeadFannedOut") details
+                    details@IgnoredHeadInitializing{} -> logIt (LogicLabel "IgnoredHeadInitializing") details
+                    details@TxInvalid{} -> logIt (LogicLabel "TxInvalid") details
                     NetworkConnected{} -> pure DropLog
                     NetworkDisconnected{} -> pure DropLog
                     PeerConnected{} -> pure DropLog
@@ -168,17 +168,17 @@ processLogs decoded =
                 DropLog
                 stateChanges
             Wait{} -> pure DropLog
-            Error{error = err} -> logIt (LogicError "LOGIC ERROR") (show err)
+            Error{error = err} -> logIt (LogicError "LOGIC ERROR") err
         DroppedFromQueue{} -> pure DropLog
-        LoadingState -> logIt (Other "Loading state...") ""
-        LoadedState{} -> logIt (Other "Loaded.") ""
-        ReplayingState -> logIt (Other "Replaying state...") ""
-        Misconfiguration{} -> logIt (Other "MISCONFIG!") ""
+        LoadingState -> logIt (Other "Loading state...") ()
+        LoadedState{} -> logIt (Other "Loaded.") ()
+        ReplayingState -> logIt (Other "Replaying state...") ()
+        details@Misconfiguration{} -> logIt (Other "MISCONFIG!") details
     _ -> pure DropLog
  where
-  logIt :: LogType -> Text -> IO (Decoded Tx)
+  logIt :: Show x => LogType -> x -> IO (Decoded Tx)
   logIt l s =
-    pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine l s)
+    pure $ DecodedHydraLog decoded.timestamp decoded.namespace (InfoLine l (show s))
 
 render :: Decoded tx -> IO ()
 render = \case
