@@ -183,13 +183,13 @@
                   
                   # Test that we can build and run basic components
                   echo "Testing cardano-cli..."
-                  ${pkgs.cardano-cli}/bin/cardano-cli --version
+                  cardano-cli --version
                   
                   echo "Testing cardano-node..."
-                  ${pkgs.cardano-node}/bin/cardano-node --version
+                  cardano-node --version
                   
                   echo "--- Testing demo setup"
-                  ./demo/prepare-devnet.sh
+                  ${self}/demo/prepare-devnet.sh
                   echo "✅ Demo setup completed successfully"
                   
                   echo "--- Testing that devnet files exist"
@@ -204,7 +204,6 @@
                   hydra-node --version
                 '';
               };
-              depends_on."prepare-devnet".condition = "process_completed";
             };
           };
         };
