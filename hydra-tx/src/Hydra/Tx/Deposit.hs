@@ -6,6 +6,7 @@ import Hydra.Prelude hiding (toList)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), ValidityInterval (..), bodyTxL, inputsTxBodyL, outputsTxBodyL)
 import Control.Lens ((.~), (^.))
+import Data.List qualified as List
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -29,12 +30,17 @@ depositTx ::
   SlotNo ->
   -- | Deposit deadline from which onward the deposit can be recovered.
   UTCTime ->
+  -- | Optional amount to create partial deposit
+  Maybe Coin ->
   Tx
-depositTx networkId headId commitBlueprintTx upperSlot deadline =
+depositTx networkId headId commitBlueprintTx upperSlot deadline amount =
   fromLedgerTx $
     toLedgerTx blueprintTx
       & addDepositInputs
-      & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId depositUTxO deadline)
+      & bodyTxL . outputsTxBodyL
+        .~ ( StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId utxoToDeposit deadline)
+              <> leftoverOutput
+           )
       & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
       & addMetadata (mkHydraHeadV1TxName "DepositTx") blueprintTx
  where
@@ -44,7 +50,18 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline =
 
   CommitBlueprintTx{lookupUTxO = depositUTxO, blueprintTx} = commitBlueprintTx
 
-  depositInputsList = toList (UTxO.inputSet depositUTxO)
+  (utxoToDeposit, leftoverUTxO) = maybe (depositUTxO, mempty) (capUTxO depositUTxO) amount
+
+  leftoverOutput =
+    if UTxO.null leftoverUTxO
+      then StrictSeq.empty
+      else
+        let leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
+         in StrictSeq.singleton $
+              toLedgerTxOut $
+                TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
+
+  depositInputsList = toList (UTxO.inputSet utxoToDeposit)
 
   depositInputs = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> depositInputsList
 
@@ -71,6 +88,72 @@ mkDepositOutput networkId headId depositUTxO deadline =
 
 depositAddress :: NetworkId -> AddressInEra
 depositAddress networkId = mkScriptAddress networkId depositValidatorScript
+
+-- | Caps a UTxO set to a specified target amount of Lovelace, splitting outputs if necessary.
+--
+-- Given a 'UTxO' set and a target 'Coin' value (in Lovelace), this function selects unspent transaction outputs
+-- (UTxOs) to form a subset that sums as close as possible to the target value without exceeding it. If an output
+-- needs to be split to meet the target exactly, it creates two new outputs: one contributing to the target and
+-- another for the remaining value. The function ensures that the total Lovelace in the selected outputs does not
+-- exceed the target.
+--
+-- === Algorithm
+-- 1. **Base Cases**:
+--    - If the target is 0, return an empty 'UTxO' as the selected set and the original 'UTxO' as leftovers.
+--    - If the input 'UTxO' is empty, return two empty 'UTxO' sets.
+-- 2. **Main Logic**:
+--    - Sort the UTxO entries by their Lovelace value (ascending) to prioritize smaller outputs for efficiency.
+--    - Use a recursive helper function 'go' to iterate through the sorted UTxO list, accumulating outputs until
+--      the target value is reached or no suitable outputs remain.
+--    - For each output:
+--      - If adding the output's Lovelace value does not exceed the target, include it fully in the selected set
+--        and remove it from the leftovers.
+--      - If adding the output would exceed the target, split the output into two parts:
+--        - One part contributes exactly the remaining amount needed to reach the target.
+--        - The other part holds the excess Lovelace.
+--        - Reuse 'TxIn' identifiers for the split outputs.
+--      - Continue processing until the target is met or no outputs remain.
+-- 3. **Termination**:
+--    - The function stops when the accumulated Lovelace equals the target or when no more outputs are available.
+--    - Returns a pair of 'UTxO' sets: the selected outputs (summing to at most the target) and the remaining outputs.
+capUTxO :: UTxO -> Coin -> (UTxO, UTxO)
+capUTxO utxo target
+  | target == 0 = (mempty, utxo)
+  | UTxO.null utxo = (mempty, mempty)
+  | otherwise = go mempty utxo 0 (sortBy (comparing (selectLovelace . txOutValue . snd)) (UTxO.toList utxo))
+ where
+  -- \| Helper function to recursively select and split UTxO outputs to reach the target value.
+  go foundSoFar leftovers currentSum sorted
+    | currentSum == target = (foundSoFar, leftovers)
+    | otherwise = case sorted of
+        [] -> (foundSoFar, leftovers)
+        (txIn, txOut) : rest ->
+          let x = selectLovelace (txOutValue txOut)
+              newSum = currentSum + x
+           in if newSum <= target
+                then
+                  -- Include the entire output if it doesn't exceed the target.
+                  go
+                    (foundSoFar <> UTxO.singleton txIn txOut)
+                    (UTxO.difference leftovers $ UTxO.singleton txIn txOut)
+                    newSum
+                    rest
+                else
+                  -- Split the output to meet the target exactly.
+                  let cappedValue = target - currentSum
+                      leftoverVal = x - cappedValue
+                      cappedTxOut = updateTxOutValue txOut cappedValue
+                      leftoverTxOut = updateTxOutValue txOut leftoverVal
+                   in go
+                        (foundSoFar <> UTxO.singleton txIn cappedTxOut)
+                        (UTxO.difference leftovers (UTxO.singleton txIn txOut) <> UTxO.singleton txIn leftoverTxOut)
+                        target
+                        rest
+
+-- | Helper to create a new TxOut with a specified lovelace value
+updateTxOutValue :: TxOut ctx -> Coin -> TxOut ctx
+updateTxOutValue (TxOut addr _ datum refScript) newValue =
+  TxOut addr (fromLedgerValue $ mkAdaValue ShelleyBasedEraConway newValue) datum refScript
 
 -- * Observation
 

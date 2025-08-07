@@ -10,6 +10,8 @@ changes.
 
 ## [0.23.0] - UNRELEASED
 
+- Accept additional field `amount` when depositing to specify the amount of Lovelace that should be depositted to a Head returning any leftover to the user.
+
 - Don't keep around invalid transactions as they could lead to stuck Head.
 
 - Hydra API server responds with the correct `Content-Type` header `application-json`.

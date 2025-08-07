@@ -157,6 +157,7 @@ import Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChain
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
 import PlutusLedgerApi.V3 qualified as Plutus
 import System.Directory.Internal.Prelude qualified as Prelude
+import System.Random (newStdGen, randomR)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -945,3 +946,7 @@ removePTFromMintedValue output tx =
     (AssetId pid asset, _) ->
       pid == headId && asset == assetName
     _ -> False
+
+randomBetween :: Integer -> Integer -> IO Integer
+randomBetween min' max' =
+  fst . randomR (min', max') <$> newStdGen

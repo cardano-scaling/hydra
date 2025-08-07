@@ -85,6 +85,9 @@ import Cardano.Api as X hiding (
 import Cardano.Api.Ledger as X (
   PParams,
  )
+import Cardano.Api.Ledger.Lens as X (
+  mkAdaValue,
+ )
 import Cardano.Api.Shelley as X (
   AcquiringFailure (..),
   Hash (HeaderHash),

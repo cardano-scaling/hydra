@@ -63,7 +63,7 @@ jobs:
           return res.data.workflow_runs[0].id;
 
     - name: 📥 Download released hydra-spec
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
         run-id: ${{steps.released-workflow.outputs.result}}
@@ -71,7 +71,7 @@ jobs:
         path: docs/static
 
     - name: 📥 Download released benchmarks
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
         run-id: ${{steps.released-workflow.outputs.result}}
@@ -80,7 +80,7 @@ jobs:
         path: docs/benchmarks
 
     - name: 📥 Download released haddock documentation
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
         run-id: ${{steps.released-workflow.outputs.result}}
@@ -109,7 +109,7 @@ jobs:
         sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
 
     - name: 📥 Download latest hydra-spec
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
         run-id: ${{steps.latest-workflow.outputs.result}}
@@ -117,7 +117,7 @@ jobs:
         path: docs/static
 
     - name: 📥 Download latest benchmarks
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
         run-id: ${{steps.latest-workflow.outputs.result}}
@@ -126,7 +126,7 @@ jobs:
         path: docs/benchmarks
 
     - name: 📥 Download latest haddock documentation
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
         run-id: ${{steps.latest-workflow.outputs.result}}
