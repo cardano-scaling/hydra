@@ -255,15 +255,13 @@ executable visualize-logs
     , aeson
     , base
     , conduit
-    , bytestring
-    , containers
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
     , lens
     , lens-aeson
+    , optparse-applicative
     , text
-    , unix
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
