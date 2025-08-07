@@ -33,5 +33,10 @@
         "peer": "87.212.22.225:5551",
         "cardano-vk": "58204840c39a37560dac5c59fcc67d09f7a5be3633b8474c10c14d972ed62dc1ab19",
         "hydra-vk": "5820f715cf470ad4ca7b51416c5ee2cce82f9bea9ba7fd8052bac6433a9450a39e10"
+    },
+    "veronika": {
+        "peer": "63.177.91.204:5001",
+        "cardano-vk": "5820cf2e0358009fd56ab5ca4dd4c7d0e5fd595f1821ec4b19c904d473abefdca3fe",
+        "hydra-vk": "58208c69cf05a794ae72151dbd7522d9398daf30b14d0a8f9972e31f76fb14b0b4f1"
     }
 }
