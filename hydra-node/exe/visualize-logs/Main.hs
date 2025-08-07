@@ -17,11 +17,12 @@ import Hydra.HeadLogic (Effect (..), Input (..), Outcome (..), StateChanged (..)
 import Hydra.Logging (Envelope (..))
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Node (HydraNodeLog (..))
+import Options.Applicative
 
 data InfoLine = InfoLine {toplabel :: LogType, details :: Text} deriving (Eq, Show)
 
 data Decoded tx
-  = DecodedHydraLog {t :: UTCTime, n :: Text, info :: InfoLine}
+  = DecodedHydraLog {t :: UTCTime, n :: Text, infoLine :: InfoLine}
   | DropLog
   deriving (Eq, Show)
 
@@ -73,8 +74,34 @@ colorLog = \case
   LogicError _ -> red
   Other _ -> green
 
+newtype Options = Options
+  { paths :: [FilePath]
+  }
+  deriving (Show)
+
+options :: Parser Options
+options =
+  Options
+    <$> many
+      ( strArgument
+          ( metavar "FILES"
+              <> help "One or more log file paths."
+          )
+      )
+
+opts :: ParserInfo Options
+opts =
+  info
+    (options <**> helper)
+    ( fullDesc
+        <> progDesc "Group logs by the timestamp and display using colors and separators for easy inspection."
+        <> header "Visualize hydra-node logs"
+    )
+
 main :: IO ()
-main = visualize ["../devnet/alice-logs.txt", "../devnet/bob-logs.txt"]
+main = do
+  args <- execParser opts
+  visualize $ paths args
 
 visualize :: [FilePath] -> IO ()
 visualize paths = do
@@ -182,7 +209,7 @@ processLogs decoded =
 
 render :: Decoded tx -> IO ()
 render = \case
-  DecodedHydraLog{t, n, info = InfoLine{toplabel, details}} -> do
+  DecodedHydraLog{t, n, infoLine = InfoLine{toplabel, details}} -> do
     putTextLn $
       unlines
         [ "-----------------------------------"
