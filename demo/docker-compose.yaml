@@ -1,6 +1,6 @@
 services:
   cardano-node:
-    image: ghcr.io/intersectmbo/cardano-node:10.2
+    image: ghcr.io/intersectmbo/cardano-node:10.4.1
     volumes:
       - ./devnet:/devnet
     environment:
@@ -21,7 +21,7 @@ services:
 
   hydra-node-1:
    # NOTE: Make sure to use the same image in ./seed-devnet.sh
-    image: ghcr.io/cardano-scaling/hydra-node:0.22.2
+    image: ghcr.io/cardano-scaling/hydra-node:0.22.4
     build:
       context: ../
       target: hydra-node
@@ -58,7 +58,7 @@ services:
 
   hydra-node-2:
     # NOTE: Make sure to use the same image in ./seed-devnet.sh
-    image: ghcr.io/cardano-scaling/hydra-node:0.22.2
+    image: ghcr.io/cardano-scaling/hydra-node:0.22.4
     build:
       context: ../
       target: hydra-node
@@ -95,7 +95,7 @@ services:
 
   hydra-node-3:
     # NOTE: Make sure to use the same image in ./seed-devnet.sh
-    image: ghcr.io/cardano-scaling/hydra-node:0.22.2
+    image: ghcr.io/cardano-scaling/hydra-node:0.22.4
     build:
       context: ../
       target: hydra-node
@@ -131,7 +131,7 @@ services:
     restart: always
 
   hydra-tui-1:
-    image: ghcr.io/cardano-scaling/hydra-tui:0.22.2
+    image: ghcr.io/cardano-scaling/hydra-tui:0.22.4
     build:
        context: ../
        target: hydra-tui
@@ -148,7 +148,7 @@ services:
         ipv4_address: 172.16.238.11
 
   hydra-tui-2:
-    image: ghcr.io/cardano-scaling/hydra-tui:0.22.2
+    image: ghcr.io/cardano-scaling/hydra-tui:0.22.4
     build:
        context: ../
        target: hydra-tui
@@ -165,7 +165,7 @@ services:
         ipv4_address: 172.16.238.21
 
   hydra-tui-3:
-    image: ghcr.io/cardano-scaling/hydra-tui:0.22.2
+    image: ghcr.io/cardano-scaling/hydra-tui:0.22.4
     build:
        context: ../
        target: hydra-tui
@@ -189,10 +189,28 @@ services:
     command:
     - --config.file=/etc/prometheus/prometheus.yml
     volumes:
-    - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    - ./prometheus/docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
       hydra_net:
         ipv4_address: 172.16.238.5
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - DS_PROMETHEUS=prometheus
+    volumes:
+      - "./grafana/docker/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml"
+      - "./grafana/docker/dashboard.json:/var/lib/grafana/dashboards/dashboard.json"
+      - "./grafana/docker/default.yaml:/etc/grafana/provisioning/dashboards/default.yaml"
+    depends_on:
+      - prometheus
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.7
 
 networks:
   hydra_net:
