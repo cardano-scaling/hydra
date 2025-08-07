@@ -49,6 +49,14 @@ deriving anyclass instance
   ) =>
   ToJSON (LogicError tx)
 
+deriving anyclass instance
+  ( FromJSON (HeadState tx)
+  , FromJSON (Input tx)
+  , FromJSON (RequirementFailure tx)
+  , FromJSON (SideLoadRequirementFailure tx)
+  ) =>
+  FromJSON (LogicError tx)
+
 data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | ReqSvNumberInvalid {requestedSv :: SnapshotVersion, lastSeenSv :: SnapshotVersion}
@@ -66,6 +74,7 @@ data RequirementFailure tx
 deriving stock instance Eq (TxIdType tx) => Eq (RequirementFailure tx)
 deriving stock instance Show (TxIdType tx) => Show (RequirementFailure tx)
 deriving anyclass instance ToJSON (TxIdType tx) => ToJSON (RequirementFailure tx)
+deriving anyclass instance FromJSON (TxIdType tx) => FromJSON (RequirementFailure tx)
 
 data SideLoadRequirementFailure tx
   = SideLoadInitialSnapshotMismatch
@@ -79,3 +88,4 @@ data SideLoadRequirementFailure tx
 deriving stock instance Eq (UTxOType tx) => Eq (SideLoadRequirementFailure tx)
 deriving stock instance Show (UTxOType tx) => Show (SideLoadRequirementFailure tx)
 deriving anyclass instance ToJSON (UTxOType tx) => ToJSON (SideLoadRequirementFailure tx)
+deriving anyclass instance FromJSON (UTxOType tx) => FromJSON (SideLoadRequirementFailure tx)
