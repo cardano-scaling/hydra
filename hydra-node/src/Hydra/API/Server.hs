@@ -95,10 +95,10 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
-    headStateP <- mkProjection (Idle $ IdleState mkChainState) aggregate
-    commitInfoP <- mkProjection CannotCommit projectCommitInfo
-    headIdP <- mkProjection Nothing projectInitializingHeadId
-    pendingDepositsP <- mkProjection [] projectPendingDeposits
+    headStateP <- mkProjection "headStateP" (Idle $ IdleState mkChainState) aggregate
+    commitInfoP <- mkProjection "commitInfoP" CannotCommit projectCommitInfo
+    headIdP <- mkProjection "headIdP" Nothing projectInitializingHeadId
+    pendingDepositsP <- mkProjection "pendingDepositsP" [] projectPendingDeposits
     let historyTimedOutputs = sourceEvents .| map mkTimedServerOutputFromStateEvent .| catMaybes
     _ <-
       runConduitRes $
@@ -122,6 +122,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             & setBeforeMainLoop notifyServerRunning
     race_
       ( do
+          labelMyThread "api-server"
           traceWith tracer (APIServerStarted port)
           startServer serverSettings
             . simpleCors
@@ -142,6 +143,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
               )
       )
       ( do
+          labelMyThread "api-server-eventsink"
           waitForServerRunning
           action
             ( EventSink

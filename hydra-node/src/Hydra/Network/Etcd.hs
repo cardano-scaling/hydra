@@ -46,9 +46,9 @@ import Hydra.Prelude
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
+  MonadLabelledSTM,
   modifyTVar',
   newTBQueueIO,
-  newTVarIO,
   peekTBQueue,
   readTBQueue,
   swapTVar,
@@ -139,24 +139,29 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- bailing out on loading.
   envVars <- Map.fromList <$> getEnvironment
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
-    race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
-      race_ (traceStderr p callback) $ do
-        -- XXX: cleanup reconnecting through policy if other threads fail
-        doneVar <- newTVarIO False
-        -- NOTE: The connection to the server is set up asynchronously; the
-        -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) grpcServer $ \conn -> do
-          -- REVIEW: checkVersion blocks if used on main thread - why?
-          withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
-            race_ (pollConnectivity tracer conn advertise callback) $
-              race_ (waitMessages tracer conn persistenceDir callback) $ do
-                queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-                race_ (broadcastMessages tracer conn advertise queue) $ do
-                  action
-                    Network
-                      { broadcast = writePersistentQueue queue
-                      }
-                  atomically (writeTVar doneVar True)
+    race_
+      ( do
+          labelMyThread "etcd-waitExitCode-2"
+          waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec
+      )
+      $ do
+        race_ (traceStderr p callback) $ do
+          -- XXX: cleanup reconnecting through policy if other threads fail
+          doneVar <- newLabelledTVarIO "etcd-done" False
+          -- NOTE: The connection to the server is set up asynchronously; the
+          -- first rpc call will block until the connection has been established.
+          withConnection (connParams doneVar) grpcServer $ \conn -> do
+            -- REVIEW: checkVersion blocks if used on main thread - why?
+            withAsyncLabelled ("etcd-checkVersion", checkVersion tracer conn protocolVersion callback) $ \_ -> do
+              race_ (pollConnectivity tracer conn advertise callback) $
+                race_ (waitMessages tracer conn persistenceDir callback) $ do
+                  queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+                  race_ (broadcastMessages tracer conn advertise queue) $ do
+                    action
+                      Network
+                        { broadcast = writePersistentQueue queue
+                        }
+                    atomically (writeTVar doneVar True)
  where
   connParams doneVar =
     def
@@ -190,7 +195,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- be used by default still.
   clientPort = 2379 + port listen - 5001
 
-  traceStderr p NetworkCallback{onConnectivity} =
+  traceStderr p NetworkCallback{onConnectivity} = do
+    labelMyThread "etcd-traceStderr"
     forever $ do
       bs <- BS.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bs of
@@ -333,7 +339,8 @@ broadcastMessages ::
   Host ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages tracer conn ourHost queue =
+broadcastMessages tracer conn ourHost queue = do
+  labelMyThread "etcd-broadcastMessages"
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
     (putMessage conn ourHost msg >> popPersistentQueue queue msg)
@@ -371,6 +378,7 @@ waitMessages ::
   NetworkCallback msg IO ->
   IO ()
 waitMessages tracer conn directory NetworkCallback{deliver} = do
+  labelMyThread "etcd-waitMessages"
   revision <- getLastKnownRevision directory
   withGrpcContext "waitMessages" . forever $ do
     -- NOTE: We have not observed the watch (subscription) fail even when peers
@@ -431,7 +439,8 @@ pollConnectivity ::
   NetworkCallback msg IO ->
   IO ()
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
-  seenAliveVar <- newTVarIO []
+  labelMyThread "etcd-pollConnectivity"
+  seenAliveVar <- newLabelledTVarIO "etcd-seen-alive" []
   withGrpcContext "pollConnectivity" $
     forever . handle (onGrpcException seenAliveVar) $ do
       leaseId <- createLease
@@ -530,9 +539,9 @@ withProcessInterrupt config =
   signalAndStopProcess :: MonadIO m => Process stdin stdout stderr -> m ()
   signalAndStopProcess p = liftIO $ do
     interruptProcessGroupOf (unsafeProcessHandle p)
-    race_
-      (void $ waitExitCode p)
-      (threadDelay 5 >> stopProcess p)
+    raceLabelled_
+      ("etcd-waitExitCode-1", void $ waitExitCode p)
+      ("etcd-stopProcess", threadDelay 5 >> stopProcess p)
 
 -- * Persistent queue
 
@@ -544,7 +553,7 @@ data PersistentQueue m a = PersistentQueue
 
 -- | Create a new persistent queue at file path and given capacity.
 newPersistentQueue ::
-  (MonadSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
+  (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
   FilePath ->
   Natural ->
   m (PersistentQueue m a)
@@ -556,7 +565,7 @@ newPersistentQueue path capacity = do
         liftIO $ createDirectoryIfMissing True path
         pure 0
       Right highest -> pure highest
-  nextIx <- newTVarIO $ highestId + 1
+  nextIx <- newLabelledTVarIO "persistent-queue" $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path}
  where
   loadExisting queue = do

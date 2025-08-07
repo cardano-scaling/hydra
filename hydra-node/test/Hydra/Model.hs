@@ -31,7 +31,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   readTVarIO,
  )
-import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
+import Control.Monad.Class.MonadAsync (async, cancel, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Data.List (nub, (\\))
 import Data.List qualified as List
