@@ -189,7 +189,7 @@
                   ${pkgs.cardano-node}/bin/cardano-node --version
                   
                   echo "--- Testing demo setup"
-                  ./prepare-devnet.sh
+                  ./demo/prepare-devnet.sh
                   echo "✅ Demo setup completed successfully"
                   
                   echo "--- Testing that devnet files exist"
