@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
-import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
+import Hydra.Chain.Direct.Handlers (checkAmount, rejectLowDeposits)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
@@ -522,17 +522,27 @@ apiServerSpec = do
           failingChainHandle postTxError =
             dummyChainHandle
               { draftCommitTx = \_ _ -> pure $ Left postTxError
-              , draftDepositTx = \_ _ _ _ -> pure $ Left postTxError
+              , draftDepositTx = \_ _ _ _ _ -> pure $ Left postTxError
               }
 
       prop "reject deposits with less than min ADA" $ do
         forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO.UTxO) -> do
-          let result = rejectLowDeposits pparams utxo
+          let result = rejectLowDeposits pparams utxo Nothing
           case result of
             Left DepositTooLow{providedValue, minimumValue} ->
               property $
                 minimumValue >= providedValue
                   & counterexample ("Minimum value: " <> show minimumValue <> " Provided value: " <> show providedValue)
+            _ -> property True
+
+      prop "reject partial deposits with less ADA then in the UTxO" $ \amt ->
+        forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO.UTxO) -> do
+          let result = checkAmount utxo (Just amt)
+          case result of
+            Left AmountTooLow{providedValue, totalUTxOValue} ->
+              property $
+                totalUTxOValue < providedValue
+                  & counterexample ("Total UTxO value: " <> show totalUTxOValue <> " Provided value: " <> show providedValue)
             _ -> property True
 
       prop "handles PostTxErrors accordingly" $ \request postTxError -> do
@@ -542,6 +552,7 @@ apiServerSpec = do
               InvalidHeadId{} -> cover 1 True "InvalidHeadId"
               CannotFindOwnInitial{} -> cover 1 True "CannotFindOwnInitial"
               DepositTooLow{} -> cover 1 True "DepositTooLow"
+              AmountTooLow{} -> cover 1 True "AmountTooLow"
               _ -> property
         checkCoverage
           $ coverage
@@ -565,6 +576,7 @@ apiServerSpec = do
                 UnsupportedLegacyOutput{} -> 400
                 CannotFindOwnInitial{} -> 400
                 DepositTooLow{} -> 400
+                AmountTooLow{} -> 400
                 _ -> 500
 
     describe "POST /transaction" $ do

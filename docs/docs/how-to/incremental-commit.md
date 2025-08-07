@@ -49,6 +49,11 @@ cardano-cli query utxo \
   --out-file commit-utxo.json
 ```
 
+:::info
+You can also specify `amount` of lovelace you want to commit together with the `UTxO` and hydra-node would
+commit only the specified amount and return any leftover to the user address.
+:::
+
 Then a request to the `/commit` endpoint provides us with a transaction:
 
 ```shell
