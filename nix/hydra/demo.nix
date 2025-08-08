@@ -16,9 +16,11 @@
 
           processes = {
             prepare-devnet = {
-              command = "${self}/demo/prepare-devnet.sh";
+              working_dir = ".";
+              command = "./demo/prepare-devnet.sh";
             };
             cardano-node = {
+              working_dir = ".";
               command = ''
                 ${pkgs.cardano-node}/bin/cardano-node run \
                 --config devnet/cardano-node.json \
@@ -33,12 +35,14 @@
               depends_on."prepare-devnet".condition = "process_completed";
             };
             seed-devnet = {
+              working_dir = ".";
               command = ''
-                ${self}/demo/seed-devnet.sh ${pkgs.cardano-cli}/bin/cardano-cli ${self'.packages.hydra-node}/bin/hydra-node
+                ./demo/seed-devnet.sh ${pkgs.cardano-cli}/bin/cardano-cli ${self'.packages.hydra-node}/bin/hydra-node
               '';
               depends_on."cardano-node".condition = "process_log_ready";
             };
             hydra-node-alice = {
+              working_dir = ".";
               log_location = "./devnet/alice-logs.txt";
               command = pkgs.writeShellApplication {
                 name = "hydra-node-alice";
@@ -53,9 +57,9 @@
                     --monitoring-port 6001 \
                     --peer 127.0.0.1:5002 \
                     --peer 127.0.0.1:5003 \
-                    --hydra-signing-key ${self}/demo/alice.sk \
-                    --hydra-verification-key ${self}/demo/bob.vk \
-                    --hydra-verification-key ${self}/demo/carol.vk \
+                    --hydra-signing-key demo/alice.sk \
+                    --hydra-verification-key demo/bob.vk \
+                    --hydra-verification-key demo/carol.vk \
                     --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
                     --cardano-signing-key devnet/credentials/alice.sk \
                     --cardano-verification-key devnet/credentials/bob.vk \
@@ -67,10 +71,11 @@
                     --contestation-period 3s
                 '';
               };
-              ready_log_line = "NodeIsLeader";
+              ready_log_line = "APIServerStarted";
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-node-bob = {
+              working_dir = ".";
               log_location = "./devnet/bob-logs.txt";
               command = pkgs.writeShellApplication {
                 name = "hydra-node-bob";
@@ -85,9 +90,9 @@
                   --monitoring-port 6002 \
                   --peer 127.0.0.1:5001 \
                   --peer 127.0.0.1:5003 \
-                  --hydra-signing-key ${self}/demo/bob.sk \
-                  --hydra-verification-key ${self}/demo/alice.vk \
-                  --hydra-verification-key ${self}/demo/carol.vk \
+                  --hydra-signing-key demo/bob.sk \
+                  --hydra-verification-key demo/alice.vk \
+                  --hydra-verification-key demo/carol.vk \
                   --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
                   --cardano-signing-key devnet/credentials/bob.sk \
                   --cardano-verification-key devnet/credentials/alice.vk \
@@ -99,10 +104,11 @@
                   --contestation-period 3s
                 '';
               };
-              ready_log_line = "NodeIsLeader";
+              ready_log_line = "APIServerStarted";
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-node-carol = {
+              working_dir = ".";
               log_location = "./devnet/carol-logs.txt";
               command = pkgs.writeShellApplication {
                 name = "hydra-node-carol";
@@ -117,9 +123,9 @@
                   --monitoring-port 6003 \
                   --peer 127.0.0.1:5001 \
                   --peer 127.0.0.1:5002 \
-                  --hydra-signing-key ${self}/demo/carol.sk \
-                  --hydra-verification-key ${self}/demo/alice.vk \
-                  --hydra-verification-key ${self}/demo/bob.vk \
+                  --hydra-signing-key demo/carol.sk \
+                  --hydra-verification-key demo/alice.vk \
+                  --hydra-verification-key demo/bob.vk \
                   --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
                   --cardano-signing-key devnet/credentials/carol.sk \
                   --cardano-verification-key devnet/credentials/alice.vk \
@@ -131,11 +137,11 @@
                   --contestation-period 3s
                 '';
               };
-              ready_log_line = "NodeIsLeader";
+              ready_log_line = "APIServerStarted";
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-tui-alice = {
-              working_dir = "./demo";
+              working_dir = ".";
               command = ''
                 ${self'.packages.hydra-tui}/bin/hydra-tui \
                   --connect 0.0.0.0:4001 \
@@ -147,7 +153,7 @@
               depends_on."hydra-node-alice".condition = "process_started";
             };
             hydra-tui-bob = {
-              working_dir = "./demo";
+              working_dir = ".";
               command = ''
                 ${self'.packages.hydra-tui}/bin/hydra-tui \
                   --connect 0.0.0.0:4002 \
@@ -159,7 +165,7 @@
               depends_on."hydra-node-bob".condition = "process_started";
             };
             hydra-tui-carol = {
-              working_dir = "./demo";
+              working_dir = ".";
               command = ''
                 ${self'.packages.hydra-tui}/bin/hydra-tui \
                   --connect 0.0.0.0:4003 \
@@ -169,6 +175,43 @@
               '';
               is_foreground = true;
               depends_on."hydra-node-carol".condition = "process_started";
+            };
+            test = {
+              working_dir = ".";
+              command = pkgs.writeShellApplication {
+                name = "demo-test";
+                runtimeInputs = [ pkgs.coreutils ];
+                text = ''
+                  set -euo pipefail
+                  
+                  echo "--- Testing demo components"
+                  
+                  # Test that we can build and run basic components
+                  echo "Testing cardano-cli..."
+                  ${pkgs.cardano-cli}/bin/cardano-cli --version
+                  
+                  echo "Testing cardano-node..."
+                  ${pkgs.cardano-node}/bin/cardano-node --version
+                  
+                  echo "--- Testing demo setup"
+                  # Work in a guaranteed-writable temp dir (portable mktemp)
+                  WORK_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t hydra-demo)"
+                  cd "$WORK_DIR"
+                  ${self}/demo/prepare-devnet.sh
+                  echo "✅ Demo setup completed successfully"
+                  
+                  echo "--- Testing that devnet files exist"
+                  if [ -f "devnet/cardano-node.json" ] && [ -f "devnet/topology.json" ]; then
+                    echo "✅ Devnet configuration files created"
+                  else
+                    echo "❌ Devnet configuration files missing"
+                    exit 1
+                  fi
+                  
+                  echo "--- Testing hydra-node"
+                  ${self'.packages.hydra-node}/bin/hydra-node --version
+                '';
+              };
             };
           };
         };
