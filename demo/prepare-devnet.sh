@@ -7,12 +7,19 @@ set -eo pipefail
 BASEDIR=${BASEDIR:-$(realpath $(dirname $(realpath $0))/..)}
 TARGETDIR=${TARGETDIR:-devnet}
 
-[ -d "$TARGETDIR" ] && { echo "Cleaning up directory $TARGETDIR" ; rm -rf $TARGETDIR ; }
+[ -d "$TARGETDIR" ] && {
+  echo "Cleaning up directory $TARGETDIR"
+  chmod -R u+w "$TARGETDIR" || true
+  rm -rf "$TARGETDIR"
+}
+mkdir -p "$TARGETDIR" # ensure it exists
 
-cp -af "$BASEDIR/hydra-cluster/config/devnet" "$TARGETDIR"
+# Copy the contents of the devnet config and credentials directories without
+# preserving ownership/permissions (avoids EPERM when not root)
+cp -R "$BASEDIR/hydra-cluster/config/devnet/." "$TARGETDIR/"
+cp -R "$BASEDIR/hydra-cluster/config/credentials/." "$TARGETDIR/"
+
 chmod -R u+w  "$TARGETDIR"
-cp -af "$BASEDIR/hydra-cluster/config/credentials" "$TARGETDIR"
-chmod -R u+w "$TARGETDIR"
 
 echo '{"Producers": []}' > "$TARGETDIR/topology.json"
 sed -i.bak "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" "$TARGETDIR/genesis-byron.json" && \
