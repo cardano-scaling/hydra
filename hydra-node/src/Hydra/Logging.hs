@@ -76,6 +76,14 @@ instance ToJSON a => ToJSON (Envelope a) where
         , "message" .= message
         ]
 
+instance FromJSON a => FromJSON (Envelope a) where
+  parseJSON = Aeson.withObject "Envelope" $ \o -> do
+    timestamp <- o Aeson..: "timestamp"
+    threadId <- o Aeson..: "threadId"
+    namespace <- o Aeson..: "namespace"
+    message <- o Aeson..: "message"
+    pure Envelope{timestamp, threadId, namespace, message}
+
 defaultQueueSize :: Natural
 defaultQueueSize = 500
 
