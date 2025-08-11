@@ -1,23 +1,27 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
+-- | Parse hydra-node logs format more easy on the eyes. Parser works with regular json logs as well as journalctl format.
 module Main where
 
 import Hydra.Cardano.Api (Tx)
-import Hydra.Prelude hiding (encodeUtf8)
-import Hydra.Prelude qualified as P
+import Hydra.Prelude hiding (encodeUtf8, takeWhile)
 
 import Conduit
 import Control.Lens ((^?))
 import Control.Monad (foldM)
 import Data.Aeson (eitherDecode')
 import Data.Aeson.Lens (key, _String)
+import Data.Attoparsec.ByteString
+import Data.Attoparsec.ByteString qualified as A
+import Data.Attoparsec.ByteString.Char8 (char8, endOfLine, isEndOfLine)
 import Data.Text.Encoding (encodeUtf8)
 import Hydra.Chain (ChainEvent (..))
 import Hydra.HeadLogic (Effect (..), Input (..), Outcome (..), StateChanged (..))
 import Hydra.Logging (Envelope (..))
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Node (HydraNodeLog (..))
-import Options.Applicative
+import Options.Applicative hiding (Parser)
+import Options.Applicative qualified as Options
 
 data InfoLine = InfoLine {toplabel :: LogType, details :: Text} deriving (Eq, Show)
 
@@ -79,7 +83,7 @@ newtype Options = Options
   }
   deriving (Show)
 
-options :: Parser Options
+options :: Options.Parser Options
 options =
   Options
     <$> many
@@ -117,13 +121,43 @@ visualize paths = do
 
 decodeAndProcess :: ByteString -> ResourceT IO (Decoded Tx)
 decodeAndProcess l =
-  case l ^? key "message" . _String of
-    Nothing -> P.error "Failed to find key 'message' which was expected"
-    Just line ->
-      let envelope = fromStrict $ encodeUtf8 line
-       in case eitherDecode' envelope :: Either String (Envelope (HydraLog Tx)) of
-            Left e -> P.error $ "Decoding failed" <> show e <> "for line: " <> line
-            Right decoded -> lift $ processLogs decoded
+  case inCurlyBraces l of
+    Left _ -> lift $ pure DropLog
+    Right incomingLine ->
+      case incomingLine of
+        Nothing -> lift $ pure DropLog
+        Just jsonLine ->
+          case jsonLine ^? key "message" . _String of
+            Nothing -> process jsonLine
+            Just line -> process $ encodeUtf8 line
+ where
+  process :: ByteString -> ResourceT IO (Decoded Tx)
+  process line =
+    case eitherDecode' (fromStrict line) of
+      Left e -> do
+        putTextLn $ red <> "Decoding failed for line: " <> decodeUtf8 l <> "\nError: " <> show e
+        pure DropLog
+      Right decoded -> lift $ processLogs decoded
+
+charToWord8 :: Char -> Word8
+charToWord8 = fromIntegral . ord
+
+textBetweenBraces :: A.Parser ByteString
+textBetweenBraces = do
+  skipWhile (/= charToWord8 '{')
+  _ <- char8 '{'
+  jsonStr <- takeWhile (not . isEndOfLine)
+  pure $ "{" <> jsonStr
+
+lineParser :: A.Parser (Maybe ByteString)
+lineParser = do
+  result <- optional textBetweenBraces
+  skipWhile (not . isEndOfLine)
+  endOfLine <|> endOfInput
+  return result
+
+inCurlyBraces :: ByteString -> Either String (Maybe ByteString)
+inCurlyBraces = parseOnly lineParser
 
 -- | Ideally we would have Data instances for all types so we could get data type string representation
 -- instead of providing strings directly but that would add some compilation time overhead so not worth it.

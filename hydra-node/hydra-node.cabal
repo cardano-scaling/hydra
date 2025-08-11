@@ -253,6 +253,7 @@ executable visualize-logs
   main-is:        Main.hs
   build-depends:
     , aeson
+    , attoparsec
     , base
     , conduit
     , hydra-cardano-api
