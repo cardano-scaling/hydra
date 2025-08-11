@@ -16,9 +16,15 @@
 
           processes = {
             prepare-devnet = {
-              command = "${self}/demo/prepare-devnet.sh";
+              # Run with Nix-provided bash to avoid shebang/env issues in sandboxes
+              working_dir = ".";
+              command = ''
+                ${pkgs.bash}/bin/bash ${self}/demo/prepare-devnet.sh
+              '';
             };
             cardano-node = {
+              # Ensure relative paths resolve against the same directory as prepare-devnet
+              working_dir = ".";
               command = ''
                 ${pkgs.cardano-node}/bin/cardano-node run \
                 --config devnet/cardano-node.json \
@@ -33,6 +39,8 @@
               depends_on."prepare-devnet".condition = "process_completed";
             };
             seed-devnet = {
+              # Needs the same working directory as prepare-devnet to find devnet files
+              working_dir = ".";
               command = ''
                 ${self}/demo/seed-devnet.sh ${pkgs.cardano-cli}/bin/cardano-cli ${self'.packages.hydra-node}/bin/hydra-node
               '';
@@ -45,7 +53,7 @@
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
                   # (Re-)Export all variables from .env
-                  set -a; source .env; set +a
+                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
                     --node-id 1 \
                     --listen 127.0.0.1:5001 \
@@ -67,6 +75,7 @@
                     --contestation-period 3s
                 '';
               };
+              working_dir = ".";
               ready_log_line = "NodeIsLeader";
               depends_on."seed-devnet".condition = "process_completed";
             };
@@ -77,7 +86,7 @@
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
                   # (Re-)Export all variables from .env
-                  set -a; source .env; set +a
+                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
                   --node-id 2 \
                   --listen 127.0.0.1:5002 \
@@ -99,6 +108,7 @@
                   --contestation-period 3s
                 '';
               };
+              working_dir = ".";
               ready_log_line = "NodeIsLeader";
               depends_on."seed-devnet".condition = "process_completed";
             };
@@ -109,7 +119,7 @@
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
                   # (Re-)Export all variables from .env
-                  set -a; source .env; set +a
+                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
                   --node-id 3 \
                   --listen 127.0.0.1:5003 \
@@ -131,6 +141,7 @@
                   --contestation-period 3s
                 '';
               };
+              working_dir = ".";
               ready_log_line = "NodeIsLeader";
               depends_on."seed-devnet".condition = "process_completed";
             };
@@ -187,7 +198,7 @@
                   cardano-node --version
                   
                   echo "--- Testing demo setup"
-                  ${self}/demo/prepare-devnet.sh
+                   ${pkgs.bash}/bin/bash ${self}/demo/prepare-devnet.sh
                   echo "✅ Demo setup completed successfully"
                   
                   echo "--- Testing that devnet files exist"
