@@ -354,7 +354,7 @@ broadcastMessages ::
   Host ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages tracer conn ourHost queue = do
+broadcastMessages tracer conn ourHost queue =
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
     (putMessage conn ourHost msg >> popPersistentQueue queue msg)
