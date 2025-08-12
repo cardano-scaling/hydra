@@ -65,7 +65,7 @@ changes.
 
 - **BREAKING** Rename `--script-info` option to `--hydra-script-catalogue` in the `hydra-node` CLI.
 
-Fix rotation log id consistency after restart by changing the rotation check to trigger only
+- Fix rotation log id consistency after restart by changing the rotation check to trigger only
 when the number of persisted `StateChanged` events exceeds the configured `--persistence-rotate-after` threshold.
   * This also prevents immediate rotation on startup when the threshold is set to 1.
   * `Checkpoint` event ids now match the suffix of their preceding rotated log file and the last `StateChanged` event id within it,
