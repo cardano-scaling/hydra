@@ -143,13 +143,13 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
 
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
-    race
-      ( handle onIOException $ do
-          labelMyThread "blockfrost-chain-connection"
+    raceLabelled
+      ( "blockfrost-chain-connection"
+      , handle onIOException $ do
           prj <- Blockfrost.projectFromFile projectPath
           blockfrostChain tracer queue prj chainPoint handler wallet
       )
-      (action chainHandle)
+      ("blockfrost-chain-handle", action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
