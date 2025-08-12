@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -51,7 +51,7 @@ jobs:
     runs-on: macos-latest
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         # Also ensure we have all history with all tags
         fetch-depth: 0
