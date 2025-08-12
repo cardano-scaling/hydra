@@ -1,4 +1,5 @@
 import React from "react";
+import { useState, useEffect } from 'react';
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
@@ -7,7 +8,13 @@ import ThemedImage from "@theme/ThemedImage";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { forPhablet } from "../../../helpers/media-queries";
 function LogoThemedImage({ logo, alt, imageClassName }) {
-  const isHome = document.documentElement.classList.contains("plugin-pages");
+
+  const [isHome, setIsHome] = useState(false);
+
+  useEffect(() => {
+    setIsHome(document.documentElement.classList.contains("plugin-pages"));
+  }, []);
+
   const sources = {
     light: useBaseUrl(logo.src),
     dark: useBaseUrl(isHome ? logo.src : logo.srcDark || logo.src),
