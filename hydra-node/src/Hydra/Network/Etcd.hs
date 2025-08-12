@@ -137,30 +137,45 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- bailing out on loading.
   envVars <- Map.fromList <$> getEnvironment
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
-    race_
-      ( do
-          labelMyThread "etcd-withEtcdNetwork-waitExitCode"
+    raceLabelled_
+      ( "etcd-waitExitCode"
+      , do
           waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec
       )
-      ( race_ (traceStderr p callback) $ do
-          -- NOTE: The connection to the server is set up asynchronously; the
-          -- first rpc call will block until the connection has been established.
-          withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
-            -- REVIEW: checkVersion blocks if used on main thread - why?
-            withAsyncLabelled ("etcd-checkVersion", checkVersion tracer conn protocolVersion callback) $ \_ -> do
-              race_ (pollConnectivity tracer conn advertise callback) $
-                race_ (waitMessages tracer conn persistenceDir callback) $ do
-                  queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-                  race_ (broadcastMessages tracer config advertise queue) $ do
-                    action
-                      Network
-                        { broadcast = writePersistentQueue queue
-                        }
+      ( "etcd-callback-1"
+      , raceLabelled_
+          ("etcd-traceStderr", traceStderr p callback)
+          ( "etcd-callback-2"
+          , do
+              -- NOTE: The connection to the server is set up asynchronously; the
+              -- first rpc call will block until the connection has been established.
+              withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
+                -- REVIEW: checkVersion blocks if used on main thread - why?
+                withAsyncLabelled ("etcd-checkVersion", checkVersion tracer conn protocolVersion callback) $ \_ -> do
+                  raceLabelled_
+                    ("etcd-pollConnectivity", pollConnectivity tracer conn advertise callback)
+                    ( "etcd-callback-3"
+                    , raceLabelled_
+                        ("etcd-waitMessages", waitMessages tracer conn persistenceDir callback)
+                        ( "etcd-callback-4"
+                        , do
+                            queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+                            raceLabelled_
+                              ("etcd-broadcastMessages", broadcastMessages tracer config advertise queue)
+                              ( "etcd-network-component-action"
+                              , do
+                                  action
+                                    Network
+                                      { broadcast = writePersistentQueue queue
+                                      }
+                              )
+                        )
+                    )
+          )
       )
  where
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
-  traceStderr p NetworkCallback{onConnectivity} = do
-    labelMyThread "etcd-traceStderr"
+  traceStderr p NetworkCallback{onConnectivity} =
     forever $ do
       bs <- BS.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bs of
@@ -321,8 +336,7 @@ broadcastMessages ::
   Host ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages tracer config ourHost queue = do
-  labelMyThread "etcd-broadcastMessages"
+broadcastMessages tracer config ourHost queue =
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
     (putMessage tracer config ourHost msg >> popPersistentQueue queue msg)
@@ -363,8 +377,7 @@ waitMessages ::
   FilePath ->
   NetworkCallback msg IO ->
   IO ()
-waitMessages tracer conn directory NetworkCallback{deliver} = do
-  labelMyThread "etcd-waitMessages"
+waitMessages tracer conn directory NetworkCallback{deliver} =
   withGrpcContext "waitMessages" . forever $ do
     -- NOTE: We have not observed the watch (subscription) fail even when peers
     -- leave and we end up on a minority cluster.
@@ -441,7 +454,6 @@ pollConnectivity ::
   NetworkCallback msg IO ->
   IO ()
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
-  labelMyThread "etcd-pollConnectivity"
   seenAliveVar <- newLabelledTVarIO "etcd-seen-alive" []
   withGrpcContext "pollConnectivity" $
     forever . handle (onGrpcException seenAliveVar) $ do
@@ -547,7 +559,7 @@ withProcessInterrupt config =
     interruptProcessGroupOf (unsafeProcessHandle p)
     raceLabelled_
       ("etcd-signalAndStopProcess-waitExitCode", void $ waitExitCode p)
-      ("etcd-stopProcess", threadDelay 5 >> stopProcess p)
+      ("etcd-signalAndStopProcess-stopProcess", threadDelay 5 >> stopProcess p)
 
 -- * Persistent queue
 
