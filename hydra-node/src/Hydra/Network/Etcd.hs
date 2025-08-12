@@ -139,7 +139,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_
       ( do
-          labelMyThread "etcd-waitExitCode-2"
+          labelMyThread "etcd-withEtcdNetwork-waitExitCode"
           waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec
       )
       ( race_ (traceStderr p callback) $ do
@@ -546,7 +546,7 @@ withProcessInterrupt config =
   signalAndStopProcess p = liftIO $ do
     interruptProcessGroupOf (unsafeProcessHandle p)
     raceLabelled_
-      ("etcd-waitExitCode-1", void $ waitExitCode p)
+      ("etcd-signalAndStopProcess-waitExitCode", void $ waitExitCode p)
       ("etcd-stopProcess", threadDelay 5 >> stopProcess p)
 
 -- * Persistent queue
