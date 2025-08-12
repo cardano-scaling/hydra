@@ -15,7 +15,7 @@ import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ClientMessage, CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
-import Hydra.Cardano.Api (Coin, LedgerEra, Tx)
+import Hydra.Cardano.Api (AssetName, Coin, LedgerEra, PolicyId, Quantity, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
@@ -48,15 +48,26 @@ instance Arbitrary tx => Arbitrary (DraftCommitTxResponse tx) where
   shrink = \case
     DraftCommitTxResponse xs -> DraftCommitTxResponse <$> shrink xs
 
+data CommitDetails
+  = CommitADA {commitAdaAmount :: Coin}
+  | CommitMap {commitMap :: Map PolicyId (AssetName, Quantity)}
+
+-- NOTE: We use 'Integer' to specify how much of 'AssetName' we should commit
+-- since 'Quantity' is missing an 'Arbitrary' instance.
+-- NOTE: We use 'Text' to specify 'PolicyId' of the token since there is no
+-- instance 'FromJSONKey' for 'PolicyId' and 'ScriptHash' and 'ByteString'
+-- which could be used to represent this field.
 data DraftCommitTxRequest tx
   = SimpleCommitRequest
       { utxoToCommit :: UTxOType tx
       , amount :: Maybe Coin
+      , tokens :: Maybe (Map Text (AssetName, Integer))
       }
   | FullCommitRequest
       { blueprintTx :: tx
       , utxo :: UTxOType tx
       , amount :: Maybe Coin
+      , tokens :: Maybe (Map Text (AssetName, Integer))
       }
   deriving stock (Generic)
 
@@ -84,22 +95,24 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
       blueprintTx :: tx <- o .: "blueprintTx"
       utxo <- o .: "utxo"
       amount <- o .:? "amount"
-      pure FullCommitRequest{blueprintTx, utxo, amount}
+      tokens <- o .:? "tokens"
+      pure FullCommitRequest{blueprintTx, utxo, amount, tokens}
 
     simpleVariant = withObject "SimpleCommitRequest" $ \o -> do
       utxoToCommit <- o .: "utxoToCommit"
       amount <- o .:? "amount"
-      pure SimpleCommitRequest{utxoToCommit, amount}
+      tokens <- o .:? "tokens"
+      pure SimpleCommitRequest{utxoToCommit, amount, tokens}
 
     simpleDirectVariant :: Aeson.Value -> Parser (DraftCommitTxRequest tx)
-    simpleDirectVariant val = SimpleCommitRequest <$> parseJSON val <*> pure Nothing
+    simpleDirectVariant val = SimpleCommitRequest <$> parseJSON val <*> pure Nothing <*> pure Nothing
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
-    SimpleCommitRequest u amt -> SimpleCommitRequest <$> shrink u <*> shrink amt
-    FullCommitRequest a b c -> FullCommitRequest <$> shrink a <*> shrink b <*> shrink c
+    SimpleCommitRequest u amt tokens -> SimpleCommitRequest <$> shrink u <*> shrink amt <*> shrink tokens
+    FullCommitRequest a b c d -> FullCommitRequest <$> shrink a <*> shrink b <*> shrink c <*> shrink d
 
 newtype SubmitTxRequest tx = SubmitTxRequest
   { txToSubmit :: tx
