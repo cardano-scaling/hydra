@@ -160,14 +160,14 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
 
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
-    race
-      ( handle onIOException $ do
-          labelMyThread "direct-chain-connection"
+    raceLabelled
+      ( "direct-chain-connection"
+      , handle onIOException $ do
           connectToLocalNode
             (connectInfo networkId nodeSocket)
             (clientProtocols chainPoint queue handler)
       )
-      (action chainHandle)
+      ("direct-chain-chain-handle", action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a

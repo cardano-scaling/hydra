@@ -125,9 +125,9 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
             & setOnExceptionResponse (responseLBS status500 [] . show)
             & setBeforeMainLoop notifyServerRunning
-    race_
-      ( do
-          labelMyThread "api-server"
+    raceLabelled_
+      ( "api-server"
+      , do
           traceWith tracer (APIServerStarted port)
           startServer serverSettings
             . simpleCors
@@ -147,8 +147,8 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                   responseChannel
               )
       )
-      ( do
-          labelMyThread "api-server-eventsink"
+      ( "api-server-eventsink"
+      , do
           waitForServerRunning
           action
             ( EventSink
