@@ -16,14 +16,12 @@
 
           processes = {
             prepare-devnet = {
-              # Run with Nix-provided bash to avoid shebang/env issues in sandboxes
               working_dir = ".";
               command = ''
                 ${pkgs.bash}/bin/bash ${self}/demo/prepare-devnet.sh
               '';
             };
             cardano-node = {
-              # Ensure relative paths resolve against the same directory as prepare-devnet
               working_dir = ".";
               command = ''
                 ${pkgs.cardano-node}/bin/cardano-node run \
@@ -39,7 +37,6 @@
               depends_on."prepare-devnet".condition = "process_completed";
             };
             seed-devnet = {
-              # Needs the same working directory as prepare-devnet to find devnet files
               working_dir = ".";
               command = ''
                 ${self}/demo/seed-devnet.sh ${pkgs.cardano-cli}/bin/cardano-cli ${self'.packages.hydra-node}/bin/hydra-node
@@ -53,7 +50,7 @@
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
                   # (Re-)Export all variables from .env
-                   set -a; [ -f .env ] && source .env; set +a
+                  set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
                     --node-id 1 \
                     --listen 127.0.0.1:5001 \
@@ -86,7 +83,7 @@
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
                   # (Re-)Export all variables from .env
-                   set -a; [ -f .env ] && source .env; set +a
+                  set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
                   --node-id 2 \
                   --listen 127.0.0.1:5002 \
@@ -119,7 +116,7 @@
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
                   # (Re-)Export all variables from .env
-                   set -a; [ -f .env ] && source .env; set +a
+                  set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
                   --node-id 3 \
                   --listen 127.0.0.1:5003 \
