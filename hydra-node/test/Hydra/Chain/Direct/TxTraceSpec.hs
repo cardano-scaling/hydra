@@ -829,6 +829,7 @@ newDepositTx _ utxoToDeposit = do
         validBefore
         deadline
         (Just $ Coin amount)
+        Nothing
 
 -- | Creates a increment transaction using given utxo and given snapshot.
 newIncrementTx :: Actor -> ConfirmedSnapshot Tx -> AppM (Either IncrementTxError Tx)

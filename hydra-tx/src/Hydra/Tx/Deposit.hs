@@ -32,8 +32,9 @@ depositTx ::
   UTCTime ->
   -- | Optional amount to create partial deposit
   Maybe Coin ->
+  Maybe (Map Text (AssetName, Integer)) ->
   Tx
-depositTx networkId headId commitBlueprintTx upperSlot deadline amount =
+depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
   fromLedgerTx $
     toLedgerTx blueprintTx
       & addDepositInputs
