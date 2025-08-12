@@ -1147,7 +1147,7 @@ genDepositTx numParties = do
   slot <- chooseEnum (0, 1_000_000)
   slotsUntilDeadline <- chooseEnum (0, 86400)
   let deadline = slotNoToUTCTime systemStart slotLength (slot + slotsUntilDeadline)
-  let tx = depositTx (ctxNetworkId ctx) headId (mkSimpleBlueprintTx utxo) slot deadline Nothing
+  let tx = depositTx (ctxNetworkId ctx) headId (mkSimpleBlueprintTx utxo) slot deadline Nothing Nothing
   pure (ctx, st, utxo <> utxoFromTx tx, tx)
 
 genRecoverTx ::
