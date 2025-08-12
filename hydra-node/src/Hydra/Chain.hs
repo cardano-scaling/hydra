@@ -17,9 +17,12 @@ import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
+  AssetName,
   ByronAddr,
   Coin (..),
   LedgerEra,
+  PolicyId,
+  Quantity,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
@@ -37,6 +40,7 @@ import Hydra.Tx (
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.Cardano.Ledger.Core.Arbitrary ()
+import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
@@ -205,6 +209,8 @@ data PostTxError tx
   | FailedToConstructFanoutTx
   | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
   | AmountTooLow {providedValue :: Coin, totalUTxOValue :: Coin}
+  | InvalidTokenPolicyId Text
+  | InvalidTokenRequest [(PolicyId, (AssetName, Quantity))]
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)
@@ -277,6 +283,7 @@ data Chain tx m = Chain
       CommitBlueprintTx tx ->
       UTCTime ->
       Maybe Coin ->
+      Maybe (Map Text (AssetName, Integer)) ->
       m (Either (PostTxError tx) tx)
   -- ^ Create a deposit transaction using user provided utxos (zero or many) ,
   -- _blueprint_ transaction which spends these outputs and a deadline for
