@@ -197,8 +197,6 @@
                   echo "Testing cardano-node..."
                   cardano-node --version
                   
-                  echo "--- Testing demo setup"
-                   ${pkgs.bash}/bin/bash ${self}/demo/prepare-devnet.sh
                   echo "✅ Demo setup completed successfully"
                   
                   echo "--- Testing that devnet files exist"
@@ -213,6 +211,8 @@
                   hydra-node --version
                 '';
               };
+              # Ensure test starts only after devnet has been prepared
+              depends_on."prepare-devnet".condition = "process_completed";
             };
           };
         };
