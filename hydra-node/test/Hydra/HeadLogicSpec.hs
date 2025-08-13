@@ -399,7 +399,8 @@ spec =
             _ -> False
 
       it "ignores valid AckSn if snapshot already confirmed" $ do
-        let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+        let reqSn :: Input tx
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
             ackFrom sk = receiveMessageFrom (deriveParty sk) $ AckSn (sign sk snapshot1) 1
 
