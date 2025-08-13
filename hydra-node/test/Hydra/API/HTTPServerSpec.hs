@@ -1,6 +1,6 @@
 module Hydra.API.HTTPServerSpec where
 
-import Hydra.Prelude hiding (get)
+import Hydra.Prelude hiding (delete, get)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -11,7 +11,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
-import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
@@ -22,7 +22,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted,
   httpApp,
  )
-import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
+import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
   mkTxOutDatumInline,
@@ -40,12 +40,12 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer)
 import Hydra.Tx (ConfirmedSnapshot (..))
-import Hydra.Tx.IsTx (UTxOType)
+import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, post, shouldRespondWith, with)
+import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), delete, get, post, shouldRespondWith, with)
 import Test.Hspec.Wai.Internal (withApplication)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (defaultPParams, pparams)
@@ -378,25 +378,73 @@ apiServerSpec = do
                     }
 
     describe "POST /snapshot" $ do
-      responseChannel <- runIO newTChanIO
-      prop "responds on valid requests" $ \(request :: SideLoadSnapshotRequest Tx, headState) -> do
-        withMaxSuccess 10
-          . withApplication
-            ( httpApp @Tx
-                nullTracer
-                dummyChainHandle
-                testEnvironment
-                defaultPParams
-                (pure headState)
-                cantCommit
-                getPendingDeposits
-                putClientInput
-                300
-                responseChannel
-            )
+      it "returns 202 on timeout" $ do
+        responseChannel <- newTChanIO
+        let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
+        request <- reqGen
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              cantCommit
+              getPendingDeposits
+              putClientInput
+              0
+              responseChannel
+          )
           $ do
-            post "/snapshot" (Aeson.encode request)
-            `shouldRespondWith` 200
+            post "/snapshot" (Aeson.encode request) `shouldRespondWith` 202
+
+      it "returns 200 on SnapshotSideLoaded" $ do
+        responseChannel <- newTChanIO
+        let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
+        request <- reqGen
+        now' <- getCurrentTime
+        let event =
+              TimedServerOutput
+                { output = SnapshotSideLoaded{headId = generateWith arbitrary 42, snapshotNumber = 7}
+                , seq = 0
+                , time = now'
+                }
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              cantCommit
+              getPendingDeposits
+              (const $ atomically $ writeTChan responseChannel (Left event))
+              10
+              responseChannel
+          )
+          $ do
+            post "/snapshot" (Aeson.encode request) `shouldRespondWith` 200
+
+      it "returns 400 on CommandFailed" $ do
+        responseChannel <- newTChanIO
+        let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
+        SideLoadSnapshotRequest snapshot <- reqGen
+        let clientFailed = Right (CommandFailed{clientInput = SideLoadSnapshot snapshot, state = inIdleState})
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              cantCommit
+              getPendingDeposits
+              (const $ atomically $ writeTChan responseChannel clientFailed)
+              10
+              responseChannel
+          )
+          $ do
+            post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot)) `shouldRespondWith` 400
 
     describe "GET /snapshot/utxo" $ do
       responseChannel <- runIO newTChanIO
@@ -668,6 +716,125 @@ apiServerSpec = do
           )
           $ do
             post "/transaction" (mkReq testTx) `shouldRespondWith` 400
+
+    describe "POST /decommit" $ do
+      it "returns 202 on timeout" $ do
+        responseChannel <- newTChanIO
+        let tx = SimpleTx 1 mempty mempty
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ())
+              0
+              responseChannel
+          )
+          $ do
+            post "/decommit" (encode tx) `shouldRespondWith` 202
+
+      it "returns 200 on DecommitFinalized" $ do
+        responseChannel <- newTChanIO
+        let tx = SimpleTx 1 mempty mempty
+        now' <- getCurrentTime
+        let event =
+              TimedServerOutput
+                { output = DecommitFinalized{headId = generateWith arbitrary 42, distributedUTxO = mempty}
+                , seq = 0
+                , time = now'
+                }
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Left event))
+              10
+              responseChannel
+          )
+          $ do
+            post "/decommit" (encode tx) `shouldRespondWith` 200
+
+      it "returns 400 on DecommitInvalid or CommandFailed" $ do
+        responseChannel <- newTChanIO
+        let tx = SimpleTx 1 mempty mempty
+        now' <- getCurrentTime
+        let invalid =
+              TimedServerOutput
+                { output = DecommitInvalid{headId = generateWith arbitrary 42, decommitTx = tx, decommitInvalidReason = DecommitAlreadyInFlight (txId tx)}
+                , seq = 0
+                , time = now'
+                }
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Left invalid))
+              10
+              responseChannel
+          )
+          $ do
+            post "/decommit" (encode tx) `shouldRespondWith` 400
+
+    describe "DELETE /commits/:txid" $ do
+      it "returns 202 on timeout" $ do
+        responseChannel <- newTChanIO
+        let txidJson = LBS.toStrict (encode (txId (SimpleTx 1 mempty mempty)))
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ())
+              0
+              responseChannel
+          )
+          $ do
+            -- endpoint path formats the txid as JSON in the path; spec helper keeps the path
+            delete ("/commits/" <> txidJson) `shouldRespondWith` 202
+
+      it "returns 200 on CommitRecovered" $ do
+        responseChannel <- newTChanIO
+        now' <- getCurrentTime
+        let event =
+              TimedServerOutput
+                { output = CommitRecovered{headId = generateWith arbitrary 42, recoveredUTxO = mempty, recoveredTxId = txId (SimpleTx 1 mempty mempty)}
+                , seq = 0
+                , time = now'
+                }
+        let txidText = LBS.toStrict (encode (txId (SimpleTx 1 mempty mempty)))
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Left event))
+              10
+              responseChannel
+          )
+          $ do
+            delete ("/commits/" <> txidText) `shouldRespondWith` 200
 
 -- * Helpers
 
