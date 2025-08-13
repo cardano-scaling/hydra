@@ -45,7 +45,7 @@ import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Tx (Party)
+import Hydra.Tx (HeadId, Party)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
@@ -180,6 +180,7 @@ wsApp env party tracer history callback headStateP responseChannel ServerOutputF
         WithAddressedTx addr -> txContainsAddr tx addr
         WithoutAddressedTx -> True
 
+  getHeadStatus :: HeadState tx -> HeadStatus
   getHeadStatus = \case
     HeadState.Idle{} -> Idle
     HeadState.Initial{} -> Initializing
@@ -188,6 +189,7 @@ wsApp env party tracer history callback headStateP responseChannel ServerOutputF
       | readyToFanoutSent -> FanoutPossible
       | otherwise -> Closed
 
+  getHeadId :: HeadState tx -> Maybe HeadId
   getHeadId = \case
     HeadState.Idle{} -> Nothing
     HeadState.Initial InitialState{headId} -> Just headId
