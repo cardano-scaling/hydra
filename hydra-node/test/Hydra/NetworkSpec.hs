@@ -23,11 +23,12 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (withEtcdNetwork)
+import Hydra.Network.Etcd (getClientPort, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
 import System.FilePath ((</>))
+import System.Process.Typed (readProcessStdout_, runProcess_, shell)
 import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGoldenADTSpecsWithSettings)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
@@ -61,6 +62,29 @@ spec = do
               withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
                 broadcast n ("asdf" :: Text)
                 waitNext `shouldReturn` "asdf"
+
+      -- Note: This test is disabled as it takes took long; but it is
+      -- important to keep around. Successfully completion of this test looks
+      -- like either a "mvcc database size exceeded" error; or no error at
+      -- all. Failures looks like complete blocking
+      -- XXX: Maybe run this one nightly; when we start doing nightly tests.
+      xit "broadcasts 100KiB messages 1M times" $ \tracer ->
+        withTempDir "test-etcd" $ \tmp -> do
+          putStrLn $ "Folder " ++ show tmp
+          PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
+          (recordReceived, waitNext, _) <- newRecordingCallback
+          -- Create a 100KiB message (100 * 1024 characters)
+          let largeMessage = toText $ replicate (100 * 1024) 'a'
+          withEtcdNetwork @Text tracer v1 aliceConfig recordReceived $ \n1 -> do
+            withEtcdNetwork @Text tracer v1 bobConfig noopCallback $ \_ -> do
+              forM_ [1 :: Integer .. 1000000] $ \i -> do
+                let msgWithId = largeMessage <> " - Message #" <> show i
+                when (i `mod` 10000 == 0) $
+                  putStrLn $
+                    "Broadcasting 100KiB message #" <> show i <> " (size: " <> show (length (toString msgWithId)) <> " chars)"
+                broadcast n1 msgWithId
+                _ <- waitNext
+                threadDelay 0.02
 
       it "broadcasts messages to single connected peer" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
@@ -139,6 +163,30 @@ spec = do
                 waitFor NetworkConnected
                 waitFor $ PeerConnected carolConfig.advertise
 
+      it "handles expired lease" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 5 $ do
+            PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
+            -- Record and assert connectivity events from alice's perspective
+            (recordReceived, _, waitConnectivity) <- newRecordingCallback
+            let
+              waitFor :: HasCallStack => Connectivity -> IO ()
+              waitFor = waitEq waitConnectivity 60
+            withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \_ -> do
+              withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
+                waitFor NetworkConnected
+                waitFor $ PeerConnected bobConfig.advertise
+                -- Expire all leases manually to simulate a keepAlive coming too
+                -- late. Note that we do not distinguish which is which so
+                -- alice's lease will also be killed, but does not matter here.
+                let endpoints = "--endpoints=" <> show (listen aliceConfig)
+                output <- readProcessStdout_ . shell $ "etcdctl lease list " <> endpoints
+                let leases = drop 1 $ lines $ decodeUtf8 output
+                forM_ leases $ \lease ->
+                  runProcess_ . shell $ "etcdctl lease revoke " <> endpoints <> " " <> toString lease
+                -- Alice sees bob disconnected and connected again
+                waitFor $ PeerConnected bobConfig.advertise
+
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
           failAfter 10 $ do
@@ -177,14 +225,60 @@ spec = do
                 withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
                   broadcast n1 1001
                   waitCarol `shouldReturn` 1001
-                -- We can reset the last known view (internal implementation detail)
+
+      it "handles compaction and lost local state" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 20 $ do
+            PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
+            (recordBob, waitBob, _) <- newRecordingCallback
+            (recordCarol, waitCarol, _) <- newRecordingCallback
+            withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 ->
+              withEtcdNetwork @Int tracer v1 bobConfig recordBob $ \_ -> do
+                -- First we send 5 messages with carol online
+                withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
+                  forM_ [1 .. 5] $ \msg -> do
+                    broadcast n1 msg
+                    waitBob `shouldReturn` msg
+                    waitCarol `shouldReturn` msg
+                -- Carol stopped and we continue sending messages
+                forM_ [5 .. 100] $ \msg -> do
+                  broadcast n1 msg
+                  waitBob `shouldReturn` msg
+                -- Even while carol is down, the etcd component would
+                -- "auto-compact" messages. By default down to 1000 messages
+                -- after/every 5 minutes. This is interesting as it should
+                -- result in carol never some messages, but is hard to test
+                -- (without waiting 5 minutes). Instead we issue a direct etcd
+                -- command to compact everything before revision 50.
+                runProcess_ . shell $
+                  "etcdctl compact 50 --endpoints=127.0.0.1:" <> show (getClientPort aliceConfig)
+                -- When carol starts now we would expect it to start catching up
+                -- from the earliest possible revision 50. While missing some
+                -- messages.
+                withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
+                  -- NOTE: Revision 50 may not correspond to message 50, so we
+                  -- only assert its some message bigger than 25 and expect to
+                  -- see all further messages to 100.
+                  firstMsg <- waitCarol
+                  firstMsg `shouldSatisfy` (> 25)
+                  forM_ [firstMsg + 1 .. 100] $ \msg ->
+                    waitCarol `shouldReturn` msg
+                  -- Carol should be able to receive new messages just fine.
+                  forM_ [101 .. 105] $ \msg -> do
+                    broadcast n1 msg
+                    waitCarol `shouldReturn` msg
+                -- Similarly, should carol lose its local state, we expect it to
+                -- see everything from the last compacted revision 50. We can
+                -- enforce this by removing the corresponding file (an internal
+                -- implementation detail)
                 removeFile (persistenceDir carolConfig </> "last-known-revision")
                 withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
-                  -- NOTE: The etcd component would "auto-compact" messages down
-                  -- to 1000 messages after 5 minutes. This would result in
-                  -- starting at 1001 here, but is hard to test (without waiting
-                  -- 5 minutes).
-                  forM_ messages $ \msg ->
+                  -- NOTE: Revision 50 may not correspond to message 50, so we
+                  -- only assert its some message bigger than 25 and expect to
+                  -- see all further messages to 105.
+                  firstMsg <- waitCarol
+                  firstMsg `shouldSatisfy` (> 25)
+                  forM_ [firstMsg + 1 .. 105] $ \msg -> do
                     waitCarol `shouldReturn` msg
 
       it "emits cluster id mismatch" $ \tracer -> do

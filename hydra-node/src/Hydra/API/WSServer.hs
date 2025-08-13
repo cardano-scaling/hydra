@@ -40,13 +40,12 @@ import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, StateChanged)
+import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Tx (Party)
-import Hydra.Tx.HeadId (HeadId (..))
+import Hydra.Tx (HeadId, Party)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
@@ -68,13 +67,11 @@ wsApp ::
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (StateChanged tx) (HeadState tx) ->
-  -- | Read model to enhance 'Greetings' messages with 'HeadId'.
-  Projection STM.STM (StateChanged tx) (Maybe HeadId) ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp env party tracer history callback headStateP headIdP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer history callback headStateP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -97,21 +94,19 @@ wsApp env party tracer history callback headStateP headIdP responseChannel Serve
   -- client.
   forwardGreetingOnly config con = do
     headState <- atomically getLatest
-    hydraHeadId <- atomically getLatestHeadId
     sendTextData con $
       handleUtxoInclusion config (atKey "snapshotUtxo" .~ Nothing) $
         Aeson.encode
           Greetings
             { me = party
             , headStatus = getHeadStatus headState
-            , hydraHeadId
+            , hydraHeadId = getHeadId headState
             , snapshotUtxo = getSnapshotUtxo headState
             , hydraNodeVersion = showVersion NetworkVersions.hydraNodeVersion
             , env
             }
 
   Projection{getLatest} = headStateP
-  Projection{getLatest = getLatestHeadId} = headIdP
 
   mkServerOutputConfig :: [QueryParam] -> ServerOutputConfig
   mkServerOutputConfig qp =
@@ -185,12 +180,18 @@ wsApp env party tracer history callback headStateP headIdP responseChannel Serve
         WithAddressedTx addr -> txContainsAddr tx addr
         WithoutAddressedTx -> True
 
--- | Get the content of 'headStatus' field in 'Greetings' message from the full 'HeadState'.
-getHeadStatus :: HeadState tx -> HeadStatus
-getHeadStatus = \case
-  HeadState.Idle{} -> Idle
-  HeadState.Initial{} -> Initializing
-  HeadState.Open{} -> Open
-  HeadState.Closed ClosedState{readyToFanoutSent}
-    | readyToFanoutSent -> FanoutPossible
-    | otherwise -> Closed
+  getHeadStatus :: HeadState tx -> HeadStatus
+  getHeadStatus = \case
+    HeadState.Idle{} -> Idle
+    HeadState.Initial{} -> Initializing
+    HeadState.Open{} -> Open
+    HeadState.Closed ClosedState{readyToFanoutSent}
+      | readyToFanoutSent -> FanoutPossible
+      | otherwise -> Closed
+
+  getHeadId :: HeadState tx -> Maybe HeadId
+  getHeadId = \case
+    HeadState.Idle{} -> Nothing
+    HeadState.Initial InitialState{headId} -> Just headId
+    HeadState.Open OpenState{headId} -> Just headId
+    HeadState.Closed ClosedState{headId} -> Just headId

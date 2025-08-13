@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 -- | Implements a Hydra network component using [etcd](https://etcd.io/).
 --
@@ -22,8 +20,7 @@
 -- only deliver messages that were not seen before. In case we are not connected
 -- to our 'etcd' instance or not enough peers (= on a minority cluster), we
 -- retry sending, but also store messages to broadcast in a 'PersistentQueue',
--- which makes the node resilient against crashes while sending. TODO: Is this
--- needed? performance limitation?
+-- which makes the node resilient against crashes while sending.
 --
 -- Connectivity and compatibility with other nodes on the cluster is tracked
 -- using the key-value service as well:
@@ -61,7 +58,6 @@ import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens qualified as Aeson
 import Data.Aeson.Types (Value)
-import Data.Bits ((.|.))
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
@@ -77,9 +73,8 @@ import Hydra.Network (
   NetworkComponent,
   NetworkConfiguration (..),
   ProtocolVersion,
-  WhichEtcd (..),
  )
-import Hydra.Node.EmbedTH (embedExecutable)
+import Hydra.Network.EtcdBinary (getEtcdBinary)
 import Network.GRPC.Client (
   Address (..),
   ConnParams (..),
@@ -87,12 +82,14 @@ import Network.GRPC.Client (
   ReconnectPolicy (..),
   ReconnectTo (ReconnectToOriginal),
   Server (..),
+  Timeout (..),
+  TimeoutUnit (..),
+  TimeoutValue (..),
   rpc,
   withConnection,
  )
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
 import Network.GRPC.Common (GrpcError (..), GrpcException (..), HTTP2Settings (..), NextElem (..), def, defaultHTTP2Settings)
-import Network.GRPC.Common.NextElem (whileNext_)
 import Network.GRPC.Common.Protobuf (Proto (..), Protobuf, defMessage, (.~))
 import Network.GRPC.Etcd (
   Compare'CompareResult (..),
@@ -101,11 +98,11 @@ import Network.GRPC.Etcd (
   Lease,
   Watch,
  )
+import Network.Socket (PortNumber)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
-import System.FilePath (takeDirectory, (</>))
+import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
-import System.Posix (ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
 import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
   Process,
@@ -121,7 +118,6 @@ import System.Process.Typed (
   unsafeProcessHandle,
   waitExitCode,
  )
-import UnliftIO (readTVarIO)
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
@@ -141,55 +137,21 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p callback) $ do
-        -- XXX: cleanup reconnecting through policy if other threads fail
-        doneVar <- newTVarIO False
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) grpcServer $ \conn -> do
+        withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
           -- REVIEW: checkVersion blocks if used on main thread - why?
           withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
             race_ (pollConnectivity tracer conn advertise callback) $
               race_ (waitMessages tracer conn persistenceDir callback) $ do
                 queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-                race_ (broadcastMessages tracer conn advertise queue) $ do
+                race_ (broadcastMessages tracer config advertise queue) $ do
                   action
                     Network
                       { broadcast = writePersistentQueue queue
                       }
-                  atomically (writeTVar doneVar True)
  where
-  connParams doneVar =
-    def
-      { connReconnectPolicy = reconnectPolicy doneVar
-      , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
-        -- comment on 'http2OverridePingRateLimit'.
-        connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
-      }
-
-  reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
-    done <- readTVarIO doneVar
-    if done
-      then pure DontReconnect
-      else do
-        threadDelay 1
-        traceWith tracer Reconnecting
-        pure $ reconnectPolicy doneVar
-
-  clientHost = Host{hostname = "127.0.0.1", port = clientPort}
-
-  grpcServer =
-    ServerInsecure $
-      Address
-        { addressHost = toString $ hostname clientHost
-        , addressPort = port clientHost
-        , addressAuthority = Nothing
-        }
-
-  -- NOTE: Offset client port by the same amount as configured 'port' is offset
-  -- from the default '5001'. This will result in the default client port 2379
-  -- be used by default still.
-  clientPort = 2379 + port listen - 5001
-
+  clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
   traceStderr p NetworkCallback{onConnectivity} =
     forever $ do
       bs <- BS.hGetLine (getStderr p)
@@ -249,20 +211,39 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
 
--- | Return the path of the etcd binary. Will either install it first, or just
--- assume there is one available on the system path.
-getEtcdBinary :: FilePath -> WhichEtcd -> IO FilePath
-getEtcdBinary _ SystemEtcd = pure "etcd"
-getEtcdBinary persistenceDir EmbeddedEtcd =
-  let path = persistenceDir </> "bin" </> "etcd"
-   in installEtcd path >> pure path
+connParams :: Tracer IO EtcdLog -> Maybe Timeout -> ConnParams
+connParams tracer to =
+  def
+    { connReconnectPolicy = reconnectPolicy
+    , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
+      -- comment on 'http2OverridePingRateLimit'.
+      connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
+    , connDefaultTimeout = to
+    }
+ where
+  reconnectPolicy = ReconnectAfter ReconnectToOriginal $ do
+    threadDelay 1
+    traceWith tracer Reconnecting
+    pure reconnectPolicy
 
--- | Install the embedded 'etcd' binary to given file path.
-installEtcd :: FilePath -> IO ()
-installEtcd fp = do
-  createDirectoryIfMissing True (takeDirectory fp)
-  BS.writeFile fp $(embedExecutable "etcd")
-  setFileMode fp (ownerReadMode .|. ownerWriteMode .|. ownerExecuteMode)
+grpcServer :: NetworkConfiguration -> Server
+grpcServer config =
+  ServerInsecure $
+    Address
+      { addressHost = toString $ hostname clientHost
+      , addressPort = port clientHost
+      , addressAuthority = Nothing
+      }
+ where
+  clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
+
+-- | Get the client port corresponding to a listen address.
+--
+-- The client port used by the started etcd port is offset by the same amount as
+-- the listen address is offset by the default port 5001. This will result in
+-- the default client port 2379 be used by default still.
+getClientPort :: NetworkConfiguration -> PortNumber
+getClientPort NetworkConfiguration{listen} = 2379 + port listen - 5001
 
 -- | Check and write version on etcd cluster. This will retry until we are on a
 -- majority cluster and succeed. If the version does not match a corresponding
@@ -297,8 +278,7 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
         Right theirVersion ->
           unless (theirVersion == ourVersion) $
             onConnectivity VersionMismatch{ourVersion, theirVersion = Just theirVersion}
-    else
-      traceWith tracer $ MatchingProtocolVersion{version = ourVersion}
+    else traceWith tracer $ MatchingProtocolVersion{version = ourVersion}
  where
   versionKey = "version"
 
@@ -323,20 +303,20 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
 
 -- | Broadcast messages from a queue to the etcd cluster.
 --
--- TODO: retrying on failure even needed?
--- Retries on failure to 'putMessage' in case we are on a minority cluster.
+-- Retries on failure to 'putMessage' in case we are on a minority cluster or
+-- when the grpc call timeouts.
 broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
   Tracer IO EtcdLog ->
-  Connection ->
+  NetworkConfiguration ->
   -- | Used to identify sender.
   Host ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages tracer conn ourHost queue =
+broadcastMessages tracer config ourHost queue =
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
-    (putMessage conn ourHost msg >> popPersistentQueue queue msg)
+    (putMessage tracer config ourHost msg >> popPersistentQueue queue msg)
       `catch` \case
         GrpcException{grpcError, grpcErrorMessage}
           | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
@@ -347,13 +327,17 @@ broadcastMessages tracer conn ourHost queue =
 -- | Broadcast a message to the etcd cluster.
 putMessage ::
   ToCBOR msg =>
-  Connection ->
+  Tracer IO EtcdLog ->
+  NetworkConfiguration ->
   -- | Used to identify sender.
   Host ->
   msg ->
   IO ()
-putMessage conn ourHost msg =
-  void $ nonStreaming conn (rpc @(Protobuf KV "put")) req
+putMessage tracer config ourHost msg = do
+  -- XXX: Here we open a new connection _for every message_! This is
+  -- effectively a work-around for https://github.com/cardano-scaling/hydra/issues/2167.
+  withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn -> do
+    void $ nonStreaming conn (rpc @(Protobuf KV "put")) req
  where
   req =
     defMessage
@@ -371,11 +355,13 @@ waitMessages ::
   NetworkCallback msg IO ->
   IO ()
 waitMessages tracer conn directory NetworkCallback{deliver} = do
-  revision <- getLastKnownRevision directory
   withGrpcContext "waitMessages" . forever $ do
     -- NOTE: We have not observed the watch (subscription) fail even when peers
     -- leave and we end up on a minority cluster.
     biDiStreaming conn (rpc @(Protobuf Watch "watch")) $ \send recv -> do
+      revision <- getLastKnownRevision directory
+      let startRevision = fromIntegral (revision + 1)
+      traceWith tracer WatchMessagesStartRevision{startRevision}
       -- NOTE: Request all keys starting with 'msg'. See also section KeyRanges
       -- in https://etcd.io/docs/v3.5/learning/api/#key-value-api
       let watchRequest =
@@ -384,34 +370,48 @@ waitMessages tracer conn directory NetworkCallback{deliver} = do
               & #rangeEnd .~ "msh" -- NOTE: g+1 to query prefixes
               & #startRevision .~ fromIntegral (revision + 1)
       send . NextElem $ defMessage & #createRequest .~ watchRequest
-      whileNext_ recv process
+      loop send recv
     -- Wait before re-trying
     threadDelay 1
  where
-  process res = do
-    let revision = fromIntegral $ res ^. #header . #revision
-    putLastKnownRevision directory revision
-    forM_ (res ^. #events) $ \event -> do
-      let value = event ^. #kv . #value
-      case decodeFull' value of
-        Left err ->
-          traceWith
-            tracer
-            FailedToDecodeValue
-              { key = decodeUtf8 $ event ^. #kv . #key
-              , value = encodeBase16 value
-              , reason = show err
-              }
-        Right msg -> deliver msg
+  loop send recv =
+    recv >>= \case
+      NoNextElem -> pure ()
+      NextElem res ->
+        if res ^. #canceled
+          then do
+            let compactRevision = res ^. #compactRevision
+            traceWith tracer WatchMessagesFallbackTo{compactRevision}
+            putLastKnownRevision directory . fromIntegral $ (compactRevision - 1) `max` 0
+            -- Gracefully close watch stream
+            send NoNextElem
+          else do
+            let revision = res ^. #header . #revision
+            putLastKnownRevision directory . fromIntegral $ revision `max` 0
+            forM_ (res ^. #events) process
+            loop send recv
+
+  process event = do
+    let value = event ^. #kv . #value
+    case decodeFull' value of
+      Left err ->
+        traceWith
+          tracer
+          FailedToDecodeValue
+            { key = decodeUtf8 $ event ^. #kv . #key
+            , value = encodeBase16 value
+            , reason = show err
+            }
+      Right msg -> deliver msg
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
   liftIO $
     try (decodeFileStrict' $ directory </> "last-known-revision") >>= \case
       Right rev -> do
-        pure $ fromMaybe 1 rev
+        pure $ fromMaybe 0 rev
       Left (e :: IOException)
-        | isDoesNotExistError e -> pure 1
+        | isDoesNotExistError e -> pure 0
         | otherwise -> do
             fail $ "Failed to load last known revision: " <> show e
 
@@ -440,23 +440,27 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
       -- Write our alive key using lease
       writeAlive leaseId
       traceWith tracer CreatedLease{leaseId}
-      withKeepAlive leaseId $ \keepAlive ->
-        forever $ do
-          -- Keep our lease alive
-          ttlRemaining <- keepAlive
-          when (ttlRemaining < 1) $
-            traceWith tracer LowLeaseTTL{ttlRemaining}
-          -- Determine alive peers
-          alive <- getAlive
-          let othersAlive = alive \\ [advertise]
-          seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
-          forM_ (othersAlive \\ seenAlive) $ onConnectivity . PeerConnected
-          forM_ (seenAlive \\ othersAlive) $ onConnectivity . PeerDisconnected
-          -- Wait roughly ttl / 2
-          threadDelay (ttlRemaining / 2)
+      withKeepAlive leaseId (aliveLoop seenAliveVar)
  where
+  aliveLoop seenAliveVar keepAlive = do
+    -- Keep our lease alive
+    ttlRemaining <- keepAlive
+    if ttlRemaining <= 0
+      then
+        -- The keep alive did not work as no time to live remaining. Get a new lease instead
+        traceWith tracer LowLeaseTTL{ttlRemaining}
+      else do
+        -- Determine alive peers
+        alive <- getAlive
+        let othersAlive = alive \\ [advertise]
+        seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
+        forM_ (othersAlive \\ seenAlive) $ onConnectivity . PeerConnected
+        forM_ (seenAlive \\ othersAlive) $ onConnectivity . PeerDisconnected
+        threadDelay 1
+        aliveLoop seenAliveVar keepAlive
+
   onGrpcException seenAliveVar GrpcException{grpcError}
-    | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded = do
+    | grpcError `elem` [GrpcUnavailable, GrpcDeadlineExceeded, GrpcCancelled] = do
         onConnectivity NetworkDisconnected
         atomically $ writeTVar seenAliveVar []
         threadDelay 1
@@ -473,7 +477,7 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
       void . action $ do
         send $ NextElem $ defMessage & #id .~ leaseId
         recv >>= \case
-          NextElem res -> pure . fromIntegral $ res ^. #ttl
+          NextElem res -> pure $ res ^. #ttl
           NoNextElem -> do
             traceWith tracer NoKeepAliveResponse
             pure 0
@@ -549,29 +553,31 @@ newPersistentQueue ::
   Natural ->
   m (PersistentQueue m a)
 newPersistentQueue path capacity = do
-  queue <- newTBQueueIO capacity
+  paths <- liftIO $ do
+    createDirectoryIfMissing True path
+    sort . mapMaybe readMaybe <$> listDirectory path
+  queue <- newTBQueueIO $ max (fromIntegral $ length paths) capacity
   highestId <-
-    try (loadExisting queue) >>= \case
+    try (loadExisting queue paths) >>= \case
       Left (_ :: IOException) -> do
+        -- XXX: This swallows and not logs the error
         liftIO $ createDirectoryIfMissing True path
         pure 0
       Right highest -> pure highest
   nextIx <- newTVarIO $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path}
  where
-  loadExisting queue = do
-    paths <- liftIO $ listDirectory path
-    case sort $ mapMaybe readMaybe paths of
-      [] -> pure 0
-      idxs -> do
-        forM_ idxs $ \(idx :: Natural) -> do
-          bs <- readFileBS (path </> show idx)
-          case decodeFull' bs of
-            Left err ->
-              fail $ "Failed to decode item: " <> show err
-            Right item ->
-              atomically $ writeTBQueue queue (idx, item)
-        pure $ List.last idxs
+  loadExisting queue = \case
+    [] -> pure 0
+    idxs -> do
+      forM_ idxs $ \(idx :: Natural) -> do
+        bs <- readFileBS (path </> show idx)
+        case decodeFull' bs of
+          Left err ->
+            fail $ "Failed to decode item: " <> show err
+          Right item ->
+            atomically $ writeTBQueue queue (idx, item)
+      pure $ List.last idxs
 
 -- | Write a value to the queue, blocking if the queue is full.
 writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
@@ -581,6 +587,7 @@ writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
     modifyTVar' nextIx (+ 1)
     pure next
   writeFileBS (directory </> show next) $ serialize' item
+  -- XXX: We should trace when the queue is full
   atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the
@@ -596,6 +603,8 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
   popped <- atomically $ do
     (ix, next) <- peekTBQueue queue
     if next == item
+      -- FIXME: why would we not call this? We saw the persistent queue reach
+      -- capacity and writing blocked while nothing seemed to clear it.
       then readTBQueue queue $> Just ix
       else pure Nothing
   case popped of
@@ -612,8 +621,10 @@ data EtcdLog
   | FailedToDecodeLog {log :: Text, reason :: Text}
   | FailedToDecodeValue {key :: Text, value :: Text, reason :: Text}
   | CreatedLease {leaseId :: Int64}
-  | LowLeaseTTL {ttlRemaining :: DiffTime}
+  | LowLeaseTTL {ttlRemaining :: Int64}
   | NoKeepAliveResponse
   | MatchingProtocolVersion {version :: ProtocolVersion}
+  | WatchMessagesStartRevision {startRevision :: Int64}
+  | WatchMessagesFallbackTo {compactRevision :: Int64}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)

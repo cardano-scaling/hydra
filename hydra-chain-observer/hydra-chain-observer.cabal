@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-chain-observer
-version:       0.22.2
+version:       0.22.4
 synopsis:      Hydra Chain Observer
 author:        IOG
 copyright:     2023 IOG
