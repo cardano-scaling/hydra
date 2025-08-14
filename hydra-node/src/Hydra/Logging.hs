@@ -28,13 +28,11 @@ import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
 import Control.Concurrent.Class.MonadSTM (
   flushTBQueue,
   modifyTVar,
-  newTBQueueIO,
   newTVarIO,
   readTBQueue,
   readTVarIO,
   writeTBQueue,
  )
-import Control.Monad.Class.MonadFork (myThreadId)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
   Tracer (..),
@@ -110,8 +108,8 @@ withTracerOutputTo ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracerOutputTo hdl namespace action = do
-  msgQueue <- newTBQueueIO @_ @(Envelope msg) defaultQueueSize
-  withAsync (writeLogs msgQueue) $ \_ ->
+  msgQueue <- newLabelledTBQueueIO @_ @(Envelope msg) "logging-msg-queue" defaultQueueSize
+  withAsyncLabelled ("logging-writeLogs", writeLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue
  where
   tracer queue =
