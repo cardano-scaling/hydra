@@ -15,7 +15,7 @@ import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ClientMessage, CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
-import Hydra.Cardano.Api (AssetName, Coin, LedgerEra, PolicyId, Quantity, Tx)
+import Hydra.Cardano.Api (AssetName, Coin, LedgerEra, PolicyAssets, PolicyId, Quantity, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
@@ -52,22 +52,17 @@ data CommitDetails
   = CommitADA {commitAdaAmount :: Coin}
   | CommitMap {commitMap :: Map PolicyId (AssetName, Quantity)}
 
--- NOTE: We use 'Integer' to specify how much of 'AssetName' we should commit
--- since 'Quantity' is missing an 'Arbitrary' instance.
--- NOTE: We use 'Text' to specify 'PolicyId' of the token since there is no
--- instance 'FromJSONKey' for 'PolicyId' and 'ScriptHash' and 'ByteString'
--- which could be used to represent this field.
 data DraftCommitTxRequest tx
   = SimpleCommitRequest
       { utxoToCommit :: UTxOType tx
       , amount :: Maybe Coin
-      , tokens :: Maybe (Map Text (AssetName, Integer))
+      , tokens :: Maybe (Map PolicyId PolicyAssets)
       }
   | FullCommitRequest
       { blueprintTx :: tx
       , utxo :: UTxOType tx
       , amount :: Maybe Coin
-      , tokens :: Maybe (Map Text (AssetName, Integer))
+      , tokens :: Maybe (Map PolicyId PolicyAssets)
       }
   deriving stock (Generic)
 

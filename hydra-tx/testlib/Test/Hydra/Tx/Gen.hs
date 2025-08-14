@@ -191,6 +191,9 @@ genUTxOWithSimplifiedAddresses =
 instance Arbitrary AssetName where
   arbitrary = AssetName . BS.take 32 <$> arbitrary
 
+instance Arbitrary PolicyAssets where
+  arbitrary = PolicyAssets <$> arbitrary
+
 instance Arbitrary Quantity where
   arbitrary = Quantity <$> arbitrary
 
