@@ -32,6 +32,7 @@ when the number of persisted `StateChanged` events exceeds the configured `--per
   * `Checkpoint` event ids now match the suffix of their preceding rotated log file and the last `StateChanged` event id within it,
   preserving sequential order and making it easier to identify which rotated log file was used to compute it.
 
+- Add grafana monitoring to hydra nix and docker demos.
 
 ## [0.22.2] - 2025.06.30
 
