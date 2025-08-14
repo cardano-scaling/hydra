@@ -23,7 +23,7 @@ import Hydra.Cardano.Api (
   Key (SigningKey),
   PaymentKey,
   TxOut,
-  UTxO',
+  UTxO,
   fromLedgerTx,
   lovelaceToValue,
   signTx,
@@ -356,7 +356,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
             aliceChain `observesInTimeSatisfying` \case
               OnFanoutTx _ finalUTxO ->
-                if UTxO.containsOutputs finalUTxO expectedUTxO
+                if UTxO.containsOutputs finalUTxO (UTxO.txOutputs expectedUTxO)
                   then pure ()
                   else failure "OnFanoutTx does not contain expected UTxO"
               _ -> failure "expected OnFanoutTx"
@@ -616,7 +616,7 @@ externalCommit ::
   CardanoChainTest Tx IO ->
   SigningKey PaymentKey ->
   HeadId ->
-  UTxO' (TxOut CtxUTxO) ->
+  UTxO ->
   IO ()
 externalCommit backend hydraClient externalSk headId utxoToCommit = do
   let blueprintTx = txSpendingUTxO utxoToCommit
@@ -628,7 +628,7 @@ externalCommit' ::
   CardanoChainTest Tx IO ->
   [SigningKey PaymentKey] ->
   HeadId ->
-  UTxO' (TxOut CtxUTxO) ->
+  UTxO ->
   Tx ->
   IO ()
 externalCommit' backend hydraClient externalSks headId utxoToCommit blueprintTx = do

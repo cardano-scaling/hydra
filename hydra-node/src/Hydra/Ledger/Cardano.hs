@@ -83,7 +83,7 @@ cardanoLedger globals ledgerEnv =
       Left err ->
         Left (tx, toValidationError err)
       Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
-        Right . fromLedgerUTxO $ Ledger.utxosUtxo us
+        Right . UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.utxosUtxo us
    where
     -- As we use applyTx we only expect one ledger rule to run and one tx to
     -- fail validation, hence using the heads of non empty lists is fine.
@@ -104,7 +104,7 @@ cardanoLedger globals ledgerEnv =
 
     memPoolState =
       def
-        & Ledger.lsUTxOStateL . Ledger.utxoL .~ toLedgerUTxO utxo
+        & Ledger.lsUTxOStateL . Ledger.utxoL .~ UTxO.toShelleyUTxO shelleyBasedEra utxo
         & Ledger.lsCertStateL . Ledger.certDStateL %~ mockCertState
 
     -- NOTE: Mocked certificate state that simulates any reward accounts for any
@@ -238,7 +238,7 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
 --  rules.
 adjustUTxO :: Tx -> UTxO -> UTxO
 adjustUTxO tx utxo =
-  let txid = txId tx
+  let txid = Hydra.Tx.txId tx
       consumed = txIns' tx
       produced = UTxO.fromList ((\(txout, ix) -> (TxIn txid (TxIx ix), toCtxUTxOTxOut txout)) <$> zip (txOuts' tx) [0 ..])
       utxo' = UTxO.fromList $ filter (\(txin, _) -> txin `notElem` consumed) $ UTxO.toList utxo

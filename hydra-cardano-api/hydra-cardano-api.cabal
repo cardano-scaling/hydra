@@ -40,11 +40,9 @@ library
   hs-source-dirs:  src
   ghc-options:     -haddock
   exposed-modules:
-    Cardano.Api.UTxO
     Hydra.Cardano.Api
     Hydra.Cardano.Api.Address
     Hydra.Cardano.Api.AddressInEra
-    Hydra.Cardano.Api.BlockHeader
     Hydra.Cardano.Api.ChainPoint
     Hydra.Cardano.Api.ExecutionUnits
     Hydra.Cardano.Api.Hash
@@ -76,7 +74,7 @@ library
     , aeson                   >=2
     , base                    >=4.14
     , bytestring
-    , cardano-api             ^>=10.16
+    , cardano-api             ^>=10.17
     , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class

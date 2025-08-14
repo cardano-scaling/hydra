@@ -394,7 +394,7 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
         guard $ v ^? key "headId" == Just (toJSON headId)
         v ^? key "distributedUTxO" . _JSON
 
-      guard $ distributedUTxO `UTxO.containsOutputs` utxoFromTx decommitTx
+      guard $ distributedUTxO `UTxO.containsOutputs` (UTxO.txOutputs $ utxoFromTx decommitTx)
 
       pure (headId, decommitUTxO)
 
@@ -418,7 +418,7 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
           guard $ v ^? key "headId" == Just (toJSON headId2)
           v ^? key "distributedUTxO" . _JSON
 
-        guard $ distributedUTxO `UTxO.containsOutputs` decrementOuts
+        guard $ distributedUTxO `UTxO.containsOutputs` (UTxO.txOutputs decrementOuts)
 
         send n1 $ input "Close" []
 
@@ -1406,13 +1406,13 @@ rejectCommit tracer workDir blockTime backend hydraScriptsTxId =
       commitUTxO' <- seedFromFaucet backend walletVk 1_000_000 (contramap FromFaucet tracer)
       TxOut _ _ _ refScript <- generate genTxOutWithReferenceScript
       datum <- generate genDatum
-      let commitUTxO :: UTxO.UTxO =
+      let commitUTxO :: UTxO =
             UTxO.fromList $
               (\(i, TxOut addr _ _ _) -> (i, TxOut addr (lovelaceToValue 0) datum refScript))
                 <$> UTxO.toList commitUTxO'
       response <-
         L.parseRequest ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
-          <&> setRequestBodyJSON (commitUTxO :: UTxO.UTxO)
+          <&> setRequestBodyJSON (commitUTxO :: UTxO)
             >>= httpJSON
 
       let expectedError = getResponseBody response :: PostTxError Tx
@@ -1678,7 +1678,7 @@ canDecommit tracer workDir backend hydraScriptsTxId =
       guard $ v ^? key "headId" == Just (toJSON headId)
       v ^? key "distributedUTxO" . _JSON
 
-    guard $ distributedUTxO `UTxO.containsOutputs` decommitUTxO
+    guard $ distributedUTxO `UTxO.containsOutputs` (UTxO.txOutputs decommitUTxO)
 
   expectFailureOnUnsignedDecommitTx :: HydraClient -> HeadId -> Tx -> IO ()
   expectFailureOnUnsignedDecommitTx n headId decommitTx = do
@@ -2002,7 +2002,7 @@ checkFanout expectedHeadId expectedUTxO v = do
   headId' <- v ^? key "headId" >>= parseMaybe parseJSON
   utxo <- v ^? key "utxo" >>= parseMaybe parseJSON
   guard (headId' == expectedHeadId)
-  guard (UTxO.containsOutputs utxo expectedUTxO)
+  guard (UTxO.containsOutputs utxo (UTxO.txOutputs expectedUTxO))
 
 expectErrorStatus ::
   -- | Expected http status code
