@@ -37,7 +37,7 @@ jobs:
           - package: hydra-cluster
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -120,7 +120,7 @@ jobs:
             options: 'datasets datasets/1-node.json datasets/3-nodes.json --output-directory $(pwd)/../benchmarks --timeout 1000s'
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -202,7 +202,7 @@ jobs:
         remove-docker-images: false
 
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -219,7 +219,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -244,7 +244,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         # For the cardanonical json schemas
         submodules: true
@@ -304,7 +304,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
     - name: "Checkout the PR as the 'new' source"
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
