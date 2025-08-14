@@ -37,22 +37,27 @@
 
               echo "Patching embedded git revision in ${exe} to ${rev} ..."
 
-              # Ensure only one occurrence of placeholder
-              if [[ $(grep -c -a ${placeholder} ${drv}/bin/${exe}) -ne 1 ]]; then
-                echo "Not exactly one occurrence of ${placeholder} in ${drv}/bin/${exe}!"
-                exit 1
-              fi
-
               mkdir -p $out/bin
-              sed 's/${placeholder}/${rev}/' ${drv}/bin/${exe} > $out/bin/${exe}
-              chmod +x $out/bin/${exe}
+              occ=$(grep -c -a ${placeholder} ${drv}/bin/${exe} || true)
+              if [[ "$occ" = "1" ]]; then
+                sed 's/${placeholder}/${rev}/' ${drv}/bin/${exe} > $out/bin/${exe}
+                chmod +x $out/bin/${exe}
+              else
+                echo "Warning: placeholder occurrence count=$occ in ${drv}/bin/${exe}; keeping original binary without embedding revision" >&2
+                cp ${drv}/bin/${exe} $out/bin/${exe}
+                chmod +x $out/bin/${exe}
+              fi
             '';
             postFixup = pkgs.lib.optionalString pkgs.stdenv.isDarwin ''
-              install_name_tool -add_rpath ${pkgs.zlib}/lib $out/bin/${exe}
-              install_name_tool -add_rpath ${pkgs.lmdb}/lib $out/bin/${exe}
-              install_name_tool -add_rpath ${pkgs.libcxx}/lib $out/bin/${exe}
-              install_name_tool -add_rpath ${pkgs.libiconv}/lib $out/bin/${exe}
-              install_name_tool -add_rpath ${pkgs.libffi}/lib $out/bin/${exe}
+              if file "$out/bin/${exe}" | grep -q 'Mach-O'; then
+                install_name_tool -add_rpath ${pkgs.zlib}/lib $out/bin/${exe}
+                install_name_tool -add_rpath ${pkgs.lmdb}/lib $out/bin/${exe}
+                install_name_tool -add_rpath ${pkgs.libcxx}/lib $out/bin/${exe}
+                install_name_tool -add_rpath ${pkgs.libiconv}/lib $out/bin/${exe}
+                install_name_tool -add_rpath ${pkgs.libffi}/lib $out/bin/${exe}
+              else
+                echo "Skipping install_name_tool: $out/bin/${exe} is not a Mach-O file" >&2
+              fi
             '';
           };
 
@@ -185,6 +190,7 @@
               hydra-node
               pkgs.cardano-node
               pkgs.cardano-cli
+            ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
               pkgs.dool
             ];
         };

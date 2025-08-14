@@ -16,9 +16,13 @@
 
           processes = {
             prepare-devnet = {
-              command = "${self}/demo/prepare-devnet.sh";
+              working_dir = ".";
+              command = ''
+                ${pkgs.bash}/bin/bash ${self}/demo/prepare-devnet.sh
+              '';
             };
             cardano-node = {
+              working_dir = ".";
               command = ''
                 ${pkgs.cardano-node}/bin/cardano-node run \
                 --config devnet/cardano-node.json \
@@ -33,6 +37,7 @@
               depends_on."prepare-devnet".condition = "process_completed";
             };
             seed-devnet = {
+              working_dir = ".";
               command = ''
                 ${self}/demo/seed-devnet.sh ${pkgs.cardano-cli}/bin/cardano-cli ${self'.packages.hydra-node}/bin/hydra-node
               '';
@@ -45,7 +50,7 @@
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
                   # (Re-)Export all variables from .env
-                  set -a; source .env; set +a
+                  set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
                     --node-id 1 \
                     --listen 127.0.0.1:5001 \
@@ -67,6 +72,7 @@
                     --contestation-period 3s
                 '';
               };
+              working_dir = ".";
               ready_log_line = "NodeIsLeader";
               depends_on."seed-devnet".condition = "process_completed";
             };
@@ -77,7 +83,7 @@
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
                   # (Re-)Export all variables from .env
-                  set -a; source .env; set +a
+                  set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
                   --node-id 2 \
                   --listen 127.0.0.1:5002 \
@@ -99,6 +105,7 @@
                   --contestation-period 3s
                 '';
               };
+              working_dir = ".";
               ready_log_line = "NodeIsLeader";
               depends_on."seed-devnet".condition = "process_completed";
             };
@@ -109,7 +116,7 @@
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
                   # (Re-)Export all variables from .env
-                  set -a; source .env; set +a
+                  set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
                   --node-id 3 \
                   --listen 127.0.0.1:5003 \
@@ -131,6 +138,7 @@
                   --contestation-period 3s
                 '';
               };
+              working_dir = ".";
               ready_log_line = "NodeIsLeader";
               depends_on."seed-devnet".condition = "process_completed";
             };
@@ -169,6 +177,39 @@
               '';
               is_foreground = true;
               depends_on."hydra-node-carol".condition = "process_started";
+            };
+            test = {
+              command = pkgs.writeShellApplication {
+                name = "demo-test";
+                runtimeInputs = [ pkgs.coreutils pkgs.cardano-cli pkgs.cardano-node self'.packages.hydra-node ];
+                text = ''
+                  set -euo pipefail
+                  
+                  echo "--- Testing demo components"
+                  
+                  # Test that we can build and run basic components
+                  echo "Testing cardano-cli..."
+                  cardano-cli --version
+                  
+                  echo "Testing cardano-node..."
+                  cardano-node --version
+                  
+                  echo "✅ Demo setup completed successfully"
+                  
+                  echo "--- Testing that devnet files exist"
+                  if [ -f "devnet/cardano-node.json" ] && [ -f "devnet/topology.json" ]; then
+                    echo "✅ Devnet configuration files created"
+                  else
+                    echo "❌ Devnet configuration files missing"
+                    exit 1
+                  fi
+                  
+                  echo "--- Testing hydra-node"
+                  hydra-node --version
+                '';
+              };
+              # Ensure test starts only after devnet has been prepared
+              depends_on."prepare-devnet".condition = "process_completed";
             };
           };
         };

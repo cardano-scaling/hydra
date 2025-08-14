@@ -188,7 +188,10 @@ jobs:
 
   nix-flake-check:
     name: "nix flake check"
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
     - name: Reclaim the bytes
       uses: data-intuitive/reclaim-the-bytes@v2
