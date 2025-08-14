@@ -28,6 +28,10 @@ scrape_configs:
     static_configs:
     - targets: ['0.0.0.0:9090']
 
+  - job_name: 'node_exporter'
+    static_configs:
+    - targets: ['localhost:9100']
+
   - job_name: 'hydra_nodes'
 
     # metrics_path defaults to '/metrics'
