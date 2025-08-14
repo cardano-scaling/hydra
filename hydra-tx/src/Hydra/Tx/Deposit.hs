@@ -7,6 +7,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), ValidityInterval (..), bodyTxL, inputsTxBodyL, outputsTxBodyL)
 import Control.Lens ((.~), (^.))
 import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -32,7 +33,7 @@ depositTx ::
   UTCTime ->
   -- | Optional amount to create partial deposit
   Maybe Coin ->
-  Maybe (Map Text (AssetName, Integer)) ->
+  Map PolicyId PolicyAssets ->
   Tx
 depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
   fromLedgerTx $
@@ -89,6 +90,34 @@ mkDepositOutput networkId headId depositUTxO deadline =
 
 depositAddress :: NetworkId -> AddressInEra
 depositAddress networkId = mkScriptAddress networkId depositValidatorScript
+
+checkTokens :: UTxO.UTxO -> Map PolicyId PolicyAssets -> (Map PolicyId PolicyAssets, Map PolicyId PolicyAssets)
+checkTokens userUTxO specifiedTokens
+  | Map.null specifiedTokens = (mempty, mempty) -- Trivial case: no tokens specified
+  | otherwise =
+      let utxoValue = UTxO.totalValue userUTxO
+          existingPoliciesAndAssets = valueToPolicyAssets utxoValue
+          (ok, invalid) = checkForTokens existingPoliciesAndAssets specifiedTokens
+       in if Map.null invalid
+            then (ok, mempty)
+            else (ok, invalid)
+ where
+  checkForTokens ::
+    Map PolicyId PolicyAssets ->
+    Map PolicyId PolicyAssets ->
+    (Map PolicyId PolicyAssets, Map PolicyId PolicyAssets)
+  checkForTokens existing = Map.partitionWithKey (\k v -> checkAssets (Map.lookup k existing) v)
+
+  checkAssets :: Maybe PolicyAssets -> PolicyAssets -> Bool
+  checkAssets Nothing _ = False -- Policy not found in UTXO
+  checkAssets (Just (PolicyAssets existingAssets)) (PolicyAssets wantedAssets) =
+    all
+      ( \(assetName, requiredQty) ->
+          case Map.lookup assetName existingAssets of
+            Nothing -> False
+            Just availableQty -> availableQty >= requiredQty
+      )
+      (Map.toList wantedAssets)
 
 -- | Caps a UTxO set to a specified target amount of Lovelace, splitting outputs if necessary.
 --
