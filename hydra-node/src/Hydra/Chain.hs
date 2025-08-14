@@ -21,6 +21,7 @@ import Hydra.Cardano.Api (
   ByronAddr,
   Coin (..),
   LedgerEra,
+  PolicyAssets,
   PolicyId,
   Quantity,
  )
@@ -209,7 +210,7 @@ data PostTxError tx
   | FailedToConstructFanoutTx
   | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
   | AmountTooLow {providedValue :: Coin, totalUTxOValue :: Coin}
-  | InvalidTokenPolicyId Text
+  | MissingTokenPolicies [PolicyId]
   | InvalidTokenRequest [(PolicyId, (AssetName, Quantity))]
   deriving stock (Generic)
 
@@ -283,7 +284,7 @@ data Chain tx m = Chain
       CommitBlueprintTx tx ->
       UTCTime ->
       Maybe Coin ->
-      Maybe (Map Text (AssetName, Integer)) ->
+      Maybe (Map PolicyId PolicyAssets) ->
       m (Either (PostTxError tx) tx)
   -- ^ Create a deposit transaction using user provided utxos (zero or many) ,
   -- _blueprint_ transaction which spends these outputs and a deadline for

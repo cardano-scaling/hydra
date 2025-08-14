@@ -15,22 +15,15 @@ import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.List qualified as List
-import Data.Map.Strict (assocs, fromListWith)
 import Hydra.Cardano.Api (
-  AsType (AsPolicyId),
-  AssetName,
   BlockHeader,
   ChainPoint (..),
   Coin,
   LedgerEra,
-  PolicyAssets (..),
-  PolicyId,
-  Quantity (..),
   Tx,
   TxId,
   calculateMinimumUTxO,
   chainPointToSlotNo,
-  deserialiseFromRawBytes,
   fromCtxUTxOTxOut,
   getChainPoint,
   getTxBody,
@@ -38,7 +31,6 @@ import Hydra.Cardano.Api (
   liftEither,
   shelleyBasedEra,
   throwError,
-  valueToPolicyAssets,
  )
 import Hydra.Chain (
   Chain (..),
@@ -90,7 +82,7 @@ import Hydra.Tx (
   headSeedToTxIn,
  )
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
-import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
+import Hydra.Tx.Deposit (DepositObservation (..), checkTokens, depositTx)
 import Hydra.Tx.Observe (
   AbortObservation (..),
   CloseObservation (..),
@@ -202,6 +194,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             liftEither $ do
               checkAmount lookupUTxO amount
               rejectLowDeposits pparams lookupUTxO amount
+            let (validTokens, _invalidTokens) = checkTokens lookupUTxO (fromMaybe mempty tokens)
             (currentSlot, currentTime) <- case currentPointInTime of
               Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
               Right (s, t) -> pure (s, t)
@@ -214,86 +207,11 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             -- -- NOTE: But also not make it smaller than 10 slots.
             let validBeforeSlot = currentSlot + fromInteger (truncate graceTime `max` 10)
             lift . finalizeTx wallet ctx spendableUTxO lookupUTxO $
-              depositTx (networkId ctx) headId commitBlueprintTx validBeforeSlot deadline amount tokens
+              depositTx (networkId ctx) headId commitBlueprintTx validBeforeSlot deadline amount validTokens
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
     }
-
--- | Validates whether the user's UTxO contains sufficient quantities of the
--- specified non-ADA tokens.
--- The function performs the following steps:
--- 1. Parse Policy IDs: For each entry in the 'specifiedTokens' map, attempt to
--- deserialize the policy ID (provided as a 'Text' ) into a 'PolicyId'.
--- If any parsing fails (e.g., invalid format), return an error immediately
--- with the first encountered 'InvalidTokenPolicyId'.
---
--- 2. Validate Token Amounts: If all policy IDs parse successfully, check
--- the user's UTxO for the presence and sufficient quantities of each requested
--- asset under its policy.
--- - Extract non-ADA assets from the UTxO into a nested 'Map' for efficient lookups:
--- 'Map PolicyId (Map AssetName Quantity)'.
--- - For each requested token (policy ID, asset name, quantity):
--- - If the policy ID is missing from the UTxO, mark the token as insufficient.
--- - If the policy ID exists but the asset name is missing, mark it as insufficient.
--- - If the asset exists but the available quantity is less than requested,
--- mark it as insufficient.
--- - Accumulate all insufficient tokens in a list.
--- 3. Return Result:
--- - If no insufficient tokens, return 'Right' with a 'Map' of the valid
--- 'PolicyId' to '(AssetName, Quantity)'.
--- - If any insufficient, return 'Left' with 'InvalidTokenRequest' wrapping the
--- list of insufficient tokens.
--- -- This ensures comprehensive validation, catching missing policies, missing
--- assets, or insufficient quantities. The error in the 'Left' case lists the
--- specific requested tokens that failed, aiding in debugging or user feedback.
---
--- Note: Assumes each policy request has a single asset; if multiple assets
--- per policy are possible, the map structure handles it, but error reporting
--- lists individual failing tokens.
-checkTokens :: UTxO.UTxO -> Map Text (AssetName, Integer) -> Either (PostTxError Tx) (Map PolicyId (AssetName, Quantity))
-checkTokens userUTxO specifiedTokens =
-  let tokens = (\(k, (asset, amount)) -> parseToPolicyId k (asset, amount)) <$> assocs specifiedTokens
-   in case lefts tokens of
-        [] ->
-          case checkTokenAmounts userUTxO (rights tokens) of
-            Left e -> Left $ InvalidTokenRequest e
-            Right tokens' -> pure $ fromListWith const tokens' -- Use fromListWith to handle potential duplicates, though unlikely
-        (e : _) -> Left e
- where
-  checkTokenAmounts :: UTxO.UTxO -> [(PolicyId, (AssetName, Quantity))] -> Either [(PolicyId, (AssetName, Quantity))] [(PolicyId, (AssetName, Quantity))]
-  checkTokenAmounts utxo wantedTokens =
-    let
-      -- Convert UTxO assets to a nested Map for efficient lookups
-      nonAdaAssets :: Map PolicyId (Map AssetName Quantity)
-      nonAdaAssets = fromList $ (\(pid, PolicyAssets assets) -> (pid, fromList (assocs assets))) <$> assocs (valueToPolicyAssets (UTxO.totalValue utxo))
-
-      -- Fold to collect insufficient or missing wanted tokens
-      insufficientTokens :: [(PolicyId, (AssetName, Quantity))]
-      insufficientTokens =
-        foldl'
-          ( \insuff (wantedPid, (wantedAsset, wantedQuantity)) ->
-              case lookup wantedPid nonAdaAssets of
-                Nothing -> (wantedPid, (wantedAsset, wantedQuantity)) : insuff -- Policy missing entirely
-                Just assetMap ->
-                  case lookup wantedAsset assetMap of
-                    Nothing -> (wantedPid, (wantedAsset, wantedQuantity)) : insuff -- Asset missing under policy
-                    Just existingQuantity ->
-                      if wantedQuantity <= existingQuantity
-                        then insuff
-                        else (wantedPid, (wantedAsset, wantedQuantity)) : insuff -- Insufficient quantity
-          )
-          []
-          wantedTokens
-     in
-      case insufficientTokens of
-        [] -> Right wantedTokens
-        _ -> Left insufficientTokens -- Return the specific wanted tokens that failed
-  parseToPolicyId :: Text -> (AssetName, Integer) -> Either (PostTxError Tx) (PolicyId, (AssetName, Quantity))
-  parseToPolicyId k (asset, amount) =
-    case deserialiseFromRawBytes AsPolicyId (encodeUtf8 k) of
-      Left err -> Left (InvalidTokenPolicyId $ show err)
-      Right pid -> pure (pid, (asset, Quantity amount))
 
 -- Check each UTxO entry against the minADAUTxO value.
 -- Throws 'DepositTooLow' exception.
