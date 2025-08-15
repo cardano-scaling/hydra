@@ -50,6 +50,7 @@ library
     Hydra.Cardano.Api.Hash
     Hydra.Cardano.Api.NetworkId
     Hydra.Cardano.Api.NetworkMagic
+    Hydra.Cardano.Api.PolicyAssets
     Hydra.Cardano.Api.PolicyId
     Hydra.Cardano.Api.Prelude
     Hydra.Cardano.Api.Pretty
