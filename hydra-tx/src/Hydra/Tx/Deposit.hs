@@ -35,7 +35,7 @@ depositTx ::
   Maybe Coin ->
   Map PolicyId PolicyAssets ->
   Tx
-depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
+depositTx networkId headId commitBlueprintTx upperSlot deadline amount _tokens =
   fromLedgerTx $
     toLedgerTx blueprintTx
       & addDepositInputs
