@@ -6,12 +6,16 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.Mary.Value qualified as Ledger
+import Data.Aeson (FromJSONKey (..), ToJSONKey (..))
 import Hydra.Cardano.Api.ScriptHash ()
 import PlutusLedgerApi.V3 (CurrencySymbol, fromBuiltin, unCurrencySymbol)
 import Test.Gen.Cardano.Api.Typed (genPolicyId)
 import Test.QuickCheck.Hedgehog (hedgehog)
 
 -- * Orphans
+
+instance ToJSONKey PolicyId
+instance FromJSONKey PolicyId
 
 instance Arbitrary PolicyId where
   arbitrary = hedgehog genPolicyId
