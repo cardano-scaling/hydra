@@ -2705,6 +2705,61 @@ components:
             totalUTxOValue:
                type: integer
                minimum: 0
+        - title: MissingTokenPolicies
+          description: |
+            Raised if the user requests tokens that require missing policy IDs.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - contents
+          properties:
+            tag:
+              type: string
+              enum: ["MissingTokenPolicies"]
+            contents:
+              type: array
+              items:
+                type: string
+                contentEncoding: base16
+                description: |
+                  A hex-encoded policy ID.
+        - title: InvalidTokenRequest
+          description: |
+            Raised if the user makes an invalid token request.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - contents
+          properties:
+            tag:
+              type: string
+              enum: ["InvalidTokenRequest"]
+            contents:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                - policyId
+                - assetName
+                - quantity
+                properties:
+                  policyId:
+                    type: string
+                    contentEncoding: base16
+                    description: |
+                      A hex-encoded policy ID.
+                  assetName:
+                    type: string
+                    contentEncoding: base16
+                    description: |
+                      A hex-encoded asset name.
+                  quantity:
+                    type: integer
+                    description: |
+                      A quantity of the asset.
 
     Signature:
       type: string
