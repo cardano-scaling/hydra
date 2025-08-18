@@ -676,9 +676,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withClusterTempDir $ \tmpDir -> do
             withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
               hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-              concurrently_
-                (initAndClose tmpDir tracer 0 hydraScriptsTxId backend)
-                (initAndClose tmpDir tracer 1 hydraScriptsTxId backend)
+              concurrentlyLabelled_
+                ("init-and-close-0", initAndClose tmpDir tracer 0 hydraScriptsTxId backend)
+                ("init-and-close-1", initAndClose tmpDir tracer 1 hydraScriptsTxId backend)
 
       it "alice inits a Head with incorrect keys preventing bob from observing InitTx" $ \tracer ->
         failAfter 60 $

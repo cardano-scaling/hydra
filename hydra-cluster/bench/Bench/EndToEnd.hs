@@ -386,9 +386,12 @@ processTransactions clients clientDatasets = do
     submissionQ <- newLabelledTBQueueIO "submission" (fromIntegral numberOfTxs)
     registry <- newRegistry
     atomically $ forM_ txSequence $ writeTBQueue submissionQ
-    ( submitTxs client registry submissionQ
-        `concurrently_` waitForAllConfirmations client registry (Set.fromList $ map txId txSequence)
-        `concurrently_` progressReport (hydraNodeId client) clientId numberOfTxs submissionQ
+    concurrentlyLabelled_
+      ("submit-txs", submitTxs client registry submissionQ)
+      ( "confirm-txs"
+      , concurrentlyLabelled_
+          ("wait-for-all-confirmations", waitForAllConfirmations client registry (Set.fromList $ map txId txSequence))
+          ("progress-report", progressReport (hydraNodeId client) clientId numberOfTxs submissionQ)
       )
       `catch` \(HUnitFailure sourceLocation reason) ->
         putStrLn ("Something went wrong while waiting for all confirmations: " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason)

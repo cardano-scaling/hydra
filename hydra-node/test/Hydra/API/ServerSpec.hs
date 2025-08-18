@@ -96,9 +96,9 @@ spec =
             semaphore <- newLabelledTVarIO "semaphore" 0
             withAsyncLabelled
               ( "concurrent-test-clients"
-              , concurrently_
-                  (withClient port "/" $ testClient queue semaphore)
-                  (withClient port "/" $ testClient queue semaphore)
+              , concurrentlyLabelled_
+                  ("concurrent-test-client-1", withClient port "/" $ testClient queue semaphore)
+                  ("concurrent-test-client-2", withClient port "/" $ testClient queue semaphore)
               )
               $ \_ -> do
                 waitForClients semaphore
@@ -131,9 +131,9 @@ spec =
             semaphore <- newLabelledTVarIO "semaphore" 0
             withAsyncLabelled
               ( "concurrent-test-clients"
-              , concurrently_
-                  (withClient port "/?history=yes" $ testClient queue1 semaphore)
-                  (withClient port "/?history=yes" $ testClient queue2 semaphore)
+              , concurrentlyLabelled_
+                  ("concurrent-test-client-queue1", withClient port "/?history=yes" $ testClient queue1 semaphore)
+                  ("concurrent-test-client-queue2", withClient port "/?history=yes" $ testClient queue2 semaphore)
               )
               $ \_ -> do
                 waitForClients semaphore

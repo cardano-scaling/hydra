@@ -26,7 +26,7 @@ spec = do
     it "allows concurrent usage" $ do
       withFreePort $ \port -> do
         withUDPEventSink @EventId "0.0.0.0" (show port) $ \EventSink{putEvent} -> do
-          concurrently_ (putEvent 123) (putEvent 456)
+          concurrentlyLabelled_ ("put-event-123", putEvent 123) ("put-event-456", putEvent 456)
 
   it "supports multiple instances" $ do
     withFreePort $ \port -> do

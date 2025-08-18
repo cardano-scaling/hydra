@@ -48,6 +48,8 @@ module Hydra.Prelude (
   newLabelledTQueueIO,
   newLabelledEmptyTMVarIO,
   labelMyThread,
+  concurrentlyLabelled,
+  concurrentlyLabelled_,
   raceLabelled,
   raceLabelled_,
   withAsyncLabelled,
@@ -363,3 +365,12 @@ raceLabelled_ = (void .) . raceLabelled
 
 withAsyncLabelled :: MonadAsync m => (String, m a) -> (Async m a -> m b) -> m b
 withAsyncLabelled (lbl, ma) = withAsync (labelMyThread lbl >> ma)
+
+concurrentlyLabelled :: (MonadThread m, MonadAsync m) => (String, m a) -> (String, m b) -> m (a, b)
+concurrentlyLabelled (lblA, mA) (lblB, mB) =
+  concurrently
+    (labelMyThread lblA >> mA)
+    (labelMyThread lblB >> mB)
+
+concurrentlyLabelled_ :: (MonadThread m, MonadAsync m) => (String, m a) -> (String, m b) -> m ()
+concurrentlyLabelled_ = (void .) . concurrentlyLabelled
