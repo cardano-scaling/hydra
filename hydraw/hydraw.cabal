@@ -50,7 +50,6 @@ executable hydraw
     , hydra-node
     , hydra-prelude
     , hydraw
-    , io-classes
     , safe
     , wai
     , wai-websockets
