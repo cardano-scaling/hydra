@@ -55,6 +55,7 @@ module Hydra.Prelude (
   newLabelledEmptyTMVarIO,
   concurrentlyLabelled,
   concurrentlyLabelled_,
+  asyncLabelled,
   raceLabelled,
   raceLabelled_,
   withAsyncLabelled,
@@ -75,7 +76,7 @@ import Control.Concurrent.Class.MonadSTM.TVar (TVar, readTVar)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (
   Async,
-  MonadAsync (concurrently, race, withAsync),
+  MonadAsync (async, concurrently, race, withAsync),
  )
 import Control.Monad.Class.MonadEventlog (
   MonadEventlog,
@@ -372,3 +373,6 @@ concurrentlyLabelled (lblA, mA) (lblB, mB) =
 
 concurrentlyLabelled_ :: (MonadThread m, MonadAsync m) => (String, m a) -> (String, m b) -> m ()
 concurrentlyLabelled_ = (void .) . concurrentlyLabelled
+
+asyncLabelled :: MonadAsync m => String -> m a -> m (Async m a)
+asyncLabelled lbl mA = async $ labelThisThread lbl >> mA

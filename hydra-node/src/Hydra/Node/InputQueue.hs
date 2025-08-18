@@ -9,7 +9,6 @@ import Control.Concurrent.Class.MonadSTM (
   readTQueue,
   writeTQueue,
  )
-import Control.Monad.Class.MonadAsync (async)
 
 -- | The single, required queue in the system from which a hydra head is "fed".
 -- NOTE(SN): this probably should be bounded and include proper logging
@@ -43,7 +42,7 @@ createInputQueue = do
             modifyTVar' nextId succ
       , reenqueue = \delay e -> do
           atomically $ modifyTVar' numThreads succ
-          void . async $ do
+          void . asyncLabelled "input-queue-reenqueue" $ do
             threadDelay delay
             atomically $ do
               modifyTVar' numThreads pred

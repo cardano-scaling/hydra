@@ -26,7 +26,7 @@ import Control.Concurrent.Class.MonadSTM (
   modifyTVar,
   readTVarIO,
  )
-import Control.Monad.Class.MonadAsync (async, cancel, link)
+import Control.Monad.Class.MonadAsync (cancel, link)
 import Data.List (nub, (\\))
 import Data.List qualified as List
 import Data.Map ((!))
@@ -649,8 +649,8 @@ seedWorld seedKeys seedCP futureCommits = do
     let party = deriveParty hsk
         otherParties = filter (/= party) parties
     (testClient, nodeThread) <- lift $ do
-      outputs <- newLabelledTQueueIO ("outputs-" <> shortLabel hsk)
-      messages <- newLabelledTQueueIO ("messages-" <> shortLabel hsk)
+      outputs <- newLabelledTQueueIO ("seed-world-outputs-" <> shortLabel hsk)
+      messages <- newLabelledTQueueIO ("seed-world-messages-" <> shortLabel hsk)
       outputHistory <- newLabelledTVarIO "seed-world-output-history" []
       node <-
         createHydraNode
@@ -666,7 +666,7 @@ seedWorld seedKeys seedCP futureCommits = do
           seedCP
           testDepositPeriod
       let testClient = createTestHydraClient outputs messages outputHistory node
-      nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode node
+      nodeThread <- asyncLabelled ("seed-world-node-" <> shortLabel hsk) $ runHydraNode node
       link nodeThread
       pure (testClient, nodeThread)
     pushThread nodeThread

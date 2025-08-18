@@ -14,7 +14,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (MonadAsync (async), cancel, forConcurrently)
+import Control.Monad.Class.MonadAsync (cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
@@ -1067,7 +1067,7 @@ simulatedChainAndNetwork initialChainState = do
   nodes <- newLabelledTVarIO "sim-chain-nodes" []
   nextTxId <- newLabelledTVarIO "sim-chain-next-txid" 10000
   localChainState <- newLocalChainState (initHistory initialChainState)
-  tickThread <- async $ simulateTicks nodes localChainState
+  tickThread <- asyncLabelled "sim-chain-tick" $ simulateTicks nodes localChainState
   pure $
     SimulatedChainNetwork
       { connectNode = \draftNode -> do
@@ -1077,7 +1077,7 @@ simulatedChainAndNetwork initialChainState = do
                   , postTx = \tx -> do
                       now <- getCurrentTime
                       -- Only observe "after one block"
-                      void . async $ do
+                      void . asyncLabelled "sim-chain-post-tx" $ do
                         threadDelay blockTime
                         createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
                   , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
