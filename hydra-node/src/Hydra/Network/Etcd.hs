@@ -44,10 +44,7 @@ import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
-  labelTVarIO,
   modifyTVar',
-  newTBQueueIO,
-  newTVarIO,
   peekTBQueue,
   readTBQueue,
   swapTVar,
@@ -579,7 +576,7 @@ newPersistentQueue path capacity = do
   paths <- liftIO $ do
     createDirectoryIfMissing True path
     sort . mapMaybe readMaybe <$> listDirectory path
-  queue <- newTBQueueIO $ max (fromIntegral $ length paths) capacity
+  queue <- newLabelledTBQueueIO "persistent-queue" $ max (fromIntegral $ length paths) capacity
   highestId <-
     try (loadExisting queue paths) >>= \case
       Left (_ :: IOException) -> do
@@ -587,8 +584,7 @@ newPersistentQueue path capacity = do
         liftIO $ createDirectoryIfMissing True path
         pure 0
       Right highest -> pure highest
-  nextIx <- newTVarIO $ highestId + 1
-  labelTVarIO nextIx "persistent-next-ix"
+  nextIx <- newLabelledTVarIO "persistent-next-ix" $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path}
  where
   loadExisting queue = \case
