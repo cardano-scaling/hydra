@@ -27,7 +27,6 @@ import Control.Concurrent.Class.MonadSTM (
   readTVarIO,
  )
 import Control.Monad.Class.MonadAsync (async, cancel, link)
-import Control.Monad.Class.MonadFork (labelThisThread)
 import Data.List (nub, (\\))
 import Data.List qualified as List
 import Data.Map ((!))
@@ -667,7 +666,7 @@ seedWorld seedKeys seedCP futureCommits = do
           seedCP
           testDepositPeriod
       let testClient = createTestHydraClient outputs messages outputHistory node
-      nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode node
+      nodeThread <- async $ labelMyThread ("node-" <> shortLabel hsk) >> runHydraNode node
       link nodeThread
       pure (testClient, nodeThread)
     pushThread nodeThread

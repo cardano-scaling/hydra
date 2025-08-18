@@ -17,7 +17,6 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Class.MonadAsync (async, link)
-import Control.Monad.Class.MonadFork (labelThisThread)
 import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
@@ -103,7 +102,7 @@ mockChainAndNetwork tr seedKeys commits = do
   nodes <- newLabelledTVarIO "nodes" []
   queue <- newLabelledTQueueIO "chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
-  tickThread <- async (labelThisThread "chain" >> simulateChain nodes chain queue)
+  tickThread <- async (labelMyThread "chain" >> simulateChain nodes chain queue)
   link tickThread
   pure
     SimulatedChainNetwork

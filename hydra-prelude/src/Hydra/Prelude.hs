@@ -73,7 +73,7 @@ import Control.Monad.Class.MonadAsync (
 import Control.Monad.Class.MonadEventlog (
   MonadEventlog,
  )
-import Control.Monad.Class.MonadFork (MonadFork, MonadThread, labelThread, myThreadId)
+import Control.Monad.Class.MonadFork (MonadFork, MonadThread, labelThread, myThreadId, labelThisThread)
 import Control.Monad.Class.MonadST (
   MonadST,
  )
@@ -350,7 +350,7 @@ newLabelledTBQueueIO = (atomically .) . newLabelledTBQueue
 -- * Helpers for labeling Threads
 
 labelMyThread :: MonadThread m => String -> m ()
-labelMyThread lbl = myThreadId >>= flip labelThread lbl
+labelMyThread = labelThisThread
 
 raceLabelled :: (MonadThread m, MonadAsync m) => (String, m a) -> (String, m b) -> m (Either a b)
 raceLabelled (lblA, mA) (lblB, mB) =
