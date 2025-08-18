@@ -21,7 +21,7 @@ main :: IO ()
 main = do
   Options{backend, startChainFrom, explorerBaseURI} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
-    traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
+    traceWith tracer KnownScripts{hydraScriptCatalogue = Contract.hydraScriptCatalogue}
     NodeClient{follow, networkId} <-
       case backend of
         Direct{networkId, nodeSocket} -> do

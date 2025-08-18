@@ -17,7 +17,7 @@ import Hydra.Cardano.Api (
   pattern ReferenceScript,
   pattern ReferenceScriptNone,
  )
-import Hydra.Contract (ScriptInfo (..), scriptInfo)
+import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry
@@ -67,11 +67,11 @@ newScriptRegistry =
       Nothing -> Left $ MissingScript name sh (Map.keysSet m)
       Just s -> Right s
 
-  ScriptInfo
+  HydraScriptCatalogue
     { initialScriptHash
     , commitScriptHash
     , headScriptHash
-    } = scriptInfo
+    } = hydraScriptCatalogue
 
 -- | Get the UTxO that corresponds to a script registry.
 --

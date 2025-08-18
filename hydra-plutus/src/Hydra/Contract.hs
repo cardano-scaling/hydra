@@ -16,7 +16,7 @@ import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValid
 import PlutusLedgerApi.V3 (TxId (..), TxOutRef (..), toBuiltin)
 
 -- | Information about relevant Hydra scripts.
-data ScriptInfo = ScriptInfo
+data HydraScriptCatalogue = HydraScriptCatalogue
   { mintingScriptHash :: ScriptHash
   -- ^ Hash of the μHead minting script given some default parameters.
   , mintingScriptSize :: Int
@@ -33,11 +33,11 @@ data ScriptInfo = ScriptInfo
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
--- | Gather 'ScriptInfo' from the current Hydra scripts. This is useful to
+-- | Gather 'HydraScriptCatalogue' from the current Hydra scripts. This is useful to
 -- determine changes in between version of 'hydra-plutus'.
-scriptInfo :: ScriptInfo
-scriptInfo =
-  ScriptInfo
+hydraScriptCatalogue :: HydraScriptCatalogue
+hydraScriptCatalogue =
+  HydraScriptCatalogue
     { mintingScriptHash = scriptHash $ HeadTokens.mintingPolicyScript defaultOutRef
     , mintingScriptSize = scriptSize $ HeadTokens.mintingPolicyScript defaultOutRef
     , initialScriptHash = scriptHash initialValidatorScript
