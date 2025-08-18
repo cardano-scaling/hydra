@@ -56,6 +56,7 @@ data DraftCommitTxRequest tx
   | FullCommitRequest
       { blueprintTx :: tx
       , utxo :: UTxOType tx
+      , amount :: Maybe Coin
       }
   deriving stock (Generic)
 
@@ -64,10 +65,11 @@ deriving stock instance (Show tx, Show (UTxOType tx)) => Show (DraftCommitTxRequ
 
 instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DraftCommitTxRequest tx) where
   toJSON = \case
-    FullCommitRequest{blueprintTx, utxo} ->
+    FullCommitRequest{blueprintTx, utxo, amount} ->
       object
         [ "blueprintTx" .= toJSON blueprintTx
         , "utxo" .= toJSON utxo
+        , "amount" .= toJSON amount
         ]
     SimpleCommitRequest{utxoToCommit, amount} ->
       object
@@ -81,7 +83,8 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
     fullVariant = withObject "FullCommitRequest" $ \o -> do
       blueprintTx :: tx <- o .: "blueprintTx"
       utxo <- o .: "utxo"
-      pure FullCommitRequest{blueprintTx, utxo}
+      amount <- o .:? "amount"
+      pure FullCommitRequest{blueprintTx, utxo, amount}
 
     simpleVariant = withObject "SimpleCommitRequest" $ \o -> do
       utxoToCommit <- o .: "utxoToCommit"
@@ -96,7 +99,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequ
 
   shrink = \case
     SimpleCommitRequest u amt -> SimpleCommitRequest <$> shrink u <*> shrink amt
-    FullCommitRequest a b -> FullCommitRequest <$> shrink a <*> shrink b
+    FullCommitRequest a b c -> FullCommitRequest <$> shrink a <*> shrink b <*> shrink c
 
 newtype SubmitTxRequest tx = SubmitTxRequest
   { txToSubmit :: tx
@@ -287,8 +290,8 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
               draftCommit headId utxoToCommit blueprintTx
         IncrementalCommit headId -> do
           case someCommitRequest of
-            FullCommitRequest{blueprintTx, utxo} -> do
-              deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo} Nothing
+            FullCommitRequest{blueprintTx, utxo, amount} -> do
+              deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo} amount
             SimpleCommitRequest{utxoToCommit, amount} ->
               deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit} amount
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))

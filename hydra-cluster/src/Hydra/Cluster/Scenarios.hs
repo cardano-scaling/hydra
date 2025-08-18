@@ -805,8 +805,9 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
-
-      (clientPayload, scriptUTxO) <- prepareScriptPayload 3_000_000
+      -- NOTE: We don't use amount in _regular_ commits - the ones before the
+      -- head is not yet opened - since we will remove this process soon.
+      (clientPayload, scriptUTxO) <- prepareScriptPayload 7_000_000 0
 
       res <-
         runReq defaultHttpConfig $
@@ -825,8 +826,12 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
         guard $ v ^? key "tag" == Just "HeadIsOpen"
         pure $ v ^? key "utxo"
       lockedUTxO `shouldBe` Just (toJSON scriptUTxO)
+
       -- incrementally commit script to a running Head
-      (clientPayload', scriptUTxO') <- prepareScriptPayload 2_000_000
+      let commitAmount = 2_000_000
+      (clientPayload', scriptUTxO') <- prepareScriptPayload 5_000_000 commitAmount
+
+      let toCommit = fst $ capUTxO scriptUTxO' (Coin commitAmount)
 
       res' <-
         runReq defaultHttpConfig $
@@ -843,13 +848,12 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
       Backend.submitTransaction backend tx
 
       waitFor hydraTracer (2 * realToFrac depositPeriod) [n1] $
-        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= scriptUTxO']
+        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= toCommit]
       waitFor hydraTracer (20 * blockTime) [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
-
-      getSnapshotUTxO n1 `shouldReturn` scriptUTxO <> scriptUTxO'
+      getSnapshotUTxO n1 `shouldReturn` scriptUTxO <> toCommit
  where
-  prepareScriptPayload lovelaceAmt = do
+  prepareScriptPayload lovelaceAmt commitAmount = do
     networkId <- Backend.queryNetworkId backend
     let scriptAddress = mkScriptAddress networkId dummyValidatorScript
     let datumHash :: TxOutDatum ctx
@@ -869,6 +873,7 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
       ( Aeson.object
           [ "blueprintTx" .= spendingTx
           , "utxo" .= scriptUTxO
+          , "amount" .= Coin commitAmount
           ]
       , scriptUTxO
       )

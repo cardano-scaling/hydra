@@ -46,6 +46,7 @@ import Hydra.HeadLogic (
   WaitReason (..),
   aggregateState,
   cause,
+  noop,
   update,
  )
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
@@ -63,7 +64,7 @@ import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Tx.Party (Party (..))
+import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
@@ -396,6 +397,22 @@ spec =
           `shouldSatisfy` \case
             Error (RequireFailed SnapshotAlreadySigned{receivedSignature}) -> receivedSignature == carol
             _ -> False
+
+      it "ignores valid AckSn if snapshot already confirmed" $ do
+        let reqSn :: Input tx
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
+            ackFrom sk = receiveMessageFrom (deriveParty sk) $ AckSn (sign sk snapshot1) 1
+
+        s0 <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
+          step reqSn
+          step (ackFrom carolSk)
+          step (ackFrom bobSk)
+          step (ackFrom aliceSk)
+          getState
+
+        update bobEnv ledger s0 (ackFrom carolSk)
+          `shouldBe` noop
 
       it "rejects snapshot request with transaction not applicable to previous snapshot" $ do
         let reqTx42 = receiveMessage $ ReqTx (SimpleTx 42 mempty (utxoRef 1))

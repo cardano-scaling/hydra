@@ -8,9 +8,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.23.0] - UNRELEASED
+## [0.22.4] - 2025-08-05
 
 - Accept additional field `amount` when depositing to specify the amount of Lovelace that should be depositted to a Head returning any leftover to the user.
+
+- Fix API not correctly handling event log rotation. This was evident in not
+  being able to use `/commit` although the head is initializing or outdated
+  information in the `Greetings` message.
+
+- Ignore snapshot signatures of already confirmed snapshots. This was previously
+  resulting in the node waiting for the accompanying snapshot request and
+  occurred when running heads with mirror nodes.
+
+- Fix an internal persistent queue blocking after restart when it reached
+  capacity.
+
+- Timeout and retry broadcast of network messages after 3 seconds in case the
+  `etcd` grpc server is not responsive. This should avoid build-up on the
+  outbound persistent queue.
+
+- Handle failing lease keep alive in network component and avoid bursts in
+  heartbeating.
+
+- Fix for blocking bug when broadcasting messages via etcd. See:
+  https://github.com/cardano-scaling/hydra/issues/2167. This is not a full fix
+  but is enough to resolve the problem until we can identify the central cause
+  of the issue.
+
+## [0.22.3] - 2025-07-21
+
+* Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
+  revision if `last-known-revision` is missing or too old. This can happen if a
+  node is down for a long time and the `etcd` cluster compacted the last known
+  revision in the meantime
+  [#2136](https://github.com/cardano-scaling/hydra/issues/2136).
 
 - Don't keep around invalid transactions as they could lead to stuck Head.
 
@@ -39,15 +70,15 @@ when the number of persisted `StateChanged` events exceeds the configured `--per
   preserving sequential order and making it easier to identify which rotated log file was used to compute it.
 
 
-## [0.22.2] - 2025.06.30
+## [0.22.2] - 2025-06-30
 
 * Fix wrong hydra-script-tx-ids in networks.json
 
-## [0.22.1] - 2025.06.27
+## [0.22.1] - 2025-06-27
 
 * Fix for bug where node got stalled at `ReplayingState` [#2089](https://github.com/cardano-scaling/hydra/issues/2089)
 
-## [0.22.0] - 2025.06.17
+## [0.22.0] - 2025-06-17
 
 - Tested with `cardano-node 10.1.4` and `cardano-cli 10.1.1.0`.
 
