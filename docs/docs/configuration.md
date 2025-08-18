@@ -94,7 +94,7 @@ Since we pre-publish hydra scrips before each release, instead of specifying hyd
 Check the scripts against which a hydra-node was compiled using:
 
 ```shell
-hydra-node --hydra-script-catalogue
+hydra-node --script-info
 ```
 
 For public [(test) networks](https://book.world.dev.cardano.org/environments.html), we publish Hydra scripts with each new release, listing transaction IDs in the [release notes](https://github.com/cardano-scaling/hydra/releases) and [`networks.json`](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/networks.json).
