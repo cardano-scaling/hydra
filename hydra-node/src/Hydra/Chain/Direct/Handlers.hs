@@ -82,7 +82,7 @@ import Hydra.Tx (
   headSeedToTxIn,
  )
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
-import Hydra.Tx.Deposit (DepositObservation (..), checkTokens, depositTx)
+import Hydra.Tx.Deposit (DepositObservation (..), splitTokens, depositTx)
 import Hydra.Tx.Observe (
   AbortObservation (..),
   CloseObservation (..),
@@ -194,7 +194,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             liftEither $ do
               checkAmount lookupUTxO amount
               rejectLowDeposits pparams lookupUTxO amount
-            let (validTokens, _invalidTokens) = checkTokens lookupUTxO (fromMaybe mempty tokens)
+            let (validTokens, _invalidTokens) = splitTokens lookupUTxO (fromMaybe mempty tokens)
             (currentSlot, currentTime) <- case currentPointInTime of
               Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
               Right (s, t) -> pure (s, t)

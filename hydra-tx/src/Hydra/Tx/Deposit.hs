@@ -16,7 +16,7 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
-import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId)
+import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId, withoutUTxO)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (POSIXTime)
 
@@ -35,7 +35,7 @@ depositTx ::
   Maybe Coin ->
   Map PolicyId PolicyAssets ->
   Tx
-depositTx networkId headId commitBlueprintTx upperSlot deadline amount _tokens =
+depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
   fromLedgerTx $
     toLedgerTx blueprintTx
       & addDepositInputs
@@ -52,20 +52,77 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount _tokens =
 
   CommitBlueprintTx{lookupUTxO = depositUTxO, blueprintTx} = commitBlueprintTx
 
-  (utxoToDeposit, leftoverUTxO) = maybe (depositUTxO, mempty) (capUTxO depositUTxO) amount
+  (utxoToDeposit', leftoverUTxO') = maybe (depositUTxO, mempty) (capUTxO depositUTxO) amount
 
+  utxoToDeposit = utxoToDeposit' <> tokensToDepositUTxO
+
+  tokensToDepositUTxO = undefined -- pickTokensToDeposit leftoverUTxO' tokens
   leftoverOutput =
-    if UTxO.null leftoverUTxO
-      then StrictSeq.empty
-      else
-        let leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
-         in StrictSeq.singleton $
-              toLedgerTxOut $
-                TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
+    let leftoverUTxO = (leftoverUTxO' `withoutUTxO` tokensToDepositUTxO)
+     in if UTxO.null leftoverUTxO
+          then StrictSeq.empty
+          else
+            let leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
+             in StrictSeq.singleton $
+                  toLedgerTxOut $
+                    TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
 
   depositInputsList = toList (UTxO.inputSet utxoToDeposit)
 
   depositInputs = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> depositInputsList
+
+pickTokensToDeposit :: UTxO -> Map PolicyId PolicyAssets -> UTxO
+pickTokensToDeposit leftoverUTxO depositTokens =
+  if null depositTokens
+    then mempty
+    else
+      let x = concatMap (go mempty) (UTxO.toList leftoverUTxO)
+       in combineTxOutAssets x
+ where
+  go :: [(TxIn, TxOut CtxUTxO)] -> (TxIn, TxOut CtxUTxO) -> [(TxIn, TxOut CtxUTxO)]
+  go defVal (i, o) = do
+    let outputAssets = valueToPolicyAssets $ txOutValue o
+        providedUTxOAssets = concatMap (\(pid, PolicyAssets a) -> (\(x, y) -> (pid, x, y)) <$> toList a) (Map.toList outputAssets)
+    (k, PolicyAssets v) <- Map.assocs depositTokens
+
+    if k `elem` Map.keys outputAssets
+      then do
+        (wantedAssetName, wantedAssetVal) <- Map.toList v
+        case find (\(pid, n, val) -> pid == k && wantedAssetName == n && wantedAssetVal <= val) providedUTxOAssets of
+          Nothing -> defVal
+          Just (pid', _an, _av) -> do
+            let newValue = fromList [(AssetId pid' wantedAssetName, wantedAssetVal)]
+            defVal <> [(i, mkTxOutValueKeepingLovelace o newValue)]
+      else defVal
+
+  combineTxOutAssets :: [(TxIn, TxOut CtxUTxO)] -> UTxO.UTxO
+  combineTxOutAssets =
+    foldl'
+      ( \finalUTxO (i, o) ->
+          case UTxO.findBy (existingTxId i) finalUTxO of
+            Nothing -> finalUTxO <> UTxO.singleton i o
+            Just (existingInput, existingOutput) ->
+              let val = valueToPolicyAssets $ txOutValue o
+               in UTxO.singleton existingInput (addTxOutValue existingOutput val)
+      )
+      mempty
+
+  existingTxId :: TxIn -> (TxIn, TxOut CtxUTxO) -> Bool
+  existingTxId txIn (a, _) = a == txIn
+
+  mkTxOutValueKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
+  mkTxOutValueKeepingLovelace (TxOut addr val datum refScript) newValue =
+    TxOut addr (lovelaceToValue (selectLovelace val) <> newValue) datum refScript
+
+  addTxOutValue :: TxOut ctx -> Map PolicyId PolicyAssets -> TxOut ctx
+  addTxOutValue (TxOut addr val datum refScript) newAssets =
+    TxOut addr (lovelaceToValue (selectLovelace val) <> assetsToVal (valueToPolicyAssets val) <> assetsToVal newAssets) datum refScript
+   where
+    assetsToVal :: Map PolicyId PolicyAssets -> Value
+    assetsToVal m = foldMap (uncurry policyAssetsToValue) $ toList m
+
+  bumpIndex :: TxIn -> TxIn
+  bumpIndex (TxIn i (TxIx n)) = TxIn i (TxIx $ n + 1)
 
 mkDepositOutput ::
   NetworkId ->
@@ -91,8 +148,8 @@ mkDepositOutput networkId headId depositUTxO deadline =
 depositAddress :: NetworkId -> AddressInEra
 depositAddress networkId = mkScriptAddress networkId depositValidatorScript
 
-checkTokens :: UTxO.UTxO -> Map PolicyId PolicyAssets -> (Map PolicyId PolicyAssets, Map PolicyId PolicyAssets)
-checkTokens userUTxO specifiedTokens
+splitTokens :: UTxO.UTxO -> Map PolicyId PolicyAssets -> (Map PolicyId PolicyAssets, Map PolicyId PolicyAssets)
+splitTokens userUTxO specifiedTokens
   | Map.null specifiedTokens = (mempty, mempty) -- Trivial case: no tokens specified
   | otherwise =
       let utxoValue = UTxO.totalValue userUTxO
@@ -172,8 +229,8 @@ capUTxO utxo target
                   -- Split the output to meet the target exactly.
                   let cappedValue = target - currentSum
                       leftoverVal = x - cappedValue
-                      cappedTxOut = updateTxOutValue txOut cappedValue
-                      leftoverTxOut = updateTxOutValue txOut leftoverVal
+                      cappedTxOut = updateTxOutAdaValue txOut cappedValue
+                      leftoverTxOut = updateTxOutAdaValue txOut leftoverVal
                    in go
                         (foundSoFar <> UTxO.singleton txIn cappedTxOut)
                         (UTxO.difference leftovers (UTxO.singleton txIn txOut) <> UTxO.singleton txIn leftoverTxOut)
@@ -181,8 +238,8 @@ capUTxO utxo target
                         rest
 
 -- | Helper to create a new TxOut with a specified lovelace value
-updateTxOutValue :: TxOut ctx -> Coin -> TxOut ctx
-updateTxOutValue (TxOut addr _ datum refScript) newValue =
+updateTxOutAdaValue :: TxOut ctx -> Coin -> TxOut ctx
+updateTxOutAdaValue (TxOut addr _ datum refScript) newValue =
   TxOut addr (fromLedgerValue $ mkAdaValue ShelleyBasedEraConway newValue) datum refScript
 
 -- * Observation
