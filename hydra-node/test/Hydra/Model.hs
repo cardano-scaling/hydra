@@ -666,7 +666,7 @@ seedWorld seedKeys seedCP futureCommits = do
           seedCP
           testDepositPeriod
       let testClient = createTestHydraClient outputs messages outputHistory node
-      nodeThread <- async $ labelMyThread ("node-" <> shortLabel hsk) >> runHydraNode node
+      nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode node
       link nodeThread
       pure (testClient, nodeThread)
     pushThread nodeThread

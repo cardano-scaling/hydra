@@ -102,7 +102,7 @@ mockChainAndNetwork tr seedKeys commits = do
   nodes <- newLabelledTVarIO "nodes" []
   queue <- newLabelledTQueueIO "chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
-  tickThread <- async (labelMyThread "chain" >> simulateChain nodes chain queue)
+  tickThread <- async (labelThisThread "chain" >> simulateChain nodes chain queue)
   link tickThread
   pure
     SimulatedChainNetwork
