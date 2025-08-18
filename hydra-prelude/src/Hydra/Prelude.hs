@@ -3,13 +3,20 @@
 
 module Hydra.Prelude (
   module Relude,
-  module Control.Monad.Class.MonadSTM,
+  MonadLabelledSTM,
+  MonadSTM,
+  STM,
+  atomically,
   module Control.Monad.Class.MonadTime.SI,
   module Control.Monad.Class.MonadST,
-  module Control.Monad.Class.MonadAsync,
+  MonadAsync,
+  Async,
   module Control.Monad.Class.MonadEventlog,
   module Control.Monad.Class.MonadTimer.SI,
-  module Control.Monad.Class.MonadFork,
+  Control.Monad.Class.MonadFork.MonadFork,
+  Control.Monad.Class.MonadFork.MonadThread,
+  Control.Monad.Class.MonadFork.myThreadId,
+  labelThisThread,
   module Control.Monad.Class.MonadThrow,
   module Control.Concurrent.Class.MonadSTM.TBQueue,
   module Control.Concurrent.Class.MonadSTM.TMVar,
@@ -41,13 +48,11 @@ module Hydra.Prelude (
   withFile,
   spy,
   spy',
-  MonadLabelledSTM,
   newLabelledTVar,
   newLabelledTVarIO,
   newLabelledEmptyTMVar,
   newLabelledTQueueIO,
   newLabelledEmptyTMVarIO,
-  labelMyThread,
   concurrentlyLabelled,
   concurrentlyLabelled_,
   raceLabelled,
@@ -70,20 +75,16 @@ import Control.Concurrent.Class.MonadSTM.TVar (TVar, readTVar)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (
   Async,
-  MonadAsync (concurrently, concurrently_, race, race_, withAsync),
+  MonadAsync (concurrently, race, withAsync),
  )
 import Control.Monad.Class.MonadEventlog (
   MonadEventlog,
  )
-import Control.Monad.Class.MonadFork (MonadFork, MonadThread, labelThread, myThreadId, labelThisThread)
+import Control.Monad.Class.MonadFork (MonadFork, MonadThread, labelThisThread, myThreadId)
 import Control.Monad.Class.MonadST (
   MonadST,
  )
-import Control.Monad.Class.MonadSTM (
-  MonadSTM,
-  STM,
-  atomically,
- )
+import Control.Monad.Class.MonadSTM ()
 import Control.Monad.Class.MonadThrow (
   MonadCatch (..),
   MonadEvaluate (..),
