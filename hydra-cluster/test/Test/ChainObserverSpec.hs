@@ -11,7 +11,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Lens ((^?))
 import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _JSON, _String)
@@ -114,7 +114,7 @@ chainObserverSees observer txType headId =
 
 awaitMatch :: HasCallStack => ChainObserverHandle -> DiffTime -> (Aeson.Value -> Maybe a) -> IO a
 awaitMatch chainObserverHandle delay f = do
-  seenMsgs <- newTVarIO []
+  seenMsgs <- newLabelledTVarIO "await-match-seen-msgs" []
   timeout delay (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do

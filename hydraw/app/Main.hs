@@ -70,9 +70,9 @@ websocketApp :: Host -> WS.PendingConnection -> IO ()
 websocketApp host pendingConnection = do
   frontend <- WS.acceptRequest pendingConnection
   withClient host $ \backend ->
-    race_
-      (forever $ WS.receive frontend >>= WS.send backend)
-      (forever $ WS.receive backend >>= WS.send frontend)
+    raceLabelled_
+      ("forever-receive-frontend-send-backend", forever $ WS.receive frontend >>= WS.send backend)
+      ("forever-receive-backend-send-frontend", forever $ WS.receive backend >>= WS.send frontend)
 
 httpApp :: NetworkId -> FilePath -> Host -> Application
 httpApp networkId key host req send =

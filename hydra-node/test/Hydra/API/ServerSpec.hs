@@ -9,8 +9,6 @@ import Conduit (yieldMany)
 import Control.Concurrent.Class.MonadSTM (
   check,
   modifyTVar',
-  newTQueue,
-  newTVarIO,
   readTQueue,
   readTVarIO,
   tryReadTQueue,
@@ -91,13 +89,14 @@ spec =
                 version `shouldBe` toJSON (showVersion NetworkVersions.hydraNodeVersion)
 
     it "sends server outputs to all connected clients" $ do
-      queue <- atomically newTQueue
+      queue <- newLabelledTQueueIO "queue"
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withFreePort $ \port -> do
           withTestAPIServer port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) -> do
-            semaphore <- newTVarIO 0
-            withAsync
-              ( concurrently_
+            semaphore <- newLabelledTVarIO "semaphore" 0
+            withAsyncLabelled
+              ( "concurrent-test-clients"
+              , concurrently_
                   (withClient port "/" $ testClient queue semaphore)
                   (withClient port "/" $ testClient queue semaphore)
               )
@@ -125,13 +124,14 @@ spec =
                   mkTimedServerOutputFromStateEvent stateEvent
         let eventSource = mockSource [stateEvent]
 
-        queue1 <- atomically newTQueue
-        queue2 <- atomically newTQueue
+        queue1 <- newLabelledTQueueIO "queue1"
+        queue2 <- newLabelledTQueueIO "queue2"
         withFreePort $ \port -> do
           withTestAPIServer port alice eventSource tracer $ \_ -> do
-            semaphore <- newTVarIO 0
-            withAsync
-              ( concurrently_
+            semaphore <- newLabelledTVarIO "semaphore" 0
+            withAsyncLabelled
+              ( "concurrent-test-clients"
+              , concurrently_
                   (withClient port "/?history=yes" $ testClient queue1 semaphore)
                   (withClient port "/?history=yes" $ testClient queue2 semaphore)
               )
@@ -433,7 +433,7 @@ waitForValue port f =
 -- | Wait up to some time for an API server output to match the given predicate.
 waitMatch :: HasCallStack => Natural -> Connection -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay con match = do
-  seenMsgs <- newTVarIO []
+  seenMsgs <- newLabelledTVarIO "wait-match-seen-msgs" []
   timeout (fromIntegral delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do

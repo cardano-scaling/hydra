@@ -81,7 +81,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Control.Concurrent.Class.MonadSTM (newTVarIO)
 import Control.Monad.Class.MonadTimer ()
 import Control.Monad.IOSim (Failure (FailureException), IOSim, SimTrace, runSimTrace, traceResult)
 import Data.Map ((!))
@@ -368,7 +367,8 @@ runRunMonadIOSimGen f = do
     IOSim s a
   sim eval = do
     v <-
-      newTVarIO
+      newLabelledTVarIO
+        "sim-nodes"
         Nodes
           { nodes = mempty
           , logger = traceInIOSim

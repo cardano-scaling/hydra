@@ -12,9 +12,6 @@ import Hydra.Prelude
 
 import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.Class.MonadSTM (
-  MonadLabelledSTM,
-  labelTVarIO,
-  newTVarIO,
   stateTVar,
   writeTVar,
  )
@@ -422,10 +419,8 @@ createNodeState ::
   HeadState tx ->
   m (NodeState tx m)
 createNodeState lastSeenEventId initialState = do
-  nextEventIdV <- newTVarIO $ maybe 0 (+ 1) lastSeenEventId
-  labelTVarIO nextEventIdV "next-event-id"
-  hs <- newTVarIO initialState
-  labelTVarIO hs "head-state"
+  nextEventIdV <- newLabelledTVarIO "next-event-id" $ maybe 0 (+ 1) lastSeenEventId
+  hs <- newLabelledTVarIO "head-state" initialState
   pure
     NodeState
       { modifyHeadState = stateTVar hs

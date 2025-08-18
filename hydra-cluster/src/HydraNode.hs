@@ -7,7 +7,7 @@ import Hydra.Prelude hiding (STM, delete)
 
 import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
 import Control.Lens ((?~))
 import Control.Monad.Class.MonadAsync (forConcurrently)
@@ -105,7 +105,7 @@ waitNoMatch delay client match = do
 -- | Wait up to some time for an API server output to match the given predicate.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
-  seenMsgs <- newTVarIO []
+  seenMsgs <- newLabelledTVarIO "wait-match-seen-msgs" []
   timeout (realToFrac delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
@@ -453,9 +453,9 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
 
     withProcessTerm cmd $ \p -> do
       -- NOTE: exit code thread gets cancelled if 'action' terminates first
-      race
-        (collectAndCheckExitCode p)
-        (withConnectionToNode tracer hydraNodeId action)
+      raceLabelled
+        ("collect-check-process-exit-code", collectAndCheckExitCode p)
+        ("with-connection-to-node", withConnectionToNode tracer hydraNodeId action)
         <&> either absurd id
  where
   collectAndCheckExitCode p = do

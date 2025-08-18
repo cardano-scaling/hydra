@@ -9,7 +9,6 @@ import Test.Hydra.Prelude
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (
-  newTQueue,
   readTQueue,
   writeTQueue,
  )
@@ -200,9 +199,9 @@ spec = do
               withEtcdNetwork @Int tracer v2 bobConfig recordBob $ \_ -> do
                 -- Both will try to write to the cluster at the same time
                 -- Hence, either one or the other will see the mismatch
-                race_
-                  (aliceSees VersionMismatch{ourVersion = v1, theirVersion = Just v2})
-                  (bobSees VersionMismatch{ourVersion = v2, theirVersion = Just v1})
+                raceLabelled_
+                  ("alice-sees", aliceSees VersionMismatch{ourVersion = v1, theirVersion = Just v2})
+                  ("bob-sees", bobSees VersionMismatch{ourVersion = v2, theirVersion = Just v1})
 
       it "resends messages" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
@@ -293,9 +292,9 @@ spec = do
             let bobConfig' = bobConfig{peers = []}
             withEtcdNetwork @Int tracer v1 aliceConfig recordAlice $ \_ ->
               withEtcdNetwork @Int tracer v2 bobConfig' recordBob $ \_ ->
-                race_
-                  (bobSees $ \case ClusterIDMismatch{} -> Just (); _ -> Nothing)
-                  (aliceSees $ \case ClusterIDMismatch{} -> Just (); _ -> Nothing)
+                raceLabelled_
+                  ("bob-sees", bobSees $ \case ClusterIDMismatch{} -> Just (); _ -> Nothing)
+                  ("alice-sees", aliceSees $ \case ClusterIDMismatch{} -> Just (); _ -> Nothing)
 
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
@@ -396,10 +395,10 @@ prop_canRoundtripCBOREncoding a =
   let encoded = toLazyByteString $ toCBOR a
    in (snd <$> deserialiseFromBytes fromCBOR encoded) === Right a
 
-newRecordingCallback :: MonadSTM m => m (NetworkCallback msg m, m msg, m Connectivity)
+newRecordingCallback :: MonadLabelledSTM m => m (NetworkCallback msg m, m msg, m Connectivity)
 newRecordingCallback = do
-  received <- atomically newTQueue
-  connectivity <- atomically newTQueue
+  received <- newLabelledTQueueIO "received"
+  connectivity <- newLabelledTQueueIO "connectivity"
   pure
     ( NetworkCallback
         { deliver = atomically . writeTQueue received

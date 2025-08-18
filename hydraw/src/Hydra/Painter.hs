@@ -37,7 +37,7 @@ paintPixel networkId signingKeyPath host cnx pixel = do
     Nothing -> fail "Head UTxO is empty"
  where
   flushQueue =
-    race_ (threadDelay 0.25) (void (receive cnx) >> flushQueue)
+    raceLabelled_ ("thread-delay", threadDelay 0.25) ("flush-queue", void (receive cnx) >> flushQueue)
 
 requestHeadUTxO :: Host -> IO (Maybe UTxO)
 requestHeadUTxO host = do

@@ -11,7 +11,6 @@ import Blockfrost.Client (
 import Blockfrost.Client qualified as Blockfrost
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
-  newTVarIO,
   writeTVar,
  )
 import Control.Retry (RetryPolicyM, RetryStatus, constantDelay, retrying)
@@ -96,7 +95,7 @@ blockfrostClient tracer projectPath blockConfirmations = do
 
           let blockHash = fromChainPoint chainPoint genesisBlockHash
 
-          stateTVar <- newTVarIO (blockHash, mempty)
+          stateTVar <- newLabelledTVarIO "blockfrost-client-state" (blockHash, mempty)
           void $
             retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
               loop tracer prj networkId blockTime observerHandler blockConfirmations stateTVar

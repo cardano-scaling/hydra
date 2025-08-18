@@ -1896,9 +1896,9 @@ threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
         -- N1 & N3 commit the same thing at the same time
         -- XXX: one will fail but the head will still open
         aliceUTxO <- seedFromFaucet backend aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
-        race_
-          (requestCommitTx n1 aliceUTxO >>= Backend.submitTransaction backend)
-          (requestCommitTx n3 aliceUTxO >>= Backend.submitTransaction backend)
+        raceLabelled_
+          ("request-commit-tx-n1", requestCommitTx n1 aliceUTxO >>= Backend.submitTransaction backend)
+          ("request-commit-tx-n3", requestCommitTx n3 aliceUTxO >>= Backend.submitTransaction backend)
 
         -- N2 commits something
         bobUTxO <- seedFromFaucet backend bobCardanoVk 1_000_000 (contramap FromFaucet tracer)

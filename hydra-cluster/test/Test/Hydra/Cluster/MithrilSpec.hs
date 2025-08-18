@@ -3,7 +3,7 @@ module Test.Hydra.Cluster.MithrilSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (readTVarIO)
 import Control.Lens ((^?))
 import Data.Aeson.Lens (key)
 import Hydra.Cluster.Fixture (KnownNetwork (..))
@@ -24,9 +24,9 @@ spec = parallel $ do
       withTempDir ("mithril-download-" <> show network) $ \tmpDir -> do
         let dbPath = tmpDir </> "db"
         doesDirectoryExist dbPath `shouldReturn` False
-        race_
-          (downloadLatestSnapshotTo tracer network tmpDir)
-          (waitForDownload getTraces)
+        raceLabelled_
+          ("download-latest-snapshot-to", downloadLatestSnapshotTo tracer network tmpDir)
+          ("wait-for-download", waitForDownload getTraces)
 
 -- | Wait for the 'StdErr' message to indicate it starts downloading.
 waitForDownload :: HasCallStack => IO [Envelope MithrilLog] -> IO ()
@@ -45,6 +45,6 @@ waitForDownload getTraces = do
 -- traces captured.
 captureTracer :: Text -> IO (Tracer IO a, IO [Envelope a])
 captureTracer namespace = do
-  traces <- newTVarIO []
+  traces <- newLabelledTVarIO "capture-tracer" []
   let tracer = traceInTVar traces namespace
   pure (tracer, readTVarIO traces)

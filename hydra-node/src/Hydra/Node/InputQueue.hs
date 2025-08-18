@@ -4,13 +4,8 @@ module Hydra.Node.InputQueue where
 import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
-  MonadLabelledSTM,
   isEmptyTQueue,
-  labelTQueueIO,
-  labelTVarIO,
   modifyTVar',
-  newTQueue,
-  newTVarIO,
   readTQueue,
   writeTQueue,
  )
@@ -36,11 +31,9 @@ createInputQueue ::
   ) =>
   m (InputQueue m e)
 createInputQueue = do
-  numThreads <- newTVarIO (0 :: Integer)
-  nextId <- newTVarIO 0
-  labelTVarIO numThreads "num-threads"
-  q <- atomically newTQueue
-  labelTQueueIO q "input-queue"
+  numThreads <- newLabelledTVarIO "num-threads" (0 :: Integer)
+  nextId <- newLabelledTVarIO "nex-id" 0
+  q <- newLabelledTQueueIO "input-queue"
   pure
     InputQueue
       { enqueue = \queuedItem ->

@@ -17,7 +17,7 @@ module Hydra.API.Projection where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, modifyTVar')
+import Control.Concurrent.Class.MonadSTM (modifyTVar')
 
 -- | 'Projection' type used to alter/project the API output to suit the client needs.
 data Projection stm event model = Projection

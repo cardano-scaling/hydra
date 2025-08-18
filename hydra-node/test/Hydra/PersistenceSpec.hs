@@ -65,9 +65,9 @@ spec = do
             p <- createPersistenceIncremental $ tmpDir <> "/data"
             forM_ items $ append p
             loadAll p `shouldReturn` items
-            race_
-              (forever $ threadDelay 0.01 >> loadAll p)
-              (forM_ moreItems $ \item -> append p item >> threadDelay 0.01)
+            raceLabelled_
+              ("forever-load-all", forever $ threadDelay 0.01 >> loadAll p)
+              ("append-more-items", forM_ moreItems $ \item -> append p item >> threadDelay 0.01)
 
 genPersistenceItem :: Gen Aeson.Value
 genPersistenceItem =

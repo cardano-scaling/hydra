@@ -5,7 +5,7 @@ module Test.Util where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe)
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Monad.Class.MonadSay (say)
 import Control.Monad.IOSim (
   Failure (FailureException),
@@ -155,7 +155,7 @@ waitEq waitNext delay expected =
 -- | Wait up to some time for a function to return a value that satisfies given predicate.
 waitMatch :: (HasCallStack, Show a) => IO a -> NominalDiffTime -> (a -> Maybe b) -> IO b
 waitMatch waitNext delay match = do
-  seenMsgs <- newTVarIO []
+  seenMsgs <- newLabelledTVarIO "wait-match-seen-msgs" []
   timeout (realToFrac delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do

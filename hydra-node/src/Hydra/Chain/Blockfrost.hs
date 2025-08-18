@@ -2,7 +2,7 @@ module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
+import Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
 import Control.Retry (RetryPolicyM, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16

@@ -4,7 +4,7 @@ module Hydra.Chain.Direct.HandlersSpec where
 
 import Hydra.Prelude hiding (label)
 
-import Control.Concurrent.Class.MonadSTM (MonadSTM (..), newTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
@@ -208,7 +208,7 @@ spec = do
       timeHandle <- pickBlind arbitrary
 
       -- Stub for recording Rollback events
-      rolledBackTo <- run newEmptyTMVarIO
+      rolledBackTo <- run $ newLabelledEmptyTMVarIO "rolled-back-to"
       let callback = \case
             Rollback{rolledBackChainState} ->
               atomically $ putTMVar rolledBackTo (initHistory rolledBackChainState)
@@ -278,7 +278,7 @@ spec = do
 -- | Create a chain sync handler which records events as they are called back.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx cs getTimeHandle = do
-  eventsVar <- newTVarIO []
+  eventsVar <- newLabelledTVarIO "events-recorded" []
   localChainState <- newLocalChainState (initHistory cs)
   let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState
   pure (handler, getEvents eventsVar)

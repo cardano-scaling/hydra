@@ -43,7 +43,6 @@ import Hydra.Prelude
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
-  MonadLabelledSTM,
   modifyTVar',
   peekTBQueue,
   readTBQueue,
