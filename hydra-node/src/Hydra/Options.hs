@@ -881,7 +881,7 @@ hydraNodeCommand =
   info
     ( commandParser
         <**> versionInfo
-        <**> scriptInfo
+        <**> hydraScriptCatalogue
         <**> helper
     )
     ( fullDesc
@@ -895,10 +895,10 @@ hydraNodeCommand =
       (showVersion hydraNodeVersion)
       (long "version" <> help "Show version")
 
-  scriptInfo :: Parser (a -> a)
-  scriptInfo =
+  hydraScriptCatalogue :: Parser (a -> a)
+  hydraScriptCatalogue =
     infoOption
-      (decodeUtf8 $ encodePretty Contract.scriptInfo)
+      (decodeUtf8 $ encodePretty Contract.hydraScriptCatalogue)
       (long "script-info" <> help "Dump script info as JSON")
 
 defaultContestationPeriod :: ContestationPeriod

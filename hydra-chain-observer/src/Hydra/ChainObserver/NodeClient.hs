@@ -13,7 +13,7 @@ import Hydra.Cardano.Api (
   UTxO,
  )
 import Hydra.Cardano.Api.Prelude (TxId)
-import Hydra.Contract (ScriptInfo)
+import Hydra.Contract (HydraScriptCatalogue)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Tx.HeadId (HeadId (..))
 import Hydra.Tx.Observe (
@@ -54,7 +54,7 @@ data NodeClient m = NodeClient
 
 type ChainObserverLog :: Type
 data ChainObserverLog
-  = KnownScripts {scriptInfo :: ScriptInfo}
+  = KnownScripts {hydraScriptCatalogue :: HydraScriptCatalogue}
   | ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
   | ConnectingToExternalNode {networkId :: NetworkId}
   | StartObservingFrom {chainPoint :: ChainPoint}

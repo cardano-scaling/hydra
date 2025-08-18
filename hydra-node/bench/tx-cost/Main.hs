@@ -3,7 +3,7 @@ import Hydra.Prelude hiding (catch)
 import Data.ByteString (hPut)
 import Data.Fixed (Centi)
 import Hydra.Cardano.Api (Coin (..), serialiseToRawBytesHexText)
-import Hydra.Contract (ScriptInfo (..), scriptInfo)
+import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
 import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import Hydra.Plutus.Orphans ()
 import Options.Applicative (
@@ -165,7 +165,7 @@ scriptSizes =
   , ""
   ]
  where
-  ScriptInfo
+  HydraScriptCatalogue
     { mintingScriptHash
     , mintingScriptSize
     , initialScriptHash
@@ -176,7 +176,7 @@ scriptSizes =
     , headScriptSize
     , depositScriptHash
     , depositScriptSize
-    } = scriptInfo
+    } = hydraScriptCatalogue
 
 genFromSeed :: Gen a -> Int -> a
 genFromSeed (MkGen g) seed = g (mkQCGen seed) 30
