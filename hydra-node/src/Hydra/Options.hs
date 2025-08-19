@@ -899,7 +899,7 @@ hydraNodeCommand =
   hydraScriptCatalogue =
     infoOption
       (decodeUtf8 $ encodePretty Contract.hydraScriptCatalogue)
-      (long "script-info" <> help "Dump script info as JSON")
+      (long "hydra-script-catalogue" <> help "Dump Hydra script catalogue as JSON")
 
 defaultContestationPeriod :: ContestationPeriod
 defaultContestationPeriod = 600
