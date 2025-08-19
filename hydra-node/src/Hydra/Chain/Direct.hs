@@ -10,8 +10,6 @@ module Hydra.Chain.Direct (
 import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
-  newEmptyTMVar,
-  newTQueueIO,
   putTMVar,
   readTQueue,
   takeTMVar,
@@ -142,7 +140,7 @@ withDirectChain ::
 withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
-  queue <- newTQueueIO
+  queue <- newLabelledTQueueIO "direct-chain-queue"
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip backend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
@@ -162,13 +160,14 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
 
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
-    race
-      ( handle onIOException $
+    raceLabelled
+      ( "direct-chain-connection"
+      , handle onIOException $ do
           connectToLocalNode
             (connectInfo networkId nodeSocket)
             (clientProtocols chainPoint queue handler)
       )
-      (action chainHandle)
+      ("direct-chain-chain-handle", action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
@@ -197,7 +196,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
   submitTx queue tx = do
     response <- atomically $ do
-      response <- newEmptyTMVar
+      response <- newLabelledEmptyTMVar "direct-chain-submit-tx-response"
       writeTQueue queue (tx, response)
       return response
     atomically (takeTMVar response)

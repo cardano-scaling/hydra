@@ -2,7 +2,7 @@ module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (newEmptyTMVar, newTQueueIO, newTVarIO, putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
+import Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
 import Control.Retry (RetryPolicyM, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
@@ -123,7 +123,7 @@ withBlockfrostChain ::
 withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
-  queue <- newTQueueIO
+  queue <- newLabelledTQueueIO "blockfrost-chain-queue"
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip backend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
@@ -143,12 +143,13 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
 
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
-    race
-      ( handle onIOException $ do
+    raceLabelled
+      ( "blockfrost-chain-connection"
+      , handle onIOException $ do
           prj <- Blockfrost.projectFromFile projectPath
           blockfrostChain tracer queue prj chainPoint handler wallet
       )
-      (action chainHandle)
+      ("blockfrost-chain-handle", action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
@@ -159,7 +160,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
   submitTx queue tx = do
     response <- atomically $ do
-      response <- newEmptyTMVar
+      response <- newLabelledEmptyTMVar "blockfrost-chain-submit-tx-response"
       writeTQueue queue (tx, response)
       return response
     atomically (takeTMVar response)
@@ -180,7 +181,7 @@ newtype BlockfrostConnectException = BlockfrostConnectException
 instance Exception BlockfrostConnectException
 
 blockfrostChain ::
-  (MonadIO m, MonadCatch m, MonadAsync m, MonadDelay m) =>
+  (MonadIO m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m CardanoChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   Blockfrost.Project ->
@@ -190,13 +191,13 @@ blockfrostChain ::
   m ()
 blockfrostChain tracer queue prj chainPoint handler wallet = do
   forever $
-    race_
-      (blockfrostChainFollow tracer prj chainPoint handler wallet)
-      (blockfrostSubmissionClient prj tracer queue)
+    raceLabelled_
+      ("blockfrost-chain-follow", blockfrostChainFollow tracer prj chainPoint handler wallet)
+      ("blockfrost-submission", blockfrostSubmissionClient prj tracer queue)
 
 blockfrostChainFollow ::
   forall m.
-  (MonadIO m, MonadCatch m, MonadSTM m, MonadDelay m) =>
+  (MonadIO m, MonadCatch m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m CardanoChainLog ->
   Blockfrost.Project ->
   ChainPoint ->
@@ -213,7 +214,7 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
 
   let blockHash = fromChainPoint chainPoint genesisBlockHash
 
-  stateTVar <- newTVarIO blockHash
+  stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
 
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do

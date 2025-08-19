@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
-import Control.Concurrent.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
+import Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
 import Data.ByteString qualified as BS
 import Graphics.Vty (
   DisplayContext (..),
@@ -176,8 +176,9 @@ setupNodeAndTUI' hostname lovelace action =
           seedFromFaucet_ backend aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
-            race_
-              ( runWithVty
+            raceLabelled_
+              ( "run-vty"
+              , runWithVty
                   buildVty
                   Options
                     { hydraNodeHost =
@@ -192,7 +193,7 @@ setupNodeAndTUI' hostname lovelace action =
                     , cardanoSigningKey = externalKeyFilePath
                     }
               )
-              $ action brickTest
+              ("action-brick-test", action brickTest)
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI = setupNodeAndTUI' "127.0.0.1" 100_000_000
@@ -217,7 +218,7 @@ data TUITest = TUITest
 withTUITest :: DisplayRegion -> (TUITest -> Expectation) -> Expectation
 withTUITest region action = do
   frameBuffer <- newIORef mempty
-  q <- newTQueueIO
+  q <- newLabelledTQueueIO "tui-queue"
   let getPicture = readIORef frameBuffer
   action $
     TUITest

@@ -6,18 +6,15 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
 import Control.Concurrent.Class.MonadSTM (
-  MonadLabelledSTM,
   modifyTVar,
   modifyTVar',
-  newTQueue,
-  newTVarIO,
   readTQueue,
   readTVarIO,
   stateTVar,
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently)
+import Control.Monad.Class.MonadAsync (cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
@@ -957,7 +954,7 @@ spec = parallel $ do
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
 waitUntil ::
-  (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m, IsChainState tx) =>
+  (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m, IsChainState tx) =>
   [TestHydraClient tx m] ->
   ServerOutput tx ->
   m ()
@@ -971,12 +968,12 @@ waitUntil nodes expected =
 -- since we are having the protocol produce 'Tick' events constantly this would
 -- be fully simulated to the end.
 waitUntilMatch ::
-  (Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m, Eq a, Show a, IsChainState tx) =>
+  (Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m, Eq a, Show a, IsChainState tx) =>
   [TestHydraClient tx m] ->
   (ServerOutput tx -> Maybe a) ->
   m a
 waitUntilMatch nodes predicate = do
-  seenMsgs <- newTVarIO []
+  seenMsgs <- newLabelledTVarIO "wait-until-seen-msgs" []
   timeout oneMonth (forConcurrently (zip [Node 1 ..] nodes) $ go seenMsgs) >>= \case
     Just [] -> failure "waitUntilMatch no results"
     Just (x : xs)
@@ -993,7 +990,7 @@ waitUntilMatch nodes predicate = do
  where
   go seenOutputs (nid, n) = do
     out <-
-      race (waitForNextMessage n) (waitForNext n) >>= \case
+      raceLabelled ("wait-for-next-msg", waitForNextMessage n) ("wait-for-next", waitForNext n) >>= \case
         Left msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg
         Right out -> pure out
     atomically (modifyTVar' seenOutputs ((nid, out) :))
@@ -1048,7 +1045,7 @@ dummySimulatedChainNetwork =
 -- initial chain state to play back to our test nodes.
 -- NOTE: The simulated network has a block time of 20 (simulated) seconds.
 withSimulatedChainAndNetwork ::
-  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m) =>
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
   (SimulatedChainNetwork SimpleTx m -> m a) ->
   m a
 withSimulatedChainAndNetwork =
@@ -1062,15 +1059,15 @@ withSimulatedChainAndNetwork =
 -- possible.
 simulatedChainAndNetwork ::
   forall m.
-  (MonadTime m, MonadDelay m, MonadAsync m) =>
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
   ChainStateType SimpleTx ->
   m (SimulatedChainNetwork SimpleTx m)
 simulatedChainAndNetwork initialChainState = do
-  history <- newTVarIO []
-  nodes <- newTVarIO []
-  nextTxId <- newTVarIO 10000
+  history <- newLabelledTVarIO "sim-chain-history" []
+  nodes <- newLabelledTVarIO "sim-chain-nodes" []
+  nextTxId <- newLabelledTVarIO "sim-chain-next-txid" 10000
   localChainState <- newLocalChainState (initHistory initialChainState)
-  tickThread <- async $ simulateTicks nodes localChainState
+  tickThread <- asyncLabelled "sim-chain-tick" $ simulateTicks nodes localChainState
   pure $
     SimulatedChainNetwork
       { connectNode = \draftNode -> do
@@ -1080,7 +1077,7 @@ simulatedChainAndNetwork initialChainState = do
                   , postTx = \tx -> do
                       now <- getCurrentTime
                       -- Only observe "after one block"
-                      void . async $ do
+                      void . asyncLabelled "sim-chain-post-tx" $ do
                         threadDelay blockTime
                         createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
                   , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
@@ -1264,9 +1261,9 @@ withHydraNode' ::
   (TestHydraClient SimpleTx (IOSim s) -> IOSim s b) ->
   IOSim s b
 withHydraNode' dp signingKey otherParties chain action = do
-  outputs <- atomically newTQueue
-  messages <- atomically newTQueue
-  outputHistory <- newTVarIO mempty
+  outputs <- newLabelledTQueueIO "hydra-node-outputs"
+  messages <- newLabelledTQueueIO "hydra-node-messages"
+  outputHistory <- newLabelledTVarIO "hydra-node-output-history" mempty
   let initialChainState = SimpleChainState{slot = ChainSlot 0}
   node <-
     createHydraNode
@@ -1281,7 +1278,7 @@ withHydraNode' dp signingKey otherParties chain action = do
       chain
       defaultContestationPeriod
       dp
-  withAsync (runHydraNode node) $ \_ ->
+  withAsyncLabelled ("run-hydra-node", runHydraNode node) $ \_ ->
     action (createTestHydraClient outputs messages outputHistory node)
 
 createTestHydraClient ::

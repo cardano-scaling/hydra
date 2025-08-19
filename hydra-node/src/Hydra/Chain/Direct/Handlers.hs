@@ -12,7 +12,7 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams)
 import Cardano.Slotting.Slot (SlotNo (..))
-import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.List qualified as List
 import Hydra.Cardano.Api (
@@ -110,11 +110,11 @@ data LocalChainState m tx = LocalChainState
 -- | Initialize a new local chain state from a given chain state history.
 newLocalChainState ::
   forall m tx.
-  (MonadSTM m, IsChainState tx) =>
+  (IsChainState tx, MonadLabelledSTM m) =>
   ChainStateHistory tx ->
   m (LocalChainState m tx)
 newLocalChainState chainState = do
-  tv <- newTVarIO chainState
+  tv <- newLabelledTVarIO "local-chain-state" chainState
   pure
     LocalChainState
       { getLatest = getLatest tv

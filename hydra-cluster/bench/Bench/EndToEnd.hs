@@ -12,8 +12,6 @@ import Control.Concurrent.Class.MonadSTM (
   check,
   lengthTBQueue,
   modifyTVar,
-  newTBQueueIO,
-  newTVarIO,
   tryReadTBQueue,
   writeTBQueue,
   writeTVar,
@@ -83,7 +81,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
         putTextLn "Starting benchmark"
         let cardanoKeys = hydraNodeKeys dataset <&> \sk -> (getVerificationKey sk, sk)
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
-        statsTvar <- newTVarIO mempty
+        statsTvar <- newLabelledTVarIO "bench-stats" mempty
         scenarioData <- withOSStats workDir statsTvar $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \_ backend -> do
             let nodeSocket' = case Backend.getOptions backend of
@@ -261,13 +259,14 @@ withOSStats workDir tvar action =
     Nothing -> action
     Just _ ->
       withCreateProcess process{std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
-        race
-          ( do
+        raceLabelled
+          ( "os-stats-collect"
+          , do
               -- Write the header
               atomically $ writeTVar tvar [" | Time | Used | Free | ", "|------------------------------------|------|------|"]
               collectStats tvar out
           )
-          action
+          ("os-stats-action", action)
           >>= \case
             Left _ -> failure "dool process failed unexpectedly"
             Right a -> pure a
@@ -384,12 +383,15 @@ processTransactions clients clientDatasets = do
 
   clientProcessDataset (ClientDataset{txSequence}, client) clientId = do
     let numberOfTxs = length txSequence
-    submissionQ <- newTBQueueIO (fromIntegral numberOfTxs)
+    submissionQ <- newLabelledTBQueueIO "submission" (fromIntegral numberOfTxs)
     registry <- newRegistry
     atomically $ forM_ txSequence $ writeTBQueue submissionQ
-    ( submitTxs client registry submissionQ
-        `concurrently_` waitForAllConfirmations client registry (Set.fromList $ map txId txSequence)
-        `concurrently_` progressReport (hydraNodeId client) clientId numberOfTxs submissionQ
+    concurrentlyLabelled_
+      ("submit-txs", submitTxs client registry submissionQ)
+      ( "confirm-txs"
+      , concurrentlyLabelled_
+          ("wait-for-all-confirmations", waitForAllConfirmations client registry (Set.fromList $ map txId txSequence))
+          ("progress-report", progressReport (hydraNodeId client) clientId numberOfTxs submissionQ)
       )
       `catch` \(HUnitFailure sourceLocation reason) ->
         putStrLn ("Something went wrong while waiting for all confirmations: " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason)
@@ -443,8 +445,8 @@ data Registry tx = Registry
 newRegistry ::
   IO (Registry Tx)
 newRegistry = do
-  processedTxs <- newTVarIO mempty
-  latestSnapshot <- newTVarIO 0
+  processedTxs <- newLabelledTVarIO "registry-processed-txs" mempty
+  latestSnapshot <- newLabelledTVarIO "registry-latest-snapshot" 0
   pure $ Registry{processedTxs, latestSnapshot}
 
 submitTxs ::

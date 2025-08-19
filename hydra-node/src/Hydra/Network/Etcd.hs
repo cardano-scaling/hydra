@@ -44,8 +44,6 @@ import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar',
-  newTBQueueIO,
-  newTVarIO,
   peekTBQueue,
   readTBQueue,
   swapTVar,
@@ -135,21 +133,42 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- bailing out on loading.
   envVars <- Map.fromList <$> getEnvironment
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
-    race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
-      race_ (traceStderr p callback) $ do
-        -- NOTE: The connection to the server is set up asynchronously; the
-        -- first rpc call will block until the connection has been established.
-        withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
-          -- REVIEW: checkVersion blocks if used on main thread - why?
-          withAsync (checkVersion tracer conn protocolVersion callback) $ \_ -> do
-            race_ (pollConnectivity tracer conn advertise callback) $
-              race_ (waitMessages tracer conn persistenceDir callback) $ do
-                queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-                race_ (broadcastMessages tracer config advertise queue) $ do
-                  action
-                    Network
-                      { broadcast = writePersistentQueue queue
-                      }
+    raceLabelled_
+      ( "etcd-waitExitCode"
+      , do
+          waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec
+      )
+      ( "etcd-callback-1"
+      , raceLabelled_
+          ("etcd-traceStderr", traceStderr p callback)
+          ( "etcd-callback-2"
+          , do
+              -- NOTE: The connection to the server is set up asynchronously; the
+              -- first rpc call will block until the connection has been established.
+              withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
+                -- REVIEW: checkVersion blocks if used on main thread - why?
+                withAsyncLabelled ("etcd-checkVersion", checkVersion tracer conn protocolVersion callback) $ \_ -> do
+                  raceLabelled_
+                    ("etcd-pollConnectivity", pollConnectivity tracer conn advertise callback)
+                    ( "etcd-callback-3"
+                    , raceLabelled_
+                        ("etcd-waitMessages", waitMessages tracer conn persistenceDir callback)
+                        ( "etcd-callback-4"
+                        , do
+                            queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+                            raceLabelled_
+                              ("etcd-broadcastMessages", broadcastMessages tracer config advertise queue)
+                              ( "etcd-network-component-action"
+                              , do
+                                  action
+                                    Network
+                                      { broadcast = writePersistentQueue queue
+                                      }
+                              )
+                        )
+                    )
+          )
+      )
  where
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
   traceStderr p NetworkCallback{onConnectivity} =
@@ -354,7 +373,7 @@ waitMessages ::
   FilePath ->
   NetworkCallback msg IO ->
   IO ()
-waitMessages tracer conn directory NetworkCallback{deliver} = do
+waitMessages tracer conn directory NetworkCallback{deliver} =
   withGrpcContext "waitMessages" . forever $ do
     -- NOTE: We have not observed the watch (subscription) fail even when peers
     -- leave and we end up on a minority cluster.
@@ -431,7 +450,7 @@ pollConnectivity ::
   NetworkCallback msg IO ->
   IO ()
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
-  seenAliveVar <- newTVarIO []
+  seenAliveVar <- newLabelledTVarIO "etcd-seen-alive" []
   withGrpcContext "pollConnectivity" $
     forever . handle (onGrpcException seenAliveVar) $ do
       leaseId <- createLease
@@ -534,9 +553,9 @@ withProcessInterrupt config =
   signalAndStopProcess :: MonadIO m => Process stdin stdout stderr -> m ()
   signalAndStopProcess p = liftIO $ do
     interruptProcessGroupOf (unsafeProcessHandle p)
-    race_
-      (void $ waitExitCode p)
-      (threadDelay 5 >> stopProcess p)
+    raceLabelled_
+      ("etcd-signalAndStopProcess-waitExitCode", void $ waitExitCode p)
+      ("etcd-signalAndStopProcess-stopProcess", threadDelay 5 >> stopProcess p)
 
 -- * Persistent queue
 
@@ -548,7 +567,7 @@ data PersistentQueue m a = PersistentQueue
 
 -- | Create a new persistent queue at file path and given capacity.
 newPersistentQueue ::
-  (MonadSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
+  (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
   FilePath ->
   Natural ->
   m (PersistentQueue m a)
@@ -556,7 +575,7 @@ newPersistentQueue path capacity = do
   paths <- liftIO $ do
     createDirectoryIfMissing True path
     sort . mapMaybe readMaybe <$> listDirectory path
-  queue <- newTBQueueIO $ max (fromIntegral $ length paths) capacity
+  queue <- newLabelledTBQueueIO "persistent-queue" $ max (fromIntegral $ length paths) capacity
   highestId <-
     try (loadExisting queue paths) >>= \case
       Left (_ :: IOException) -> do
@@ -564,7 +583,7 @@ newPersistentQueue path capacity = do
         liftIO $ createDirectoryIfMissing True path
         pure 0
       Right highest -> pure highest
-  nextIx <- newTVarIO $ highestId + 1
+  nextIx <- newLabelledTVarIO "persistent-next-ix" $ highestId + 1
   pure PersistentQueue{queue, nextIx, directory = path}
  where
   loadExisting queue = \case

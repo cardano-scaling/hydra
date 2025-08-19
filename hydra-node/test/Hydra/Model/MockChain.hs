@@ -8,21 +8,15 @@ import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (
-  MonadLabelledSTM,
-  MonadSTM (newTVarIO, writeTVar),
-  labelTQueueIO,
-  labelTVarIO,
+  MonadSTM (writeTVar),
   modifyTVar,
-  newTQueueIO,
-  newTVarIO,
   readTVarIO,
   throwSTM,
   tryReadTQueue,
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (async, link)
-import Control.Monad.Class.MonadFork (labelThisThread)
+import Control.Monad.Class.MonadAsync (link)
 import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
@@ -105,12 +99,10 @@ mockChainAndNetwork ::
   UTxO ->
   m (SimulatedChainNetwork Tx m)
 mockChainAndNetwork tr seedKeys commits = do
-  nodes <- newTVarIO []
-  labelTVarIO nodes "nodes"
-  queue <- newTQueueIO
-  labelTQueueIO queue "chain-queue"
-  chain <- newTVarIO (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
-  tickThread <- async (labelThisThread "chain" >> simulateChain nodes chain queue)
+  nodes <- newLabelledTVarIO "mock-chain-nodes" []
+  queue <- newLabelledTQueueIO "mock-chain-chain-queue"
+  chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
+  tickThread <- asyncLabelled "mock-chain-tick" (simulateChain nodes chain queue)
   link tickThread
   pure
     SimulatedChainNetwork

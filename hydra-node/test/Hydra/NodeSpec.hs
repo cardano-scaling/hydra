@@ -6,7 +6,7 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
@@ -319,7 +319,7 @@ spec = parallel $ do
           `shouldThrow` \(_ :: ParameterMismatch) -> True
 
     it "log error given configuration mismatches head state" $ do
-      logs <- newTVarIO []
+      logs <- newLabelledTVarIO "logs" []
       let invalidPeriodEnv = defaultEnv{otherParties = []}
           isContestationPeriodMismatch :: HydraNodeLog SimpleTx -> Bool
           isContestationPeriodMismatch = \case
@@ -392,8 +392,7 @@ createRecordingSink = do
 
 createMockEventStore :: MonadLabelledSTM m => m (EventStore a m)
 createMockEventStore = do
-  tvar <- newTVarIO []
-  labelTVarIO tvar "in-memory-source-sink"
+  tvar <- newLabelledTVarIO "in-memory-source-sink" []
   let source =
         EventSource
           { sourceEvents = do

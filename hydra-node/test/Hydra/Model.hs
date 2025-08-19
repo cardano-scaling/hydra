@@ -23,16 +23,10 @@ import Hydra.Prelude hiding (Any, label, lookup, toList)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Concurrent.Class.MonadSTM (
-  MonadLabelledSTM,
-  labelTQueueIO,
-  labelTVarIO,
   modifyTVar,
-  newTQueue,
-  newTVarIO,
   readTVarIO,
  )
-import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
-import Control.Monad.Class.MonadFork (labelThisThread)
+import Control.Monad.Class.MonadAsync (cancel, link)
 import Data.List (nub, (\\))
 import Data.List qualified as List
 import Data.Map ((!))
@@ -655,12 +649,9 @@ seedWorld seedKeys seedCP futureCommits = do
     let party = deriveParty hsk
         otherParties = filter (/= party) parties
     (testClient, nodeThread) <- lift $ do
-      outputs <- atomically newTQueue
-      labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
-      messages <- atomically newTQueue
-      labelTQueueIO messages ("messages-" <> shortLabel hsk)
-      outputHistory <- newTVarIO []
-      labelTVarIO outputHistory ("history-" <> shortLabel hsk)
+      outputs <- newLabelledTQueueIO ("seed-world-outputs-" <> shortLabel hsk)
+      messages <- newLabelledTQueueIO ("seed-world-messages-" <> shortLabel hsk)
+      outputHistory <- newLabelledTVarIO "seed-world-output-history" []
       node <-
         createHydraNode
           (contramap Node tr)
@@ -675,7 +666,7 @@ seedWorld seedKeys seedCP futureCommits = do
           seedCP
           testDepositPeriod
       let testClient = createTestHydraClient outputs messages outputHistory node
-      nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode node
+      nodeThread <- asyncLabelled ("seed-world-node-" <> shortLabel hsk) $ runHydraNode node
       link nodeThread
       pure (testClient, nodeThread)
     pushThread nodeThread
@@ -693,7 +684,7 @@ seedWorld seedKeys seedCP futureCommits = do
     s{threads = t : threads s}
 
 performCommit ::
-  (MonadThrow m, MonadTimer m, MonadAsync m) =>
+  (MonadThrow m, MonadTimer m, MonadAsync m, MonadLabelledSTM m) =>
   HeadId ->
   Party ->
   [(CardanoSigningKey, Value)] ->
@@ -708,7 +699,7 @@ performCommit headId party paymentUTxO = do
       _ -> Nothing
 
 performDeposit ::
-  (MonadThrow m, MonadTimer m, MonadAsync m, MonadTime m) =>
+  (MonadThrow m, MonadTimer m, MonadAsync m, MonadTime m, MonadLabelledSTM m) =>
   HeadId ->
   [(CardanoSigningKey, Value)] ->
   RunMonad m ()
@@ -729,7 +720,7 @@ performDeposit headId utxoToDeposit = do
       _ -> Nothing
 
 performDecommit ::
-  (MonadThrow m, MonadTimer m, MonadAsync m, MonadDelay m) =>
+  (MonadThrow m, MonadTimer m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
   Party ->
   Payment ->
   RunMonad m ()
@@ -758,7 +749,7 @@ performDecommit party tx = do
     _ -> Nothing
 
 performNewTx ::
-  (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) =>
+  (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) =>
   Party ->
   Payment ->
   RunMonad m Payment
@@ -817,7 +808,7 @@ getActorNode party = do
     Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> pure actorNode
 
-performInit :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m HeadId
+performInit :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m) => Party -> RunMonad m HeadId
 performInit party = do
   party `sendsInput` Input.Init
   nodes <- gets nodes
@@ -825,7 +816,7 @@ performInit party = do
     HeadIsInitializing{headId} -> Just headId
     _ -> Nothing
 
-performAbort :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
+performAbort :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m) => Party -> RunMonad m ()
 performAbort party = do
   party `sendsInput` Input.Abort
 
@@ -834,7 +825,7 @@ performAbort party = do
     HeadIsAborted{} -> Just ()
     _ -> Nothing
 
-performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m ()
+performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m ()
 performClose party = do
   nodes <- gets nodes
   let thisNode = nodes ! party
@@ -867,7 +858,7 @@ performFanout party = do
     HeadIsFinalized{} -> True
     _otherwise -> False
 
-performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m) => WorldState -> Party -> RunMonad m ()
+performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => WorldState -> Party -> RunMonad m ()
 performCloseWithInitialSnapshot st party = do
   nodes <- gets nodes
   let thisNode = nodes ! party

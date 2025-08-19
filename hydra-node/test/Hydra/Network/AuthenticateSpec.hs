@@ -1,7 +1,7 @@
 module Hydra.Network.AuthenticateSpec where
 
 import Cardano.Crypto.Util (SignableRepresentation)
-import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar')
 import Control.Monad.IOSim (runSimOrThrow)
 import Data.ByteString (pack)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -37,7 +37,7 @@ spec = parallel $ do
 
   it "pass the authenticated messages around" $ do
     let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO []
+          receivedMessages <- newLabelledTVarIO "received-msgs" []
 
           withAuthentication
             @(Message SimpleTx)
@@ -59,7 +59,7 @@ spec = parallel $ do
   it "drop message coming from unknown party" $ do
     unexpectedMessage <- ReqTx <$> generate arbitrary
     let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO []
+          receivedMessages <- newLabelledTVarIO "received-msgs" []
 
           withAuthentication
             @(Message SimpleTx)
@@ -82,7 +82,7 @@ spec = parallel $ do
 
   it "drop message coming from party with wrong signature" $ do
     let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO []
+          receivedMessages <- newLabelledTVarIO "received-msgs" []
 
           withAuthentication
             @(Message SimpleTx)
@@ -104,7 +104,7 @@ spec = parallel $ do
   it "authenticate the message to broadcast" $ do
     let someMessage = msg
         sentMsgs = runSimOrThrow $ do
-          sentMessages <- newTVarIO []
+          sentMessages <- newLabelledTVarIO "received-msgs" []
 
           withAuthentication
             @(Message SimpleTx)
@@ -127,7 +127,7 @@ spec = parallel $ do
     let signature = sign carolSk msg
     let signedMsg = Signed msg signature bob
     let traced = runSimOrThrow $ do
-          traces <- newTVarIO []
+          traces <- newLabelledTVarIO "traces" []
 
           let tracer = traceInTVar traces "AuthenticateSpec"
           withAuthentication

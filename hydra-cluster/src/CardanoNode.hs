@@ -322,7 +322,9 @@ withCardanoNode tr stateDirectory args action = do
     withCreateProcess process{std_out = UseHandle out, std_err = CreatePipe} $
       \_stdin _stdout mError processHandle ->
         (`finally` cleanupSocketFile) $
-          race (checkProcessHasNotDied "cardano-node" processHandle mError) waitForNode
+          raceLabelled
+            ("check-cardano-node-process-not-died", checkProcessHasNotDied "cardano-node" processHandle mError)
+            ("wait-for-node", waitForNode)
             <&> either absurd id
  where
   CardanoNodeArgs{nodeSocket} = args

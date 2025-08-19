@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Async (link)
-import Control.Concurrent.Class.MonadSTM (newTBQueueIO, readTBQueue, writeTBQueue)
+import Control.Concurrent.Class.MonadSTM (readTBQueue, writeTBQueue)
 import Control.Exception (Handler (Handler), IOException, catches)
 import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
@@ -76,8 +76,8 @@ withClient ::
   ClientComponent tx IO a
 withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, cardanoNetworkId, cardanoNodeSocket} callback action = do
   sk <- readExternalSk
-  q <- newTBQueueIO 10
-  withAsync (reconnect $ client q) $ \thread -> do
+  q <- newLabelledTBQueueIO "tui-client-queue" 10
+  withAsyncLabelled ("client-reconnect", reconnect $ client q) $ \thread -> do
     -- NOTE(SN): if message formats are not compatible, this will terminate the TUI
     -- with a quite cryptic message (to users)
     link thread -- Make sure it does not silently die
@@ -94,7 +94,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
   client q = runClient (toString hostname) (fromIntegral port) "/?history=yes" $ \con -> do
     -- REVIEW(SN): is sharing the 'con' fine?
     callback ClientConnected
-    race_ (receiveOutputs con) (sendInputs q con)
+    raceLabelled_ ("receive-outputs", receiveOutputs con) ("send-inputs", sendInputs q con)
 
   receiveOutputs con = forever $ do
     msg <- receiveData con

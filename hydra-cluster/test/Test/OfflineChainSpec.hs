@@ -5,7 +5,7 @@ module Test.OfflineChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTChanIO, newTVarIO, readTChan, readTVarIO, writeTChan)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTChanIO, readTChan, readTVarIO, writeTChan)
 import Control.Lens ((^?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Number)
@@ -102,7 +102,7 @@ monitorCallbacks = do
 -- XXX: Dry with the other waitMatch utilities
 waitMatch :: (HasCallStack, ToJSON a) => IO a -> DiffTime -> (a -> Maybe b) -> IO b
 waitMatch waitNext seconds match = do
-  seen <- newTVarIO []
+  seen <- newLabelledTVarIO "wait-match-seen" []
   timeout seconds (go seen) >>= \case
     Just x -> pure x
     Nothing -> do

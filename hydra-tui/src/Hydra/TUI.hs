@@ -27,7 +27,7 @@ import Hydra.TUI.Style
 runWithVty :: IO Vty -> Options -> IO RootState
 runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNodeSocket} = do
   eventChan <- newBChan 10
-  withAsync (timer eventChan) $ \_ ->
+  withAsyncLabelled ("run-vty-timer", timer eventChan) $ \_ ->
     -- REVIEW(SN): what happens if callback blocks?
     withClient @Tx options (writeBChan eventChan) $ \hydraClient -> do
       initialVty <- buildVty

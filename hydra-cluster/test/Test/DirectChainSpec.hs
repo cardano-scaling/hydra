@@ -12,7 +12,7 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
-import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
+import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Lens ((<>~))
 import Data.List.Split (splitWhen)
@@ -548,7 +548,7 @@ withDirectChainTest tracer config party action = do
           _ -> failure $ "unexpected chainBackendOptions: " <> show chainBackendOptions
       otherConfig -> failure $ "unexpected chainConfig: " <> show otherConfig
   ctx <- loadChainContext backend configuration party
-  eventMVar <- newEmptyTMVarIO
+  eventMVar <- newLabelledEmptyTMVarIO "direct-chain-events"
 
   let callback event = atomically $ putTMVar eventMVar event
 

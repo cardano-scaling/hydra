@@ -2,7 +2,6 @@ module Main where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadAsync (async)
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host, readHost)
 import Hydra.Painter (Pixel (..), paintPixel, withClient, withClientNoRetry)
@@ -70,9 +69,9 @@ websocketApp :: Host -> WS.PendingConnection -> IO ()
 websocketApp host pendingConnection = do
   frontend <- WS.acceptRequest pendingConnection
   withClient host $ \backend ->
-    race_
-      (forever $ WS.receive frontend >>= WS.send backend)
-      (forever $ WS.receive backend >>= WS.send frontend)
+    raceLabelled_
+      ("forever-receive-frontend-send-backend", forever $ WS.receive frontend >>= WS.send backend)
+      ("forever-receive-backend-send-frontend", forever $ WS.receive backend >>= WS.send frontend)
 
 httpApp :: NetworkId -> FilePath -> Host -> Application
 httpApp networkId key host req send =
@@ -82,7 +81,7 @@ httpApp networkId key host req send =
         Just [x, y, red, green, blue] -> do
           putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
           -- \| spawn a connection in a new thread
-          void $ async $ withClientNoRetry host $ \cnx ->
+          void $ asyncLabelled "client-paint-pixel" $ withClientNoRetry host $ \cnx ->
             paintPixel networkId key host cnx Pixel{x, y, red, green, blue}
           send $ responseLBS status200 corsHeaders "OK"
         _ ->

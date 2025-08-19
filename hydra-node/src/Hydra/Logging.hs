@@ -28,13 +28,10 @@ import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
 import Control.Concurrent.Class.MonadSTM (
   flushTBQueue,
   modifyTVar,
-  newTBQueueIO,
-  newTVarIO,
   readTBQueue,
   readTVarIO,
   writeTBQueue,
  )
-import Control.Monad.Class.MonadFork (myThreadId)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
   Tracer (..),
@@ -110,8 +107,8 @@ withTracerOutputTo ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracerOutputTo hdl namespace action = do
-  msgQueue <- newTBQueueIO @_ @(Envelope msg) defaultQueueSize
-  withAsync (writeLogs msgQueue) $ \_ ->
+  msgQueue <- newLabelledTBQueueIO @_ @(Envelope msg) "logging-msg-queue" defaultQueueSize
+  withAsyncLabelled ("logging-writeLogs", writeLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue
  where
   tracer queue =
@@ -134,12 +131,12 @@ withTracerOutputTo hdl namespace action = do
 -- given 'action'. This tracer is wrapping 'msg' into an 'Envelope' with
 -- metadata.
 showLogsOnFailure ::
-  (MonadSTM m, MonadCatch m, MonadFork m, MonadTime m, MonadSay m, ToJSON msg) =>
+  (MonadLabelledSTM m, MonadCatch m, MonadFork m, MonadTime m, MonadSay m, ToJSON msg) =>
   Text ->
   (Tracer m msg -> m a) ->
   m a
 showLogsOnFailure namespace action = do
-  tvar <- newTVarIO []
+  tvar <- newLabelledTVarIO "show-logs-on-failure" []
   action (traceInTVar tvar namespace)
     `onException` (readTVarIO tvar >>= mapM_ (say . decodeUtf8 . Aeson.encode) . reverse)
 

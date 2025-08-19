@@ -53,9 +53,9 @@ spec = do
 
     it "allows concurrent usage" $ \bucketName -> do
       withS3EventStore bucketName $ \(source, sink) -> do
-        concurrently_
-          (putEvent sink 123)
-          (putEvent sink 456)
+        concurrentlyLabelled_
+          ("concurrent-put-event-123", putEvent sink 123)
+          ("concurrent-put-event-456", putEvent sink 456)
         getEvents source `shouldReturn` [123, 456 :: EventId]
 
     it "supports multiple instances" $ \bucketName ->

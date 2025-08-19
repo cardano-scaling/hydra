@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
+import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
 import Hydra.Chain (
@@ -164,7 +164,7 @@ withBlockfrostChainTest tracer config party action = do
           _ -> failure $ "unexpected chainBackendOptions: " <> show chainBackendOptions
       otherConfig -> failure $ "unexpected chainConfig: " <> show otherConfig
   ctx <- loadChainContext backend configuration party
-  eventMVar <- newEmptyTMVarIO
+  eventMVar <- newLabelledEmptyTMVarIO "blockfrost-chain-events"
 
   let callback event = atomically $ putTMVar eventMVar event
 
