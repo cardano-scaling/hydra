@@ -194,6 +194,15 @@ services:
       hydra_net:
         ipv4_address: 172.16.238.5
 
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.6
+
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -206,11 +215,9 @@ services:
       - "./grafana/docker/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml"
       - "./grafana/docker/dashboard.json:/var/lib/grafana/dashboards/dashboard.json"
       - "./grafana/docker/default.yaml:/etc/grafana/provisioning/dashboards/default.yaml"
-    depends_on:
-      - prometheus
     networks:
       hydra_net:
-        ipv4_address: 172.16.238.7
+        ipv4_address: 172.16.238.8
 
 networks:
   hydra_net:
