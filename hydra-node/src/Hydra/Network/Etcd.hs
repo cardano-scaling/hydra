@@ -245,14 +245,6 @@ connParams tracer to =
     traceWith tracer Reconnecting
     pure reconnectPolicy
 
--- | Return the path of the etcd binary. Will either install it first, or just
--- assume there is one available on the system path.
-getEtcdBinary :: FilePath -> WhichEtcd -> IO FilePath
-getEtcdBinary _ SystemEtcd = pure "etcd"
-getEtcdBinary persistenceDir EmbeddedEtcd =
-  let path = persistenceDir </> "bin" </> "etcd"
-   in installEtcd path >> pure path
-
 grpcServer :: NetworkConfiguration -> Server
 grpcServer config =
   ServerInsecure $
@@ -630,6 +622,8 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
   popped <- atomically $ do
     (ix, next) <- peekTBQueue queue
     if next == item
+      -- FIXME: why would we not call this? We saw the persistent queue reach
+      -- capacity and writing blocked while nothing seemed to clear it.
       then readTBQueue queue $> Just ix
       else pure Nothing
   case popped of

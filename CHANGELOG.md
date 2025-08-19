@@ -16,10 +16,6 @@ changes.
   being able to use `/commit` although the head is initializing or outdated
   information in the `Greetings` message.
 
-- Fix API not correctly handling event log rotation. This was evident in not
-  being able to use `/commit` although the head is initializing or outdated
-  information in the `Greetings` message.
-
 - Ignore snapshot signatures of already confirmed snapshots. This was previously
   resulting in the node waiting for the accompanying snapshot request and
   occurred when running heads with mirror nodes.
@@ -38,12 +34,6 @@ changes.
   https://github.com/cardano-scaling/hydra/issues/2167. This is not a full fix
   but is enough to resolve the problem until we can identify the central cause
   of the issue.
-
-- Fix rotation log id consistency after restart by changing the rotation check to trigger only
-when the number of persisted `StateChanged` events exceeds the configured `--persistence-rotate-after` threshold.
-  * This also prevents immediate rotation on startup when the threshold is set to 1.
-  * `Checkpoint` event ids now match the suffix of their preceding rotated log file and the last `StateChanged` event id within it,
-  preserving sequential order and making it easier to identify which rotated log file was used to compute it.
 
 - Fix bug where TUI would have out-of-date head status information in the
   presence of event rotation.
@@ -87,8 +77,6 @@ when the number of persisted `StateChanged` events exceeds the configured `--per
 - Label threads, queues and vars.
 
 ## [0.22.2] - 2025-06-30
-
-- Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
 
 * Fix wrong hydra-script-tx-ids in networks.json
 

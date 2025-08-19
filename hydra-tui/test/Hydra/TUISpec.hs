@@ -44,7 +44,7 @@ import Hydra.Cluster.Scenarios (headIsInitializingWith)
 import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
-import Hydra.Options (persistenceRotateAfter)
+import Hydra.Options (DirectOptions (..), persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
@@ -61,6 +61,7 @@ import HydraNode (
  )
 import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
+import Test.QuickCheck (Positive (..))
 
 tuiContestationPeriod :: ContestationPeriod
 tuiContestationPeriod = 10
@@ -184,28 +185,29 @@ setupRotatedStateTUI action = do
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
-        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-        chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] tuiContestationPeriod
+      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \_ backend -> do
+        hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+        chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
         let nodeId = 1
         let externalKeyFilePath = tmpDir </> "external.sk"
         externalSKey <- createAndSaveSigningKey externalKeyFilePath
         let externalVKey = getVerificationKey externalSKey
-        seedFromFaucet_ node externalVKey 42_000_000 (contramap FromFaucet tracer)
-
+        seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
+        let DirectBackend DirectOptions{nodeSocket, networkId} = backend
         options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] [nodeId] id
-        let options' = options{persistenceRotateAfter = Just 1}
+        let options' = options{persistenceRotateAfter = Just (Positive 1)}
 
         withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \n -> do
-          seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+          seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
           send n $ input "Init" []
           void $ waitForAllMatch (10 * 200) [n] $ headIsInitializingWith (Set.fromList [alice])
-          -- Note: We don't wait for checking rotated here - but maybe we could - because we just check for the message in the TUI
+        -- Note: We don't wait for checking rotated here - but maybe we could - because we just check for the message in the TUI
 
         withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \HydraClient{hydraNodeId} -> do
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
-            race_
-              ( runWithVty
+            raceLabelled_
+              ( "run-vty"
+              , runWithVty
                   buildVty
                   Options
                     { hydraNodeHost =
@@ -220,7 +222,7 @@ setupRotatedStateTUI action = do
                     , cardanoSigningKey = externalKeyFilePath
                     }
               )
-              $ action brickTest
+              ("action-brick-test", action brickTest)
 
 setupNodeAndTUI' :: Text -> Coin -> (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI' hostname lovelace action =

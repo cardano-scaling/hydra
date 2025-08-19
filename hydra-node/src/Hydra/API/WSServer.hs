@@ -45,7 +45,7 @@ import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Tx (Party)
+import Hydra.Tx (HeadId, Party)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
@@ -182,7 +182,7 @@ wsApp env party tracer history callback headStateP responseChannel ServerOutputF
         WithAddressedTx addr -> txContainsAddr tx addr
         WithoutAddressedTx -> True
 
-  -- | Get the content of 'headStatus' field in 'Greetings' message from the full 'HeadState'.
+  -- \| Get the content of 'headStatus' field in 'Greetings' message from the full 'HeadState'.
   getHeadStatus :: HeadState tx -> HeadStatus
   getHeadStatus = \case
     HeadState.Idle{} -> Idle
