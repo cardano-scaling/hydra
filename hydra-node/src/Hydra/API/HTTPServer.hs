@@ -14,7 +14,7 @@ import Data.ByteString.Short ()
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (ClientMessage, CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
+import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.Cardano.Api (Coin, LedgerEra, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
@@ -230,7 +230,7 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
       respond . okJSON $ getSeenSnapshot hs
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
-        >>= handleSideLoadSnapshot putClientInput
+        >>= handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel
         >>= respond
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
@@ -238,13 +238,13 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
-        >>= handleRecoverCommitUtxo putClientInput (last . fromList $ pathInfo request)
+        >>= handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel (last . fromList $ pathInfo request)
         >>= respond
     ("GET", ["commits"]) ->
       getPendingDeposits >>= respond . responseLBS status200 jsonContent . Aeson.encode
     ("POST", ["decommit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDecommit putClientInput
+        >>= handleDecommit putClientInput apiTransactionTimeout responseChannel
         >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond . responseLBS status200 jsonContent . Aeson.encode $ pparams
@@ -329,15 +329,38 @@ handleRecoverCommitUtxo ::
   forall tx.
   IsChainState tx =>
   (ClientInput tx -> IO ()) ->
+  ApiTransactionTimeout ->
+  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   Text ->
   LBS.ByteString ->
   IO Response
-handleRecoverCommitUtxo putClientInput recoverPath _body = do
+handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel recoverPath _body = do
   case parseTxIdFromPath recoverPath of
     Left err -> pure err
     Right recoverTxId -> do
+      dupChannel <- atomically $ dupTChan responseChannel
       putClientInput Recover{recoverTxId}
-      pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+      let wait = do
+            event <- atomically $ readTChan dupChannel
+            case event of
+              Left TimedServerOutput{output = CommitRecovered{}} ->
+                pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+              Right (CommandFailed{clientInput = Recover{}}) ->
+                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Recover failed")
+              _ -> wait
+      timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
+        Just r -> pure r
+        Nothing ->
+          pure $
+            responseLBS
+              status202
+              jsonContent
+              ( Aeson.encode $
+                  object
+                    [ "tag" .= Aeson.String "RecoverSubmitted"
+                    , "timeout" .= Aeson.String ("Operation timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
+                    ]
+              )
  where
   parseTxIdFromPath txIdStr =
     case Aeson.eitherDecode (encodeUtf8 txIdStr) :: Either String (TxIdType tx) of
@@ -364,29 +387,82 @@ handleSubmitUserTx directChain body = do
  where
   Chain{submitTx} = directChain
 
-handleDecommit :: forall tx. FromJSON tx => (ClientInput tx -> IO ()) -> LBS.ByteString -> IO Response
-handleDecommit putClientInput body =
+handleDecommit ::
+  forall tx.
+  FromJSON tx =>
+  (ClientInput tx -> IO ()) ->
+  ApiTransactionTimeout ->
+  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
+  LBS.ByteString ->
+  IO Response
+handleDecommit putClientInput apiTransactionTimeout responseChannel body =
   case Aeson.eitherDecode' body :: Either String tx of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right decommitTx -> do
+      dupChannel <- atomically $ dupTChan responseChannel
       putClientInput Decommit{decommitTx}
-      pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+      let wait = do
+            event <- atomically $ readTChan dupChannel
+            case event of
+              Left TimedServerOutput{output = DecommitFinalized{}} ->
+                pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+              Left TimedServerOutput{output = DecommitInvalid{}} ->
+                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit invalid")
+              Right (CommandFailed{clientInput = Decommit{}}) ->
+                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit failed")
+              _ -> wait
+      timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
+        Just r -> pure r
+        Nothing ->
+          pure $
+            responseLBS
+              status202
+              jsonContent
+              ( Aeson.encode $
+                  object
+                    [ "tag" .= Aeson.String "DecommitSubmitted"
+                    , "timeout" .= Aeson.String ("Operation timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
+                    ]
+              )
 
 -- | Handle request to side load confirmed snapshot.
 handleSideLoadSnapshot ::
   forall tx.
   IsChainState tx =>
   (ClientInput tx -> IO ()) ->
+  ApiTransactionTimeout ->
+  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   LBS.ByteString ->
   IO Response
-handleSideLoadSnapshot putClientInput body = do
+handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body = do
   case Aeson.eitherDecode' body :: Either String (SideLoadSnapshotRequest tx) of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right SideLoadSnapshotRequest{snapshot} -> do
+      dupChannel <- atomically $ dupTChan responseChannel
       putClientInput $ SideLoadSnapshot snapshot
-      pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+      let wait = do
+            event <- atomically $ readTChan dupChannel
+            case event of
+              Left TimedServerOutput{output = SnapshotSideLoaded{}} ->
+                pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+              Right (CommandFailed{clientInput = SideLoadSnapshot{}}) ->
+                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Side-load snapshot failed")
+              _ -> wait
+      timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
+        Just r -> pure r
+        Nothing ->
+          pure $
+            responseLBS
+              status202
+              jsonContent
+              ( Aeson.encode $
+                  object
+                    [ "tag" .= Aeson.String "SideLoadSnapshotSubmitted"
+                    , "timeout" .= Aeson.String ("Operation timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
+                    ]
+              )
 
 -- | Handle request to submit a transaction to the head.
 handleSubmitL2Tx ::

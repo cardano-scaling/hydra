@@ -55,6 +55,12 @@ changes.
 
 - Add API endpoint `POST /transaction` to submit transaction to the head.
 
+- Improve HTTP API status codes for side-effecting endpoints to reflect operation outcome:
+  - `POST /snapshot`: 200 on successful side-load, 400 on validation failure, 202 on timeout
+  - `POST /decommit`: 200 on finalize, 400 on invalid/failed, 202 on timeout
+  - `DELETE /commits/:txid`: 200 on recovered, 400 on failed, 202 on timeout
+  - See [Issue #1911](https://github.com/cardano-scaling/hydra/issues/1911) and [PR #2124](https://github.com/cardano-scaling/hydra/pull/2124).
+
 - Tested with `cardano-node 10.4.1` and `cardano-cli 10.8.0.0`.
 
 Fix rotation log id consistency after restart by changing the rotation check to trigger only
