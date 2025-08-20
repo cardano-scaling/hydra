@@ -14,6 +14,7 @@
             name = "hydra-node-env";
             paths = [
               pkgs.busybox
+              pkgs.dockerTools.caCertificates
             ];
           };
           config = {
