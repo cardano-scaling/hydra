@@ -80,7 +80,6 @@ spec = do
           , nodeHandle = HydraNodeHandle{restartNode}
           } -> do
             threadDelay 1
-            threadDelay 1
             shouldRender "Connected"
             shouldRender "Idle"
             sendInputEvent $ EvKey (KChar 'i') []
