@@ -22,7 +22,16 @@ You will also need:
 - `cardano-cli` in your `PATH`.
 - `hydra-node` and `hydra-tui` in your `PATH`.
 
-## Step 1: Create the script
+## Step 1: Set Up Your Environment
+
+To avoid specifying the network identifier and the path to the node's socket in every command, you can set the following environment variables in your shell. Make sure to replace the values with the ones that are appropriate for your setup (e.g., for the pre-production testnet, the magic is `1`).
+
+```shell
+export CARDANO_NODE_SOCKET_PATH=<path-to>/node.socket
+export CARDANO_TESTNET_MAGIC=1
+```
+
+## Step 2: Create the script
 
 For this tutorial, we will use a simple "always true" validator script. This script will always succeed, regardless of the redeemer or datum.
 
@@ -36,14 +45,14 @@ Create a file named `always-true.plutus` with the following content:
 }
 ```
 
-## Step 2: Create the script address
+## Step 3: Create the script address
 
 Now, we need to create an address for this script. We can do this using `cardano-cli`:
 
 ```shell
 cardano-cli address build \
   --payment-script-file always-true.plutus \
-  --testnet-magic 1 \
+  --testnet-magic $CARDANO_TESTNET_MAGIC \
   --out-file script.addr
 ```
 
@@ -53,7 +62,7 @@ This will create a file named `script.addr` containing the script address. You c
 cat script.addr
 ```
 
-## Step 3: Lock funds in the script address
+## Step 4: Lock funds in the script address
 
 Before we can commit a script UTxO, we need to create one. This is done by sending funds to the script address.
 
@@ -61,9 +70,8 @@ First, find a UTxO in your wallet that you can use. You can query your wallet's 
 
 ```shell
 cardano-cli query utxo \
-  --address $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk --testnet-magic 1) \
-  --testnet-magic 1 \
-  --socket-path testnets/preprod/node.socket
+  --address $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC) \
+  --testnet-magic $CARDANO_TESTNET_MAGIC
 ```
 
 Pick a UTxO from the output and use it to build a transaction that sends funds to the script address. Let's say you picked a UTxO with TxHash `<UTXO_TXIX>` containing `100 ADA`. We will send `10 ADA` to the script address.
@@ -88,9 +96,8 @@ cardano-cli conway transaction build \
   --tx-in <UTXO_TXIX> \
   --tx-out $(cat script.addr)+10000000 \
   --tx-out-inline-datum-file datum.json \
-  --change-address $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk --testnet-magic 1) \
-  --testnet-magic 1 \
-  --socket-path testnets/preprod/node.socket \
+  --change-address $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC) \
+  --testnet-magic $CARDANO_TESTNET_MAGIC \
   --out-file tx.raw
 ```
 
@@ -106,8 +113,7 @@ cardano-cli conway transaction sign \
 
 cardano-cli conway transaction submit \
   --tx-file tx.signed \
-  --testnet-magic 1 \
-  --socket-path testnets/preprod/node.socket
+  --testnet-magic $CARDANO_TESTNET_MAGIC
 ```
 
 Once the transaction is confirmed, you can query the script address to see the newly created UTxO:
@@ -115,11 +121,10 @@ Once the transaction is confirmed, you can query the script address to see the n
 ```shell
 cardano-cli query utxo \
   --address $(cat script.addr) \
-  --testnet-magic 1 \
-  --socket-path testnets/preprod/node.socket
+  --testnet-magic $CARDANO_TESTNET_MAGIC
 ```
 
-## Step 4: Prepare the commit
+## Step 5: Prepare the commit
 
 Now we are ready to prepare the commit. We will create a blueprint transaction that spends the script UTxO. Note that this transaction is not meant to be signed and submitted to the Cardano network. It is just a blueprint that we will send to the `hydra-node` to get a properly drafted commit transaction.
 
@@ -134,14 +139,14 @@ cardano-cli conway transaction build-raw \
   --tx-in-inline-datum-present \
   --tx-in-redeemer-value 42 \
   --tx-in-execution-units '(0, 0)' \
-  --tx-out $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk --testnet-magic 1)+10000000 \
+  --tx-out $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC)+10000000 \
   --fee 0 \
   --out-file tx.json
 ```
 
 A real-world script, like one written in [Aiken](https://aiken-lang.org/), would use the datum to carry state and the redeemer to provide input for validation. Our "always-true" script doesn't actually check any of these, but they are still required fields for a valid transaction that spends a script UTxO. Note that we use `--tx-in-inline-datum-present` because the datum was already included on-chain when we created the script UTxO. We also provide `--tx-in-execution-units`. This is required for any script spend to tell the network how much computational resource to budget for the script's execution. Since our script does nothing, we can use `(0, 0)`.
 
-## Step 5: Commit the script UTxO
+## Step 6: Commit the script UTxO
 
 This final step is very similar to the standard commit tutorial. We will start a `hydra-node`, initialize a Head, and then use the blueprint transaction to get a commit transaction from the `hydra-node`.
 
@@ -157,7 +162,7 @@ You can use the following script to query the necessary information and generate
 # Set variables
 SCRIPT_UTXO_TXIX="<SCRIPT_UTXO_TXIX>"
 BLUEPRINT_JSON=$(cat tx.json)
-UTXO_JSON=$(cardano-cli query utxo --tx-in ${SCRIPT_UTXO_TXIX} --testnet-magic 1 --output-json)
+UTXO_JSON=$(cardano-cli query utxo --tx-in ${SCRIPT_UTXO_TXIX} --testnet-magic $CARDANO_TESTNET_MAGIC --output-json)
 
 # Create the request body
 jq -n \
@@ -185,8 +190,7 @@ cardano-cli conway transaction sign \
 
 cardano-cli conway transaction submit \
   --tx-file signed-tx.json \
-  --socket-path testnets/preprod/node.socket \
-  --testnet-magic 1
+  --testnet-magic $CARDANO_TESTNET_MAGIC
 ```
 
 And that's it! After the transaction is confirmed on-chain, your script UTxO will be committed to the Head.
