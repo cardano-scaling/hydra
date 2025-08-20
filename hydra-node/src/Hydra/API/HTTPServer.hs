@@ -14,7 +14,7 @@ import Data.ByteString.Short ()
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (ClientMessage, CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
+import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.Cardano.Api (AssetName, Coin, LedgerEra, PolicyAssets, PolicyId, Quantity, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
@@ -47,10 +47,6 @@ instance Arbitrary tx => Arbitrary (DraftCommitTxResponse tx) where
 
   shrink = \case
     DraftCommitTxResponse xs -> DraftCommitTxResponse <$> shrink xs
-
-data CommitDetails
-  = CommitADA {commitAdaAmount :: Coin}
-  | CommitMap {commitMap :: Map PolicyId (AssetName, Quantity)}
 
 data DraftCommitTxRequest tx
   = SimpleCommitRequest

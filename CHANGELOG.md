@@ -15,6 +15,8 @@ changes.
 
 ## [0.22.4] - 2025-08-05
 
+- Accept additional field `tokens` when depositing to specify different (non-ADA) assets that should be depositted to a Head returning any leftover to the user.
+
 - Accept additional field `amount` when depositing to specify the amount of Lovelace that should be depositted to a Head returning any leftover to the user.
 
 - Fix API not correctly handling event log rotation. This was evident in not
