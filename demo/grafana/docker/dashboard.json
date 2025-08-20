@@ -566,7 +566,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "count(up{job=\"hydra_nodes\", instance=~\"${instance:raw}\"} == 1)",
+          "expr": "count(up{job=\"node_exporter\", instance=~\"${instance:raw}\"} == 1)",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "intervalFactor": 2,
