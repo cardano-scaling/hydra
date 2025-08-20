@@ -56,7 +56,7 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
 
   utxoToDeposit = utxoToDeposit' <> tokensToDepositUTxO
 
-  tokensToDepositUTxO = undefined -- pickTokensToDeposit leftoverUTxO' tokens
+  tokensToDepositUTxO = pickTokensToDeposit leftoverUTxO' tokens
   leftoverOutput =
     let leftoverUTxO = (leftoverUTxO' `withoutUTxO` tokensToDepositUTxO)
      in if UTxO.null leftoverUTxO
@@ -72,57 +72,41 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
   depositInputs = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> depositInputsList
 
 pickTokensToDeposit :: UTxO -> Map PolicyId PolicyAssets -> UTxO
-pickTokensToDeposit leftoverUTxO depositTokens =
-  if null depositTokens
-    then mempty
-    else
-      let x = concatMap (go mempty) (UTxO.toList leftoverUTxO)
-       in combineTxOutAssets x
+pickTokensToDeposit leftoverUTxO depositTokens
+  | Map.null depositTokens = mempty
+  | otherwise = UTxO.fromList picked -- Assuming UTxO.fromList :: [(TxIn, TxOut CtxUTxO)] -> UTxO; adjust if needed.
  where
-  go :: [(TxIn, TxOut CtxUTxO)] -> (TxIn, TxOut CtxUTxO) -> [(TxIn, TxOut CtxUTxO)]
-  go defVal (i, o) = do
-    let outputAssets = valueToPolicyAssets $ txOutValue o
-        providedUTxOAssets = concatMap (\(pid, PolicyAssets a) -> (\(x, y) -> (pid, x, y)) <$> toList a) (Map.toList outputAssets)
-    (k, PolicyAssets v) <- Map.assocs depositTokens
+  -- Build list of (TxIn, new TxOut) where new TxOut has original lovelace + exact required quantities of matched assets.
+  picked :: [(TxIn, TxOut CtxUTxO)]
+  picked =
+    [ (i, mkTxOutValueKeepingLovelace o newValue)
+    | (i, o) <- UTxO.toList leftoverUTxO
+    , let outputAssets = valueToPolicyAssets (txOutValue o) -- Map PolicyId PolicyAssets from this TxOut.
+    , let pickedPolicyAssets = pickMatchedAssets outputAssets depositTokens -- Map PolicyId PolicyAssets with matched.
+    , not (Map.null pickedPolicyAssets)
+    , let newValue = foldMap (uncurry policyAssetsToValue) (Map.toList pickedPolicyAssets)
+    ]
 
-    if k `elem` Map.keys outputAssets
-      then do
-        (wantedAssetName, wantedAssetVal) <- Map.toList v
-        case find (\(pid, n, val) -> pid == k && wantedAssetName == n && wantedAssetVal <= val) providedUTxOAssets of
-          Nothing -> defVal
-          Just (pid', _an, _av) -> do
-            let newValue = fromList [(AssetId pid' wantedAssetName, wantedAssetVal)]
-            defVal <> [(i, mkTxOutValueKeepingLovelace o newValue)]
-      else defVal
-
-  combineTxOutAssets :: [(TxIn, TxOut CtxUTxO)] -> UTxO.UTxO
-  combineTxOutAssets =
-    foldl'
-      ( \finalUTxO (i, o) ->
-          case UTxO.findBy (existingTxId i) finalUTxO of
-            Nothing -> finalUTxO <> UTxO.singleton i o
-            Just (existingInput, existingOutput) ->
-              let val = valueToPolicyAssets $ txOutValue o
-               in UTxO.singleton existingInput (addTxOutValue existingOutput val)
-      )
-      mempty
-
-  existingTxId :: TxIn -> (TxIn, TxOut CtxUTxO) -> Bool
-  existingTxId txIn (a, _) = a == txIn
-
-  mkTxOutValueKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
-  mkTxOutValueKeepingLovelace (TxOut addr val datum refScript) newValue =
-    TxOut addr (lovelaceToValue (selectLovelace val) <> newValue) datum refScript
-
-  addTxOutValue :: TxOut ctx -> Map PolicyId PolicyAssets -> TxOut ctx
-  addTxOutValue (TxOut addr val datum refScript) newAssets =
-    TxOut addr (lovelaceToValue (selectLovelace val) <> assetsToVal (valueToPolicyAssets val) <> assetsToVal newAssets) datum refScript
+  -- For a given output's assets and the required depositTokens, build a map of matched policies/assets (exact required qty).
+  pickMatchedAssets :: Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets
+  pickMatchedAssets outputAssets = Map.foldrWithKey go mempty
    where
-    assetsToVal :: Map PolicyId PolicyAssets -> Value
-    assetsToVal m = foldMap (uncurry policyAssetsToValue) $ toList m
+    go :: PolicyId -> PolicyAssets -> Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets
+    go pid (PolicyAssets requiredAssets) acc = case Map.lookup pid outputAssets of
+      Nothing -> acc
+      Just (PolicyAssets availAssets) ->
+        let matchedAssets = Map.foldrWithKey (matchAsset availAssets) mempty requiredAssets
+         in if Map.null matchedAssets then acc else Map.insert pid (PolicyAssets matchedAssets) acc
 
-  bumpIndex :: TxIn -> TxIn
-  bumpIndex (TxIn i (TxIx n)) = TxIn i (TxIx $ n + 1)
+    matchAsset :: Map AssetName Quantity -> AssetName -> Quantity -> Map AssetName Quantity -> Map AssetName Quantity
+    matchAsset availAssets name reqQty matched = case Map.lookup name availAssets of
+      Just availQty | reqQty <= availQty -> Map.insert name reqQty matched
+      _ -> matched
+
+-- Helper to create TxOut with original lovelace + new value (unchanged from original).
+mkTxOutValueKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
+mkTxOutValueKeepingLovelace (TxOut addr val datum refScript) newValue =
+  TxOut addr (lovelaceToValue (selectLovelace val) <> newValue) datum refScript
 
 mkDepositOutput ::
   NetworkId ->
