@@ -6,7 +6,7 @@ sidebar_position: 2
 
 This guide provides a walkthrough on how to commit a UTxO from a script into a Hydra Head.
 
-A **Script UTxO** is a special kind of Unspent Transaction Output (UTxO) that isn't controlled by a simple private key. Instead, it's locked by a script—a small program that runs on the blockchain. To spend the funds in a Script UTxO, you must provide data (a "redeemer" and "datum") that satisfies the conditions defined in that script.
+A **Script UTxO** is a special kind of Unspent Transaction Output (UTxO) that isn't controlled by a simple private key. Instead, it is locked by a script - a small program that runs on the blockchain. To spend the funds in a Script UTxO, you must provide data (a "redeemer" and "datum") that satisfies the conditions defined in that script.
 
 Committing a script UTxO to a Hydra Head is a powerful feature that allows for more complex on-chain validation logic to be brought into the Head. This is useful for scenarios where you need to enforce specific rules on how funds can be spent, even within the Head's off-chain environment.
 
@@ -24,7 +24,7 @@ You will also need:
 
 ## Step 1: Create the script
 
-For this tutorial, we'll use a simple "always true" validator script. This script will always succeed, regardless of the redeemer or datum.
+For this tutorial, we will use a simple "always true" validator script. This script will always succeed, regardless of the redeemer or datum.
 
 Create a file named `always-true.plutus` with the following content:
 
@@ -57,7 +57,7 @@ cat script.addr
 
 Before we can commit a script UTxO, we need to create one. This is done by sending funds to the script address.
 
-First, find a UTxO in your wallet that you can use. You can query your wallet's UTxOs using `cardano-cli`. For this example, we'll use `alice-funds.sk`:
+First, find a UTxO in your wallet that you can use. You can query your wallet's UTxOs using `cardano-cli`. For this example, we will use `alice-funds.sk`:
 
 ```shell
 cardano-cli query utxo \
@@ -66,7 +66,7 @@ cardano-cli query utxo \
   --socket-path testnets/preprod/node.socket
 ```
 
-Pick a UTxO from the output and use it to build a transaction that sends funds to the script address. Let's say you picked a UTxO with TxHash `<UTXO_TXIX>` containing `100 ADA`. We'll send `10 ADA` to the script address.
+Pick a UTxO from the output and use it to build a transaction that sends funds to the script address. Let's say you picked a UTxO with TxHash `<UTXO_TXIX>` containing `100 ADA`. We will send `10 ADA` to the script address.
 
 First, create a file named `datum.json` that contains the datum. For this example, we will just use the integer `42`.
 
@@ -121,11 +121,11 @@ cardano-cli query utxo \
 
 ## Step 4: Prepare the commit
 
-Now we are ready to prepare the commit. We'll create a blueprint transaction that spends the script UTxO. Note that this transaction is not meant to be signed and submitted to the Cardano network. It's just a blueprint that we'll send to the `hydra-node` to get a properly drafted commit transaction.
+Now we are ready to prepare the commit. We will create a blueprint transaction that spends the script UTxO. Note that this transaction is not meant to be signed and submitted to the Cardano network. It is just a blueprint that we will send to the `hydra-node` to get a properly drafted commit transaction.
 
 We use `cardano-cli ... build-raw` to construct this blueprint because it gives us full control over the transaction structure without trying to automatically balance it or calculate fees, which is perfect for a blueprint.
 
-In this transaction, we'll spend the script UTxO and send the funds to our own wallet address.
+In this transaction, we will spend the script UTxO and send the funds to our own wallet address.
 
 ```shell
 cardano-cli conway transaction build-raw \
@@ -143,7 +143,7 @@ A real-world script, like one written in [Aiken](https://aiken-lang.org/), would
 
 ## Step 5: Commit the script UTxO
 
-This final step is very similar to the standard commit tutorial. We'll start a `hydra-node`, initialize a Head, and then use the blueprint transaction to get a commit transaction from the `hydra-node`.
+This final step is very similar to the standard commit tutorial. We will start a `hydra-node`, initialize a Head, and then use the blueprint transaction to get a commit transaction from the `hydra-node`.
 
 First, start the `hydra-node` and `hydra-tui` as explained in the [Commit using a blueprint](./commit-blueprint.md#step-5) tutorial and initialize a Head.
 
