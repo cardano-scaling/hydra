@@ -15,6 +15,7 @@ import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -194,7 +195,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             liftEither $ do
               checkAmount lookupUTxO amount
               rejectLowDeposits pparams lookupUTxO amount
-            let (validTokens, _invalidTokens) = splitTokens lookupUTxO (fromMaybe mempty tokens)
+            let (validTokens, invalidTokens) = splitTokens lookupUTxO (fromMaybe mempty tokens)
+            unless (null invalidTokens) $
+              throwError $
+                InvalidTokenRequest (Map.assocs invalidTokens)
             (currentSlot, currentTime) <- case currentPointInTime of
               Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
               Right (s, t) -> pure (s, t)

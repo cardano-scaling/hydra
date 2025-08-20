@@ -17,13 +17,11 @@ import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
-  AssetName,
   ByronAddr,
   Coin (..),
   LedgerEra,
   PolicyAssets,
   PolicyId,
-  Quantity,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
@@ -211,7 +209,7 @@ data PostTxError tx
   | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
   | AmountTooLow {providedValue :: Coin, totalUTxOValue :: Coin}
   | MissingTokenPolicies [PolicyId]
-  | InvalidTokenRequest [(PolicyId, (AssetName, Quantity))]
+  | InvalidTokenRequest [(PolicyId, PolicyAssets)]
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)

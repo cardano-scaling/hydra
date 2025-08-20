@@ -132,6 +132,15 @@ mkDepositOutput networkId headId depositUTxO deadline =
 depositAddress :: NetworkId -> AddressInEra
 depositAddress networkId = mkScriptAddress networkId depositValidatorScript
 
+-- | Splits the specified tokens into those that are available in sufficient quantities in the user's UTxO
+-- and those that are not (either because the policy is missing or the asset quantities are insufficient).
+--
+-- This function takes a user's UTxO and a map of specified policy IDs to their desired assets and quantities.
+-- It checks the total value in the UTxO, converts it to a policy-assets map, and then partitions the specified
+-- tokens into "ok" (available) and "invalid" (unavailable or insufficient).
+--
+-- If no tokens are specified, it returns two empty maps. Otherwise, it returns the partitioned maps, ensuring
+-- that if there are no invalid tokens, the second map is empty.
 splitTokens :: UTxO.UTxO -> Map PolicyId PolicyAssets -> (Map PolicyId PolicyAssets, Map PolicyId PolicyAssets)
 splitTokens userUTxO specifiedTokens
   | Map.null specifiedTokens = (mempty, mempty) -- Trivial case: no tokens specified
