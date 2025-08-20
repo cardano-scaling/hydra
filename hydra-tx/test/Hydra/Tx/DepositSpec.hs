@@ -9,8 +9,8 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api (AssetId (..), AssetName, Coin (..), PolicyAssets (..), PolicyId, Quantity (..), UTxO, selectLovelace, txOutValue, valueToPolicyAssets)
 import Hydra.Tx.Deposit (capUTxO, pickTokensToDeposit, splitTokens)
 import Test.Hydra.Tx.Fixture (testPolicyId)
-import Test.Hydra.Tx.Gen (genUTxOSized)
-import Test.QuickCheck (Property, chooseInteger, counterexample, (===), (==>))
+import Test.Hydra.Tx.Gen (genUTxOSized, genUTxOWithAssetsSized)
+import Test.QuickCheck (Property, chooseInteger, counterexample, cover, elements, forAll, frequency, listOf, oneof, property, (===), (==>))
 
 spec :: Spec
 spec =
@@ -171,6 +171,10 @@ spec =
           let (valid, invalid) = splitTokens testUTxO tokens
           valid `shouldBe` mempty -- All assets in policy must be valid for policy to be valid
           invalid `shouldBe` tokens
+        it "splits multiassets correctly" $
+          forAll (genUTxOWithAssetsSized 5) $ \utxo ->
+            forAll (prepareAssetMap utxo) $ \assets ->
+              property $ propSplitMultiAssetCorrectly utxo assets
 
       describe "property tests" $ do
         prop "preserves all input tokens (completeness)" propPreservesAllTokens
@@ -412,3 +416,58 @@ propMonotonicUTxOAdditions utxo1 utxo2 specifiedTokens =
    in valid1Policies `Set.isSubsetOf` validCombinedPolicies
         & counterexample ("Valid policies in UTxO1: " <> show valid1Policies)
         & counterexample ("Valid policies in combined UTxO: " <> show validCombinedPolicies)
+
+propSplitMultiAssetCorrectly :: UTxO -> Map PolicyId PolicyAssets -> Property
+propSplitMultiAssetCorrectly utxo specifiedTokens =
+  let toDeposit = pickTokensToDeposit utxo specifiedTokens
+      utxoValue = UTxO.totalValue utxo
+      utxoPolicyAssets = valueToPolicyAssets utxoValue
+      depositAssets = valueToPolicyAssets $ UTxO.totalValue toDeposit
+   in all (checkValidTokenInUTxO utxoPolicyAssets) (Map.toList depositAssets)
+        & cover 10 (containsPolicies utxoPolicyAssets specifiedTokens) "PolicyId's are completely present in the UTxO"
+        & cover 10 (containsAssets utxoPolicyAssets specifiedTokens) "Assets are completely present in the UTxO"
+        & cover 1 (Map.null specifiedTokens) "Empty Assets"
+        & cover 1 (Map.size specifiedTokens > 5) "Assets size > 5"
+        & counterexample ("Valid tokens: " <> show toDeposit)
+        & counterexample ("UTxO policy assets: " <> show utxoPolicyAssets)
+ where
+  containsPolicies :: Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets -> Bool
+  containsPolicies utxoAssets depositAssets = sort (Map.keys utxoAssets) == sort (Map.keys depositAssets)
+
+  containsAssets :: Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets -> Bool
+  containsAssets utxoAssets depositAssets =
+    let deposits = Map.elems depositAssets
+     in all (`elem` deposits) (Map.elems utxoAssets)
+
+  checkValidTokenInUTxO :: Map PolicyId PolicyAssets -> (PolicyId, PolicyAssets) -> Bool
+  checkValidTokenInUTxO utxoAssets (policyId, PolicyAssets requiredAssets) =
+    case Map.lookup policyId utxoAssets of
+      Nothing -> False
+      Just (PolicyAssets availableAssets) ->
+        all
+          ( \(assetName, requiredQty) ->
+              case Map.lookup assetName availableAssets of
+                Nothing -> False
+                Just availableQty -> availableQty >= requiredQty
+          )
+          (Map.toList requiredAssets)
+
+prepareAssetMap :: UTxO -> Gen (Map PolicyId PolicyAssets)
+prepareAssetMap utxo = do
+  let utxoAssets = valueToPolicyAssets $ UTxO.totalValue utxo
+  n <- elements [1 .. Map.size utxoAssets]
+  frequency [(1, randomAssets n utxoAssets), (8, addRandomAssets), (1, pure utxoAssets)]
+ where
+  addRandomAssets :: Gen (Map PolicyId PolicyAssets)
+  addRandomAssets = oneof [addRandomAsset, foldr Map.union mempty <$> listOf addRandomAsset]
+
+  addRandomAsset :: Gen (Map PolicyId PolicyAssets)
+  addRandomAsset = do
+    policy <- arbitrary
+    Map.singleton policy <$> arbitrary
+
+  randomAssets :: Int -> Map PolicyId PolicyAssets -> Gen (Map PolicyId PolicyAssets)
+  randomAssets n assets =
+    let assets' = Map.toList assets
+        (x, y) = splitAt n assets'
+     in oneof [pure $ Map.fromList x, pure $ Map.fromList y, pure $ Map.fromList $ drop n assets', pure $ Map.fromList $ take n assets']

@@ -57,42 +57,48 @@ genTxOut =
       , notMultiAsset . fromLedgerTxOut <$> arbitrary
       ]
 
-  notMultiAsset :: TxOut ctx -> TxOut ctx
-  notMultiAsset =
-    modifyTxOutValue (lovelaceToValue . selectLovelace)
+notMultiAsset :: TxOut ctx -> TxOut ctx
+notMultiAsset =
+  modifyTxOutValue (lovelaceToValue . selectLovelace)
 
-  notByronAddress :: TxOut ctx -> Bool
-  notByronAddress (TxOut addr _ _ _) = case addr of
-    ByronAddressInEra{} -> False
-    _ -> True
+notByronAddress :: TxOut ctx -> Bool
+notByronAddress (TxOut addr _ _ _) = case addr of
+  ByronAddressInEra{} -> False
+  _ -> True
 
-  realisticAda :: TxOut ctx -> Gen (TxOut ctx)
-  realisticAda o = sized $ \n -> do
-    let maxSupply = 45_000_000_000_000_000
-        realistic = Coin $ maxSupply `div` fromIntegral (max n 1)
-        makeRealistic v =
-          let MaryValue c ma = toLedgerValue v
-           in fromLedgerValue (MaryValue (min c realistic) ma)
-    pure $
-      modifyTxOutValue makeRealistic o
+realisticAda :: TxOut ctx -> Gen (TxOut ctx)
+realisticAda o = sized $ \n -> do
+  let maxSupply = 45_000_000_000_000_000
+      realistic = Coin $ maxSupply `div` fromIntegral (max n 1)
+      makeRealistic v =
+        let MaryValue c ma = toLedgerValue v
+         in fromLedgerValue (MaryValue (min c realistic) ma)
+  pure $
+    modifyTxOutValue makeRealistic o
 
-  ensureSomeAda :: TxOut CtxUTxO -> TxOut ctx
-  ensureSomeAda =
-    fromLedgerTxOut . ensureMinCoinTxOut pparams . toLedgerTxOut
+ensureSomeAda :: TxOut CtxUTxO -> TxOut ctx
+ensureSomeAda =
+  fromLedgerTxOut . ensureMinCoinTxOut pparams . toLedgerTxOut
 
-  noStakeRefPtr :: TxOut ctx -> TxOut ctx
-  noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
-    ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
-      case sr of
-        Ledger.StakeRefPtr _ ->
-          TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat refScript
-        _ ->
-          TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat refScript
-    _ -> out
+noStakeRefPtr :: TxOut ctx -> TxOut ctx
+noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
+  ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
+    case sr of
+      Ledger.StakeRefPtr _ ->
+        TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat refScript
+      _ ->
+        TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat refScript
+  _ -> out
 
-  noRefScripts :: TxOut ctx -> TxOut ctx
-  noRefScripts out =
-    out{txOutReferenceScript = ReferenceScriptNone}
+noRefScripts :: TxOut ctx -> TxOut ctx
+noRefScripts out =
+  out{txOutReferenceScript = ReferenceScriptNone}
+
+genTxOutWithAssets :: Gen (TxOut ctx)
+genTxOutWithAssets =
+  ((fromLedgerTxOut <$> arbitrary) `suchThat` notByronAddress)
+    >>= realisticAda
+    <&> ensureSomeAda . noRefScripts . noStakeRefPtr
 
 -- | Generate a 'TxOut' with a byron address. This is usually not supported by
 -- Hydra or Plutus.
@@ -137,6 +143,13 @@ shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.toList (shrinkList shrinkOne)
 -- | Generate a 'Conway' era 'UTxO'. See also 'genTxOut'.
 genUTxO :: Gen UTxO
 genUTxO = sized genUTxOSized
+
+genUTxOWithAssetsSized :: Int -> Gen UTxO
+genUTxOWithAssetsSized numUTxO =
+  fold <$> vectorOf numUTxO gen
+ where
+  gen :: Gen UTxO
+  gen = UTxO.singleton <$> arbitrary <*> genTxOutWithAssets
 
 -- | Generate a 'Conway' era 'UTxO' with given number of outputs. See also
 -- 'genTxOut'.
