@@ -61,7 +61,7 @@ spec =
 
           toDeposit `shouldBe` utxoWithTokens [(testPolicyId, testAssetName, Quantity 100)]
 
-        fit "handles multiple assets within the same policy" $ do
+        it "handles multiple assets within the same policy" $ do
           let testUTxO =
                 utxoWithTokens
                   [ (testPolicyId, testAssetName, Quantity 100)
@@ -86,6 +86,7 @@ spec =
                   , (testPolicyId, testAssetName2, 150)
                   ]
           toDeposit `shouldBe` additionalUTxO
+
     describe "splitTokens" $ do
       describe "tests" $ do
         it "returns empty results when no tokens are specified" $ do
