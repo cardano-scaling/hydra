@@ -8,9 +8,10 @@ import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
+import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
+import Control.Monad.Class.MonadAsync (cancel, waitCatch)
 import Data.ByteString qualified as BS
-import Data.Set qualified as Set
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),
@@ -37,14 +38,12 @@ import Hydra.Cluster.Faucet (
  )
 import Hydra.Cluster.Fixture (
   Actor (..),
-  alice,
   aliceSk,
  )
-import Hydra.Cluster.Scenarios (headIsInitializingWith)
 import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..))
-import Hydra.Options (DirectOptions (..), persistenceRotateAfter)
+import Hydra.Options (DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
@@ -52,10 +51,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import HydraNode (
   HydraClient (HydraClient, hydraNodeId),
   HydraNodeLog,
-  input,
   prepareHydraNode,
-  send,
-  waitForAllMatch,
   withHydraNode,
   withPreparedHydraNode,
  )
@@ -78,17 +74,58 @@ spec = do
         shouldNotRender "Connecting"
 
     around setupRotatedStateTUI $ do
-      it "tui-rotated starts" $ do
-        \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
-          threadDelay 1
-          sendInputEvent $ EvKey (KChar 'h') []
-          threadDelay 1
-          shouldNotRender "HeadIsInitializing"
-          shouldRender "Checkpoint triggered"
-          sendInputEvent $ EvKey (KChar 's') []
-          threadDelay 1
-          shouldRender "Initializing"
-          shouldRender "Head id"
+      fit "tui-rotated starts" $ do
+        \TUIRotatedTest
+          { tuiTest = TUITest{sendInputEvent, shouldRender, shouldNotRender}
+          , nodeHandle = HydraNodeHandle{restartNode}
+          } -> do
+            threadDelay 1
+            threadDelay 1
+            shouldRender "Connected"
+            shouldRender "Idle"
+            sendInputEvent $ EvKey (KChar 'i') []
+            threadDelay 1
+            shouldRender "Initializing"
+            restartNode
+            sendInputEvent $ EvKey (KChar 'h') []
+            threadDelay 1
+            shouldNotRender "HeadIsInitializing"
+            shouldRender "Checkpoint triggered"
+            sendInputEvent $ EvKey (KChar 's') []
+            threadDelay 1
+            shouldRender "Initializing"
+            shouldRender "Head id"
+            -- open the head
+            sendInputEvent $ EvKey (KChar 'c') []
+            threadDelay 1
+            shouldRender "42000000 lovelace"
+            sendInputEvent $ EvKey (KChar '>') []
+            sendInputEvent $ EvKey (KChar ' ') []
+            sendInputEvent $ EvKey KEnter []
+            threadDelay 1
+            shouldRender "Open"
+            restartNode
+            sendInputEvent $ EvKey (KChar 'h') []
+            threadDelay 1
+            shouldNotRender "HeadIsOpen"
+            shouldRender "Checkpoint triggered"
+            sendInputEvent $ EvKey (KChar 's') []
+            threadDelay 1
+            shouldRender "Open"
+            -- close the head
+            sendInputEvent $ EvKey (KChar 'c') []
+            threadDelay 1
+            sendInputEvent $ EvKey KEnter []
+            threadDelay 1
+            shouldRender "Closed"
+            restartNode
+            sendInputEvent $ EvKey (KChar 'h') []
+            threadDelay 1
+            shouldNotRender "HeadIsClosed"
+            shouldRender "Checkpoint triggered"
+            sendInputEvent $ EvKey (KChar 's') []
+            threadDelay 1
+            shouldRender "Closed"
 
     around setupNodeAndTUI $ do
       it "starts & renders" $
@@ -180,11 +217,10 @@ spec = do
           threadDelay 1
           shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
 
-setupRotatedStateTUI :: (TUITest -> IO ()) -> IO ()
+setupRotatedStateTUI :: (TUIRotatedTest -> IO ()) -> IO ()
 setupRotatedStateTUI action = do
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
-      (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \_ backend -> do
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
         chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
@@ -193,36 +229,102 @@ setupRotatedStateTUI action = do
         externalSKey <- createAndSaveSigningKey externalKeyFilePath
         let externalVKey = getVerificationKey externalSKey
         seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
-        let DirectBackend DirectOptions{nodeSocket, networkId} = backend
+        (aliceCardanoVk, _) <- keysFor Alice
+        seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] [nodeId] id
         let options' = options{persistenceRotateAfter = Just (Positive 1)}
+        withTUIRotatedTest (contramap FromHydra tracer) tmpDir nodeId backend externalKeyFilePath options' action
 
-        withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \n -> do
-          seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-          send n $ input "Init" []
-          void $ waitForAllMatch (10 * 200) [n] $ headIsInitializingWith (Set.fromList [alice])
-        -- Note: We don't wait for checking rotated here - but maybe we could - because we just check for the message in the TUI
+data TUIRotatedTest = TUIRotatedTest
+  { tuiTest :: TUITest
+  , nodeHandle :: HydraNodeHandle
+  }
 
-        withPreparedHydraNode (contramap FromHydra tracer) tmpDir nodeId options' $ \HydraClient{hydraNodeId} -> do
-          withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
-            raceLabelled_
-              ( "run-vty"
-              , runWithVty
-                  buildVty
-                  Options
-                    { hydraNodeHost =
-                        Host
-                          { hostname = "127.0.0.1"
-                          , port = fromIntegral $ 4000 + hydraNodeId
-                          }
-                    , cardanoNodeSocket =
-                        nodeSocket
-                    , cardanoNetworkId =
-                        networkId
-                    , cardanoSigningKey = externalKeyFilePath
-                    }
-              )
-              ("action-brick-test", action brickTest)
+data HydraNodeHandle = HydraNodeHandle
+  { startNode :: IO ()
+  , stopNode :: IO ()
+  , restartNode :: IO ()
+  , getClient :: IO HydraClient
+  }
+
+withHydraNodeHandle ::
+  Tracer IO HydraNodeLog ->
+  FilePath ->
+  Int ->
+  RunOptions ->
+  (HydraNodeHandle -> IO a) ->
+  IO a
+withHydraNodeHandle tracer tmpDir nodeId options action = do
+  clientVar <- newEmptyMVar
+  runningAsyncVar <- newEmptyMVar
+  let
+    -- If startNode is called more than once without stopNode,
+    -- putMVar clientVar will block because it’s already full.
+    startNode = do
+      a <- asyncLabelled "hydra-node" $
+        withPreparedHydraNode tracer tmpDir nodeId options $ \client -> do
+          putMVar clientVar client
+          -- keep async alive as long as node is running
+          forever (threadDelay 1_000_000)
+      putMVar runningAsyncVar a
+
+    stopNode = do
+      cancelRunningAsync
+      void $ tryTakeMVar clientVar
+
+    cancelRunningAsync =
+      tryTakeMVar runningAsyncVar >>= mapM_ (\a -> cancel a >> waitCatch a >> pure ())
+
+    restartNode = stopNode >> startNode
+
+    getClient = readMVar clientVar
+
+  bracket
+    (pure HydraNodeHandle{startNode, stopNode, restartNode, getClient})
+    (const stopNode)
+    action
+
+withTUIRotatedTest ::
+  Tracer IO HydraNodeLog ->
+  FilePath ->
+  Int ->
+  DirectBackend ->
+  FilePath ->
+  RunOptions ->
+  (TUIRotatedTest -> Expectation) ->
+  Expectation
+withTUIRotatedTest tracer tmpDir nodeId backend externalKeyFilePath options' action = do
+  withHydraNodeHandle tracer tmpDir nodeId options' $ \nodeHandle -> do
+    startNode nodeHandle
+    HydraClient{hydraNodeId} <- getClient nodeHandle
+    withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
+      raceLabelled_
+        ( "run-vty"
+        , do
+            runWithVty
+              buildVty
+              Options
+                { hydraNodeHost =
+                    Host
+                      { hostname = "127.0.0.1"
+                      , port = fromIntegral $ 4000 + hydraNodeId
+                      }
+                , cardanoNodeSocket =
+                    nodeSocket
+                , cardanoNetworkId =
+                    networkId
+                , cardanoSigningKey = externalKeyFilePath
+                }
+        )
+        ( "action-brick-test"
+        , action $
+            TUIRotatedTest
+              { tuiTest = brickTest
+              , nodeHandle
+              }
+        )
+ where
+  DirectBackend DirectOptions{nodeSocket, networkId} = backend
 
 setupNodeAndTUI' :: Text -> Coin -> (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI' hostname lovelace action =

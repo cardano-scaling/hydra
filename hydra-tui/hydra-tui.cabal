@@ -99,7 +99,6 @@ test-suite tests
   build-depends:
     , blaze-builder
     , bytestring
-    , containers
     , filepath
     , hspec
     , hydra-cardano-api
