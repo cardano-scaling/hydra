@@ -421,7 +421,7 @@ withTUITest region action = do
   findBytes bytes = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
 
   buildVty q frameBuffer = do
-    input' <- buildInput defaultConfig =<< defaultSettings
+    input <- buildInput defaultConfig =<< defaultSettings
     -- NOTE(SN): This is used by outputPicture and we hack it such that it
     -- always has the initial state to get a full rendering of the picture. That
     -- way we can capture output bytes line-by-line and drop the cursor moving.
@@ -435,7 +435,7 @@ withTUITest region action = do
     let output = testOut realOut as frameBuffer
     pure $
       Vty
-        { inputIface = input' -- TODO(SN): this is not used
+        { inputIface = input -- TODO(SN): this is not used
         , nextEvent = atomically $ readTQueue q
         , nextEventNonblocking = atomically $ tryReadTQueue q
         , outputIface = output
@@ -449,7 +449,7 @@ withTUITest region action = do
             dc <- displayContext output region
             outputPicture dc p
         , refresh = pure ()
-        , shutdown = shutdownInput input'
+        , shutdown = shutdownInput input
         , isShutdown = pure True
         }
 
