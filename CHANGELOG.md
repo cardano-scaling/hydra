@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.23.0] - UNRELEASED
+
+- Fix bug where TUI would have out-of-date head status information in the
+  presence of event rotation.
+
 ## [0.22.4] - 2025-08-05
 
 - Accept additional field `amount` when depositing to specify the amount of Lovelace that should be depositted to a Head returning any leftover to the user.
@@ -34,9 +39,6 @@ changes.
   https://github.com/cardano-scaling/hydra/issues/2167. This is not a full fix
   but is enough to resolve the problem until we can identify the central cause
   of the issue.
-
-- Fix bug where TUI would have out-of-date head status information in the
-  presence of event rotation.
 
 ## [0.22.3] - 2025-07-21
 
