@@ -93,7 +93,6 @@ cardano-cli query protocol-parameters \
   --testnet-magic 1 \
   --socket-path testnets/preprod/node.socket \
   --out-file pp-preprod.json
-
 ```
 
 ## Step 5
@@ -127,7 +126,7 @@ Press `i` to initialize the `head`. Once the head is in the `Initializing` state
 
 This is the valid JSON request:
 
-```shell
+```json
 {
   "blueprintTx": {
     "cborHex": "84a3008182582014ab373afb1112d925b0f6a84518ac26d4a8cfcc99231e1f47e6996182e843a900018182581d6069830961c6af9095b0f2648dff31fa9545d8f0b6623db865eb78fde81a007a12000200a0f5f6",
