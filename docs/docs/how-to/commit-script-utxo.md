@@ -211,3 +211,37 @@ cardano-cli conway transaction submit \
 ```
 
 And that's it! After the transaction is confirmed on-chain, your script UTxO will be committed to the Head.
+
+## Bonus: Experimenting with a Failing Script
+
+It can be very insightful to see what happens when a script validator fails. To demonstrate this, you can create an "always false" validator and see how `cardano-cli`'s local validation prevents you from even building a transaction that uses it.
+
+**1. Create the `always-false.plutus` script**
+
+Create a new file named `always-false.plutus` with the following content. This is a valid Plutus script that is guaranteed to fail validation.
+
+```json
+{
+    "type": "PlutusScriptV2",
+    "description": "Always false validator",
+    "cborHex": "49480100002221200100"
+}
+```
+
+**2. Lock funds with the failing script**
+
+Follow the same steps as in **Step 3** and **Step 4** of the main tutorial, but use `always-false.plutus` instead of `always-true.plutus` to create a new script address and lock a new UTxO in it.
+
+**3. Attempt to build a blueprint**
+
+Now, try to run the `build-raw` command from **Step 5** using the UTxO locked by the failing script.
+
+**Expected Result: Failure**
+
+You will find that the `cardano-cli conway transaction build-raw` command itself will fail. It will produce an error message similar to this:
+
+```shell
+Command failed: transaction build-raw  Error: A script in the transaction has failed.
+```
+
+This is a powerful feature of `cardano-cli`. It evaluates the scripts locally *before* creating the transaction. By catching the script failure at this early stage, it prevents you from submitting a transaction that would be guaranteed to fail on the blockchain, saving you time and the transaction fees.
