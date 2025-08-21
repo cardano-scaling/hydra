@@ -31,9 +31,10 @@ common project-config
     -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
     -fprint-potential-instances -Wmissing-local-signatures
 
-executable visualize-logs
-  import:        project-config
-  main-is:       Main.hs
+library
+  import:          project-config
+  hs-source-dirs:  src
+  exposed-modules: VisualizeLogs
   build-depends:
     , aeson
     , attoparsec
@@ -46,5 +47,15 @@ executable visualize-logs
     , lens-aeson
     , optparse-applicative
     , text
+
+  ghc-options:     -haddock
+
+executable visualize-logs
+  import:        project-config
+  main-is:       Main.hs
+  build-depends:
+    , hydra-prelude
+    , optparse-applicative
+    , visualize-logs
 
   ghc-options:   -threaded -rtsopts -with-rtsopts=-N4

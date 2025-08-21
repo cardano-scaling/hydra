@@ -102,6 +102,18 @@
             "hydra-chain-observer"
             paddedRevision;
 
+        visualize-logs =
+          embedRevision
+            nativePkgs.visualize-logs.components.exes.visualize-logs
+            "visualize-logs"
+            paddedRevision;
+
+        visualize-logs-static =
+          embedRevision
+            musl64Pkgs.visualize-logs.components.exes.visualize-logs
+            "visualize-logs"
+            paddedRevision;
+
         hydra-cluster = pkgs.writers.writeBashBin "hydra-cluster" ''
           export PATH=$PATH:${hydra-node}/bin
           ${nativePkgs.hydra-cluster.components.exes.hydra-cluster}/bin/hydra-cluster "$@"
