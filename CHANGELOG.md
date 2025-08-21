@@ -35,8 +35,6 @@ changes.
 
 - **BREAKING** Rename `--script-info` option to `--hydra-script-catalogue` in the `hydra-node` CLI.
 
-
-
 - Label threads, queues and vars.
 
 ## [0.22.4] - 2025-08-05
