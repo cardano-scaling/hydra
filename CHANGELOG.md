@@ -15,8 +15,6 @@ changes.
 
 - Accept additional field `amount` when depositing to specify the amount of Lovelace that should be depositted to a Head returning any leftover to the user.
 
-- Don't keep around invalid transactions as they could lead to stuck Head.
-
 - Hydra API server responds with the correct `Content-Type` header `application-json`.
 
 - Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
@@ -72,11 +70,14 @@ when the number of persisted `StateChanged` events exceeds the configured `--per
 
 ## [0.22.3] - 2025-07-21
 
-* Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
+- Change behavior of `Hydra.Network.Etcd` to fallback to earliest possible
   revision if `last-known-revision` is missing or too old. This can happen if a
   node is down for a long time and the `etcd` cluster compacted the last known
   revision in the meantime
   [#2136](https://github.com/cardano-scaling/hydra/issues/2136).
+
+- Don't keep around invalid transactions as they could lead to stuck Head.
+
 
 ## [0.22.2] - 2025-06-30
 
