@@ -35,11 +35,7 @@ changes.
 
 - **BREAKING** Rename `--script-info` option to `--hydra-script-catalogue` in the `hydra-node` CLI.
 
-- Fix rotation log id consistency after restart by changing the rotation check to trigger only
-when the number of persisted `StateChanged` events exceeds the configured `--persistence-rotate-after` threshold.
-  * This also prevents immediate rotation on startup when the threshold is set to 1.
-  * `Checkpoint` event ids now match the suffix of their preceding rotated log file and the last `StateChanged` event id within it,
-  preserving sequential order and making it easier to identify which rotated log file was used to compute it.
+
 
 - Label threads, queues and vars.
 
@@ -67,6 +63,12 @@ when the number of persisted `StateChanged` events exceeds the configured `--per
   https://github.com/cardano-scaling/hydra/issues/2167. This is not a full fix
   but is enough to resolve the problem until we can identify the central cause
   of the issue.
+
+- Fix rotation log id consistency after restart by changing the rotation check to trigger only
+when the number of persisted `StateChanged` events exceeds the configured `--persistence-rotate-after` threshold.
+  * This also prevents immediate rotation on startup when the threshold is set to 1.
+  * `Checkpoint` event ids now match the suffix of their preceding rotated log file and the last `StateChanged` event id within it,
+  preserving sequential order and making it easier to identify which rotated log file was used to compute it.
 
 ## [0.22.3] - 2025-07-21
 
