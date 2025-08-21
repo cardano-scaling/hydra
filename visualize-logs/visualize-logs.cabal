@@ -1,0 +1,61 @@
+cabal-version: 3.0
+name:          visualize-logs
+version:       0.22.4
+synopsis:      Visualize Hydra node logs
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
+
+common project-config
+  default-language:   GHC2021
+  default-extensions:
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DerivingStrategies
+    DuplicateRecordFields
+    FunctionalDependencies
+    GADTs
+    LambdaCase
+    MultiWayIf
+    NoImplicitPrelude
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternSynonyms
+    TypeFamilies
+    ViewPatterns
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+    -fprint-potential-instances -Wmissing-local-signatures
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  exposed-modules: VisualizeLogs
+  build-depends:
+    , aeson
+    , attoparsec
+    , base
+    , conduit
+    , hydra-cardano-api
+    , hydra-node
+    , hydra-prelude
+    , lens
+    , lens-aeson
+    , optparse-applicative
+    , text
+
+  ghc-options:     -haddock
+
+executable visualize-logs
+  import:        project-config
+  main-is:       Main.hs
+  build-depends:
+    , hydra-prelude
+    , optparse-applicative
+    , visualize-logs
+
+  ghc-options:   -threaded -rtsopts -with-rtsopts=-N4

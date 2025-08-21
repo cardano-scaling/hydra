@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 -- | Parse hydra-node logs format more easy on the eyes. Parser works with regular json logs as well as journalctl format.
-module Main where
+module VisualizeLogs where
 
 import Hydra.Cardano.Api (Tx)
 import Hydra.Prelude hiding (encodeUtf8, takeWhile)
@@ -101,11 +101,6 @@ opts =
         <> progDesc "Group logs by the timestamp and display using colors and separators for easy inspection."
         <> header "Visualize hydra-node logs"
     )
-
-main :: IO ()
-main = do
-  args <- execParser opts
-  visualize $ paths args
 
 visualize :: [FilePath] -> IO ()
 visualize paths = do
