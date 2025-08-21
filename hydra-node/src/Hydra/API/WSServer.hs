@@ -182,6 +182,7 @@ wsApp env party tracer history callback headStateP responseChannel ServerOutputF
         WithAddressedTx addr -> txContainsAddr tx addr
         WithoutAddressedTx -> True
 
+  -- \| Get the content of 'headStatus' field in 'Greetings' message from the full 'HeadState'.
   getHeadStatus :: HeadState tx -> HeadStatus
   getHeadStatus = \case
     HeadState.Idle{} -> Idle

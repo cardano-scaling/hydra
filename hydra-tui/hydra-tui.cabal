@@ -110,6 +110,7 @@ test-suite tests
     , hydra-tx
     , io-classes
     , optparse-applicative
+    , QuickCheck
     , regex-tdfa
     , unix
     , vty
