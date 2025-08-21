@@ -4,15 +4,184 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Hydra.Cardano.Api (Coin (..), UTxO, selectLovelace, txOutValue)
-import Hydra.Tx.Deposit (capUTxO)
-import Test.Hydra.Tx.Gen (genUTxOSized)
-import Test.QuickCheck (Property, chooseInteger, counterexample, (===), (==>))
+import Hydra.Cardano.Api (AssetId (..), AssetName, Coin (..), PolicyAssets (..), PolicyId, Quantity (..), UTxO, selectLovelace, txOutValue, valueToPolicyAssets)
+import Hydra.Tx.Deposit (capUTxO, pickTokensToDeposit, splitTokens)
+import Test.Hydra.Tx.Fixture (testPolicyId)
+import Test.Hydra.Tx.Gen (genUTxOSized, genUTxOWithAssetsSized)
+import Test.QuickCheck (Property, chooseInteger, counterexample, cover, elements, forAll, frequency, listOf, oneof, property, (===), (==>))
 
 spec :: Spec
 spec =
   parallel $ do
+    describe "pickTokensToDeposit" $ do
+      describe "tests" $ do
+        it "returns empty results when no tokens are specified" $ do
+          let utxo = genUTxOSized 3 `generateWith` 42
+          let toDeposit = pickTokensToDeposit utxo mempty
+          toDeposit `shouldBe` mempty
+        it "returns empty results when UTxO is empty" $ do
+          let tokens = Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 10)])]
+          let toDeposit = pickTokensToDeposit mempty tokens
+          toDeposit `shouldBe` mempty
+        it "returns all tokens as invalid when policy is missing from UTxO" $ do
+          let utxo = genUTxOSized 3 `generateWith` 42 -- UTxO with only ADA
+          let tokens = Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 10)])]
+          let toDeposit = pickTokensToDeposit utxo tokens
+          toDeposit `shouldBe` mempty
+        it "validates tokens correctly when exact quantities match" $ do
+          let testUTxO = utxoWithTokens [(testPolicyId, testAssetName, Quantity 100)]
+          let tokens = Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 100)])]
+          let toDeposit = pickTokensToDeposit testUTxO tokens
+          toDeposit `shouldBe` testUTxO
+        it "validates tokens correctly when UTxO has more than required" $ do
+          let testUTxO = utxoWithTokens [(testPolicyId, testAssetName, Quantity 150)]
+          let tokens = Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 100)])]
+          let toDeposit = pickTokensToDeposit testUTxO tokens
+          toDeposit `shouldBe` utxoWithTokens [(testPolicyId, testAssetName, Quantity 100)]
+        it "returns tokens intact when UTxO has less than required" $ do
+          let testUTxO = utxoWithTokens [(testPolicyId, testAssetName, Quantity 50)]
+          let tokens = Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 100)])]
+          let toDeposit = pickTokensToDeposit testUTxO tokens
+          toDeposit `shouldBe` mempty
+        it "handles mixed scenarios with multiple tokens" $ do
+          let testUTxO =
+                utxoWithTokens
+                  [ (testPolicyId, testAssetName, Quantity 100)
+                  , (testPolicyId2, testAssetName, Quantity 50)
+                  ]
+          let tokens =
+                Map.fromList
+                  [ (testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 100)]) -- Valid
+                  , (testPolicyId2, PolicyAssets $ Map.fromList [(testAssetName, Quantity 75)]) -- Invalid - insufficient
+                  , (testPolicyId3, PolicyAssets $ Map.fromList [(testAssetName, Quantity 25)]) -- Invalid - missing policy
+                  ]
+          let toDeposit = pickTokensToDeposit testUTxO tokens
+
+          toDeposit `shouldBe` utxoWithTokens [(testPolicyId, testAssetName, Quantity 100)]
+
+        it "handles multiple assets within the same policy" $ do
+          let testUTxO =
+                utxoWithTokens
+                  [ (testPolicyId, testAssetName, Quantity 100)
+                  , (testPolicyId, testAssetName2, Quantity 200)
+                  ]
+          let tokens =
+                Map.fromList
+                  [
+                    ( testPolicyId
+                    , PolicyAssets $
+                        Map.fromList
+                          [ (testAssetName, Quantity 50) -- Valid
+                          , (testAssetName2, Quantity 150) -- Valid
+                          , (testAssetName3, Quantity 10) -- Invalid - missing asset
+                          ]
+                    )
+                  ]
+          let toDeposit = pickTokensToDeposit testUTxO tokens
+          let additionalUTxO =
+                utxoWithTokens
+                  [ (testPolicyId, testAssetName, 50)
+                  , (testPolicyId, testAssetName2, 150)
+                  ]
+          toDeposit `shouldBe` additionalUTxO
+
+    describe "splitTokens" $ do
+      describe "tests" $ do
+        it "returns empty results when no tokens are specified" $ do
+          let utxo = genUTxOSized 3 `generateWith` 42
+          let (valid, invalid) = splitTokens utxo mempty
+          valid `shouldBe` mempty
+          invalid `shouldBe` mempty
+
+        it "returns empty results when UTxO is empty" $ do
+          let tokens = Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 10)])]
+          let (valid, invalid) = splitTokens mempty tokens
+          valid `shouldBe` mempty
+          invalid `shouldBe` tokens
+
+        it "returns all tokens as invalid when policy is missing from UTxO" $ do
+          let utxo = genUTxOSized 3 `generateWith` 42 -- UTxO with only ADA
+          let tokens = Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 10)])]
+          let (valid, invalid) = splitTokens utxo tokens
+          valid `shouldBe` mempty
+          invalid `shouldBe` tokens
+
+        it "validates tokens correctly when exact quantities match" $ do
+          let testUTxO = utxoWithTokens [(testPolicyId, testAssetName, Quantity 100)]
+          let tokens = Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 100)])]
+          let (valid, invalid) = splitTokens testUTxO tokens
+          valid `shouldBe` tokens
+          invalid `shouldBe` mempty
+
+        it "validates tokens correctly when UTxO has more than required" $ do
+          let testUTxO = utxoWithTokens [(testPolicyId, testAssetName, Quantity 150)]
+          let tokens = Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 100)])]
+          let (valid, invalid) = splitTokens testUTxO tokens
+          valid `shouldBe` tokens
+          invalid `shouldBe` mempty
+
+        it "returns tokens as invalid when UTxO has less than required" $ do
+          let testUTxO = utxoWithTokens [(testPolicyId, testAssetName, Quantity 50)]
+          let tokens = Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 100)])]
+          let (valid, invalid) = splitTokens testUTxO tokens
+          valid `shouldBe` mempty
+          invalid `shouldBe` tokens
+
+        it "handles mixed scenarios with multiple tokens" $ do
+          let testUTxO =
+                utxoWithTokens
+                  [ (testPolicyId, testAssetName, Quantity 100)
+                  , (testPolicyId2, testAssetName, Quantity 50)
+                  ]
+          let tokens =
+                Map.fromList
+                  [ (testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 100)]) -- Valid
+                  , (testPolicyId2, PolicyAssets $ Map.fromList [(testAssetName, Quantity 75)]) -- Invalid - insufficient
+                  , (testPolicyId3, PolicyAssets $ Map.fromList [(testAssetName, Quantity 25)]) -- Invalid - missing policy
+                  ]
+          let (valid, invalid) = splitTokens testUTxO tokens
+
+          valid `shouldBe` Map.fromList [(testPolicyId, PolicyAssets $ Map.fromList [(testAssetName, Quantity 100)])]
+          invalid
+            `shouldBe` Map.fromList
+              [ (testPolicyId2, PolicyAssets $ Map.fromList [(testAssetName, Quantity 75)])
+              , (testPolicyId3, PolicyAssets $ Map.fromList [(testAssetName, Quantity 25)])
+              ]
+
+        it "handles multiple assets within the same policy" $ do
+          let testUTxO =
+                utxoWithTokens
+                  [ (testPolicyId, testAssetName, Quantity 100)
+                  , (testPolicyId, testAssetName2, Quantity 200)
+                  ]
+          let tokens =
+                Map.fromList
+                  [
+                    ( testPolicyId
+                    , PolicyAssets $
+                        Map.fromList
+                          [ (testAssetName, Quantity 50) -- Valid
+                          , (testAssetName2, Quantity 150) -- Valid
+                          , (testAssetName3, Quantity 10) -- Invalid - missing asset
+                          ]
+                    )
+                  ]
+          let (valid, invalid) = splitTokens testUTxO tokens
+          valid `shouldBe` mempty -- All assets in policy must be valid for policy to be valid
+          invalid `shouldBe` tokens
+        it "splits multiassets correctly" $
+          forAll (genUTxOWithAssetsSized 5) $ \utxo ->
+            forAll (prepareAssetMap utxo) $ \assets ->
+              property $ propSplitMultiAssetCorrectly utxo assets
+
+      describe "property tests" $ do
+        prop "preserves all input tokens (completeness)" propPreservesAllTokens
+        prop "valid and invalid tokens are disjoint" propValidInvalidDisjoint
+        prop "all valid tokens exist in UTxO with sufficient quantities" propValidTokensExistInUTxO
+        prop "monotonic with respect to UTxO additions" propMonotonicUTxOAdditions
+
     describe "capUTxO" $ do
       describe "tests" $ do
         it "returns empty UTxO when target is 0" $ do
@@ -154,3 +323,151 @@ propNoUTxOLoss utxo target =
         & counterexample ("Input set size: " <> show (Set.size inputSet))
         & counterexample ("Selected set size: " <> show (Set.size selectedSet))
         & counterexample ("Leftover set size: " <> show (Set.size leftoverSet))
+
+-- * Helper functions for splitTokens tests
+
+-- | Create additional test PolicyIds for testing (using the existing testPolicyId from fixtures)
+testPolicyId2 :: PolicyId
+testPolicyId2 = generateWith arbitrary 43
+
+testPolicyId3 :: PolicyId
+testPolicyId3 = generateWith arbitrary 44
+
+-- | Create test AssetNames for testing
+testAssetName :: AssetName
+testAssetName = "TestToken1"
+
+testAssetName2 :: AssetName
+testAssetName2 = "TestToken2"
+
+testAssetName3 :: AssetName
+testAssetName3 = "TestToken3"
+
+-- | Create a UTxO with specific tokens for testing
+utxoWithTokens :: [(PolicyId, AssetName, Quantity)] -> UTxO
+utxoWithTokens tokens =
+  let value = fromList $ map (\(pid, aname, qty) -> (AssetId pid aname, qty)) tokens
+      -- Add some ADA to make it a valid UTxO
+      valueWithAda = value <> fromList [(AdaAssetId, Quantity 1000000)]
+      txIn = generateWith arbitrary 42
+      baseTxOut = generateWith arbitrary 42
+      -- Update the txOut to have our custom value
+      txOut = baseTxOut{txOutValue = valueWithAda}
+   in UTxO.singleton txIn txOut
+
+-- * Property tests for splitTokens
+
+-- | Property: All input tokens are preserved in either valid or invalid results
+propPreservesAllTokens :: UTxO -> Map PolicyId PolicyAssets -> Property
+propPreservesAllTokens utxo specifiedTokens =
+  let (valid, invalid) = splitTokens utxo specifiedTokens
+      inputPolicies = Map.keysSet specifiedTokens
+      validPolicies = Map.keysSet valid
+      invalidPolicies = Map.keysSet invalid
+      allResultPolicies = validPolicies <> invalidPolicies
+   in inputPolicies === allResultPolicies
+        & counterexample ("Input policies: " <> show inputPolicies)
+        & counterexample ("Valid policies: " <> show validPolicies)
+        & counterexample ("Invalid policies: " <> show invalidPolicies)
+
+-- | Property: Valid and invalid results are disjoint sets
+propValidInvalidDisjoint :: UTxO -> Map PolicyId PolicyAssets -> Property
+propValidInvalidDisjoint utxo specifiedTokens =
+  let (valid, invalid) = splitTokens utxo specifiedTokens
+      validPolicies = Map.keysSet valid
+      invalidPolicies = Map.keysSet invalid
+      intersection = Set.intersection validPolicies invalidPolicies
+   in Set.null intersection
+        & counterexample ("Valid policies: " <> show validPolicies)
+        & counterexample ("Invalid policies: " <> show invalidPolicies)
+        & counterexample ("Intersection: " <> show intersection)
+
+-- | Property: All valid tokens must exist in UTxO with sufficient quantities
+propValidTokensExistInUTxO :: UTxO -> Map PolicyId PolicyAssets -> Property
+propValidTokensExistInUTxO utxo specifiedTokens =
+  let (valid, _) = splitTokens utxo specifiedTokens
+      utxoValue = UTxO.totalValue utxo
+      utxoPolicyAssets = valueToPolicyAssets utxoValue
+   in all (checkValidTokenInUTxO utxoPolicyAssets) (Map.toList valid)
+        & counterexample ("Valid tokens: " <> show valid)
+        & counterexample ("UTxO policy assets: " <> show utxoPolicyAssets)
+ where
+  checkValidTokenInUTxO :: Map PolicyId PolicyAssets -> (PolicyId, PolicyAssets) -> Bool
+  checkValidTokenInUTxO utxoAssets (policyId, PolicyAssets requiredAssets) =
+    case Map.lookup policyId utxoAssets of
+      Nothing -> False
+      Just (PolicyAssets availableAssets) ->
+        all
+          ( \(assetName, requiredQty) ->
+              case Map.lookup assetName availableAssets of
+                Nothing -> False
+                Just availableQty -> availableQty >= requiredQty
+          )
+          (Map.toList requiredAssets)
+
+-- | Property: Adding more assets to UTxO never decreases valid tokens (monotonic)
+propMonotonicUTxOAdditions :: UTxO -> UTxO -> Map PolicyId PolicyAssets -> Property
+propMonotonicUTxOAdditions utxo1 utxo2 specifiedTokens =
+  let combinedUTxO = utxo1 <> utxo2
+      (valid1, _) = splitTokens utxo1 specifiedTokens
+      (validCombined, _) = splitTokens combinedUTxO specifiedTokens
+      valid1Policies = Map.keysSet valid1
+      validCombinedPolicies = Map.keysSet validCombined
+   in valid1Policies `Set.isSubsetOf` validCombinedPolicies
+        & counterexample ("Valid policies in UTxO1: " <> show valid1Policies)
+        & counterexample ("Valid policies in combined UTxO: " <> show validCombinedPolicies)
+
+propSplitMultiAssetCorrectly :: UTxO -> Map PolicyId PolicyAssets -> Property
+propSplitMultiAssetCorrectly utxo specifiedTokens =
+  let toDeposit = pickTokensToDeposit utxo specifiedTokens
+      utxoValue = UTxO.totalValue utxo
+      utxoPolicyAssets = valueToPolicyAssets utxoValue
+      depositAssets = valueToPolicyAssets $ UTxO.totalValue toDeposit
+   in all (checkValidTokenInUTxO utxoPolicyAssets) (Map.toList depositAssets)
+        & cover 10 (containsPolicies utxoPolicyAssets specifiedTokens) "PolicyId's are completely present in the UTxO"
+        & cover 10 (containsAssets utxoPolicyAssets specifiedTokens) "Assets are completely present in the UTxO"
+        & cover 1 (Map.null specifiedTokens) "Empty Assets"
+        & cover 1 (Map.size specifiedTokens > 5) "Assets size > 5"
+        & counterexample ("Valid tokens: " <> show toDeposit)
+        & counterexample ("UTxO policy assets: " <> show utxoPolicyAssets)
+ where
+  containsPolicies :: Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets -> Bool
+  containsPolicies utxoAssets depositAssets = sort (Map.keys utxoAssets) == sort (Map.keys depositAssets)
+
+  containsAssets :: Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets -> Bool
+  containsAssets utxoAssets depositAssets =
+    let deposits = Map.elems depositAssets
+     in all (`elem` deposits) (Map.elems utxoAssets)
+
+  checkValidTokenInUTxO :: Map PolicyId PolicyAssets -> (PolicyId, PolicyAssets) -> Bool
+  checkValidTokenInUTxO utxoAssets (policyId, PolicyAssets requiredAssets) =
+    case Map.lookup policyId utxoAssets of
+      Nothing -> False
+      Just (PolicyAssets availableAssets) ->
+        all
+          ( \(assetName, requiredQty) ->
+              case Map.lookup assetName availableAssets of
+                Nothing -> False
+                Just availableQty -> availableQty >= requiredQty
+          )
+          (Map.toList requiredAssets)
+
+prepareAssetMap :: UTxO -> Gen (Map PolicyId PolicyAssets)
+prepareAssetMap utxo = do
+  let utxoAssets = valueToPolicyAssets $ UTxO.totalValue utxo
+  n <- elements [1 .. Map.size utxoAssets]
+  frequency [(1, randomAssets n utxoAssets), (8, addRandomAssets), (1, pure utxoAssets)]
+ where
+  addRandomAssets :: Gen (Map PolicyId PolicyAssets)
+  addRandomAssets = oneof [addRandomAsset, foldr Map.union mempty <$> listOf addRandomAsset]
+
+  addRandomAsset :: Gen (Map PolicyId PolicyAssets)
+  addRandomAsset = do
+    policy <- arbitrary
+    Map.singleton policy <$> arbitrary
+
+  randomAssets :: Int -> Map PolicyId PolicyAssets -> Gen (Map PolicyId PolicyAssets)
+  randomAssets n assets =
+    let assets' = Map.toList assets
+        (x, y) = splitAt n assets'
+     in oneof [pure $ Map.fromList x, pure $ Map.fromList y, pure $ Map.fromList $ drop n assets', pure $ Map.fromList $ take n assets']

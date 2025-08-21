@@ -15,6 +15,7 @@ import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -82,7 +83,7 @@ import Hydra.Tx (
   headSeedToTxIn,
  )
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
-import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
+import Hydra.Tx.Deposit (DepositObservation (..), depositTx, splitTokens)
 import Hydra.Tx.Observe (
   AbortObservation (..),
   CloseObservation (..),
@@ -184,7 +185,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
           commit' ctx headId spendableUTxO commitBlueprintTx
-    , draftDepositTx = \headId pparams commitBlueprintTx deadline amount -> do
+    , draftDepositTx = \headId pparams commitBlueprintTx deadline amount tokens -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
         TimeHandle{currentPointInTime} <- queryTimeHandle
@@ -194,6 +195,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             liftEither $ do
               checkAmount lookupUTxO amount
               rejectLowDeposits pparams lookupUTxO amount
+            let (validTokens, invalidTokens) = splitTokens lookupUTxO (fromMaybe mempty tokens)
+            unless (null invalidTokens) $
+              throwError $
+                InvalidTokenRequest (Map.assocs invalidTokens)
             (currentSlot, currentTime) <- case currentPointInTime of
               Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
               Right (s, t) -> pure (s, t)
@@ -206,7 +211,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             -- -- NOTE: But also not make it smaller than 10 slots.
             let validBeforeSlot = currentSlot + fromInteger (truncate graceTime `max` 10)
             lift . finalizeTx wallet ctx spendableUTxO lookupUTxO $
-              depositTx (networkId ctx) headId commitBlueprintTx validBeforeSlot deadline amount
+              depositTx (networkId ctx) headId commitBlueprintTx validBeforeSlot deadline amount validTokens
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx

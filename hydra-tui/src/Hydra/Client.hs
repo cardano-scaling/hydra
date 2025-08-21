@@ -126,7 +126,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
       Req.req
         Req.POST
         (Req.http hostname Req./: "commit")
-        (Req.ReqBodyJson $ SimpleCommitRequest @Tx payload Nothing)
+        (Req.ReqBodyJson $ SimpleCommitRequest @Tx payload Nothing mempty)
         Req.jsonResponse
         (Req.port $ fromIntegral port)
 

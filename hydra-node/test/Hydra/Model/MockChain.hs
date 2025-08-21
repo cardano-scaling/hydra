@@ -211,7 +211,7 @@ mockChainAndNetwork tr seedKeys commits = do
     readTVarIO nodes >>= \case
       [] -> error "simulateDeposit: no MockHydraNode"
       (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
-        draftDepositTx headId defaultPParams (mkSimpleBlueprintTx utxoToDeposit) deadline Nothing >>= \case
+        draftDepositTx headId defaultPParams (mkSimpleBlueprintTx utxoToDeposit) deadline Nothing Nothing >>= \case
           Left e -> throwIO e
           Right tx -> submitTx tx $> txId tx
 
