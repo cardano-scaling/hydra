@@ -29,6 +29,7 @@ To avoid specifying the network identifier and the path to the node's socket in 
 ```shell
 export CARDANO_NODE_SOCKET_PATH=<path-to>/node.socket
 export CARDANO_TESTNET_MAGIC=1
+export CREDENTIALS_PATH=hydra-cluster/config/credentials
 ```
 
 ## Step 2: Create the script
@@ -66,15 +67,14 @@ cat script.addr
 
 Before we can commit a script UTxO, we need to create one. This is done by sending funds to the script address.
 
-First, find a UTxO in your wallet that you can use. You can query your wallet's UTxOs using `cardano-cli`. For this example, we will use `alice-funds.sk`:
+First, we need a UTxO in a wallet to fund the transaction. The following command will find the first available UTxO in a wallet funded by `alice-funds.sk`, and export its transaction input (`TxIn`) to an environment variable.
 
 ```shell
-cardano-cli query utxo \
-  --address $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC) \
-  --testnet-magic $CARDANO_TESTNET_MAGIC
+export UTXO_TXIX=$(cardano-cli query utxo --address $(cardano-cli address build --payment-verification-key-file ${CREDENTIALS_PATH}/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC) --testnet-magic $CARDANO_TESTNET_MAGIC --output-json | jq -r 'keys[0]')
+echo "Captured funding UTxO TxIn: $UTXO_TXIX"
 ```
 
-Pick a UTxO from the output and use it to build a transaction that sends funds to the script address. Let's say you picked a UTxO with TxHash `<UTXO_TXIX>` containing `100 ADA`. We will send `10 ADA` to the script address.
+Now that we have a funding UTxO, we can build the transaction to lock 10 ADA at the script address.
 
 First, create a file named `datum.json` that contains the datum. For this example, we will just use the integer `42`.
 
@@ -93,10 +93,10 @@ Now, build the transaction:
 
 ```shell
 cardano-cli conway transaction build \
-  --tx-in <UTXO_TXIX> \
+  --tx-in $UTXO_TXIX \
   --tx-out $(cat script.addr)+10000000 \
   --tx-out-inline-datum-file datum.json \
-  --change-address $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC) \
+  --change-address $(cardano-cli address build --payment-verification-key-file ${CREDENTIALS_PATH}/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC) \
   --testnet-magic $CARDANO_TESTNET_MAGIC \
   --out-file tx.raw
 ```
@@ -108,7 +108,7 @@ Now, sign and submit the transaction:
 ```shell
 cardano-cli conway transaction sign \
   --tx-body-file tx.raw \
-  --signing-key-file hydra-cluster/config/credentials/alice-funds.sk \
+  --signing-key-file ${CREDENTIALS_PATH}/alice-funds.sk \
   --out-file tx.signed
 
 cardano-cli conway transaction submit \
@@ -116,51 +116,67 @@ cardano-cli conway transaction submit \
   --testnet-magic $CARDANO_TESTNET_MAGIC
 ```
 
-Once the transaction is confirmed, you can query the script address to see the newly created UTxO:
+Once the transaction is confirmed, you can query the script address to find the transaction input (`TxIn`) of the script UTxO we just created.
 
 ```shell
-cardano-cli query utxo \
-  --address $(cat script.addr) \
-  --testnet-magic $CARDANO_TESTNET_MAGIC
+export SCRIPT_UTXO_TXIX=$(cardano-cli query utxo --address $(cat script.addr) --testnet-magic $CARDANO_TESTNET_MAGIC --output-json | jq -r 'keys[0]')
+echo "Captured script UTxO TxIn: $SCRIPT_UTXO_TXIX"
 ```
 
-## Step 5: Prepare the commit
+## Step 5: Prepare the Blueprint
 
 Now we are ready to prepare the commit. We will create a blueprint transaction that spends the script UTxO. Note that this transaction is not meant to be signed and submitted to the Cardano network. It is just a blueprint that we will send to the `hydra-node` to get a properly drafted commit transaction.
 
 We use `cardano-cli ... build-raw` to construct this blueprint because it gives us full control over the transaction structure without trying to automatically balance it or calculate fees, which is perfect for a blueprint.
 
-In this transaction, we will spend the script UTxO and send the funds to our own wallet address.
+For a script UTxO, the blueprint only needs to declare the script UTxO as an input. The `hydra-node` will use this, along with the UTxO context provided in the next step, to build the full commit transaction.
 
 ```shell
 cardano-cli conway transaction build-raw \
-  --tx-in <SCRIPT_UTXO_TXIX> \
+  --tx-in $SCRIPT_UTXO_TXIX \
   --tx-in-script-file always-true.plutus \
   --tx-in-inline-datum-present \
   --tx-in-redeemer-value 42 \
-  --tx-in-execution-units '(0, 0)' \
-  --tx-out $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC)+10000000 \
+  --tx-in-execution-units '(1000000, 100000)' \
+  --tx-out $(cardano-cli address build --payment-verification-key-file ${CREDENTIALS_PATH}/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC)+10000000 \
   --fee 0 \
   --out-file tx.json
 ```
 
 A real-world script, like one written in [Aiken](https://aiken-lang.org/), would use the datum to carry state and the redeemer to provide input for validation. Our "always-true" script doesn't actually check any of these, but they are still required fields for a valid transaction that spends a script UTxO. Note that we use `--tx-in-inline-datum-present` because the datum was already included on-chain when we created the script UTxO. We also provide `--tx-in-execution-units`. This is required for any script spend to tell the network how much computational resource to budget for the script's execution. Since our script does nothing, we can use `(0, 0)`.
 
-## Step 6: Commit the script UTxO
+## Step 6: Prepare the commit 
 
-This final step is very similar to the standard commit tutorial. We will start a `hydra-node`, initialize a Head, and then use the blueprint transaction to get a commit transaction from the `hydra-node`.
+This final step brings everything together. We will start a `hydra-node`, initialize a Head, and then send our blueprint and UTxO context to the `/commit` endpoint.
 
-First, start the `hydra-node` and `hydra-tui` as explained in the [Commit using a blueprint](./commit-blueprint.md#step-5) tutorial and initialize a Head.
+**1. Start the Hydra Node and TUI**
 
-Once the Head is in the `Initializing` state, you can send the HTTP request to the `/commit` API path.
+In a **new terminal**, start a single-party `hydra-node`.
+```shell
+hydra-node \
+  --node-id 1 \
+  --api-port 4001 \
+  --hydra-signing-key ${CREDENTIALS_PATH}/../alice.sk \
+  --cardano-signing-key ${CREDENTIALS_PATH}/alice.sk \
+  --ledger-protocol-parameters devnet/protocol-parameters.json \
+  --testnet-magic $CARDANO_TESTNET_MAGIC \
+  --node-socket $CARDANO_NODE_SOCKET_PATH
+```
 
-Just like in the other tutorial, you need to assemble a JSON request body. The `blueprintTx` is the `tx.json` file we just created, and the `utxo` is the script UTxO you are committing.
+In another **new terminal**, start the `hydra-tui`.
+```shell
+hydra-tui \
+  --connect 0.0.0.0:4001 \
+  --cardano-signing-key ${CREDENTIALS_PATH}/alice-funds.sk
+```
+In the TUI, press `i` to initialize the Head. Once the state is `Initializing`, you can quit the TUI (`q`) and proceed.
 
-You can use the following script to query the necessary information and generate the `commit-request.json` file automatically. Make sure to replace `<SCRIPT_UTXO_TXIX>` with the actual transaction input of your script UTxO.
+**2. Send the Commit Request**
+
+Now, we will build the commit request. This request contains two parts: the `utxo` context (which must include the script) and the `blueprintTx` (which provides the witness information).
 
 ```shell
 # Set variables
-SCRIPT_UTXO_TXIX="<SCRIPT_UTXO_TXIX>"
 BLUEPRINT_JSON=$(cat tx.json)
 UTXO_JSON=$(cardano-cli query utxo --tx-in ${SCRIPT_UTXO_TXIX} --testnet-magic $CARDANO_TESTNET_MAGIC --output-json)
 
@@ -178,14 +194,15 @@ Now, use `curl` to send the request to the `hydra-node`, which will respond with
 curl -X POST --data @commit-request.json http://127.0.0.1:4001/commit > commit-tx.json
 ```
 
-This will give you the commit transaction, which you can then sign and submit as usual.
-The commit transaction must be signed by two keys: the key for the funds you are committing, and the party key that is participating in the Head.
+**3. Sign and Submit**
+
+This is the final step. The `commit-tx.json` file now contains a valid, balanced transaction drafted by the `hydra-node`. We just need to sign it with both our funds key and our party key, and then submit it.
 
 ```shell
 cardano-cli conway transaction sign \
   --tx-body-file commit-tx.json \
-  --signing-key-file hydra-cluster/config/credentials/alice-funds.sk \
-  --signing-key-file hydra-cluster/config/credentials/alice.sk \
+  --signing-key-file ${CREDENTIALS_PATH}/alice-funds.sk \
+  --signing-key-file ${CREDENTIALS_PATH}/alice.sk \
   --out-file signed-tx.json
 
 cardano-cli conway transaction submit \
