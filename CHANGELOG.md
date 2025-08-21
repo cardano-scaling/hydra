@@ -13,9 +13,39 @@ changes.
 - Fix bug where TUI would have out-of-date head status information in the
   presence of event rotation.
 
-## [0.22.4] - 2025-08-05
-
 - Accept additional field `amount` when depositing to specify the amount of Lovelace that should be depositted to a Head returning any leftover to the user.
+
+- Don't keep around invalid transactions as they could lead to stuck Head.
+
+- Hydra API server responds with the correct `Content-Type` header `application-json`.
+
+- Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
+
+- Bugfix for incorrect logic around fanning out with decommit/commit in progress
+
+- Hydra node now rejects requests for incremental commits if provided UTxO is below the limit.
+
+- Add API endpoint `POST /transaction` to submit transaction to the head.
+
+- Improve HTTP API status codes for side-effecting endpoints to reflect operation outcome:
+  - `POST /snapshot`: 200 on successful side-load, 400 on validation failure, 202 on timeout
+  - `POST /decommit`: 200 on finalize, 400 on invalid/failed, 202 on timeout
+  - `DELETE /commits/:txid`: 200 on recovered, 400 on failed, 202 on timeout
+  - See [Issue #1911](https://github.com/cardano-scaling/hydra/issues/1911) and [PR #2124](https://github.com/cardano-scaling/hydra/pull/2124).
+
+- Tested with `cardano-node 10.4.1` and `cardano-cli 10.8.0.0`.
+
+- **BREAKING** Rename `--script-info` option to `--hydra-script-catalogue` in the `hydra-node` CLI.
+
+- Fix rotation log id consistency after restart by changing the rotation check to trigger only
+when the number of persisted `StateChanged` events exceeds the configured `--persistence-rotate-after` threshold.
+  * This also prevents immediate rotation on startup when the threshold is set to 1.
+  * `Checkpoint` event ids now match the suffix of their preceding rotated log file and the last `StateChanged` event id within it,
+  preserving sequential order and making it easier to identify which rotated log file was used to compute it.
+
+- Label threads, queues and vars.
+
+## [0.22.4] - 2025-08-05
 
 - Fix API not correctly handling event log rotation. This was evident in not
   being able to use `/commit` although the head is initializing or outdated
@@ -47,36 +77,6 @@ changes.
   node is down for a long time and the `etcd` cluster compacted the last known
   revision in the meantime
   [#2136](https://github.com/cardano-scaling/hydra/issues/2136).
-
-- Don't keep around invalid transactions as they could lead to stuck Head.
-
-- Hydra API server responds with the correct `Content-Type` header `application-json`.
-
-- Add `Environment` to `Greetings` message, enabling clients to access runtime settings.
-
-- Bugfix for incorrect logic around fanning out with decommit/commit in progress
-
-- Hydra node now rejects requests for incremental commits if provided UTxO is below the limit.
-
-- Add API endpoint `POST /transaction` to submit transaction to the head.
-
-- Improve HTTP API status codes for side-effecting endpoints to reflect operation outcome:
-  - `POST /snapshot`: 200 on successful side-load, 400 on validation failure, 202 on timeout
-  - `POST /decommit`: 200 on finalize, 400 on invalid/failed, 202 on timeout
-  - `DELETE /commits/:txid`: 200 on recovered, 400 on failed, 202 on timeout
-  - See [Issue #1911](https://github.com/cardano-scaling/hydra/issues/1911) and [PR #2124](https://github.com/cardano-scaling/hydra/pull/2124).
-
-- Tested with `cardano-node 10.4.1` and `cardano-cli 10.8.0.0`.
-
-- **BREAKING** Rename `--script-info` option to `--hydra-script-catalogue` in the `hydra-node` CLI.
-
-- Fix rotation log id consistency after restart by changing the rotation check to trigger only
-when the number of persisted `StateChanged` events exceeds the configured `--persistence-rotate-after` threshold.
-  * This also prevents immediate rotation on startup when the threshold is set to 1.
-  * `Checkpoint` event ids now match the suffix of their preceding rotated log file and the last `StateChanged` event id within it,
-  preserving sequential order and making it easier to identify which rotated log file was used to compute it.
-
-- Label threads, queues and vars.
 
 ## [0.22.2] - 2025-06-30
 
