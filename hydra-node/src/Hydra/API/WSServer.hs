@@ -21,6 +21,7 @@ import Hydra.API.ServerOutput (
   Greetings (..),
   HeadStatus (..),
   InvalidInput (..),
+  NetworkInfo,
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithAddressedTx (..),
@@ -67,11 +68,13 @@ wsApp ::
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (StateChanged tx) (HeadState tx) ->
+  -- | Read model to enhance 'Greetings' messages with 'NetworkInfo'.
+  Projection STM.STM (StateChanged tx) NetworkInfo ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp env party tracer history callback headStateP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer history callback headStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -95,7 +98,8 @@ wsApp env party tracer history callback headStateP responseChannel ServerOutputF
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
   forwardGreetingOnly config con = do
-    headState <- atomically getLatest
+    headState <- atomically getLatestHeadState
+    networkInfo <- atomically getLatestNetworkInfo
     sendTextData con $
       handleUtxoInclusion config (atKey "snapshotUtxo" .~ Nothing) $
         Aeson.encode
@@ -106,9 +110,11 @@ wsApp env party tracer history callback headStateP responseChannel ServerOutputF
             , snapshotUtxo = getSnapshotUtxo headState
             , hydraNodeVersion = showVersion NetworkVersions.hydraNodeVersion
             , env
+            , networkInfo
             }
 
-  Projection{getLatest} = headStateP
+  Projection{getLatest = getLatestHeadState} = headStateP
+  Projection{getLatest = getLatestNetworkInfo} = networkInfoP
 
   mkServerOutputConfig :: [QueryParam] -> ServerOutputConfig
   mkServerOutputConfig qp =

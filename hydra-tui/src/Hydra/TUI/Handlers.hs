@@ -20,7 +20,7 @@ import Graphics.Vty (
  )
 import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (TimedServerOutput (..))
+import Hydra.API.ServerOutput (NetworkInfo (..), TimedServerOutput (..))
 import Hydra.API.ServerOutput qualified as API
 import Hydra.Cardano.Api hiding (Active)
 import Hydra.Cardano.Api.Prelude ()
@@ -87,30 +87,34 @@ handleHydraEventsConnectedState = \case
 handleHydraEventsConnection :: UTCTime -> HydraEvent Tx -> EventM Name Connection ()
 handleHydraEventsConnection now = \case
   -- Note: Greetings is the last event seen after restart.
-  Update (ApiGreetings API.Greetings{me, env = Environment{configuredPeers}}) -> do
-    meL .= Identified me
-    if T.null configuredPeers
-      then do
-        networkStateL .= Just NetworkDisconnected
-        peersL .= mempty
-      else do
-        let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
-        let peerAddrs = map (takeWhile (/= '=')) peerStrs
-        case traverse readHost peerAddrs of
-          Left err -> do
-            liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
-            networkStateL .= Just NetworkDisconnected
-            peersL .= mempty
-          Right parsedPeers -> do
-            existing <- use peersL
-            let existingMap = Map.fromList existing
-                updatedMap =
-                  Map.fromList $
-                    [ (p, Map.findWithDefault PeerIsUnknown p existingMap)
-                    | p <- parsedPeers
-                    ]
-            networkStateL .= Just NetworkConnected -- FIXME!
-            peersL .= Map.toList updatedMap
+  Update
+    ( ApiGreetings
+        API.Greetings
+          { me
+          , env = Environment{configuredPeers}
+          , networkInfo = NetworkInfo{networkConnected, peersConnected, peersDisconnected}
+          }
+      ) -> do
+      meL .= Identified me
+
+      networkStateL .= if networkConnected then Just NetworkConnected else Just NetworkDisconnected
+
+      let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
+          peerAddrs = map (takeWhile (/= '=')) peerStrs
+      case traverse readHost peerAddrs of
+        Left err -> do
+          liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
+          peersL .= mempty
+        Right parsedPeers -> do
+          existing <- use peersL
+          let existingMap = Map.fromList existing
+
+              statusFor p
+                | p `elem` peersConnected = PeerIsConnected
+                | p `elem` peersDisconnected = PeerIsDisconnected
+                | otherwise = Map.findWithDefault PeerIsUnknown p existingMap
+
+          peersL .= [(p, statusFor p) | p <- parsedPeers]
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->
     peersL %= updatePeerStatus p PeerIsConnected
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) ->
