@@ -216,7 +216,7 @@ setupServerNotification = do
   pure (putMVar mv (), takeMVar mv)
 
 -- | Defines the subset of 'StateEvent' that should be sent as 'TimedServerOutput' to clients.
-mkTimedServerOutputFromStateEvent :: IsTx tx => StateEvent tx -> Maybe (TimedServerOutput tx)
+mkTimedServerOutputFromStateEvent :: IsChainState tx => StateEvent tx -> Maybe (TimedServerOutput tx)
 mkTimedServerOutputFromStateEvent event =
   case mapStateChangedToServerOutput stateChanged of
     Nothing -> Nothing
@@ -261,7 +261,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.ChainRolledBack{} -> Nothing
     StateChanged.TickObserved{} -> Nothing
     StateChanged.LocalStateCleared{..} -> Just SnapshotSideLoaded{..}
-    StateChanged.Checkpoint{} -> Just EventLogRotated
+    StateChanged.Checkpoint{state} -> Just $ EventLogRotated state
 
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]

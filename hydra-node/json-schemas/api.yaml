@@ -1773,6 +1773,7 @@ components:
       required:
         - tag
         - seq
+        - state
         - timestamp
       properties:
         tag:
@@ -1780,6 +1781,8 @@ components:
           enum: ["EventLogRotated"]
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
+        state:
+          $ref: "api.yaml#/components/schemas/HeadState"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
