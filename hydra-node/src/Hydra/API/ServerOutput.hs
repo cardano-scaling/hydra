@@ -11,7 +11,7 @@ import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
-import Hydra.Chain.ChainState (IsChainState, ChainStateType)
+import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
@@ -103,6 +103,7 @@ data Greetings tx = Greetings
   , snapshotUtxo :: Maybe (UTxOType tx)
   , hydraNodeVersion :: String
   , env :: Environment
+  , networkInfo :: NetworkInfo
   }
   deriving (Generic)
 
@@ -316,6 +317,17 @@ data CommitInfo
   = CannotCommit
   | NormalCommit HeadId
   | IncrementalCommit HeadId
+
+data NetworkInfo = NetworkInfo
+  { networkConnected :: Bool
+  , peersConnected :: [Host]
+  , peersDisconnected :: [Host]
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary NetworkInfo where
+  arbitrary = genericArbitrary
 
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
 getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)

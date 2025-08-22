@@ -20,6 +20,7 @@ import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   ClientMessage,
   CommitInfo (..),
+  NetworkInfo (..),
   ServerOutput (..),
   TimedServerOutput (..),
  )
@@ -105,6 +106,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     -- CommitInfo etc. would suffice and are less fragile
     commitInfoP <- mkProjection "commitInfoP" CannotCommit projectCommitInfo
     pendingDepositsP <- mkProjection "pendingDepositsP" [] projectPendingDeposits
+    networkInfoP <- mkProjection "networkInfoP" (NetworkInfo False [] []) projectNetworkInfo
     let historyTimedOutputs = sourceEvents .| map mkTimedServerOutputFromStateEvent .| catMaybes
     _ <-
       runConduitRes $
@@ -133,7 +135,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp env party tracer historyTimedOutputs callback headStateP responseChannel serverOutputFilter)
+              (wsApp env party tracer historyTimedOutputs callback headStateP networkInfoP responseChannel serverOutputFilter)
               ( httpApp
                   tracer
                   chain
@@ -158,6 +160,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                       update headStateP stateChanged
                       update commitInfoP stateChanged
                       update pendingDepositsP stateChanged
+                      update networkInfoP stateChanged
                     -- Send to the client if it maps to a server output
                     case mkTimedServerOutputFromStateEvent event of
                       Nothing -> pure ()
@@ -288,3 +291,21 @@ projectCommitInfo commitInfo = \case
   StateChanged.HeadAborted{} -> CannotCommit
   StateChanged.HeadClosed{} -> CannotCommit
   _other -> commitInfo
+
+projectNetworkInfo :: NetworkInfo -> StateChanged.StateChanged tx -> NetworkInfo
+projectNetworkInfo networkInfo = \case
+  StateChanged.NetworkConnected ->
+    networkInfo{networkConnected = True}
+  StateChanged.NetworkDisconnected ->
+    networkInfo{networkConnected = False}
+  StateChanged.PeerConnected{peer} ->
+    networkInfo
+      { peersConnected = peer : filter (/= peer) (peersConnected networkInfo)
+      , peersDisconnected = filter (/= peer) (peersDisconnected networkInfo)
+      }
+  StateChanged.PeerDisconnected{peer} ->
+    networkInfo
+      { peersConnected = filter (/= peer) (peersConnected networkInfo)
+      , peersDisconnected = peer : filter (/= peer) (peersDisconnected networkInfo)
+      }
+  _other -> networkInfo
