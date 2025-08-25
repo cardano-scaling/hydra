@@ -595,7 +595,7 @@
         "datasource": "prometheus", 
         "refresh": 2,
         "query": "label_values(up{job=\"hydra_nodes\"}, instance)",
-        "regex": "/(0.0.0.0:600[1-3])/",
+        "regex": "0.0.0.0:600[1-3]",
         "includeAll": true,
         "allValue": ".+",
         "sort": 1,
