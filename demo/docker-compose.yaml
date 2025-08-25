@@ -194,15 +194,6 @@ services:
       hydra_net:
         ipv4_address: 172.16.238.5
 
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    ports:
-      - "9100:9100"
-    networks:
-      hydra_net:
-        ipv4_address: 172.16.238.6
-
   grafana:
     image: grafana/grafana:latest
     container_name: grafana

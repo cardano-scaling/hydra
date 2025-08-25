@@ -211,9 +211,6 @@
               # Ensure test starts only after devnet has been prepared
               depends_on."prepare-devnet".condition = "process_completed";
             };
-            node-exporter = {
-              command = "${pkgs.prometheus-node-exporter}/bin/node_exporter --web.listen-address=:9100";
-            };
             prometheus = {
               working_dir = "./demo";
               command = ''
@@ -223,7 +220,6 @@
                     --web.listen-address=127.0.0.1:9090
               '';
               depends_on = {
-                "node-exporter".condition = "process_started";
                 "hydra-node-alice".condition = "process_started";
                 "hydra-node-bob".condition = "process_started";
                 "hydra-node-carol".condition = "process_started";
