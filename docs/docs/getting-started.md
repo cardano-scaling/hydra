@@ -98,3 +98,49 @@ This will start a full-blown terminal interface loaded with signing keys corresp
 Using the terminal interface of any node, you can now `[i]nit` the Hydra head and `[c]ommit` pre-distributed funds to it. Note that these steps are near-instant as the devnet is producing blocks much faster than a public testnet or the mainnet. After committing from all nodes, the head will automatically open, and you can also use the `hydra-tui` or the API to create new transactions and submit them to the Hydra head.
 
 ![](./open-head.png)
+
+## Monitoring
+
+We provide a minimal monitoring setup using Prometheus and Grafana to give you insight into the node's activity, including snapshot processing and peer connectivity.
+
+:::info Note
+This setup focuses solely on the metrics exposed by the Hydra nodes and does not cover system-level metrics like CPU, memory, disk, or network usage.
+:::
+
+Hydra nodes expose [Prometheus](https://prometheus.io/)-compliant _metrics_ through an HTTP server, available on the standard `/metrics` endpoint.
+
+:::info Shortcut
+Reference the [Operating Hydra nodes guide](./how-to/operating-hydra.md#monitoring) for a more in-depth explanation on available metrics.
+:::
+
+### Start the monitoring stack
+
+Bring up Prometheus and Grafana:
+
+```shell
+docker compose up -d prometheus grafana
+```
+
+Prometheus will scrape the `/metrics` endpoint of each Hydra node automatically.
+
+Grafana is preconfigured with a minimal dashboard visualizing key metrics from each node:
+
+| Panel                                    | Metric                               | Description                                                                              |
+| ---------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| **Hydra Head Confirmed Tx**              | `hydra_head_confirmed_tx`            | Number of snapshots confirmed by the Hydra head                                          |
+| **Hydra Head Inputs**                    | `hydra_head_inputs`                  | Number of inputs processed by the head                                                   |
+| **Hydra Head Tx Confirmation Time (ms)** | `hydra_head_tx_confirmation_time_ms` | Average time taken to confirm snapshots on the Hydra head (from request to confirmation) |
+| **Peer Connected**                       | `hydra_head_peers_connected`         | Number of peers each node is currently connected to                                      |
+| **Hydra Head Requested**                 | `hydra_head_requested_tx`            | Number of requested transactions received by the node (incoming ReqTx messages)          |
+
+### Using Grafana
+
+1. Open Grafana in your browser at `http://localhost:3000`.
+2. Default login credentials are `admin/admin`.
+3. Explore the preconfigured dashboard or create your own panels using Prometheus queries.
+4. Use the top-left `instance` dropdown to inspect metrics per Hydra node.
+5. Hover on any graph or stat panel to see per-node values in real time.
+
+### Dashboard Preview
+
+![](./monitoring.png)

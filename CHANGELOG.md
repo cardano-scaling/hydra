@@ -79,6 +79,8 @@ when the number of persisted `StateChanged` events exceeds the configured `--per
 - Don't keep around invalid transactions as they could lead to stuck Head.
 
 
+- Add grafana monitoring to hydra nix and docker demos.
+
 ## [0.22.2] - 2025-06-30
 
 * Fix wrong hydra-script-tx-ids in networks.json
