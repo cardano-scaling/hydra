@@ -211,6 +211,32 @@
               # Ensure test starts only after devnet has been prepared
               depends_on."prepare-devnet".condition = "process_completed";
             };
+            prometheus = {
+              working_dir = "./demo";
+              command = ''
+                ${pkgs.prometheus}/bin/prometheus \
+                    --config.file=./prometheus/nix/prometheus.yml \
+                    --storage.tsdb.path=./devnet/prometheus \
+                    --web.listen-address=127.0.0.1:9090
+              '';
+              depends_on = {
+                "hydra-node-alice".condition = "process_started";
+                "hydra-node-bob".condition = "process_started";
+                "hydra-node-carol".condition = "process_started";
+              };
+            };
+            grafana = {
+              working_dir = "./demo";
+              command = ''
+                ${pkgs.grafana}/bin/grafana server \
+                    --homepath ${pkgs.grafana}/share/grafana \
+                    cfg:default.paths.data=$(pwd)/devnet/grafana/data \
+                    cfg:default.paths.logs=$(pwd)/devnet/grafana/logs \
+                    cfg:default.paths.plugins=$(pwd)/devnet/grafana/plugins \
+                    cfg:default.paths.provisioning=$(pwd)/grafana/nix
+              '';
+              depends_on."prometheus".condition = "process_started";
+            };
           };
         };
       };

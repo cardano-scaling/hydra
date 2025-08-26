@@ -1,6 +1,6 @@
 services:
   cardano-node:
-    image: ghcr.io/intersectmbo/cardano-node:10.2
+    image: ghcr.io/intersectmbo/cardano-node:10.4.1
     volumes:
       - ./devnet:/devnet
     environment:
@@ -189,10 +189,26 @@ services:
     command:
     - --config.file=/etc/prometheus/prometheus.yml
     volumes:
-    - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    - ./prometheus/docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
       hydra_net:
         ipv4_address: 172.16.238.5
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - DS_PROMETHEUS=prometheus
+    volumes:
+      - "./grafana/docker/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml"
+      - "./grafana/docker/dashboard.json:/var/lib/grafana/dashboards/dashboard.json"
+      - "./grafana/docker/default.yaml:/etc/grafana/provisioning/dashboards/default.yaml"
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.8
 
 networks:
   hydra_net:
