@@ -318,6 +318,7 @@ data CommitInfo
   | NormalCommit HeadId
   | IncrementalCommit HeadId
 
+-- | L2 Hydra network status information.
 data NetworkInfo = NetworkInfo
   { networkConnected :: Bool
   , peersInfo :: Map Host Bool

@@ -20,8 +20,10 @@
             },
             "networkInfo": {
                 "networkConnected": true,
-                "peersConnected": [],
-                "peersDisconnected": []
+                "peersInfo": {
+                    "127.0.0.1:5000": true,
+                    "peer.local:5001": false
+                }
             },
             "snapshotUtxo": {
                 "0101010101010001010001010001010101010001010000000100010101010100#30": {
