@@ -74,7 +74,7 @@ spec = do
         shouldNotRender "Connecting"
 
     around setupRotatedStateTUI $ do
-      fit "tui-rotated starts" $ do
+      it "tui-rotated starts" $ do
         \TUIRotatedTest
           { tuiTest = TUITest{sendInputEvent, shouldRender, shouldNotRender}
           , nodeHandle = HydraNodeHandle{restartNode}
