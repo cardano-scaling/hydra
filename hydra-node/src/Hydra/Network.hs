@@ -17,8 +17,11 @@ module Hydra.Network (
 import Hydra.Prelude hiding (show)
 
 import Cardano.Ledger.Orphans ()
+import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
+import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
 import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
+import Data.Text qualified as T
 import Hydra.Cardano.Api (Key (SigningKey))
 import Hydra.Tx (Party)
 import Hydra.Tx.Crypto (HydraKey)
@@ -159,6 +162,12 @@ instance Arbitrary Host where
   arbitrary = do
     ip <- toIPv4w <$> arbitrary
     Host (toText $ show ip) <$> arbitrary
+
+instance ToJSONKey Host where
+  toJSONKey = toJSONKeyText (T.pack . show)
+
+instance FromJSONKey Host where
+  fromJSONKey = FromJSONKeyTextParser (readHost . T.unpack)
 
 showHost :: Host -> String
 showHost Host{hostname, port} =

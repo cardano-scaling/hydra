@@ -106,7 +106,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     -- CommitInfo etc. would suffice and are less fragile
     commitInfoP <- mkProjection "commitInfoP" CannotCommit projectCommitInfo
     pendingDepositsP <- mkProjection "pendingDepositsP" [] projectPendingDeposits
-    networkInfoP <- mkProjection "networkInfoP" (NetworkInfo False [] []) projectNetworkInfo
+    networkInfoP <- mkProjection "networkInfoP" (NetworkInfo False mempty) projectNetworkInfo
     let historyTimedOutputs = sourceEvents .| map mkTimedServerOutputFromStateEvent .| catMaybes
     _ <-
       runConduitRes $
@@ -297,15 +297,9 @@ projectNetworkInfo networkInfo = \case
   StateChanged.NetworkConnected ->
     networkInfo{networkConnected = True}
   StateChanged.NetworkDisconnected ->
-    networkInfo{networkConnected = False}
+    networkInfo{networkConnected = False, peersInfo = mempty}
   StateChanged.PeerConnected{peer} ->
-    networkInfo
-      { peersConnected = peer : filter (/= peer) (peersConnected networkInfo)
-      , peersDisconnected = filter (/= peer) (peersDisconnected networkInfo)
-      }
+    networkInfo{peersInfo = Map.insert peer True (peersInfo networkInfo)}
   StateChanged.PeerDisconnected{peer} ->
-    networkInfo
-      { peersConnected = filter (/= peer) (peersConnected networkInfo)
-      , peersDisconnected = peer : filter (/= peer) (peersDisconnected networkInfo)
-      }
+    networkInfo{peersInfo = Map.insert peer False (peersInfo networkInfo)}
   _other -> networkInfo

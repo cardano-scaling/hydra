@@ -92,7 +92,7 @@ handleHydraEventsConnection now = \case
         API.Greetings
           { me
           , env = Environment{configuredPeers}
-          , networkInfo = NetworkInfo{networkConnected, peersConnected, peersDisconnected}
+          , networkInfo = NetworkInfo{networkConnected, peersInfo}
           }
       ) -> do
       meL .= Identified me
@@ -109,10 +109,11 @@ handleHydraEventsConnection now = \case
           existing <- use peersL
           let existingMap = Map.fromList existing
 
-              statusFor p
-                | p `elem` peersConnected = PeerIsConnected
-                | p `elem` peersDisconnected = PeerIsDisconnected
-                | otherwise = Map.findWithDefault PeerIsUnknown p existingMap
+              statusFor p =
+                case Map.lookup p peersInfo of
+                  Just True -> PeerIsConnected
+                  Just False -> PeerIsDisconnected
+                  Nothing -> Map.findWithDefault PeerIsUnknown p existingMap
 
           peersL .= [(p, statusFor p) | p <- parsedPeers]
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->

@@ -320,8 +320,7 @@ data CommitInfo
 
 data NetworkInfo = NetworkInfo
   { networkConnected :: Bool
-  , peersConnected :: [Host]
-  , peersDisconnected :: [Host]
+  , peersInfo :: Map Host Bool
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
