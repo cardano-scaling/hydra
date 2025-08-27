@@ -1515,6 +1515,89 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
  where
   hydraTracer = contramap FromHydraNode tracer
 
+-- | Open a single participant head, deposit, Close and then recover it.
+canRecoverDepositWhenClosed :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canRecoverDepositWhenClosed tracer workDir backend hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer backend Alice) $ do
+    refuelIfNeeded tracer backend Alice 30_000_000
+    -- NOTE: Directly expire deposits
+    contestationPeriod <- CP.fromNominalDiffTime 1
+    blockTime <- Backend.getBlockTime backend
+    let depositPeriod = 1
+    networkId <- Backend.queryNetworkId backend
+    aliceChainConfig <-
+      chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+        <&> setNetworkId networkId . modifyConfig (\c -> c{depositPeriod})
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      -- Commit nothing
+      requestCommitTx n1 mempty >>= Backend.submitTransaction backend
+
+      waitFor hydraTracer (20 * blockTime) [n1] $
+        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+      -- Get some L1 funds
+      (walletVk, walletSk) <- generate genKeyPair
+      let commitAmount = 5_000_000
+      commitUTxO <- seedFromFaucet backend walletVk commitAmount (contramap FromFaucet tracer)
+
+      (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+        `shouldReturn` lovelaceToValue commitAmount
+
+      depositTransaction <-
+        parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
+          <&> setRequestBodyJSON commitUTxO
+            >>= httpJSON
+          <&> getResponseBody
+
+      let tx = signTx walletSk depositTransaction
+      Backend.submitTransaction backend tx
+
+      deadline <- waitMatch 10 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "CommitRecorded"
+        v ^? key "deadline" >>= parseMaybe parseJSON
+
+      (selectLovelace . balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+        `shouldReturn` 0
+
+      send n1 $ input "Close" []
+
+      deadline' <- waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
+        v ^? key "contestationDeadline" . _JSON
+
+      let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
+      -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
+      diff <- realToFrac . diffUTCTime deadline <$> getCurrentTime
+      threadDelay $ diff + 1
+
+      (`shouldReturn` "OK") $
+        parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
+          >>= httpJSON
+          <&> getResponseBody @String
+
+      waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "CommitRecovered"
+        guard $ v ^? key "recoveredUTxO" == Just (toJSON commitUTxO)
+
+      (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+        `shouldReturn` lovelaceToValue commitAmount
+
+      remainingTime <- diffUTCTime deadline' <$> getCurrentTime
+      waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+        output "ReadyToFanout" ["headId" .= headId]
+      send n1 $ input "Fanout" []
+      waitMatch (20 * blockTime) n1 $ \v ->
+        guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+      -- Assert final wallet balance
+      (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+        `shouldReturn` balance commitUTxO
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
 -- | Make sure to be able to see pending deposits.
 canSeePendingDeposits :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
 canSeePendingDeposits tracer workDir blockTime backend hydraScriptsTxId =
