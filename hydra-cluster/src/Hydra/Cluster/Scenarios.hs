@@ -1521,7 +1521,7 @@ canRecoverDepositWhenClosed tracer workDir backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
     refuelIfNeeded tracer backend Alice 30_000_000
     -- NOTE: Directly expire deposits
-    contestationPeriod <- CP.fromNominalDiffTime 1
+    contestationPeriod <- CP.fromNominalDiffTime 2
     blockTime <- Backend.getBlockTime backend
     let depositPeriod = 1
     networkId <- Backend.queryNetworkId backend

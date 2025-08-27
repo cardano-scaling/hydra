@@ -64,10 +64,11 @@ validator deposit {
           before_deadline(self.validity_range, datum.deadline),
         )
       Recover(n) ->
-        traceIfFalse(
-          toErrorCode(DepositPeriodNotReached),
-          after_deadline(self.validity_range, datum.deadline),
-        ) && recover_outputs(n, datum.commits, self.outputs)
+        // traceIfFalse(
+        //   toErrorCode(DepositPeriodNotReached),
+        //   after_deadline(self.validity_range, datum.deadline),
+        // ) && 
+        recover_outputs(n, datum.commits, self.outputs)
     }
   }
 

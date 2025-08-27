@@ -773,6 +773,34 @@ onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
  where
   CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
 
+-- | Client request to recover deposited UTxO.
+--
+-- __Transition__: 'ClosedState' → 'ClosedState'
+onClosedClientRecover ::
+  IsChainState tx =>
+  HeadId ->
+  ChainStateType tx ->
+  TxIdType tx ->
+  Outcome tx
+onClosedClientRecover headId chainState recoverTxId =
+  let currentSlot = chainStateSlot chainState
+      maybeDeposited = findBy chainState $ \txid _out -> txid == recoverTxId
+  in case maybeDeposited of
+      Nothing -> Error $ RequireFailed NoMatchingDeposit
+      Just deposited ->
+        causes
+          [ OnChainEffect
+              { postChainTx =
+                  RecoverTx
+                    { headId
+                    , recoverTxId = recoverTxId
+                    , -- XXX: Why is this called deadline?
+                      deadline = currentSlot
+                    , recoverUTxO = deposited
+                    }
+              }
+          ]
+
 -- | Client request to decommit UTxO from the head.
 --
 -- Only possible if there is no decommit _in flight_ and if the tx applies
@@ -1418,6 +1446,13 @@ update env ledger st ev = case (st, ev) of
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId, fanoutUTxO}, newChainState})
     | ourHeadId == headId ->
         onClosedChainFanoutTx closedState newChainState fanoutUTxO
+    | otherwise ->
+        Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Closed ClosedState{headId, chainState}, ClientInput Recover{recoverTxId}) ->
+    onClosedClientRecover headId chainState recoverTxId
+  (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- General

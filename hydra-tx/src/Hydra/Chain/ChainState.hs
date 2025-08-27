@@ -30,3 +30,7 @@ class
   -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: ChainStateType tx -> ChainSlot
+
+  spendableUTxO :: ChainStateType tx -> UTxOType tx
+
+  findBy :: ChainStateType tx -> (TxIdType tx -> TxOutType tx -> Bool) -> Maybe (UTxOType tx)
