@@ -73,7 +73,6 @@ instance ArbitraryIsTx tx => Arbitrary (DecommitInvalidReason tx) where
 data ClientMessage tx
   = CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | Debug {msg :: Text}
   deriving (Eq, Show, Generic)
 
 instance IsChainState tx => ToJSON (ClientMessage tx) where
