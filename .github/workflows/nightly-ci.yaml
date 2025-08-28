@@ -44,3 +44,26 @@ jobs:
         else
           echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
         fi
+
+
+  other-nightly-tests:
+    name: "Nightly tests"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - package: hydra-plutus
+          - package: hydra-tx
+          - package: hydra-chain-observer
+          - package: hydra-node
+          - package: hydra-cluster
+          # Note: Missing hydra-tui
+
+    - name: Nightly tests
+      env:
+        CI_NIGHTLY: True
+      run: |
+        cd ${{ matrix.package }}
+        nix build .#${{ matrix.package }}-tests
+        nix develop
+        cabal test --test-options '-m "@nightly"'
