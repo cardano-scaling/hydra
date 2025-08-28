@@ -113,6 +113,8 @@ instance IsChainState SimpleTx where
 
   chainStateSlot SimpleChainState{slot} = slot
 
+  findBy = const . const $ Nothing
+
 -- * A simple ledger
 
 simpleLedger :: Ledger SimpleTx

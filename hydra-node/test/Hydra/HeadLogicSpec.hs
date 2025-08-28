@@ -1164,10 +1164,12 @@ inClosedState' parties confirmedSnapshot =
     ClosedState
       { parameters
       , confirmedSnapshot
+      , pendingDeposits = mempty
       , contestationDeadline
       , readyToFanoutSent = False
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
+      , currentSlot = ChainSlot 0
       , headSeed = testHeadSeed
       , version = 0
       }

@@ -779,27 +779,27 @@ onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
 onClosedClientRecover ::
   IsChainState tx =>
   HeadId ->
+  ChainSlot ->
   ChainStateType tx ->
   TxIdType tx ->
   Outcome tx
-onClosedClientRecover headId chainState recoverTxId =
-  let currentSlot = chainStateSlot chainState
-      maybeDeposited = findBy chainState $ \txid _out -> txid == recoverTxId
-  in case maybeDeposited of
-      Nothing -> Error $ RequireFailed NoMatchingDeposit
-      Just deposited ->
-        causes
-          [ OnChainEffect
-              { postChainTx =
-                  RecoverTx
-                    { headId
-                    , recoverTxId = recoverTxId
-                    , -- XXX: Why is this called deadline?
-                      deadline = currentSlot
-                    , recoverUTxO = deposited
-                    }
-              }
-          ]
+onClosedClientRecover headId currentSlot chainState recoverTxId =
+  let maybeDeposited = findBy chainState $ \txid _out -> txid == recoverTxId
+   in case maybeDeposited of
+        Nothing -> Error $ RequireFailed NoMatchingDeposit
+        Just deposited ->
+          causes
+            [ OnChainEffect
+                { postChainTx =
+                    RecoverTx
+                      { headId
+                      , recoverTxId = recoverTxId
+                      , -- XXX: Why is this called deadline?
+                        deadline = currentSlot
+                      , recoverUTxO = deposited
+                      }
+                }
+            ]
 
 -- | Client request to decommit UTxO from the head.
 --
@@ -1040,6 +1040,43 @@ onOpenChainTick env st chainTime =
     LastSeenSnapshot{} -> False
     RequestedSnapshot{} -> True
     SeenSnapshot{} -> True
+
+-- | Process the chain (and time) advancing in a close head.
+--
+-- __Transition__: 'ClosedState' → 'ClosedState'
+--
+-- This is primarily used to track deposits and drop them.
+onClosedChainTick :: IsTx tx => Environment -> ClosedState tx -> UTCTime -> Outcome tx
+onClosedChainTick env st chainTime =
+  -- Determine new expired
+  updateDeposits $ \newExpired ->
+    mkDepositExpired newExpired
+ where
+  updateDeposits cont =
+    cont $ Map.foldlWithKey updateDeposit mempty pendingDeposits
+
+  updateDeposit newExpired depositTxId deposit@Deposit{status} =
+    let newStatus = determineStatus deposit
+        d' = deposit{status = newStatus}
+     in case newStatus of
+          Expired | status /= Expired -> Map.insert depositTxId d' newExpired
+          _ -> newExpired
+
+  determineStatus Deposit{created, deadline}
+    | chainTime > deadline `minusTime` toNominalDiffTime depositPeriod = Expired
+    | chainTime > created `plusTime` toNominalDiffTime depositPeriod = Active
+    | otherwise = Inactive
+
+  minusTime time dt = addUTCTime (-dt) time
+
+  plusTime = flip addUTCTime
+
+  mkDepositExpired m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    pure DepositExpired{depositTxId, chainTime, deposit}
+
+  Environment{depositPeriod} = env
+
+  ClosedState{pendingDeposits} = st
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
@@ -1404,6 +1441,8 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
+  -- FIXME! check if we should observe deposits on close
+  -- FIXME! check what happens if we observe a deposit after fanout
   (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId ->
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
@@ -1437,10 +1476,14 @@ update env ledger st ev = case (st, ev) of
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
+  (Closed closedState@ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         newState TickObserved{chainSlot}
           <> newState HeadIsReadyToFanout{headId}
+          <> onClosedChainTick env closedState chainTime
+  (Closed closedState, ChainInput Tick{chainTime, chainSlot}) ->
+    newState TickObserved{chainSlot}
+      <> onClosedChainTick env closedState chainTime
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId, fanoutUTxO}, newChainState})
@@ -1448,8 +1491,8 @@ update env ledger st ev = case (st, ev) of
         onClosedChainFanoutTx closedState newChainState fanoutUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{headId, chainState}, ClientInput Recover{recoverTxId}) ->
-    onClosedClientRecover headId chainState recoverTxId
+  (Closed ClosedState{headId, currentSlot, chainState}, ClientInput Recover{recoverTxId}) ->
+    onClosedClientRecover headId currentSlot chainState recoverTxId
   (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
     | ourHeadId == headId ->
         newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
@@ -1696,6 +1739,12 @@ aggregate st = \case
             }
        where
         CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
+    Closed
+      cs@ClosedState{pendingDeposits} ->
+        Closed
+          cs
+            { pendingDeposits = Map.insert depositTxId deposit pendingDeposits
+            }
     _otherState -> st
   CommitApproved{} -> st
   DepositRecovered{chainState, depositTxId} -> case st of
@@ -1711,6 +1760,13 @@ aggregate st = \case
             }
        where
         CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
+    Closed
+      cs@ClosedState{pendingDeposits} ->
+        Closed
+          cs
+            { chainState
+            , pendingDeposits = Map.delete depositTxId pendingDeposits
+            }
     _otherState -> st
   CommitFinalized{chainState, newVersion, depositTxId} ->
     case st of
@@ -1772,36 +1828,52 @@ aggregate st = \case
             CoordinatedHeadState
               { confirmedSnapshot
               , version
+              , pendingDeposits
               }
           , headId
+          , currentSlot
           , headSeed
           } ->
           Closed
             ClosedState
               { parameters
               , confirmedSnapshot
+              , pendingDeposits
               , contestationDeadline
               , readyToFanoutSent = False
               , chainState
               , headId
+              , currentSlot
               , headSeed
               , version
               }
       _otherState -> st
   HeadContested{chainState, contestationDeadline} ->
     case st of
-      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version} ->
-        Closed
-          ClosedState
-            { parameters
-            , confirmedSnapshot
-            , contestationDeadline
-            , readyToFanoutSent
-            , chainState
-            , headId
-            , headSeed
-            , version
-            }
+      Closed
+        ClosedState
+          { parameters
+          , confirmedSnapshot
+          , pendingDeposits
+          , readyToFanoutSent
+          , headId
+          , currentSlot
+          , headSeed
+          , version
+          } ->
+          Closed
+            ClosedState
+              { parameters
+              , confirmedSnapshot
+              , pendingDeposits
+              , contestationDeadline
+              , readyToFanoutSent
+              , chainState
+              , headId
+              , currentSlot
+              , headSeed
+              , version
+              }
       _otherState -> st
   HeadFannedOut{chainState} ->
     case st of
@@ -1820,6 +1892,7 @@ aggregate st = \case
   TickObserved{chainSlot} ->
     case st of
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}
+      Closed cst@ClosedState{} -> Closed cst{currentSlot = chainSlot}
       _otherState -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{transaction} -> case st of

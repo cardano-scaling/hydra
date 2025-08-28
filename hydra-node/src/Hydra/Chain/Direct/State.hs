@@ -159,11 +159,9 @@ instance IsChainState Tx where
   chainStateSlot ChainStateAt{recordedAt} =
     maybe (ChainSlot 0) chainSlotFromPoint recordedAt
 
-  spendableUTxO ChainStateAt{spendableUTxO} = spendableUTxO
-
   findBy ChainStateAt{spendableUTxO} p =
-    (uncurry UTxO.singleton)
-      <$> UTxO.findBy (\(TxIn txId _ , out) -> p txId out) spendableUTxO
+    uncurry UTxO.singleton
+      <$> UTxO.findBy (\(TxIn txId _, out) -> p txId out) spendableUTxO
 
 -- | Get a generic 'ChainSlot' from a Cardano 'ChainPoint'. Slot 0 is used for
 -- the genesis point.

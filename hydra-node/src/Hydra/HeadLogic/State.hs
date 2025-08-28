@@ -260,12 +260,14 @@ instance Arbitrary DepositStatus where
 data ClosedState tx = ClosedState
   { parameters :: HeadParameters
   , confirmedSnapshot :: ConfirmedSnapshot tx
+  , pendingDeposits :: Map (TxIdType tx) (Deposit tx)
   , contestationDeadline :: UTCTime
   , readyToFanoutSent :: Bool
   -- ^ Tracks whether we have informed clients already about being
   -- 'ReadyToFanout'.
   , chainState :: ChainStateType tx
   , headId :: HeadId
+  , currentSlot :: ChainSlot
   , headSeed :: HeadSeed
   , version :: SnapshotVersion
   }
@@ -280,6 +282,8 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedS
   arbitrary =
     ClosedState
       <$> arbitrary
+      <*> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary

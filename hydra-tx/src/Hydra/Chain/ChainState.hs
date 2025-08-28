@@ -31,6 +31,4 @@ class
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: ChainStateType tx -> ChainSlot
 
-  spendableUTxO :: ChainStateType tx -> UTxOType tx
-
   findBy :: ChainStateType tx -> (TxIdType tx -> TxOutType tx -> Bool) -> Maybe (UTxOType tx)
