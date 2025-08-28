@@ -1,20 +1,17 @@
-name: Check Code Quality
+name: Om CI Run
 
 on:
-  # We're using merge-chains; so this needs to run then.
   merge_group:
   pull_request:
 
 jobs:
   quality:
-    name: Check Code Quality
+    name: Om Ci Run
     runs-on: ubuntu-latest
     steps:
     - name: Reclaim the bytes
       uses: data-intuitive/reclaim-the-bytes@v2
       with:
-        # NOTE: Remove more when needed, but these take also time
-        # See https://github.com/marketplace/actions/reclaim-the-bytes
         remove-android-sdk: false
         remove-docker-images: false
 
@@ -26,10 +23,6 @@ jobs:
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: 📐 Check treefmt
+    - name: 📐 Om Ci Run
       run: |
-        nix build .#checks.x86_64-linux.treefmt
-
-    - name: 📐 Check weeder
-      run: |
-        nix build .#checks.x86_64-linux.weeder
+        nix run github:juspay/omnix -- ci run

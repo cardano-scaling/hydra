@@ -186,34 +186,6 @@ jobs:
         body-file: comment-body.md
         reactions: rocket
 
-  nix-flake-check:
-    name: "nix flake check"
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-    - name: Reclaim the bytes
-      uses: data-intuitive/reclaim-the-bytes@v2
-      with:
-        # NOTE: Remove more when needed, but these take also time
-        # See https://github.com/marketplace/actions/reclaim-the-bytes
-        remove-android-sdk: false
-        remove-docker-images: false
-
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-
-    - name: ❄ Setup Nix/Cachix
-      uses: ./.github/actions/nix-cachix-setup
-      with:
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
-    - name: ❄ Nix Flake Check
-      run: |
-        nix flake check -L
-
-
   build-specification:
     name: "Build specification using nix"
     runs-on: ubuntu-latest
