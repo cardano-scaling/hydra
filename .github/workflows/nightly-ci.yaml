@@ -40,7 +40,7 @@ jobs:
           export HYDRA_BACKEND="blockfrost"
           nix build .#${{ matrix.package }}-tests
           nix develop
-          cabal test hydra-cluster --test-options '-m "End-to-end on Cardano devnet"'
+          cabal test --test-options '-m "End-to-end on Cardano devnet"'
         else
           echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
         fi
