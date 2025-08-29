@@ -47,14 +47,8 @@ jobs:
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
-        if [[ "${{secrets.blockfrost_token}}" != '' ]]; then
-          echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
-          cd ${{ matrix.package }}
-          nix build .#${{ matrix.package }}-tests
-          nix develop .#${{ matrix.package }}-tests --command tests
-        else
-          echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
-        fi
+        cd ${{ matrix.package }} # To ensure the `./golden` files are available.
+        nix develop .#${{ matrix.package }}-tests --command tests
 
     # This one is special, as it requires a tty.
     - name: ❓ Test (TUI)
@@ -67,7 +61,6 @@ jobs:
         TERM: "xterm"
       run: |
         cd ${{ matrix.package  }}
-        nix build .#${{ matrix.package }}-tests
         nix develop .#${{ matrix.package }}-tests --command tests
 
     # NOTE: This depends on the path used in hydra-cluster e2e tests
