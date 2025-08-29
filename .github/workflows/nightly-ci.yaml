@@ -37,8 +37,8 @@ jobs:
     - name: ❓ E2E Blockfrost Test
       run: |
         if [[ "${{secrets.blockfrost_token}}" != '' ]]; then
-          echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
           cd ${{ matrix.package }}
+          echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
           nix develop .#${{ matrix.package }}-tests --command tests -m "End-to-end on Cardano devnet"
         else
           echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
