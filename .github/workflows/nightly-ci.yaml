@@ -17,12 +17,14 @@ permissions:
 
 jobs:
   build-test:
-    name: "Nightly Blockfrost e2d tests"
+    name: "Nightly Blockfrost e2e tests"
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - package: hydra-cluster
+    env:
+      HYDRA_BACKEND: blockfrost
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -37,10 +39,7 @@ jobs:
         if [[ "${{secrets.blockfrost_token}}" != '' ]]; then
           echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
           cd ${{ matrix.package }}
-          export HYDRA_BACKEND="blockfrost"
-          nix build .#${{ matrix.package }}-tests
-          nix develop
-          cabal test --test-options '-m "End-to-end on Cardano devnet"'
+          nix develop .#${{ matrix.package }}-tests --command tests -m "End-to-end on Cardano devnet"
         else
           echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
         fi
@@ -60,7 +59,6 @@ jobs:
           # Note: Missing hydra-tui
     env:
       CI_NIGHTLY: True
-
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -73,5 +71,4 @@ jobs:
     - name: Run tests
       run: |
         cd ${{ matrix.package }}
-        nix build .#${{ matrix.package }}-tests
         nix develop .#${{ matrix.package }}-tests --command tests -m "@nightly"
