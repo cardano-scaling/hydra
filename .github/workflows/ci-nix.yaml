@@ -47,6 +47,7 @@ jobs:
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
+        cd ${{ matrix.package }} # To ensure the `./golden` files are available.
         nix develop .#${{ matrix.package }}-tests --command tests
 
     # This one is special, as it requires a tty.
