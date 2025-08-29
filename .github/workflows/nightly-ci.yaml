@@ -61,10 +61,17 @@ jobs:
     env:
       CI_NIGHTLY: True
     steps:
-      - name: Run tests
-        run: |
-          cd ${{ matrix.package }}
-          nix build .#${{ matrix.package }}-tests
-          nix develop
-          cabal test --test-options '-m "@nightly"'
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
 
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: Run tests
+      run: |
+        cd ${{ matrix.package }}
+        nix build .#${{ matrix.package }}-tests
+        nix develop
+        cabal test --test-options '-m "@nightly"'
