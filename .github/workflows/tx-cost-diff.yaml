@@ -1,0 +1,55 @@
+name: "Compute cost differences"
+
+on:
+  merge_group:
+  push:
+    branches:
+    - master
+    - release
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  checks: write
+  pull-requests: write
+
+jobs:
+  # Compute the cost difference between this branch and master.
+  tx-cost-diff:
+    name: Compute cost differences
+    runs-on: ubuntu-latest
+    # Only run on PR
+    if: github.event_name == 'pull_request'
+    steps:
+    - name: "Checkout the PR as the 'new' source"
+      uses: actions/checkout@v4
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: Set up and use the "ci" devShell
+      uses: nicknovitski/nix-develop@v1
+      with:
+        arguments: ".#costDifferences"
+
+    - name: "Compute the difference markdown"
+      run: |
+        nix run ".#tx-cost-diff"
+
+    - name: 🔎 Find Comment
+      uses: peter-evans/find-comment@v3
+      id: find-comment
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: Transaction cost differences
+
+    - name: ✏ Create or update comment
+      uses: peter-evans/create-or-update-comment@v4
+      with:
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        edit-mode: replace
+        issue-number: ${{ github.event.pull_request.number }}
+        body-file: diff.md

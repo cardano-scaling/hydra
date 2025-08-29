@@ -1,0 +1,28 @@
+name: "Documentation"
+
+on:
+  merge_group:
+  push:
+    branches:
+    - master
+    - release
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  documentation:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: 📚 Build documentation
+      working-directory: docs
+      run: |
+        nix build .#docs

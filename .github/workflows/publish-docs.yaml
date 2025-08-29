@@ -29,11 +29,6 @@ jobs:
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: Set up and use the "ci" devShell
-      uses: nicknovitski/nix-develop@v1
-      with:
-        arguments: ".#ci"
-
     - name: Get released workflow run id
       id: released-workflow
       uses: actions/github-script@v7
@@ -62,14 +57,6 @@ jobs:
           });
           return res.data.workflow_runs[0].id;
 
-    - name: 📥 Download released hydra-spec
-      uses: actions/download-artifact@v5
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        run-id: ${{steps.released-workflow.outputs.result}}
-        name: hydra-spec
-        path: docs/static
-
     - name: 📥 Download released benchmarks
       uses: actions/download-artifact@v5
       with:
@@ -79,26 +66,12 @@ jobs:
         merge-multiple: true
         path: docs/benchmarks
 
-    - name: 📥 Download released haddock documentation
-      uses: actions/download-artifact@v5
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        run-id: ${{steps.released-workflow.outputs.result}}
-        name: haddocks
-        path: docs/static/haddock
-
     - name: Build documentation
       working-directory: docs
       run: |
-        # Only warn on broken links here as the individual documentation builds
-        # should have failed with broken links originally.
-        sed -i 's|onBrokenLinks: "throw"|onBrokenLinks: "warn"|' docusaurus.config.js
+        nix build .#docs
 
-        yarn
-        yarn build
-
-        mkdir -p /tmp/public
-        mv build /tmp/public/head-protocol
+        cp result/build /tmp/public/head-protocol -r
         # Clean the working copy
         git clean -dxf
 
@@ -107,14 +80,6 @@ jobs:
       run: |
         git reset origin/master --hard
         sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
-
-    - name: 📥 Download latest hydra-spec
-      uses: actions/download-artifact@v5
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        run-id: ${{steps.latest-workflow.outputs.result}}
-        name: hydra-spec
-        path: docs/static
 
     - name: 📥 Download latest benchmarks
       uses: actions/download-artifact@v5
@@ -125,21 +90,12 @@ jobs:
         merge-multiple: true
         path: docs/benchmarks
 
-    - name: 📥 Download latest haddock documentation
-      uses: actions/download-artifact@v5
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        run-id: ${{steps.latest-workflow.outputs.result}}
-        name: haddocks
-        path: docs/static/haddock
-
     - name: Build /unstable documentation
       working-directory: docs
       run: |
-        yarn
-        yarn build
+        nix build .#docs
 
-        mv build /tmp/public/head-protocol/unstable
+        cp result/build /tmp/public/head-protocol/unstable/ -r
 
     - name: 👉 Create redirects
       run: |
