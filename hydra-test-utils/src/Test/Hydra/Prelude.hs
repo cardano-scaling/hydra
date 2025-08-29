@@ -15,6 +15,7 @@ module Test.Hydra.Prelude (
   checkProcessHasNotDied,
   exceptionContaining,
   withClearedPATH,
+  onlyNightly,
 ) where
 
 import Hydra.Prelude
@@ -206,3 +207,17 @@ withClearedPATH act =
     env <- getEnv "PATH"
     setEnv "PATH" ""
     pure env
+
+-- | Only run this task when the CI_NIGHTLY environment variable is set (to
+-- anything).
+--
+-- If you're using this, you want to tag the test with `@nightly` as well;
+-- like:
+--
+--  spec = around_ onlyNightly $ describe "... @nightly" $ do
+--    ...
+onlyNightly :: IO () -> IO ()
+onlyNightly action = do
+  lookupEnv "CI_NIGHTLY" >>= \case
+    Nothing -> pendingWith "Only runs nightly"
+    Just _ -> action
