@@ -58,12 +58,13 @@ jobs:
           - package: hydra-node
           - package: hydra-cluster
           # Note: Missing hydra-tui
+    env:
+      CI_NIGHTLY: True
+    steps:
+      - name: Run tests
+        run: |
+          cd ${{ matrix.package }}
+          nix build .#${{ matrix.package }}-tests
+          nix develop
+          cabal test --test-options '-m "@nightly"'
 
-    - name: Nightly tests
-      env:
-        CI_NIGHTLY: True
-      run: |
-        cd ${{ matrix.package }}
-        nix build .#${{ matrix.package }}-tests
-        nix develop
-        cabal test --test-options '-m "@nightly"'
