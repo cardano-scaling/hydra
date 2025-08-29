@@ -60,6 +60,7 @@ jobs:
           # Note: Missing hydra-tui
     env:
       CI_NIGHTLY: True
+
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -73,5 +74,4 @@ jobs:
       run: |
         cd ${{ matrix.package }}
         nix build .#${{ matrix.package }}-tests
-        nix develop
-        cabal test --test-options '-m "@nightly"'
+        nix develop .#${{ matrix.package }}-tests --command tests -m "@nightly"
