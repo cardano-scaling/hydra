@@ -1683,12 +1683,10 @@ canDecommit tracer workDir backend hydraScriptsTxId =
   expectFailureOnUnsignedDecommitTx :: HydraClient -> HeadId -> Tx -> IO ()
   expectFailureOnUnsignedDecommitTx n headId decommitTx = do
     let unsignedDecommitTx = makeSignedTransaction [] $ getTxBody decommitTx
-    join . generate $
-      elements
-        [ send n $ input "Decommit" ["decommitTx" .= unsignedDecommitTx]
-        , postDecommit n unsignedDecommitTx
-        ]
-
+    -- Note: Just send to websocket, as that's how the following code checks
+    -- that it failed. We could do the same for the HTTP endpoint, but doesn't
+    -- quite seem worth the effort.
+    send n $ input "Decommit" ["decommitTx" .= unsignedDecommitTx]
     validationError <- waitMatch 10 n $ \v -> do
       guard $ v ^? key "headId" == Just (toJSON headId)
       guard $ v ^? key "tag" == Just (Aeson.String "DecommitInvalid")
