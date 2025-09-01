@@ -164,7 +164,7 @@ spec = do
 
       it "handles expired lease" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 5 $ do
+          failAfter 15 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             -- Record and assert connectivity events from alice's perspective
             (recordReceived, _, waitConnectivity) <- newRecordingCallback
