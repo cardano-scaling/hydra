@@ -121,7 +121,7 @@ You can also use blockfrost for script publishing. On top of providing cardano s
 
 ```shell
 hydra-node publish-scripts \
-  --blockfrost /path/to/node.socket \
+  --blockfrost /path/to/blockfrost-project.txt \
   --cardano-signing-key cardano.sk
 ```
 
@@ -167,7 +167,9 @@ For more details, refer to this [how to](./how-to/commit-blueprint) guide on com
 
 The `hydra-node` must be connected to the Cardano network, unless running in [offline mode](./configuration.md#offline-mode).
 
-A direct connection to a [`cardano-node`](https://github.com/input-output-hk/cardano-node/) is a prerequisite. Please refer to existing documentation on starting a node, for example on [developers.cardano.org](https://developers.cardano.org/docs/get-started/running-cardano), or [use Mithril](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node) to bootstrap the local node.
+Hydra node can talk to cardano-node directly or it can be used with the [`Blockfrost API`](https://blockfrost.io/).
+
+When using a direct connection to a [`cardano-node`](https://github.com/input-output-hk/cardano-node/) please refer to existing documentation on starting a node, for example on [developers.cardano.org](https://developers.cardano.org/docs/get-started/running-cardano), or [use Mithril](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node) to bootstrap the local node.
 
 To specify how to connect to the local `cardano-node`, use `--node-socket` and `--testnet-magic`:
 
@@ -177,11 +179,18 @@ hydra-node \
   --node-socket devnet/node.socket \
 ```
 
+If you decide to use `Blockfrost` service then hydra-node is started with provided path to the blockfrost [project file](https://blockfrost.dev/overview/getting-started#creating-first-project). Underlying Cardano network is then determined using the blockfrost project file so you should not specify `--mainnet` or `--testnet-magic` arguments:
+
+```shell
+hydra-node \
+  --blockfrost blockfrost-project.txt \
+```
+
 :::info
 The `hydra-node` is compatible with the Cardano `mainnet` network, and can consequently operate using **real funds**. Please be sure to read the [known issues](/docs/known-issues) to fully understand the limitations and consequences of running Hydra nodes on mainnet. To choose `mainnet`, use `--mainnet` instead of `--testnet-magic`.
 :::
 
-Using the direct node connection, the `hydra-node` synchronizes the chain and observes Hydra protocol transactions. On startup, it starts observing from the chain's tip. Once a Hydra head has been observed, the point of the last known state change is used automatically.
+Using the direct node connection or Blockfrost, the `hydra-node` synchronizes the chain and observes Hydra protocol transactions. On startup, it starts observing from the chain's tip. Once a Hydra head has been observed, the point of the last known state change is used automatically.
 
 You can manually set the intersection point using `--start-chain-from <slot>.<hash>` which specifies a `slot` and block header `hash`. For example:
 
