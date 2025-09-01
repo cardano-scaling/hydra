@@ -179,7 +179,7 @@ hydra-node \
   --node-socket devnet/node.socket \
 ```
 
-If you decide to use `Blockfrost` service then hydra-node is started with provided path to the blockfrost [project file](https://blockfrost.dev/overview/getting-started#creating-first-project):
+If you decide to use `Blockfrost` service then hydra-node is started with provided path to the blockfrost [project file](https://blockfrost.dev/overview/getting-started#creating-first-project). Underlying Cardano network is then determined using the blockfrost project file so you should not specify `--mainnet` or `--testnet-magic` arguments:
 
 ```shell
 hydra-node \
