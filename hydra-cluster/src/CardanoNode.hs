@@ -169,7 +169,7 @@ withBlockfrostBackend ::
 withBlockfrostBackend _tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
   shelleyGenesis <- readFileBS >=> unsafeDecodeJson $ stateDirectory </> nodeShelleyGenesisFile args
-  let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = ".." </> Backend.blockfrostProjectPath}
+  let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = Backend.blockfrostProjectPath}
   action (getShelleyGenesisBlockTime shelleyGenesis) backend
 
 withBackend ::
