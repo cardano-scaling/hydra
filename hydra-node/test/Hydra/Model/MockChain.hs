@@ -65,7 +65,7 @@ import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect, mkNetworkInput)
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
 import Hydra.Node.Environment (Environment (Environment, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.NodeSpec (mockServer)
@@ -223,7 +223,7 @@ mockChainAndNetwork tr seedKeys commits = do
       Nothing -> error "closeWithInitialSnapshot: Could not find matching HydraNode"
       Just
         MockHydraNode
-          { node = HydraNode{oc = Chain{postTx}, nodeState = NodeState{queryHeadState}}
+          { node = HydraNode{oc = Chain{postTx}, nodeState = NodeStateHandler{queryHeadState}}
           } -> do
           hs <- atomically queryHeadState
           case hs of

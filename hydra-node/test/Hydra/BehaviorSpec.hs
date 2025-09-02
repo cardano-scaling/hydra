@@ -40,7 +40,7 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeState, defaultTxTTL, mkNetworkInput, queryHeadState, runHydraNode, waitDelay)
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeStateHandler, defaultTxTTL, mkNetworkInput, queryHeadState, runHydraNode, waitDelay)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.Environment (Environment (..))
@@ -1326,7 +1326,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
   -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
   let headState = Idle IdleState{chainState}
   let chainStateHistory = initHistory chainState
-  nodeState <- createNodeState Nothing headState
+  nodeState <- createNodeStateHandler Nothing headState
   inputQueue <- createInputQueue
   node <-
     connectNode

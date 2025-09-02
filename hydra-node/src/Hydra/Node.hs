@@ -159,12 +159,12 @@ data DraftHydraNode tx m = DraftHydraNode
   { tracer :: Tracer m (HydraNodeLog tx)
   , env :: Environment
   , ledger :: Ledger tx
-  , nodeState :: NodeState tx m
+  , nodeState :: NodeStateHandler tx m
   , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateEvent tx) m
   , eventSinks :: [EventSink (StateEvent tx) m]
   , -- XXX: This is an odd field in here, but needed for the chain layer to
-    -- bootstrap. Maybe move to NodeState or make it differently accessible?
+    -- bootstrap. Maybe move to NodeStateHandler or make it differently accessible?
     chainStateHistory :: ChainStateHistory tx
   }
 
@@ -201,7 +201,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
   runConduitRes $
     sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
 
-  nodeState <- createNodeState (getLast lastEventId) headState
+  nodeState <- createNodeStateHandler (getLast lastEventId) headState
   inputQueue <- createInputQueue
   pure
     DraftHydraNode
@@ -273,7 +273,7 @@ data HydraNode tx m = HydraNode
   { tracer :: Tracer m (HydraNodeLog tx)
   , env :: Environment
   , ledger :: Ledger tx
-  , nodeState :: NodeState tx m
+  , nodeState :: NodeStateHandler tx m
   , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateEvent tx) m
   , eventSinks :: [EventSink (StateEvent tx) m]
@@ -353,7 +353,7 @@ processNextInput HydraNode{nodeState, ledger, env} e =
     let outcome = computeOutcome s e
      in (outcome, aggregateState s outcome)
  where
-  NodeState{modifyHeadState} = nodeState
+  NodeStateHandler{modifyHeadState} = nodeState
 
   computeOutcome = HeadLogic.update env ledger
 
@@ -367,7 +367,7 @@ processStateChanges node stateChanges = do
  where
   HydraNode
     { eventSinks
-    , nodeState = NodeState{getNextEventId}
+    , nodeState = NodeStateHandler{getNextEventId}
     } = node
 
 processEffects ::
@@ -405,24 +405,24 @@ processEffects node tracer inputId effects = do
 -- ** Manage state
 
 -- | Handle to access and modify the state in the Hydra Node.
-data NodeState tx m = NodeState
+data NodeStateHandler tx m = NodeStateHandler
   { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
   , queryHeadState :: STM m (HeadState tx)
   , getNextEventId :: STM m EventId
   }
 
--- | Initialize a new 'NodeState'.
-createNodeState ::
+-- | Initialize a new 'NodeStateHandler'.
+createNodeStateHandler ::
   MonadLabelledSTM m =>
   -- | Last seen 'EventId'.
   Maybe EventId ->
   HeadState tx ->
-  m (NodeState tx m)
-createNodeState lastSeenEventId initialState = do
+  m (NodeStateHandler tx m)
+createNodeStateHandler lastSeenEventId initialState = do
   nextEventIdV <- newLabelledTVarIO "next-event-id" $ maybe 0 (+ 1) lastSeenEventId
   hs <- newLabelledTVarIO "head-state" initialState
   pure
-    NodeState
+    NodeStateHandler
       { modifyHeadState = stateTVar hs
       , queryHeadState = readTVar hs
       , getNextEventId = do
