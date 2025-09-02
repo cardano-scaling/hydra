@@ -20,6 +20,7 @@ import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   ClientMessage,
   CommitInfo (..),
+  NetworkInfo (..),
   ServerOutput (..),
   TimedServerOutput (..),
  )
@@ -105,6 +106,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     -- CommitInfo etc. would suffice and are less fragile
     commitInfoP <- mkProjection "commitInfoP" CannotCommit projectCommitInfo
     pendingDepositsP <- mkProjection "pendingDepositsP" [] projectPendingDeposits
+    networkInfoP <- mkProjection "networkInfoP" (NetworkInfo False mempty) projectNetworkInfo
     let historyTimedOutputs = sourceEvents .| map mkTimedServerOutputFromStateEvent .| catMaybes
     _ <-
       runConduitRes $
@@ -133,7 +135,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp env party tracer historyTimedOutputs callback headStateP responseChannel serverOutputFilter)
+              (wsApp env party tracer historyTimedOutputs callback headStateP networkInfoP responseChannel serverOutputFilter)
               ( httpApp
                   tracer
                   chain
@@ -158,6 +160,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                       update headStateP stateChanged
                       update commitInfoP stateChanged
                       update pendingDepositsP stateChanged
+                      update networkInfoP stateChanged
                     -- Send to the client if it maps to a server output
                     case mkTimedServerOutputFromStateEvent event of
                       Nothing -> pure ()
@@ -216,7 +219,7 @@ setupServerNotification = do
   pure (putMVar mv (), takeMVar mv)
 
 -- | Defines the subset of 'StateEvent' that should be sent as 'TimedServerOutput' to clients.
-mkTimedServerOutputFromStateEvent :: IsTx tx => StateEvent tx -> Maybe (TimedServerOutput tx)
+mkTimedServerOutputFromStateEvent :: IsChainState tx => StateEvent tx -> Maybe (TimedServerOutput tx)
 mkTimedServerOutputFromStateEvent event =
   case mapStateChangedToServerOutput stateChanged of
     Nothing -> Nothing
@@ -261,7 +264,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.ChainRolledBack{} -> Nothing
     StateChanged.TickObserved{} -> Nothing
     StateChanged.LocalStateCleared{..} -> Just SnapshotSideLoaded{..}
-    StateChanged.Checkpoint{} -> Just EventLogRotated
+    StateChanged.Checkpoint{state} -> Just $ EventLogRotated state
 
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
@@ -288,3 +291,15 @@ projectCommitInfo commitInfo = \case
   StateChanged.HeadAborted{} -> CannotCommit
   StateChanged.HeadClosed{} -> CannotCommit
   _other -> commitInfo
+
+projectNetworkInfo :: NetworkInfo -> StateChanged.StateChanged tx -> NetworkInfo
+projectNetworkInfo networkInfo = \case
+  StateChanged.NetworkConnected ->
+    networkInfo{networkConnected = True}
+  StateChanged.NetworkDisconnected ->
+    networkInfo{networkConnected = False, peersInfo = mempty}
+  StateChanged.PeerConnected{peer} ->
+    networkInfo{peersInfo = Map.insert peer True (peersInfo networkInfo)}
+  StateChanged.PeerDisconnected{peer} ->
+    networkInfo{peersInfo = Map.insert peer False (peersInfo networkInfo)}
+  _other -> networkInfo

@@ -872,6 +872,7 @@ components:
         - headStatus
         - hydraNodeVersion
         - env
+        - networkInfo
       properties:
         tag:
           type: string
@@ -1773,6 +1774,7 @@ components:
       required:
         - tag
         - seq
+        - checkpoint
         - timestamp
       properties:
         tag:
@@ -1780,6 +1782,8 @@ components:
           enum: ["EventLogRotated"]
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
+        checkpoint:
+          $ref: "api.yaml#/components/schemas/HeadState"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
@@ -2984,6 +2988,26 @@ components:
           $ref: "api.yaml#/components/schemas/DepositPeriod"
         configuredPeers:
           type: string
+
+    NetworkInfo:
+      type: object
+      description: |
+        L2 Hydra network status information.
+      required:
+      - networkConnected
+      - peersInfo
+      additionalProperties: false
+      properties:
+        networkConnected:
+          type: boolean
+        peersInfo:
+          type: object
+          description: Mapping from peer Host to connection status.
+          additionalProperties:
+            type: boolean
+          example:
+            "127.0.0.1:5000": true
+            "peer.local:5001": false
 
     SequenceNumber:
       type: integer

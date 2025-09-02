@@ -1299,7 +1299,7 @@ createTestHydraClient outputs messages outputHistory HydraNode{inputQueue, nodeS
     }
 
 createHydraNode ::
-  (IsTx tx, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
+  (IsChainState tx, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
   Tracer m (HydraNodeLog tx) ->
   Ledger tx ->
   ChainStateType tx ->

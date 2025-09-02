@@ -2,23 +2,41 @@
     "samples": [
         {
             "env": {
-                "configuredPeers": "",
+                "configuredPeers": "s",
                 "contestationPeriod": 43200,
-                "depositPeriod": 61129,
+                "depositPeriod": 60080,
                 "otherParties": [],
-                "participants": [
-                    "01000000000001000101000101010101000101000001000000010100"
-                ],
+                "participants": [],
                 "party": {
-                    "vkey": "35719d612496ce0f320cd39e4693a2997194cec954ec602064f67a5c81150136"
+                    "vkey": "348cdf360a866dedf92cb18cfb736c2da212ea44d2f1270fe60dad88801be97c"
                 },
-                "signingKey": "c659b97ce8782bc64476a5e82a14cbd38d0413cb15b18fa87d281b44272fa476"
+                "signingKey": "23db2c1b05cc1c905486253e1a39b0df087217f33180f7d5cf4aa1ec8c0b6634"
             },
             "headStatus": "Closed",
             "hydraHeadId": "01000001000001000000000001000101",
-            "hydraNodeVersion": "",
+            "hydraNodeVersion": "G",
             "me": {
                 "vkey": "3d8fb298d77d2fda814e9530b5539758751d27ad1c234080e04ec2e15dea1490"
+            },
+            "networkInfo": {
+                "networkConnected": true,
+                "peersInfo": {
+                    "127.0.0.1:5000": true,
+                    "peer.local:5001": false
+                }
+            },
+            "snapshotUtxo": {
+                "0101010101010001010001010001010101010001010000000100010101010100#30": {
+                    "address": "addr_test1xqqxwuptvt44m42v49ux7l37cy6zg9ylxpr0ltmsnaedfx9frwx7crjjl27pwadu3a4vere9d2cmrm8x2xey5rmzw73sfcqwk4",
+                    "datum": null,
+                    "datumhash": "da0beccb4644ffb9db547cb2c058ee0b27abe96774d43dd85884483b5452b696",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 45000000000000000
+                    }
+                }
             },
             "tag": "Greetings"
         }

@@ -11,7 +11,7 @@ import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
@@ -103,6 +103,7 @@ data Greetings tx = Greetings
   , snapshotUtxo :: Maybe (UTxOType tx)
   , hydraNodeVersion :: String
   , env :: Environment
+  , networkInfo :: NetworkInfo
   }
   deriving (Generic)
 
@@ -212,7 +213,7 @@ data ServerOutput tx
     -- The local state has been reset, meaning pending transactions were pruned.
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
-  | EventLogRotated
+  | EventLogRotated {checkpoint :: HeadState tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -220,7 +221,7 @@ deriving stock instance IsChainState tx => Show (ServerOutput tx)
 deriving anyclass instance IsChainState tx => FromJSON (ServerOutput tx)
 deriving anyclass instance IsChainState tx => ToJSON (ServerOutput tx)
 
-instance ArbitraryIsTx tx => Arbitrary (ServerOutput tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
   shrink = recursivelyShrink
 
@@ -316,6 +317,17 @@ data CommitInfo
   = CannotCommit
   | NormalCommit HeadId
   | IncrementalCommit HeadId
+
+-- | L2 Hydra network status information.
+data NetworkInfo = NetworkInfo
+  { networkConnected :: Bool
+  , peersInfo :: Map Host Bool
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary NetworkInfo where
+  arbitrary = genericArbitrary
 
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
 getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)

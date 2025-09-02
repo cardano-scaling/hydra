@@ -10,8 +10,8 @@ changes.
 
 ## [0.23.0] - UNRELEASED
 
-- Fix bug where TUI would have out-of-date head status information in the
-  presence of event rotation.
+- Fix bug where TUI would have out-of-date head status information
+  after restarting on a rotated node (due to event rotation).
 
 - Accept additional field `tokens` when depositing to specify different (non-ADA) assets that should be depositted to a Head returning any leftover to the user.
 
