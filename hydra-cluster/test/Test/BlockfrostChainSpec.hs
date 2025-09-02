@@ -9,6 +9,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
+import Data.Time (secondsToNominalDiffTime)
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
@@ -91,7 +92,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           participants <- loadParticipants [Alice]
           let headParameters = HeadParameters blockfrostcperiod [alice]
           postTx $ InitTx{participants, headParameters}
-          (headId, headSeed) <- observesInTimeSatisfying' aliceChain 500 $ hasInitTxWith headParameters participants
+          (headId, headSeed) <- observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral Blockfrost.queryTimeout) $ hasInitTxWith headParameters participants
 
           let blueprintTx = txSpendingUTxO someUTxO
           externalCommit' backend aliceChain [aliceExternalSk] headId someUTxO blueprintTx
@@ -134,7 +135,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           let expectedUTxO =
                 (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
                   `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
-          observesInTimeSatisfying' aliceChain 500 $ \case
+          observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral Blockfrost.queryTimeout) $ \case
             OnFanoutTx{headId = headId', fanoutUTxO}
               | headId' == headId ->
                   if UTxO.containsOutputs fanoutUTxO expectedUTxO

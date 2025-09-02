@@ -9,7 +9,7 @@ import Hydra.Options (ChainBackendOptions)
 import Hydra.Tx (ScriptRegistry)
 
 blockfrostProjectPath :: FilePath
-blockfrostProjectPath = "./blockfrost-project.txt"
+blockfrostProjectPath = "blockfrost-project.txt"
 
 class ChainBackend a where
   queryGenesisParameters :: (MonadIO m, MonadThrow m) => a -> m (GenesisParameters ShelleyEra)
