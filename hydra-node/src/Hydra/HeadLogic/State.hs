@@ -34,8 +34,7 @@ data NodeState tx = NodeState
   -- ^ Pending deposits as observed on chain.
   -- TODO: could even move the chain state here (also see todo below)
   -- , chainState :: ChaiStateType tx
-  -- TODO: could even move the currentSlot here (not head specific!)
-  -- , currentSlot :: ChainSlot
+  , currentSlot :: ChainSlot
   }
   deriving stock (Generic)
 
@@ -154,7 +153,6 @@ data OpenState tx = OpenState
   , coordinatedHeadState :: CoordinatedHeadState tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
-  , currentSlot :: ChainSlot
   , headSeed :: HeadSeed
   }
   deriving stock (Generic)
@@ -168,7 +166,6 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenSta
   arbitrary =
     OpenState
       <$> arbitrary
-      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary

@@ -22,7 +22,7 @@ import Hydra.Chain (ChainComponent, ChainStateHistory, maximumNumberOfParties)
 import Hydra.Chain.Backend (ChainBackend (queryGenesisParameters))
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Cardano (withCardanoChain)
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (IsChainState (..), chainStateSlot)
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
@@ -154,6 +154,7 @@ run opts = do
               NodeState
                 { headState = Idle IdleState{chainState = initialChainState}
                 , pendingDeposits = mempty
+                , currentSlot = chainStateSlot initialChainState
                 }
         let aggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
             aggregator s StateEvent{stateChanged} = aggregateNodeState s stateChanged

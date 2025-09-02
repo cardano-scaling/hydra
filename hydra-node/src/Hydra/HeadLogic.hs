@@ -301,12 +301,13 @@ onOpenNetworkReqTx ::
   IsTx tx =>
   Environment ->
   Ledger tx ->
+  ChainSlot ->
   OpenState tx ->
   TTL ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger st ttl tx =
+onOpenNetworkReqTx env ledger currentSlot st ttl tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
@@ -363,7 +364,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
-  OpenState{coordinatedHeadState, headId, currentSlot, parameters} = st
+  OpenState{coordinatedHeadState, headId, parameters} = st
 
   snapshotInFlight = case seenSnapshot of
     NoSeenSnapshot -> False
@@ -392,6 +393,7 @@ onOpenNetworkReqSn ::
   Environment ->
   Ledger tx ->
   PendingDeposits tx ->
+  ChainSlot ->
   OpenState tx ->
   -- | Party which sent the ReqSn.
   Party ->
@@ -406,7 +408,7 @@ onOpenNetworkReqSn ::
   -- | Optional commit of additional funds into the head.
   Maybe (TxIdType tx) ->
   Outcome tx
-onOpenNetworkReqSn env ledger pendingDeposits st otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
+onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
   -- Spec: require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
@@ -582,7 +584,7 @@ onOpenNetworkReqSn env ledger pendingDeposits st otherParty sv sn requestedTxIds
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version} = coordinatedHeadState
 
-  OpenState{parameters, coordinatedHeadState, currentSlot, headId} = st
+  OpenState{parameters, coordinatedHeadState, headId} = st
 
   Environment{signingKey} = env
 
@@ -750,18 +752,17 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
 -- | Client request to recover deposited UTxO.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
-onOpenClientRecover ::
+onClientRecover ::
   IsTx tx =>
-  HeadId ->
   ChainSlot ->
   PendingDeposits tx ->
   TxIdType tx ->
   Outcome tx
-onOpenClientRecover headId currentSlot pendingDeposits recoverTxId =
+onClientRecover currentSlot pendingDeposits recoverTxId =
   case Map.lookup recoverTxId pendingDeposits of
     Nothing ->
       Error $ RequireFailed NoMatchingDeposit
-    Just Deposit{deposited} ->
+    Just Deposit{headId, deposited} ->
       causes
         [ OnChainEffect
             { postChainTx =
@@ -842,10 +843,11 @@ onOpenNetworkReqDec ::
   Environment ->
   Ledger tx ->
   TTL ->
+  ChainSlot ->
   OpenState tx ->
   tx ->
   Outcome tx
-onOpenNetworkReqDec env ledger ttl openState decommitTx =
+onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
   -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $ \newLocalUTxO -> do
     -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
@@ -921,7 +923,6 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
     { headId
     , parameters
     , coordinatedHeadState
-    , currentSlot
     } = openState
 
 -- | Process the chain (and time) advancing in an open head.
@@ -978,6 +979,8 @@ onOpenChainTick env pendingDeposits st chainTime =
 
   plusTime = flip addUTCTime
 
+  -- REVIEW! check what if there are more than 1 new active deposit
+  -- What is the sorting criteria to pick next?
   withNextActive :: forall tx. (Eq (UTxOType tx), Monoid (UTxOType tx)) => Map (TxIdType tx) (Deposit tx) -> (TxIdType tx -> Outcome tx) -> Outcome tx
   withNextActive deposits cont = do
     -- NOTE: Do not consider empty deposits.
@@ -1326,7 +1329,7 @@ update ::
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-update env ledger NodeState{headState = st, pendingDeposits} ev = case (st, ev) of
+update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   (Idle _, ClientInput Init) ->
@@ -1350,9 +1353,9 @@ update env ledger NodeState{headState = st, pendingDeposits} ev = case (st, ev) 
   (Open{}, ClientInput (NewTx tx)) ->
     onOpenClientNewTx tx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
-    onOpenNetworkReqTx env ledger openState ttl tx
+    onOpenNetworkReqTx env ledger currentSlot openState ttl tx
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
-    onOpenNetworkReqSn env ledger pendingDeposits openState sender sv sn txIds decommitTx depositTxId
+    onOpenNetworkReqSn env ledger pendingDeposits currentSlot openState sender sv sn txIds decommitTx depositTxId
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
     onOpenNetworkAckSn env pendingDeposits openState sender snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
@@ -1371,12 +1374,10 @@ update env ledger NodeState{headState = st, pendingDeposits} ev = case (st, ev) 
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
     noop
-  (Open OpenState{headId, currentSlot}, ClientInput Recover{recoverTxId}) -> do
-    onOpenClientRecover headId currentSlot pendingDeposits recoverTxId
-  (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Decommit{decommitTx}) -> do
+  (Open OpenState{headId, coordinatedHeadState}, ClientInput Decommit{decommitTx}) -> do
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
-    onOpenNetworkReqDec env ledger ttl openState transaction
+    onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
   (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId ->
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
@@ -1421,6 +1422,9 @@ update env ledger NodeState{headState = st, pendingDeposits} ev = case (st, ev) 
         onClosedChainFanoutTx closedState newChainState fanoutUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
+  -- Node-level
+  (_, ClientInput Recover{recoverTxId}) -> do
+    onClientRecover currentSlot pendingDeposits recoverTxId
   -- General
   (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
@@ -1441,8 +1445,8 @@ aggregateNodeState nodeState@NodeState{headState} sc =
   let headState' = aggregate headState sc
       ns@NodeState{headState = st, pendingDeposits} = nodeState{headState = headState'}
    in case sc of
-        HeadOpened{} ->
-          ns{pendingDeposits = mempty}
+        HeadOpened{chainState} ->
+          ns{pendingDeposits = mempty, currentSlot = chainStateSlot chainState}
         DepositRecorded{headId, depositTxId, deposited, created, deadline} ->
           ns{pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} pendingDeposits}
         DepositActivated{depositTxId, deposit} ->
@@ -1479,6 +1483,8 @@ aggregateNodeState nodeState@NodeState{headState} sc =
               ns
                 { pendingDeposits = Map.delete depositTxId pendingDeposits
                 }
+        TickObserved{chainSlot} ->
+          ns{currentSlot = chainSlot}
         _ -> ns
 
 -- * HeadState aggregate
@@ -1543,7 +1549,6 @@ aggregate st = \case
             , chainState
             , headId
             , headSeed
-            , currentSlot = chainStateSlot chainState
             }
       _otherState -> st
   TransactionReceived{tx} ->
@@ -1758,10 +1763,7 @@ aggregate st = \case
       _otherState -> st
   ChainRolledBack{chainState} ->
     setChainState chainState st
-  TickObserved{chainSlot} ->
-    case st of
-      Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}
-      _otherState -> st
+  TickObserved{} -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{transaction} -> case st of
     Open ost@OpenState{coordinatedHeadState = coordState@CoordinatedHeadState{allTxs = allTransactions}} ->

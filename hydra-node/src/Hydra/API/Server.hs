@@ -30,7 +30,7 @@ import Hydra.API.ServerOutputFilter (
 import Hydra.API.WSServer (wsApp)
 import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Chain.ChainState (IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (
@@ -106,6 +106,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
         ( NodeState
             { headState = Idle $ IdleState mkChainState
             , pendingDeposits = mempty
+            , currentSlot = chainStateSlot mkChainState
             }
         )
         aggregateNodeState

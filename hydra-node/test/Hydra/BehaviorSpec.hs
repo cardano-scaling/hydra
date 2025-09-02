@@ -1324,7 +1324,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
                   modifyTVar' outputHistory (output :)
           }
   -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
-  let nodeState = NodeState{headState = Idle IdleState{chainState}, pendingDeposits = mempty}
+  let nodeState = NodeState{headState = Idle IdleState{chainState}, pendingDeposits = mempty, currentSlot = ChainSlot 0}
   let chainStateHistory = initHistory chainState
   nodeStateHandler <- createNodeStateHandler Nothing nodeState
   inputQueue <- createInputQueue

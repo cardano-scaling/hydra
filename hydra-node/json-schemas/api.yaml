@@ -3317,7 +3317,6 @@ components:
         - coordinatedHeadState
         - chainState
         - headId
-        - currentSlot
         - headSeed
       properties:
         parameters:
@@ -3328,8 +3327,6 @@ components:
           $ref: "api.yaml#/components/schemas/ChainState"
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
-        currentSlot:
-          $ref: "api.yaml#/components/schemas/ChainSlot"
         headSeed:
           $ref: "api.yaml#/components/schemas/HeadSeed"
 

@@ -31,6 +31,7 @@ import Hydra.Cardano.Api (
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (checkAmount, rejectLowDeposits)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), NodeState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState)
@@ -362,7 +363,7 @@ apiServerSpec = do
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
-                  (pure NodeState{headState = Closed closedState, pendingDeposits = mempty})
+                  (pure NodeState{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -522,7 +523,7 @@ apiServerSpec = do
                 dummyChainHandle
                 testEnvironment
                 defaultPParams
-                (pure NodeState{headState = Closed closedState', pendingDeposits = mempty})
+                (pure NodeState{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0})
                 cantCommit
                 getPendingDeposits
                 putClientInput
@@ -556,7 +557,7 @@ apiServerSpec = do
               workingChainHandle
               testEnvironment
               defaultPParams
-              (pure NodeState{headState = initialHeadState, pendingDeposits = mempty})
+              (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -611,7 +612,7 @@ apiServerSpec = do
                 (failingChainHandle postTxError)
                 testEnvironment
                 defaultPParams
-                (pure NodeState{headState = openHeadState, pendingDeposits = mempty})
+                (pure NodeState{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
                 getHeadId
                 getPendingDeposits
                 putClientInput

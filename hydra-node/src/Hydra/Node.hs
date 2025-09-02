@@ -29,7 +29,7 @@ import Hydra.Chain (
   PostTxError,
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain.ChainState (ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
@@ -220,6 +220,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
     NodeState
       { headState = Idle IdleState{chainState = initialChainState}
       , pendingDeposits = mempty
+      , currentSlot = chainStateSlot initialChainState
       }
 
   recoverNodeStateC =
@@ -408,6 +409,8 @@ processEffects node tracer inputId effects = do
     } = node
 
 -- ** Manage state
+
+-- TODO! pendingDeposits :: Map (TxIdType tx) (Deposit tx)
 
 -- | Handle to access and modify the state in the Hydra Node.
 data NodeStateHandler tx m = NodeStateHandler

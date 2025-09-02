@@ -913,9 +913,9 @@ spec =
                         , chainState = Prelude.error "should not be used"
                         , headId = testHeadId
                         , headSeed = testHeadSeed
-                        , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
                         }
                 , pendingDeposits = mempty
+                , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
                 }
 
         st <-
@@ -954,9 +954,9 @@ spec =
                       , chainState = Prelude.error "should not be used"
                       , headId = testHeadId
                       , headSeed = testHeadSeed
-                      , currentSlot = ChainSlot 1
                       }
               , pendingDeposits = mempty
+              , currentSlot = ChainSlot 1
               }
 
       let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
@@ -1038,6 +1038,7 @@ genClosedState = do
     NodeState
       { headState = Closed $ closedState{headId = testHeadId}
       , pendingDeposits = mempty
+      , currentSlot = ChainSlot 0
       }
 
 -- * Utilities
@@ -1086,6 +1087,7 @@ inIdleState =
   NodeState
     { headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
     , pendingDeposits = mempty
+    , currentSlot = ChainSlot 0
     }
 
 -- XXX: This is always called with threeParties and simpleLedger
@@ -1103,6 +1105,7 @@ inInitialState parties =
             , headSeed = testHeadSeed
             }
     , pendingDeposits = mempty
+    , currentSlot = ChainSlot 0
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1141,9 +1144,9 @@ inOpenState' parties coordinatedHeadState =
             , chainState = SimpleChainState{slot = chainSlot}
             , headId = testHeadId
             , headSeed = testHeadSeed
-            , currentSlot = chainSlot
             }
     , pendingDeposits = mempty
+    , currentSlot = chainSlot
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1173,6 +1176,7 @@ inClosedState' parties confirmedSnapshot =
             , version = 0
             }
     , pendingDeposits = mempty
+    , currentSlot = ChainSlot 0
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties

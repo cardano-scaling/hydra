@@ -44,7 +44,7 @@ spec = parallel $ do
           -- NOTE: because there will be 5 inputs processed in total,
           -- this is hardcoded to ensure we get a checkpoint + a single event at the end
           let rotationConfig = RotateAfter (Positive 3)
-          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty}
+          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty, currentSlot = ChainSlot 0}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
@@ -58,7 +58,7 @@ spec = parallel $ do
           -- NOTE: because there will be 6 inputs processed in total,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
-          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty}
+          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty, currentSlot = ChainSlot 0}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
@@ -87,7 +87,7 @@ spec = parallel $ do
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
           -- run rotated event store with prepared inputs
-          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty}
+          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty, currentSlot = ChainSlot 0}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
@@ -113,7 +113,7 @@ spec = parallel $ do
         let inputs1 = take 3 inputs
         let inputs2 = drop 3 inputs
         failAfter 1 $ do
-          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty}
+          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty, currentSlot = ChainSlot 0}
           -- NOTE: because there will be 6 inputs processed in total,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
