@@ -1389,11 +1389,6 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     -- should compose event handling better.
     newState TickObserved{chainSlot}
       <> onOpenChainTick env pendingDeposits openState chainTime
-  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
-    | ourHeadId == headId ->
-        newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
-    | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
     | ourHeadId == headId ->
         onOpenChainIncrementTx openState newChainState newVersion depositTxId
@@ -1425,6 +1420,8 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
   -- Node-level
   (_, ClientInput Recover{recoverTxId}) -> do
     onClientRecover currentSlot pendingDeposits recoverTxId
+  (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState}) ->
+    newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
   -- General
   (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
