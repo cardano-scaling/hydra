@@ -129,6 +129,7 @@ import Hydra.Cardano.Api.ExecutionUnits as Extras
 import Hydra.Cardano.Api.Hash as Extras
 import Hydra.Cardano.Api.NetworkId ()
 import Hydra.Cardano.Api.NetworkMagic ()
+import Hydra.Cardano.Api.PolicyAssets ()
 import Hydra.Cardano.Api.PolicyId as Extras
 import Hydra.Cardano.Api.ReferenceScript as Extras
 import Hydra.Cardano.Api.ScriptData as Extras

@@ -13,6 +13,10 @@ changes.
 - Fix bug where TUI would have out-of-date head status information in the
   presence of event rotation.
 
+- Accept additional field `tokens` when depositing to specify different (non-ADA) assets that should be depositted to a Head returning any leftover to the user.
+
+## [0.22.4] - 2025-08-05
+
 - Accept additional field `amount` when depositing to specify the amount of Lovelace that should be depositted to a Head returning any leftover to the user.
 
 - Hydra API server responds with the correct `Content-Type` header `application-json`.

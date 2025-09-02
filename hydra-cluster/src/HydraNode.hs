@@ -202,7 +202,7 @@ requestCommitTx' HydraClient{apiHost = Host{hostname, port}} utxos amount =
     Req.req
       POST
       (Req.http hostname /: "commit")
-      (ReqBodyJson $ SimpleCommitRequest @Tx utxos amount)
+      (ReqBodyJson $ SimpleCommitRequest @Tx utxos amount mempty)
       (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
       (Req.port (fromInteger . toInteger $ port))
 

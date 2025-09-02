@@ -31,6 +31,7 @@ genHealthyDepositTx = do
           slot
           healthyDeadline
           Nothing
+          mempty
   pure (tx, toDeposit)
  where
   slot = chooseEnum (0, healthyDeadlineSlot) `generateWith` 42

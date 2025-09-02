@@ -8,6 +8,7 @@
                 "txId": "1fa9e36c69db7285e6179979c23332062085743af5cbf2b41c85461ca00f4d97",
                 "type": "Tx ConwayEra"
             },
+            "tokens": null,
             "utxo": {
                 "0206070403000305070403040207020401080205070508080702040400060503#7": {
                     "address": "addr_test1yrg0h9r48kll4c97rnvsrnxva5jewvvjy25t0rsfana27l4k5tl0asswrudpvy903ywnuhd2k527q2h3d4n8wr7k4k9s9k0l23",
@@ -108,6 +109,7 @@
         },
         {
             "amount": 221173,
+            "tokens": null,
             "utxoToCommit": {
                 "0002040408040406020703010001070100050703070302060205050001050308#21": {
                     "address": "addr_test1xr0pdat5t5we9t36k8jfucs3v6xqslp25ks2820pcg724mh8rkcvlnc2d4x382zeftrh7r6m5hyex54egznpd8cxqxwqlsf5ku",
@@ -216,6 +218,7 @@
                 "txId": "c5b55dc364ce3da7c2f67822e56f8e3b51ffef7906c0403d146080b5b8231b1c",
                 "type": "Tx ConwayEra"
             },
+            "tokens": null,
             "utxo": {
                 "0004070708010805010603070102010100040502020807000605030703050205#68": {
                     "address": "addr_test1zrkf2ndcnjzzdras426sggfal9jl5ly2vh3z7ve0fys29wdwtad6t769ylc4xdhynylnctqudl9d7yydlt4whm6vwjzq5wvnh6",
@@ -430,6 +433,7 @@
         },
         {
             "amount": 459359,
+            "tokens": null,
             "utxoToCommit": {
                 "0401000402070206070405030800070702060400020206080800010703000802#88": {
                     "address": "addr_test1wr5xkxd7u2y0rlgzxewfftla6efmqcvzd90kdftgxhl2djslw3a0t",
@@ -569,6 +573,7 @@
                 "txId": "9b71e3586eb6d0b468d483c6e152c8e8288f569bb2982a35f64dea3d90e5733f",
                 "type": "Tx ConwayEra"
             },
+            "tokens": null,
             "utxo": {
                 "0200080201080508080103030208080100040601020408030201010004020501#50": {
                     "address": "addr_test1wpp2cj3qeccas857m0aq5ry8cjegk2rnzcv7wzdukm4p7dc0uc8fx",
