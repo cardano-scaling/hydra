@@ -99,23 +99,27 @@ handleHydraEventsConnection now = \case
 
       networkStateL .= if networkConnected then Just NetworkConnected else Just NetworkDisconnected
 
-      let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
-          peerAddrs = map (takeWhile (/= '=')) peerStrs
-      case traverse readHost peerAddrs of
-        Left err -> do
-          liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
+      if T.null configuredPeers
+        then
           peersL .= mempty
-        Right parsedPeers -> do
-          existing <- use peersL
-          let existingMap = Map.fromList existing
+        else do
+          let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
+              peerAddrs = map (takeWhile (/= '=')) peerStrs
+          case traverse readHost peerAddrs of
+            Left err -> do
+              liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
+              peersL .= mempty
+            Right parsedPeers -> do
+              existing <- use peersL
+              let existingMap = Map.fromList existing
 
-              statusFor p =
-                case Map.lookup p peersInfo of
-                  Just True -> PeerIsConnected
-                  Just False -> PeerIsDisconnected
-                  Nothing -> Map.findWithDefault PeerIsUnknown p existingMap
+                  statusFor p =
+                    case Map.lookup p peersInfo of
+                      Just True -> PeerIsConnected
+                      Just False -> PeerIsDisconnected
+                      Nothing -> Map.findWithDefault PeerIsUnknown p existingMap
 
-          peersL .= [(p, statusFor p) | p <- parsedPeers]
+              peersL .= [(p, statusFor p) | p <- parsedPeers]
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->
     peersL %= updatePeerStatus p PeerIsConnected
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) ->
