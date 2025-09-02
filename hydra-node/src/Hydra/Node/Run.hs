@@ -29,8 +29,8 @@ import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events (EventSink)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
-import Hydra.HeadLogic (aggregate)
-import Hydra.HeadLogic.State (HeadState (..), IdleState (..))
+import Hydra.HeadLogic (aggregateNodeState)
+import Hydra.HeadLogic.State (HeadState (..), IdleState (..), NodeState (..))
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
@@ -150,9 +150,13 @@ run opts = do
       Nothing ->
         pure eventStore
       Just rotationConfig -> do
-        let initialState = Idle IdleState{chainState = initialChainState}
-        let aggregator :: IsChainState tx => HeadState tx -> StateEvent tx -> HeadState tx
-            aggregator s StateEvent{stateChanged} = aggregate s stateChanged
+        let initialState =
+              NodeState
+                { headState = Idle IdleState{chainState = initialChainState}
+                , pendingDeposits = mempty
+                }
+        let aggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
+            aggregator s StateEvent{stateChanged} = aggregateNodeState s stateChanged
         newRotatedEventStore rotationConfig initialState aggregator mkCheckpoint eventStore
 
   RunOptions

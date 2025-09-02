@@ -9,7 +9,7 @@ import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
-import Hydra.HeadLogic (HeadState (..), IdleState (..), StateChanged (..), aggregate)
+import Hydra.HeadLogic (HeadState (..), IdleState (..), NodeState (..), StateChanged (..), aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx, simpleLedger)
 import Hydra.Logging (showLogsOnFailure)
@@ -44,7 +44,7 @@ spec = parallel $ do
           -- NOTE: because there will be 5 inputs processed in total,
           -- this is hardcoded to ensure we get a checkpoint + a single event at the end
           let rotationConfig = RotateAfter (Positive 3)
-          let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
@@ -58,7 +58,7 @@ spec = parallel $ do
           -- NOTE: because there will be 6 inputs processed in total,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
-          let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
@@ -73,7 +73,7 @@ spec = parallel $ do
             >>= runToCompletion
           [checkpoint] <- getEvents (eventSource rotatingEventStore)
           case stateChanged checkpoint of
-            Checkpoint{state = Closed{}} -> pure ()
+            Checkpoint{state = NodeState{headState = Closed{}}} -> pure ()
             _ -> fail ("unexpected: " <> show checkpoint)
       it "a rotated and non-rotated node have consistent state" $ \testHydrate -> do
         -- prepare inputs
@@ -87,7 +87,7 @@ spec = parallel $ do
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
           -- run rotated event store with prepared inputs
-          let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty}
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
@@ -113,7 +113,7 @@ spec = parallel $ do
         let inputs1 = take 3 inputs
         let inputs2 = drop 3 inputs
         failAfter 1 $ do
-          let s0 = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+          let s0 = NodeState{headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}, pendingDeposits = mempty}
           -- NOTE: because there will be 6 inputs processed in total,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
@@ -273,5 +273,5 @@ instance HasEventId TrivialEvent where
 trivialCheckpoint :: [TrivialEvent] -> TrivialEvent
 trivialCheckpoint = sum
 
-mkAggregator :: IsChainState tx => HeadState tx -> StateEvent tx -> HeadState tx
-mkAggregator s StateEvent{stateChanged} = aggregate s stateChanged
+mkAggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
+mkAggregator s StateEvent{stateChanged} = aggregateNodeState s stateChanged

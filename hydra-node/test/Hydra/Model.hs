@@ -50,7 +50,7 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.HeadLogic (Committed ())
+import Hydra.HeadLogic (Committed (), NodeState (headState))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
@@ -959,7 +959,7 @@ headUTxO ::
   TestHydraClient tx m ->
   m (UTxOType tx)
 headUTxO node = do
-  fromMaybe mempty . getHeadUTxO <$> queryState node
+  fromMaybe mempty . getHeadUTxO . headState <$> queryState node
 
 isOwned :: CardanoSigningKey -> (TxIn, TxOut ctx) -> Bool
 isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (ShelleyAddress _ cre _)}) =

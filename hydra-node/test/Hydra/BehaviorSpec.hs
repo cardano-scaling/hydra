@@ -33,14 +33,14 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainSta
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), OpenState (..))
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), NodeState (..), OpenState (..))
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeStateHandler, defaultTxTTL, mkNetworkInput, queryHeadState, runHydraNode, waitDelay)
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeStateHandler, defaultTxTTL, mkNetworkInput, queryNodeState, runHydraNode, waitDelay)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.Environment (Environment (..))
@@ -218,7 +218,7 @@ spec = parallel $ do
               simulateCommit chain testHeadId alice (utxoRef 1)
 
               waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
-              headUTxO <- getHeadUTxO <$> queryState n1
+              headUTxO <- getHeadUTxO . headState <$> queryState n1
               fromMaybe mempty headUTxO `shouldBe` utxoRefs [1]
 
     describe "in an open head" $ do
@@ -386,7 +386,7 @@ spec = parallel $ do
 
                 waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
 
-                headUTxO <- getHeadUTxO <$> queryState n1
+                headUTxO <- getHeadUTxO . headState <$> queryState n1
                 fromMaybe mempty headUTxO `shouldBe` utxoRefs [2, 42]
 
       describe "Incremental commit" $ do
@@ -526,7 +526,7 @@ spec = parallel $ do
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId}
 
-                  headUTxO <- getHeadUTxO <$> queryState n1
+                  headUTxO <- getHeadUTxO . headState <$> queryState n1
                   fromMaybe mempty headUTxO `shouldSatisfy` member 11
 
         it "can process multiple commits" $
@@ -677,7 +677,7 @@ spec = parallel $ do
                     _ -> Nothing
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId}
 
-                  headUTxO <- getHeadUTxO <$> queryState n1
+                  headUTxO <- getHeadUTxO . headState <$> queryState n1
                   fromMaybe mempty headUTxO `shouldBe` utxoRefs [1, 2, 11]
 
                   let decommitTx = SimpleTx 1 (utxoRef 11) (utxoRef 88)
@@ -692,7 +692,7 @@ spec = parallel $ do
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRefs [88]}
                   waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 88}
 
-                  headUTxO2 <- getHeadUTxO <$> queryState n1
+                  headUTxO2 <- getHeadUTxO . headState <$> queryState n1
                   fromMaybe mempty headUTxO2 `shouldSatisfy` (not . member 11)
 
       describe "Decommit" $ do
@@ -727,7 +727,7 @@ spec = parallel $ do
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRefs [42]}
                   waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
 
-                  headUTxO <- getHeadUTxO <$> queryState n1
+                  headUTxO <- getHeadUTxO . headState <$> queryState n1
                   fromMaybe mempty headUTxO `shouldSatisfy` (not . member 42)
 
         it "can only process one decommit at once" $
@@ -1014,7 +1014,7 @@ data TestHydraClient tx m = TestHydraClient
   , waitForNextMessage :: m (ClientMessage tx)
   , injectChainEvent :: ChainEvent tx -> m ()
   , serverOutputs :: m [ServerOutput tx]
-  , queryState :: m (HeadState tx)
+  , queryState :: m (NodeState tx)
   }
 
 -- | A simulated chain that just echoes 'PostChainTx' as 'Observation's of
@@ -1295,7 +1295,7 @@ createTestHydraClient outputs messages outputHistory HydraNode{inputQueue, nodeS
     , waitForNextMessage = atomically (readTQueue messages)
     , injectChainEvent = enqueue inputQueue . ChainInput
     , serverOutputs = reverse <$> readTVarIO outputHistory
-    , queryState = atomically (queryHeadState nodeState)
+    , queryState = atomically (queryNodeState nodeState)
     }
 
 createHydraNode ::
@@ -1324,9 +1324,9 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
                   modifyTVar' outputHistory (output :)
           }
   -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
-  let headState = Idle IdleState{chainState}
+  let nodeState = NodeState{headState = Idle IdleState{chainState}, pendingDeposits = mempty}
   let chainStateHistory = initHistory chainState
-  nodeState <- createNodeStateHandler Nothing headState
+  nodeStateHandler <- createNodeStateHandler Nothing nodeState
   inputQueue <- createInputQueue
   node <-
     connectNode
@@ -1335,7 +1335,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
         { tracer
         , env
         , ledger
-        , nodeState
+        , nodeState = nodeStateHandler
         , inputQueue
         , eventSource
         , eventSinks = [apiSink, eventSink]

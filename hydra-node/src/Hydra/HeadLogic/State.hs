@@ -25,6 +25,28 @@ import Hydra.Tx.Snapshot (
  )
 import Test.QuickCheck (recursivelyShrink)
 
+type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
+
+-- FIXME: move to a dedicated module (maybe with deposits too?)
+data NodeState tx = NodeState
+  { headState :: HeadState tx
+  , pendingDeposits :: PendingDeposits tx
+  -- ^ Pending deposits as observed on chain.
+  -- TODO: could even move the chain state here (also see todo below)
+  -- , chainState :: ChaiStateType tx
+  -- TODO: could even move the currentSlot here (not head specific!)
+  -- , currentSlot :: ChainSlot
+  }
+  deriving stock (Generic)
+
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
+  arbitrary = genericArbitrary
+
+deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
+
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
 --
@@ -168,10 +190,6 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ The latest confirmed snapshot. Spec: S̅
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
-  , pendingDeposits :: Map (TxIdType tx) (Deposit tx)
-  -- ^ Pending deposits as observed on chain. TODO: These should be actually
-  -- stored outside of the 'HeadState' to allow recovery when a head is not
-  -- open. See https://github.com/cardano-scaling/hydra/issues/1812
   , currentDepositTxId :: Maybe (TxIdType tx)
   -- ^ Current/next deposit to incrementally commit. Spec: Uα
   -- TODO: update in spec: Uα -> tx^#α

@@ -3372,7 +3372,6 @@ components:
         - allTxs
         - confirmedSnapshot
         - seenSnapshot
-        - pendingDeposits
         - currentDepositTxId
         - decommitTx
         - version
@@ -3393,12 +3392,6 @@ components:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         seenSnapshot:
           $ref: "api.yaml#/components/schemas/SeenSnapshot"
-        pendingDeposits:
-          type: object
-          propertyNames:
-            $ref: "api.yaml#/components/schemas/TxId"
-          items:
-            $ref: "api.yaml#/components/schemas/Deposit"
         currentDepositTxId:
           oneOf:
             - type: "null"

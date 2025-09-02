@@ -37,10 +37,11 @@ import Hydra.HeadLogic (
   HeadState (..),
   IdleState (..),
   Input (..),
+  NodeState (..),
   Outcome (..),
   TTL,
-  aggregate,
   aggregateChainStateHistory,
+  aggregateNodeState,
   aggregateState,
  )
 import Hydra.HeadLogic qualified as HeadLogic
@@ -184,44 +185,48 @@ hydrate ::
   m (DraftHydraNode tx m)
 hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} eventSinks = do
   traceWith tracer LoadingState
-  (lastEventId, (headState, chainStateHistory)) <-
+  (lastEventId, (nodeState, chainStateHistory)) <-
     runConduitRes $
       sourceEvents eventSource
         .| getZipSink
           ( (,)
               <$> ZipSink (foldMapC (Last . pure . getEventId))
-              <*> ZipSink recoverHeadStateC
+              <*> ZipSink recoverNodeStateC
           )
-  traceWith tracer $ LoadedState{lastEventId, headState}
+  traceWith tracer $ LoadedState{lastEventId, nodeState}
   -- Check whether the loaded state matches our configuration (env)
   -- XXX: re-stream events just for this?
-  checkHeadState tracer env headState
+  checkHeadState tracer env (headState nodeState)
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   traceWith tracer ReplayingState
   runConduitRes $
     sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
 
-  nodeState <- createNodeStateHandler (getLast lastEventId) headState
+  nodeStateHandler <- createNodeStateHandler (getLast lastEventId) nodeState
   inputQueue <- createInputQueue
   pure
     DraftHydraNode
       { tracer
       , env
       , ledger
-      , nodeState
+      , nodeState = nodeStateHandler
       , inputQueue
       , eventSource
       , eventSinks = eventSink : eventSinks
       , chainStateHistory
       }
  where
-  initialState = Idle IdleState{chainState = initialChainState}
+  initialState =
+    NodeState
+      { headState = Idle IdleState{chainState = initialChainState}
+      , pendingDeposits = mempty
+      }
 
-  recoverHeadStateC =
+  recoverNodeStateC =
     mapC stateChanged
       .| getZipSink
         ( (,)
-            <$> ZipSink (foldlC aggregate initialState)
+            <$> ZipSink (foldlC aggregateNodeState initialState)
             <*> ZipSink (foldlC aggregateChainStateHistory $ initHistory initialChainState)
         )
 
@@ -349,11 +354,11 @@ processNextInput ::
   Input tx ->
   STM m (Outcome tx)
 processNextInput HydraNode{nodeState, ledger, env} e =
-  modifyHeadState $ \s ->
+  modifyNodeState $ \s ->
     let outcome = computeOutcome s e
      in (outcome, aggregateState s outcome)
  where
-  NodeStateHandler{modifyHeadState} = nodeState
+  NodeStateHandler{modifyNodeState} = nodeState
 
   computeOutcome = HeadLogic.update env ledger
 
@@ -406,8 +411,8 @@ processEffects node tracer inputId effects = do
 
 -- | Handle to access and modify the state in the Hydra Node.
 data NodeStateHandler tx m = NodeStateHandler
-  { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
-  , queryHeadState :: STM m (HeadState tx)
+  { modifyNodeState :: forall a. (NodeState tx -> (a, NodeState tx)) -> STM m a
+  , queryNodeState :: STM m (NodeState tx)
   , getNextEventId :: STM m EventId
   }
 
@@ -416,15 +421,15 @@ createNodeStateHandler ::
   MonadLabelledSTM m =>
   -- | Last seen 'EventId'.
   Maybe EventId ->
-  HeadState tx ->
+  NodeState tx ->
   m (NodeStateHandler tx m)
 createNodeStateHandler lastSeenEventId initialState = do
   nextEventIdV <- newLabelledTVarIO "next-event-id" $ maybe 0 (+ 1) lastSeenEventId
-  hs <- newLabelledTVarIO "head-state" initialState
+  ns <- newLabelledTVarIO "node-state" initialState
   pure
     NodeStateHandler
-      { modifyHeadState = stateTVar hs
-      , queryHeadState = readTVar hs
+      { modifyNodeState = stateTVar ns
+      , queryNodeState = readTVar ns
       , getNextEventId = do
           eventId <- readTVar nextEventIdV
           writeTVar nextEventIdV $ eventId + 1
@@ -441,7 +446,7 @@ data HydraNodeLog tx
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
   | DroppedFromQueue {inputId :: Word64, input :: Input tx}
   | LoadingState
-  | LoadedState {lastEventId :: Last EventId, headState :: HeadState tx}
+  | LoadedState {lastEventId :: Last EventId, nodeState :: NodeState tx}
   | ReplayingState
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)

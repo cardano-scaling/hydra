@@ -19,7 +19,7 @@ import Hydra.Cardano.Api (Coin, LedgerEra, PolicyAssets, PolicyId, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic.State (HeadState (..))
+import Hydra.HeadLogic.State (NodeState (..))
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
@@ -199,8 +199,8 @@ httpApp ::
   Chain tx IO ->
   Environment ->
   PParams LedgerEra ->
-  -- | Get latest 'HeadState'.
-  IO (HeadState tx) ->
+  -- | Get latest 'NodeState'.
+  IO (NodeState tx) ->
   -- | A means to get commit info.
   IO CommitInfo ->
   -- | Get the pending commits (deposits)
@@ -212,7 +212,7 @@ httpApp ::
   -- | Channel to listen for events
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   Application
-httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
+httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -220,19 +220,19 @@ httpApp tracer directChain env pparams getHeadState getCommitInfo getPendingDepo
       }
   case (requestMethod request, pathInfo request) of
     ("GET", ["head"]) ->
-      getHeadState >>= respond . okJSON
+      getNodeState >>= (respond . okJSON) . headState
     ("GET", ["snapshot"]) -> do
-      hs <- getHeadState
+      hs <- headState <$> getNodeState
       case getConfirmedSnapshot hs of
         Just confirmedSnapshot -> respond $ okJSON confirmedSnapshot
         Nothing -> respond notFound
     ("GET", ["snapshot", "utxo"]) -> do
-      hs <- getHeadState
+      hs <- headState <$> getNodeState
       case getSnapshotUtxo hs of
         Just utxo -> respond $ okJSON utxo
         _ -> respond notFound
     ("GET", ["snapshot", "last-seen"]) -> do
-      hs <- getHeadState
+      hs <- headState <$> getNodeState
       respond . okJSON $ getSeenSnapshot hs
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request

@@ -56,6 +56,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   InitialState (..),
   Input (..),
+  NodeState (..),
   OpenState (..),
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
@@ -223,9 +224,9 @@ mockChainAndNetwork tr seedKeys commits = do
       Nothing -> error "closeWithInitialSnapshot: Could not find matching HydraNode"
       Just
         MockHydraNode
-          { node = HydraNode{oc = Chain{postTx}, nodeState = NodeStateHandler{queryHeadState}}
+          { node = HydraNode{oc = Chain{postTx}, nodeState = NodeStateHandler{queryNodeState}}
           } -> do
-          hs <- atomically queryHeadState
+          NodeState{headState = hs} <- atomically queryNodeState
           case hs of
             Idle IdleState{} -> error "Cannot post Close tx when in Idle state"
             Initial InitialState{} -> error "Cannot post Close tx when in Initial state"
