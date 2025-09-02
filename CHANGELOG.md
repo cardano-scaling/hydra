@@ -39,6 +39,8 @@ changes.
 
 - Label threads, queues and vars.
 
+- **BREAKING** Enable handling client recover in all head states.
+
 ## [0.22.4] - 2025-08-05
 
 - Fix API not correctly handling event log rotation. This was evident in not

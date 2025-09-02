@@ -307,7 +307,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
             publishHydraScriptsAs backend Faucet
               >>= rejectCommit tracer tmpDir blockTime backend
-      fit "can recover deposit" $ \tracer -> do
+      it "can recover deposit" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
             publishHydraScriptsAs backend Faucet
