@@ -40,8 +40,8 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
     toLedgerTx blueprintTx
       & addDepositInputs
       & bodyTxL . outputsTxBodyL
-        .~ ( StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId utxoToDeposit deadline)
-              <> leftoverOutput
+        .~ ( StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId (utxoToDeposit <> bumpIndices tokensToDepositUTxO) deadline)
+              <> returnToUser
            )
       & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
       & addMetadata (mkHydraHeadV1TxName "DepositTx") blueprintTx
@@ -52,20 +52,19 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
 
   CommitBlueprintTx{lookupUTxO = depositUTxO, blueprintTx} = commitBlueprintTx
 
-  (utxoToDeposit', leftoverUTxO') = maybe (depositUTxO, mempty) (capUTxO depositUTxO) amount
+  (utxoToDeposit, leftoverUTxO) = maybe (depositUTxO, mempty) (capUTxO depositUTxO) amount
 
-  utxoToDeposit = utxoToDeposit' <> tokensToDepositUTxO
+  tokensToDepositUTxO = pickTokensToDeposit leftoverUTxO tokens
 
-  tokensToDepositUTxO = pickTokensToDeposit leftoverUTxO' tokens
-  leftoverOutput =
-    let leftoverUTxO = (leftoverUTxO' `withoutUTxO` tokensToDepositUTxO)
-     in if UTxO.null leftoverUTxO
+  returnToUser =
+    let returnToUserUTxO = leftoverUTxO `withoutUTxO` tokensToDepositUTxO
+     in if UTxO.null returnToUserUTxO
           then StrictSeq.empty
           else
-            let leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
+            let leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs returnToUserUTxO
              in StrictSeq.singleton $
                   toLedgerTxOut $
-                    TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
+                    TxOut leftoverAddress (UTxO.totalValue returnToUserUTxO) TxOutDatumNone ReferenceScriptNone
 
   depositInputsList = toList (UTxO.inputSet utxoToDeposit)
 
@@ -74,15 +73,15 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
 pickTokensToDeposit :: UTxO -> Map PolicyId PolicyAssets -> UTxO
 pickTokensToDeposit leftoverUTxO depositTokens
   | Map.null depositTokens = mempty
-  | otherwise = UTxO.fromList picked -- Assuming UTxO.fromList :: [(TxIn, TxOut CtxUTxO)] -> UTxO; adjust if needed.
+  | otherwise = UTxO.fromList picked
  where
   -- Build list of (TxIn, new TxOut) where new TxOut has original lovelace + exact required quantities of matched assets.
   picked :: [(TxIn, TxOut CtxUTxO)]
   picked =
-    [ (i, mkTxOutValueKeepingLovelace o newValue)
+    [ (i, mkTxOutValueNotKeepingLovelace o newValue)
     | (i, o) <- UTxO.toList leftoverUTxO
-    , let outputAssets = valueToPolicyAssets (txOutValue o) -- Map PolicyId PolicyAssets from this TxOut.
-    , let pickedPolicyAssets = pickMatchedAssets outputAssets depositTokens -- Map PolicyId PolicyAssets with matched.
+    , let outputAssets = valueToPolicyAssets (txOutValue o)
+    , let pickedPolicyAssets = pickMatchedAssets outputAssets depositTokens
     , not (Map.null pickedPolicyAssets)
     , let newValue = foldMap (uncurry policyAssetsToValue) (Map.toList pickedPolicyAssets)
     ]
@@ -103,10 +102,13 @@ pickTokensToDeposit leftoverUTxO depositTokens
       Just availQty | reqQty <= availQty -> Map.insert name reqQty matched
       _ -> matched
 
+bumpIndices :: UTxO -> UTxO
+bumpIndices utxo = UTxO.fromList $ (\(TxIn hash (TxIx n), txOut) -> (TxIn hash (TxIx $ n + 1), txOut)) <$> UTxO.toList utxo
+
 -- Helper to create TxOut with original lovelace + new value (unchanged from original).
-mkTxOutValueKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
-mkTxOutValueKeepingLovelace (TxOut addr val datum refScript) newValue =
-  TxOut addr (lovelaceToValue (selectLovelace val) <> newValue) datum refScript
+mkTxOutValueNotKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
+mkTxOutValueNotKeepingLovelace (TxOut addr _ datum refScript) newValue =
+  TxOut addr newValue datum refScript
 
 mkDepositOutput ::
   NetworkId ->
@@ -208,8 +210,9 @@ capUTxO utxo target
     | otherwise = case sorted of
         [] -> (foundSoFar, leftovers)
         (txIn, txOut) : rest ->
-          let x = selectLovelace (txOutValue txOut)
-              newSum = currentSum + x
+          let txOutLovelace = selectLovelace (txOutValue txOut)
+              txOutAssetsVal = foldMap (uncurry policyAssetsToValue) (Map.toList $ valueToPolicyAssets (txOutValue txOut))
+              newSum = currentSum + txOutLovelace
            in if newSum <= target
                 then
                   -- Include the entire output if it doesn't exceed the target.
@@ -221,19 +224,24 @@ capUTxO utxo target
                 else
                   -- Split the output to meet the target exactly.
                   let cappedValue = target - currentSum
-                      leftoverVal = x - cappedValue
+                      leftoverVal = txOutLovelace - cappedValue
                       cappedTxOut = updateTxOutAdaValue txOut cappedValue
-                      leftoverTxOut = updateTxOutAdaValue txOut leftoverVal
+                      leftoverTxOut = updateTxOutValue txOut (lovelaceToValue leftoverVal <> txOutAssetsVal)
                    in go
                         (foundSoFar <> UTxO.singleton txIn cappedTxOut)
                         (UTxO.difference leftovers (UTxO.singleton txIn txOut) <> UTxO.singleton txIn leftoverTxOut)
                         target
                         rest
 
--- | Helper to create a new TxOut with a specified lovelace value
+-- | Helper to create a new TxOut with specified lovelace value
 updateTxOutAdaValue :: TxOut ctx -> Coin -> TxOut ctx
 updateTxOutAdaValue (TxOut addr _ datum refScript) newValue =
   TxOut addr (fromLedgerValue $ mkAdaValue ShelleyBasedEraConway newValue) datum refScript
+
+-- | Helper to create a new TxOut with specified 'Value'
+updateTxOutValue :: TxOut ctx -> Value -> TxOut ctx
+updateTxOutValue (TxOut addr _ datum refScript) newValue =
+  TxOut addr newValue datum refScript
 
 -- * Observation
 

@@ -131,7 +131,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 -- Mimic "external commit" by using different keys for Alice.
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
 
-                aliceUTxO <- seedFromFaucet backend aliceExternalVk aliceCommitment (contramap FromFaucet tracer)
+                aliceUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommitment) (contramap FromFaucet tracer)
 
                 participants <- loadParticipants [Alice, Bob, Carol]
                 let headParameters = HeadParameters cperiod [alice, bob, carol]
@@ -211,7 +211,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-            aliceUTxO <- seedFromFaucet backend aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
+            aliceUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
             externalCommit backend aliceChain aliceExternalSk headId aliceUTxO
 
             aliceChain `observesInTime` OnCommitTx headId alice aliceUTxO
@@ -231,7 +231,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             postTx $ InitTx{participants, headParameters}
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
-            aliceUTxO <- seedFromFaucet backend aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+            aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
             externalCommit backend aliceChain aliceCardanoSk headId aliceUTxO
 
             aliceChain `observesInTime` OnCommitTx headId alice aliceUTxO
@@ -273,7 +273,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-            newAliceUTxO <- seedFromFaucet backend aliceExternalVk 3_000_000 (contramap FromFaucet tracer)
+            newAliceUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 3_000_000) (contramap FromFaucet tracer)
 
             numberOfKeyWits <- generate $ choose (2, 10)
             randomKeys <- generate $ replicateM numberOfKeyWits genKeyPair
@@ -300,8 +300,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           \aliceChain@CardanoChainTest{postTx} -> do
             -- Scenario
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-            someUTxO <- seedFromFaucet backend aliceExternalVk 2_000_000 (contramap FromFaucet tracer)
-            someUTxOToCommit <- seedFromFaucet backend aliceExternalVk 2_000_000 (contramap FromFaucet tracer)
+            someUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
+            someUTxOToCommit <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
@@ -439,7 +439,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@CardanoChainTest{postTx} -> do
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-            someUTxO <- seedFromFaucet backend aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
+            someUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
 
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]

@@ -3,8 +3,10 @@ module Hydra.Chain.Backend where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api
 import Hydra.Chain.CardanoClient qualified as CardanoClient
+import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Options (ChainBackendOptions)
 import Hydra.Tx (ScriptRegistry)
 
@@ -69,6 +71,8 @@ buildTransactionWithPParams pparams backend changeAddress utxoToSpend collateral
   stakePools <- queryStakePools backend CardanoClient.QueryTip
   pure $ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs
 
+-- | NOTE: If there are any non ADA assets present in the output 'Value'
+-- this function will mint them using 'dummyValidatorScript' as the script witness.
 buildTransactionWithPParams' ::
   -- | Protocol parameters
   PParams LedgerEra ->
@@ -87,31 +91,55 @@ buildTransactionWithPParams' ::
 buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs = do
   buildTransactionWithBody pparams systemStart eraHistory stakePools changeAddress bodyContent utxoToSpend
  where
+  dummyMintingWitness :: ScriptWitness WitCtxMint
+  dummyMintingWitness =
+    mkScriptWitness dummyMintingScript NoScriptDatumForMint (toScriptData ())
+
+  setMintValue =
+    let toMint = valueToPolicyAssets (foldMap txOutValue outs)
+     in if null toMint
+          then TxMintValueNone
+          else
+            TxMintValue $
+              Map.fromList $
+                ( \(pid, assets) ->
+                    ( pid
+                    ,
+                      ( assets
+                      , BuildTxWith dummyMintingWitness
+                      )
+                    )
+                )
+                  <$> Map.toList toMint
   -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
   bodyContent =
     TxBodyContent
-      (withWitness <$> toList (UTxO.inputSet utxoToSpend))
-      (TxInsCollateral collateral)
-      TxInsReferenceNone
-      outs
-      TxTotalCollateralNone
-      TxReturnCollateralNone
-      (TxFeeExplicit 0)
-      TxValidityNoLowerBound
-      TxValidityNoUpperBound
-      TxMetadataNone
-      TxAuxScriptsNone
-      TxExtraKeyWitnessesNone
-      (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
-      TxWithdrawalsNone
-      TxCertificatesNone
-      TxUpdateProposalNone
-      TxMintValueNone
-      TxScriptValidityNone
-      Nothing
-      Nothing
-      Nothing
-      Nothing
+      { txIns = withWitness <$> toList (UTxO.inputSet utxoToSpend)
+      , txInsCollateral = TxInsCollateral collateral
+      , txInsReference = TxInsReferenceNone
+      , txOuts = outs
+      , txTotalCollateral = TxTotalCollateralNone
+      , txReturnCollateral = TxReturnCollateralNone
+      , txFee = TxFeeExplicit 0
+      , txValidityLowerBound = TxValidityNoLowerBound
+      , txValidityUpperBound = TxValidityNoUpperBound
+      , txMetadata = TxMetadataNone
+      , txAuxScripts =
+          if setMintValue == TxMintValueNone
+            then TxAuxScriptsNone
+            else TxAuxScripts (maybeToList $ toScriptInEra ShelleyBasedEraConway (toScriptInAnyLang $ PlutusScript dummyMintingScript))
+      , txExtraKeyWits = TxExtraKeyWitnessesNone
+      , txProtocolParams = BuildTxWith $ Just $ LedgerProtocolParameters pparams
+      , txWithdrawals = TxWithdrawalsNone
+      , txCertificates = TxCertificatesNone
+      , txUpdateProposal = TxUpdateProposalNone
+      , txMintValue = setMintValue
+      , txScriptValidity = TxScriptValidityNone
+      , txProposalProcedures = Nothing
+      , txVotingProcedures = Nothing
+      , txCurrentTreasuryValue = Nothing
+      , txTreasuryDonation = Nothing
+      }
 
 buildTransactionWithBody ::
   -- | Protocol parameters
