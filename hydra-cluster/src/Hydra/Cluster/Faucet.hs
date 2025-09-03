@@ -52,10 +52,10 @@ seedFromFaucet ::
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
-  Coin ->
+  Value ->
   Tracer IO FaucetLog ->
   IO UTxO
-seedFromFaucet backend receivingVerificationKey lovelace tracer = do
+seedFromFaucet backend receivingVerificationKey val tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
   networkId <- Backend.queryNetworkId backend
   seedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk networkId
@@ -63,10 +63,10 @@ seedFromFaucet backend receivingVerificationKey lovelace tracer = do
   pure $ UTxO.filter (== toCtxUTxOTxOut (theOutput networkId)) producedUTxO
  where
   submitSeedTx faucetVk faucetSk networkId = do
-    faucetUTxO <- findFaucetUTxO networkId backend lovelace
+    faucetUTxO <- findFaucetUTxO networkId backend (selectLovelace val)
     let changeAddress = mkVkAddress networkId faucetVk
 
-    buildTransaction backend changeAddress faucetUTxO [] [theOutput networkId] >>= \case
+    buildTransaction backend changeAddress faucetUTxO (toList $ UTxO.inputSet faucetUTxO) [theOutput networkId] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> do
         let signedTx = sign faucetSk $ getTxBody tx
@@ -78,7 +78,7 @@ seedFromFaucet backend receivingVerificationKey lovelace tracer = do
   theOutput networkId =
     TxOut
       (shelleyAddressInEra shelleyBasedEra (receivingAddress networkId))
-      (lovelaceToValue lovelace)
+      val
       TxOutDatumNone
       ReferenceScriptNone
 
@@ -152,7 +152,7 @@ seedFromFaucet_ ::
   Tracer IO FaucetLog ->
   IO ()
 seedFromFaucet_ backend vk ll tracer =
-  void $ seedFromFaucet backend vk ll tracer
+  void $ seedFromFaucet backend vk (lovelaceToValue ll) tracer
 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet ::

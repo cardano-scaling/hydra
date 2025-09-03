@@ -28,7 +28,7 @@ import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Text (pack)
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, signTx)
+import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
@@ -352,7 +352,7 @@ seedNetwork backend Dataset{fundingTransaction, hydraNodeKeys} tracer = do
   fuelWith100Ada signingKey = do
     let vk = getVerificationKey signingKey
     putTextLn $ "Fuel node key " <> show vk
-    seedFromFaucet backend vk 100_000_000 tracer
+    seedFromFaucet backend vk (lovelaceToValue 100_000_000) tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (assumed same sequence) of clients.

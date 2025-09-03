@@ -208,7 +208,6 @@ data PostTxError tx
   | FailedToConstructFanoutTx
   | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
   | AmountTooLow {providedValue :: Coin, totalUTxOValue :: Coin}
-  | MissingTokenPolicies [PolicyId]
   | InvalidTokenRequest [(PolicyId, PolicyAssets)]
   deriving stock (Generic)
 

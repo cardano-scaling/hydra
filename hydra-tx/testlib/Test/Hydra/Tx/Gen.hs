@@ -9,7 +9,7 @@ import Hydra.Prelude hiding (toList)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Crypto.Hash (hashToBytes)
-import Cardano.Ledger.Api (ensureMinCoinTxOut)
+import Cardano.Ledger.Api (ensureMinCoinTxOut, setMinCoinTxOut)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Mary.Value (MaryValue (..))
@@ -80,6 +80,10 @@ ensureSomeAda :: TxOut CtxUTxO -> TxOut ctx
 ensureSomeAda =
   fromLedgerTxOut . ensureMinCoinTxOut pparams . toLedgerTxOut
 
+ensureMinAda :: TxOut CtxUTxO -> TxOut ctx
+ensureMinAda =
+  fromLedgerTxOut . setMinCoinTxOut pparams . toLedgerTxOut
+
 noStakeRefPtr :: TxOut ctx -> TxOut ctx
 noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
   ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
@@ -94,11 +98,34 @@ noRefScripts :: TxOut ctx -> TxOut ctx
 noRefScripts out =
   out{txOutReferenceScript = ReferenceScriptNone}
 
-genTxOutWithAssets :: Gen (TxOut ctx)
-genTxOutWithAssets =
+-- | Adjusts a transaction output to remove any policy asset groups that contain
+-- non-positive quantities, while preserving the ADA amount. If a 'PolicyId' is
+-- provided, all remaining non-ADA assets are collapsed under that single policy.
+-- This ensures the output value has no negative or zero asset quantities.
+noNegativeAssetsWithPotentialPolicy :: Maybe PolicyId -> TxOut ctx -> TxOut ctx
+noNegativeAssetsWithPotentialPolicy mpid out =
+  let val = txOutValue out
+      nonAdaAssets =
+        Map.foldrWithKey
+          (\pid policyAssets def -> policyAssetsToValue (fromMaybe pid mpid) policyAssets <> def)
+          mempty
+          (filterNegativeVals (valueToPolicyAssets val))
+      ada = selectLovelace val
+   in out{txOutValue = lovelaceToValue ada <> nonAdaAssets}
+ where
+  filterNegativeVals =
+    Map.filterWithKey
+      ( \pid passets ->
+          all
+            (\(_, Quantity n) -> n > 0)
+            (toList $ policyAssetsToValue pid passets)
+      )
+
+genTxOutWithAssets :: Maybe PolicyId -> Gen (TxOut ctx)
+genTxOutWithAssets pid =
   ((fromLedgerTxOut <$> arbitrary) `suchThat` notByronAddress)
     >>= realisticAda
-    <&> ensureSomeAda . noRefScripts . noStakeRefPtr
+    <&> noNegativeAssetsWithPotentialPolicy pid . ensureMinAda . noRefScripts . noStakeRefPtr
 
 -- | Generate a 'TxOut' with a byron address. This is usually not supported by
 -- Hydra or Plutus.
@@ -144,12 +171,15 @@ shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.toList (shrinkList shrinkOne)
 genUTxO :: Gen UTxO
 genUTxO = sized genUTxOSized
 
-genUTxOWithAssetsSized :: Int -> Gen UTxO
-genUTxOWithAssetsSized numUTxO =
+-- | Generate UTxO with some assets. If `PolicyId` argument is specified then
+-- we set assets with the specified 'PolicyId' since in some tests we need to
+-- make sure ledger rules are passing.
+genUTxOWithAssetsSized :: Int -> Maybe PolicyId -> Gen UTxO
+genUTxOWithAssetsSized numUTxO pid =
   fold <$> vectorOf numUTxO gen
  where
   gen :: Gen UTxO
-  gen = UTxO.singleton <$> arbitrary <*> genTxOutWithAssets
+  gen = UTxO.singleton <$> arbitrary <*> genTxOutWithAssets pid
 
 -- | Generate a 'Conway' era 'UTxO' with given number of outputs. See also
 -- 'genTxOut'.
