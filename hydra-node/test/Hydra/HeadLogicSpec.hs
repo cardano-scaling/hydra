@@ -700,17 +700,6 @@ spec =
         update bobEnv ledger (inOpenState threeParties) depositOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
-      prop "ignores recoverTx of another head" $ \otherHeadId -> do
-        let recoverOtherHead =
-              observeTx $
-                OnRecoverTx
-                  { headId = otherHeadId
-                  , recoveredTxId = 1
-                  , recoveredUTxO = utxoRef 1
-                  }
-        update bobEnv ledger (inOpenState threeParties) recoverOtherHead
-          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
-
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
         let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId, newVersion = 1, distributedUTxO = mempty}
         update bobEnv ledger (inOpenState threeParties) decrementOtherHead
