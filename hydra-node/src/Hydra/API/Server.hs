@@ -30,19 +30,19 @@ import Hydra.API.ServerOutputFilter (
 import Hydra.API.WSServer (wsApp)
 import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
-import Hydra.Chain.ChainState (IsChainState, chainStateSlot)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (
   Deposit (..),
   HeadState (..),
-  IdleState (..),
   InitialState (..),
   NodeState (..),
   OpenState (..),
   aggregateNodeState,
  )
 import Hydra.HeadLogic.Outcome qualified as StateChanged
+import Hydra.HeadLogic.State (initNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -100,16 +100,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
-    nodeStateP <-
-      mkProjection
-        "nodeStateP"
-        ( NodeState
-            { headState = Idle $ IdleState mkChainState
-            , pendingDeposits = mempty
-            , currentSlot = chainStateSlot mkChainState
-            }
-        )
-        aggregateNodeState
+    nodeStateP <- mkProjection "nodeStateP" (initNodeState mkChainState) aggregateNodeState
     -- XXX: We never subscribe to changes of commitInfoP et al directly so a
     -- single read model and normal functions mapping from HeadState ->
     -- CommitInfo etc. would suffice and are less fragile

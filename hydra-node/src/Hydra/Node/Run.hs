@@ -22,7 +22,7 @@ import Hydra.Chain (ChainComponent, ChainStateHistory, maximumNumberOfParties)
 import Hydra.Chain.Backend (ChainBackend (queryGenesisParameters))
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Cardano (withCardanoChain)
-import Hydra.Chain.ChainState (IsChainState (..), chainStateSlot)
+import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
@@ -30,7 +30,7 @@ import Hydra.Events (EventSink)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (aggregateNodeState)
-import Hydra.HeadLogic.State (HeadState (..), IdleState (..), NodeState (..))
+import Hydra.HeadLogic.State (NodeState (..), initNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
@@ -150,12 +150,7 @@ run opts = do
       Nothing ->
         pure eventStore
       Just rotationConfig -> do
-        let initialState =
-              NodeState
-                { headState = Idle IdleState{chainState = initialChainState}
-                , pendingDeposits = mempty
-                , currentSlot = chainStateSlot initialChainState
-                }
+        let initialState = initNodeState initialChainState
         let aggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
             aggregator s StateEvent{stateChanged} = aggregateNodeState s stateChanged
         newRotatedEventStore rotationConfig initialState aggregator mkCheckpoint eventStore

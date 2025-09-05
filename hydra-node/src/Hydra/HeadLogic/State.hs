@@ -7,7 +7,7 @@ module Hydra.HeadLogic.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
-import Hydra.Chain.ChainState (ChainSlot, ChainStateType)
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
   HeadId,
   HeadParameters,
@@ -33,7 +33,7 @@ data NodeState tx = NodeState
   , pendingDeposits :: PendingDeposits tx
   -- ^ Pending deposits as observed on chain.
   -- TODO: could even move the chain state here (also see todo below)
-  -- , chainState :: ChaiStateType tx
+  -- , chainState :: ChainStateType tx
   , currentSlot :: ChainSlot
   }
   deriving stock (Generic)
@@ -45,6 +45,14 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
+
+initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
+initNodeState chainState =
+  NodeState
+    { headState = Idle IdleState{chainState}
+    , pendingDeposits = mempty
+    , currentSlot = chainStateSlot chainState
+    }
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.

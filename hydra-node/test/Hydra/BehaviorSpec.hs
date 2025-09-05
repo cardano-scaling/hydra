@@ -33,7 +33,8 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainSta
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), NodeState (..), OpenState (..))
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), NodeState (..), OpenState (..))
+import Hydra.HeadLogic.State (initNodeState)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -1288,14 +1289,14 @@ createTestHydraClient ::
   TVar m [ServerOutput tx] ->
   HydraNode tx m ->
   TestHydraClient tx m
-createTestHydraClient outputs messages outputHistory HydraNode{inputQueue, nodeState} =
+createTestHydraClient outputs messages outputHistory HydraNode{inputQueue, nodeStateHandler} =
   TestHydraClient
     { send = enqueue inputQueue . ClientInput
     , waitForNext = atomically (readTQueue outputs)
     , waitForNextMessage = atomically (readTQueue messages)
     , injectChainEvent = enqueue inputQueue . ChainInput
     , serverOutputs = reverse <$> readTVarIO outputHistory
-    , queryState = atomically (queryNodeState nodeState)
+    , queryState = atomically (queryNodeState nodeStateHandler)
     }
 
 createHydraNode ::
@@ -1324,7 +1325,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
                   modifyTVar' outputHistory (output :)
           }
   -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
-  let nodeState = NodeState{headState = Idle IdleState{chainState}, pendingDeposits = mempty, currentSlot = ChainSlot 0}
+  let nodeState = initNodeState chainState
   let chainStateHistory = initHistory chainState
   nodeStateHandler <- createNodeStateHandler Nothing nodeState
   inputQueue <- createInputQueue
@@ -1335,7 +1336,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
         { tracer
         , env
         , ledger
-        , nodeState = nodeStateHandler
+        , nodeStateHandler
         , inputQueue
         , eventSource
         , eventSinks = [apiSink, eventSink]

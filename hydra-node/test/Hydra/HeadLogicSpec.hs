@@ -28,8 +28,8 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), IdleState (..), InitialState (..), Input (..), LogicError (..), NodeState (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
-import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), NodeState (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
+import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters, initNodeState)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
@@ -1072,12 +1072,7 @@ connectivityChanged ttl connectivityMessage =
     }
 
 inIdleState :: NodeState SimpleTx
-inIdleState =
-  NodeState
-    { headState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-    , pendingDeposits = mempty
-    , currentSlot = ChainSlot 0
-    }
+inIdleState = initNodeState SimpleChainState{slot = ChainSlot 0}
 
 -- XXX: This is always called with threeParties and simpleLedger
 inInitialState :: [Party] -> NodeState SimpleTx

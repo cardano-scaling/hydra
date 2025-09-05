@@ -224,7 +224,7 @@ mockChainAndNetwork tr seedKeys commits = do
       Nothing -> error "closeWithInitialSnapshot: Could not find matching HydraNode"
       Just
         MockHydraNode
-          { node = HydraNode{oc = Chain{postTx}, nodeState = NodeStateHandler{queryNodeState}}
+          { node = HydraNode{oc = Chain{postTx}, nodeStateHandler = NodeStateHandler{queryNodeState}}
           } -> do
           NodeState{headState = hs} <- atomically queryNodeState
           case hs of

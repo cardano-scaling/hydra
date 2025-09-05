@@ -29,13 +29,12 @@ import Hydra.Chain (
   PostTxError,
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainStateType, IsChainState, chainStateSlot)
+import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
-  IdleState (..),
   Input (..),
   NodeState (..),
   Outcome (..),
@@ -46,7 +45,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
-import Hydra.HeadLogic.State (getHeadParameters)
+import Hydra.HeadLogic.State (getHeadParameters, initNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -160,7 +159,7 @@ data DraftHydraNode tx m = DraftHydraNode
   { tracer :: Tracer m (HydraNodeLog tx)
   , env :: Environment
   , ledger :: Ledger tx
-  , nodeState :: NodeStateHandler tx m
+  , nodeStateHandler :: NodeStateHandler tx m
   , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateEvent tx) m
   , eventSinks :: [EventSink (StateEvent tx) m]
@@ -209,19 +208,14 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
       { tracer
       , env
       , ledger
-      , nodeState = nodeStateHandler
+      , nodeStateHandler
       , inputQueue
       , eventSource
       , eventSinks = eventSink : eventSinks
       , chainStateHistory
       }
  where
-  initialState =
-    NodeState
-      { headState = Idle IdleState{chainState = initialChainState}
-      , pendingDeposits = mempty
-      , currentSlot = chainStateSlot initialChainState
-      }
+  initialState = initNodeState initialChainState
 
   recoverNodeStateC =
     mapC stateChanged
@@ -270,16 +264,16 @@ connect ::
   DraftHydraNode tx m ->
   m (HydraNode tx m)
 connect chain network server node =
-  pure HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
+  pure HydraNode{tracer, env, ledger, nodeStateHandler, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
  where
-  DraftHydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks} = node
+  DraftHydraNode{tracer, env, ledger, nodeStateHandler, inputQueue, eventSource, eventSinks} = node
 
 -- | Fully connected hydra node with everything wired in.
 data HydraNode tx m = HydraNode
   { tracer :: Tracer m (HydraNodeLog tx)
   , env :: Environment
   , ledger :: Ledger tx
-  , nodeState :: NodeStateHandler tx m
+  , nodeStateHandler :: NodeStateHandler tx m
   , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateEvent tx) m
   , eventSinks :: [EventSink (StateEvent tx) m]
@@ -354,12 +348,12 @@ processNextInput ::
   HydraNode tx m ->
   Input tx ->
   STM m (Outcome tx)
-processNextInput HydraNode{nodeState, ledger, env} e =
+processNextInput HydraNode{nodeStateHandler, ledger, env} e =
   modifyNodeState $ \s ->
     let outcome = computeOutcome s e
      in (outcome, aggregateState s outcome)
  where
-  NodeStateHandler{modifyNodeState} = nodeState
+  NodeStateHandler{modifyNodeState} = nodeStateHandler
 
   computeOutcome = HeadLogic.update env ledger
 
@@ -373,7 +367,7 @@ processStateChanges node stateChanges = do
  where
   HydraNode
     { eventSinks
-    , nodeState = NodeStateHandler{getNextEventId}
+    , nodeStateHandler = NodeStateHandler{getNextEventId}
     } = node
 
 processEffects ::
