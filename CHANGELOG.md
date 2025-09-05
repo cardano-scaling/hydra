@@ -10,14 +10,12 @@ changes.
 
 ## [0.23.0] - UNRELEASED
 
+- Accept additional field `amount` when depositing to specify the amount of
+  Lovelace that should be depositted to a Head returning any leftover to the
+  user. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
+
 - Fix bug where TUI would have out-of-date head status information
   after restarting on a rotated node (due to event rotation).
-
-- Accept additional field `tokens` when depositing to specify different (non-ADA) assets that should be depositted to a Head returning any leftover to the user.
-
-## [0.22.4] - 2025-08-05
-
-- Accept additional field `amount` when depositing to specify the amount of Lovelace that should be depositted to a Head returning any leftover to the user.
 
 - Hydra API server responds with the correct `Content-Type` header `application-json`.
 
