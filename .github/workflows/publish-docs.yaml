@@ -31,7 +31,7 @@ jobs:
 
     - name: Get released workflow run id
       id: released-workflow
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           let res = await github.rest.actions.listWorkflowRuns({
@@ -45,7 +45,7 @@ jobs:
 
     - name: Get latest workflow run id
       id: latest-workflow
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           let res = await github.rest.actions.listWorkflowRuns({
