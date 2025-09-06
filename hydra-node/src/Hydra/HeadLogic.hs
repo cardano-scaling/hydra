@@ -1443,7 +1443,7 @@ aggregateNodeState nodeState sc =
       ns@NodeState{pendingDeposits} = nodeState{headState = st}
    in case sc of
         HeadOpened{chainState} ->
-          ns{pendingDeposits = mempty, currentSlot = chainStateSlot chainState}
+          ns{pendingDeposits, currentSlot = chainStateSlot chainState}
         DepositRecorded{headId, depositTxId, deposited, created, deadline} ->
           ns{pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} pendingDeposits}
         DepositActivated{depositTxId, deposit} ->
