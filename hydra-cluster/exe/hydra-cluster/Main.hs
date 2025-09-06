@@ -4,7 +4,13 @@ module Main where
 
 import Hydra.Prelude
 
-import CardanoNode (findRunningCardanoNode, waitForFullySynchronized, withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
+import CardanoNode (
+  findFileStartingAtDirectory,
+  findRunningCardanoNode,
+  waitForFullySynchronized,
+  withCardanoNodeDevnet,
+  withCardanoNodeOnKnownNetwork,
+ )
 import Hydra.Cardano.Api (TxId, serialiseToRawBytesHexText)
 import Hydra.Chain.Backend (ChainBackend, blockfrostProjectPath)
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
@@ -39,7 +45,8 @@ run options =
               publishOrReuseHydraScripts tracer backend
                 >>= singlePartyHeadFullLifeCycle tracer workDir backend
             else do
-              let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = blockfrostProjectPath}
+              bfProjectPath <- findFileStartingAtDirectory 3 blockfrostProjectPath
+              let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = bfProjectPath}
               publishOrReuseHydraScripts tracer backend
                 >>= singlePartyHeadFullLifeCycle tracer workDir backend
         Nothing -> do
