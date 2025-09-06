@@ -92,7 +92,7 @@ spec = do
                   guard $ v ^? key "headId" == Just (toJSON headId)
                   v ^? key "distributedUTxO" . _JSON
 
-                guard $ distributedUTxO `UTxO.containsOutputs` utxoFromTx decommitTx
+                guard $ distributedUTxO `UTxO.containsOutputs` UTxO.txOutputs (utxoFromTx decommitTx)
 
                 send hydraNode $ input "Close" []
 

@@ -47,7 +47,6 @@ import Hydra.BehaviorSpec (
   shortLabel,
   waitUntilMatch,
  )
-import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadLogic (Committed ())

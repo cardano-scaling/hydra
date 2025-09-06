@@ -21,7 +21,6 @@ module Hydra.Chain.Direct.TxTraceSpec where
 import Hydra.Prelude hiding (Any, State, label, show)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO, totalLovelace)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
 import Data.Map.Strict qualified as Map
@@ -33,6 +32,7 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   TxId,
   TxOutDatum,
+  UTxO,
   VerificationKey,
   getTxBody,
   getTxId,
@@ -818,7 +818,7 @@ newDepositTx _ utxoToDeposit = do
   let validBefore = SlotNo 0
   deadline <- liftIO getCurrentTime
   let depositUTxO = realWorldModelUTxO utxoToDeposit
-  amount <- liftIO $ randomBetween 1_000_000 (unCoin $ totalLovelace depositUTxO)
+  amount <- liftIO $ randomBetween 1_000_000 (unCoin $ UTxO.totalLovelace depositUTxO)
   let blueprint = CommitBlueprintTx{blueprintTx = txSpendingUTxO depositUTxO, lookupUTxO = depositUTxO}
   pure $
     Right $

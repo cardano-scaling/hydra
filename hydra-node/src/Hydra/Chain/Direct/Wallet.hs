@@ -6,7 +6,7 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO)
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
@@ -86,13 +86,11 @@ import Hydra.Cardano.Api (
   VerificationKey,
   fromLedgerTx,
   fromLedgerTxIn,
-  fromLedgerUTxO,
   getChainPoint,
   makeShelleyAddress,
   shelleyAddressInEra,
   toLedgerAddr,
   toLedgerTx,
-  toLedgerUTxO,
   verificationKeyHash,
  )
 import Hydra.Cardano.Api qualified as Api
@@ -120,7 +118,7 @@ data TinyWallet m = TinyWallet
   -- a head
   , sign :: Api.Tx -> Api.Tx
   , coverFee ::
-      UTxO ->
+      Api.UTxO ->
       Api.Tx ->
       m (Either ErrCoverFee Api.Tx)
   , reset :: m ()
@@ -164,7 +162,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
       , sign = Api.signTx sk
       , coverFee = \lookupUTxO partialTx -> do
-          let ledgerLookupUTxO = unUTxO $ toLedgerUTxO lookupUTxO
+          let ledgerLookupUTxO = unUTxO $ UTxO.toShelleyUTxO Api.shelleyBasedEra lookupUTxO
           WalletInfoOnChain{walletUTxO, systemStart} <- readTVarIO walletInfoVar
           epochInfo <- queryEpochInfo
           -- We query pparams here again as it's possible that a hardfork
@@ -186,13 +184,13 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
                 let utxo' = applyTxs txs (== ledgerAddress) walletUTxO
                 writeTVar walletInfoVar $ walletInfo{walletUTxO = utxo', tip = point}
                 pure utxo'
-              traceWith tracer $ EndUpdate (fromLedgerUTxO (Ledger.UTxO utxo'))
+              traceWith tracer $ EndUpdate (UTxO.fromShelleyUTxO Api.shelleyBasedEra (Ledger.UTxO utxo'))
       }
  where
   initialize = do
     traceWith tracer BeginInitialize
     walletInfo@WalletInfoOnChain{walletUTxO, tip} <- queryWalletInfo QueryTip address
-    traceWith tracer $ EndInitialize{initialUTxO = fromLedgerUTxO (Ledger.UTxO walletUTxO), tip}
+    traceWith tracer $ EndInitialize{initialUTxO = UTxO.fromShelleyUTxO Api.shelleyBasedEra (Ledger.UTxO walletUTxO), tip}
     pure walletInfo
 
   address =

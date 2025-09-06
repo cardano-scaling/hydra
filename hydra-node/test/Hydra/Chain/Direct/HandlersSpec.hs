@@ -19,6 +19,8 @@ import Hydra.Cardano.Api (
   getChainPoint,
   toLedgerTx,
  )
+import Test.Gen.Cardano.Api.Typed (genBlockHeader)
+import Test.QuickCheck.Hedgehog (hedgehog)
 
 import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Lens ((.~))
@@ -297,7 +299,7 @@ data TestBlock = TestBlock BlockHeader [Tx]
 -- | Thin wrapper which generates a 'TestBlock' at some specific slot.
 genBlockAt :: SlotNo -> [Tx] -> Gen TestBlock
 genBlockAt sl txs = do
-  header <- adjustSlot <$> arbitrary
+  header <- adjustSlot <$> hedgehog genBlockHeader
   pure $ TestBlock header txs
  where
   adjustSlot (BlockHeader _ hash blockNo) =

@@ -14,6 +14,7 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   deserialiseFromCBOR,
+  deserialiseFromRawBytes,
   getTxBody,
   getTxId,
   proxyToAsType,
@@ -271,12 +272,14 @@ rollForward tracer prj handler wallet blockConfirmations blockHash = do
   -- Convert to cardano-api Tx
   receivedTxs <- mapM (toTx . (\(Blockfrost.TxHashCBOR (_txHash, cbor)) -> cbor)) txHashesCBOR
   let receivedTxIds = getTxId . getTxBody <$> receivedTxs
-  let point = toChainPoint block
+  point <- toChainPoint block
   traceWith tracer RolledForward{point, receivedTxIds}
 
   blockNo <- maybe (throwIO $ MissingBlockNo _blockHash) (pure . fromInteger) _blockHeight
   let Blockfrost.BlockHash blockHash' = _blockHash
-  let blockHash'' = fromString $ T.unpack blockHash'
+  blockHash'' <- case deserialiseFromRawBytes (proxyToAsType (Proxy @(Hash BlockHeader))) $ fromString $ T.unpack blockHash' of
+    Left _ -> throwIO $ DecodeError blockHash'
+    Right x -> pure x
   blockSlot <- maybe (throwIO $ MissingBlockSlot _blockSlot) (pure . fromInteger . Blockfrost.unSlot) _blockSlot
   let header = BlockHeader (SlotNo blockSlot) blockHash'' blockNo
   -- wallet update
@@ -311,15 +314,15 @@ blockfrostSubmissionClient prj tracer queue = bfClient
         atomically (putTMVar response Nothing)
         bfClient
 
-toChainPoint :: Blockfrost.Block -> ChainPoint
-toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
-  ChainPoint slotNo headerHash
+toChainPoint :: MonadThrow m => Blockfrost.Block -> m ChainPoint
+toChainPoint Blockfrost.Block{_blockSlot, _blockHash} = do
+  blockHash' <- case deserialiseFromRawBytes (proxyToAsType (Proxy @(Hash BlockHeader))) $ fromString $ T.unpack $ Blockfrost.unBlockHash _blockHash of
+    Left _ -> throwIO $ DecodeError $ Blockfrost.unBlockHash _blockHash
+    Right x -> pure x
+  pure $ ChainPoint slotNo blockHash'
  where
   slotNo :: SlotNo
   slotNo = maybe 0 (fromInteger . Blockfrost.unSlot) _blockSlot
-
-  headerHash :: Hash BlockHeader
-  headerHash = fromString . toString $ Blockfrost.unBlockHash _blockHash
 
 -- * Helpers
 
