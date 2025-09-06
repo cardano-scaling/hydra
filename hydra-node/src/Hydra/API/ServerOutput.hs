@@ -12,7 +12,7 @@ import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
-import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
+import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), NodeState, OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
@@ -213,7 +213,7 @@ data ServerOutput tx
     -- The local state has been reset, meaning pending transactions were pruned.
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
-  | EventLogRotated {checkpoint :: HeadState tx}
+  | EventLogRotated {checkpoint :: NodeState tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)

@@ -34,15 +34,15 @@ import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (
-  CoordinatedHeadState (..),
   Deposit (..),
   HeadState (..),
-  IdleState (..),
   InitialState (..),
+  NodeState (..),
   OpenState (..),
-  aggregate,
+  aggregateNodeState,
  )
 import Hydra.HeadLogic.Outcome qualified as StateChanged
+import Hydra.HeadLogic.State (initNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -100,7 +100,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
-    headStateP <- mkProjection "headStateP" (Idle $ IdleState mkChainState) aggregate
+    nodeStateP <- mkProjection "nodeStateP" (initNodeState mkChainState) aggregateNodeState
     -- XXX: We never subscribe to changes of commitInfoP et al directly so a
     -- single read model and normal functions mapping from HeadState ->
     -- CommitInfo etc. would suffice and are less fragile
@@ -114,7 +114,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
           .| mapM_C
             ( \StateEvent{stateChanged} ->
                 lift $ atomically $ do
-                  update headStateP stateChanged
+                  update nodeStateP stateChanged
                   update commitInfoP stateChanged
                   update pendingDepositsP stateChanged
             )
@@ -135,13 +135,13 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp env party tracer historyTimedOutputs callback headStateP networkInfoP responseChannel serverOutputFilter)
+              (wsApp env party tracer historyTimedOutputs callback nodeStateP networkInfoP responseChannel serverOutputFilter)
               ( httpApp
                   tracer
                   chain
                   env
                   pparams
-                  (atomically $ getLatest headStateP)
+                  (atomically $ getLatest nodeStateP)
                   (atomically $ getLatest commitInfoP)
                   (atomically $ getLatest pendingDepositsP)
                   callback
@@ -157,7 +157,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                 { putEvent = \event@StateEvent{stateChanged} -> do
                     -- Update our read models
                     atomically $ do
-                      update headStateP stateChanged
+                      update nodeStateP stateChanged
                       update commitInfoP stateChanged
                       update pendingDepositsP stateChanged
                       update networkInfoP stateChanged
@@ -269,9 +269,7 @@ mkTimedServerOutputFromStateEvent event =
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
 projectPendingDeposits txIds = \case
-  StateChanged.Checkpoint{state} -> case state of
-    Open OpenState{coordinatedHeadState = CoordinatedHeadState{pendingDeposits}} -> Map.keys pendingDeposits
-    _ -> txIds
+  StateChanged.Checkpoint{state = NodeState{pendingDeposits}} -> Map.keys pendingDeposits
   StateChanged.DepositRecorded{depositTxId} -> depositTxId : txIds
   StateChanged.DepositRecovered{depositTxId} -> filter (/= depositTxId) txIds
   StateChanged.CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
@@ -282,7 +280,7 @@ projectPendingDeposits txIds = \case
 -- state since this is when Head parties need to commit some funds.
 projectCommitInfo :: CommitInfo -> StateChanged.StateChanged tx -> CommitInfo
 projectCommitInfo commitInfo = \case
-  StateChanged.Checkpoint{state} -> case state of
+  StateChanged.Checkpoint NodeState{headState = state} -> case state of
     Initial InitialState{headId} -> NormalCommit headId
     Open OpenState{headId} -> IncrementalCommit headId
     _ -> CannotCommit

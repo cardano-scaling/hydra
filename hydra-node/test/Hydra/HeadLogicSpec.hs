@@ -28,28 +28,8 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic (
-  ClosedState (..),
-  CoordinatedHeadState (..),
-  Effect (..),
-  HeadState (..),
-  IdleState (..),
-  InitialState (..),
-  Input (..),
-  LogicError (..),
-  OpenState (..),
-  Outcome (..),
-  RequirementFailure (..),
-  SideLoadRequirementFailure (..),
-  StateChanged (..),
-  TTL,
-  WaitReason (..),
-  aggregateState,
-  cause,
-  noop,
-  update,
- )
-import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), NodeState (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
+import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters, initNodeState)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
@@ -107,7 +87,6 @@ spec =
               , localTxs = mempty
               , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
-              , pendingDeposits = mempty
               , currentDepositTxId = Nothing
               , decommitTx = Nothing
               , version = 0
@@ -168,8 +147,8 @@ spec =
             step $ receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
             getState
 
-          case s of
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs}}) -> do
+          case headState s of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs}} -> do
               localTxs `shouldBe` [tx2, tx3]
             _ -> fail "expected Open state"
 
@@ -239,7 +218,7 @@ spec =
               reqDecEvent = receiveMessage reqDec
               s0 = inOpenState threeParties
 
-          s0 `shouldSatisfy` \case
+          headState s0 `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
             _ -> False
 
@@ -247,7 +226,7 @@ spec =
             step reqDecEvent
             getState
 
-          s1 `shouldSatisfy` \case
+          headState s1 `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Just decommitTx'
             _ -> False
 
@@ -256,7 +235,7 @@ spec =
             step reqDecEvent
             getState
 
-          s2 `shouldSatisfy` \case
+          headState s2 `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Just decommitTx'
             _ -> False
 
@@ -265,7 +244,7 @@ spec =
           let decommitTx' = SimpleTx{txSimpleId = 1, txInputs = localUTxO, txOutputs = utxoRefs [4]}
           let s0 = inOpenState' threeParties $ coordinatedHeadState{localUTxO}
 
-          s0 `shouldSatisfy` \case
+          headState s0 `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
             _ -> False
 
@@ -285,7 +264,7 @@ spec =
             step $ receiveMessage $ ReqTx t1
             getState
 
-          sa `shouldSatisfy` \case
+          headState sa `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `member` allTxs
             _ -> False
 
@@ -299,7 +278,7 @@ spec =
             step reqSn
             getState
 
-          s1 `shouldSatisfy` \case
+          headState s1 `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
             _ -> False
 
@@ -321,7 +300,7 @@ spec =
             step (ackFrom bobSk bob)
             getState
 
-          sa `shouldSatisfy` \case
+          headState sa `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
             _ -> False
 
@@ -573,12 +552,12 @@ spec =
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
             input = receiveMessage $ ReqTx (aValidTx 42)
-        update bobEnv ledger s0 input `shouldBe` Error (UnhandledInput input s0)
+        update bobEnv ledger s0 input `shouldBe` Error (UnhandledInput input (headState s0))
 
       it "ignores in-flight ReqDec when closed" $ do
         let s0 = inClosedState threeParties
             input = receiveMessage $ ReqDec{transaction = aValidTx 42}
-        update bobEnv ledger s0 input `shouldBe` Error (UnhandledInput input s0)
+        update bobEnv ledger s0 input `shouldBe` Error (UnhandledInput input (headState s0))
 
       it "everyone does collect on last commit after collect com" $ do
         let aliceCommit = OnCommitTx testHeadId alice (utxoRef 1)
@@ -604,7 +583,7 @@ spec =
 
         let unhandledInput = observeTx OnAbortTx{headId = testHeadId}
         update bobEnv ledger afterCollectCom unhandledInput
-          `shouldBe` Error (UnhandledInput unhandledInput afterCollectCom)
+          `shouldBe` Error (UnhandledInput unhandledInput (headState afterCollectCom))
 
       it "cannot observe collect com after abort" $ do
         afterAbort <-
@@ -614,7 +593,7 @@ spec =
 
         let unhandledInput = observeTx (OnCollectComTx testHeadId)
         update bobEnv ledger afterAbort unhandledInput
-          `shouldBe` Error (UnhandledInput unhandledInput afterAbort)
+          `shouldBe` Error (UnhandledInput unhandledInput (headState afterAbort))
 
       it "notifies user on head closing and when passing the contestation deadline" $ do
         let s0 = inOpenState threeParties
@@ -655,13 +634,13 @@ spec =
               inOpenState' threeParties $
                 coordinatedHeadState{confirmedSnapshot = latestConfirmedSnapshot}
             deadline = arbitrary `generateWith` 42
-            params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
+            params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters $ headState s0)
         runHeadLogic bobEnv ledger s0 $ do
           o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline)
           lift $ o1 `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
           s1 <- getState
           lift $
-            s1 `shouldSatisfy` \case
+            headState s1 `shouldSatisfy` \case
               Closed ClosedState{} -> True
               _ -> False
 
@@ -671,7 +650,7 @@ spec =
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             deadline = arbitrary `generateWith` 42
-            params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
+            params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters (headState s0))
         update bobEnv ledger s0 (observeTx $ OnContestTx testHeadId 1 deadline)
           `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
 
@@ -719,17 +698,6 @@ spec =
                   , deadline = genUTCTime `generateWith` 42
                   }
         update bobEnv ledger (inOpenState threeParties) depositOtherHead
-          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
-
-      prop "ignores recoverTx of another head" $ \otherHeadId -> do
-        let recoverOtherHead =
-              observeTx $
-                OnRecoverTx
-                  { headId = otherHeadId
-                  , recoveredTxId = 1
-                  , recoveredUTxO = utxoRef 1
-                  }
-        update bobEnv ledger (inOpenState threeParties) recoverOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
@@ -915,26 +883,29 @@ spec =
               Right tx -> pure (utxo, tx)
         let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
             st0 =
-              Open
-                OpenState
-                  { parameters = HeadParameters defaultContestationPeriod threeParties
-                  , coordinatedHeadState =
-                      CoordinatedHeadState
-                        { localUTxO = uncurry UTxO.singleton utxo
-                        , allTxs = mempty
-                        , localTxs = [expiringTransaction]
-                        , confirmedSnapshot = InitialSnapshot testHeadId $ uncurry UTxO.singleton utxo
-                        , seenSnapshot = NoSeenSnapshot
-                        , pendingDeposits = mempty
-                        , currentDepositTxId = Nothing
-                        , decommitTx = Nothing
-                        , version = 0
+              NodeState
+                { headState =
+                    Open
+                      OpenState
+                        { parameters = HeadParameters defaultContestationPeriod threeParties
+                        , coordinatedHeadState =
+                            CoordinatedHeadState
+                              { localUTxO = uncurry UTxO.singleton utxo
+                              , allTxs = mempty
+                              , localTxs = [expiringTransaction]
+                              , confirmedSnapshot = InitialSnapshot testHeadId $ uncurry UTxO.singleton utxo
+                              , seenSnapshot = NoSeenSnapshot
+                              , currentDepositTxId = Nothing
+                              , decommitTx = Nothing
+                              , version = 0
+                              }
+                        , chainState = Prelude.error "should not be used"
+                        , headId = testHeadId
+                        , headSeed = testHeadSeed
                         }
-                  , chainState = Prelude.error "should not be used"
-                  , headId = testHeadId
-                  , headSeed = testHeadSeed
-                  , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
-                  }
+                , pendingDeposits = mempty
+                , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
+                }
 
         st <-
           run $
@@ -942,7 +913,7 @@ spec =
               step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
               getState
 
-        assert $ case st of
+        assert $ case headState st of
           Open
             OpenState
               { coordinatedHeadState =
@@ -953,26 +924,29 @@ spec =
     prop "empty inputs in decommit tx are prevented" $ \tx -> do
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
       let st =
-            Open
-              OpenState
-                { parameters = HeadParameters defaultContestationPeriod threeParties
-                , coordinatedHeadState =
-                    CoordinatedHeadState
-                      { localUTxO = mempty
-                      , allTxs = mempty
-                      , localTxs = []
-                      , confirmedSnapshot = InitialSnapshot testHeadId mempty
-                      , seenSnapshot = NoSeenSnapshot
-                      , pendingDeposits = mempty
-                      , currentDepositTxId = Nothing
-                      , decommitTx = Nothing
-                      , version = 0
+            NodeState
+              { headState =
+                  Open
+                    OpenState
+                      { parameters = HeadParameters defaultContestationPeriod threeParties
+                      , coordinatedHeadState =
+                          CoordinatedHeadState
+                            { localUTxO = mempty
+                            , allTxs = mempty
+                            , localTxs = []
+                            , confirmedSnapshot = InitialSnapshot testHeadId mempty
+                            , seenSnapshot = NoSeenSnapshot
+                            , currentDepositTxId = Nothing
+                            , decommitTx = Nothing
+                            , version = 0
+                            }
+                      , chainState = Prelude.error "should not be used"
+                      , headId = testHeadId
+                      , headSeed = testHeadSeed
                       }
-                , chainState = Prelude.error "should not be used"
-                , headId = testHeadId
-                , headSeed = testHeadSeed
-                , currentSlot = ChainSlot 1
-                }
+              , pendingDeposits = mempty
+              , currentSlot = ChainSlot 1
+              }
 
       let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
       let input = receiveMessage $ ReqDec{transaction = tx'}
@@ -1046,10 +1020,15 @@ prop_ignoresUnrelatedOnInitTx =
         , participants = differentParticipants
         }
 
-genClosedState :: Gen (HeadState SimpleTx)
+genClosedState :: Gen (NodeState SimpleTx)
 genClosedState = do
   closedState <- arbitrary
-  pure $ Closed $ closedState{headId = testHeadId}
+  pure $
+    NodeState
+      { headState = Closed $ closedState{headId = testHeadId}
+      , pendingDeposits = mempty
+      , currentSlot = ChainSlot 0
+      }
 
 -- * Utilities
 
@@ -1092,29 +1071,33 @@ connectivityChanged ttl connectivityMessage =
     , networkEvent = ConnectivityEvent connectivityMessage
     }
 
-inIdleState :: HeadState SimpleTx
-inIdleState =
-  Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+inIdleState :: NodeState SimpleTx
+inIdleState = initNodeState SimpleChainState{slot = ChainSlot 0}
 
 -- XXX: This is always called with threeParties and simpleLedger
-inInitialState :: [Party] -> HeadState SimpleTx
+inInitialState :: [Party] -> NodeState SimpleTx
 inInitialState parties =
-  Initial
-    InitialState
-      { parameters
-      , pendingCommits = Set.fromList parties
-      , committed = mempty
-      , chainState = SimpleChainState{slot = ChainSlot 0}
-      , headId = testHeadId
-      , headSeed = testHeadSeed
-      }
+  NodeState
+    { headState =
+        Initial
+          InitialState
+            { parameters
+            , pendingCommits = Set.fromList parties
+            , committed = mempty
+            , chainState = SimpleChainState{slot = ChainSlot 0}
+            , headId = testHeadId
+            , headSeed = testHeadSeed
+            }
+    , pendingDeposits = mempty
+    , currentSlot = ChainSlot 0
+    }
  where
   parameters = HeadParameters defaultContestationPeriod parties
 
 -- XXX: This is always called with threeParties and simpleLedger
 inOpenState ::
   [Party] ->
-  HeadState SimpleTx
+  NodeState SimpleTx
 inOpenState parties =
   inOpenState' parties $
     CoordinatedHeadState
@@ -1123,7 +1106,6 @@ inOpenState parties =
       , localTxs = mempty
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
-      , pendingDeposits = mempty
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
@@ -1135,56 +1117,65 @@ inOpenState parties =
 inOpenState' ::
   [Party] ->
   CoordinatedHeadState SimpleTx ->
-  HeadState SimpleTx
+  NodeState SimpleTx
 inOpenState' parties coordinatedHeadState =
-  Open
-    OpenState
-      { parameters
-      , coordinatedHeadState
-      , chainState = SimpleChainState{slot = chainSlot}
-      , headId = testHeadId
-      , headSeed = testHeadSeed
-      , currentSlot = chainSlot
-      }
+  NodeState
+    { headState =
+        Open
+          OpenState
+            { parameters
+            , coordinatedHeadState
+            , chainState = SimpleChainState{slot = chainSlot}
+            , headId = testHeadId
+            , headSeed = testHeadSeed
+            }
+    , pendingDeposits = mempty
+    , currentSlot = chainSlot
+    }
  where
   parameters = HeadParameters defaultContestationPeriod parties
 
   chainSlot = ChainSlot 0
 
 -- XXX: This is always called with 'threeParties'
-inClosedState :: [Party] -> HeadState SimpleTx
+inClosedState :: [Party] -> NodeState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
  where
   snapshot0 = InitialSnapshot testHeadId u0
   u0 = mempty
 
-inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> HeadState SimpleTx
+inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
 inClosedState' parties confirmedSnapshot =
-  Closed
-    ClosedState
-      { parameters
-      , confirmedSnapshot
-      , contestationDeadline
-      , readyToFanoutSent = False
-      , chainState = SimpleChainState{slot = ChainSlot 0}
-      , headId = testHeadId
-      , headSeed = testHeadSeed
-      , version = 0
-      }
+  NodeState
+    { headState =
+        Closed
+          ClosedState
+            { parameters
+            , confirmedSnapshot
+            , contestationDeadline
+            , readyToFanoutSent = False
+            , chainState = SimpleChainState{slot = ChainSlot 0}
+            , headId = testHeadId
+            , headSeed = testHeadSeed
+            , version = 0
+            }
+    , pendingDeposits = mempty
+    , currentSlot = ChainSlot 0
+    }
  where
   parameters = HeadParameters defaultContestationPeriod parties
 
   contestationDeadline = arbitrary `generateWith` 42
 
-getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
+getConfirmedSnapshot :: NodeState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
-  Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
+  NodeState{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}} ->
     Just (getSnapshot confirmedSnapshot)
   _ ->
     Nothing
 
 data StepState tx = StepState
-  { headState :: HeadState tx
+  { nodeState :: NodeState tx
   , env :: Environment
   , ledger :: Ledger tx
   }
@@ -1193,14 +1184,14 @@ runHeadLogic ::
   Monad m =>
   Environment ->
   Ledger tx ->
-  HeadState tx ->
+  NodeState tx ->
   StateT (StepState tx) m a ->
   m a
-runHeadLogic env ledger headState = (`evalStateT` StepState{env, ledger, headState})
+runHeadLogic env ledger nodeState = (`evalStateT` StepState{env, ledger, nodeState})
 
--- | Retrieves the latest 'HeadState' from within 'runHeadLogic'.
-getState :: MonadState (StepState tx) m => m (HeadState tx)
-getState = headState <$> get
+-- | Retrieves the latest 'NodeState' from within 'runHeadLogic'.
+getState :: MonadState (StepState tx) m => m (NodeState tx)
+getState = nodeState <$> get
 
 -- | Calls 'update' and 'aggregate' to drive the 'runHeadLogic' monad forward.
 step ::
@@ -1208,10 +1199,10 @@ step ::
   Input tx ->
   m (Outcome tx)
 step input = do
-  StepState{headState, env, ledger} <- get
-  let outcome = update env ledger headState input
-  let headState' = aggregateState headState outcome
-  put StepState{env, ledger, headState = headState'}
+  StepState{nodeState, env, ledger} <- get
+  let outcome = update env ledger nodeState input
+  let nodeState' = aggregateState nodeState outcome
+  put StepState{env, ledger, nodeState = nodeState'}
   pure outcome
 
 hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()

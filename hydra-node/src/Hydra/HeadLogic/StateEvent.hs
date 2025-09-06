@@ -5,7 +5,7 @@ module Hydra.HeadLogic.StateEvent where
 
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventId, HasEventId (..))
-import Hydra.HeadLogic (HeadState)
+import Hydra.HeadLogic (NodeState)
 import Hydra.HeadLogic.Outcome (StateChanged (Checkpoint))
 import Hydra.Prelude
 import Hydra.Tx (ArbitraryIsTx)
@@ -36,10 +36,10 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateEvent tx) where
 genStateEvent :: StateChanged tx -> Gen (StateEvent tx)
 genStateEvent sc = StateEvent <$> arbitrary <*> pure sc <*> arbitrary
 
-mkCheckpoint :: HeadState tx -> EventId -> UTCTime -> StateEvent tx
-mkCheckpoint headState eventId time =
+mkCheckpoint :: NodeState tx -> EventId -> UTCTime -> StateEvent tx
+mkCheckpoint nodeState eventId time =
   StateEvent
     { eventId
-    , stateChanged = Checkpoint headState
+    , stateChanged = Checkpoint nodeState
     , time
     }

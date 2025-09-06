@@ -54,6 +54,7 @@ import Hydra.Cluster.Scenarios (
   canDecommit,
   canDepositPartially,
   canRecoverDeposit,
+  canRecoverDepositInAnyState,
   canResumeOnMemberAlreadyBootstrapped,
   canSeePendingDeposits,
   canSideLoadSnapshot,
@@ -311,6 +312,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
             publishHydraScriptsAs backend Faucet
               >>= canRecoverDeposit tracer tmpDir backend
+      it "can recover deposit in any state" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+            publishHydraScriptsAs backend Faucet
+              >>= canRecoverDepositInAnyState tracer tmpDir backend
       it "can see pending deposits" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
