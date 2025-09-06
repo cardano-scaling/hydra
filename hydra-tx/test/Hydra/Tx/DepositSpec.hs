@@ -172,7 +172,7 @@ spec =
           valid `shouldBe` mempty -- All assets in policy must be valid for policy to be valid
           invalid `shouldBe` tokens
         it "splits multiassets correctly" $
-          forAll (genUTxOWithAssetsSized 5) $ \utxo ->
+          forAll (genUTxOWithAssetsSized 5 Nothing) $ \utxo ->
             forAll (prepareAssetMap utxo) $ \assets ->
               property $ propSplitMultiAssetCorrectly utxo assets
 
