@@ -1438,9 +1438,9 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
 
 -- | Reflect 'StateChanged' events onto the 'NodeState' aggregateNodeState.
 aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
-aggregateNodeState nodeState@NodeState{headState} sc =
-  let headState' = aggregate headState sc
-      ns@NodeState{headState = st, pendingDeposits} = nodeState{headState = headState'}
+aggregateNodeState nodeState sc =
+  let st = aggregate (headState nodeState) sc
+      ns@NodeState{pendingDeposits} = nodeState{headState = st}
    in case sc of
         HeadOpened{chainState} ->
           ns{pendingDeposits = mempty, currentSlot = chainStateSlot chainState}
