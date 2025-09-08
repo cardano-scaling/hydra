@@ -29,49 +29,19 @@ jobs:
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: Get released workflow run id
-      id: released-workflow
-      uses: actions/github-script@v7
-      with:
-        script: |
-          let res = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'ci-nix.yaml',
-              branch: 'release',
-              status: 'success'
-          });
-          return res.data.workflow_runs[0].id;
-
-    - name: Get latest workflow run id
-      id: latest-workflow
-      uses: actions/github-script@v7
-      with:
-        script: |
-          let res = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'ci-nix.yaml',
-              branch: 'master',
-              status: 'success'
-          });
-          return res.data.workflow_runs[0].id;
-
-    - name: 📥 Download released benchmarks
-      uses: actions/download-artifact@v5
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        run-id: ${{steps.released-workflow.outputs.result}}
-        pattern: benchmarks-*
-        merge-multiple: true
-        path: docs/benchmarks
-
     - name: Build documentation
       working-directory: docs
       run: |
         nix build .#docs
 
-        cp result/build /tmp/public/head-protocol -r
+        export out=/tmp/public/head-protocol
+
+        cp result/build $out -r
+
+        nix develop .#hydra-node-bench --command -- tx-cost --output-directory $out/benchmarks/
+        nix develop .#hydra-node-bench --command -- micro -o $out/benchmarks/ledger-bench.html
+        nix develop .#hydra-cluster-bench --command -- bench-e2e datasets datasets/1-node.json datasets/3-nodes.json --output-directory $out/benchmarks
+
         # Clean the working copy
         git clean -dxf
 
@@ -81,21 +51,19 @@ jobs:
         git reset origin/master --hard
         sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
 
-    - name: 📥 Download latest benchmarks
-      uses: actions/download-artifact@v5
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        run-id: ${{steps.latest-workflow.outputs.result}}
-        pattern: benchmarks-*
-        merge-multiple: true
-        path: docs/benchmarks
-
     - name: Build /unstable documentation
       working-directory: docs
       run: |
         nix build .#docs
 
-        cp result/build /tmp/public/head-protocol/unstable/ -r
+        export out=/tmp/public/head-protocol/unstable
+
+        cp result/build $out -r
+
+        nix develop .#hydra-node-bench --command -- tx-cost --output-directory $out/benchmarks/
+        nix develop .#hydra-node-bench --command -- micro -o $out/benchmarks/ledger-bench.html
+        nix develop .#hydra-cluster-bench --command -- bench-e2e datasets datasets/1-node.json datasets/3-nodes.json --output-directory $out/benchmarks
+
 
     - name: 👉 Create redirects
       run: |
