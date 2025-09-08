@@ -60,7 +60,7 @@ jobs:
         # Compute tags. We want the following behaviour:
         #
         # 1. Building on tag:      image tagged `tag`
-        # 2. Building on release:  image tagged `release`
+        # 2. Building on release:  image tagged `latest`
         # 3. Building on master:   image tagged `unstable`.
 
         # Let's default to 'unstable'.
