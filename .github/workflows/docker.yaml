@@ -56,14 +56,15 @@ jobs:
         nix build .#docker-${{ matrix.target }}
         docker load < result
 
-        # Determine whether we are building a tag and if yes, set a VERSION_NAME
+    - name: Tag images
+      run: |
+
+        # Determine whether we are building a tag and if yes, set a
+        # VERSION_NAME, if not, use `unstable` as the version name.
         BUILDING_TAG=${{github.ref_type == 'tag'}}
+        VERSION_NAME=unstable
         [[ ${BUILDING_TAG} = true ]] && \
           VERSION_NAME=${{github.ref_name}}
-
-        # Determine if we are building on master
-        BUILDING_ON_MASTER=false
-        [[ ${GITHUB_REF_NAME} == 'master' ]] && BUILDING_ON_MASTER=true
 
         # Use 'FROM' instruction to use docker build with --label
         echo "FROM ${{matrix.target}}" | docker build \
@@ -71,20 +72,21 @@ jobs:
           --label org.opencontainers.image.licenses=Apache-2.0 \
           --label org.opencontainers.image.created=$(date -Is) \
           --label org.opencontainers.image.revision=${{github.sha}} \
-          --label org.opencontainers.image.version=${VERSION_NAME:-unstable} \
-          --tag ${IMAGE_NAME}:unstable -
+          --label org.opencontainers.image.version=${VERSION_NAME} \
+          --tag ${IMAGE_NAME}:${VERSION_NAME} -
 
-        # Also tag with 'latest' if we are building on master
-        [[ ${BUILDING_ON_MASTER} = true ]] && \
-          docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:latest
+        [[ ${GITHUB_REF_NAME} = "release" ]] && \
+          docker tag ${IMAGE_NAME} ${IMAGE_NAME}:latest
+
         # Also tag with version if we are building a tag
         [[ ${BUILDING_TAG} = true && ${{matrix.target}} != "hydraw" ]] && \
-          docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:${VERSION_NAME}
+          docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${VERSION_NAME}
+
         # Also tag with ref name when manually dispatched
         [[ ${{github.event_name == 'workflow_dispatch'}} = true ]] && \
-          docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:workflow_dispatch-${{github.event.inputs.ref_name}}
+          docker tag ${IMAGE_NAME} ${IMAGE_NAME}:workflow_dispatch-${{github.event.inputs.ref_name}}
 
-        docker inspect ${IMAGE_NAME}:unstable
+        docker inspect ${IMAGE_NAME}
         docker images
 
     - name: 📤 Push to registry
