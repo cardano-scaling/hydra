@@ -61,10 +61,9 @@ jobs:
         [[ ${BUILDING_TAG} = true ]] && \
           VERSION_NAME=${{github.ref_name}}
 
+        # Determine if we are building on master
         BUILDING_ON_MASTER=false
-        if (git merge-base --is-ancestor HEAD origin/master); then
-          BUILDING_ON_MASTER=true
-        fi
+        [[ ${GITHUB_REF_NAME} == 'master' ]] && BUILDING_ON_MASTER=true
 
         # Use 'FROM' instruction to use docker build with --label
         echo "FROM ${{matrix.target}}" | docker build \
@@ -76,7 +75,7 @@ jobs:
           --tag ${IMAGE_NAME}:unstable -
 
         # Also tag with 'latest' if we are building on master
-        [[ ${BUIDING_TAG} && ${BUILDING_ON_MASTER} = true ]] && \
+        [[ ${BUILDING_ON_MASTER} = true ]] && \
           docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:latest
         # Also tag with version if we are building a tag
         [[ ${BUILDING_TAG} = true && ${{matrix.target}} != "hydraw" ]] && \
