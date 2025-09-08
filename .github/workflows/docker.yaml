@@ -75,6 +75,7 @@ jobs:
           --label org.opencontainers.image.version=${VERSION_NAME} \
           --tag ${IMAGE_NAME}:${VERSION_NAME} -
 
+        # If we're running on the release branch, tag it as `latest`
         [[ ${GITHUB_REF_NAME} = "release" ]] && \
           docker tag ${IMAGE_NAME} ${IMAGE_NAME}:latest
 
