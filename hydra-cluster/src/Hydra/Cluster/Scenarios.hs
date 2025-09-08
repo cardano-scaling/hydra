@@ -96,6 +96,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
@@ -1983,6 +1984,40 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
     setEnv "ETCD_INITIAL_CLUSTER_STATE" "existing"
     withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
     unsetEnv "ETCD_INITIAL_CLUSTER_STATE"
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+resumeFromLatestKnownPoint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
+  networkId <- Backend.queryNetworkId backend
+  let contestationPeriod = 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+      <&> setNetworkId networkId
+
+  slot :: ChainSlot <-
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+
+      waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "TickObserved"
+        chainSlot <- v ^? key "chainSlot"
+        parseMaybe parseJSON chainSlot
+
+  slot' :: ChainSlot <-
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+
+      waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "TickObserved"
+        chainSlot <- v ^? key "chainSlot"
+        parseMaybe parseJSON chainSlot
+
+  slot `shouldBe` slot'
  where
   hydraTracer = contramap FromHydraNode tracer
 

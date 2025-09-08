@@ -71,6 +71,7 @@ import Hydra.Cluster.Scenarios (
   rejectCommit,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
+  resumeFromLatestKnownPoint,
   singlePartyCommitsFromExternal,
   singlePartyCommitsFromExternalTxBlueprint,
   singlePartyCommitsScriptBlueprint,
@@ -675,6 +676,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
               >>= canResumeOnMemberAlreadyBootstrapped tracer tmpDir backend
+
+      it "resume from latest observed point" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= resumeFromLatestKnownPoint tracer tmpDir backend
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
