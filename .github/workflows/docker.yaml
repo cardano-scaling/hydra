@@ -56,7 +56,7 @@ jobs:
         nix build .#docker-${{ matrix.target }}
         docker load < result
 
-    - name: Tag images
+    - name: 🏷️ Tag images
       run: |
 
         # Determine whether we are building a tag and if yes, set a
