@@ -49,45 +49,57 @@ jobs:
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: 🔨 Build image using nix
+    - name: 🔨 🏷️ Build and tag images
       run: |
+
         IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${{matrix.target}}
         echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
         nix build .#docker-${{ matrix.target }}
         docker load < result
 
-    - name: 🏷️ Tag images
-      run: |
+        # Compute tags. We want the following behaviour:
+        #
+        # 1. Building on tag:      image tagged `tag`
+        # 2. Building on release:  image tagged `release`
+        # 3. Building on master:   image tagged `unstable`.
 
-        # Determine whether we are building a tag and if yes, set a
-        # VERSION_NAME, if not, use `unstable` as the version name.
+        # Let's default to 'unstable'.
+        IMAGE_LABEL=unstable
+        # And the version as the git commit.
+        VERSION=${{github.sha}}
+
+        # Determine whether we are building a tag and if yes, set the label
+        # name to be the tag name, and the version to be the tag.
         BUILDING_TAG=${{github.ref_type == 'tag'}}
-        VERSION_NAME=unstable
         [[ ${BUILDING_TAG} = true ]] && \
-          VERSION_NAME=${{github.ref_name}}
+          IMAGE_LABEL=${{github.ref_name}} && \
+          VERSION=${{github.ref_name}}
 
-        # Use 'FROM' instruction to use docker build with --label
+        # If we're running on the release branch, tag it as `latest`,
+        # and leave the version as the git commit.
+        [[ ${GITHUB_REF_NAME} = "release" ]] && \
+          IMAGE_LABEL=latest
+
+        # If we're running on master, tag it as "unstable" and
+        # and again leave the version as the git commit.
+        [[ ${GITHUB_REF_NAME} = "master" ]] && \
+          IMAGE_LABEL=unstable
+
+        # Use 'FROM' instruction to use docker build with --label, as
+        # well as setting the tag directly.
         echo "FROM ${{matrix.target}}" | docker build \
           --label org.opencontainers.image.source=https://github.com/cardano-scaling/hydra \
           --label org.opencontainers.image.licenses=Apache-2.0 \
           --label org.opencontainers.image.created=$(date -Is) \
           --label org.opencontainers.image.revision=${{github.sha}} \
-          --label org.opencontainers.image.version=${VERSION_NAME} \
-          --tag ${IMAGE_NAME}:${VERSION_NAME} -
-
-        # If we're running on the release branch, tag it as `latest`
-        [[ ${GITHUB_REF_NAME} = "release" ]] && \
-          docker tag ${IMAGE_NAME} ${IMAGE_NAME}:latest
-
-        # Also tag with version if we are building a tag
-        [[ ${BUILDING_TAG} = true && ${{matrix.target}} != "hydraw" ]] && \
-          docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${VERSION_NAME}
+          --label org.opencontainers.image.version=${VERSION} \
+          --tag ${IMAGE_NAME}:${IMAGE_LABEL} -
 
         # Also tag with ref name when manually dispatched
         [[ ${{github.event_name == 'workflow_dispatch'}} = true ]] && \
-          docker tag ${IMAGE_NAME} ${IMAGE_NAME}:workflow_dispatch-${{github.event.inputs.ref_name}}
+          docker tag ${IMAGE_NAME}:${IMAGE_LABEL} ${IMAGE_NAME}:workflow_dispatch-${{github.event.inputs.ref_name}}
 
-        docker inspect ${IMAGE_NAME}
+        docker inspect ${IMAGE_NAME}:${VERSION_NAME}
         docker images
 
     - name: 📤 Push to registry
