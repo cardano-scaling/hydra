@@ -775,6 +775,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/EventLogRotated"
 
+    TickObserved:
+      title: TickObserved
+      description: |
+        Chain point observed by the node from the connected chain backend.
+      payload:
+        $ref: "api.yaml#/components/schemas/TickObserved"
+
     # Other messages
 
     DraftCommitTxRequest:
@@ -858,6 +865,7 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
         - $ref: "api.yaml#/components/schemas/EventLogRotated"
+        - $ref: "api.yaml#/components/schemas/TickObserved"
 
     ClientMessage:
       oneOf:
@@ -1784,6 +1792,28 @@ components:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         checkpoint:
           $ref: "api.yaml#/components/schemas/NodeState"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    TickObserved:
+      title: TickObserved
+      description: |
+        Chain point observed by the node from the connected chain backend.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - seq
+        - chainSlot
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["TickObserved"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        chainSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
