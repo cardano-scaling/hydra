@@ -166,6 +166,8 @@ instance IsChainState Tx where
 
   chainPointSlot = chainSlotFromPoint
 
+  modifyStatePoint chainState point = chainState{recordedAt = Just point}
+
 -- | Get a generic 'ChainSlot' from a Cardano 'ChainPoint'. Slot 0 is used for
 -- the genesis point.
 chainSlotFromPoint :: ChainPoint -> ChainSlot

@@ -44,3 +44,6 @@ class
 
   -- | Get the chain slot for a chain point.
   chainPointSlot :: ChainPointType tx -> ChainSlot
+
+  -- | Update the chain point in a chain state.
+  modifyStatePoint :: ChainStateType tx -> ChainPointType tx -> ChainStateType tx

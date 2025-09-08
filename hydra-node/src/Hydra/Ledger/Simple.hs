@@ -119,6 +119,8 @@ instance IsChainState SimpleTx where
 
   chainPointSlot = id
 
+  modifyStatePoint chainState point = chainState{slot = point}
+
 -- * A simple ledger
 
 simpleLedger :: Ledger SimpleTx

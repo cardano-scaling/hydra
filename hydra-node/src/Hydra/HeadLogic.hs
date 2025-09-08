@@ -1814,7 +1814,10 @@ aggregateChainStateHistory history = \case
   HeadFannedOut{chainState} -> pushNewState chainState history
   ChainRolledBack{chainState} ->
     rollbackHistory (chainStateSlot chainState) history
-  TickObserved{} -> history
+  TickObserved{point} ->
+    let currentChainState = currentState history
+        chainState = modifyStatePoint currentChainState point
+     in pushNewState chainState history
   CommitApproved{} -> history
   DecommitApproved{} -> history
   DecommitInvalid{} -> history
