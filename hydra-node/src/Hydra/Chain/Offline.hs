@@ -2,6 +2,7 @@ module Hydra.Chain.Offline where
 
 import Hydra.Prelude
 
+import Cardano.Api (ChainPoint (ChainPoint))
 import Cardano.Api.Internal.Genesis (shelleyGenesisDefaults)
 import Cardano.Api.Internal.GenesisParameters (fromShelleyGenesis)
 import Cardano.Ledger.Slot (unSlotNo)
@@ -17,7 +18,6 @@ import Hydra.Chain (
   ChainStateHistory,
   OnChainTx (..),
   PostTxError (..),
-  chainSlot,
   chainTime,
   initHistory,
  )
@@ -150,10 +150,11 @@ tickForever genesis callback = do
     let timeToSleepUntil = slotNoToUTCTime systemStart slotLength upcomingSlot
     sleepDelay <- diffUTCTime timeToSleepUntil <$> getCurrentTime
     threadDelay $ realToFrac sleepDelay
+    let chainSlot = ChainSlot . fromIntegral $ unSlotNo upcomingSlot
     callback $
       Tick
         { chainTime = timeToSleepUntil
-        , chainSlot = ChainSlot . fromIntegral $ unSlotNo upcomingSlot
+        , point = ChainPoint undefined undefined
         }
   systemStart = SystemStart protocolParamSystemStart
 

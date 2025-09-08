@@ -1799,12 +1799,13 @@ components:
       title: TickObserved
       description: |
         Chain point observed by the node from the connected chain backend.
+        It represents the node's current view of the chain tip at a given time.
       additionalProperties: false
       type: object
       required:
         - tag
         - seq
-        - chainSlot
+        - point
         - timestamp
       properties:
         tag:
@@ -1812,12 +1813,45 @@ components:
           enum: ["TickObserved"]
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
-        chainSlot:
-          $ref: "api.yaml#/components/schemas/ChainSlot"
+        point:
+          $ref: "api.yaml#/components/schemas/ChainPoint"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
     # END OF SERVER OUTPUT SCHEMAS
+
+    ChainPoint:
+      oneOf:
+        - title: ChainPointAtGenesis
+          description: |
+            Special chain point representing the beginning of the chain, before any blocks have been produced.
+          additionalProperties: false
+          type: object
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPointAtGenesis"]
+        - title: ChainPoint
+          description: |
+            Concrete chain point referencing a block on-chain by its slot number and header hash.
+          additionalProperties: false
+          type: object
+          required:
+            - tag
+            - slot
+            - blockHash
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPoint"]
+            slot:
+              type: integer
+              minimum: 0
+            blockHash:
+              type: string
+              contentEncoding: base16
 
     Address:
       type: string

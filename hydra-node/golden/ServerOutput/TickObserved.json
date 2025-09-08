@@ -1,7 +1,17 @@
 {
     "samples": [
         {
-            "chainSlot": 1,
+            "point": {
+                "tag": "ChainPointAtGenesis"
+            },
+            "tag": "TickObserved"
+        },
+        {
+            "point": {
+                "blockHash": "0100010001000101010001010001000001010101000001010100000000000101",
+                "slot": 1,
+                "tag": "ChainPoint"
+            },
             "tag": "TickObserved"
         }
     ],

@@ -11,7 +11,7 @@ import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
-import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
+import Hydra.Chain.ChainState (ChainPointType, ChainStateType, IsChainState)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), NodeState, OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
@@ -214,7 +214,7 @@ data ServerOutput tx
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | EventLogRotated {checkpoint :: NodeState tx}
-  | TickObserved {chainSlot :: ChainSlot}
+  | TickObserved {point :: ChainPointType tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -222,7 +222,7 @@ deriving stock instance IsChainState tx => Show (ServerOutput tx)
 deriving anyclass instance IsChainState tx => FromJSON (ServerOutput tx)
 deriving anyclass instance IsChainState tx => ToJSON (ServerOutput tx)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), Arbitrary (ChainPointType tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
   shrink = recursivelyShrink
 

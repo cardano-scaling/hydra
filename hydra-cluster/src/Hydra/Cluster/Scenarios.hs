@@ -42,6 +42,7 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.API.ServerOutput (HeadStatus (..))
 import Hydra.Cardano.Api (
+  ChainPoint,
   Coin (..),
   Era,
   File (File),
@@ -96,7 +97,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.ChainState (ChainSlot)
+import Hydra.Chain.Direct.State (chainSlotFromPoint)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
@@ -1995,7 +1996,7 @@ resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
     chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
       <&> setNetworkId networkId
 
-  slot :: ChainSlot <-
+  pointObserved :: ChainPoint <-
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
@@ -2003,10 +2004,10 @@ resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
 
       waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "TickObserved"
-        chainSlot <- v ^? key "chainSlot"
-        parseMaybe parseJSON chainSlot
+        point <- v ^? key "point"
+        parseMaybe parseJSON point
 
-  slot' :: ChainSlot <-
+  pointObserved' :: ChainPoint <-
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
@@ -2014,10 +2015,10 @@ resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
 
       waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "TickObserved"
-        chainSlot <- v ^? key "chainSlot"
-        parseMaybe parseJSON chainSlot
+        point <- v ^? key "point"
+        parseMaybe parseJSON point
 
-  slot `shouldBe` slot'
+  chainSlotFromPoint pointObserved `shouldBe` chainSlotFromPoint pointObserved'
  where
   hydraTracer = contramap FromHydraNode tracer
 

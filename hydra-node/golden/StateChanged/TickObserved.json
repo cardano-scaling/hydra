@@ -1,7 +1,9 @@
 {
     "samples": [
         {
-            "chainSlot": 1,
+            "point": {
+                "tag": "ChainPointAtGenesis"
+            },
             "tag": "TickObserved"
         }
     ],

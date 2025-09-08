@@ -11,6 +11,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Number)
 import Hydra.Cardano.Api (Tx, UTxO)
 import Hydra.Chain (ChainCallback, ChainEvent (..), ChainStateHistory, OnChainTx (..), initHistory)
+import Hydra.Chain.ChainState (IsChainState (chainPointSlot))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (withOfflineChain)
 import Hydra.Cluster.Fixture (alice)
@@ -55,7 +56,7 @@ spec = do
       withOfflineChain offlineConfig alice [] noHistory callback $ \_chain -> do
         -- Expect to see a tick of slot 1 within 2 seconds
         waitMatch waitNext 2 $ \case
-          Tick{chainSlot} -> guard $ chainSlot > 0
+          Tick{point} -> guard $ chainPointSlot point > 0
           _ -> Nothing
 
   it "does not start on slot 0 with real genesis file" $ do
@@ -73,7 +74,7 @@ spec = do
       withOfflineChain offlineConfig alice [] noHistory callback $ \_chain -> do
         -- Should not start at 0
         waitMatch waitNext 1 $ \case
-          Tick{chainSlot} -> guard $ chainSlot > 1000
+          Tick{point} -> guard $ chainPointSlot point > 1000
           _ -> Nothing
         -- Should produce ticks on each slot, which is defined by genesis.json
         Just slotLength <- readFileBS (tmpDir </> "genesis.json") >>= \bs -> pure $ bs ^? key "slotLength" . _Number

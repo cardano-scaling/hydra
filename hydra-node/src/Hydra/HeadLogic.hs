@@ -34,6 +34,7 @@ import Hydra.Chain (
   ChainStateHistory,
   OnChainTx (..),
   PostChainTx (..),
+  currentState,
   initHistory,
   pushNewState,
   rollbackHistory,
@@ -1383,11 +1384,11 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{}, ChainInput Tick{chainTime, chainSlot}) ->
+  (Open openState@OpenState{}, ChainInput Tick{chainTime, point}) ->
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
-    newState TickObserved{chainSlot}
+    newState TickObserved{point}
       <> onOpenChainTick env pendingDeposits openState chainTime
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
     | ourHeadId == headId ->
@@ -1406,9 +1407,9 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
+  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, point})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState TickObserved{chainSlot}
+        newState TickObserved{point}
           <> newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
@@ -1425,8 +1426,8 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
   -- General
   (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
-  (_, ChainInput Tick{chainSlot}) ->
-    newState TickObserved{chainSlot}
+  (_, ChainInput Tick{point}) ->
+    newState TickObserved{point}
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
   (_, ClientInput{clientInput}) ->
@@ -1480,8 +1481,8 @@ aggregateNodeState nodeState sc =
               ns
                 { pendingDeposits = Map.delete depositTxId pendingDeposits
                 }
-        TickObserved{chainSlot} ->
-          ns{currentSlot = chainSlot}
+        TickObserved{point} ->
+          ns{currentSlot = chainPointSlot point}
         _ -> ns
 
 -- * HeadState aggregate
