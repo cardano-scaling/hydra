@@ -249,77 +249,79 @@ isModalOpen s =
     Just OpenHome -> False
     Just _ -> True
 
-recoverHeadState :: UTCTime -> HeadState -> State.HeadState Tx -> HeadState
-recoverHeadState now current = \case
-  State.Idle State.IdleState{} -> current
-  State.Initial
-    State.InitialState
-      { parameters
-      , committed
-      , headId
-      , pendingCommits
-      } ->
-      Active
-        ActiveLink
-          { utxo = fold committed
-          , pendingUTxOToDecommit = mempty
-          , pendingIncrements = mempty
-          , parties = HeadParameters.parties parameters
-          , headId
-          , activeHeadState =
-              Initializing
-                InitializingState
-                  { remainingParties =
-                      filter
-                        (`Set.member` pendingCommits)
-                        (HeadParameters.parties parameters)
-                  , initializingScreen = InitializingHome
-                  }
-          }
-  State.Open
-    State.OpenState
-      { parameters
-      , headId
-      , coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, pendingDeposits}
-      } ->
-      let Snapshot{utxo, utxoToDecommit} = Snapshot.getSnapshot confirmedSnapshot
-          pendingIncrements =
-            Map.toList pendingDeposits
-              <&> ( \(txId, State.Deposit{deposited, deadline}) ->
-                      PendingIncrement
-                        { utxoToCommit = deposited
-                        , deposit = txId
-                        , depositDeadline = deadline
-                        , status = PendingDeposit -- FIXME!
-                        }
-                  )
-       in Active
-            ActiveLink
-              { utxo
-              , pendingUTxOToDecommit = fromMaybe mempty utxoToDecommit
-              , pendingIncrements
-              , parties = HeadParameters.parties parameters
-              , headId
-              , activeHeadState = Open OpenHome
-              }
-  State.Closed
-    State.ClosedState
-      { parameters
-      , headId
-      , confirmedSnapshot
-      , readyToFanoutSent
-      } ->
-      let Snapshot{utxo, utxoToDecommit} = Snapshot.getSnapshot confirmedSnapshot
-          contestationDeadline = addUTCTime (CP.toNominalDiffTime $ HeadParameters.contestationPeriod parameters) now
-       in Active
-            ActiveLink
-              { utxo
-              , pendingUTxOToDecommit = fromMaybe mempty utxoToDecommit
-              , pendingIncrements = mempty -- FIXME!
-              , parties = HeadParameters.parties parameters
-              , headId
-              , activeHeadState =
-                  if readyToFanoutSent
-                    then FanoutPossible
-                    else Closed{closedState = ClosedState{contestationDeadline}}
-              }
+recoverHeadState :: UTCTime -> HeadState -> State.NodeState Tx -> HeadState
+recoverHeadState now current State.NodeState{headState, pendingDeposits} =
+  case headState of
+    State.Idle State.IdleState{} -> current
+    State.Initial
+      State.InitialState
+        { parameters
+        , committed
+        , headId
+        , pendingCommits
+        } ->
+        Active
+          ActiveLink
+            { utxo = fold committed
+            , pendingUTxOToDecommit = mempty
+            , pendingIncrements
+            , parties = HeadParameters.parties parameters
+            , headId
+            , activeHeadState =
+                Initializing
+                  InitializingState
+                    { remainingParties =
+                        filter
+                          (`Set.member` pendingCommits)
+                          (HeadParameters.parties parameters)
+                    , initializingScreen = InitializingHome
+                    }
+            }
+    State.Open
+      State.OpenState
+        { parameters
+        , headId
+        , coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}
+        } ->
+        let Snapshot{utxo, utxoToDecommit} = Snapshot.getSnapshot confirmedSnapshot
+         in Active
+              ActiveLink
+                { utxo
+                , pendingUTxOToDecommit = fromMaybe mempty utxoToDecommit
+                , pendingIncrements
+                , parties = HeadParameters.parties parameters
+                , headId
+                , activeHeadState = Open OpenHome
+                }
+    State.Closed
+      State.ClosedState
+        { parameters
+        , headId
+        , confirmedSnapshot
+        , readyToFanoutSent
+        } ->
+        let Snapshot{utxo, utxoToDecommit} = Snapshot.getSnapshot confirmedSnapshot
+            contestationDeadline = addUTCTime (CP.toNominalDiffTime $ HeadParameters.contestationPeriod parameters) now
+         in Active
+              ActiveLink
+                { utxo
+                , pendingUTxOToDecommit = fromMaybe mempty utxoToDecommit
+                , pendingIncrements
+                , parties = HeadParameters.parties parameters
+                , headId
+                , activeHeadState =
+                    if readyToFanoutSent
+                      then FanoutPossible
+                      else Closed{closedState = ClosedState{contestationDeadline}}
+                }
+ where
+  pendingIncrements =
+    Map.toList pendingDeposits
+      <&> ( \(txId, State.Deposit{deposited, deadline}) ->
+              PendingIncrement
+                { utxoToCommit = deposited
+                , deposit = txId
+                , depositDeadline = deadline
+                , status = PendingDeposit
+                }
+          )

@@ -1783,7 +1783,7 @@ components:
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         checkpoint:
-          $ref: "api.yaml#/components/schemas/HeadState"
+          $ref: "api.yaml#/components/schemas/NodeState"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
@@ -3317,7 +3317,6 @@ components:
         - coordinatedHeadState
         - chainState
         - headId
-        - currentSlot
         - headSeed
       properties:
         parameters:
@@ -3328,8 +3327,6 @@ components:
           $ref: "api.yaml#/components/schemas/ChainState"
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
-        currentSlot:
-          $ref: "api.yaml#/components/schemas/ChainSlot"
         headSeed:
           $ref: "api.yaml#/components/schemas/HeadSeed"
 
@@ -3372,7 +3369,6 @@ components:
         - allTxs
         - confirmedSnapshot
         - seenSnapshot
-        - pendingDeposits
         - currentDepositTxId
         - decommitTx
         - version
@@ -3393,12 +3389,6 @@ components:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         seenSnapshot:
           $ref: "api.yaml#/components/schemas/SeenSnapshot"
-        pendingDeposits:
-          type: object
-          propertyNames:
-            $ref: "api.yaml#/components/schemas/TxId"
-          items:
-            $ref: "api.yaml#/components/schemas/Deposit"
         currentDepositTxId:
           oneOf:
             - type: "null"
@@ -3430,6 +3420,25 @@ components:
           $ref: "api.yaml#/components/schemas/UTCTime"
         status:
           $ref: "api.yaml#/components/schemas/DepositStatus"
+
+    NodeState:
+      type: object
+      additionalProperties: false
+      required:
+        - headState
+        - pendingDeposits
+        - currentSlot
+      properties:
+        headState:
+          $ref: "api.yaml#/components/schemas/HeadState"
+        pendingDeposits:
+          type: object
+          propertyNames:
+            $ref: "api.yaml#/components/schemas/TxId"
+          items:
+            $ref: "api.yaml#/components/schemas/Deposit"
+        currentSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
 
     SubmitL2TxResponse:
       oneOf:

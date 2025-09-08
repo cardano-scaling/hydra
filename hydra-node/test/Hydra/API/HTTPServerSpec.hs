@@ -31,8 +31,9 @@ import Hydra.Cardano.Api (
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (checkAmount, rejectLowDeposits)
-import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
+import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), NodeState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger (ValidationError (..))
@@ -69,6 +70,7 @@ spec = do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized TransactionSubmitted))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SideLoadSnapshotRequest Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (HeadState Tx)))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized (NodeState Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmitL2TxResponse))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SubmitL2TxRequest Tx)))
 
@@ -214,7 +216,7 @@ apiServerSpec = do
 
         putClientInput :: ClientInput tx -> IO ()
         putClientInput = const (pure ())
-        getHeadState = pure inIdleState
+        getNodeState = pure inIdleState
     describe "GET /protocol-parameters" $ do
       responseChannel <- runIO newTChanIO
       with
@@ -224,7 +226,7 @@ apiServerSpec = do
               dummyChainHandle
               testEnvironment
               defaultPParams
-              getHeadState
+              getNodeState
               cantCommit
               getPendingDeposits
               putClientInput
@@ -249,14 +251,14 @@ apiServerSpec = do
 
     describe "GET /head" $ do
       responseChannel <- runIO newTChanIO
-      prop "responds correctly" $ \headState -> do
+      prop "responds correctly" $ \nodeState -> do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
               dummyChainHandle
               testEnvironment
               defaultPParams
-              (pure headState)
+              (pure nodeState)
               cantCommit
               getPendingDeposits
               putClientInput
@@ -265,19 +267,19 @@ apiServerSpec = do
           )
           $ do
             get "/head"
-              `shouldRespondWith` 200{matchBody = matchJSON headState}
+              `shouldRespondWith` 200{matchBody = matchJSON (headState nodeState)}
       responseChannelSimpleTx <- runIO newTChanIO
-      prop "ok response matches schema" $ \headState -> do
-        let isIdle = case headState of
+      prop "ok response matches schema" $ \nodeState -> do
+        let isIdle = case headState nodeState of
               Idle{} -> True
               _ -> False
-        let isInitial = case headState of
+        let isInitial = case headState nodeState of
               Initial{} -> True
               _ -> False
-        let isOpen = case headState of
+        let isOpen = case headState nodeState of
               Open{} -> True
               _ -> False
-        let isClosed = case headState of
+        let isClosed = case headState nodeState of
               Closed{} -> True
               _ -> False
         withMaxSuccess 20
@@ -293,7 +295,7 @@ apiServerSpec = do
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
-                  (pure headState)
+                  (pure nodeState)
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -310,15 +312,15 @@ apiServerSpec = do
                     }
     describe "GET /snapshot/last-seen" $ do
       responseChannel <- runIO newTChanIO
-      prop "responds correctly" $ \headState -> do
-        let seenSnapshot :: SeenSnapshot SimpleTx = getSeenSnapshot headState
+      prop "responds correctly" $ \nodeState -> do
+        let seenSnapshot :: SeenSnapshot SimpleTx = getSeenSnapshot (headState nodeState)
         withApplication
           ( httpApp @SimpleTx
               nullTracer
               dummyChainHandle
               testEnvironment
               defaultPParams
-              (pure headState)
+              (pure nodeState)
               cantCommit
               getPendingDeposits
               putClientInput
@@ -330,15 +332,15 @@ apiServerSpec = do
               `shouldRespondWith` 200{matchBody = matchJSON seenSnapshot}
     describe "GET /snapshot" $ do
       responseChannel <- runIO newTChanIO
-      prop "responds correctly" $ \headState -> do
-        let confirmedSnapshot :: Maybe (ConfirmedSnapshot SimpleTx) = getConfirmedSnapshot headState
+      prop "responds correctly" $ \nodeState -> do
+        let confirmedSnapshot :: Maybe (ConfirmedSnapshot SimpleTx) = getConfirmedSnapshot (headState nodeState)
         withApplication
           ( httpApp @SimpleTx
               nullTracer
               dummyChainHandle
               testEnvironment
               defaultPParams
-              (pure headState)
+              (pure nodeState)
               cantCommit
               getPendingDeposits
               putClientInput
@@ -361,7 +363,7 @@ apiServerSpec = do
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
-                  (pure (Closed closedState))
+                  (pure NodeState{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -429,7 +431,7 @@ apiServerSpec = do
         responseChannel <- newTChanIO
         let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
         SideLoadSnapshotRequest snapshot <- reqGen
-        let clientFailed = Right (CommandFailed{clientInput = SideLoadSnapshot snapshot, state = inIdleState})
+        let clientFailed = Right (CommandFailed{clientInput = SideLoadSnapshot snapshot, state = headState inIdleState})
         withApplication
           ( httpApp @SimpleTx
               nullTracer
@@ -448,15 +450,15 @@ apiServerSpec = do
 
     describe "GET /snapshot/utxo" $ do
       responseChannel <- runIO newTChanIO
-      prop "responds correctly" $ \headState -> do
-        let utxo :: Maybe (UTxOType SimpleTx) = getSnapshotUtxo headState
+      prop "responds correctly" $ \nodeState -> do
+        let utxo :: Maybe (UTxOType SimpleTx) = getSnapshotUtxo (headState nodeState)
         withApplication
           ( httpApp @SimpleTx
               nullTracer
               dummyChainHandle
               testEnvironment
               defaultPParams
-              (pure headState)
+              (pure nodeState)
               cantCommit
               getPendingDeposits
               putClientInput
@@ -469,8 +471,8 @@ apiServerSpec = do
                 Nothing -> 404
                 Just u -> 200{matchBody = matchJSON u}
       responseChannelSimpleTx <- runIO newTChanIO
-      prop "ok response matches schema" $ \headState -> do
-        let mUTxO = getSnapshotUtxo headState
+      prop "ok response matches schema" $ \nodeState -> do
+        let mUTxO = getSnapshotUtxo (headState nodeState)
             utxo :: UTxOType Tx = fromMaybe mempty mUTxO
         withMaxSuccess 4
           . cover 1 (UTxO.null utxo) "empty"
@@ -483,7 +485,7 @@ apiServerSpec = do
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
-                  (pure headState)
+                  (pure nodeState)
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -521,7 +523,7 @@ apiServerSpec = do
                 dummyChainHandle
                 testEnvironment
                 defaultPParams
-                (pure (Closed closedState'))
+                (pure NodeState{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0})
                 cantCommit
                 getPendingDeposits
                 putClientInput
@@ -555,7 +557,7 @@ apiServerSpec = do
               workingChainHandle
               testEnvironment
               defaultPParams
-              (pure initialHeadState)
+              (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -610,7 +612,7 @@ apiServerSpec = do
                 (failingChainHandle postTxError)
                 testEnvironment
                 defaultPParams
-                (pure openHeadState)
+                (pure NodeState{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
                 getHeadId
                 getPendingDeposits
                 putClientInput

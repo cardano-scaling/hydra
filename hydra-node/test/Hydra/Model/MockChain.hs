@@ -56,6 +56,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   InitialState (..),
   Input (..),
+  NodeState (..),
   OpenState (..),
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
@@ -65,7 +66,7 @@ import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect, mkNetworkInput)
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
 import Hydra.Node.Environment (Environment (Environment, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.NodeSpec (mockServer)
@@ -223,9 +224,9 @@ mockChainAndNetwork tr seedKeys commits = do
       Nothing -> error "closeWithInitialSnapshot: Could not find matching HydraNode"
       Just
         MockHydraNode
-          { node = HydraNode{oc = Chain{postTx}, nodeState = NodeState{queryHeadState}}
+          { node = HydraNode{oc = Chain{postTx}, nodeStateHandler = NodeStateHandler{queryNodeState}}
           } -> do
-          hs <- atomically queryHeadState
+          NodeState{headState = hs} <- atomically queryNodeState
           case hs of
             Idle IdleState{} -> error "Cannot post Close tx when in Idle state"
             Initial InitialState{} -> error "Cannot post Close tx when in Initial state"

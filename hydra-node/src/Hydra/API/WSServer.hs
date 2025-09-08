@@ -41,7 +41,7 @@ import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
+import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), NodeState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.NetworkVersions qualified as NetworkVersions
@@ -67,14 +67,14 @@ wsApp ::
   ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
-  Projection STM.STM (StateChanged tx) (HeadState tx) ->
+  Projection STM.STM (StateChanged tx) (NodeState tx) ->
   -- | Read model to enhance 'Greetings' messages with 'NetworkInfo'.
   Projection STM.STM (StateChanged tx) NetworkInfo ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp env party tracer history callback headStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -98,7 +98,7 @@ wsApp env party tracer history callback headStateP networkInfoP responseChannel 
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
   forwardGreetingOnly config con = do
-    headState <- atomically getLatestHeadState
+    NodeState{headState} <- atomically getLatestNodeState
     networkInfo <- atomically getLatestNetworkInfo
     sendTextData con $
       handleUtxoInclusion config (atKey "snapshotUtxo" .~ Nothing) $
@@ -113,7 +113,7 @@ wsApp env party tracer history callback headStateP networkInfoP responseChannel 
             , networkInfo
             }
 
-  Projection{getLatest = getLatestHeadState} = headStateP
+  Projection{getLatest = getLatestNodeState} = nodeStateP
   Projection{getLatest = getLatestNetworkInfo} = networkInfoP
 
   mkServerOutputConfig :: [QueryParam] -> ServerOutputConfig

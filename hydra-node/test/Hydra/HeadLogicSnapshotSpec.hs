@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), NodeState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
@@ -57,7 +57,6 @@ spec = do
             , localTxs = mempty
             , confirmedSnapshot = InitialSnapshot testHeadId u0
             , seenSnapshot = NoSeenSnapshot
-            , pendingDeposits = mempty
             , currentDepositTxId = Nothing
             , decommitTx = Nothing
             , version = 0
@@ -160,7 +159,7 @@ spec = do
         everybodyAcknowledged `hasNoEffectSatisfying` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
-        headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
+        nodeState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
           step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
           step (receiveMessageFrom carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
@@ -168,7 +167,7 @@ spec = do
           step (ackFrom bobSk bob)
           getState
 
-        case headState of
+        case headState nodeState of
           Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = actualSnapshot}} ->
             actualSnapshot `shouldBe` RequestedSnapshot{lastSeen = 1, requested = 2}
           other -> expectationFailure $ "Expected to be in open state: " <> show other
@@ -204,7 +203,6 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
         , localTxs = []
         , confirmedSnapshot = sn
         , seenSnapshot
-        , pendingDeposits = mempty
         , currentDepositTxId = Nothing
         , decommitTx = Nothing
         , version

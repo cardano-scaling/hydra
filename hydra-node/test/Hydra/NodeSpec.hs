@@ -15,7 +15,7 @@ import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
 import Hydra.Events.Rotation (EventStore (..), LogId)
-import Hydra.HeadLogic (Input (..), TTL)
+import Hydra.HeadLogic (Input (..), NodeState (..), TTL)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
@@ -299,23 +299,23 @@ spec = parallel $ do
             , participants = error "should not be recorded in head state"
             , configuredPeers = ""
             }
-        headState = inInitialState [alice, bob]
+        nodeState = inInitialState [alice, bob]
 
     it "accepts configuration consistent with HeadState" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
-        checkHeadState tracer defaultEnv headState `shouldReturn` ()
+        checkHeadState tracer defaultEnv (headState nodeState) `shouldReturn` ()
 
     it "throws exception given contestation period differs" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let invalidPeriodEnv =
               defaultEnv{Environment.contestationPeriod = 42}
-        checkHeadState tracer invalidPeriodEnv headState
+        checkHeadState tracer invalidPeriodEnv (headState nodeState)
           `shouldThrow` \(_ :: ParameterMismatch) -> True
 
     it "throws exception given parties differ" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let invalidPeriodEnv = defaultEnv{otherParties = []}
-        checkHeadState tracer invalidPeriodEnv headState
+        checkHeadState tracer invalidPeriodEnv (headState nodeState)
           `shouldThrow` \(_ :: ParameterMismatch) -> True
 
     it "log error given configuration mismatches head state" $ do
@@ -326,7 +326,7 @@ spec = parallel $ do
             Misconfiguration{} -> True
             _ -> False
 
-      checkHeadState (traceInTVar logs "NodeSpec") invalidPeriodEnv headState
+      checkHeadState (traceInTVar logs "NodeSpec") invalidPeriodEnv (headState nodeState)
         `catch` \(_ :: ParameterMismatch) -> pure ()
 
       entries <- fmap Logging.message <$> readTVarIO logs

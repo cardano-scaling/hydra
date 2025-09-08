@@ -35,17 +35,17 @@ import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
-  IdleState (..),
   Input (..),
+  NodeState (..),
   Outcome (..),
   TTL,
-  aggregate,
   aggregateChainStateHistory,
+  aggregateNodeState,
   aggregateState,
  )
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
-import Hydra.HeadLogic.State (getHeadParameters)
+import Hydra.HeadLogic.State (getHeadParameters, initNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -159,12 +159,12 @@ data DraftHydraNode tx m = DraftHydraNode
   { tracer :: Tracer m (HydraNodeLog tx)
   , env :: Environment
   , ledger :: Ledger tx
-  , nodeState :: NodeState tx m
+  , nodeStateHandler :: NodeStateHandler tx m
   , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateEvent tx) m
   , eventSinks :: [EventSink (StateEvent tx) m]
   , -- XXX: This is an odd field in here, but needed for the chain layer to
-    -- bootstrap. Maybe move to NodeState or make it differently accessible?
+    -- bootstrap. Maybe move to NodeStateHandler or make it differently accessible?
     chainStateHistory :: ChainStateHistory tx
   }
 
@@ -184,44 +184,44 @@ hydrate ::
   m (DraftHydraNode tx m)
 hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} eventSinks = do
   traceWith tracer LoadingState
-  (lastEventId, (headState, chainStateHistory)) <-
+  (lastEventId, (nodeState, chainStateHistory)) <-
     runConduitRes $
       sourceEvents eventSource
         .| getZipSink
           ( (,)
               <$> ZipSink (foldMapC (Last . pure . getEventId))
-              <*> ZipSink recoverHeadStateC
+              <*> ZipSink recoverNodeStateC
           )
-  traceWith tracer $ LoadedState{lastEventId, headState}
+  traceWith tracer $ LoadedState{lastEventId, nodeState}
   -- Check whether the loaded state matches our configuration (env)
   -- XXX: re-stream events just for this?
-  checkHeadState tracer env headState
+  checkHeadState tracer env (headState nodeState)
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   traceWith tracer ReplayingState
   runConduitRes $
     sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
 
-  nodeState <- createNodeState (getLast lastEventId) headState
+  nodeStateHandler <- createNodeStateHandler (getLast lastEventId) nodeState
   inputQueue <- createInputQueue
   pure
     DraftHydraNode
       { tracer
       , env
       , ledger
-      , nodeState
+      , nodeStateHandler
       , inputQueue
       , eventSource
       , eventSinks = eventSink : eventSinks
       , chainStateHistory
       }
  where
-  initialState = Idle IdleState{chainState = initialChainState}
+  initialState = initNodeState initialChainState
 
-  recoverHeadStateC =
+  recoverNodeStateC =
     mapC stateChanged
       .| getZipSink
         ( (,)
-            <$> ZipSink (foldlC aggregate initialState)
+            <$> ZipSink (foldlC aggregateNodeState initialState)
             <*> ZipSink (foldlC aggregateChainStateHistory $ initHistory initialChainState)
         )
 
@@ -264,16 +264,16 @@ connect ::
   DraftHydraNode tx m ->
   m (HydraNode tx m)
 connect chain network server node =
-  pure HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
+  pure HydraNode{tracer, env, ledger, nodeStateHandler, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
  where
-  DraftHydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks} = node
+  DraftHydraNode{tracer, env, ledger, nodeStateHandler, inputQueue, eventSource, eventSinks} = node
 
 -- | Fully connected hydra node with everything wired in.
 data HydraNode tx m = HydraNode
   { tracer :: Tracer m (HydraNodeLog tx)
   , env :: Environment
   , ledger :: Ledger tx
-  , nodeState :: NodeState tx m
+  , nodeStateHandler :: NodeStateHandler tx m
   , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateEvent tx) m
   , eventSinks :: [EventSink (StateEvent tx) m]
@@ -348,12 +348,12 @@ processNextInput ::
   HydraNode tx m ->
   Input tx ->
   STM m (Outcome tx)
-processNextInput HydraNode{nodeState, ledger, env} e =
-  modifyHeadState $ \s ->
+processNextInput HydraNode{nodeStateHandler, ledger, env} e =
+  modifyNodeState $ \s ->
     let outcome = computeOutcome s e
      in (outcome, aggregateState s outcome)
  where
-  NodeState{modifyHeadState} = nodeState
+  NodeStateHandler{modifyNodeState} = nodeStateHandler
 
   computeOutcome = HeadLogic.update env ledger
 
@@ -367,7 +367,7 @@ processStateChanges node stateChanges = do
  where
   HydraNode
     { eventSinks
-    , nodeState = NodeState{getNextEventId}
+    , nodeStateHandler = NodeStateHandler{getNextEventId}
     } = node
 
 processEffects ::
@@ -404,27 +404,29 @@ processEffects node tracer inputId effects = do
 
 -- ** Manage state
 
+-- TODO! pendingDeposits :: Map (TxIdType tx) (Deposit tx)
+
 -- | Handle to access and modify the state in the Hydra Node.
-data NodeState tx m = NodeState
-  { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
-  , queryHeadState :: STM m (HeadState tx)
+data NodeStateHandler tx m = NodeStateHandler
+  { modifyNodeState :: forall a. (NodeState tx -> (a, NodeState tx)) -> STM m a
+  , queryNodeState :: STM m (NodeState tx)
   , getNextEventId :: STM m EventId
   }
 
--- | Initialize a new 'NodeState'.
-createNodeState ::
+-- | Initialize a new 'NodeStateHandler'.
+createNodeStateHandler ::
   MonadLabelledSTM m =>
   -- | Last seen 'EventId'.
   Maybe EventId ->
-  HeadState tx ->
-  m (NodeState tx m)
-createNodeState lastSeenEventId initialState = do
+  NodeState tx ->
+  m (NodeStateHandler tx m)
+createNodeStateHandler lastSeenEventId initialState = do
   nextEventIdV <- newLabelledTVarIO "next-event-id" $ maybe 0 (+ 1) lastSeenEventId
-  hs <- newLabelledTVarIO "head-state" initialState
+  ns <- newLabelledTVarIO "node-state" initialState
   pure
-    NodeState
-      { modifyHeadState = stateTVar hs
-      , queryHeadState = readTVar hs
+    NodeStateHandler
+      { modifyNodeState = stateTVar ns
+      , queryNodeState = readTVar ns
       , getNextEventId = do
           eventId <- readTVar nextEventIdV
           writeTVar nextEventIdV $ eventId + 1
@@ -441,7 +443,7 @@ data HydraNodeLog tx
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
   | DroppedFromQueue {inputId :: Word64, input :: Input tx}
   | LoadingState
-  | LoadedState {lastEventId :: Last EventId, headState :: HeadState tx}
+  | LoadedState {lastEventId :: Last EventId, nodeState :: NodeState tx}
   | ReplayingState
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
