@@ -347,12 +347,10 @@ testAssetName3 = "TestToken3"
 utxoWithTokens :: [(PolicyId, AssetName, Quantity)] -> UTxO
 utxoWithTokens tokens =
   let value = fromList $ map (\(pid, aname, qty) -> (AssetId pid aname, qty)) tokens
-      -- Add some ADA to make it a valid UTxO
-      valueWithAda = value <> fromList [(AdaAssetId, Quantity 1000000)]
       txIn = generateWith arbitrary 42
       baseTxOut = generateWith arbitrary 42
       -- Update the txOut to have our custom value
-      txOut = baseTxOut{txOutValue = valueWithAda}
+      txOut = baseTxOut{txOutValue = value}
    in UTxO.singleton txIn txOut
 
 -- * Property tests for splitTokens
