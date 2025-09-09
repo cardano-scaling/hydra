@@ -58,7 +58,7 @@ mkdir -p $out
 
         export out=/tmp/public/head-protocol/unstable
 mkdir -p $out
-        cp result/build $out -r
+        cp result/build/* $out -r
 
         nix develop .#hydra-node-bench --command -- tx-cost --output-directory $out/benchmarks/
         nix develop .#hydra-node-bench --command -- micro -o $out/benchmarks/ledger-bench.html
