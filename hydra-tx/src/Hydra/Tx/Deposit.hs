@@ -99,7 +99,7 @@ pickTokensToDeposit leftoverUTxO depositTokens
   | Map.null depositTokens = mempty
   | otherwise = UTxO.fromList picked
  where
-  -- Build list of (TxIn, new TxOut) where new TxOut has original lovelace + exact required quantities of matched assets.
+  -- Build list of (TxIn, new TxOut) where new TxOut has exact required quantities of matched assets.
   picked :: [(TxIn, TxOut CtxUTxO)]
   picked =
     [ (i, mkTxOutValueNotKeepingLovelace o newValue)
@@ -126,7 +126,7 @@ pickTokensToDeposit leftoverUTxO depositTokens
       Just availQty | reqQty <= availQty -> Map.insert name reqQty matched
       _ -> matched
 
--- Helper to create TxOut with original lovelace + new value (unchanged from original).
+-- Helper to create TxOut with new value (unchanged from original) and removing all lovelace.
 mkTxOutValueNotKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
 mkTxOutValueNotKeepingLovelace (TxOut addr _ datum refScript) newValue =
   TxOut addr newValue datum refScript
