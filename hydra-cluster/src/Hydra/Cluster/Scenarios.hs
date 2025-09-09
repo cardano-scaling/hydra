@@ -19,6 +19,7 @@ import Cardano.Ledger.Credential (Credential (ScriptHashObj))
 import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import CardanoClient (
   QueryPoint (QueryTip),
+  SubmitTransactionException,
   waitForUTxO,
  )
 import CardanoNode (NodeLog)
@@ -2018,8 +2019,14 @@ threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
         -- XXX: one will fail but the head will still open
         aliceUTxO <- seedFromFaucet backend aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
         raceLabelled_
-          ("request-commit-tx-n1", requestCommitTx n1 aliceUTxO >>= Backend.submitTransaction backend)
-          ("request-commit-tx-n3", requestCommitTx n3 aliceUTxO >>= Backend.submitTransaction backend)
+          ( "request-commit-tx-n1"
+          , (requestCommitTx n1 aliceUTxO >>= Backend.submitTransaction backend)
+              `catch` \(_ :: SubmitTransactionException) -> pure ()
+          )
+          ( "request-commit-tx-n3"
+          , (requestCommitTx n3 aliceUTxO >>= Backend.submitTransaction backend)
+              `catch` \(_ :: SubmitTransactionException) -> pure ()
+          )
 
         -- N2 commits something
         bobUTxO <- seedFromFaucet backend bobCardanoVk 1_000_000 (contramap FromFaucet tracer)
