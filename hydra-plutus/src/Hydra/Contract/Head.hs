@@ -298,7 +298,11 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
 
   mustIncreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue <> depositValue === headOutValue
+      -- NOTE: Strict equality (===) in presence of non ADA assets here
+      -- seem to make this check not work. Since we don't want to sort on-chain (inefficient)
+      -- and it is hard/impossible to sort in the off-chain code we just use PlutusTx equality which should
+      -- be enough in this case.
+      headInValue <> depositValue == headOutValue
 
   OpenDatum
     { parties = prevParties

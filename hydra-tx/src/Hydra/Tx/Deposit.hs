@@ -74,8 +74,8 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
 
 -- | Merges the two 'UTxO' favoring data coming from the first argument 'UTxO'.
 -- In case the same 'TxIn' was found in the first 'UTxO' - second 'UTxO' value
--- will be apended to the input.
--- NOTE: We need this since mappend on 'UTxO' is happy to accept the first 'Value' it encounteres
+-- will be appended to the input.
+-- NOTE: We need this since mappend on 'UTxO' is happy to accept the first 'Value' it encounters
 -- in case 'TxId'/s are the same.
 mergeUTxO :: UTxO -> UTxO -> UTxO
 mergeUTxO utxo utxoToMerge =
@@ -125,9 +125,6 @@ pickTokensToDeposit leftoverUTxO depositTokens
     matchAsset availAssets name reqQty matched = case Map.lookup name availAssets of
       Just availQty | reqQty <= availQty -> Map.insert name reqQty matched
       _ -> matched
-
-bumpIndices :: UTxO -> UTxO
-bumpIndices utxo = UTxO.fromList $ (\(TxIn hash (TxIx n), txOut) -> (TxIn hash (TxIx $ n + 1), txOut)) <$> UTxO.toList utxo
 
 -- Helper to create TxOut with original lovelace + new value (unchanged from original).
 mkTxOutValueNotKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
