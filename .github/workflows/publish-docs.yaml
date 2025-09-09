@@ -29,13 +29,13 @@ jobs:
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: Build documentation
+    - name: Build stable (i.e. from `release`) documentation
       working-directory: docs
       run: |
         nix build .#docs
 
         export out=/tmp/public/head-protocol
-mkdir -p $out
+        mkdir -p $out
         cp result/build/* $out -r
 
         nix develop .#hydra-node-bench --command -- tx-cost --output-directory $out/benchmarks/
@@ -57,7 +57,7 @@ mkdir -p $out
         nix build .#docs
 
         export out=/tmp/public/head-protocol/unstable
-mkdir -p $out
+        mkdir -p $out
         cp result/build/* $out -r
 
         nix develop .#hydra-node-bench --command -- tx-cost --output-directory $out/benchmarks/
