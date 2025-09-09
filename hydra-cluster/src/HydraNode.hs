@@ -508,7 +508,7 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryP
           retryOrThrow :: forall proxy e. Exception e => proxy e -> e -> IO a
           retryOrThrow _ e =
             readIORef connectedOnce >>= \case
-              False -> threadDelay 0.1 >> tryConnect connectedOnce (n - 1)
+              False -> threadDelay 1 >> tryConnect connectedOnce (n - 1)
               True -> throwIO e
         doConnect connectedOnce
           `catches` [ Handler $ retryOrThrow (Proxy @IOException)
