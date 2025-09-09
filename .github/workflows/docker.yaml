@@ -120,7 +120,7 @@ jobs:
         [[ ${{github.event_name == 'workflow_dispatch'}} = true ]] && \
           docker tag ${IMAGE_NAME}:${IMAGE_LABEL} ${IMAGE_NAME}:workflow_dispatch-${{github.event.inputs.ref_name}}
 
-        docker inspect ${IMAGE_NAME}:${VERSION_NAME}
+        docker inspect ${IMAGE_NAME}:${IMAGE_LABEL}
         docker images
 
     - name: 📤 Push to registry
