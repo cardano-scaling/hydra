@@ -57,7 +57,7 @@ Note that, as with any adjustments of this kind, it is good practice to make a b
 
 ### Training wheels
 
-There is a hard-coded limit on the **mainnet** where only up to 100 ada can be committed into the Hydra head. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on the mainnet.
+There is a hard-coded limit in hydra-node when used on **mainnet**: only up to 100 ada can be committed into the Hydra head. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on the mainnet.
 
 ### Deposit periods
 
