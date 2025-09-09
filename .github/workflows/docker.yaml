@@ -49,43 +49,78 @@ jobs:
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: 🔨 Build image using nix
+    - name: 🔨 🏷️ Build and tag images
       run: |
+
         IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${{matrix.target}}
         echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
         nix build .#docker-${{ matrix.target }}
         docker load < result
 
-        # Determine whether we are building a tag and if yes, set a VERSION_NAME
+        # Compute tags. We want the following behaviour:
+        #
+        # 1. Building on tag:
+        #
+        #    a. Image tagged `<tag>`
+        #
+        #    b. If the tag is the "latest" one for the present major release,
+        #    then also tag it as "latest"
+        #
+        # 3. Building on master:   image tagged `unstable`.
+
+        # Let's default to 'unstable'.
+        IMAGE_LABEL=unstable
+        # And the version as the git commit.
+        VERSION=${{github.sha}}
+
+        # Determine whether we are building a tag and if yes, set the label
+        # name to be the tag name, and the version to be the tag.
         BUILDING_TAG=${{github.ref_type == 'tag'}}
         [[ ${BUILDING_TAG} = true ]] && \
-          VERSION_NAME=${{github.ref_name}}
+          IMAGE_LABEL=${{github.ref_name}} && \
+          VERSION=${{github.ref_name}}
 
-        BUILDING_ON_MASTER=false
-        if (git merge-base --is-ancestor HEAD origin/master); then
-          BUILDING_ON_MASTER=true
-        fi
+        # If we're running on master, tag it as "unstable" and
+        # and leave the version as the git commit.
+        [[ ${GITHUB_REF_NAME} = "master" ]] && \
+          IMAGE_LABEL=unstable
 
-        # Use 'FROM' instruction to use docker build with --label
+        # Use 'FROM' instruction to use docker build with --label, as
+        # well as setting the tag directly.
         echo "FROM ${{matrix.target}}" | docker build \
           --label org.opencontainers.image.source=https://github.com/cardano-scaling/hydra \
           --label org.opencontainers.image.licenses=Apache-2.0 \
           --label org.opencontainers.image.created=$(date -Is) \
           --label org.opencontainers.image.revision=${{github.sha}} \
-          --label org.opencontainers.image.version=${VERSION_NAME:-unstable} \
-          --tag ${IMAGE_NAME}:unstable -
+          --label org.opencontainers.image.version=${VERSION} \
+          --tag ${IMAGE_NAME}:${IMAGE_LABEL} -
 
-        # Also tag with 'latest' if we are building on master
-        [[ ${BUIDING_TAG} && ${BUILDING_ON_MASTER} = true ]] && \
-          docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:latest
-        # Also tag with version if we are building a tag
-        [[ ${BUILDING_TAG} = true && ${{matrix.target}} != "hydraw" ]] && \
-          docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:${VERSION_NAME}
+        # Tag the build as 'latest' if it's the latest tag.
+        if [[ ${BUILDING_TAG} = true ]]; then
+          # Build a sorted list of tags . We have to grep-exclude some tags
+          # that we don't want to include; i.e. ones that don't point to our
+          # actual releases.
+          git tag -l | grep -P '^\d+.\d+.\d+$' >tags.txt
+
+          # Get the largest one (sort -V sorts as versions).
+          sort -V tags.txt | tail -n1 >latest.txt
+
+          # Compare it to mine; and if it's the same, then I am the latest, so
+          # we can tag it as such.
+          echo ${{ github.ref_name }}>mine.txt
+
+          # Note: This will also print the diff if it fails, which is useful
+          # for debugging.
+          if (diff mine.txt latest.txt); then
+            docker tag ${IMAGE_NAME}:${IMAGE_LABEL} ${IMAGE_NAME}:latest
+          fi
+        fi
+
         # Also tag with ref name when manually dispatched
         [[ ${{github.event_name == 'workflow_dispatch'}} = true ]] && \
-          docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:workflow_dispatch-${{github.event.inputs.ref_name}}
+          docker tag ${IMAGE_NAME}:${IMAGE_LABEL} ${IMAGE_NAME}:workflow_dispatch-${{github.event.inputs.ref_name}}
 
-        docker inspect ${IMAGE_NAME}:unstable
+        docker inspect ${IMAGE_NAME}:${VERSION_NAME}
         docker images
 
     - name: 📤 Push to registry
