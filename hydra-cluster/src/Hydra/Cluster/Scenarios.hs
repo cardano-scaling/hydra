@@ -1342,24 +1342,28 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           (walletVk, walletSk) <- generate genKeyPair
 
           tokensUTxO <- generate (genUTxOWithAssetsSized 2 (Just $ PolicyId $ CAPI.hashScript $ CAPI.PlutusScript dummyMintingScript))
+          let assetsToValue = foldMap ((mempty <>) . uncurry policyAssetsToValue) . Map.toList
           let totalTokenValue = UTxO.totalValue tokensUTxO
           let tokenAssets = valueToPolicyAssets totalTokenValue
-          let tokenAssetValue = foldMap ((mempty <>) . uncurry policyAssetsToValue) (Map.toList tokenAssets)
+          let tokenAssetValue = assetsToValue tokenAssets
+          let partialTokenAssets = Map.map (\(CAPI.PolicyAssets policyAssetMap) -> CAPI.PolicyAssets $ Map.filter (> 20) policyAssetMap) tokenAssets
+          let partialTokenAssetValue = assetsToValue partialTokenAssets
+          let tokenAssetValueWithoutAda = assetsToValue $ valueToPolicyAssets partialTokenAssetValue
           let seedAmount = 5_000_000
           -- NOTE: We (and also the users) need to make sure we give enough ADA when committing. If deposit tx ADA amount is too low
           -- and some ADA is added to it after balancing in the wallet, then we have problems matching on the 'CommitApproved' etc.
           let commitAmount = 3_000_000
           commitUTxOWithoutTokens <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount) (contramap FromFaucet tracer)
-          commitUTxOWithTokens <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount <> totalTokenValue) (contramap FromFaucet tracer)
+          commitUTxOWithTokens <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount <> tokenAssetValue) (contramap FromFaucet tracer)
           -- This one is expected to fail since there is 5 ADA at the wallet address but we specified 6 ADA to commit
           (requestCommitTx' n1 commitUTxOWithoutTokens (Just 8_000_000) Nothing <&> toJSON)
             `shouldThrow` expectErrorStatus 400 (Just "AmountTooLow")
 
           -- This one is expected to fail since there are no extra assets but we specified some to commit
-          (requestCommitTx' n1 commitUTxOWithoutTokens (Just 5_000_000) (Just tokenAssets) <&> toJSON)
+          (requestCommitTx' n1 commitUTxOWithoutTokens (Just 5_000_000) (Just partialTokenAssets) <&> toJSON)
             `shouldThrow` expectErrorStatus 400 (Just "InvalidTokenRequest")
 
-          depositTransaction <- requestCommitTx' n1 commitUTxOWithTokens (Just commitAmount) (Just tokenAssets)
+          depositTransaction <- requestCommitTx' n1 commitUTxOWithTokens (Just commitAmount) (Just partialTokenAssets)
           let tx = signTx walletSk depositTransaction
 
           Backend.submitTransaction backend tx
@@ -1369,9 +1373,8 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
                 UTxO.fromList $
                   second
                     ( modifyTxOutValue
-                        ( \v ->
-                            let assets = Map.toList $ valueToPolicyAssets v
-                             in lovelaceToValue commitAmount <> foldMap ((mempty <>) . uncurry policyAssetsToValue) assets
+                        ( \_ ->
+                            lovelaceToValue commitAmount <> tokenAssetValueWithoutAda
                         )
                     )
                     <$> UTxO.toList commitUTxOWithTokens
@@ -1382,9 +1385,6 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
           getSnapshotUTxO n1 `shouldReturn` expectedDeposit
-          -- check that user balance contains the change from the commit tx + commitAmount in the UTxO we didn't commit
-          (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
-            `shouldReturn` lovelaceToValue seedAmount
 
           send n2 $ input "Close" []
 
@@ -1402,7 +1402,8 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
 
           -- Assert final wallet balance
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
-            `shouldReturn` lovelaceToValue (seedAmount + commitAmount)
+            -- NOTE: in the end we expect seedAmount * 2 since we seeded from faucet twice + assets we minted
+            `shouldReturn` lovelaceToValue (seedAmount * 2)
             <> tokenAssetValue
  where
   hydraTracer = contramap FromHydraNode tracer

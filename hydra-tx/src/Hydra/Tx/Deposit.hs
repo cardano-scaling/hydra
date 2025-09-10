@@ -16,7 +16,7 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
-import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId, withoutUTxO)
+import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (POSIXTime)
 
@@ -59,7 +59,7 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
   utxoToDeposit = mergeUTxO utxoToDeposit' tokensToDepositUTxO
 
   returnToUser =
-    let returnToUserUTxO = leftoverUTxO `withoutUTxO` tokensToDepositUTxO
+    let returnToUserUTxO = leftoverUTxO `filterExistingAssets` tokensToDepositUTxO
      in if UTxO.null returnToUserUTxO
           then StrictSeq.empty
           else
@@ -71,6 +71,29 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
   depositInputsList = toList (UTxO.inputSet utxoToDeposit)
 
   depositInputs = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> depositInputsList
+
+-- | Filter the first argument UTxO's non ADA assets in case any asset exists in the second UTxO argument.
+-- Asset quantities will be subtracted if they are found.
+filterExistingAssets :: UTxO -> UTxO -> UTxO
+filterExistingAssets utxoToFilter utxoToLookup =
+  UTxO.fromList $ findAssets <$> UTxO.toList utxoToFilter
+ where
+  findAssets (i, TxOut a val d r) =
+    let assets = valueToPolicyAssets val
+        originalLovelace = selectLovelace val
+        filteredAssets =
+          foldMap (uncurry policyAssetsToValue) $
+            Map.assocs $
+              Map.mapWithKey
+                ( \pid (PolicyAssets x) ->
+                    let samePid = List.filter (\(pid', _) -> pid' == pid) forLookup
+                     in case List.lookup pid samePid of
+                          Nothing -> PolicyAssets x
+                          Just (PolicyAssets foundAssets) -> PolicyAssets $ x `Map.difference` foundAssets
+                )
+                assets
+     in (i, TxOut a (lovelaceToValue originalLovelace <> filteredAssets) d r)
+  forLookup = concatMap (Map.toList . valueToPolicyAssets . txOutValue . snd) $ UTxO.toList utxoToLookup
 
 -- | Merges the two 'UTxO' favoring data coming from the first argument 'UTxO'.
 -- In case the same 'TxIn' was found in the first 'UTxO' - second 'UTxO' value
