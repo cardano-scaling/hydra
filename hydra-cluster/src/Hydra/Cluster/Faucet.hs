@@ -44,14 +44,14 @@ data FaucetLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
--- | Create a specially marked "seed" UTXO containing requested 'Lovelace' by
+-- | Create a specially marked "seed" UTXO containing requested 'Value' by
 -- redeeming funds available to the well-known faucet.
 seedFromFaucet ::
   ChainBackend backend =>
   backend ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
-  -- | Amount to get from faucet
+  -- | Value to get from faucet
   Value ->
   Tracer IO FaucetLog ->
   IO UTxO

@@ -1386,6 +1386,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
 
           getSnapshotUTxO n1 `shouldReturn` expectedDeposit
 
+
           send n2 $ input "Close" []
 
           deadline <- waitMatch (10 * blockTime) n2 $ \v -> do

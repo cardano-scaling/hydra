@@ -192,7 +192,8 @@ requestCommitTx :: HydraClient -> UTxO -> IO Tx
 requestCommitTx client utxos =
   requestCommitTx' client utxos Nothing Nothing
 
--- | Helper to make it easy to obtain a commit tx using some wallet utxo and optional amount.
+-- | Helper to make it easy to obtain a commit tx using some wallet utxo
+-- optional amount of lovelace and optional map of assets.
 -- Create a commit tx using the hydra-node for later submission.
 requestCommitTx' :: HydraClient -> UTxO -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> IO Tx
 requestCommitTx' HydraClient{apiHost = Host{hostname, port}} utxos amount tokens =

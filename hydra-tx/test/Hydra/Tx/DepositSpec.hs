@@ -172,9 +172,10 @@ spec =
           valid `shouldBe` mempty -- All assets in policy must be valid for policy to be valid
           invalid `shouldBe` tokens
         it "splits multiassets correctly" $
-          forAll (genUTxOWithAssetsSized 5 Nothing) $ \utxo ->
-            forAll (prepareAssetMap utxo) $ \assets ->
-              property $ propSplitMultiAssetCorrectly utxo assets
+          forAll arbitrary $ \policyId ->
+            forAll (genUTxOWithAssetsSized 5 (Just policyId)) $ \utxo ->
+              forAll (prepareAssetMap utxo) $ \assets ->
+                property $ propSplitMultiAssetCorrectly utxo assets
 
       describe "property tests" $ do
         prop "preserves all input tokens (completeness)" propPreservesAllTokens
@@ -424,8 +425,8 @@ propSplitMultiAssetCorrectly utxo specifiedTokens =
    in all (checkValidTokenInUTxO utxoPolicyAssets) (Map.toList depositAssets)
         & cover 10 (containsPolicies utxoPolicyAssets specifiedTokens) "PolicyId's are completely present in the UTxO"
         & cover 10 (containsAssets utxoPolicyAssets specifiedTokens) "Assets are completely present in the UTxO"
+        & cover 10 (Map.size specifiedTokens > 5) "Assets size > 5"
         & cover 1 (Map.null specifiedTokens) "Empty Assets"
-        & cover 1 (Map.size specifiedTokens > 5) "Assets size > 5"
         & counterexample ("Valid tokens: " <> show toDeposit)
         & counterexample ("UTxO policy assets: " <> show utxoPolicyAssets)
  where

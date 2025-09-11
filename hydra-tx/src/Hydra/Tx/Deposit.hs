@@ -82,18 +82,27 @@ filterExistingAssets utxoToFilter utxoToLookup =
     let assets = valueToPolicyAssets val
         originalLovelace = selectLovelace val
         filteredAssets =
-          foldMap (uncurry policyAssetsToValue) $
-            Map.assocs $
-              Map.mapWithKey
-                ( \pid (PolicyAssets x) ->
-                    let samePid = List.filter (\(pid', _) -> pid' == pid) forLookup
-                     in case List.lookup pid samePid of
-                          Nothing -> PolicyAssets x
-                          Just (PolicyAssets foundAssets) -> PolicyAssets $ x `Map.difference` foundAssets
-                )
-                assets
+         foldMap (uncurry policyAssetsToValue) $
+          filterAssets assets forLookup
      in (i, TxOut a (lovelaceToValue originalLovelace <> filteredAssets) d r)
-  forLookup = concatMap (Map.toList . valueToPolicyAssets . txOutValue . snd) $ UTxO.toList utxoToLookup
+  forLookup =
+     -- NOTE: Uses a list to store all policies, preserving multiple entries
+     -- with the same policyId but different assets. A Map would silently
+     -- overwrite duplicates.
+     concatMap (Map.toList . valueToPolicyAssets . txOutValue . snd) $ UTxO.toList utxoToLookup
+
+ -- | Filter the first argument map of assets in case any asset exists in the second argument.
+filterAssets :: Map PolicyId PolicyAssets -> [(PolicyId, PolicyAssets)] -> [(PolicyId, PolicyAssets)]
+filterAssets assets forLookup =
+     Map.assocs $
+       Map.mapWithKey
+         ( \pid (PolicyAssets x) ->
+             let samePid = List.filter (\(pid', _) -> pid' == pid) forLookup
+              in case List.lookup pid samePid of
+                   Nothing -> PolicyAssets x
+                   Just (PolicyAssets foundAssets) -> PolicyAssets $ x `Map.difference` foundAssets
+         )
+         assets
 
 -- | Merges the two 'UTxO' favoring data coming from the first argument 'UTxO'.
 -- In case the same 'TxIn' was found in the first 'UTxO' - second 'UTxO' value
