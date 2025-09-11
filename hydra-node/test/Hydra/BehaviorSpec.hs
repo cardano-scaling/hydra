@@ -1320,6 +1320,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
           { putEvent = \event ->
               case mkTimedServerOutputFromStateEvent event of
                 Nothing -> pure ()
+                Just TimedServerOutput{output = TickObserved{}} -> pure ()
                 Just TimedServerOutput{output} -> atomically $ do
                   writeTQueue outputs output
                   modifyTVar' outputHistory (output :)
