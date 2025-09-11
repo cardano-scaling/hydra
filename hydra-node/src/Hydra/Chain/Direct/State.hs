@@ -158,9 +158,6 @@ instance IsChainState Tx where
 
   type ChainPointType Tx = ChainPoint
 
-  chainStateSlot ChainStateAt{recordedAt} =
-    maybe (ChainSlot 0) chainSlotFromPoint recordedAt
-
   chainStatePoint ChainStateAt{recordedAt} =
     fromMaybe ChainPointAtGenesis recordedAt
 

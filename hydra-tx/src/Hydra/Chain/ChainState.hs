@@ -35,10 +35,6 @@ class
   -- | Type of what to keep as L1 chain point.
   type ChainPointType tx = c | c -> tx
 
-  -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
-  -- encountered, we assume monotonically increasing slots.
-  chainStateSlot :: ChainStateType tx -> ChainSlot
-
   -- | Get the chain point for a chain state.
   chainStatePoint :: ChainStateType tx -> ChainPointType tx
 
@@ -47,3 +43,8 @@ class
 
   -- | Update the chain point in a chain state.
   modifyStatePoint :: ChainStateType tx -> ChainPointType tx -> ChainStateType tx
+
+-- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
+-- encountered, we assume monotonically increasing slots.
+chainStateSlot :: IsChainState tx => ChainStateType tx -> ChainSlot
+chainStateSlot = chainPointSlot . chainStatePoint

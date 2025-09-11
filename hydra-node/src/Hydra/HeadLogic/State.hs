@@ -7,7 +7,7 @@ module Hydra.HeadLogic.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.Tx (
   HeadId,
   HeadParameters,

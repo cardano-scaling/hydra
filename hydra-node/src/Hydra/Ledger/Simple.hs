@@ -113,8 +113,6 @@ instance IsChainState SimpleTx where
 
   type ChainPointType SimpleTx = ChainSlot
 
-  chainStateSlot SimpleChainState{slot} = slot
-
   chainStatePoint SimpleChainState{slot} = slot
 
   chainPointSlot = id
