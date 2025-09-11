@@ -115,7 +115,7 @@ import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.Deposit (capUTxO)
+import Hydra.Tx.Deposit (capUTxO, filterAssets)
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
@@ -1340,13 +1340,14 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
 
           -- Get some L1 funds
           (walletVk, walletSk) <- generate genKeyPair
-
-          tokensUTxO <- generate (genUTxOWithAssetsSized 2 (Just $ PolicyId $ CAPI.hashScript $ CAPI.PlutusScript dummyMintingScript))
+          tokensUTxO <- generate (genUTxOWithAssetsSized 8 (Just $ PolicyId $ CAPI.hashScript $ CAPI.PlutusScript dummyMintingScript))
           let assetsToValue = foldMap ((mempty <>) . uncurry policyAssetsToValue) . Map.toList
           let totalTokenValue = UTxO.totalValue tokensUTxO
           let tokenAssets = valueToPolicyAssets totalTokenValue
           let tokenAssetValue = assetsToValue tokenAssets
-          let partialTokenAssets = Map.map (\(CAPI.PolicyAssets policyAssetMap) -> CAPI.PolicyAssets $ Map.filter (> 20) policyAssetMap) tokenAssets
+          let quantityMoreThan20 = (> 20)
+          let partialTokenAssets = Map.map (\(CAPI.PolicyAssets policyAssetMap) -> CAPI.PolicyAssets $ Map.filter quantityMoreThan20 policyAssetMap) tokenAssets
+          let tokenDiff = filterAssets tokenAssets (Map.toList partialTokenAssets)
           let partialTokenAssetValue = assetsToValue partialTokenAssets
           let tokenAssetValueWithoutAda = assetsToValue $ valueToPolicyAssets partialTokenAssetValue
           let seedAmount = 5_000_000
@@ -1385,7 +1386,10 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
           getSnapshotUTxO n1 `shouldReturn` expectedDeposit
-
+          -- check that user balance balance contains the change from the commit tx
+          (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+            `shouldReturn` lovelaceToValue (seedAmount + seedAmount - commitAmount)
+            <> tokenDiff
 
           send n2 $ input "Close" []
 
