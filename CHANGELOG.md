@@ -42,6 +42,9 @@ changes.
 - **BREAKING** Enable handling client recover in all head states.
   - See [Issue #1812](https://github.com/cardano-scaling/hydra/issues/1812) and [PR #2217](https://github.com/cardano-scaling/hydra/pull/2217).
 
+- **BREAKING** Resume node from the latest observed tick when `--start-chain-from` is not set.
+  - See [Issue #2206](https://github.com/cardano-scaling/hydra/issues/2206) and [PR #2232](https://github.com/cardano-scaling/hydra/pull/2232)
+
 ## [0.22.4] - 2025-08-05
 
 - Fix API not correctly handling event log rotation. This was evident in not
