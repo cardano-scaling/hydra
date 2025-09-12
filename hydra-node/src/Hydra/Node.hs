@@ -404,8 +404,6 @@ processEffects node tracer inputId effects = do
 
 -- ** Manage state
 
--- TODO! pendingDeposits :: Map (TxIdType tx) (Deposit tx)
-
 -- | Handle to access and modify the state in the Hydra Node.
 data NodeStateHandler tx m = NodeStateHandler
   { modifyNodeState :: forall a. (NodeState tx -> (a, NodeState tx)) -> STM m a
