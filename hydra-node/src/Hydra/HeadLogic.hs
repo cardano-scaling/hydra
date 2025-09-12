@@ -1375,11 +1375,6 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
-  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
-    | ourHeadId == headId ->
-        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
-    | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{}, ChainInput Tick{chainTime, chainSlot}) ->
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
@@ -1415,6 +1410,8 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Node-level
+  (_, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}) ->
+    newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
   (_, ClientInput Recover{recoverTxId}) -> do
     onClientRecover currentSlot pendingDeposits recoverTxId
   (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState}) ->

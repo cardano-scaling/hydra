@@ -32,7 +32,6 @@ import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..)
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
-import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
@@ -686,19 +685,6 @@ spec =
       prop "ignores collectComTx of another head" $ \otherHeadId -> do
         let collectOtherHead = observeTx $ OnCollectComTx{headId = otherHeadId}
         update bobEnv ledger (inInitialState threeParties) collectOtherHead
-          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
-
-      prop "ignores depositTx of another head" $ \otherHeadId -> do
-        let depositOtherHead =
-              observeTx $
-                OnDepositTx
-                  { headId = otherHeadId
-                  , deposited = mempty
-                  , depositTxId = 1
-                  , created = genUTCTime `generateWith` 41
-                  , deadline = genUTCTime `generateWith` 42
-                  }
-        update bobEnv ledger (inOpenState threeParties) depositOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
