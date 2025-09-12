@@ -30,7 +30,6 @@ import Hydra.Events (EventSink)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (aggregateNodeState)
-import Hydra.HeadLogic.State (NodeState (..), initNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
@@ -50,6 +49,7 @@ import Hydra.Node (
  )
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
+import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Options (
   CardanoChainConfig (..),
   ChainBackendOptions (..),

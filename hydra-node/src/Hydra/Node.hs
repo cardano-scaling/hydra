@@ -36,7 +36,6 @@ import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
   Input (..),
-  NodeState (..),
   Outcome (..),
   TTL,
   aggregateChainStateHistory,
@@ -45,7 +44,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
-import Hydra.HeadLogic.State (getHeadParameters, initNodeState)
+import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -55,6 +54,7 @@ import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
+import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)

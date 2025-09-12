@@ -7,7 +7,7 @@ module Hydra.HeadLogic.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Tx (
   HeadId,
   HeadParameters,
@@ -23,36 +23,6 @@ import Hydra.Tx.Snapshot (
   SnapshotNumber,
   SnapshotVersion,
  )
-import Test.QuickCheck (recursivelyShrink)
-
-type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
-
--- FIXME: move to a dedicated module (maybe with deposits too?)
-data NodeState tx = NodeState
-  { headState :: HeadState tx
-  , pendingDeposits :: PendingDeposits tx
-  -- ^ Pending deposits as observed on chain.
-  -- TODO: could even move the chain state here (also see todo below)
-  -- , chainState :: ChainStateType tx
-  , currentSlot :: ChainSlot
-  }
-  deriving stock (Generic)
-
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
-  arbitrary = genericArbitrary
-
-deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
-deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
-
-initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
-initNodeState chainState =
-  NodeState
-    { headState = Idle IdleState{chainState}
-    , pendingDeposits = mempty
-    , currentSlot = chainStateSlot chainState
-    }
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -248,33 +218,6 @@ seenSnapshotNumber = \case
   LastSeenSnapshot{lastSeen} -> lastSeen
   RequestedSnapshot{lastSeen} -> lastSeen
   SeenSnapshot{snapshot = Snapshot{number}} -> number
-
--- | A deposit tracked by the protocol. The 'DepositStatus' determines whether
--- it may be used for an incremental commit or not.
-data Deposit tx = Deposit
-  { headId :: HeadId
-  , deposited :: UTxOType tx
-  , created :: UTCTime
-  , deadline :: UTCTime
-  , status :: DepositStatus
-  }
-  deriving (Generic)
-
-deriving stock instance IsTx tx => Eq (Deposit tx)
-deriving stock instance IsTx tx => Show (Deposit tx)
-deriving anyclass instance IsTx tx => ToJSON (Deposit tx)
-deriving anyclass instance IsTx tx => FromJSON (Deposit tx)
-
-instance ArbitraryIsTx tx => Arbitrary (Deposit tx) where
-  arbitrary = genericArbitrary
-  shrink = recursivelyShrink
-
-data DepositStatus = Inactive | Active | Expired
-  deriving (Generic, Eq, Show, ToJSON, FromJSON)
-
-instance Arbitrary DepositStatus where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 -- ** Closed
 

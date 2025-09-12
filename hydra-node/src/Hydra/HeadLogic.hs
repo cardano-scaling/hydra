@@ -61,15 +61,11 @@ import Hydra.HeadLogic.State (
   ClosedState (..),
   Committed,
   CoordinatedHeadState (..),
-  Deposit (..),
-  DepositStatus (..),
   HeadState (..),
   IdleState (IdleState, chainState),
   InitialState (..),
-  NodeState (..),
   OpenState (..),
   PendingCommits,
-  PendingDeposits,
   SeenSnapshot (..),
   getChainState,
   seenSnapshotNumber,
@@ -83,6 +79,7 @@ import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
+import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits)
 import Hydra.Tx (
   HeadId,
   HeadSeed,
