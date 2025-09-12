@@ -8,6 +8,7 @@ import Conduit (
   ConduitT,
   MonadUnliftIO,
   ResourceT,
+  concatC,
   linesUnboundedAsciiC,
   mapMC,
   runResourceT,
@@ -18,6 +19,8 @@ import Conduit (
 import Control.Monad.Trans.Resource (allocate)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
+import Hydra.Logging (Tracer, traceWith)
+import Hydra.PersistenceLog (PersistenceLog (..))
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO (MVar, newMVar, putMVar, takeMVar, withMVar)
@@ -82,9 +85,10 @@ createPersistenceIncremental ::
   , MonadThrow m
   , FromJSON a
   ) =>
+  Tracer IO PersistenceLog ->
   FilePath ->
   m (PersistenceIncremental a m)
-createPersistenceIncremental fp = do
+createPersistenceIncremental tracer fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
   mutex <- newMVar ()
   pure $
@@ -97,6 +101,14 @@ createPersistenceIncremental fp = do
       , source = source mutex
       }
  where
+  -- Maybe read the next item from persistence; or, if we failed to
+  -- decode it, we will emit a warning.
+  maybeDecode :: ByteString -> ResourceT m (Maybe a)
+  maybeDecode bs = case Aeson.eitherDecodeStrict' bs of
+    Left e -> do
+      liftIO $ traceWith tracer $ FailedToDecodeJson{reason = show e, filepath = fp, contents = show bs}
+      pure Nothing
+    Right decoded -> pure (Just decoded)
   source :: forall i. MVar () -> ConduitT i a (ResourceT m) ()
   source mutex = do
     liftIO (doesFileExist fp) >>= \case
@@ -108,12 +120,5 @@ createPersistenceIncremental fp = do
         -- NOTE: Read, decode and yield values line by line.
         sourceFileBS fp
           .| linesUnboundedAsciiC
-          .| mapMC
-            ( \bs ->
-                case Aeson.eitherDecodeStrict' bs of
-                  Left e ->
-                    lift . throwIO $
-                      PersistenceException $
-                        "Error when decoding from file " <> fp <> ": " <> show e <> "\n" <> show bs
-                  Right decoded -> pure decoded
-            )
+          .| mapMC maybeDecode
+          .| concatC

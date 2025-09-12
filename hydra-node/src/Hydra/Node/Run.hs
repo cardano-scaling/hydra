@@ -95,7 +95,7 @@ run opts = do
         eventStore@EventStore{eventSource} <-
           prepareEventStore
             =<< mkFileBasedEventStore stateFile
-            =<< createPersistenceIncremental stateFile
+            =<< createPersistenceIncremental (contramap Persistence tracer) stateFile
         -- NOTE: Add any custom sinks here
         let eventSinks :: [EventSink (StateEvent Tx) IO] = []
         wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
