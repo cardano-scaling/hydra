@@ -34,7 +34,7 @@ import Hydra.Contract.HeadState (
   SnapshotVersion,
   State (..),
  )
-import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
+import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
@@ -298,10 +298,6 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
 
   mustIncreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      -- NOTE: Strict equality (===) in presence of non ADA assets here
-      -- seem to make this check not work. Since we don't want to sort on-chain (inefficient)
-      -- and it is hard/impossible to sort in the off-chain code we just use PlutusTx equality which should
-      -- be enough in this case.
       headInValue <> depositValue == headOutValue
 
   OpenDatum
@@ -406,7 +402,7 @@ checkClose ctx openBefore redeemer =
 
   mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      val === val'
+      val == val'
 
   val' = txOutValue . L.head $ txInfoOutputs txInfo
 
@@ -526,7 +522,7 @@ checkContest ctx closedDatum redeemer =
  where
   mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      val === val'
+      val == val'
 
   val' = txOutValue . L.head $ txInfoOutputs txInfo
 
