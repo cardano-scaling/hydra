@@ -1351,18 +1351,18 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           let tokenDiff = assetsToValue $ Map.fromList $ diffAssets tokenAssets partialTokenAssets
           let partialTokenAssetValue = assetsToValue partialTokenAssets
           let tokenAssetValueWithoutAda = assetsToValue $ valueToPolicyAssets partialTokenAssetValue
-          let seedAmount = 5_000_000
+          let seedAmount = 10_000_000
           -- NOTE: We (and also the users) need to make sure we give enough ADA when committing. If deposit tx ADA amount is too low
           -- and some ADA is added to it after balancing in the wallet, then we have problems matching on the 'CommitApproved' etc.
-          let commitAmount = 3_000_000
+          let commitAmount = 5_000_000
           commitUTxOWithoutTokens <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount) (contramap FromFaucet tracer)
           commitUTxOWithTokens <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount <> tokenAssetValue) (contramap FromFaucet tracer)
-          -- This one is expected to fail since there is 5 ADA at the wallet address but we specified 6 ADA to commit
-          (requestCommitTx' n1 commitUTxOWithoutTokens (Just 8_000_000) Nothing <&> toJSON)
+          -- This one is expected to fail since there is not enough ADA value
+          (requestCommitTx' n1 commitUTxOWithoutTokens (Just 10_000_001) Nothing <&> toJSON)
             `shouldThrow` expectErrorStatus 400 (Just "AmountTooLow")
 
           -- This one is expected to fail since there are no extra assets but we specified some to commit
-          (requestCommitTx' n1 commitUTxOWithoutTokens (Just 5_000_000) (Just partialTokenAssets) <&> toJSON)
+          (requestCommitTx' n1 commitUTxOWithoutTokens (Just commitAmount) (Just partialTokenAssets) <&> toJSON)
             `shouldThrow` expectErrorStatus 400 (Just "InvalidTokenRequest")
 
           depositTransaction <- requestCommitTx' n1 commitUTxOWithTokens (Just commitAmount) (Just partialTokenAssets)
