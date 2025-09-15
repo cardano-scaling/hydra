@@ -115,7 +115,7 @@ import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.Deposit (capUTxO, filterAssets)
+import Hydra.Tx.Deposit (capUTxO, diffAssets)
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
@@ -1347,7 +1347,8 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           let tokenAssetValue = assetsToValue tokenAssets
           let quantityMoreThan20 = (> 20)
           let partialTokenAssets = Map.map (\(CAPI.PolicyAssets policyAssetMap) -> CAPI.PolicyAssets $ Map.filter quantityMoreThan20 policyAssetMap) tokenAssets
-          let tokenDiff = filterAssets tokenAssets (Map.toList partialTokenAssets)
+          -- NOTE: using diffAssets here implicitly tests that function too.
+          let tokenDiff = assetsToValue $ Map.fromList $ diffAssets tokenAssets partialTokenAssets
           let partialTokenAssetValue = assetsToValue partialTokenAssets
           let tokenAssetValueWithoutAda = assetsToValue $ valueToPolicyAssets partialTokenAssetValue
           let seedAmount = 5_000_000

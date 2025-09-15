@@ -7,7 +7,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (AssetId (..), AssetName, Coin (..), PolicyAssets (..), PolicyId, Quantity (..), UTxO, selectLovelace, txOutValue, valueToPolicyAssets)
-import Hydra.Tx.Deposit (capUTxO, pickTokensToDeposit, splitTokens)
+import Hydra.Tx.Deposit (capUTxO, diffAssets, pickTokensToDeposit, splitTokens)
 import Test.Hydra.Tx.Fixture (testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOSized, genUTxOWithAssetsSized)
 import Test.QuickCheck (Property, chooseInteger, counterexample, cover, elements, forAll, frequency, listOf, oneof, property, (===), (==>))
@@ -239,6 +239,77 @@ spec =
         prop "idempotent" propIdempotent
         prop "monotonic with respect to target" propMonotonicTarget
         prop "no UTxO loss" propNoUTxOLoss
+
+    describe "diffAssets" $ do
+      describe "tests" $ do
+        it "returns empty assets when both inputs are empty" $ do
+          let assets = diffAssets mempty mempty
+          assets `shouldBe` mempty
+        it "returns existing assets when lookup input is empty" $
+          forAll arbitrary $ \assetMap -> do
+            let assets = diffAssets assetMap mempty
+            assets `shouldBe` Map.toList assetMap
+        it "returns empty assets if asset input is empty" $
+          forAll arbitrary $ \lookupMap -> do
+            let assets = diffAssets mempty lookupMap
+            assets `shouldBe` mempty
+        it "subracts found values" $
+          forAll arbitrary $ \aPolicy -> do
+            let policyAssets =
+                  Map.fromList [("SomeTokenA", 100), ("SomeTokenB", 200)]
+            let policyAssets' =
+                  Map.fromList [("SomeTokenA", 30), ("SomeTokenB", 50)]
+            let expectedAssets =
+                  Map.fromList [("SomeTokenA", 70), ("SomeTokenB", 150)]
+            let expectedResult =
+                  Map.fromList [(aPolicy, PolicyAssets expectedAssets)]
+
+            let a = Map.fromList [(aPolicy, PolicyAssets policyAssets)]
+            let b = Map.fromList [(aPolicy, PolicyAssets policyAssets')]
+            let assets = diffAssets a b
+            assets `shouldBe` Map.toList expectedResult
+        it "keeps assets not found in the lookup map" $
+          forAll arbitrary $ \aPolicy -> do
+            let policyAssets =
+                  Map.fromList [("SomeTokenA", 100), ("SomeTokenC", 2)]
+            let policyAssets' =
+                  Map.fromList [("SomeTokenA", 30), ("SomeTokenB", 50)]
+            let expectedAssets =
+                  Map.fromList [("SomeTokenA", 70), ("SomeTokenC", 2)]
+            let expectedResult =
+                  Map.fromList [(aPolicy, PolicyAssets expectedAssets)]
+
+            let a = Map.fromList [(aPolicy, PolicyAssets policyAssets)]
+            let b = Map.fromList [(aPolicy, PolicyAssets policyAssets')]
+            let assets = diffAssets a b
+            assets `shouldBe` Map.toList expectedResult
+        it "ignores extra assets in the lookup map" $
+          forAll arbitrary $ \aPolicy -> do
+            let policyAssets =
+                  Map.fromList [("SomeTokenA", 100), ("SomeTokenB", 85)]
+            let policyAssets' =
+                  Map.fromList [("SomeTokenA", 30), ("SomeTokenB", 50), ("SomeTokenC", 400)]
+            let expectedAssets =
+                  Map.fromList [("SomeTokenA", 70), ("SomeTokenB", 35)]
+            let expectedResult =
+                  Map.fromList [(aPolicy, PolicyAssets expectedAssets)]
+
+            let a = Map.fromList [(aPolicy, PolicyAssets policyAssets)]
+            let b = Map.fromList [(aPolicy, PolicyAssets policyAssets')]
+            let assets = diffAssets a b
+            assets `shouldBe` Map.toList expectedResult
+        it "ignores assets with too low values" $
+          forAll arbitrary $ \aPolicy -> do
+            let policyAssets =
+                  Map.fromList [("SomeTokenA", 100), ("SomeTokenB", 85)]
+            let policyAssets' =
+                  Map.fromList [("SomeTokenA", 100), ("SomeTokenB", 86)]
+            let expectedResult = [(aPolicy, mempty)]
+
+            let a = Map.fromList [(aPolicy, PolicyAssets policyAssets)]
+            let b = Map.fromList [(aPolicy, PolicyAssets policyAssets')]
+            let assets = diffAssets a b
+            assets `shouldBe` expectedResult
 
 -- | Property: The sum of selected and leftover values equals the input value
 propPreservesTotalValue :: UTxO -> Coin -> Property

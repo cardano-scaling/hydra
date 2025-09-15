@@ -59,7 +59,7 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
   utxoToDeposit = mergeUTxO utxoToDeposit' tokensToDepositUTxO
 
   returnToUser =
-    let returnToUserUTxO = leftoverUTxO `filterExistingAssets` tokensToDepositUTxO
+    let returnToUserUTxO = leftoverUTxO `diffExistingAssets` tokensToDepositUTxO
      in if UTxO.null returnToUserUTxO
           then StrictSeq.empty
           else
@@ -72,37 +72,54 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
 
   depositInputs = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> depositInputsList
 
--- | Filter the first argument UTxO's non ADA assets in case any asset exists in the second UTxO argument.
--- Asset quantities will be subtracted if they are found.
-filterExistingAssets :: UTxO -> UTxO -> UTxO
-filterExistingAssets utxoToFilter utxoToLookup =
+-- | Find the difference between the first argument UTxO's non ADA assets in
+-- and the second UTxO argument. Matching asset quantities will be subtracted
+-- if they are found.
+diffExistingAssets :: UTxO -> UTxO -> UTxO
+diffExistingAssets utxoToFilter utxoToLookup =
   UTxO.fromList $ findAssets <$> UTxO.toList utxoToFilter
  where
   findAssets (i, TxOut a val d r) =
     let assets = valueToPolicyAssets val
         originalLovelace = selectLovelace val
+        filteredAssets' = diffAssets assets forLookup
         filteredAssets =
-         foldMap (uncurry policyAssetsToValue) $
-          filterAssets assets forLookup
-     in (i, TxOut a (lovelaceToValue originalLovelace <> filteredAssets) d r)
-  forLookup =
-     -- NOTE: Uses a list to store all policies, preserving multiple entries
-     -- with the same policyId but different assets. A Map would silently
-     -- overwrite duplicates.
-     concatMap (Map.toList . valueToPolicyAssets . txOutValue . snd) $ UTxO.toList utxoToLookup
+          if null (snd <$> filteredAssets')
+            then mempty
+            else filteredAssets'
+        filteredValue =
+          foldMap (uncurry policyAssetsToValue) filteredAssets
+     in (i, TxOut a (lovelaceToValue originalLovelace <> filteredValue) d r)
+  forLookup = valueToPolicyAssets $ UTxO.totalValue utxoToLookup
 
- -- | Filter the first argument map of assets in case any asset exists in the second argument.
-filterAssets :: Map PolicyId PolicyAssets -> [(PolicyId, PolicyAssets)] -> [(PolicyId, PolicyAssets)]
-filterAssets assets forLookup =
-     Map.assocs $
-       Map.mapWithKey
-         ( \pid (PolicyAssets x) ->
-             let samePid = List.filter (\(pid', _) -> pid' == pid) forLookup
-              in case List.lookup pid samePid of
-                   Nothing -> PolicyAssets x
-                   Just (PolicyAssets foundAssets) -> PolicyAssets $ x `Map.difference` foundAssets
-         )
-         assets
+-- | Diff the first argument map of assets in case any asset exists in the second argument.
+diffAssets :: Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets -> [(PolicyId, PolicyAssets)]
+diffAssets assets forLookup =
+  if null forLookup
+    then Map.toList assets
+    else
+      Map.assocs $
+        Map.foldrWithKey
+          ( \pid (PolicyAssets existing) result ->
+              case Map.lookup pid forLookup of
+                Nothing -> result
+                Just foundAsset -> result `Map.union` Map.singleton pid (PolicyAssets $ go existing foundAsset)
+          )
+          Map.empty
+          assets
+ where
+  go :: Map AssetName Quantity -> PolicyAssets -> Map AssetName Quantity
+  go existing (PolicyAssets found) =
+    Map.differenceWith
+      checkQuantities
+      existing
+      found
+
+  checkQuantities :: Quantity -> Quantity -> Maybe Quantity
+  checkQuantities existing wanted =
+    if existing > wanted
+      then Just $ existing - wanted
+      else Nothing
 
 -- | Merges the two 'UTxO' favoring data coming from the first argument 'UTxO'.
 -- In case the same 'TxIn' was found in the first 'UTxO' - second 'UTxO' value
