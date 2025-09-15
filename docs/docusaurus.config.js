@@ -5,6 +5,15 @@ const lightCodeTheme = require("prism-react-renderer/themes/github");
 const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 const docsMetadataJson = require("./static/docs-metadata.json");
 
+const SITE_URL = "https://hydra.family";
+const BASE_URL = "/head-protocol/";
+
+// The version is set by the DOCS_VERSION environment variable during the build.
+// It defaults to "unstable" for local development.
+const VERSION = process.env.DOCS_VERSION || "unstable";
+
+const isUnstable = VERSION === "unstable";
+
 const customFields = {
   apiSpecDir: "../hydra-node/json-schemas",
   apiSpecUrl: "api.yaml",
@@ -17,8 +26,8 @@ const editUrl = "https://github.com/cardano-scaling/hydra/tree/master/docs";
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Hydra Head protocol documentation",
-  url: "https://hydra.family",
-  baseUrl: "/head-protocol/",
+  url: SITE_URL,
+  baseUrl: BASE_URL,
   // Note: This gives warnings about the haddocks; but actually they are
   // present. If you are concerned, please check the links manually!
   onBrokenLinks: "throw",
@@ -158,6 +167,13 @@ const config = {
         disableSwitch: false,
         respectPrefersColorScheme: false,
       },
+      announcementBar: isUnstable
+        ? {
+          id: "unstable_docs_banner",
+          content: `This is the documentation for the unstable version of Hydra. For the latest stable version, see <a target="_blank" rel="noopener noreferrer" href="${SITE_URL}${BASE_URL}docs">here</a>.`,
+          isCloseable: false,
+        }
+        : undefined,
       navbar: {
         title: "Hydra Head protocol",
         logo: {
@@ -167,6 +183,11 @@ const config = {
           srcDark: "img/hydra-white.png",
         },
         items: [
+          {
+            type: "html",
+            position: "right",
+            value: `<span class="navbar-version">${VERSION}</span>`,
+          },
           {
             to: "/docs",
             label: "User manual",
