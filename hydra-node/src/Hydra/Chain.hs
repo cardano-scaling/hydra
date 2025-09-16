@@ -23,7 +23,7 @@ import Hydra.Cardano.Api (
   PolicyAssets,
   PolicyId,
  )
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.Tx (
   CommitBlueprintTx,
   ConfirmedSnapshot,

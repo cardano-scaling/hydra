@@ -111,7 +111,11 @@ newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
 instance IsChainState SimpleTx where
   type ChainStateType SimpleTx = SimpleChainState
 
-  chainStateSlot SimpleChainState{slot} = slot
+  type ChainPointType SimpleTx = ChainSlot
+
+  chainStatePoint SimpleChainState{slot} = slot
+
+  chainPointSlot = id
 
 -- * A simple ledger
 
