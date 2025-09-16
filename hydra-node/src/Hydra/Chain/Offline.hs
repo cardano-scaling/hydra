@@ -2,14 +2,14 @@ module Hydra.Chain.Offline where
 
 import Hydra.Prelude
 
+import Cardano.Api (ChainPoint (ChainPoint))
 import Cardano.Api.Internal.Genesis (shelleyGenesisDefaults)
 import Cardano.Api.Internal.GenesisParameters (fromShelleyGenesis)
-import Cardano.Ledger.Slot (unSlotNo)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
-import Hydra.Cardano.Api (GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), Tx)
+import Hydra.Cardano.Api (GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), Tx, genBlockHeaderHash)
 import Hydra.Chain (
   Chain (..),
   ChainComponent,
@@ -17,16 +17,16 @@ import Hydra.Chain (
   ChainStateHistory,
   OnChainTx (..),
   PostTxError (..),
-  chainSlot,
   chainTime,
   initHistory,
+  point,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party)
 import Hydra.Utils (readJsonFileThrow)
+import Test.QuickCheck (generate)
 
 -- | Derived 'HeadId' of offline head from a 'HeadSeed'.
 offlineHeadId :: HeadSeed -> HeadId
@@ -150,10 +150,11 @@ tickForever genesis callback = do
     let timeToSleepUntil = slotNoToUTCTime systemStart slotLength upcomingSlot
     sleepDelay <- diffUTCTime timeToSleepUntil <$> getCurrentTime
     threadDelay $ realToFrac sleepDelay
+    blockHash <- generate genBlockHeaderHash
     callback $
       Tick
         { chainTime = timeToSleepUntil
-        , chainSlot = ChainSlot . fromIntegral $ unSlotNo upcomingSlot
+        , point = ChainPoint upcomingSlot blockHash
         }
   systemStart = SystemStart protocolParamSystemStart
 

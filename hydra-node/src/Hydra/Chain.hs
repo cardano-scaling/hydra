@@ -313,7 +313,7 @@ data ChainEvent tx
     -- another round trip / state to keep there.
     Tick
       { chainTime :: UTCTime
-      , chainSlot :: ChainSlot
+      , point :: ChainPointType tx
       }
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx, failingTx :: Maybe tx}
