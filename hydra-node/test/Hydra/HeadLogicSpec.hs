@@ -20,7 +20,7 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
-import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (ChainPoint (..), fromLedgerTx, genBlockHeaderHash, genTxIn, mkVkAddress, toLedgerTx, txOutValue, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
@@ -49,7 +49,7 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber,
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genKeyPair, genOutput)
-import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
+import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, generate, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
 spec :: Spec
@@ -881,6 +881,7 @@ spec =
             & \case
               Left _ -> Prelude.error "cannot generate expired tx"
               Right tx -> pure (utxo, tx)
+        blockHash <- pick genBlockHeaderHash
         let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
             st0 =
               NodeState
@@ -904,7 +905,7 @@ spec =
                         , headSeed = testHeadSeed
                         }
                 , pendingDeposits = mempty
-                , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
+                , currentPoint = ChainPoint slotNo blockHash
                 }
 
         st <-
@@ -923,6 +924,7 @@ spec =
 
     prop "empty inputs in decommit tx are prevented" $ \tx -> do
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+      blockHash <- generate genBlockHeaderHash
       let st =
             NodeState
               { headState =
@@ -945,7 +947,7 @@ spec =
                       , headSeed = testHeadSeed
                       }
               , pendingDeposits = mempty
-              , currentSlot = ChainSlot 1
+              , currentPoint = ChainPoint 1 blockHash
               }
 
       let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
@@ -1027,7 +1029,7 @@ genClosedState = do
     NodeState
       { headState = Closed $ closedState{headId = testHeadId}
       , pendingDeposits = mempty
-      , currentSlot = ChainSlot 0
+      , currentPoint = ChainSlot 0
       }
 
 -- * Utilities
@@ -1089,7 +1091,7 @@ inInitialState parties =
             , headSeed = testHeadSeed
             }
     , pendingDeposits = mempty
-    , currentSlot = ChainSlot 0
+    , currentPoint = ChainSlot 0
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1130,7 +1132,7 @@ inOpenState' parties coordinatedHeadState =
             , headSeed = testHeadSeed
             }
     , pendingDeposits = mempty
-    , currentSlot = chainSlot
+    , currentPoint = chainSlot
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1160,7 +1162,7 @@ inClosedState' parties confirmedSnapshot =
             , version = 0
             }
     , pendingDeposits = mempty
-    , currentSlot = ChainSlot 0
+    , currentPoint = ChainSlot 0
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties

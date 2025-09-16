@@ -1789,6 +1789,39 @@ components:
 
     # END OF SERVER OUTPUT SCHEMAS
 
+    ChainPoint:
+      oneOf:
+        - title: ChainPointAtGenesis
+          description: |
+            Special chain point representing the beginning of the chain, before any blocks have been produced.
+          additionalProperties: false
+          type: object
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPointAtGenesis"]
+        - title: ChainPoint
+          description: |
+            Concrete chain point referencing a block on-chain by its slot number and header hash.
+          additionalProperties: false
+          type: object
+          required:
+            - tag
+            - slot
+            - blockHash
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPoint"]
+            slot:
+              type: integer
+              minimum: 0
+            blockHash:
+              type: string
+              contentEncoding: base16
+
     Address:
       type: string
       description: |
@@ -3437,8 +3470,8 @@ components:
             $ref: "api.yaml#/components/schemas/TxId"
           items:
             $ref: "api.yaml#/components/schemas/Deposit"
-        currentSlot:
-          $ref: "api.yaml#/components/schemas/ChainSlot"
+        currentPoint:
+          $ref: "api.yaml#/components/schemas/ChainPoint"
 
     SubmitL2TxResponse:
       oneOf:

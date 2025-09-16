@@ -1,7 +1,9 @@
 {
     "samples": [
         {
-            "currentSlot": 3,
+            "currentPoint": {
+                "tag": "ChainPointAtGenesis"
+            },
             "headState": {
                 "contents": {
                     "chainState": {
@@ -2250,7 +2252,11 @@
             }
         },
         {
-            "currentSlot": 6,
+            "currentPoint": {
+                "blockHash": "0804010201050707040200020303030103070705000401080704050406020004",
+                "slot": 12,
+                "tag": "ChainPoint"
+            },
             "headState": {
                 "contents": {
                     "chainState": {
@@ -2672,7 +2678,11 @@
             }
         },
         {
-            "currentSlot": 6,
+            "currentPoint": {
+                "blockHash": "0506040805040006040103060302070402020701060501060205070705080002",
+                "slot": 3,
+                "tag": "ChainPoint"
+            },
             "headState": {
                 "contents": {
                     "chainState": {
@@ -4518,7 +4528,11 @@
             }
         },
         {
-            "currentSlot": 2,
+            "currentPoint": {
+                "blockHash": "0805040501010604080107080206000004080307050808060204030506080108",
+                "slot": 15,
+                "tag": "ChainPoint"
+            },
             "headState": {
                 "contents": {
                     "chainState": {
@@ -5089,7 +5103,11 @@
             }
         },
         {
-            "currentSlot": 6,
+            "currentPoint": {
+                "blockHash": "0703000704050203000800070301040005060505070605010307040507080404",
+                "slot": 7,
+                "tag": "ChainPoint"
+            },
             "headState": {
                 "contents": {
                     "chainState": {

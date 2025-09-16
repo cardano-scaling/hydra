@@ -1329,7 +1329,7 @@ update ::
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
+update env ledger NodeState{headState = st, pendingDeposits, currentPoint} ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   (Idle _, ClientInput Init) ->
@@ -1433,6 +1433,8 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     cause . ClientEffect $ ServerOutput.CommandFailed clientInput st
   _ ->
     Error $ UnhandledInput ev st
+ where
+  currentSlot = chainPointSlot currentPoint
 
 -- * NodeState aggregate
 
@@ -1443,7 +1445,7 @@ aggregateNodeState nodeState sc =
       ns@NodeState{pendingDeposits} = nodeState{headState = st}
    in case sc of
         HeadOpened{chainState} ->
-          ns{pendingDeposits, currentSlot = chainStateSlot chainState}
+          ns{pendingDeposits, currentPoint = chainStatePoint chainState}
         DepositRecorded{headId, depositTxId, deposited, created, deadline} ->
           ns{pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} pendingDeposits}
         DepositActivated{depositTxId, deposit} ->
@@ -1481,7 +1483,7 @@ aggregateNodeState nodeState sc =
                 { pendingDeposits = Map.delete depositTxId pendingDeposits
                 }
         TickObserved{point} ->
-          ns{currentSlot = chainPointSlot point}
+          ns{currentPoint = point}
         _ -> ns
 
 -- * HeadState aggregate

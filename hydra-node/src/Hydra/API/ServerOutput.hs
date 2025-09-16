@@ -11,7 +11,7 @@ import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
-import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain.ChainState (ChainPointType, ChainStateType, IsChainState)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), NodeState, OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
@@ -221,7 +221,7 @@ deriving stock instance IsChainState tx => Show (ServerOutput tx)
 deriving anyclass instance IsChainState tx => FromJSON (ServerOutput tx)
 deriving anyclass instance IsChainState tx => ToJSON (ServerOutput tx)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), Arbitrary (ChainPointType tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
   shrink = recursivelyShrink
 

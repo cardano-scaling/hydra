@@ -25,13 +25,13 @@ import Hydra.API.HTTPServer (
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
+  ChainPoint (ChainPointAtGenesis),
   mkTxOutDatumInline,
   modifyTxOutDatum,
   renderTxIn,
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (checkAmount, rejectLowDeposits)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), NodeState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState)
@@ -363,7 +363,7 @@ apiServerSpec = do
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
-                  (pure NodeState{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                  (pure NodeState{headState = Closed closedState, pendingDeposits = mempty, currentPoint = ChainPointAtGenesis})
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -523,7 +523,7 @@ apiServerSpec = do
                 dummyChainHandle
                 testEnvironment
                 defaultPParams
-                (pure NodeState{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                (pure NodeState{headState = Closed closedState', pendingDeposits = mempty, currentPoint = ChainPointAtGenesis})
                 cantCommit
                 getPendingDeposits
                 putClientInput
@@ -557,7 +557,7 @@ apiServerSpec = do
               workingChainHandle
               testEnvironment
               defaultPParams
-              (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+              (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentPoint = ChainPointAtGenesis})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -613,7 +613,7 @@ apiServerSpec = do
                 (failingChainHandle postTxError)
                 testEnvironment
                 defaultPParams
-                (pure NodeState{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                (pure NodeState{headState = openHeadState, pendingDeposits = mempty, currentPoint = ChainPointAtGenesis})
                 getHeadId
                 getPendingDeposits
                 putClientInput

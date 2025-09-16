@@ -7,7 +7,7 @@ module Hydra.HeadLogic.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
   HeadId,
   HeadParameters,
@@ -34,24 +34,24 @@ data NodeState tx = NodeState
   -- ^ Pending deposits as observed on chain.
   -- TODO: could even move the chain state here (also see todo below)
   -- , chainState :: ChainStateType tx
-  , currentSlot :: ChainSlot
+  , currentPoint :: ChainPointType tx
   }
   deriving stock (Generic)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), Arbitrary (ChainPointType tx)) => Arbitrary (NodeState tx) where
   arbitrary = genericArbitrary
 
-deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
-deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
+deriving stock instance (IsTx tx, Eq (ChainStateType tx), Eq (ChainPointType tx)) => Eq (NodeState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx), Show (ChainPointType tx)) => Show (NodeState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx), ToJSON (ChainPointType tx)) => ToJSON (NodeState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx), FromJSON (ChainPointType tx)) => FromJSON (NodeState tx)
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
   NodeState
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
-    , currentSlot = chainStateSlot chainState
+    , currentPoint = chainStatePoint chainState
     }
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
