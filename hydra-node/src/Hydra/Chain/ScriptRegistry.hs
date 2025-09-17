@@ -6,6 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((!!))
+import Data.Text qualified as T
 import Hydra.Cardano.Api (
   Era,
   EraHistory,
@@ -13,9 +14,11 @@ import Hydra.Cardano.Api (
   LedgerEra,
   NetworkId,
   PParams,
+  PaymentCredential (..),
   PaymentKey,
   PoolId,
   SigningKey,
+  StakeAddressReference (..),
   SystemStart,
   Tx,
   TxBodyErrorAutoBalance,
@@ -25,18 +28,22 @@ import Hydra.Cardano.Api (
   UTxO,
   WitCtx (..),
   examplePlutusScriptAlwaysFails,
+  makeShelleyAddress,
   mkScriptAddress,
   mkScriptRef,
   mkTxIn,
   mkTxOutAutoBalance,
   mkVkAddress,
+  serialiseAddress,
   toCtxUTxOTxOut,
   txOuts',
+  verificationKeyHash,
   pattern TxOutDatumNone,
  )
 import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.Backend (ChainBackend (..), buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..))
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
@@ -77,7 +84,10 @@ publishHydraScripts backend sk = do
   systemStart <- querySystemStart backend QueryTip
   eraHistory <- queryEraHistory backend QueryTip
   stakePools <- queryStakePools backend QueryTip
-  utxo <- queryUTxOFor backend QueryTip vk
+  utxo <-
+    queryUTxOFor backend QueryTip vk
+      `catch` handleError networkId vk
+
   txs <- buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
   forM txs $ \tx -> do
     submitTransaction backend tx
@@ -86,11 +96,36 @@ publishHydraScripts backend sk = do
  where
   vk = getVerificationKey sk
 
--- | Exception raised when building the script publishing transactions.
-newtype PublishScriptException
-  = FailedToBuildPublishingTx (TxBodyErrorAutoBalance Era)
-  deriving newtype (Show)
-  deriving anyclass (Exception)
+handleError :: NetworkId -> VerificationKey PaymentKey -> SomeException -> IO a
+handleError networkId vk e =
+  case fromException e of
+    Just apiError@(BlockfrostError (BlockfrostAPIError err))
+      | "NotFound" `T.isInfixOf` err ->
+          throwIO $ PublishingFundsMissing networkId vk apiError
+    _ ->
+      throwIO e
+
+-- | Exception raised when publishing Hydra scripts.
+data PublishScriptException
+  = PublishingFundsMissing NetworkId (VerificationKey PaymentKey) APIBlockfrostError
+  | FailedToBuildPublishingTx (TxBodyErrorAutoBalance Era)
+  deriving stock (Show)
+
+instance Exception PublishScriptException where
+  displayException = \case
+    FailedToBuildPublishingTx e ->
+      "Failed to build publishing transaction: " <> show e
+    PublishingFundsMissing networkId vk e ->
+      "Could not find any funds for address "
+        <> toString
+          ( serialiseAddress $
+              makeShelleyAddress
+                networkId
+                (PaymentCredentialByKey $ verificationKeyHash vk)
+                NoStakeAddress
+          )
+        <> ". Please ensure the address has funds and is on-chain. Error: "
+        <> show e
 
 -- | Builds a chain of script publishing transactions.
 -- Throws: PublishScriptException
