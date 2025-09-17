@@ -36,10 +36,12 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
+import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (NodeState (..), initNodeState)
+import Hydra.Node.State (Deposit (..), DepositStatus (Active), NodeState (..), initNodeState)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Prelude qualified as Prelude
+import Hydra.Tx (HeadId)
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -50,6 +52,7 @@ import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genKeyPair, genOutput)
 import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
+import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
 spec :: Spec
@@ -151,6 +154,25 @@ spec =
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs}} -> do
               localTxs `shouldBe` [tx2, tx3]
             _ -> fail "expected Open state"
+
+      describe "Deposit" $ do
+        let plusTime = flip addUTCTime
+        it "on tick, ignores deposits from other heads when picking the next active deposit for ReqSn" $ do
+          now <- getCurrentTime
+          otherHeadId :: HeadId <- generate arbitrary
+          let depositTime = plusTime now
+              deadline = depositTime 5 `plusTime` toNominalDiffTime (depositPeriod aliceEnv) `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+              deposit1 = Deposit{headId = otherHeadId, deposited = utxoRef 1, created = depositTime 1, deadline, status = Active}
+              deposit2 = Deposit{headId = testHeadId, deposited = utxoRef 2, created = depositTime 2, deadline, status = Active}
+              -- open state with pending deposits from another head
+              party = [alice]
+              openState = (inOpenState party){pendingDeposits = Map.fromList [(1, deposit1), (2, deposit2)]}
+              input = ChainInput $ Tick{chainTime = depositTime 3, chainSlot = ChainSlot 3}
+              outcome = update aliceEnv ledger openState input
+
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 2
+            _ -> False
 
       describe "Decommit" $ do
         it "observes DecommitRecorded and ReqDec in an Open state" $ do
