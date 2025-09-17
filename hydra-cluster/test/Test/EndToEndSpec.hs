@@ -407,11 +407,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
                 -- Get some UTXOs to commit to a head
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-                committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+                committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
                 requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
 
                 (bobExternalVk, bobExternalSk) <- generate genKeyPair
-                committedUTxOByBob <- seedFromFaucet backend bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
+                committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
                 requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
 
                 requestCommitTx n3 mempty >>= Backend.submitTransaction backend
@@ -472,11 +472,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               -- Get some UTXOs to commit to a head
               (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-              committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+              committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
               requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
 
               (bobExternalVk, bobExternalSk) <- generate genKeyPair
-              committedUTxOByBob <- seedFromFaucet backend bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
+              committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
               requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
 
               requestCommitTx n3 mempty >>= Backend.submitTransaction backend
@@ -614,7 +614,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-                committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+                committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
                 requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
 
                 (bobExternalVk, _bobExternalSk) <- generate genKeyPair
@@ -844,7 +844,7 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+    committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
     _ <- requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
 
     waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
@@ -919,11 +919,11 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+    committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
     requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
 
     (bobExternalVk, bobExternalSk) <- generate genKeyPair
-    committedUTxOByBob <- seedFromFaucet backend bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
+    committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
     requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
 
     requestCommitTx n3 mempty >>= Backend.submitTransaction backend

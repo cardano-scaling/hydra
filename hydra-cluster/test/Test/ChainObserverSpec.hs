@@ -53,7 +53,7 @@ spec = do
 
                 (walletVk, walletSk) <- generate genKeyPair
 
-                commitUTxO <- seedFromFaucet backend walletVk 10_000_000 (contramap FromFaucet tracer)
+                commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 10_000_000) (contramap FromFaucet tracer)
 
                 send hydraNode $ input "Init" []
 

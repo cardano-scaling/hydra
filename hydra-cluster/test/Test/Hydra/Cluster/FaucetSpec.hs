@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently)
-import Hydra.Cardano.Api (Coin (..), selectLovelace)
+import Hydra.Cardano.Api (Coin (..), lovelaceToValue, selectLovelace)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct (DirectBackend (..))
@@ -35,7 +35,7 @@ spec =
       it "should work concurrently when called multiple times with the same amount of lovelace" $ \(tracer, backend) -> do
         utxos <- replicateConcurrently 10 $ do
           vk <- generate genVerificationKey
-          seedFromFaucet backend vk 1_000_000 tracer
+          seedFromFaucet backend vk (lovelaceToValue 1_000_000) tracer
         -- 10 unique outputs
         UTxO.size (fold utxos) `shouldBe` 10
 
@@ -50,7 +50,7 @@ spec =
               (vk, _) <- keysFor actor
               (faucetVk, _) <- keysFor Faucet
               initialFaucetFunds <- Backend.queryUTxOFor backend QueryTip faucetVk
-              void $ seedFromFaucet backend vk coin tracer
+              void $ seedFromFaucet backend vk (lovelaceToValue coin) tracer
               returnFundsToFaucet tracer backend actor
               remaining <- Backend.queryUTxOFor backend QueryTip vk
               finalFaucetFunds <- Backend.queryUTxOFor backend QueryTip faucetVk
@@ -71,7 +71,7 @@ spec =
         -- NOTE: Note use 'Faucet' as this has a very big initial amount
         (vk, _) <- keysFor Alice
         -- NOTE: 83 ADA is just enough to pay for reference scripts deposits.
-        forM_ [1_000_000, 2_000_000, 83_000_000] $ \c -> seedFromFaucet backend vk c tracer
+        forM_ [1_000_000, 2_000_000, 83_000_000] $ \c -> seedFromFaucet backend vk (lovelaceToValue c) tracer
 
         void $ publishHydraScriptsAs backend Alice
 

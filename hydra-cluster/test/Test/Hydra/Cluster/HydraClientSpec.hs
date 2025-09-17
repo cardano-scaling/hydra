@@ -291,11 +291,11 @@ prepareScenario backend nodes tracer = do
 
   -- Get some UTXOs to commit to a head
   aliceKeys@(aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-  committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+  committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
   requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
 
   bobKeys@(bobExternalVk, bobExternalSk) <- generate genKeyPair
-  committedUTxOByBob <- seedFromFaucet backend bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
+  committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
   requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
 
   requestCommitTx n3 mempty >>= Backend.submitTransaction backend

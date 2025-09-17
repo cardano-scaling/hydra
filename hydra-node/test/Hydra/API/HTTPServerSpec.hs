@@ -603,6 +603,7 @@ apiServerSpec = do
               CannotFindOwnInitial{} -> cover 1 True "CannotFindOwnInitial"
               DepositTooLow{} -> cover 1 True "DepositTooLow"
               AmountTooLow{} -> cover 1 True "AmountTooLow"
+              FailedToConstructDepositTx{} -> cover 1 True "FailedToConstructDepositTx"
               _ -> property
         checkCoverage
           $ coverage
@@ -627,6 +628,7 @@ apiServerSpec = do
                 CannotFindOwnInitial{} -> 400
                 DepositTooLow{} -> 400
                 AmountTooLow{} -> 400
+                FailedToConstructDepositTx{} -> 400
                 _ -> 500
 
     describe "POST /transaction" $ do
