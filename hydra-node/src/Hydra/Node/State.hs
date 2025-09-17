@@ -4,6 +4,7 @@ module Hydra.Node.State where
 
 import Hydra.Prelude
 
+import Data.Map qualified as Map
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Tx (
@@ -67,3 +68,7 @@ data DepositStatus = Inactive | Active | Expired
 instance Arbitrary DepositStatus where
   arbitrary = genericArbitrary
   shrink = genericShrink
+
+depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
+depositsForHead targetHeadId =
+  Map.filter (\Deposit{headId} -> headId == targetHeadId)

@@ -79,7 +79,7 @@ import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
-import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits)
+import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, depositsForHead)
 import Hydra.Tx (
   HeadId,
   HeadSeed,
@@ -928,8 +928,8 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 --
 -- This is primarily used to track deposits and either drop them or request
 -- snapshots for inclusion.
-onOpenChainTick :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> UTCTime -> Outcome tx
-onOpenChainTick env pendingDeposits st chainTime =
+onOpenChainTick :: IsTx tx => Environment -> HeadId -> PendingDeposits tx -> OpenState tx -> UTCTime -> Outcome tx
+onOpenChainTick env ourHeadId pendingDeposits st chainTime =
   -- Determine new active and new expired
   updateDeposits $ \newActive newExpired ->
     -- Emit state change for both
@@ -983,7 +983,7 @@ onOpenChainTick env pendingDeposits st chainTime =
     -- NOTE: Do not consider empty deposits.
     let p :: (x, Deposit tx) -> Bool
         p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
-    maybe noop (cont . fst) . find p $ Map.toList deposits
+    maybe noop (cont . fst) . find p $ Map.toList (depositsForHead ourHeadId deposits)
 
   mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
     pure DepositActivated{depositTxId, chainTime, deposit}
@@ -1351,10 +1351,10 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     onOpenClientNewTx tx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
     onOpenNetworkReqTx env ledger currentSlot openState ttl tx
-  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
-    onOpenNetworkReqSn env ledger pendingDeposits currentSlot openState sender sv sn txIds decommitTx depositTxId
-  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
-    onOpenNetworkAckSn env pendingDeposits openState sender snapshotSignature sn
+  (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
+    onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState sender sv sn txIds decommitTx depositTxId
+  (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
+    onOpenNetworkAckSn env (depositsForHead ourHeadId pendingDeposits) openState sender snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
     , ChainInput Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     )
@@ -1375,12 +1375,12 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
-  (Open openState@OpenState{}, ChainInput Tick{chainTime, chainSlot}) ->
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Tick{chainTime, chainSlot}) ->
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
     newState TickObserved{chainSlot}
-      <> onOpenChainTick env pendingDeposits openState chainTime
+      <> onOpenChainTick env ourHeadId pendingDeposits openState chainTime
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
     | ourHeadId == headId ->
         onOpenChainIncrementTx openState newChainState newVersion depositTxId
