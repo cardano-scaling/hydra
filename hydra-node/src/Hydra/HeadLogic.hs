@@ -22,7 +22,7 @@ module Hydra.HeadLogic (
 
 import Hydra.Prelude
 
-import Data.List (elemIndex)
+import Data.List (elemIndex, minimumBy)
 import Data.Map.Strict qualified as Map
 import Data.Set ((\\))
 import Data.Set qualified as Set
@@ -999,7 +999,9 @@ onOpenChainTick env pendingDeposits st =
     -- NOTE: Do not consider empty deposits.
     let p :: (x, Deposit tx) -> Bool
         p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
-    maybe noop (cont . fst) . find p $ Map.toList deposits
+    case filter p (Map.toList deposits) of
+      [] -> noop
+      xs -> cont (fst (minimumBy (\(_, Deposit{created = c1}) (_, Deposit{created = c2}) -> compare c1 c2) xs))
 
   nextSn = confirmedSn + 1
 
