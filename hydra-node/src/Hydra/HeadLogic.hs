@@ -1476,6 +1476,8 @@ aggregateNodeState nodeState sc =
                 }
         TickObserved{chainSlot} ->
           ns{currentSlot = chainSlot}
+        ChainRolledBack{chainState} ->
+          ns{currentSlot = chainStateSlot chainState}
         _ -> ns
 
 -- * HeadState aggregate
