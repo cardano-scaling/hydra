@@ -7,14 +7,14 @@ import Test.Hydra.Prelude
 
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
-import Data.ByteString qualified as BS
 import Data.Text qualified as Text
-import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer, withTracerOutputTo)
+import Hydra.Logging (Envelope (..), Verbosity (Verbose), withTracer)
 import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, loadAll)
 import Hydra.PersistenceLog
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
+import Test.Util (captureTracer)
 
 spec :: Spec
 spec = do
@@ -40,16 +40,15 @@ spec = do
   describe "PersistenceIncremental" $ do
     it "can ignore invalid lines and emits warning" $ do
       withTempDir "hydra-persistence" $ \tmpDir -> do
-        let logFile = tmpDir <> "/tracer.log"
-        withFile logFile WriteMode $ \hdl -> do
-          withTracerOutputTo hdl "persistence-incremental" $ \tracer -> do
-            let fp = tmpDir <> "/data"
-            writeFileBS fp "\"abc\"\n{\"xyz\": "
-            -- traceWith tracer $ FailedToDecodeJson{reason = "show e", filepath = "fp", contents = "show bs"}
-            p <- createPersistenceIncremental tracer fp
-            loadAll p `shouldReturn` ([Aeson.String "abc"] :: [Aeson.Value])
-        logs <- readFileBS logFile
-        logs `shouldSatisfy` BS.isInfixOf "FailedToDecodeJson"
+        (tracer, getTraces) <- captureTracer "persistence-incremental"
+        let fp = tmpDir <> "/data"
+        writeFileBS fp "\"abc\"\n{\"xyz\": "
+        p <- createPersistenceIncremental tracer fp
+        loadAll p `shouldReturn` ([Aeson.String "abc"] :: [Aeson.Value])
+        traces <- getTraces
+        let rightMsg [Envelope{message = FailedToDecodeJson{}}] = True
+            rightMsg _ = False
+        traces `shouldSatisfy` rightMsg
 
     it "can handle empty files" $ do
       withTracer (Verbose "persistence-incremental") $ \tracer -> do
