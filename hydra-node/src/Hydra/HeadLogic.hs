@@ -922,39 +922,18 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
     , coordinatedHeadState
     } = openState
 
--- | Process the chain (and time) advancing in an open head.
+-- | Process the chain (and time) advancing in any head state.
 --
--- __Transition__: 'OpenState' → 'OpenState'
+-- __Transition__: No transition
 --
--- This is primarily used to track deposits and either drop them or request
--- snapshots for inclusion.
-onOpenChainTick :: IsTx tx => Environment -> HeadId -> PendingDeposits tx -> OpenState tx -> UTCTime -> Outcome tx
-onOpenChainTick env ourHeadId pendingDeposits st chainTime =
+-- This is primarily used to track deposits status changes.
+onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcome tx
+onChainTick env pendingDeposits chainTime =
   -- Determine new active and new expired
   updateDeposits $ \newActive newExpired ->
     -- Emit state change for both
     -- XXX: This is a bit messy
-    ((mkDepositActivated newActive <> mkDepositExpired newExpired) <>) $
-      -- Apply state changes and pick next active to request snapshot
-      -- XXX: This is smelly as we rely on Map <> to override entries (left
-      -- biased). This is also weird because we want to actually apply the state
-      -- change and also to determine the next active.
-      withNextActive (newActive <> newExpired <> pendingDeposits) $ \depositTxId ->
-        -- REVIEW: this is not really a wait, but discard?
-        -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
-        if isNothing decommitTx
-          && isNothing currentDepositTxId
-          && not snapshotInFlight
-          && isLeader parameters party nextSn
-          then
-            -- XXX: This state update has no equivalence in the
-            -- spec. Do we really need to store that we have
-            -- requested a snapshot? If yes, should update spec.
-            newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
-              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just depositTxId))
-          else
-            noop
+    mkDepositActivated newActive <> mkDepositExpired newExpired
  where
   updateDeposits cont =
     uncurry cont $ Map.foldlWithKey updateDeposit (mempty, mempty) pendingDeposits
@@ -976,6 +955,43 @@ onOpenChainTick env ourHeadId pendingDeposits st chainTime =
 
   plusTime = flip addUTCTime
 
+  mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    pure DepositActivated{depositTxId, chainTime, deposit}
+
+  mkDepositExpired m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    pure DepositExpired{depositTxId, chainTime, deposit}
+
+  Environment{depositPeriod} = env
+
+-- | Process the chain (and time) advancing in an open head.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+--
+-- This is primarily used to track deposits and either drop them or request
+-- snapshots for inclusion.
+onOpenChainTick :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> Outcome tx
+onOpenChainTick env pendingDeposits st =
+  -- Apply state changes and pick next active to request snapshot
+  -- XXX: This is smelly as we rely on Map <> to override entries (left
+  -- biased). This is also weird because we want to actually apply the state
+  -- change and also to determine the next active.
+  withNextActive pendingDeposits $ \depositTxId ->
+    -- REVIEW: this is not really a wait, but discard?
+    -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
+    if isNothing decommitTx
+      && isNothing currentDepositTxId
+      && not snapshotInFlight
+      && isLeader parameters party nextSn
+      then
+        -- XXX: This state update has no equivalence in the
+        -- spec. Do we really need to store that we have
+        -- requested a snapshot? If yes, should update spec.
+        newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just depositTxId))
+      else
+        noop
+ where
   -- REVIEW! check what if there are more than 1 new active deposit
   -- What is the sorting criteria to pick next?
   withNextActive :: forall tx. (Eq (UTxOType tx), Monoid (UTxOType tx)) => Map (TxIdType tx) (Deposit tx) -> (TxIdType tx -> Outcome tx) -> Outcome tx
@@ -983,17 +999,11 @@ onOpenChainTick env ourHeadId pendingDeposits st chainTime =
     -- NOTE: Do not consider empty deposits.
     let p :: (x, Deposit tx) -> Bool
         p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
-    maybe noop (cont . fst) . find p $ Map.toList (depositsForHead ourHeadId deposits)
-
-  mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
-    pure DepositActivated{depositTxId, chainTime, deposit}
-
-  mkDepositExpired m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
-    pure DepositExpired{depositTxId, chainTime, deposit}
+    maybe noop (cont . fst) . find p $ Map.toList deposits
 
   nextSn = confirmedSn + 1
 
-  Environment{party, depositPeriod} = env
+  Environment{party} = env
 
   CoordinatedHeadState
     { localTxs
@@ -1380,7 +1390,8 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
     newState TickObserved{chainSlot}
-      <> onOpenChainTick env ourHeadId pendingDeposits openState chainTime
+      <> onChainTick env pendingDeposits chainTime
+      <> onOpenChainTick env (depositsForHead ourHeadId pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
     | ourHeadId == headId ->
         onOpenChainIncrementTx openState newChainState newVersion depositTxId
@@ -1401,6 +1412,7 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         newState TickObserved{chainSlot}
+          <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
@@ -1419,8 +1431,9 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
   -- General
   (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
-  (_, ChainInput Tick{chainSlot}) ->
+  (_, ChainInput Tick{chainTime, chainSlot}) ->
     newState TickObserved{chainSlot}
+      <> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
   (_, ClientInput{clientInput}) ->
