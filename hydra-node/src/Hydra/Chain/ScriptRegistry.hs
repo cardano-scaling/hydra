@@ -6,7 +6,6 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((!!))
-import Data.Text qualified as T
 import Hydra.Cardano.Api (
   Era,
   EraHistory,
@@ -14,11 +13,9 @@ import Hydra.Cardano.Api (
   LedgerEra,
   NetworkId,
   PParams,
-  PaymentCredential (..),
   PaymentKey,
   PoolId,
   SigningKey,
-  StakeAddressReference (..),
   SystemStart,
   Tx,
   TxBodyErrorAutoBalance,
@@ -28,7 +25,6 @@ import Hydra.Cardano.Api (
   UTxO,
   WitCtx (..),
   examplePlutusScriptAlwaysFails,
-  makeShelleyAddress,
   mkScriptAddress,
   mkScriptRef,
   mkTxIn,
@@ -37,7 +33,6 @@ import Hydra.Cardano.Api (
   serialiseAddress,
   toCtxUTxOTxOut,
   txOuts',
-  verificationKeyHash,
   pattern TxOutDatumNone,
  )
 import Hydra.Cardano.Api.Tx (signTx)
@@ -86,7 +81,7 @@ publishHydraScripts backend sk = do
   stakePools <- queryStakePools backend QueryTip
   utxo <-
     queryUTxOFor backend QueryTip vk
-      `catch` handleError networkId vk
+      `catch` handleError
 
   txs <- buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
   forM txs $ \tx -> do
@@ -96,18 +91,17 @@ publishHydraScripts backend sk = do
  where
   vk = getVerificationKey sk
 
-handleError :: NetworkId -> VerificationKey PaymentKey -> SomeException -> IO a
-handleError networkId vk e =
+handleError :: SomeException -> IO a
+handleError e =
   case fromException e of
-    Just apiError@(BlockfrostError (BlockfrostAPIError err))
-      | "NotFound" `T.isInfixOf` err ->
-          throwIO $ PublishingFundsMissing networkId vk apiError
+    Just (BlockfrostError (NoUTxOFound addr)) ->
+      throwIO $ PublishingFundsMissing (serialiseAddress addr)
     _ ->
       throwIO e
 
 -- | Exception raised when publishing Hydra scripts.
 data PublishScriptException
-  = PublishingFundsMissing NetworkId (VerificationKey PaymentKey) APIBlockfrostError
+  = PublishingFundsMissing Text
   | FailedToBuildPublishingTx (TxBodyErrorAutoBalance Era)
   deriving stock (Show)
 
@@ -115,17 +109,10 @@ instance Exception PublishScriptException where
   displayException = \case
     FailedToBuildPublishingTx e ->
       "Failed to build publishing transaction: " <> show e
-    PublishingFundsMissing networkId vk e ->
+    PublishingFundsMissing addr ->
       "Could not find any funds for address "
-        <> toString
-          ( serialiseAddress $
-              makeShelleyAddress
-                networkId
-                (PaymentCredentialByKey $ verificationKeyHash vk)
-                NoStakeAddress
-          )
-        <> ". Please ensure the address has funds and is on-chain. Error: "
-        <> show e
+        <> toString addr
+        <> ". Please ensure the address has funds and is on-chain."
 
 -- | Builds a chain of script publishing transactions.
 -- Throws: PublishScriptException
