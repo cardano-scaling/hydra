@@ -42,6 +42,9 @@ changes.
 - **BREAKING** Enable handling client recover in all head states.
   - See [Issue #1812](https://github.com/cardano-scaling/hydra/issues/1812) and [PR #2217](https://github.com/cardano-scaling/hydra/pull/2217).
 
+- Optimistic approach to statefile corruption by just ignoring invalid JSON
+  lines [#2253](https://github.com/cardano-scaling/hydra/issues/2253)
+
 ## [0.22.4] - 2025-08-05
 
 - Fix API not correctly handling event log rotation. This was evident in not
