@@ -7,7 +7,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (AssetId (..), AssetName, Coin (..), PolicyAssets (..), PolicyId, Quantity (..), UTxO, selectLovelace, txOutValue, valueToPolicyAssets)
-import Hydra.Tx.Deposit (capUTxO, pickTokensToDeposit, splitTokens)
+import Hydra.Tx.Deposit (capUTxO, diffAssets, pickTokensToDeposit, splitTokens)
 import Test.Hydra.Tx.Fixture (testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOSized, genUTxOWithAssetsSized)
 import Test.QuickCheck (Property, chooseInteger, counterexample, cover, elements, forAll, frequency, listOf, oneof, property, (===), (==>))
@@ -172,9 +172,10 @@ spec =
           valid `shouldBe` mempty -- All assets in policy must be valid for policy to be valid
           invalid `shouldBe` tokens
         it "splits multiassets correctly" $
-          forAll (genUTxOWithAssetsSized 5) $ \utxo ->
-            forAll (prepareAssetMap utxo) $ \assets ->
-              property $ propSplitMultiAssetCorrectly utxo assets
+          forAll arbitrary $ \policyId ->
+            forAll (genUTxOWithAssetsSized 5 (Just policyId)) $ \utxo ->
+              forAll (prepareAssetMap utxo) $ \assets ->
+                property $ propSplitMultiAssetCorrectly utxo assets
 
       describe "property tests" $ do
         prop "preserves all input tokens (completeness)" propPreservesAllTokens
@@ -238,6 +239,77 @@ spec =
         prop "idempotent" propIdempotent
         prop "monotonic with respect to target" propMonotonicTarget
         prop "no UTxO loss" propNoUTxOLoss
+
+    describe "diffAssets" $ do
+      describe "tests" $ do
+        it "returns empty assets when both inputs are empty" $ do
+          let assets = diffAssets mempty mempty
+          assets `shouldBe` mempty
+        it "returns existing assets when lookup input is empty" $
+          forAll arbitrary $ \assetMap -> do
+            let assets = diffAssets assetMap mempty
+            assets `shouldBe` Map.toList assetMap
+        it "returns empty assets if asset input is empty" $
+          forAll arbitrary $ \lookupMap -> do
+            let assets = diffAssets mempty lookupMap
+            assets `shouldBe` mempty
+        it "subracts found values" $
+          forAll arbitrary $ \aPolicy -> do
+            let policyAssets =
+                  Map.fromList [("SomeTokenA", 100), ("SomeTokenB", 200)]
+            let policyAssets' =
+                  Map.fromList [("SomeTokenA", 30), ("SomeTokenB", 50)]
+            let expectedAssets =
+                  Map.fromList [("SomeTokenA", 70), ("SomeTokenB", 150)]
+            let expectedResult =
+                  Map.fromList [(aPolicy, PolicyAssets expectedAssets)]
+
+            let a = Map.fromList [(aPolicy, PolicyAssets policyAssets)]
+            let b = Map.fromList [(aPolicy, PolicyAssets policyAssets')]
+            let assets = diffAssets a b
+            assets `shouldBe` Map.toList expectedResult
+        it "keeps assets not found in the lookup map" $
+          forAll arbitrary $ \aPolicy -> do
+            let policyAssets =
+                  Map.fromList [("SomeTokenA", 100), ("SomeTokenC", 2)]
+            let policyAssets' =
+                  Map.fromList [("SomeTokenA", 30), ("SomeTokenB", 50)]
+            let expectedAssets =
+                  Map.fromList [("SomeTokenA", 70), ("SomeTokenC", 2)]
+            let expectedResult =
+                  Map.fromList [(aPolicy, PolicyAssets expectedAssets)]
+
+            let a = Map.fromList [(aPolicy, PolicyAssets policyAssets)]
+            let b = Map.fromList [(aPolicy, PolicyAssets policyAssets')]
+            let assets = diffAssets a b
+            assets `shouldBe` Map.toList expectedResult
+        it "ignores extra assets in the lookup map" $
+          forAll arbitrary $ \aPolicy -> do
+            let policyAssets =
+                  Map.fromList [("SomeTokenA", 100), ("SomeTokenB", 85)]
+            let policyAssets' =
+                  Map.fromList [("SomeTokenA", 30), ("SomeTokenB", 50), ("SomeTokenC", 400)]
+            let expectedAssets =
+                  Map.fromList [("SomeTokenA", 70), ("SomeTokenB", 35)]
+            let expectedResult =
+                  Map.fromList [(aPolicy, PolicyAssets expectedAssets)]
+
+            let a = Map.fromList [(aPolicy, PolicyAssets policyAssets)]
+            let b = Map.fromList [(aPolicy, PolicyAssets policyAssets')]
+            let assets = diffAssets a b
+            assets `shouldBe` Map.toList expectedResult
+        it "ignores assets with too low values" $
+          forAll arbitrary $ \aPolicy -> do
+            let policyAssets =
+                  Map.fromList [("SomeTokenA", 100), ("SomeTokenB", 85)]
+            let policyAssets' =
+                  Map.fromList [("SomeTokenA", 100), ("SomeTokenB", 86)]
+            let expectedResult = [(aPolicy, mempty)]
+
+            let a = Map.fromList [(aPolicy, PolicyAssets policyAssets)]
+            let b = Map.fromList [(aPolicy, PolicyAssets policyAssets')]
+            let assets = diffAssets a b
+            assets `shouldBe` expectedResult
 
 -- | Property: The sum of selected and leftover values equals the input value
 propPreservesTotalValue :: UTxO -> Coin -> Property
@@ -347,12 +419,10 @@ testAssetName3 = "TestToken3"
 utxoWithTokens :: [(PolicyId, AssetName, Quantity)] -> UTxO
 utxoWithTokens tokens =
   let value = fromList $ map (\(pid, aname, qty) -> (AssetId pid aname, qty)) tokens
-      -- Add some ADA to make it a valid UTxO
-      valueWithAda = value <> fromList [(AdaAssetId, Quantity 1000000)]
       txIn = generateWith arbitrary 42
       baseTxOut = generateWith arbitrary 42
       -- Update the txOut to have our custom value
-      txOut = baseTxOut{txOutValue = valueWithAda}
+      txOut = baseTxOut{txOutValue = value}
    in UTxO.singleton txIn txOut
 
 -- * Property tests for splitTokens
@@ -426,8 +496,8 @@ propSplitMultiAssetCorrectly utxo specifiedTokens =
    in all (checkValidTokenInUTxO utxoPolicyAssets) (Map.toList depositAssets)
         & cover 10 (containsPolicies utxoPolicyAssets specifiedTokens) "PolicyId's are completely present in the UTxO"
         & cover 10 (containsAssets utxoPolicyAssets specifiedTokens) "Assets are completely present in the UTxO"
+        & cover 10 (Map.size specifiedTokens > 5) "Assets size > 5"
         & cover 1 (Map.null specifiedTokens) "Empty Assets"
-        & cover 1 (Map.size specifiedTokens > 5) "Assets size > 5"
         & counterexample ("Valid tokens: " <> show toDeposit)
         & counterexample ("UTxO policy assets: " <> show utxoPolicyAssets)
  where

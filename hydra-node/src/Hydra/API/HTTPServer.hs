@@ -322,6 +322,7 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
           CannotFindOwnInitial _ -> badRequest e
           DepositTooLow _ _ -> badRequest e
           AmountTooLow _ _ -> badRequest e
+          FailedToConstructDepositTx _ -> badRequest e
           _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx

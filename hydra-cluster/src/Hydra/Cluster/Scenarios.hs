@@ -49,6 +49,7 @@ import Hydra.Cardano.Api (
   KeyWitnessInCtx (..),
   LedgerProtocolParameters (..),
   PaymentKey,
+  PolicyId (..),
   Tx,
   TxId (..),
   TxOutDatum,
@@ -71,6 +72,7 @@ import Hydra.Cardano.Api (
   mkTxOutAutoBalance,
   mkTxOutDatumHash,
   mkVkAddress,
+  policyAssetsToValue,
   scriptWitnessInCtx,
   selectLovelace,
   setTxProtocolParams,
@@ -84,6 +86,7 @@ import Hydra.Cardano.Api (
   txOutValue,
   txOuts',
   utxoFromTx,
+  valueToPolicyAssets,
   writeFileTextEnvelope,
   pattern BuildTxWith,
   pattern KeyWitness,
@@ -93,6 +96,8 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
+import Hydra.Cardano.Api qualified as CAPI
+import Hydra.Cardano.Api.TxOut (modifyTxOutValue)
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
@@ -102,7 +107,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
-import Hydra.Contract.Dummy (dummyRewardingScript)
+import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
@@ -110,7 +115,7 @@ import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.Deposit (capUTxO)
+import Hydra.Tx.Deposit (capUTxO, diffAssets)
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
@@ -156,7 +161,7 @@ import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
 import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript)
+import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript, genUTxOWithAssetsSized)
 import Test.QuickCheck (Positive, choose, elements, generate)
 
 data EndToEndLog
@@ -196,7 +201,7 @@ oneOfThreeNodesStopsForAWhile tracer workDir backend hydraScriptsTxId = do
       <&> setNetworkId networkId
   blockTime <- Backend.getBlockTime backend
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
-    aliceUTxO <- seedFromFaucet backend aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+    aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
     withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         -- Init
@@ -331,7 +336,7 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
       <&> modifyConfig (\config -> config{startChainFrom = Nothing, depositPeriod})
 
   (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-  commitUTxO <- seedFromFaucet backend aliceCardanoVk 5_000_000 (contramap FromFaucet tracer)
+  commitUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
 
   let hydraTracer = contramap FromHydraNode tracer
 
@@ -469,7 +474,7 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
         -- Commit something from external key
         (walletVk, walletSk) <- keysFor AliceFunds
         amount <- Coin <$> generate (choose (10_000_000, 50_000_000))
-        utxoToCommit <- seedFromFaucet backend walletVk amount (contramap FromFaucet tracer)
+        utxoToCommit <- seedFromFaucet backend walletVk (lovelaceToValue amount) (contramap FromFaucet tracer)
         requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= Backend.submitTransaction backend
 
         waitFor hydraTracer (10 * blockTime) [n1] $
@@ -523,7 +528,7 @@ singlePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAf
     _ <- writeFileTextEnvelope (File keyPath) Nothing walletSk
     traceWith tracer CreatedKey{keyPath}
 
-    utxoToCommit <- seedFromFaucet backend walletVk 100_000_000 (contramap FromFaucet tracer)
+    utxoToCommit <- seedFromFaucet backend walletVk (lovelaceToValue 100_000_000) (contramap FromFaucet tracer)
 
     let hydraTracer = contramap FromHydraNode tracer
     options <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] id
@@ -565,7 +570,7 @@ singlePartyCommitsFromExternal tracer workDir backend hydraScriptsTxId =
         headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
         (walletVk, walletSk) <- keysFor AliceFunds
-        utxoToCommit <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
+        utxoToCommit <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
 
         res <-
           runReq defaultHttpConfig $
@@ -613,7 +618,7 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
 
         -- Create money on L1
         let commitAmount = 100_000_000
-        utxoToCommit <- seedFromFaucet backend walletVk commitAmount (contramap FromFaucet tracer)
+        utxoToCommit <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
 
         -- Push it into L2
         requestCommitTx n1 utxoToCommit
@@ -720,7 +725,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
     -- Seed/return funds
     (walletVk, walletSk) <- keysFor AliceFunds
     bracket
-      (seedFromFaucet backend walletVk 100_000_000 (contramap FromFaucet tracer))
+      (seedFromFaucet backend walletVk (lovelaceToValue 100_000_000) (contramap FromFaucet tracer))
       (\_ -> returnFundsToFaucet tracer backend AliceFunds)
       $ \utxoToCommit -> do
         -- Start hydra-node and open a head
@@ -937,8 +942,8 @@ singlePartyCommitsFromExternalTxBlueprint tracer workDir backend hydraScriptsTxI
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      someUTxO <- seedFromFaucet backend someExternalVk 10_000_000 (contramap FromFaucet tracer)
-      utxoToCommit <- seedFromFaucet backend someExternalVk 5_000_000 (contramap FromFaucet tracer)
+      someUTxO <- seedFromFaucet backend someExternalVk (lovelaceToValue 10_000_000) (contramap FromFaucet tracer)
+      utxoToCommit <- seedFromFaucet backend someExternalVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
       networkId <- Backend.queryNetworkId backend
       let someAddress = mkVkAddress networkId someExternalVk
       let someOutput =
@@ -1035,7 +1040,7 @@ canSubmitTransactionThroughAPI tracer workDir backend hydraScriptsTxId =
       (cardanoCarolVk, _) <- keysFor Carol
       networkId <- Backend.queryNetworkId backend
       -- create output for Bob to be sent to carol
-      bobUTxO <- seedFromFaucet backend cardanoBobVk 5_000_000 (contramap FromFaucet tracer)
+      bobUTxO <- seedFromFaucet backend cardanoBobVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
       let carolsAddress = mkVkAddress networkId cardanoCarolVk
           bobsAddress = mkVkAddress networkId cardanoBobVk
           carolsOutput =
@@ -1250,8 +1255,8 @@ canCommit tracer workDir blockTime backend hydraScriptsTxId =
 
           -- Get some L1 funds
           (walletVk, walletSk) <- generate genKeyPair
-          commitUTxO <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
-          commitUTxO2 <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
+          commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+          commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
 
           resp <-
             parseUrlThrow ("POST " <> hydraNodeBaseUrl n2 <> "/commit")
@@ -1313,9 +1318,8 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
     (`finally` returnFundsToFaucet tracer backend Bob) $ do
       refuelIfNeeded tracer backend Alice 30_000_000
       refuelIfNeeded tracer backend Bob 30_000_000
-      -- NOTE: Adapt periods to block times
       let contestationPeriod = truncate $ 10 * blockTime
-          depositPeriod = truncate $ 100 * blockTime
+          depositPeriod = truncate $ 50 * blockTime
       networkId <- Backend.queryNetworkId backend
       aliceChainConfig <-
         chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] contestationPeriod
@@ -1336,28 +1340,57 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
 
           -- Get some L1 funds
           (walletVk, walletSk) <- generate genKeyPair
-          commitUTxO <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
-          -- This one is expected to fail since there is 5 ADA at the wallet address but we specified 6 ADA to commit
-          (requestCommitTx' n1 commitUTxO (Just 6_000_000) <&> toJSON)
+          tokensUTxO <- generate (genUTxOWithAssetsSized 8 (Just $ PolicyId $ CAPI.hashScript $ CAPI.PlutusScript dummyMintingScript))
+          let assetsToValue = foldMap ((mempty <>) . uncurry policyAssetsToValue) . Map.toList
+          let totalTokenValue = UTxO.totalValue tokensUTxO
+          let tokenAssets = valueToPolicyAssets totalTokenValue
+          let tokenAssetValue = assetsToValue tokenAssets
+          let quantityMoreThan20 = (> 20)
+          let partialTokenAssets = Map.map (\(CAPI.PolicyAssets policyAssetMap) -> CAPI.PolicyAssets $ Map.filter quantityMoreThan20 policyAssetMap) tokenAssets
+          -- NOTE: using diffAssets here implicitly tests that function too.
+          let tokenDiff = assetsToValue $ Map.fromList $ diffAssets tokenAssets partialTokenAssets
+          let partialTokenAssetValue = assetsToValue partialTokenAssets
+          let tokenAssetValueWithoutAda = assetsToValue $ valueToPolicyAssets partialTokenAssetValue
+          let seedAmount = 10_000_000
+          -- NOTE: We (and also the users) need to make sure we give enough ADA when committing. If deposit tx ADA amount is too low
+          -- and some ADA is added to it after balancing in the wallet, then we have problems matching on the 'CommitApproved' etc.
+          let commitAmount = 5_000_000
+          commitUTxOWithoutTokens <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount) (contramap FromFaucet tracer)
+          commitUTxOWithTokens <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount <> tokenAssetValue) (contramap FromFaucet tracer)
+          -- This one is expected to fail since there is not enough ADA value
+          (requestCommitTx' n1 commitUTxOWithoutTokens (Just 10_000_001) Nothing <&> toJSON)
             `shouldThrow` expectErrorStatus 400 (Just "AmountTooLow")
 
-          let expectedCommit = fst $ capUTxO commitUTxO 2_000_000
+          -- This one is expected to fail since there are no extra assets but we specified some to commit
+          (requestCommitTx' n1 commitUTxOWithoutTokens (Just commitAmount) (Just partialTokenAssets) <&> toJSON)
+            `shouldThrow` expectErrorStatus 400 (Just "InvalidTokenRequest")
 
-          depositTransaction <- requestCommitTx' n2 commitUTxO (Just 2_000_000)
-
+          depositTransaction <- requestCommitTx' n1 commitUTxOWithTokens (Just commitAmount) (Just partialTokenAssets)
           let tx = signTx walletSk depositTransaction
 
           Backend.submitTransaction backend tx
 
+          -- Construct expected deposit (we need to alter the ADA value to match with what we committed)
+          let expectedDeposit =
+                UTxO.fromList $
+                  second
+                    ( modifyTxOutValue
+                        ( \_ ->
+                            lovelaceToValue commitAmount <> tokenAssetValueWithoutAda
+                        )
+                    )
+                    <$> UTxO.toList commitUTxOWithTokens
+
           waitFor hydraTracer (2 * realToFrac depositPeriod) [n1, n2] $
-            output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= expectedCommit]
+            output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= expectedDeposit]
           waitFor hydraTracer (20 * blockTime) [n1, n2] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
-          getSnapshotUTxO n1 `shouldReturn` expectedCommit
+          getSnapshotUTxO n1 `shouldReturn` expectedDeposit
           -- check that user balance balance contains the change from the commit tx
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
-            `shouldReturn` lovelaceToValue 3_000_000
+            `shouldReturn` lovelaceToValue (seedAmount + seedAmount - commitAmount)
+            <> tokenDiff
 
           send n2 $ input "Close" []
 
@@ -1368,13 +1401,16 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           remainingTime <- diffUTCTime deadline <$> getCurrentTime
           waitFor hydraTracer (remainingTime + 3 * blockTime) [n1, n2] $
             output "ReadyToFanout" ["headId" .= headId]
+
           send n2 $ input "Fanout" []
           waitMatch (10 * blockTime) n2 $ \v ->
             guard $ v ^? key "tag" == Just "HeadIsFinalized"
 
           -- Assert final wallet balance
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
-            `shouldReturn` balance commitUTxO
+            -- NOTE: in the end we expect seedAmount * 2 since we seeded from faucet twice + assets we minted
+            `shouldReturn` lovelaceToValue (seedAmount * 2)
+            <> tokenAssetValue
  where
   hydraTracer = contramap FromHydraNode tracer
 
@@ -1404,7 +1440,7 @@ rejectCommit tracer workDir blockTime backend hydraScriptsTxId =
 
       -- Get some L1 funds
       (walletVk, _) <- generate genKeyPair
-      commitUTxO' <- seedFromFaucet backend walletVk 1_000_000 (contramap FromFaucet tracer)
+      commitUTxO' <- seedFromFaucet backend walletVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
       TxOut _ _ _ refScript <- generate genTxOutWithReferenceScript
       datum <- generate genDatum
       let commitUTxO :: UTxO.UTxO =
@@ -1460,7 +1496,7 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
         -- Get some L1 funds
         (walletVk, walletSk) <- generate genKeyPair
         let commitAmount = 5_000_000
-        commitUTxO <- seedFromFaucet backend walletVk commitAmount (contramap FromFaucet tracer)
+        commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
 
         (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
           `shouldReturn` lovelaceToValue commitAmount
@@ -1546,9 +1582,9 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
       -- Get some L1 funds
       (walletVk, walletSk) <- generate genKeyPair
       let commitAmount = 5_000_000
-      commitUTxO1 <- seedFromFaucet backend walletVk commitAmount (contramap FromFaucet tracer)
-      commitUTxO2 <- seedFromFaucet backend walletVk commitAmount (contramap FromFaucet tracer)
-      commitUTxO3 <- seedFromFaucet backend walletVk commitAmount (contramap FromFaucet tracer)
+      commitUTxO1 <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
+      commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
+      commitUTxO3 <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
 
       queryWalletBalance walletVk `shouldReturn` lovelaceToValue (commitAmount * 3)
 
@@ -1674,9 +1710,9 @@ canSeePendingDeposits tracer workDir blockTime backend hydraScriptsTxId =
 
         -- Get some L1 funds
         (walletVk, walletSk) <- generate genKeyPair
-        commitUTxO <- seedFromFaucet backend walletVk 5_000_000 (contramap FromFaucet tracer)
-        commitUTxO2 <- seedFromFaucet backend walletVk 4_000_000 (contramap FromFaucet tracer)
-        commitUTxO3 <- seedFromFaucet backend walletVk 3_000_000 (contramap FromFaucet tracer)
+        commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+        commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue 4_000_000) (contramap FromFaucet tracer)
+        commitUTxO3 <- seedFromFaucet backend walletVk (lovelaceToValue 3_000_000) (contramap FromFaucet tracer)
 
         deposited <- forM [commitUTxO, commitUTxO2, commitUTxO3] $ \utxo -> do
           depositTransaction <-
@@ -1743,8 +1779,8 @@ canDecommit tracer workDir backend hydraScriptsTxId =
       (walletVk, walletSk) <- generate genKeyPair
       let headAmount = 8_000_000
       let commitAmount = 5_000_000
-      headUTxO <- seedFromFaucet backend walletVk headAmount (contramap FromFaucet tracer)
-      commitUTxO <- seedFromFaucet backend walletVk commitAmount (contramap FromFaucet tracer)
+      headUTxO <- seedFromFaucet backend walletVk (lovelaceToValue headAmount) (contramap FromFaucet tracer)
+      commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
 
       requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk >>= Backend.submitTransaction backend
 
@@ -1844,7 +1880,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
       <&> setNetworkId networkId
 
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
-    aliceUTxO <- seedFromFaucet backend aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+    aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
     withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
       -- Carol starts its node misconfigured
       let pparamsDecorator = atKey "maxTxSize" ?~ toJSON (Aeson.Number 0)
@@ -2017,7 +2053,7 @@ threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
 
         -- N1 & N3 commit the same thing at the same time
         -- XXX: one will fail but the head will still open
-        aliceUTxO <- seedFromFaucet backend aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+        aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
         raceLabelled_
           ( "request-commit-tx-n1"
           , (requestCommitTx n1 aliceUTxO >>= Backend.submitTransaction backend)
@@ -2029,7 +2065,7 @@ threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
           )
 
         -- N2 commits something
-        bobUTxO <- seedFromFaucet backend bobCardanoVk 1_000_000 (contramap FromFaucet tracer)
+        bobUTxO <- seedFromFaucet backend bobCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
         requestCommitTx n2 bobUTxO >>= Backend.submitTransaction backend
 
         -- Observe open with relevant UTxO
@@ -2103,7 +2139,7 @@ refuelIfNeeded tracer backend actor amount = do
   traceWith tracer $ StartingFunds{actor = actorName actor, utxo = existingUtxo}
   let currentBalance = selectLovelace $ balance @Tx existingUtxo
   when (currentBalance < amount) $ do
-    utxo <- seedFromFaucet backend actorVk amount (contramap FromFaucet tracer)
+    utxo <- seedFromFaucet backend actorVk (lovelaceToValue amount) (contramap FromFaucet tracer)
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, utxo}
 
 -- | Return the remaining funds to the faucet

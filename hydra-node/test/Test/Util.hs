@@ -21,6 +21,7 @@ import Data.Aeson (encode)
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
 import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Logging (Envelope (..), traceInTVar)
 import Hydra.Network (NetworkCallback (..))
 import Hydra.Node (HydraNodeLog)
 import System.IO.Temp (writeSystemTempFile)
@@ -175,3 +176,13 @@ waitMatch waitNext delay match = do
 
   align _ [] = []
   align n (h : q) = h : fmap (Text.replicate n " " <>) q
+
+-- | Create a tracer that captures all messages and a function to retrieve all
+-- traces captured.
+-- XXX: This is duplicated in MithrilSpec in hydra-cluster, but can't (easily)
+-- be moved to the Test Prelude because of the dependency on Hydra.Logging.
+captureTracer :: Text -> IO (Tracer IO a, IO [Envelope a])
+captureTracer namespace = do
+  traces <- newLabelledTVarIO "capture-tracer" []
+  let tracer = traceInTVar traces namespace
+  pure (tracer, readTVarIO traces)

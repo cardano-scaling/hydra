@@ -26,7 +26,6 @@ import PlutusLedgerApi.V3 (
   mintValueToMap,
  )
 import PlutusTx.AssocMap qualified as AssocMap
-import PlutusTx.Builtins (serialiseData)
 import PlutusTx.Builtins qualified as Builtins
 import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
 import PlutusTx.Foldable qualified as F
@@ -66,17 +65,6 @@ mustNotMintOrBurn TxInfo{txInfoMint} =
   traceIfFalse "U01" $
     isZero (mintValueMinted txInfoMint) && isZero (mintValueBurned txInfoMint)
 {-# INLINEABLE mustNotMintOrBurn #-}
-
-infix 4 ===
-
--- | Checks for exact equality between two serialized values.
--- Equality on value is very memory intensive as it's defined on associative
--- lists and `AssocMap` equality is implemented. Instead we can be more strict and
--- require EXACTLY the same value and compare using the serialised bytes.
-(===) :: Value -> Value -> Bool
-(===) val val' =
-  serialiseData (toBuiltinData val) == serialiseData (toBuiltinData val')
-{-# INLINEABLE (===) #-}
 
 -- | Hash a potentially unordered list of commits by sorting them, concatenating
 -- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.

@@ -8,10 +8,13 @@ import Test.Hydra.Prelude
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
+import Hydra.Logging (Envelope (..), Verbosity (Verbose), withTracer)
 import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, loadAll)
+import Hydra.PersistenceLog
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
+import Test.Util (captureTracer)
 
 spec :: Spec
 spec = do
@@ -35,12 +38,25 @@ spec = do
           pure $ actualResult === Just item
 
   describe "PersistenceIncremental" $ do
-    it "can handle empty files" $ do
+    it "can ignore invalid lines and emits warning" $ do
       withTempDir "hydra-persistence" $ \tmpDir -> do
+        (tracer, getTraces) <- captureTracer "persistence-incremental"
         let fp = tmpDir <> "/data"
-        writeFileBS fp ""
-        p <- createPersistenceIncremental fp
-        loadAll p `shouldReturn` ([] :: [Aeson.Value])
+        writeFileBS fp "\"abc\"\n{\"xyz\": "
+        p <- createPersistenceIncremental tracer fp
+        loadAll p `shouldReturn` ([Aeson.String "abc"] :: [Aeson.Value])
+        traces <- getTraces
+        let rightMsg [Envelope{message = FailedToDecodeJson{}}] = True
+            rightMsg _ = False
+        traces `shouldSatisfy` rightMsg
+
+    it "can handle empty files" $ do
+      withTracer (Verbose "persistence-incremental") $ \tracer -> do
+        withTempDir "hydra-persistence" $ \tmpDir -> do
+          let fp = tmpDir <> "/data"
+          writeFileBS fp ""
+          p <- createPersistenceIncremental tracer fp
+          loadAll p `shouldReturn` ([] :: [Aeson.Value])
 
     it "is consistent after multiple append calls in presence of new-lines" $
       checkCoverage $
@@ -50,10 +66,11 @@ spec = do
           monitor (cover 10 (containsNewLine items) "some item contains a new line")
 
           actualResult <- run $
-            withTempDir "hydra-persistence" $ \tmpDir -> do
-              p <- createPersistenceIncremental $ tmpDir <> "/data"
-              forM_ items $ append p
-              loadAll p
+            withTracer (Verbose "persistence-incremental") $ \tracer -> do
+              withTempDir "hydra-persistence" $ \tmpDir -> do
+                p <- createPersistenceIncremental tracer $ tmpDir <> "/data"
+                forM_ items $ append p
+                loadAll p
           pure $ actualResult === items
 
     it "it cannot load from a different thread once having started appending" $
@@ -61,13 +78,14 @@ spec = do
         items <- pick $ listOf genPersistenceItem
         moreItems <- pick $ listOf genPersistenceItem `suchThat` ((> 2) . length)
         pure $
-          withTempDir "hydra-persistence" $ \tmpDir -> do
-            p <- createPersistenceIncremental $ tmpDir <> "/data"
-            forM_ items $ append p
-            loadAll p `shouldReturn` items
-            raceLabelled_
-              ("forever-load-all", forever $ threadDelay 0.01 >> loadAll p)
-              ("append-more-items", forM_ moreItems $ \item -> append p item >> threadDelay 0.01)
+          withTracer (Verbose "persistence-incremental") $ \tracer -> do
+            withTempDir "hydra-persistence" $ \tmpDir -> do
+              p <- createPersistenceIncremental tracer $ tmpDir <> "/data"
+              forM_ items $ append p
+              loadAll p `shouldReturn` items
+              raceLabelled_
+                ("forever-load-all", forever $ threadDelay 0.01 >> loadAll p)
+                ("append-more-items", forM_ moreItems $ \item -> append p item >> threadDelay 0.01)
 
 genPersistenceItem :: Gen Aeson.Value
 genPersistenceItem =

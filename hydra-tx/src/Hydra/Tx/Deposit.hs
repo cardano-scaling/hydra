@@ -16,7 +16,7 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
-import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId, withoutUTxO)
+import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (POSIXTime)
 
@@ -41,7 +41,7 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
       & addDepositInputs
       & bodyTxL . outputsTxBodyL
         .~ ( StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId utxoToDeposit deadline)
-              <> leftoverOutput
+              <> returnToUser
            )
       & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
       & addMetadata (mkHydraHeadV1TxName "DepositTx") blueprintTx
@@ -52,37 +52,109 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline amount tokens =
 
   CommitBlueprintTx{lookupUTxO = depositUTxO, blueprintTx} = commitBlueprintTx
 
-  (utxoToDeposit', leftoverUTxO') = maybe (depositUTxO, mempty) (capUTxO depositUTxO) amount
+  (utxoToDeposit', leftoverUTxO) = maybe (depositUTxO, mempty) (capUTxO depositUTxO) amount
 
-  utxoToDeposit = utxoToDeposit' <> tokensToDepositUTxO
+  tokensToDepositUTxO = pickTokensToDeposit leftoverUTxO tokens
 
-  tokensToDepositUTxO = pickTokensToDeposit leftoverUTxO' tokens
-  leftoverOutput =
-    let leftoverUTxO = (leftoverUTxO' `withoutUTxO` tokensToDepositUTxO)
-     in if UTxO.null leftoverUTxO
+  utxoToDeposit = mergeUTxO utxoToDeposit' tokensToDepositUTxO
+
+  returnToUser =
+    let returnToUserUTxO = leftoverUTxO `diffExistingAssets` tokensToDepositUTxO
+     in if UTxO.null returnToUserUTxO
           then StrictSeq.empty
           else
-            let leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs leftoverUTxO
+            let leftoverAddress = List.head $ txOutAddress <$> UTxO.txOutputs returnToUserUTxO
              in StrictSeq.singleton $
                   toLedgerTxOut $
-                    TxOut leftoverAddress (UTxO.totalValue leftoverUTxO) TxOutDatumNone ReferenceScriptNone
+                    TxOut leftoverAddress (UTxO.totalValue returnToUserUTxO) TxOutDatumNone ReferenceScriptNone
 
   depositInputsList = toList (UTxO.inputSet utxoToDeposit)
 
   depositInputs = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> depositInputsList
 
+-- | Find the difference between the first argument UTxO's non ADA assets in
+-- and the second UTxO argument. Matching asset quantities will be subtracted
+-- if they are found.
+diffExistingAssets :: UTxO -> UTxO -> UTxO
+diffExistingAssets utxoToFilter utxoToLookup =
+  UTxO.fromList $ findAssets <$> UTxO.toList utxoToFilter
+ where
+  findAssets (i, TxOut a val d r) =
+    let assets = valueToPolicyAssets val
+        originalLovelace = selectLovelace val
+        filteredAssets' = diffAssets assets forLookup
+        filteredAssets =
+          if null (snd <$> filteredAssets')
+            then mempty
+            else filteredAssets'
+        filteredValue =
+          foldMap (uncurry policyAssetsToValue) filteredAssets
+     in (i, TxOut a (lovelaceToValue originalLovelace <> filteredValue) d r)
+  forLookup = valueToPolicyAssets $ UTxO.totalValue utxoToLookup
+
+-- | Diff the first argument map of assets in case any asset exists in the second argument.
+diffAssets :: Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets -> [(PolicyId, PolicyAssets)]
+diffAssets assets forLookup =
+  if null forLookup
+    then Map.toList assets
+    else
+      Map.assocs $
+        Map.foldrWithKey
+          ( \pid (PolicyAssets existing) result ->
+              case Map.lookup pid forLookup of
+                Nothing -> result
+                Just foundAsset -> result `Map.union` Map.singleton pid (PolicyAssets $ go existing foundAsset)
+          )
+          Map.empty
+          assets
+ where
+  go :: Map AssetName Quantity -> PolicyAssets -> Map AssetName Quantity
+  go existing (PolicyAssets found) =
+    Map.differenceWith
+      checkQuantities
+      existing
+      found
+
+  checkQuantities :: Quantity -> Quantity -> Maybe Quantity
+  checkQuantities existing wanted =
+    if existing > wanted
+      then Just $ existing - wanted
+      else Nothing
+
+-- | Merges the two 'UTxO' favoring data coming from the first argument 'UTxO'.
+-- In case the same 'TxIn' was found in the first 'UTxO' - second 'UTxO' value
+-- will be appended to the input.
+-- NOTE: We need this since mappend on 'UTxO' is happy to accept the first 'Value' it encounters
+-- in case 'TxId'/s are the same.
+mergeUTxO :: UTxO -> UTxO -> UTxO
+mergeUTxO utxo utxoToMerge =
+  let existingInsAndOuts = UTxO.toList utxo
+   in UTxO.fromList $
+        List.foldl'
+          ( \result newPair@(newTxIn, TxOut _ newVal _ _) ->
+              case List.find (\(txin, _) -> txin == newTxIn) result of
+                Nothing -> newPair : result
+                Just (txIn, TxOut addr existingVal d r) ->
+                  let assetsToInclude =
+                        foldMap (uncurry policyAssetsToValue) (Map.assocs (valueToPolicyAssets newVal))
+                      lovelaceToInclude = lovelaceToValue $ selectLovelace newVal
+                   in [(txIn, TxOut addr (existingVal <> lovelaceToInclude <> assetsToInclude) d r)]
+          )
+          existingInsAndOuts
+          (UTxO.toList utxoToMerge)
+
 pickTokensToDeposit :: UTxO -> Map PolicyId PolicyAssets -> UTxO
 pickTokensToDeposit leftoverUTxO depositTokens
   | Map.null depositTokens = mempty
-  | otherwise = UTxO.fromList picked -- Assuming UTxO.fromList :: [(TxIn, TxOut CtxUTxO)] -> UTxO; adjust if needed.
+  | otherwise = UTxO.fromList picked
  where
-  -- Build list of (TxIn, new TxOut) where new TxOut has original lovelace + exact required quantities of matched assets.
+  -- Build list of (TxIn, new TxOut) where new TxOut has exact required quantities of matched assets.
   picked :: [(TxIn, TxOut CtxUTxO)]
   picked =
-    [ (i, mkTxOutValueKeepingLovelace o newValue)
+    [ (i, mkTxOutValueNotKeepingLovelace o newValue)
     | (i, o) <- UTxO.toList leftoverUTxO
-    , let outputAssets = valueToPolicyAssets (txOutValue o) -- Map PolicyId PolicyAssets from this TxOut.
-    , let pickedPolicyAssets = pickMatchedAssets outputAssets depositTokens -- Map PolicyId PolicyAssets with matched.
+    , let outputAssets = valueToPolicyAssets (txOutValue o)
+    , let pickedPolicyAssets = pickMatchedAssets outputAssets depositTokens
     , not (Map.null pickedPolicyAssets)
     , let newValue = foldMap (uncurry policyAssetsToValue) (Map.toList pickedPolicyAssets)
     ]
@@ -103,10 +175,10 @@ pickTokensToDeposit leftoverUTxO depositTokens
       Just availQty | reqQty <= availQty -> Map.insert name reqQty matched
       _ -> matched
 
--- Helper to create TxOut with original lovelace + new value (unchanged from original).
-mkTxOutValueKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
-mkTxOutValueKeepingLovelace (TxOut addr val datum refScript) newValue =
-  TxOut addr (lovelaceToValue (selectLovelace val) <> newValue) datum refScript
+-- Helper to create TxOut with new value (unchanged from original) and removing all lovelace.
+mkTxOutValueNotKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
+mkTxOutValueNotKeepingLovelace (TxOut addr _ datum refScript) newValue =
+  TxOut addr newValue datum refScript
 
 mkDepositOutput ::
   NetworkId ->
@@ -208,8 +280,9 @@ capUTxO utxo target
     | otherwise = case sorted of
         [] -> (foundSoFar, leftovers)
         (txIn, txOut) : rest ->
-          let x = selectLovelace (txOutValue txOut)
-              newSum = currentSum + x
+          let txOutLovelace = selectLovelace (txOutValue txOut)
+              txOutAssetsVal = foldMap (uncurry policyAssetsToValue) (Map.toList $ valueToPolicyAssets (txOutValue txOut))
+              newSum = currentSum + txOutLovelace
            in if newSum <= target
                 then
                   -- Include the entire output if it doesn't exceed the target.
@@ -221,19 +294,24 @@ capUTxO utxo target
                 else
                   -- Split the output to meet the target exactly.
                   let cappedValue = target - currentSum
-                      leftoverVal = x - cappedValue
+                      leftoverVal = txOutLovelace - cappedValue
                       cappedTxOut = updateTxOutAdaValue txOut cappedValue
-                      leftoverTxOut = updateTxOutAdaValue txOut leftoverVal
+                      leftoverTxOut = updateTxOutValue txOut (lovelaceToValue leftoverVal <> txOutAssetsVal)
                    in go
                         (foundSoFar <> UTxO.singleton txIn cappedTxOut)
                         (UTxO.difference leftovers (UTxO.singleton txIn txOut) <> UTxO.singleton txIn leftoverTxOut)
                         target
                         rest
 
--- | Helper to create a new TxOut with a specified lovelace value
+-- | Helper to create a new TxOut with specified lovelace value
 updateTxOutAdaValue :: TxOut ctx -> Coin -> TxOut ctx
 updateTxOutAdaValue (TxOut addr _ datum refScript) newValue =
   TxOut addr (fromLedgerValue $ mkAdaValue ShelleyBasedEraConway newValue) datum refScript
+
+-- | Helper to create a new TxOut with specified 'Value'
+updateTxOutValue :: TxOut ctx -> Value -> TxOut ctx
+updateTxOutValue (TxOut addr _ datum refScript) newValue =
+  TxOut addr newValue datum refScript
 
 -- * Observation
 

@@ -34,7 +34,7 @@ import Hydra.Contract.HeadState (
   SnapshotVersion,
   State (..),
  )
-import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
+import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
@@ -298,7 +298,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
 
   mustIncreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue <> depositValue === headOutValue
+      headInValue <> depositValue == headOutValue
 
   OpenDatum
     { parties = prevParties
@@ -402,7 +402,7 @@ checkClose ctx openBefore redeemer =
 
   mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      val === val'
+      val == val'
 
   val' = txOutValue . L.head $ txInfoOutputs txInfo
 
@@ -522,7 +522,7 @@ checkContest ctx closedDatum redeemer =
  where
   mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      val === val'
+      val == val'
 
   val' = txOutValue . L.head $ txInfoOutputs txInfo
 

@@ -102,6 +102,7 @@ library
     Hydra.Node.Util
     Hydra.Options
     Hydra.Persistence
+    Hydra.PersistenceLog
     Hydra.Utils
 
   other-modules:   Paths_hydra_node
