@@ -13,76 +13,71 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-      with:
-        repository: cardano-scaling/hydra
-        ref: release
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: Build stable (i.e. from `release`) documentation
-      working-directory: docs
-      run: |
-        nix build .#docs
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
 
-        export out=/tmp/public/head-protocol
+    - name: Build documentation and compute benchmarks
+      run: |
+
+        # Release
+        DERIVATION=docs
+        OUT_PATH=
+
+        [[ ${{ github.ref_name }} = "master" ]] && \
+          DERIVATION=docs-unstable && \
+          OUT_PATH=/unstable
+
+        nix build .#${DERIVATION}
+
+        export out=/tmp/public/head-protocol${OUT_PATH}
         mkdir -p $out
         cp result/build/* $out -r
 
         nix develop .#hydra-node-bench --command -- tx-cost --output-directory $out/benchmarks/
         nix develop .#hydra-node-bench --command -- micro -o $out/benchmarks/ledger-bench.html
-        nix develop .#hydra-cluster-bench --command -- bench-e2e datasets datasets/1-node.json datasets/3-nodes.json --output-directory $out/benchmarks
-
-        # Clean the working copy
-        git clean -dxf
-
-    - name: Checkout master
-      working-directory: docs
-      run: |
-        git reset origin/master --hard
-        sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
-
-    - name: Build /unstable documentation
-      working-directory: docs
-      run: |
-        nix build .#docs
-
-        export out=/tmp/public/head-protocol/unstable
-        mkdir -p $out
-        cp result/build/* $out -r
-
-        nix develop .#hydra-node-bench --command -- tx-cost --output-directory $out/benchmarks/
-        nix develop .#hydra-node-bench --command -- micro -o $out/benchmarks/ledger-bench.html
-        nix develop .#hydra-cluster-bench --command -- bench-e2e datasets datasets/1-node.json datasets/3-nodes.json --output-directory $out/benchmarks
-
+        nix develop .#hydra-cluster-bench --command -- \
+          bench-e2e \
+          datasets \
+          hydra-cluster/datasets/1-node.json \
+          hydra-cluster/datasets/3-nodes.json \
+          --output-directory $out/benchmarks
 
     - name: 👉 Create redirects
       run: |
+
         function redirect() {
           echo "Creating redirect: $1 -> $2"
           mkdir -p $(dirname $1)
           echo "<!DOCTYPE html><html><head><meta http-equiv=\"Refresh\" content=\"0; URL=${2}\"></head></html>" > $1
         }
         echo "hydra.family" > /tmp/public/CNAME
+        touch /tmp/public/.nojekyll
+
         redirect /tmp/public/index.html https://hydra.family/head-protocol
+
         # Monthly reports moved to scaling website (2024-02-29)
+
         rm -rf /tmp/public/head-protocol/monthly
+
+        # Note: This runs on pushes to either branch, but it doesn't matter as
+        # it doesn't hurt to write these files twice.
+
         redirect /tmp/public/head-protocol/monthly/index.html https://cardano-scaling.github.io/website/monthly
         redirect /tmp/public/head-protocol/unstable/monthly/index.html https://cardano-scaling.github.io/website/monthly
 
     - name: 🚢 Publish Documentation
-      uses: peaceiris/actions-gh-pages@v4
+      uses: JamesIves/github-pages-deploy-action@v4
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        publish_dir: /tmp/public
-        enable_jekyll: true
-        force_orphan: true
+        token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        folder: /tmp/public
+        # Note: This is crucial! We _never_ remove files that we have
+        # previously uploaded. This might be surprising if we expect something
+        # we previously uploaded to be _removed_!
+        clean: false
