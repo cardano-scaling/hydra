@@ -9,7 +9,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
     hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.6.5";
-    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification/7f78e005b95ff3b9c55995632ceb3d6ab96a305e";
+    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification/1354ffa922816a023350c9296e8c6ae55993e229";
     import-tree.url = "github:vic/import-tree";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     mithril.url = "github:input-output-hk/mithril/2524.0";
