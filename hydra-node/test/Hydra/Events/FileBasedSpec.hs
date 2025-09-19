@@ -16,6 +16,7 @@ import Hydra.HeadLogic (StateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Logging (Verbosity (Verbose), withTracer)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Test.Aeson.GenericSpecs (
   defaultSettings,
@@ -80,17 +81,18 @@ spec = do
       forAllShrink genContinuousEvents shrink $ \events -> do
         ioProperty $ do
           withTempDir "hydra-persistence" $ \tmpDir -> do
-            let stateDir = tmpDir <> "/data"
-            PersistenceIncremental{append} <- createPersistenceIncremental stateDir
-            forM_ events append
-            -- Load and store events through the event source interface
-            EventStore{eventSource = src, eventSink = EventSink{putEvent}} <-
-              mkFileBasedEventStore stateDir =<< createPersistenceIncremental stateDir
-            loadedEvents <- getEvents src
-            -- Store all loaded events like the node would do
-            forM_ loadedEvents putEvent
-            pure $
-              loadedEvents === events
+            withTracer (Verbose "hydra-persistence") $ \tracer -> do
+              let stateDir = tmpDir <> "/data"
+              PersistenceIncremental{append} <- createPersistenceIncremental tracer stateDir
+              forM_ events append
+              -- Load and store events through the event source interface
+              EventStore{eventSource = src, eventSink = EventSink{putEvent}} <-
+                mkFileBasedEventStore stateDir =<< createPersistenceIncremental tracer stateDir
+              loadedEvents <- getEvents src
+              -- Store all loaded events like the node would do
+              forM_ loadedEvents putEvent
+              pure $
+                loadedEvents === events
 
 genContinuousEvents :: Gen [StateEvent SimpleTx]
 genContinuousEvents =
@@ -99,6 +101,7 @@ genContinuousEvents =
 withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
 withEventSourceAndSink action =
   withTempDir "hydra-persistence" $ \tmpDir -> do
-    let stateDir = tmpDir <> "/data"
-    EventStore{eventSource, eventSink} <- mkFileBasedEventStore stateDir =<< createPersistenceIncremental stateDir
-    action eventSource eventSink
+    withTracer (Verbose "hydra-persistence") $ \tracer -> do
+      let stateDir = tmpDir <> "/data"
+      EventStore{eventSource, eventSink} <- mkFileBasedEventStore stateDir =<< createPersistenceIncremental tracer stateDir
+      action eventSource eventSink
