@@ -199,7 +199,7 @@ findFileStartingAtDirectory maxDepth fileName = do
       then pure path
       else
         if depth <= 0
-          then error $ "Could not locate the Blockfrost project file at or above: " <> pack dir
+          then error $ "Could not locate the Blockfrost project file at " <> pack dir <> " or " <> show depth <> " above."
           else do
             let parent = ".." </> takeDirectory dir
             if parent == dir
