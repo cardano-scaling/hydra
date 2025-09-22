@@ -477,20 +477,20 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
         utxoToCommit <- seedFromFaucet backend walletVk (lovelaceToValue amount) (contramap FromFaucet tracer)
         requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= Backend.submitTransaction backend
 
-        waitFor hydraTracer (10 * blockTime) [n1] $
+        waitFor hydraTracer (50 * blockTime) [n1] $
           output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
         -- Close head
         send n1 $ input "Close" []
-        deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+        deadline <- waitMatch (50 * blockTime) n1 $ \v -> do
           guard $ v ^? key "tag" == Just "HeadIsClosed"
           guard $ v ^? key "headId" == Just (toJSON headId)
           v ^? key "contestationDeadline" . _JSON
         remainingTime <- diffUTCTime deadline <$> getCurrentTime
-        waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+        waitFor hydraTracer (remainingTime + 10 * blockTime) [n1] $
           output "ReadyToFanout" ["headId" .= headId]
         send n1 $ input "Fanout" []
 
-        waitForAllMatch (10 * blockTime) [n1] $ checkFanout headId utxoToCommit
+        waitForAllMatch (50 * blockTime) [n1] $ checkFanout headId utxoToCommit
       traceRemainingFunds Alice
       traceRemainingFunds AliceFunds
  where

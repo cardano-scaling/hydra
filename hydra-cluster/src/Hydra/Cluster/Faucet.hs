@@ -221,7 +221,7 @@ createOutputAtAddress ::
   IO (TxIn, TxOut CtxUTxO)
 createOutputAtAddress networkId backend atAddress datum val = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  utxo <- findFaucetUTxO networkId backend 0
+  utxo <- findFaucetUTxO networkId backend (selectLovelace val)
   let collateralTxIns = mempty
   let output = TxOut atAddress val datum ReferenceScriptNone
   buildTransaction backend (mkVkAddress networkId faucetVk) utxo collateralTxIns [output] >>= \case

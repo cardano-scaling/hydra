@@ -378,6 +378,13 @@ submitTransaction tx = Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict 
 -- Queries --
 ----------------
 
+-- NOTE: Is this value good enough for all cardano networks?
+queryTimeout :: Int
+queryTimeout = 10
+
+retryTimeout :: Int
+retryTimeout = 300
+
 queryEraHistory :: BlockfrostClientT IO EraHistory
 queryEraHistory = do
   eras' <- Blockfrost.getNetworkEras
@@ -417,7 +424,7 @@ queryEraHistory = do
 -- | Query the Blockfrost API to get the 'UTxO' for 'TxIn' and convert to cardano 'UTxO'.
 -- FIXME: make blockfrost wait times configurable.
 queryUTxOByTxIn :: NetworkId -> [TxIn] -> BlockfrostClientT IO UTxO
-queryUTxOByTxIn networkId = foldMapM (\(TxIn txid _) -> go (300 :: Int) (serialiseToRawBytesHexText txid))
+queryUTxOByTxIn networkId = foldMapM (\(TxIn txid _) -> go retryTimeout (serialiseToRawBytesHexText txid))
  where
   go 0 txHash = liftIO $ throwIO $ BlockfrostError $ FailedUTxOForHash txHash
   go n txHash = do
@@ -450,6 +457,9 @@ queryScript scriptHashTxt = do
 -- fact this is a single address query always.
 queryUTxO :: NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
 queryUTxO networkId addresses = do
+  -- NOTE: We can't know at the time of doing a query if the information on specific address UTxO is _fresh_ or not
+  -- so we try to wait for sufficient period of time and hope for best.
+  liftIO $ threadDelay $ fromIntegral queryTimeout
   let address' = Blockfrost.Address . serialiseAddress $ List.head addresses
   utxoWithAddresses <- Blockfrost.getAddressUtxos address'
 
@@ -525,7 +535,7 @@ awaitTransaction :: Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTx
 awaitTransaction tx vk = do
   Blockfrost.Genesis{_genesisNetworkMagic} <- queryGenesisParameters
   let networkId = toCardanoNetworkId _genesisNetworkMagic
-  awaitUTxO networkId [makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress] (getTxId $ getTxBody tx) 300
+  awaitUTxO networkId [makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress] (getTxId $ getTxBody tx) retryTimeout
 
 -- | Await for specific UTxO at address - the one that is produced by the given 'TxId'.
 awaitUTxO ::

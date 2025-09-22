@@ -12,6 +12,7 @@ import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey, key, _Number)
 import Data.Fixed (Centi)
+import Data.Text (pack)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
@@ -30,9 +31,17 @@ import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (BlockfrostOptions (..), DirectOptions (..))
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
-import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
+import System.Directory (
+  createDirectoryIfMissing,
+  doesFileExist,
+  getCurrentDirectory,
+  removeFile,
+ )
 import System.Exit (ExitCode (..))
-import System.FilePath (takeDirectory, (</>))
+import System.FilePath (
+  takeDirectory,
+  (</>),
+ )
 import System.Posix (ownerReadMode, setFileMode)
 import System.Process (
   CreateProcess (..),
@@ -169,8 +178,33 @@ withBlockfrostBackend ::
 withBlockfrostBackend _tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
   shelleyGenesis <- readFileBS >=> unsafeDecodeJson $ stateDirectory </> nodeShelleyGenesisFile args
-  let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = Backend.blockfrostProjectPath}
+  bfProjectPath <- findFileStartingAtDirectory 3 Backend.blockfrostProjectPath
+  let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = bfProjectPath}
   action (getShelleyGenesisBlockTime shelleyGenesis) backend
+
+-- | Find the given file in the current directory or its parents.
+--
+-- This function starts from the current working directory and checks if the specified file exists there.
+-- If not found, it recursively checks the parent directories up to the given maximum depth.
+findFileStartingAtDirectory :: Int -> FilePath -> IO FilePath
+findFileStartingAtDirectory maxDepth fileName = do
+  cwd <- getCurrentDirectory
+  findInDir maxDepth cwd
+ where
+  findInDir :: Int -> FilePath -> IO FilePath
+  findInDir depth dir = do
+    let path = dir </> fileName
+    exists <- doesFileExist path
+    if exists
+      then pure path
+      else
+        if depth <= 0
+          then error $ "Could not locate the Blockfrost project file at " <> pack dir <> " or " <> show depth <> " above."
+          else do
+            let parent = ".." </> takeDirectory dir
+            if parent == dir
+              then error "Reached root directory without finding the Blockfrost project file."
+              else findInDir (depth - 1) parent
 
 withBackend ::
   forall a.
