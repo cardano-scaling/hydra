@@ -42,6 +42,7 @@ import Hydra.Options (
   CardanoChainConfig (..),
   ChainBackendOptions (..),
   ChainConfig (..),
+  defaultBlockfrostOptions,
  )
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Crypto (aggregate, sign)
@@ -72,7 +73,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       prj <- Blockfrost.projectFromFile blockfrostProjectPath
       (aliceCardanoVk, _) <- keysFor Alice
       (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-      let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = blockfrostProjectPath}
+      let backend = BlockfrostBackend $ defaultBlockfrostOptions{projectPath = blockfrostProjectPath}
       hydraScriptsTxId <- publishHydraScripts backend sk
 
       Blockfrost.Genesis
@@ -92,7 +93,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           participants <- loadParticipants [Alice]
           let headParameters = HeadParameters blockfrostcperiod [alice]
           postTx $ InitTx{participants, headParameters}
-          (headId, headSeed) <- observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral Blockfrost.queryTimeout) $ hasInitTxWith headParameters participants
+          (headId, headSeed) <- observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ hasInitTxWith headParameters participants
 
           let blueprintTx = txSpendingUTxO someUTxO
           externalCommit' backend aliceChain [aliceExternalSk] headId someUTxO blueprintTx
@@ -135,7 +136,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           let expectedUTxO =
                 (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
                   `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
-          observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral Blockfrost.queryTimeout) $ \case
+          observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ \case
             OnFanoutTx{headId = headId', fanoutUTxO}
               | headId' == headId ->
                   if UTxO.containsOutputs fanoutUTxO expectedUTxO

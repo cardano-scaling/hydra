@@ -28,6 +28,7 @@ import Hydra.Chain.ScriptRegistry (
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
+import Hydra.Options (BlockfrostOptions (..), defaultBlockfrostOptions)
 import Hydra.Tx (balance, txId)
 
 data FaucetException
@@ -142,11 +143,11 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
       case eResult of
         Left err -> liftIO $ throwIO $ FaucetBlockfrostError{blockFrostError = show err}
         Right _ -> do
-          void $ Blockfrost.awaitUTxO networkId [changeAddress] (txId signedTx) 200
-          Blockfrost.awaitUTxO networkId [receivingAddress] (txId signedTx) 200
+          void $ Blockfrost.awaitUTxO networkId [changeAddress] (txId signedTx) $ defaultBlockfrostOptions{retryTimeout = 200}
+          Blockfrost.awaitUTxO networkId [receivingAddress] (txId signedTx) $ defaultBlockfrostOptions{retryTimeout = 200}
  where
   findUTxO networkId address lovelace' = do
-    faucetUTxO <- Blockfrost.queryUTxO networkId [address]
+    faucetUTxO <- Blockfrost.queryUTxO defaultBlockfrostOptions networkId [address]
     let foundUTxO = UTxO.find (\o -> (selectLovelace . txOutValue) o >= lovelace') faucetUTxO
     when (isNothing foundUTxO) $
       liftIO $
