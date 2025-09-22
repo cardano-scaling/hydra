@@ -1,0 +1,111 @@
+x-cardano-node: &cardano-node
+  image: ghcr.io/intersectmbo/cardano-node:latest
+  environment:
+    CARDANO_BLOCK_PRODUCER: true
+  command: >
+    run --topology /configs/configs/topology.json
+      --config /configs/configs/config.json
+      --database-path /state
+      --socket-path /state/node.socket
+      --tracer-socket-path-connect /tracer/tracer.socket
+      --shelley-operational-certificate /configs/keys/opcert.cert
+      --shelley-kes-key /configs/keys/kes.skey
+      --shelley-vrf-key /configs/keys/vrf.skey
+      --port 3001
+      --host-addr 0.0.0.0
+      +RTS -N -A16m -qg -qb -RTS
+  restart:
+    always
+  depends_on:
+      configurator:
+        condition: service_completed_successfully
+
+services:
+  configurator:
+    image: ghcr.io/cardano-foundation/antithesis/configurator:latest
+    container_name: configurator
+    volumes:
+      - ./testnet.yaml:/testnet.yaml #  source of configurations
+      - p1-configs:/configs/1 # configs for p1
+      - p2-configs:/configs/2 # configs for p2
+      - p3-configs:/configs/3 # configs for p3
+      - p4-configs:/configs/4 # configs for p4
+      - p5-configs:/configs/5 # configs for p5
+
+  tracer:
+    image: ghcr.io/cardano-foundation/antithesis/tracer:latest
+    hostname: tracer.example
+    container_name: tracer
+    volumes:
+      - tracer:/opt/cardano-tracer
+    command:
+       - "--config"
+       - "tracer-config.yaml"
+
+  p1:
+    <<: *cardano-node
+    container_name: p1
+    hostname: p1.example
+    volumes:
+      - p1-configs:/configs
+      - tracer:/tracer
+  p2:
+    <<: *cardano-node
+    container_name: p2
+    hostname: p2.example
+    volumes:
+      - p2-configs:/configs
+      - tracer:/tracer
+  p3:
+    <<: *cardano-node
+    container_name: p3
+    hostname: p3.example
+    volumes:
+      - p3-configs:/configs
+      - tracer:/tracer
+
+  p4:
+    <<: *cardano-node
+    container_name: p4
+    hostname: p4.example
+    volumes:
+      - p4-configs:/configs
+      - tracer:/tracer
+
+  p5:
+    <<: *cardano-node
+    container_name: p5
+    hostname: p5.example
+    volumes:
+      - p5-configs:/configs
+      - tracer:/tracer
+
+  sidecar:
+    image: ghcr.io/cardano-foundation/antithesis/sidecar:latest
+    container_name: sidecar
+    hostname: sidecar.example
+    environment:
+      POOLS: "5" # FIXME: could remove
+
+  tracer-sidecar:
+    image: ghcr.io/cardano-foundation/antithesis/tracer-sidecar:latest
+    container_name: tracer-sidecar
+    hostname: tracer-sidecar.example
+    environment:
+      POOLS: "5"
+    volumes:
+      - tracer:/opt/cardano-tracer
+
+volumes:
+  tracer:
+  p1-configs:
+  p2-configs:
+  p3-configs:
+  p4-configs:
+  p5-configs:
+
+networks:
+  default:
+    name: cardano-node-testnet
+    driver: bridge
+    internal: ${INTERNAL_NETWORK}
