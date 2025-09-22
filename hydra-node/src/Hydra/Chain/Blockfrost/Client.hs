@@ -465,10 +465,11 @@ queryUTxO networkId addresses = do
   let address' = Blockfrost.Address . serialiseAddress $ List.head addresses
   utxoWithAddresses <-
     Blockfrost.getAddressUtxos address'
-      `catchError` \err ->
-        if "BlockfrostNotFound" == T.pack (show err)
-          then liftIO (throwIO (BlockfrostError (NoUTxOFound address)))
-          else throwError err
+      `catchError` \case
+        Blockfrost.BlockfrostNotFound ->
+          liftIO (throwIO (BlockfrostError (NoUTxOFound address)))
+        err ->
+          throwError err
 
   foldMapM
     ( \Blockfrost.AddressUtxo
