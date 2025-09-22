@@ -9,26 +9,23 @@ import Hydra.Cardano.Api (
   Address,
   NetworkId (..),
   PaymentKey,
-  ReferenceScript,
   ShelleyAddr,
-  SigningKey,
   SystemStart (..),
-  TxOut,
   UTxO,
   VerificationKey,
   lovelaceToValue,
   mkVkAddress,
+  pattern ByronAddressInEra,
+  pattern ReferenceScriptNone,
   pattern ShelleyAddressInEra,
   pattern TxOut,
   pattern TxOutDatumNone,
-  pattern ReferenceScriptNone,
  )
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Blockfrost.Client (
   APIBlockfrostError (..),
   BlockfrostException (..),
  )
-import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..))
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
@@ -63,7 +60,7 @@ spec = describe "publishHydraScripts" $ do
       _ -> False
 
 -- | A test backend that will throw 'NoUTxOFound' on 'queryUTxOFor' call.
-data ATestBackend = ATestBackend (VerificationKey PaymentKey)
+newtype ATestBackend = ATestBackend (VerificationKey PaymentKey)
 
 instance ChainBackend ATestBackend where
   queryUTxOFor (ATestBackend vk) _ vk'
@@ -74,14 +71,14 @@ instance ChainBackend ATestBackend where
 
   -- Other methods are not needed for this test.
   -- These are functions that are not directly called by 'publishHydraScripts'.
-  queryGenesisParameters _ = undefined
-  queryScriptRegistry _ _ = undefined
-  queryUTxO _ _ = undefined
-  queryUTxOByTxIn _ _ = undefined
-  queryTip _ = undefined
-  submitTransaction _ _ = undefined
-  awaitTransaction _ _ = undefined
-  getBlockTime _ = undefined
+  queryGenesisParameters _ = error "queryGenesisParameters"
+  queryScriptRegistry _ _ = error "queryScriptRegistry"
+  queryUTxO _ _ = error "queryUTxO"
+  queryUTxOByTxIn _ _ = error "queryUTxOByTxIn"
+  queryTip _ = error "queryTip"
+  submitTransaction _ _ = error "submitTransaction"
+  awaitTransaction _ _ = error "awaitTransaction"
+  getBlockTime _ = error "getBlockTime"
   getOptions _ = Blockfrost BlockfrostOptions{projectPath = "./"}
   queryNetworkId _ = pure Mainnet
   queryProtocolParameters _ _ = pure emptyPParams
@@ -111,14 +108,15 @@ instance ChainBackend SuccessfulBackend where
   getOptions _ = Blockfrost BlockfrostOptions{projectPath = "./"}
 
   -- Other methods are not needed for this test.
-  queryGenesisParameters _ = undefined
-  queryScriptRegistry _ _ = undefined
-  queryUTxO _ _ = undefined
-  queryUTxOByTxIn _ _ = undefined
-  queryTip _ = undefined
-  getBlockTime _ = undefined
+  queryGenesisParameters _ = error "queryGenesisParameters"
+  queryScriptRegistry _ _ = error "queryScriptRegistry"
+  queryUTxO _ _ = error "queryUTxO"
+  queryUTxOByTxIn _ _ = error "queryUTxOByTxIn"
+  queryTip _ = error "queryTip"
+  getBlockTime _ = error "getBlockTime"
 
 toAddress :: VerificationKey PaymentKey -> Address ShelleyAddr
 toAddress vk =
   case mkVkAddress Mainnet vk of
     ShelleyAddressInEra addr -> addr
+    ByronAddressInEra{} -> error "toAddress: Byron address not supported"
