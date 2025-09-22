@@ -6,6 +6,30 @@
   perSystem = { pkgs, self', ... }:
     lib.mkIf pkgs.stdenv.isLinux {
       packages = {
+        docker-hydra-setup =
+          let
+            entrypoint = (pkgs.writeShellScriptBin "hydra-setup-entrypoint" ''
+              set -x
+              echo "Should generate stuff using env"
+              env
+              ${pkgs.cardano-cli}/bin/cardano-cli --version
+              ${self'.packages.hydra-node-static}/bin/hydra-node --version
+            '');
+          in
+          pkgs.dockerTools.buildImage {
+            name = "hydra-setup";
+            tag = "latest";
+            created = "now";
+            copyToRoot = pkgs.buildEnv {
+              name = "hydra-setup-env";
+              paths = [
+                pkgs.busybox
+              ];
+            };
+            config = {
+              Entrypoint = [ "${entrypoint}/bin/hydra-setup-entrypoint" ];
+            };
+          };
         docker-hydra-node = pkgs.dockerTools.buildImage {
           name = "hydra-node";
           tag = "latest";
