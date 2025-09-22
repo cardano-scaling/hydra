@@ -48,6 +48,7 @@ services:
     hostname: p1.example
     volumes:
       - p1-configs:/configs
+      - p1-state:/state
       - tracer:/tracer
   p2:
     <<: *cardano-node
@@ -96,8 +97,60 @@ services:
     volumes:
       - tracer:/opt/cardano-tracer
 
+  hydra-setup:
+    # TODO: implement
+    image: ghcr.io/cardano-scaling/hydra-setup:latest
+    environment:
+      - ACTORS="alice,bob,carol"
+      - CARDANO_NODE_SOCKET_PATH=/devnet/node.socket
+      - CARDANO_NODE_NETWORK_ID=42
+      - SEED_NETWORK=true
+    volumes:
+      - h1-setup:/setup
+      - p1-state:/devnet
+    depends_on:
+      - p1
+
+  h1:
+    # XXX: 0.22.4 + --hydra-scripts-tx-id from file
+    image: ghcr.io/cardano-scaling/hydra-node:antithesis
+    depends_on:
+      hydra-setup:
+        condition: service_completed_successfully
+    volumes:
+      - h1-setup:/setup:ro
+      - p1-state:/devnet
+    hostname: h1.example
+    ports:
+      - "4001:4001"
+      - "5001:5001"
+    command:
+      [ "--node-id", "1"
+      , "--api-host", "0.0.0.0"
+      , "--listen", "h1.example:5001"
+      , "--monitoring-port", "6001"
+      # , "--peer", "172.16.238.20:5001"
+      # , "--peer", "172.16.238.30:5001"
+      # TODO: implement
+      , "--hydra-scripts-tx-id", "/setup/hydra-scripts.txid"
+      , "--hydra-signing-key", "/setup/alice-hydra.sk"
+      # , "--hydra-verification-key", "/keys/bob.vk"
+      # , "--hydra-verification-key", "/keys/carol.vk"
+      , "--cardano-signing-key", "/setup/alice-hydra.sk"
+      # , "--cardano-verification-key", "/devnet/credentials/bob.vk"
+      # , "--cardano-verification-key", "/devnet/credentials/carol.vk"
+      , "--ledger-protocol-parameters", "/setup/protocol-parameters.json"
+      , "--testnet-magic", "42"
+      , "--node-socket", "/devnet/node.socket"
+      , "--persistence-dir", "/state/persistence/alice"
+      , "--contestation-period", "3s"
+      ]
+    restart: always
+
 volumes:
   tracer:
+  h1-setup:
+  p1-state:
   p1-configs:
   p2-configs:
   p3-configs:

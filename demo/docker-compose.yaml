@@ -19,14 +19,31 @@ services:
       , "--byron-signing-key", "/devnet/byron-delegate.key"
       ]
 
+  hydra-setup:
+    # TODO: implement
+    image: ghcr.io/cardano-scaling/hydra-setup:latest
+    environment:
+      - ACTORS="alice,bob,carol"
+      - CARDANO_NODE_SOCKET_PATH=/devnet/node.socket
+      - CARDANO_NODE_NETWORK_ID=42
+      - SEED_NETWORK=true
+    volumes:
+      - ./setup:/setup
+      - ./devnet:/devnet
+    depends_on:
+      - cardano-node
+
   hydra-node-1:
    # NOTE: Make sure to use the same image in ./seed-devnet.sh
     image: ghcr.io/cardano-scaling/hydra-node:0.22.4
     build:
       context: ../
       target: hydra-node
+    depends_on:
+      hydra-setup:
+        condition: service_completed_successfully
     volumes:
-      - .:/keys:ro
+      - ./setup:/setup:ro
       - ./devnet:/devnet
     ports:
       - "4001:4001"
@@ -38,14 +55,14 @@ services:
       , "--monitoring-port", "6001"
       , "--peer", "172.16.238.20:5001"
       , "--peer", "172.16.238.30:5001"
-      , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
-      , "--hydra-signing-key", "/keys/alice.sk"
-      , "--hydra-verification-key", "/keys/bob.vk"
-      , "--hydra-verification-key", "/keys/carol.vk"
-      , "--cardano-signing-key", "/devnet/credentials/alice.sk"
-      , "--cardano-verification-key", "/devnet/credentials/bob.vk"
-      , "--cardano-verification-key", "/devnet/credentials/carol.vk"
-      , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
+      , "--hydra-scripts-tx-id", "/setup/hydra-scripts.txid"
+      , "--hydra-signing-key", "/setup/setup/keys/alice-hydra-hydra.sk"
+      , "--hydra-verification-key", "/setup/keys/bob-hydra.vk"
+      , "--hydra-verification-key", "/setup/setup/keys/carol-hydra-hydra.vk"
+      , "--cardano-signing-key", "/setup/setup/keys/alice-hydra-cardano.sk"
+      , "--cardano-verification-key", "/setup/keys/bob-cardano.vk"
+      , "--cardano-verification-key", "/setup/keys/carol-hydra-cardano.vk"
+      , "--ledger-protocol-parameters", "/setup/protocol-parameters.json"
       , "--testnet-magic", "42"
       , "--node-socket", "/devnet/node.socket"
       , "--persistence-dir", "/devnet/persistence/alice"
@@ -62,6 +79,9 @@ services:
     build:
       context: ../
       target: hydra-node
+    depends_on:
+      hydra-setup:
+        condition: service_completed_successfully
     volumes:
       - .:/keys:ro
       - ./devnet:/devnet
@@ -75,14 +95,14 @@ services:
       , "--monitoring-port", "6001"
       , "--peer", "172.16.238.10:5001"
       , "--peer", "172.16.238.30:5001"
-      , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
-      , "--hydra-signing-key", "/keys/bob.sk"
-      , "--hydra-verification-key", "/keys/alice.vk"
-      , "--hydra-verification-key", "/keys/carol.vk"
-      , "--cardano-signing-key", "/devnet/credentials/bob.sk"
-      , "--cardano-verification-key", "/devnet/credentials/alice.vk"
-      , "--cardano-verification-key", "/devnet/credentials/carol.vk"
-      , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
+      , "--hydra-scripts-tx-id", "/setup/hydra-scripts.txid"
+      , "--hydra-signing-key", "/setup/keys/bob-hydra.sk"
+      , "--hydra-verification-key", "/setup/keys/alice-hydra.vk"
+      , "--hydra-verification-key", "/setup/keys/carol-hydra.vk"
+      , "--cardano-signing-key", "/setup/keys/bob-cardano.sk"
+      , "--cardano-verification-key", "/setup/keys/alice-cardano.vk"
+      , "--cardano-verification-key", "/setup/keys/carol-hydra-cardano.vk"
+      , "--ledger-protocol-parameters", "/setup/protocol-parameters.json"
       , "--testnet-magic", "42"
       , "--node-socket", "/devnet/node.socket"
       , "--persistence-dir", "/devnet/persistence/bob"
@@ -99,6 +119,9 @@ services:
     build:
       context: ../
       target: hydra-node
+    depends_on:
+      hydra-setup:
+        condition: service_completed_successfully
     volumes:
       - .:/keys:ro
       - ./devnet:/devnet
@@ -112,14 +135,14 @@ services:
       , "--monitoring-port", "6001"
       , "--peer", "172.16.238.10:5001"
       , "--peer", "172.16.238.20:5001"
-      , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
-      , "--hydra-signing-key", "/keys/carol.sk"
-      , "--hydra-verification-key", "/keys/alice.vk"
-      , "--hydra-verification-key", "/keys/bob.vk"
-      , "--cardano-signing-key", "/devnet/credentials/carol.sk"
-      , "--cardano-verification-key", "/devnet/credentials/alice.vk"
-      , "--cardano-verification-key", "/devnet/credentials/bob.vk"
-      , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
+      , "--hydra-scripts-tx-id", "/setup/hydra-scripts.txid"
+      , "--hydra-signing-key", "/setup/keys/carol-hydra.sk"
+      , "--hydra-verification-key", "/setup/keys/alice-hydra.vk"
+      , "--hydra-verification-key", "/setup/keys/bob-hydra.vk"
+      , "--cardano-signing-key", "/setup/keys/carol-cardano.sk"
+      , "--cardano-verification-key", "/setup/keys/alice-cardano.vk"
+      , "--cardano-verification-key", "/setup/keys/bob-cardano.vk"
+      , "--ledger-protocol-parameters", "/setup/protocol-parameters.json"
       , "--testnet-magic", "42"
       , "--node-socket", "/devnet/node.socket"
       , "--persistence-dir", "/devnet/persistence/carol"
@@ -135,13 +158,16 @@ services:
     build:
        context: ../
        target: hydra-tui
+    depends_on:
+      - hydra-node-1
     command:
       [ "--connect", "172.16.238.10:4001"
       , "--node-socket", "/devnet/node.socket"
       , "--testnet-magic", "42"
-      , "--cardano-signing-key", "/devnet/credentials/alice-funds.sk"
+      , "--cardano-signing-key", "/setup/keys/alice-cardano-funds.sk"
       ]
     volumes:
+      - ./setup:/setup:ro
       - ./devnet:/devnet
     networks:
       hydra_net:
@@ -152,13 +178,16 @@ services:
     build:
        context: ../
        target: hydra-tui
+    depends_on:
+      - hydra-node-2
     command:
       [ "--connect", "172.16.238.20:4001"
       , "--node-socket", "/devnet/node.socket"
       , "--testnet-magic", "42"
-      , "--cardano-signing-key", "/devnet/credentials/bob-funds.sk"
+      , "--cardano-signing-key", "/setup/keys/bob-cardano-funds.sk"
       ]
     volumes:
+      - ./setup:/setup:ro
       - ./devnet:/devnet
     networks:
       hydra_net:
@@ -169,13 +198,16 @@ services:
     build:
        context: ../
        target: hydra-tui
+    depends_on:
+      - hydra-node-3
     command:
       [ "--connect", "172.16.238.30:4001"
       , "--node-socket", "/devnet/node.socket"
       , "--testnet-magic", "42"
-      , "--cardano-signing-key", "/devnet/credentials/carol-funds.sk"
+      , "--cardano-signing-key", "/setup/keys/carol-hydra-cardano-funds.sk"
       ]
     volumes:
+      - ./setup:/setup:ro
       - ./devnet:/devnet
     networks:
       hydra_net:
