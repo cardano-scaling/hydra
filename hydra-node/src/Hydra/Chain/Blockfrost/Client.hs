@@ -380,7 +380,6 @@ submitTransaction tx = Blockfrost.submitTx $ Blockfrost.CBORString $ fromStrict 
 -- Queries --
 ----------------
 
-
 queryEraHistory :: BlockfrostClientT IO EraHistory
 queryEraHistory = do
   eras' <- Blockfrost.getNetworkEras
@@ -420,7 +419,7 @@ queryEraHistory = do
 -- | Query the Blockfrost API to get the 'UTxO' for 'TxIn' and convert to cardano 'UTxO'.
 -- FIXME: make blockfrost wait times configurable.
 queryUTxOByTxIn :: BlockfrostOptions -> NetworkId -> [TxIn] -> BlockfrostClientT IO UTxO
-queryUTxOByTxIn BlockfrostOptions{retryTimeout} networkId = 
+queryUTxOByTxIn BlockfrostOptions{retryTimeout} networkId =
   foldMapM (\(TxIn txid _) -> go retryTimeout (serialiseToRawBytesHexText txid))
  where
   go 0 txHash = liftIO $ throwIO $ BlockfrostError $ FailedUTxOForHash txHash
