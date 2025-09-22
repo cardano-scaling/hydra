@@ -44,7 +44,24 @@ buildTransaction ::
   IO (Either (TxBodyErrorAutoBalance Era) Tx)
 buildTransaction backend changeAddress body utxoToSpend outs = do
   pparams <- queryProtocolParameters backend CardanoClient.QueryTip
-  buildTransactionWithPParams pparams backend changeAddress body utxoToSpend outs
+  buildTransactionWithPParams pparams backend changeAddress body utxoToSpend outs Nothing
+
+buildTransactionWithMintingScript ::
+  ChainBackend backend =>
+  backend ->
+  -- | Change address to send
+  AddressInEra ->
+  -- | Unspent transaction outputs to spend.
+  UTxO ->
+  -- | Collateral inputs.
+  [TxIn] ->
+  -- | Outputs to create.
+  [TxOut CtxTx] ->
+  Maybe PlutusScript ->
+  IO (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransactionWithMintingScript backend changeAddress body utxoToSpend outs mintingScript = do
+  pparams <- queryProtocolParameters backend CardanoClient.QueryTip
+  buildTransactionWithPParams pparams backend changeAddress body utxoToSpend outs mintingScript
 
 -- | Construct a simple payment consuming some inputs and producing some
 -- outputs (no certificates or withdrawals involved).
@@ -64,15 +81,17 @@ buildTransactionWithPParams ::
   [TxIn] ->
   -- | Outputs to create.
   [TxOut CtxTx] ->
+  Maybe PlutusScript ->
   IO (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransactionWithPParams pparams backend changeAddress utxoToSpend collateral outs = do
+buildTransactionWithPParams pparams backend changeAddress utxoToSpend collateral outs mintingScript = do
   systemStart <- querySystemStart backend CardanoClient.QueryTip
   eraHistory <- queryEraHistory backend CardanoClient.QueryTip
   stakePools <- queryStakePools backend CardanoClient.QueryTip
-  pure $ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs
+  pure $ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs mintingScript
 
--- | NOTE: If there are any non ADA assets present in the output 'Value'
--- this function will mint them using 'dummyValidatorScript' as the script witness.
+-- | NOTE: If there are any non ADA assets present in the output 'Value' and
+-- minting scrips is specified this function will mint them using provided
+-- script as the script witness.
 buildTransactionWithPParams' ::
   -- | Protocol parameters
   PParams LedgerEra ->
@@ -87,30 +106,45 @@ buildTransactionWithPParams' ::
   [TxIn] ->
   -- | Outputs to create.
   [TxOut CtxTx] ->
+  Maybe PlutusScript ->
   Either (TxBodyErrorAutoBalance Era) Tx
-buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs = do
+buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs mintingScript = do
   buildTransactionWithBody pparams systemStart eraHistory stakePools changeAddress bodyContent utxoToSpend
  where
-  dummyMintingWitness :: ScriptWitness WitCtxMint
-  dummyMintingWitness =
-    mkScriptWitness dummyMintingScript NoScriptDatumForMint (toScriptData ())
-
-  setMintValue =
-    let toMint = valueToPolicyAssets (foldMap txOutValue outs)
-     in if null toMint
-          then TxMintValueNone
-          else
-            TxMintValue $
-              Map.fromList $
-                ( \(pid, assets) ->
-                    ( pid
-                    ,
-                      ( assets
-                      , BuildTxWith dummyMintingWitness
-                      )
+  mintValue =
+    case mintingScript of
+      Nothing -> TxMintValueNone
+      Just _ ->
+        let mintingWitness =
+              mkScriptWitness dummyMintingScript NoScriptDatumForMint (toScriptData ())
+            toMint = valueToPolicyAssets (foldMap txOutValue outs)
+         in if null toMint
+              then TxMintValueNone
+              else
+                TxMintValue $
+                  Map.fromList $
+                    ( \(pid, assets) ->
+                        ( pid
+                        ,
+                          ( assets
+                          , BuildTxWith mintingWitness
+                          )
+                        )
                     )
+                      <$> Map.toList toMint
+  auxScripts =
+    if mintValue == TxMintValueNone
+      then TxAuxScriptsNone
+      else
+        TxAuxScripts
+          ( maybeToList $
+              toScriptInEra
+                ShelleyBasedEraConway
+                ( toScriptInAnyLang $
+                    PlutusScript $
+                      fromMaybe dummyMintingScript mintingScript
                 )
-                  <$> Map.toList toMint
+          )
   -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
   bodyContent =
     TxBodyContent
@@ -124,16 +158,13 @@ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAdd
       , txValidityLowerBound = TxValidityNoLowerBound
       , txValidityUpperBound = TxValidityNoUpperBound
       , txMetadata = TxMetadataNone
-      , txAuxScripts =
-          if setMintValue == TxMintValueNone
-            then TxAuxScriptsNone
-            else TxAuxScripts (maybeToList $ toScriptInEra ShelleyBasedEraConway (toScriptInAnyLang $ PlutusScript dummyMintingScript))
+      , txAuxScripts = auxScripts
       , txExtraKeyWits = TxExtraKeyWitnessesNone
       , txProtocolParams = BuildTxWith $ Just $ LedgerProtocolParameters pparams
       , txWithdrawals = TxWithdrawalsNone
       , txCertificates = TxCertificatesNone
       , txUpdateProposal = TxUpdateProposalNone
-      , txMintValue = setMintValue
+      , txMintValue = mintValue
       , txScriptValidity = TxScriptValidityNone
       , txProposalProcedures = Nothing
       , txVotingProcedures = Nothing
