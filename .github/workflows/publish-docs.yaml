@@ -15,6 +15,12 @@ jobs:
       contents: write
     steps:
 
+    - name: Get latest stable version tag
+      id: get_version
+      run: |
+        latest_tag=$(git describe --tags --abbrev=0)
+        echo "version=${latest_tag#v}" >> $GITHUB_OUTPUT
+
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
       with:
@@ -24,6 +30,8 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Build documentation and compute benchmarks
+      env:
+        DOCS_VERSION: ${{ github.ref_name == 'master' && 'unstable' || steps.get_version.outputs.version }}
       run: |
 
         # Release
