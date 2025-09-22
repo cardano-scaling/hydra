@@ -117,7 +117,7 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
   -- Note that we spend the entire UTxO set to cover the deposit scripts, resulting in a squashed UTxO at the end.
   go _ [] = pure []
   go utxo (out : rest) = do
-    tx <- case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxo [] [out] of
+    tx <- case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxo [] [out] Nothing of
       Left err -> throwIO $ FailedToBuildPublishingTx err
       Right tx -> pure $ signTx sk tx
 

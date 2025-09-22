@@ -19,7 +19,7 @@ import Control.Tracer (Tracer, traceWith)
 import Data.Set qualified as Set
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
-import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams')
+import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithMintingScript, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.ScriptRegistry (
@@ -44,8 +44,6 @@ data FaucetLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
--- | Create a specially marked "seed" UTXO containing requested 'Value' by
--- redeeming funds available to the well-known faucet.
 seedFromFaucet ::
   ChainBackend backend =>
   backend ->
@@ -56,6 +54,21 @@ seedFromFaucet ::
   Tracer IO FaucetLog ->
   IO UTxO
 seedFromFaucet backend receivingVerificationKey val tracer = do
+  seedFromFaucetWithMinting backend receivingVerificationKey val tracer Nothing
+
+-- | Create a specially marked "seed" UTXO containing requested 'Value' by
+-- redeeming funds available to the well-known faucet.
+seedFromFaucetWithMinting ::
+  ChainBackend backend =>
+  backend ->
+  -- | Recipient of the funds
+  VerificationKey PaymentKey ->
+  -- | Value to get from faucet
+  Value ->
+  Tracer IO FaucetLog ->
+  Maybe PlutusScript ->
+  IO UTxO
+seedFromFaucetWithMinting backend receivingVerificationKey val tracer mintingScript = do
   (faucetVk, faucetSk) <- keysFor Faucet
   networkId <- Backend.queryNetworkId backend
   seedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk networkId
@@ -66,7 +79,7 @@ seedFromFaucet backend receivingVerificationKey val tracer = do
     faucetUTxO <- findFaucetUTxO networkId backend (selectLovelace val)
     let changeAddress = mkVkAddress networkId faucetVk
 
-    buildTransaction backend changeAddress faucetUTxO (toList $ UTxO.inputSet faucetUTxO) [theOutput networkId] >>= \case
+    buildTransactionWithMintingScript backend changeAddress faucetUTxO (toList $ UTxO.inputSet faucetUTxO) [theOutput networkId] mintingScript >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> do
         let signedTx = sign faucetSk $ getTxBody tx
@@ -121,7 +134,7 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
   let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
   eraHistory <- Blockfrost.queryEraHistory
   foundUTxO <- findUTxO networkId changeAddress lovelace
-  case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId faucetVk) foundUTxO [] [theOutput] of
+  case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId faucetVk) foundUTxO [] [theOutput] Nothing of
     Left e -> liftIO $ throwIO $ FaucetFailedToBuildTx{reason = e}
     Right tx -> do
       let signedTx = signTx faucetSk tx
@@ -208,7 +221,7 @@ createOutputAtAddress ::
   IO (TxIn, TxOut CtxUTxO)
 createOutputAtAddress networkId backend atAddress datum val = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  utxo <- findFaucetUTxO networkId backend 0
+  utxo <- findFaucetUTxO networkId backend (selectLovelace val)
   let collateralTxIns = mempty
   let output = TxOut atAddress val datum ReferenceScriptNone
   buildTransaction backend (mkVkAddress networkId faucetVk) utxo collateralTxIns [output] >>= \case

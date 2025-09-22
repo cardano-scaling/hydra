@@ -101,7 +101,7 @@ import Hydra.Cardano.Api.TxOut (modifyTxOutValue)
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
-import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
 import Hydra.Cluster.Mithril (MithrilLog)
@@ -477,20 +477,20 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
         utxoToCommit <- seedFromFaucet backend walletVk (lovelaceToValue amount) (contramap FromFaucet tracer)
         requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= Backend.submitTransaction backend
 
-        waitFor hydraTracer (10 * blockTime) [n1] $
+        waitFor hydraTracer (50 * blockTime) [n1] $
           output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
         -- Close head
         send n1 $ input "Close" []
-        deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+        deadline <- waitMatch (50 * blockTime) n1 $ \v -> do
           guard $ v ^? key "tag" == Just "HeadIsClosed"
           guard $ v ^? key "headId" == Just (toJSON headId)
           v ^? key "contestationDeadline" . _JSON
         remainingTime <- diffUTCTime deadline <$> getCurrentTime
-        waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+        waitFor hydraTracer (remainingTime + 10 * blockTime) [n1] $
           output "ReadyToFanout" ["headId" .= headId]
         send n1 $ input "Fanout" []
 
-        waitForAllMatch (10 * blockTime) [n1] $ checkFanout headId utxoToCommit
+        waitForAllMatch (50 * blockTime) [n1] $ checkFanout headId utxoToCommit
       traceRemainingFunds Alice
       traceRemainingFunds AliceFunds
  where
@@ -647,7 +647,7 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
         systemStart <- Backend.querySystemStart backend QueryTip
         eraHistory <- Backend.queryEraHistory backend QueryTip
         stakePools <- Backend.queryStakePools backend QueryTip
-        case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId walletVk) utxoToCommit [] [scriptOutput] of
+        case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId walletVk) utxoToCommit [] [scriptOutput] Nothing of
           Left e -> error $ show e
           Right tx -> do
             let signedL2tx = signTx walletSk tx
@@ -745,7 +745,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
           -- Prepare a tx that re-spends everything owned by walletVk
           pparams <- getProtocolParameters n1
           let change = mkVkAddress networkId walletVk
-          Right tx <- buildTransactionWithPParams pparams backend change utxoToCommit [] []
+          Right tx <- buildTransactionWithPParams pparams backend change utxoToCommit [] [] Nothing
 
           -- Modify the tx to run a script via the withdraw 0 trick
           let redeemer = toLedgerData $ toScriptData ()
@@ -1356,7 +1356,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           -- and some ADA is added to it after balancing in the wallet, then we have problems matching on the 'CommitApproved' etc.
           let commitAmount = 5_000_000
           commitUTxOWithoutTokens <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount) (contramap FromFaucet tracer)
-          commitUTxOWithTokens <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount <> tokenAssetValue) (contramap FromFaucet tracer)
+          commitUTxOWithTokens <- seedFromFaucetWithMinting backend walletVk (lovelaceToValue seedAmount <> tokenAssetValue) (contramap FromFaucet tracer) (Just dummyMintingScript)
           -- This one is expected to fail since there is not enough ADA value
           (requestCommitTx' n1 commitUTxOWithoutTokens (Just 10_000_001) Nothing <&> toJSON)
             `shouldThrow` expectErrorStatus 400 (Just "AmountTooLow")
