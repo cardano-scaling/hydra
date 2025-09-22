@@ -310,6 +310,7 @@ test-suite tests
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.TxTraceSpec
     Hydra.Chain.Direct.WalletSpec
+    Hydra.Chain.ScriptRegistrySpec
     Hydra.CryptoSpec
     Hydra.Events.FileBasedSpec
     Hydra.Events.RotationSpec
