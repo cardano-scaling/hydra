@@ -1,6 +1,59 @@
 module Hydra.Tx.Deposit where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api (
+  AddressInEra,
+  AssetName (..),
+  BuildTxWith (..),
+  Coin,
+  CtxUTxO,
+  Network,
+  NetworkId,
+  PolicyAssets (..),
+  PolicyId (..),
+  Quantity (..),
+  ShelleyBasedEra (..),
+  SlotNo,
+  Tx,
+  TxId,
+  TxIn (..),
+  TxOut,
+  UTxO,
+  Value,
+  containsValue,
+  fromLedgerTx,
+  fromLedgerValue,
+  fromScriptData,
+  getTxBody,
+  getTxBodyContent,
+  lovelaceToValue,
+  mkAdaValue,
+  mkScriptAddress,
+  mkTxOutDatumInline,
+  policyAssetsToValue,
+  selectLovelace,
+  toCtxUTxOTxOut,
+  toLedgerTx,
+  toLedgerTxIn,
+  toLedgerTxOut,
+  toShelleyNetwork,
+  txIns',
+  txOutAddress,
+  txOutDatum,
+  txOutValue,
+  txOuts',
+  txValidityUpperBound,
+  upperBound,
+  valueToPolicyAssets,
+  pattern KeyWitness,
+  pattern KeyWitnessForSpending,
+  pattern ReferenceScriptNone,
+  pattern TxOut,
+  pattern TxOutDatumInline,
+  pattern TxOutDatumNone,
+  pattern TxValidityNoUpperBound,
+  pattern TxValidityUpperBound,
+  pattern UTxO,
+ )
 import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -213,7 +266,7 @@ depositAddress networkId = mkScriptAddress networkId depositValidatorScript
 --
 -- If no tokens are specified, it returns two empty maps. Otherwise, it returns the partitioned maps, ensuring
 -- that if there are no invalid tokens, the second map is empty.
-splitTokens :: UTxO.UTxO -> Map PolicyId PolicyAssets -> (Map PolicyId PolicyAssets, Map PolicyId PolicyAssets)
+splitTokens :: UTxO -> Map PolicyId PolicyAssets -> (Map PolicyId PolicyAssets, Map PolicyId PolicyAssets)
 splitTokens userUTxO specifiedTokens
   | Map.null specifiedTokens = (mempty, mempty) -- Trivial case: no tokens specified
   | otherwise =

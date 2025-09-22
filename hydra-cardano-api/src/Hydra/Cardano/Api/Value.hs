@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.Value where
 
 import Hydra.Cardano.Api.Prelude hiding (toLedgerValue)
 
-import Cardano.Api.Ledger (Coin (..), PParams)
+import Cardano.Api.Ledger (PParams)
 import Cardano.Ledger.Core (getMinCoinTxOut)
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Data.Word (Word64)
@@ -91,4 +91,4 @@ fromPlutusValue plutusValue = do
         pure (AssetId pid (toAssetName tk), Quantity i)
 
   toAssetName :: Plutus.TokenName -> AssetName
-  toAssetName = AssetName . fromBuiltin . unTokenName
+  toAssetName = UnsafeAssetName . fromBuiltin . unTokenName

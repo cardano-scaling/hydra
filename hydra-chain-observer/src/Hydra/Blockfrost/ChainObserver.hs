@@ -15,6 +15,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Retry (RetryPolicyM, RetryStatus, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
+import Data.Text qualified as T
 import Hydra.Cardano.Api (
   ChainPoint (..),
   HasTypeProxy (..),
@@ -25,6 +26,7 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   UTxO,
+  deserialiseFromRawBytes,
   serialiseToRawBytes,
  )
 import Hydra.Cardano.Api.Prelude (
@@ -87,7 +89,7 @@ blockfrostClient tracer projectPath blockConfirmations = do
             case startChainFrom of
               Just point -> pure point
               Nothing -> do
-                toChainPoint <$> runBlockfrostM prj Blockfrost.getLatestBlock
+                toChainPoint =<< runBlockfrostM prj Blockfrost.getLatestBlock
 
           traceWith tracer StartObservingFrom{chainPoint}
 
@@ -165,7 +167,7 @@ rollForward tracer prj networkId observerHandler blockConfirmations (blockHash, 
   -- Convert to cardano-api Tx
   receivedTxs <- mapM (toTx . (\(Blockfrost.TxHashCBOR (_txHash, cbor)) -> cbor)) txHashesCBOR
   let receivedTxIds = txId <$> receivedTxs
-  let point = toChainPoint block
+  point <- toChainPoint block
   traceWith tracer RollForward{point, receivedTxIds}
 
   -- Collect head observations
@@ -193,15 +195,15 @@ isRetryable (NotEnoughBlockConfirmations _) = True
 isRetryable (MissingBlockNo _) = True
 isRetryable (MissingNextBlockHash _) = True
 
-toChainPoint :: Blockfrost.Block -> ChainPoint
-toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
-  ChainPoint slotNo headerHash
+toChainPoint :: MonadThrow m => Blockfrost.Block -> m ChainPoint
+toChainPoint Blockfrost.Block{_blockSlot, _blockHash} = do
+  blockHash' <- case deserialiseFromRawBytes (proxyToAsType (Proxy @(Hash BlockHeader))) $ fromString $ T.unpack $ Blockfrost.unBlockHash _blockHash of
+    Left _ -> throwIO $ DecodeError $ Blockfrost.unBlockHash _blockHash
+    Right x -> pure x
+  pure $ ChainPoint slotNo blockHash'
  where
   slotNo :: SlotNo
   slotNo = maybe 0 (fromInteger . Blockfrost.unSlot) _blockSlot
-
-  headerHash :: Hash BlockHeader
-  headerHash = fromString . toString $ Blockfrost.unBlockHash _blockHash
 
 fromNetworkMagic :: Integer -> NetworkId
 fromNetworkMagic = \case
