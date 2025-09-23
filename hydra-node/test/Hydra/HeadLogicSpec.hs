@@ -187,6 +187,7 @@ spec =
                     }
           update bobEnv ledger (inOpenState threeParties) depositOtherHead `hasStateChangedSatisfying` \case
             DepositRecorded{headId, depositTxId} -> headId == otherHeadId && depositTxId == 1
+            _ -> False
 
         it "on tick, picks the next active deposit in arrival when in Open state order for ReqSn" $ do
           now <- getCurrentTime
