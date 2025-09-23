@@ -1,0 +1,231 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- | Concrete `Hydra.Network` stack used in a hydra-node.</span><span>
+</span><span id="line-4"></span><span class="hs-comment">--</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- This module provides a `withNetwork` function which is the composition of several layers in order to provide various capabilities:</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">--   * `withAuthentication` handles messages' authentication and signature verification</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--   * `withEtcdNetwork` uses an 'etcd' cluster to implement reliable broadcast</span><span>
+</span><span id="line-9"></span><span class="hs-comment">--</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- The following diagram details the various types of messages each layer is</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- exchanging with its predecessors and successors.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--           &#9650;</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--           &#9474;                        &#9474;</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--       Authenticated msg           msg</span><span>
+</span><span id="line-18"></span><span class="hs-comment">--           &#9474;                        &#9474;</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--           &#9474;                        &#9474;</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9660;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- &#9474;                                         &#9474;</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- &#9474;               Authenticate              &#9474;</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- &#9474;                                         &#9474;</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9650;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</span><span>
+</span><span id="line-25"></span><span class="hs-comment">--           &#9474;                        &#9474;</span><span>
+</span><span id="line-26"></span><span class="hs-comment">--           &#9474;                        &#9474;</span><span>
+</span><span id="line-27"></span><span class="hs-comment">--          msg                      msg</span><span>
+</span><span id="line-28"></span><span class="hs-comment">--           &#9474;                        &#9474;</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9660;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;</span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- &#9474;                                         &#9474;</span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- &#9474;                   Etcd                  &#9474;</span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- &#9474;                                         &#9474;</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9650;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</span><span>
+</span><span id="line-34"></span><span class="hs-comment">--           &#9474;                        &#9474;</span><span>
+</span><span id="line-35"></span><span class="hs-comment">--           &#9474;        (bytes)         &#9474;</span><span>
+</span><span id="line-36"></span><span class="hs-comment">--           &#9474;                        &#9660;</span><span>
+</span><span id="line-37"></span><span class="hs-comment">--</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Node.Network</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><a href="Hydra.Network.html#NetworkConfiguration"><span class="hs-identifier">NetworkConfiguration</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><a href="Hydra.Node.Network.html#withNetwork"><span class="hs-identifier">withNetwork</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><a href="Hydra.Node.Network.html#NetworkLog"><span class="hs-identifier">NetworkLog</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-43"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html#fromList"><span class="hs-identifier">fromList</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#replicate"><span class="hs-identifier">replicate</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Tracer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Tracer</span></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.html"><span class="hs-identifier">Hydra.Network</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.html#NetworkComponent"><span class="hs-identifier">NetworkComponent</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Network.html#NetworkConfiguration"><span class="hs-identifier">NetworkConfiguration</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Network.html#ProtocolVersion"><span class="hs-identifier">ProtocolVersion</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.Authenticate.html"><span class="hs-identifier">Hydra.Network.Authenticate</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Authenticate.html#AuthLog"><span class="hs-identifier">AuthLog</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Network.Authenticate.html#Authenticated"><span class="hs-identifier">Authenticated</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Network.Authenticate.html#withAuthentication"><span class="hs-identifier">withAuthentication</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.Etcd.html"><span class="hs-identifier">Hydra.Network.Etcd</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Etcd.html#EtcdLog"><span class="hs-identifier">EtcdLog</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Network.Etcd.html#withEtcdNetwork"><span class="hs-identifier">withEtcdNetwork</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html"><span class="hs-identifier">Hydra.Network.Message</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier">Message</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="annot"><span class="hs-comment">-- | Starts the network layer of a node, passing configured `Network` to its continuation.</span></span><span>
+</span><span id="line-55"></span><span class="annot"><a href="Hydra.Node.Network.html#withNetwork"><span class="hs-identifier hs-type">withNetwork</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680599993"><span class="annot"><a href="#local-6989586621680599993"><span class="hs-identifier hs-type">tx</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-57"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680599993"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-58"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Tracer to use for logging messages.</span></span><span>
+</span><span id="line-59"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.Network.html#NetworkLog"><span class="hs-identifier hs-type">NetworkLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-60"></span><span>  </span><span class="annot"><span class="hs-comment">-- | The network configuration</span></span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><a href="Hydra.Network.html#NetworkConfiguration"><span class="hs-identifier hs-type">NetworkConfiguration</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-62"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.</span></span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><a href="Hydra.Network.html#NetworkComponent"><span class="hs-identifier hs-type">NetworkComponent</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Authenticate.html#Authenticated"><span class="hs-identifier hs-type">Authenticated</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-type">Message</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680599993"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier hs-type">Message</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680599993"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span id="withNetwork"><span class="annot"><span class="annottext">withNetwork :: forall tx.
+IsTx tx =&gt;
+Tracer IO NetworkLog
+-&gt; NetworkConfiguration
+-&gt; NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
+</span><a href="Hydra.Node.Network.html#withNetwork"><span class="hs-identifier hs-var hs-var">withNetwork</span></a></span></span><span> </span><span id="local-6989586621680600246"><span class="annot"><span class="annottext">Tracer IO NetworkLog
+</span><a href="#local-6989586621680600246"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621680600247"><span class="annot"><span class="annottext">NetworkConfiguration
+</span><a href="#local-6989586621680600247"><span class="hs-identifier hs-var">conf</span></a></span></span><span> </span><span id="local-6989586621680600248"><span class="annot"><span class="annottext">NetworkCallback (Authenticated (Message tx)) IO
+</span><a href="#local-6989586621680600248"><span class="hs-identifier hs-var">callback</span></a></span></span><span> </span><span id="local-6989586621680600249"><span class="annot"><span class="annottext">Network IO (Message tx) -&gt; IO ()
+</span><a href="#local-6989586621680600249"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-65"></span><span>  </span><span class="annot"><span class="annottext">Tracer IO AuthLog
+-&gt; SigningKey HydraKey
+-&gt; [Party]
+-&gt; NetworkComponent
+     IO (Signed (Message tx)) (Signed (Message tx)) ()
+-&gt; NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
+forall inbound outbound (m :: * -&gt; *) a.
+(SignableRepresentation inbound, ToJSON inbound,
+ SignableRepresentation outbound) =&gt;
+Tracer m AuthLog
+-&gt; SigningKey HydraKey
+-&gt; [Party]
+-&gt; NetworkComponent m (Signed inbound) (Signed outbound) a
+-&gt; NetworkComponent m (Authenticated inbound) outbound a
+</span><a href="Hydra.Network.Authenticate.html#withAuthentication"><span class="hs-identifier hs-var">withAuthentication</span></a></span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(AuthLog -&gt; NetworkLog)
+-&gt; Tracer IO NetworkLog -&gt; Tracer IO AuthLog
+forall a' a. (a' -&gt; a) -&gt; Tracer IO a -&gt; Tracer IO a'
+forall (f :: * -&gt; *) a' a.
+Contravariant f =&gt;
+(a' -&gt; a) -&gt; f a -&gt; f a'
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Contravariant.html#contramap"><span class="hs-identifier hs-var">contramap</span></a></span><span> </span><span class="annot"><span class="annottext">AuthLog -&gt; NetworkLog
+</span><a href="Hydra.Node.Network.html#Authenticate"><span class="hs-identifier hs-var">Authenticate</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO NetworkLog
+</span><a href="#local-6989586621680600246"><span class="hs-identifier hs-var">tracer</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621680600252"><span class="hs-identifier hs-var">signingKey</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621680600253"><span class="hs-identifier hs-var">otherParties</span></a></span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tracer IO EtcdLog
+-&gt; ProtocolVersion
+-&gt; NetworkConfiguration
+-&gt; NetworkComponent
+     IO (Signed (Message tx)) (Signed (Message tx)) ()
+forall msg.
+(ToCBOR msg, FromCBOR msg, Eq msg) =&gt;
+Tracer IO EtcdLog
+-&gt; ProtocolVersion
+-&gt; NetworkConfiguration
+-&gt; NetworkComponent IO msg msg ()
+</span><a href="Hydra.Network.Etcd.html#withEtcdNetwork"><span class="hs-identifier hs-var">withEtcdNetwork</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(EtcdLog -&gt; NetworkLog)
+-&gt; Tracer IO NetworkLog -&gt; Tracer IO EtcdLog
+forall a' a. (a' -&gt; a) -&gt; Tracer IO a -&gt; Tracer IO a'
+forall (f :: * -&gt; *) a' a.
+Contravariant f =&gt;
+(a' -&gt; a) -&gt; f a -&gt; f a'
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Contravariant.html#contramap"><span class="hs-identifier hs-var">contramap</span></a></span><span> </span><span class="annot"><span class="annottext">EtcdLog -&gt; NetworkLog
+</span><a href="Hydra.Node.Network.html#Etcd"><span class="hs-identifier hs-var">Etcd</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO NetworkLog
+</span><a href="#local-6989586621680600246"><span class="hs-identifier hs-var">tracer</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ProtocolVersion
+</span><a href="Hydra.Node.Network.html#currentNetworkProtocolVersion"><span class="hs-identifier hs-var">currentNetworkProtocolVersion</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkConfiguration
+</span><a href="#local-6989586621680600247"><span class="hs-identifier hs-var">conf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>    </span><span class="annot"><span class="annottext">NetworkCallback (Authenticated (Message tx)) IO
+</span><a href="#local-6989586621680600248"><span class="hs-identifier hs-var">callback</span></a></span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">Network IO (Message tx) -&gt; IO ()
+</span><a href="#local-6989586621680600249"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-72"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><a href="Hydra.Network.html#NetworkConfiguration"><span class="hs-identifier hs-type">NetworkConfiguration</span></a></span><span class="hs-special">{</span><span id="local-6989586621680600252"><span class="annot"><span class="annottext">SigningKey HydraKey
+signingKey :: SigningKey HydraKey
+$sel:signingKey:NetworkConfiguration :: NetworkConfiguration -&gt; SigningKey HydraKey
+</span><a href="#local-6989586621680600252"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680600253"><span class="annot"><span class="annottext">[Party]
+otherParties :: [Party]
+$sel:otherParties:NetworkConfiguration :: NetworkConfiguration -&gt; [Party]
+</span><a href="#local-6989586621680600253"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkConfiguration
+</span><a href="#local-6989586621680600247"><span class="hs-identifier hs-var">conf</span></a></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- | The latest hydra network protocol version. Used to identify</span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- incompatibilities ahead of time.</span><span>
+</span><span id="line-77"></span><span class="annot"><a href="Hydra.Node.Network.html#currentNetworkProtocolVersion"><span class="hs-identifier hs-type">currentNetworkProtocolVersion</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.html#ProtocolVersion"><span class="hs-identifier hs-type">ProtocolVersion</span></a></span><span>
+</span><span id="line-78"></span><span id="currentNetworkProtocolVersion"><span class="annot"><span class="annottext">currentNetworkProtocolVersion :: ProtocolVersion
+</span><a href="Hydra.Node.Network.html#currentNetworkProtocolVersion"><span class="hs-identifier hs-var hs-var">currentNetworkProtocolVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ProtocolVersion
+</span><a href="Hydra.Network.html#ProtocolVersion"><span class="hs-identifier hs-var">ProtocolVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="annot"><span class="hs-comment">-- * Tracing</span></span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-keyword">data</span><span> </span><span id="NetworkLog"><span class="annot"><a href="Hydra.Node.Network.html#NetworkLog"><span class="hs-identifier hs-var">NetworkLog</span></a></span></span><span>
+</span><span id="line-83"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Authenticate"><span class="annot"><a href="Hydra.Node.Network.html#Authenticate"><span class="hs-identifier hs-var">Authenticate</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Network.Authenticate.html#AuthLog"><span class="hs-identifier hs-type">AuthLog</span></a></span><span>
+</span><span id="line-84"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Etcd"><span class="annot"><a href="Hydra.Node.Network.html#Etcd"><span class="hs-identifier hs-var">Etcd</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Network.Etcd.html#EtcdLog"><span class="hs-identifier hs-type">EtcdLog</span></a></span><span>
+</span><span id="line-85"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680600261"><span id="local-6989586621680600267"><span class="annot"><span class="annottext">NetworkLog -&gt; NetworkLog -&gt; Bool
+(NetworkLog -&gt; NetworkLog -&gt; Bool)
+-&gt; (NetworkLog -&gt; NetworkLog -&gt; Bool) -&gt; Eq NetworkLog
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: NetworkLog -&gt; NetworkLog -&gt; Bool
+== :: NetworkLog -&gt; NetworkLog -&gt; Bool
+$c/= :: NetworkLog -&gt; NetworkLog -&gt; Bool
+/= :: NetworkLog -&gt; NetworkLog -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680600272"><span id="local-6989586621680600281"><span id="local-6989586621680600285"><span class="annot"><span class="annottext">Int -&gt; NetworkLog -&gt; ShowS
+[NetworkLog] -&gt; ShowS
+NetworkLog -&gt; String
+(Int -&gt; NetworkLog -&gt; ShowS)
+-&gt; (NetworkLog -&gt; String)
+-&gt; ([NetworkLog] -&gt; ShowS)
+-&gt; Show NetworkLog
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; NetworkLog -&gt; ShowS
+showsPrec :: Int -&gt; NetworkLog -&gt; ShowS
+$cshow :: NetworkLog -&gt; String
+show :: NetworkLog -&gt; String
+$cshowList :: [NetworkLog] -&gt; ShowS
+showList :: [NetworkLog] -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680600289"><span id="local-6989586621680600291"><span class="annot"><span class="annottext">(forall x. NetworkLog -&gt; Rep NetworkLog x)
+-&gt; (forall x. Rep NetworkLog x -&gt; NetworkLog) -&gt; Generic NetworkLog
+forall x. Rep NetworkLog x -&gt; NetworkLog
+forall x. NetworkLog -&gt; Rep NetworkLog x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. NetworkLog -&gt; Rep NetworkLog x
+from :: forall x. NetworkLog -&gt; Rep NetworkLog x
+$cto :: forall x. Rep NetworkLog x -&gt; NetworkLog
+to :: forall x. Rep NetworkLog x -&gt; NetworkLog
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680600295"><span id="local-6989586621680600302"><span id="local-6989586621680600305"><span id="local-6989586621680600308"><span id="local-6989586621680600311"><span class="annot"><span class="annottext">[NetworkLog] -&gt; Value
+[NetworkLog] -&gt; Encoding
+NetworkLog -&gt; Bool
+NetworkLog -&gt; Value
+NetworkLog -&gt; Encoding
+(NetworkLog -&gt; Value)
+-&gt; (NetworkLog -&gt; Encoding)
+-&gt; ([NetworkLog] -&gt; Value)
+-&gt; ([NetworkLog] -&gt; Encoding)
+-&gt; (NetworkLog -&gt; Bool)
+-&gt; ToJSON NetworkLog
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: NetworkLog -&gt; Value
+toJSON :: NetworkLog -&gt; Value
+$ctoEncoding :: NetworkLog -&gt; Encoding
+toEncoding :: NetworkLog -&gt; Encoding
+$ctoJSONList :: [NetworkLog] -&gt; Value
+toJSONList :: [NetworkLog] -&gt; Value
+$ctoEncodingList :: [NetworkLog] -&gt; Encoding
+toEncodingList :: [NetworkLog] -&gt; Encoding
+$comitField :: NetworkLog -&gt; Bool
+omitField :: NetworkLog -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680600397"><span id="local-6989586621680600404"><span id="local-6989586621680600407"><span class="annot"><span class="annottext">Maybe NetworkLog
+Value -&gt; Parser [NetworkLog]
+Value -&gt; Parser NetworkLog
+(Value -&gt; Parser NetworkLog)
+-&gt; (Value -&gt; Parser [NetworkLog])
+-&gt; Maybe NetworkLog
+-&gt; FromJSON NetworkLog
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser NetworkLog
+parseJSON :: Value -&gt; Parser NetworkLog
+$cparseJSONList :: Value -&gt; Parser [NetworkLog]
+parseJSONList :: Value -&gt; Parser [NetworkLog]
+$comittedField :: Maybe NetworkLog
+omittedField :: Maybe NetworkLog
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span></pre></body></html>

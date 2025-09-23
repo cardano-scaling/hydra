@@ -1,0 +1,236 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.HeadError</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-2"></span><span>  </span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier">errorCode</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-3"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadError.html"><span class="hs-identifier">Hydra.Contract.HeadError</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-4"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html"><span class="hs-identifier">Hydra.Contract.Error</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier">ToErrorCode</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier">errorCode</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">data</span><span> </span><span id="HeadError"><span class="annot"><a href="Hydra.Contract.HeadError.html#HeadError"><span class="hs-identifier hs-var">HeadError</span></a></span></span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="InvalidHeadStateTransition"><span class="annot"><a href="Hydra.Contract.HeadError.html#InvalidHeadStateTransition"><span class="hs-identifier hs-var">InvalidHeadStateTransition</span></a></span></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ChangedParameters"><span class="annot"><a href="Hydra.Contract.HeadError.html#ChangedParameters"><span class="hs-identifier hs-var">ChangedParameters</span></a></span></span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WrongStateInOutputDatum"><span class="annot"><a href="Hydra.Contract.HeadError.html#WrongStateInOutputDatum"><span class="hs-identifier hs-var">WrongStateInOutputDatum</span></a></span></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HeadValueIsNotPreserved"><span class="annot"><a href="Hydra.Contract.HeadError.html#HeadValueIsNotPreserved"><span class="hs-identifier hs-var">HeadValueIsNotPreserved</span></a></span></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="SignerIsNotAParticipant"><span class="annot"><a href="Hydra.Contract.HeadError.html#SignerIsNotAParticipant"><span class="hs-identifier hs-var">SignerIsNotAParticipant</span></a></span></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="NoSigners"><span class="annot"><a href="Hydra.Contract.HeadError.html#NoSigners"><span class="hs-identifier hs-var">NoSigners</span></a></span></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="TooManySigners"><span class="annot"><a href="Hydra.Contract.HeadError.html#TooManySigners"><span class="hs-identifier hs-var">TooManySigners</span></a></span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ScriptNotSpendingAHeadInput"><span class="annot"><a href="Hydra.Contract.HeadError.html#ScriptNotSpendingAHeadInput"><span class="hs-identifier hs-var">ScriptNotSpendingAHeadInput</span></a></span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="NoOutputDatumError"><span class="annot"><a href="Hydra.Contract.HeadError.html#NoOutputDatumError"><span class="hs-identifier hs-var">NoOutputDatumError</span></a></span></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="UnexpectedNonInlineDatum"><span class="annot"><a href="Hydra.Contract.HeadError.html#UnexpectedNonInlineDatum"><span class="hs-identifier hs-var">UnexpectedNonInlineDatum</span></a></span></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="NotPayingToHead"><span class="annot"><a href="Hydra.Contract.HeadError.html#NotPayingToHead"><span class="hs-identifier hs-var">NotPayingToHead</span></a></span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="SignatureVerificationFailed"><span class="annot"><a href="Hydra.Contract.HeadError.html#SignatureVerificationFailed"><span class="hs-identifier hs-var">SignatureVerificationFailed</span></a></span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MustNotChangeVersion"><span class="annot"><a href="Hydra.Contract.HeadError.html#MustNotChangeVersion"><span class="hs-identifier hs-var">MustNotChangeVersion</span></a></span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="BurntTokenNumberMismatch"><span class="annot"><a href="Hydra.Contract.HeadError.html#BurntTokenNumberMismatch"><span class="hs-identifier hs-var">BurntTokenNumberMismatch</span></a></span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ReimbursedOutputsDontMatch"><span class="annot"><a href="Hydra.Contract.HeadError.html#ReimbursedOutputsDontMatch"><span class="hs-identifier hs-var">ReimbursedOutputsDontMatch</span></a></span></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="STNotSpent"><span class="annot"><a href="Hydra.Contract.HeadError.html#STNotSpent"><span class="hs-identifier hs-var">STNotSpent</span></a></span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="IncorrectUtxoHash"><span class="annot"><a href="Hydra.Contract.HeadError.html#IncorrectUtxoHash"><span class="hs-identifier hs-var">IncorrectUtxoHash</span></a></span></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MissingCommits"><span class="annot"><a href="Hydra.Contract.HeadError.html#MissingCommits"><span class="hs-identifier hs-var">MissingCommits</span></a></span></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="NotAllValueCollected"><span class="annot"><a href="Hydra.Contract.HeadError.html#NotAllValueCollected"><span class="hs-identifier hs-var">NotAllValueCollected</span></a></span></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="IncorrectVersion"><span class="annot"><a href="Hydra.Contract.HeadError.html#IncorrectVersion"><span class="hs-identifier hs-var">IncorrectVersion</span></a></span></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="VersionNotIncremented"><span class="annot"><a href="Hydra.Contract.HeadError.html#VersionNotIncremented"><span class="hs-identifier hs-var">VersionNotIncremented</span></a></span></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HasBoundedValidityCheckFailed"><span class="annot"><a href="Hydra.Contract.HeadError.html#HasBoundedValidityCheckFailed"><span class="hs-identifier hs-var">HasBoundedValidityCheckFailed</span></a></span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="IncorrectClosedContestationDeadline"><span class="annot"><a href="Hydra.Contract.HeadError.html#IncorrectClosedContestationDeadline"><span class="hs-identifier hs-var">IncorrectClosedContestationDeadline</span></a></span></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="InfiniteUpperBound"><span class="annot"><a href="Hydra.Contract.HeadError.html#InfiniteUpperBound"><span class="hs-identifier hs-var">InfiniteUpperBound</span></a></span></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="InfiniteLowerBound"><span class="annot"><a href="Hydra.Contract.HeadError.html#InfiniteLowerBound"><span class="hs-identifier hs-var">InfiniteLowerBound</span></a></span></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ContestersNonEmpty"><span class="annot"><a href="Hydra.Contract.HeadError.html#ContestersNonEmpty"><span class="hs-identifier hs-var">ContestersNonEmpty</span></a></span></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="CloseNoUpperBoundDefined"><span class="annot"><a href="Hydra.Contract.HeadError.html#CloseNoUpperBoundDefined"><span class="hs-identifier hs-var">CloseNoUpperBoundDefined</span></a></span></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedCloseInitial"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedCloseInitial"><span class="hs-identifier hs-var">FailedCloseInitial</span></a></span></span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedCloseAny"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedCloseAny"><span class="hs-identifier hs-var">FailedCloseAny</span></a></span></span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="TooOldSnapshot"><span class="annot"><a href="Hydra.Contract.HeadError.html#TooOldSnapshot"><span class="hs-identifier hs-var">TooOldSnapshot</span></a></span></span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="UpperBoundBeyondContestationDeadline"><span class="annot"><a href="Hydra.Contract.HeadError.html#UpperBoundBeyondContestationDeadline"><span class="hs-identifier hs-var">UpperBoundBeyondContestationDeadline</span></a></span></span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ContestNoUpperBoundDefined"><span class="annot"><a href="Hydra.Contract.HeadError.html#ContestNoUpperBoundDefined"><span class="hs-identifier hs-var">ContestNoUpperBoundDefined</span></a></span></span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MustNotPushDeadline"><span class="annot"><a href="Hydra.Contract.HeadError.html#MustNotPushDeadline"><span class="hs-identifier hs-var">MustNotPushDeadline</span></a></span></span><span>
+</span><span id="line-42"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MustPushDeadline"><span class="annot"><a href="Hydra.Contract.HeadError.html#MustPushDeadline"><span class="hs-identifier hs-var">MustPushDeadline</span></a></span></span><span>
+</span><span id="line-43"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ContesterNotIncluded"><span class="annot"><a href="Hydra.Contract.HeadError.html#ContesterNotIncluded"><span class="hs-identifier hs-var">ContesterNotIncluded</span></a></span></span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WrongNumberOfSigners"><span class="annot"><a href="Hydra.Contract.HeadError.html#WrongNumberOfSigners"><span class="hs-identifier hs-var">WrongNumberOfSigners</span></a></span></span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="SignerAlreadyContested"><span class="annot"><a href="Hydra.Contract.HeadError.html#SignerAlreadyContested"><span class="hs-identifier hs-var">SignerAlreadyContested</span></a></span></span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedContestCurrent"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedContestCurrent"><span class="hs-identifier hs-var">FailedContestCurrent</span></a></span></span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedContestUsedDec"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedContestUsedDec"><span class="hs-identifier hs-var">FailedContestUsedDec</span></a></span></span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FanoutUTxOHashMismatch"><span class="annot"><a href="Hydra.Contract.HeadError.html#FanoutUTxOHashMismatch"><span class="hs-identifier hs-var">FanoutUTxOHashMismatch</span></a></span></span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="LowerBoundBeforeContestationDeadline"><span class="annot"><a href="Hydra.Contract.HeadError.html#LowerBoundBeforeContestationDeadline"><span class="hs-identifier hs-var">LowerBoundBeforeContestationDeadline</span></a></span></span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FanoutNoLowerBoundDefined"><span class="annot"><a href="Hydra.Contract.HeadError.html#FanoutNoLowerBoundDefined"><span class="hs-identifier hs-var">FanoutNoLowerBoundDefined</span></a></span></span><span>
+</span><span id="line-51"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FanoutUTxOToCommitHashMismatch"><span class="annot"><a href="Hydra.Contract.HeadError.html#FanoutUTxOToCommitHashMismatch"><span class="hs-identifier hs-var">FanoutUTxOToCommitHashMismatch</span></a></span></span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FanoutUTxOToDecommitHashMismatch"><span class="annot"><a href="Hydra.Contract.HeadError.html#FanoutUTxOToDecommitHashMismatch"><span class="hs-identifier hs-var">FanoutUTxOToDecommitHashMismatch</span></a></span></span><span>
+</span><span id="line-53"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="DepositNotSpent"><span class="annot"><a href="Hydra.Contract.HeadError.html#DepositNotSpent"><span class="hs-identifier hs-var">DepositNotSpent</span></a></span></span><span>
+</span><span id="line-54"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="DepositInputNotFound"><span class="annot"><a href="Hydra.Contract.HeadError.html#DepositInputNotFound"><span class="hs-identifier hs-var">DepositInputNotFound</span></a></span></span><span>
+</span><span id="line-55"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HeadInputNotFound"><span class="annot"><a href="Hydra.Contract.HeadError.html#HeadInputNotFound"><span class="hs-identifier hs-var">HeadInputNotFound</span></a></span></span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedContestUnusedDec"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedContestUnusedDec"><span class="hs-identifier hs-var">FailedContestUnusedDec</span></a></span></span><span>
+</span><span id="line-57"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedContestUnusedInc"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedContestUnusedInc"><span class="hs-identifier hs-var">FailedContestUnusedInc</span></a></span></span><span>
+</span><span id="line-58"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedContestUsedInc"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedContestUsedInc"><span class="hs-identifier hs-var">FailedContestUsedInc</span></a></span></span><span>
+</span><span id="line-59"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedCloseUnusedDec"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedCloseUnusedDec"><span class="hs-identifier hs-var">FailedCloseUnusedDec</span></a></span></span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedCloseUsedDec"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedCloseUsedDec"><span class="hs-identifier hs-var">FailedCloseUsedDec</span></a></span></span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedCloseUnusedInc"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedCloseUnusedInc"><span class="hs-identifier hs-var">FailedCloseUnusedInc</span></a></span></span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FailedCloseUsedInc"><span class="annot"><a href="Hydra.Contract.HeadError.html#FailedCloseUsedInc"><span class="hs-identifier hs-var">FailedCloseUsedInc</span></a></span></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier hs-type">ToErrorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadError.html#HeadError"><span class="hs-identifier hs-type">HeadError</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-65"></span><span>  </span><span id="local-6989586621679492972"><span class="annot"><span class="annottext">toErrorCode :: HeadError -&gt; Text
+</span><a href="#local-6989586621679492972"><span class="hs-identifier hs-var hs-var hs-var hs-var">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-comment">-- Generic</span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#InvalidHeadStateTransition"><span class="hs-identifier hs-var">InvalidHeadStateTransition</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H1&quot;</span></span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#ChangedParameters"><span class="hs-identifier hs-var">ChangedParameters</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H2&quot;</span></span><span>
+</span><span id="line-69"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#WrongStateInOutputDatum"><span class="hs-identifier hs-var">WrongStateInOutputDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H3&quot;</span></span><span>
+</span><span id="line-70"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#HeadValueIsNotPreserved"><span class="hs-identifier hs-var">HeadValueIsNotPreserved</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H4&quot;</span></span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#SignerIsNotAParticipant"><span class="hs-identifier hs-var">SignerIsNotAParticipant</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H5&quot;</span></span><span>
+</span><span id="line-72"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#NoSigners"><span class="hs-identifier hs-var">NoSigners</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H6&quot;</span></span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#TooManySigners"><span class="hs-identifier hs-var">TooManySigners</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H7&quot;</span></span><span>
+</span><span id="line-74"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#ScriptNotSpendingAHeadInput"><span class="hs-identifier hs-var">ScriptNotSpendingAHeadInput</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H8&quot;</span></span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#NoOutputDatumError"><span class="hs-identifier hs-var">NoOutputDatumError</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H9&quot;</span></span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#UnexpectedNonInlineDatum"><span class="hs-identifier hs-var">UnexpectedNonInlineDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H10&quot;</span></span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#NotPayingToHead"><span class="hs-identifier hs-var">NotPayingToHead</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H11&quot;</span></span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#SignatureVerificationFailed"><span class="hs-identifier hs-var">SignatureVerificationFailed</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H12&quot;</span></span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#MustNotChangeVersion"><span class="hs-identifier hs-var">MustNotChangeVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H13&quot;</span></span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-comment">-- Abort</span><span>
+</span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#BurntTokenNumberMismatch"><span class="hs-identifier hs-var">BurntTokenNumberMismatch</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H14&quot;</span></span><span>
+</span><span id="line-82"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#ReimbursedOutputsDontMatch"><span class="hs-identifier hs-var">ReimbursedOutputsDontMatch</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H15&quot;</span></span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-comment">-- Collect</span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#STNotSpent"><span class="hs-identifier hs-var">STNotSpent</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H16&quot;</span></span><span>
+</span><span id="line-85"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#IncorrectUtxoHash"><span class="hs-identifier hs-var">IncorrectUtxoHash</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H17&quot;</span></span><span>
+</span><span id="line-86"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#MissingCommits"><span class="hs-identifier hs-var">MissingCommits</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H18&quot;</span></span><span>
+</span><span id="line-87"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#NotAllValueCollected"><span class="hs-identifier hs-var">NotAllValueCollected</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H19&quot;</span></span><span>
+</span><span id="line-88"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#IncorrectVersion"><span class="hs-identifier hs-var">IncorrectVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H20&quot;</span></span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-comment">-- Decrement</span><span>
+</span><span id="line-90"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#VersionNotIncremented"><span class="hs-identifier hs-var">VersionNotIncremented</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H21&quot;</span></span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-comment">-- Close</span><span>
+</span><span id="line-92"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#HasBoundedValidityCheckFailed"><span class="hs-identifier hs-var">HasBoundedValidityCheckFailed</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H22&quot;</span></span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#IncorrectClosedContestationDeadline"><span class="hs-identifier hs-var">IncorrectClosedContestationDeadline</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H23&quot;</span></span><span>
+</span><span id="line-94"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#InfiniteUpperBound"><span class="hs-identifier hs-var">InfiniteUpperBound</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H24&quot;</span></span><span>
+</span><span id="line-95"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#InfiniteLowerBound"><span class="hs-identifier hs-var">InfiniteLowerBound</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H25&quot;</span></span><span>
+</span><span id="line-96"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#ContestersNonEmpty"><span class="hs-identifier hs-var">ContestersNonEmpty</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H26&quot;</span></span><span>
+</span><span id="line-97"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#CloseNoUpperBoundDefined"><span class="hs-identifier hs-var">CloseNoUpperBoundDefined</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H27&quot;</span></span><span>
+</span><span id="line-98"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedCloseInitial"><span class="hs-identifier hs-var">FailedCloseInitial</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H28&quot;</span></span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-comment">-- Contest</span><span>
+</span><span id="line-100"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#TooOldSnapshot"><span class="hs-identifier hs-var">TooOldSnapshot</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H29&quot;</span></span><span>
+</span><span id="line-101"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#UpperBoundBeyondContestationDeadline"><span class="hs-identifier hs-var">UpperBoundBeyondContestationDeadline</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H30&quot;</span></span><span>
+</span><span id="line-102"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#ContestNoUpperBoundDefined"><span class="hs-identifier hs-var">ContestNoUpperBoundDefined</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H31&quot;</span></span><span>
+</span><span id="line-103"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#MustNotPushDeadline"><span class="hs-identifier hs-var">MustNotPushDeadline</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H32&quot;</span></span><span>
+</span><span id="line-104"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#MustPushDeadline"><span class="hs-identifier hs-var">MustPushDeadline</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H33&quot;</span></span><span>
+</span><span id="line-105"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#ContesterNotIncluded"><span class="hs-identifier hs-var">ContesterNotIncluded</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H34&quot;</span></span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#WrongNumberOfSigners"><span class="hs-identifier hs-var">WrongNumberOfSigners</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H35&quot;</span></span><span>
+</span><span id="line-107"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#SignerAlreadyContested"><span class="hs-identifier hs-var">SignerAlreadyContested</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H36&quot;</span></span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedContestCurrent"><span class="hs-identifier hs-var">FailedContestCurrent</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H37&quot;</span></span><span>
+</span><span id="line-109"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedContestUsedDec"><span class="hs-identifier hs-var">FailedContestUsedDec</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H38&quot;</span></span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-comment">-- Fanout</span><span>
+</span><span id="line-111"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FanoutUTxOHashMismatch"><span class="hs-identifier hs-var">FanoutUTxOHashMismatch</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H39&quot;</span></span><span>
+</span><span id="line-112"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FanoutUTxOToDecommitHashMismatch"><span class="hs-identifier hs-var">FanoutUTxOToDecommitHashMismatch</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H40&quot;</span></span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#LowerBoundBeforeContestationDeadline"><span class="hs-identifier hs-var">LowerBoundBeforeContestationDeadline</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H41&quot;</span></span><span>
+</span><span id="line-114"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FanoutNoLowerBoundDefined"><span class="hs-identifier hs-var">FanoutNoLowerBoundDefined</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H42&quot;</span></span><span>
+</span><span id="line-115"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#DepositNotSpent"><span class="hs-identifier hs-var">DepositNotSpent</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H43&quot;</span></span><span>
+</span><span id="line-116"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#DepositInputNotFound"><span class="hs-identifier hs-var">DepositInputNotFound</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H44&quot;</span></span><span>
+</span><span id="line-117"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#HeadInputNotFound"><span class="hs-identifier hs-var">HeadInputNotFound</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H45&quot;</span></span><span>
+</span><span id="line-118"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedCloseAny"><span class="hs-identifier hs-var">FailedCloseAny</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H46&quot;</span></span><span>
+</span><span id="line-119"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedContestUnusedDec"><span class="hs-identifier hs-var">FailedContestUnusedDec</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H47&quot;</span></span><span>
+</span><span id="line-120"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedContestUnusedInc"><span class="hs-identifier hs-var">FailedContestUnusedInc</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H48&quot;</span></span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedContestUsedInc"><span class="hs-identifier hs-var">FailedContestUsedInc</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H49&quot;</span></span><span>
+</span><span id="line-122"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedCloseUnusedDec"><span class="hs-identifier hs-var">FailedCloseUnusedDec</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H50&quot;</span></span><span>
+</span><span id="line-123"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedCloseUsedDec"><span class="hs-identifier hs-var">FailedCloseUsedDec</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H51&quot;</span></span><span>
+</span><span id="line-124"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedCloseUnusedInc"><span class="hs-identifier hs-var">FailedCloseUnusedInc</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H52&quot;</span></span><span>
+</span><span id="line-125"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FailedCloseUsedInc"><span class="hs-identifier hs-var">FailedCloseUsedInc</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H53&quot;</span></span><span>
+</span><span id="line-126"></span><span>    </span><span class="annot"><span class="annottext">HeadError
+</span><a href="Hydra.Contract.HeadError.html#FanoutUTxOToCommitHashMismatch"><span class="hs-identifier hs-var">FanoutUTxOToCommitHashMismatch</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;H54&quot;</span></span><span>
+</span><span id="line-127"></span></pre></body></html>
