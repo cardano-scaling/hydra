@@ -1,6 +1,7 @@
 name: "Publish Docs"
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["CI"]
     branches: ["master", "release"]
@@ -15,7 +16,11 @@ jobs:
       contents: write
     steps:
 
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
     - name: Get latest stable version tag
+      if: github.ref_name == 'release'
       id: get_version
       run: |
         latest_tag=$(git describe --tags --abbrev=0)
@@ -25,9 +30,6 @@ jobs:
       uses: ./.github/actions/nix-cachix-setup
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
 
     - name: Build documentation and compute benchmarks
       env:
