@@ -10,11 +10,11 @@ example/information on which validator checks are in order if we want to make
 sure the funds we want to commit are ending up in the correct Hydra Head
 instance.
 
-- In this document we would like to hightlight the necessary checks for the
+- In this document we would like to highlight the necessary checks for the
 user written validators and give concrete examples (using `PlutusTx`).
 
 - Let's start by taking a look at the graph showing how exactly the commit process looks like:
-![](./commit-proces.jpg)
+![](./commit-process.jpg)
 
 <sub> Here rectangulars represent transactions and you can see the UTxO (with rounded corners) depicting transaction inputs and outputs together with their contents (datums, redeemers and assets)</sub>
 
@@ -137,6 +137,14 @@ own script redeemer:
 <details>
   <summary>Complete validator example </summary>
 ```
+data R
+  = R
+  { expectedHeadId :: CurrencySymbol
+  , expectedInitialValidator :: ScriptHash
+  }
+  deriving stock (Show, Generic)
+
+unstableMakeIsData ''R
 
 exampleValidator ::
   () ->
@@ -158,10 +166,7 @@ exampleValidator _ redeemer ctx =
   extractDatum =
     case initialInput of
       Nothing -> traceError "Initial input not found"
-      Just i ->
-        case decodeDatum (txInInfoResolved i) of
-          Just cs -> Just cs
-          Nothing -> Nothing
+      Just i -> Just =<< decodeDatum (txInInfoResolved i)
 
   decodeDatum :: TxOut -> Maybe CurrencySymbol
   decodeDatum txOut = case txOutDatum txOut of
@@ -185,6 +190,16 @@ exampleValidator _ redeemer ctx =
   info = scriptContextTxInfo ctx
 
   R{expectedHeadId, expectedInitialValidator} = redeemer
+
+exampleSecureValidatorScript :: PlutusScript
+exampleSecureValidatorScript =
+  PlutusScriptSerialised $
+    serialiseCompiledCode
+      $$( PlutusTx.compile
+            [||wrap exampleValidator||]
+        )
+ where
+  wrap = wrapValidator @() @R
 ```
 </details>
 
