@@ -116,10 +116,7 @@ exampleValidator _ redeemer ctx =
   extractDatum =
     case initialInput of
       Nothing -> traceError "Initial input not found"
-      Just i ->
-        case decodeDatum (txInInfoResolved i) of
-          Just cs -> Just cs
-          Nothing -> Nothing
+      Just i -> Just =<< decodeDatum (txInInfoResolved i)
 
   decodeDatum :: TxOut -> Maybe CurrencySymbol
   decodeDatum txOut = case txOutDatum txOut of
