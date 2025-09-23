@@ -14,7 +14,10 @@ changes.
   Lovelace that should be depositted to a Head returning any leftover to the
   user. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
 
-- Add `--blockfrost-query-timeout` and `--blockfrost-retry-timeout` to configure Blockfrost API timeouts.
+- Add `--blockfrost-query-timeout` and `--blockfrost-retry-timeout` to configure
+  Blockfrost API timeouts.
+  See the [corresponding issue](https://github.com/cardano-scaling/hydra/issues/2058)
+  and [PR](https://github.com/cardano-scaling/hydra/pull/2267) for more details.
 
 - Fix bug where TUI would have out-of-date head status information
   after restarting on a rotated node (due to event rotation).
