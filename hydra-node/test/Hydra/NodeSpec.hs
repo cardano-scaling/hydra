@@ -15,7 +15,7 @@ import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
 import Hydra.Events.Rotation (EventStore (..), LogId)
-import Hydra.HeadLogic (Input (..), NodeState (..), TTL)
+import Hydra.HeadLogic (Input (..), TTL)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
@@ -36,6 +36,7 @@ import Hydra.Node (
 import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
+import Hydra.Node.State (NodeState (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)

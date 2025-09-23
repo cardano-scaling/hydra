@@ -99,6 +99,7 @@ library
     Hydra.Node.Network
     Hydra.Node.ParameterMismatch
     Hydra.Node.Run
+    Hydra.Node.State
     Hydra.Node.Util
     Hydra.Options
     Hydra.Persistence

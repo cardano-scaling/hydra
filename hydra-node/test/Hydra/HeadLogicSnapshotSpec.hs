@@ -8,11 +8,12 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), NodeState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.State (NodeState (headState))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
