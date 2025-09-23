@@ -992,8 +992,7 @@ onOpenChainTick env pendingDeposits st =
       else
         noop
  where
-  -- REVIEW! check what if there are more than 1 new active deposit
-  -- What is the sorting criteria to pick next?
+  -- Pending active deposits are selected in arrival order (FIFO).
   withNextActive :: forall tx. (Eq (UTxOType tx), Monoid (UTxOType tx)) => Map (TxIdType tx) (Deposit tx) -> (TxIdType tx -> Outcome tx) -> Outcome tx
   withNextActive deposits cont = do
     -- NOTE: Do not consider empty deposits.
@@ -1001,7 +1000,7 @@ onOpenChainTick env pendingDeposits st =
         p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
     case filter p (Map.toList deposits) of
       [] -> noop
-      xs -> cont (fst (minimumBy (\(_, Deposit{created = c1}) (_, Deposit{created = c2}) -> compare c1 c2) xs))
+      xs -> cont (fst (minimumBy (comparing ((\Deposit{created} -> created) . snd)) xs))
 
   nextSn = confirmedSn + 1
 
