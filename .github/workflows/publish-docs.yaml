@@ -11,6 +11,7 @@ on:
 jobs:
   publishing:
     name: Publish Documentation
+    if: github.ref_name == 'master' || github.ref_name == 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: write
