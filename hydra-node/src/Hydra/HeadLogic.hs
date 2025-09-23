@@ -924,7 +924,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 
 -- | Process the chain (and time) advancing in any head state.
 --
--- __Transition__: No transition
+-- __Transition__: 'AnyState' → 'AnyState'
 --
 -- This is primarily used to track deposits status changes.
 onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcome tx
