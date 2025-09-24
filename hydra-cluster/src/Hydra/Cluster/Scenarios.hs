@@ -42,7 +42,6 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.API.ServerOutput (HeadStatus (..))
 import Hydra.Cardano.Api (
-  toPlutusScriptHash,
   Coin (..),
   Era,
   File (File),
@@ -84,6 +83,7 @@ import Hydra.Cardano.Api (
   toLedgerScript,
   toLedgerTx,
   toLedgerTxIn,
+  toPlutusScriptHash,
   toScriptData,
   txOutValue,
   txOuts',
