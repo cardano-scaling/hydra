@@ -75,7 +75,6 @@ import Hydra.Cardano.Api (
   policyAssetsToValue,
   scriptWitnessInCtx,
   selectLovelace,
-  serialiseToRawBytes,
   setTxProtocolParams,
   signTx,
   toLedgerData,
