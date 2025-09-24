@@ -108,11 +108,13 @@ import Hydra.Model (
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment (Payment (..))
 import Hydra.Model.Payment qualified as Payment
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
 import System.IO.Temp (writeSystemTempFile)
 import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
-import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
+import Test.Hydra.Node.Fixture (alice, aliceSk)
+import Test.QuickCheck (Property, Testable, counterexample, expectFailure, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -132,12 +134,18 @@ import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
   Actions,
   Annotated (..),
+  HasVariables (..),
   Step ((:=)),
   precondition,
   runActions,
   pattern Actions,
  )
 import Test.Util (printTrace, traceInIOSim)
+
+instance HasVariables (SigningKey PaymentKey) where
+  getAllVariables = mempty
+instance HasVariables Payment.CardanoSigningKey where
+  getAllVariables = mempty
 
 spec :: Spec
 spec = do
@@ -147,11 +155,35 @@ spec = do
     prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
   prop "check model" propHydraModel
   prop "check model balances" propCheckModelBalances
+  prop "fanout limit" $ expectFailure propFanoutLimit
   context "logic" $ do
     prop "check conflict-free liveness" $ propDL conflictFreeLiveness
     prop "check head opens if all participants commit" $ propDL headOpensIfAllPartiesCommit
     prop "fanout contains whole confirmed UTxO" $ propDL fanoutContainsWholeConfirmedUTxO
     prop "parties contest to wrong closed snapshot" $ propDL partyContestsToWrongClosedSnapshot
+
+propFanoutLimit :: Property
+propFanoutLimit =
+  within 10000000 $ propDL $ do
+    -- This scenario seeds a head with a single party and a UTxO set of 81 elements.
+    -- This is known to be above the fanout limit of the protocol and should fail.
+    --
+    -- See https://github.com/cardano-scaling/hydra/issues/2270
+    aliceCardanoSk <- forAllQ $ withGenQ (arbitrary @Payment.CardanoSigningKey) (const True) (const [])
+    let utxo = replicate 81 (aliceCardanoSk, lovelaceToValue 1_000_000)
+    void $
+      action $
+        Seed
+          { seedKeys = [(aliceSk, aliceCardanoSk)]
+          , contestationPeriod = UnsafeContestationPeriod 10
+          , toCommit = Map.fromList [(alice, utxo)]
+          , additionalUTxO = mempty
+          }
+    headId <- action $ Init alice
+    void $ action $ Commit headId alice utxo
+    void $ action Close{party = alice}
+    void $ action $ Wait 3600
+    void $ action $ Fanout alice
 
 propDL :: DL WorldState () -> Property
 propDL d = forAllDL d propHydraModel
