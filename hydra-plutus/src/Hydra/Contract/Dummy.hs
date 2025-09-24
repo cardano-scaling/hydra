@@ -6,7 +6,7 @@
 -- | Simple asserting validators that are primarily useful for testing.
 module Hydra.Contract.Dummy where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding ((==))
 
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import Hydra.Plutus.Extras (wrapValidator)
@@ -31,6 +31,8 @@ import PlutusLedgerApi.V3 (
   unsafeFromBuiltinData,
  )
 import PlutusTx (compile, unstableMakeIsData)
+import PlutusTx.Data.List qualified as List
+import PlutusTx.Eq ((==))
 import PlutusTx.Prelude (check, traceError, traceIfFalse)
 
 dummyValidatorScript :: PlutusScript
@@ -87,8 +89,7 @@ dummyRewardingScript =
 -------------------------------------------------------------------
 -- Example user script to demonstrate committing to correct Head --
 -------------------------------------------------------------------
-data R
-  = R
+data R = R
   { expectedHeadId :: CurrencySymbol
   , expectedInitialValidator :: ScriptHash
   }
@@ -106,7 +107,7 @@ exampleValidator _ redeemer ctx =
     && checkCorrectHeadId
  where
   checkInitialInputIsSpent =
-    traceIfFalse "Initial input not found" (isNothing initialInput)
+    traceIfFalse "Initial input not found" (isJust initialInput)
 
   checkCorrectHeadId =
     case extractDatum of
@@ -115,7 +116,7 @@ exampleValidator _ redeemer ctx =
 
   extractDatum =
     case initialInput of
-      Nothing -> traceError "Initial input not found"
+      Nothing -> traceError "Initial input not found, cannot decode datum"
       Just i -> Just =<< decodeDatum (txInInfoResolved i)
 
   decodeDatum :: TxOut -> Maybe CurrencySymbol
@@ -127,8 +128,8 @@ exampleValidator _ redeemer ctx =
 
   findInitialInput :: ScriptHash -> Maybe TxInInfo
   findInitialInput initialScriptHash =
-    let allInputs = txInfoInputs info
-     in find (isInitialAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
+    let allInputs = List.fromSOP $ txInfoInputs info
+     in List.find (isInitialAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
 
   -- Check if an address is a script address with the specified script hash
   isInitialAddress :: ScriptHash -> Address -> Bool

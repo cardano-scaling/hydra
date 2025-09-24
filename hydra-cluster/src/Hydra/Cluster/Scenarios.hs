@@ -43,6 +43,7 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.API.ServerOutput (HeadStatus (..))
 import Hydra.Cardano.Api (
+  toPlutusScriptHash,
   Coin (..),
   Era,
   File (File),
@@ -82,6 +83,7 @@ import Hydra.Cardano.Api (
   policyAssetsToValue,
   scriptWitnessInCtx,
   selectLovelace,
+  serialiseToRawBytes,
   setTxProtocolParams,
   signTx,
   toLedgerData,
@@ -113,13 +115,14 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
-import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails)
+import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
+import Hydra.Contract.Dummy (R (..), dummyMintingScript, dummyRewardingScript, dummyValidatorScriptAlwaysFails, exampleSecureValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
-import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
+import Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Deposit (constructDepositUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
@@ -1016,6 +1019,105 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
       , blueprint
       )
 
+singlePartyCommitsScriptToTheRightHead ::
+  ChainBackend backend =>
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  backend ->
+  [TxId] ->
+  IO ()
+singlePartyCommitsScriptToTheRightHead tracer workDir backend hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer backend Alice) $ do
+    refuelIfNeeded tracer backend Alice 20_000_000
+    blockTime <- Backend.getBlockTime backend
+    -- NOTE: Adapt periods to block times
+    let contestationPeriod = truncate $ 10 * blockTime
+        depositPeriod = truncate $ 50 * blockTime
+    aliceChainConfig <-
+      chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+        <&> modifyConfig (\c -> c{depositPeriod})
+    let hydraNodeId = 1
+    let hydraTracer = contramap FromHydraNode tracer
+    let initialScript = toPlutusScriptHash $ initialScriptHash hydraScriptCatalogue
+    -- NOTE: let's use different script, like deposit one to trigger errors
+    let wrongScript = toPlutusScriptHash $ depositScriptHash hydraScriptCatalogue
+    let wrongHeadId = UnsafeHeadId "d0786d92892d904ae16c775e85648c6cb669bd053bfed39c746c06ab"
+    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+      (wrongInitialInputPayload, _) <- prepareScriptPayload 7_000_000 0 headId wrongScript
+
+      runReq
+        defaultHttpConfig
+        ( req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson wrongInitialInputPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+        )
+        `shouldThrow` expectErrorStatus 500 (Just "Initial input not found")
+
+      (wrongHeadIdPayload, _) <- prepareScriptPayload 7_000_000 0 wrongHeadId initialScript
+
+      runReq
+        defaultHttpConfig
+        ( req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson wrongHeadIdPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+        )
+        `shouldThrow` expectErrorStatus 500 (Just "HeadId is not correct")
+
+      (clientPayload, scriptUTxO) <- prepareScriptPayload 7_000_000 0 headId initialScript
+
+      res <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let commitTx = responseBody res
+      Backend.submitTransaction backend commitTx
+
+      lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        guard $ v ^? key "tag" == Just "HeadIsOpen"
+        pure $ v ^? key "utxo"
+      lockedUTxO `shouldBe` Just (toJSON scriptUTxO)
+
+      getSnapshotUTxO n1 `shouldReturn` scriptUTxO
+ where
+  prepareScriptPayload lovelaceAmt commitAmount headId initialValidatorHash = do
+    networkId <- Backend.queryNetworkId backend
+    let scriptAddress = mkScriptAddress networkId exampleSecureValidatorScript
+    let datumHash :: TxOutDatum ctx
+        datumHash = mkTxOutDatumHash ()
+    (scriptIn, scriptOut) <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue lovelaceAmt)
+    let scriptUTxO = UTxO.singleton scriptIn scriptOut
+    let redeemer = R{expectedHeadId = headIdToCurrencySymbol headId, expectedInitialValidator = initialValidatorHash}
+
+    let scriptWitness =
+          BuildTxWith $
+            ScriptWitness scriptWitnessInCtx $
+              mkScriptWitness exampleSecureValidatorScript (mkScriptDatum ()) (toScriptData redeemer)
+    let spendingTx =
+          unsafeBuildTransaction $
+            defaultTxBodyContent
+              & addTxIns [(scriptIn, scriptWitness)]
+    pure
+      ( Aeson.object
+          [ "blueprintTx" .= spendingTx
+          , "utxo" .= scriptUTxO
+          , "amount" .= Coin commitAmount
+          ]
+      , scriptUTxO
+      )
 persistenceCanLoadWithEmptyCommit ::
   ChainBackend backend =>
   Tracer IO EndToEndLog ->
