@@ -3022,6 +3022,7 @@ onOpenClientDecommit :: IsTx tx => HeadId -> Ledger tx -> ChainSlot -> Coordinat
 --   to agree in order for decommit to be taken out of a Head. - Check if
 --   we are the leader
 onOpenNetworkReqDec :: IsTx tx => Environment -> Ledger tx -> TTL -> ChainSlot -> OpenState tx -> tx -> Outcome tx
+determineNextDepositStatus :: Ord (TxIdType tx) => Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
 
 -- | Process the chain (and time) advancing in any head state.
 --   
@@ -3036,7 +3037,7 @@ onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcom
 --   
 --   This is primarily used to track deposits and either drop them or
 --   request snapshots for inclusion.
-onOpenChainTick :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> Outcome tx
+onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 --   pending commit UTxO, then we consider the deposit/increment finalized,
