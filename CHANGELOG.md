@@ -41,6 +41,8 @@ changes.
 
 - **BREAKING** Enable handling client recover in all head states.
   - See [Issue #1812](https://github.com/cardano-scaling/hydra/issues/1812) and [PR #2217](https://github.com/cardano-scaling/hydra/pull/2217).
+    > This enables clients (e.g. the TUI) to fully recover after event-log rotation.
+  - The Checkpoint event, and consequently the EventLogRotated server output, now carry the full NodeState instead of just the HeadState.
 
 - Optimistic approach to statefile corruption by just ignoring invalid JSON
   lines [#2253](https://github.com/cardano-scaling/hydra/issues/2253)
