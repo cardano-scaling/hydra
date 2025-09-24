@@ -1,0 +1,229 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.ContestationPeriodSpec</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-keyword">label</span></span><span class="hs-special">)</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.html"><span class="hs-identifier">Data.Time</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#secondsToNominalDiffTime"><span class="hs-identifier">secondsToNominalDiffTime</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.ContestationPeriod</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ContestationPeriod</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromNominalDiffTime</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hspec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Spec</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">describe</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">shouldThrow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hspec.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">prop</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">getNonPositive</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getPositive</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(===)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Instances.Time</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="annot"><a href="Hydra.Tx.ContestationPeriodSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-13"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><a href="Hydra.Tx.ContestationPeriodSpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;fromInteger&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (Positive Integer -&gt; Bool) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;works for &gt; 0&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Positive Integer -&gt; Bool) -&gt; Spec)
+-&gt; (Positive Integer -&gt; Bool) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-16"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ContestationPeriod -&gt; Bool -&gt; Bool
+forall a b. a -&gt; b -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Prim.html#seq"><span class="hs-operator hs-var">`seq`</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ContestationPeriod -&gt; Bool)
+-&gt; (Positive Integer -&gt; ContestationPeriod)
+-&gt; Positive Integer
+-&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">forall a. Num a =&gt; Integer -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; ContestationPeriod)
+-&gt; (Positive Integer -&gt; Integer)
+-&gt; Positive Integer
+-&gt; ContestationPeriod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Positive Integer -&gt; Integer
+forall a. Positive a -&gt; a
+</span><span class="hs-identifier hs-var">getPositive</span></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (NonPositive Integer -&gt; Expectation) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;fails for &lt;= 0&quot;</span></span><span> </span><span class="annot"><span class="annottext">((NonPositive Integer -&gt; Expectation) -&gt; Spec)
+-&gt; (NonPositive Integer -&gt; Expectation) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679425962"><span class="annot"><span class="annottext">NonPositive Integer
+</span><a href="#local-6989586621679425962"><span class="hs-identifier hs-var">np</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-19"></span><span>      </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; IO ContestationPeriod
+forall a. a -&gt; IO a
+forall (m :: * -&gt; *) a. MonadEvaluate m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">evaluate</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall a. Num a =&gt; Integer -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; ContestationPeriod) -&gt; Integer -&gt; ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">NonPositive Integer -&gt; Integer
+forall a. NonPositive a -&gt; a
+</span><span class="hs-identifier hs-var">getNonPositive</span></span><span> </span><span class="annot"><span class="annottext">NonPositive Integer
+</span><a href="#local-6989586621679425962"><span class="hs-identifier hs-var">np</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>        </span><span class="annot"><span class="annottext">IO ContestationPeriod -&gt; Selector SomeException -&gt; Expectation
+forall e a.
+(HasCallStack, Exception e) =&gt;
+IO a -&gt; Selector e -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldThrow`</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Exception.Type.html#SomeException"><span class="hs-identifier hs-type">SomeException</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;toEnum&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-23"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (Positive Int -&gt; Bool) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;works for &gt; 0&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Positive Int -&gt; Bool) -&gt; Spec) -&gt; (Positive Int -&gt; Bool) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-24"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ContestationPeriod -&gt; Bool -&gt; Bool
+forall a b. a -&gt; b -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Prim.html#seq"><span class="hs-operator hs-var">`seq`</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ContestationPeriod -&gt; Bool)
+-&gt; (Positive Int -&gt; ContestationPeriod) -&gt; Positive Int -&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">forall a. Enum a =&gt; Int -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#toEnum"><span class="hs-identifier hs-var">toEnum</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; ContestationPeriod)
+-&gt; (Positive Int -&gt; Int) -&gt; Positive Int -&gt; ContestationPeriod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Positive Int -&gt; Int
+forall a. Positive a -&gt; a
+</span><span class="hs-identifier hs-var">getPositive</span></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (NonPositive Integer -&gt; Expectation) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;fails for &lt;= 0&quot;</span></span><span> </span><span class="annot"><span class="annottext">((NonPositive Integer -&gt; Expectation) -&gt; Spec)
+-&gt; (NonPositive Integer -&gt; Expectation) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679425967"><span class="annot"><span class="annottext">NonPositive Integer
+</span><a href="#local-6989586621679425967"><span class="hs-identifier hs-var">np</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-27"></span><span>      </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; IO ContestationPeriod
+forall a. a -&gt; IO a
+forall (m :: * -&gt; *) a. MonadEvaluate m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">evaluate</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall a. Num a =&gt; Integer -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; ContestationPeriod) -&gt; Integer -&gt; ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">NonPositive Integer -&gt; Integer
+forall a. NonPositive a -&gt; a
+</span><span class="hs-identifier hs-var">getNonPositive</span></span><span> </span><span class="annot"><span class="annottext">NonPositive Integer
+</span><a href="#local-6989586621679425967"><span class="hs-identifier hs-var">np</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span>        </span><span class="annot"><span class="annottext">IO ContestationPeriod -&gt; Selector SomeException -&gt; Expectation
+forall e a.
+(HasCallStack, Exception e) =&gt;
+IO a -&gt; Selector e -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldThrow`</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Exception.Type.html#SomeException"><span class="hs-identifier hs-type">SomeException</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;fromNominalDiffTime&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (Positive NominalDiffTime -&gt; Bool) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;works for diff times `&gt; 0`&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Positive NominalDiffTime -&gt; Bool) -&gt; Spec)
+-&gt; (Positive NominalDiffTime -&gt; Bool) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-32"></span><span>      </span><span class="annot"><span class="annottext">Maybe ContestationPeriod -&gt; Bool
+forall a. Maybe a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isJust"><span class="hs-identifier hs-var">isJust</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe ContestationPeriod -&gt; Bool)
+-&gt; (Positive NominalDiffTime -&gt; Maybe ContestationPeriod)
+-&gt; Positive NominalDiffTime
+-&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe ContestationPeriod
+forall (m :: * -&gt; *).
+MonadFail m =&gt;
+NominalDiffTime -&gt; m ContestationPeriod
+</span><span class="hs-identifier hs-var">fromNominalDiffTime</span></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; Maybe ContestationPeriod)
+-&gt; (Positive NominalDiffTime -&gt; NominalDiffTime)
+-&gt; Positive NominalDiffTime
+-&gt; Maybe ContestationPeriod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Positive NominalDiffTime -&gt; NominalDiffTime
+forall a. Positive a -&gt; a
+</span><span class="hs-identifier hs-var">getPositive</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (NonPositive NominalDiffTime -&gt; Bool) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;fails for diff times `&lt;= 0`&quot;</span></span><span> </span><span class="annot"><span class="annottext">((NonPositive NominalDiffTime -&gt; Bool) -&gt; Spec)
+-&gt; (NonPositive NominalDiffTime -&gt; Bool) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-35"></span><span>      </span><span class="annot"><span class="annottext">Maybe ContestationPeriod -&gt; Bool
+forall a. Maybe a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isNothing"><span class="hs-identifier hs-var">isNothing</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe ContestationPeriod -&gt; Bool)
+-&gt; (NonPositive NominalDiffTime -&gt; Maybe ContestationPeriod)
+-&gt; NonPositive NominalDiffTime
+-&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe ContestationPeriod
+forall (m :: * -&gt; *).
+MonadFail m =&gt;
+NominalDiffTime -&gt; m ContestationPeriod
+</span><span class="hs-identifier hs-var">fromNominalDiffTime</span></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; Maybe ContestationPeriod)
+-&gt; (NonPositive NominalDiffTime -&gt; NominalDiffTime)
+-&gt; NonPositive NominalDiffTime
+-&gt; Maybe ContestationPeriod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">NonPositive NominalDiffTime -&gt; NominalDiffTime
+forall a. NonPositive a -&gt; a
+</span><span class="hs-identifier hs-var">getNonPositive</span></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (Positive Pico -&gt; Property) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;rounds to 1 second&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Positive Pico -&gt; Property) -&gt; Spec)
+-&gt; (Positive Pico -&gt; Property) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679425971"><span class="annot"><span class="annottext">Positive Pico
+</span><a href="#local-6989586621679425971"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-38"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679425972"><span class="annot"><span class="annottext">subSecond :: Pico
+</span><a href="#local-6989586621679425972"><span class="hs-identifier hs-var hs-var">subSecond</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Positive Pico -&gt; Pico
+forall a. Positive a -&gt; a
+</span><span class="hs-identifier hs-var">getPositive</span></span><span> </span><span class="annot"><span class="annottext">Positive Pico
+</span><a href="#local-6989586621679425971"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Pico -&gt; Pico -&gt; Pico
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#%2F"><span class="hs-operator hs-var">/</span></a></span><span> </span><span class="annot"><span class="annottext">Pico
+</span><span class="hs-number">100</span></span><span> </span><span class="hs-comment">-- Definitely &lt; 1 second</span><span>
+</span><span id="line-39"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe ContestationPeriod
+forall (m :: * -&gt; *).
+MonadFail m =&gt;
+NominalDiffTime -&gt; m ContestationPeriod
+</span><span class="hs-identifier hs-var">fromNominalDiffTime</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Pico -&gt; NominalDiffTime
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#secondsToNominalDiffTime"><span class="hs-identifier hs-var">secondsToNominalDiffTime</span></a></span><span> </span><span class="annot"><span class="annottext">Pico
+</span><a href="#local-6989586621679425972"><span class="hs-identifier hs-var">subSecond</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>            </span><span class="annot"><span class="annottext">Maybe ContestationPeriod -&gt; Maybe ContestationPeriod -&gt; Property
+forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
+</span><span class="hs-operator hs-var">===</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe ContestationPeriod
+forall (m :: * -&gt; *).
+MonadFail m =&gt;
+NominalDiffTime -&gt; m ContestationPeriod
+</span><span class="hs-identifier hs-var">fromNominalDiffTime</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span></pre></body></html>

@@ -1,515 +1,509 @@
 {
   "site": {
-    "lastUpdatedAt": "2025-07-15T17:08:14+01:00"
+    "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs\n"
   },
   "adr/1": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-06-05_001-record-architectural-decisions.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-06-05_001-record-architectural-decisions.md\n"
     }
   },
   "adr/2": {
     "source": {
-      "lastUpdatedAt": "2024-10-31T11:49:40Z",
-      "commitHash": "c016e304d06b197b1ac3c1193602f4d1d31484fc"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-06-06_002-reactive-core.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-06-06_002-reactive-core.md\n"
     }
   },
   "adr/3": {
     "source": {
-      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
-      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-06-07_003-asynchronous-duplex-api.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-06-07_003-asynchronous-duplex-api.md\n"
     }
   },
   "adr/4": {
     "source": {
-      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
-      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-06-08_004-use-handle-to-model-effects.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-06-08_004-use-handle-to-model-effects.md\n"
     }
   },
   "adr/5": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:01:52Z",
-      "commitHash": "1d68e33a01be85122b547f1727ec8b6f5392b2fe"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-06-09_005-use-io-sim-classes.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-06-09_005-use-io-sim-classes.md\n"
     }
   },
   "adr/6": {
     "source": {
-      "lastUpdatedAt": "2024-10-31T11:49:40Z",
-      "commitHash": "c016e304d06b197b1ac3c1193602f4d1d31484fc"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-06-10_006-network-broadcasts-all-messages.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-06-10_006-network-broadcasts-all-messages.md\n"
     }
   },
   "adr/7": {
     "source": {
-      "lastUpdatedAt": "2022-04-19T11:02:00+02:00",
-      "commitHash": "6e6d3635017291f8cadb9f6c033aa1dad8e78f90"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-06-11_007-with-pattern-component-interfaces.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-06-11_007-with-pattern-component-interfaces.md\n"
     }
   },
   "adr/8": {
     "source": {
-      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
-      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-06-18_008-use-custom-prelude.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-06-18_008-use-custom-prelude.md\n"
     }
   },
   "adr/9": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-08-19_009-simplify-logging.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-08-19_009-simplify-logging.md\n"
     }
   },
   "adr/10": {
     "source": {
-      "lastUpdatedAt": "2024-10-31T11:49:40Z",
-      "commitHash": "c016e304d06b197b1ac3c1193602f4d1d31484fc"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-10-23_010-use-direct-chain.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-10-23_010-use-direct-chain.md\n"
     }
   },
   "adr/11": {
     "source": {
-      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
-      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-11-18_011-use-cardano-api.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-11-18_011-use-cardano-api.md\n"
     }
   },
   "adr/12": {
     "source": {
-      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
-      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2021-11-25_012-top-down-test-driven-design.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2021-11-25_012-top-down-test-driven-design.md\n"
     }
   },
   "adr/13": {
     "source": {
-      "lastUpdatedAt": "2022-04-19T11:02:28+02:00",
-      "commitHash": "d15d4d3a19df8496d3841c2d4bbdf1317886fc62"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2022-01-19_013-contract-testing-strategy.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2022-01-19_013-contract-testing-strategy.md\n"
     }
   },
   "adr/14": {
     "source": {
-      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
-      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2022-02-14_014-hydra-script-tokens.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2022-02-14_014-hydra-script-tokens.md\n"
     }
   },
   "adr/15": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:01:52Z",
-      "commitHash": "1d68e33a01be85122b547f1727ec8b6f5392b2fe"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2022-03-17_015-admin-api.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2022-03-17_015-admin-api.md\n"
     }
   },
   "adr/16": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:01:52Z",
-      "commitHash": "1d68e33a01be85122b547f1727ec8b6f5392b2fe"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2022-03-23_016-keep-rejected-adr.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2022-03-23_016-keep-rejected-adr.md\n"
     }
   },
   "adr/17": {
     "source": {
-      "lastUpdatedAt": "2025-02-12T14:09:01+01:00",
-      "commitHash": "d23d3cba6039cccd1c26cd1d30803c7ecf5466a6"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2022-03-28_017-udp-networking.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2022-03-28_017-udp-networking.md\n"
     }
   },
   "adr/18": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:01:52Z",
-      "commitHash": "1d68e33a01be85122b547f1727ec8b6f5392b2fe"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2022-04-13_018-single-state.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2022-04-13_018-single-state.md\n"
     }
   },
   "adr/19": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2022-07-22_019-reference-scripts.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2022-07-22_019-reference-scripts.md\n"
     }
   },
   "adr/20": {
     "source": {
-      "lastUpdatedAt": "2022-09-13T13:23:04+02:00",
-      "commitHash": "a97f8b3652ff15cc2a92cb4eac381b186663f1aa"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2022-08-02_020-handling-time.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2022-08-02_020-handling-time.md\n"
     }
   },
   "adr/21": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2022-12-05_021-Bounded-transaction-validity-on-Hydra-protocol-transactions.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2022-12-05_021-Bounded-transaction-validity-on-Hydra-protocol-transactions.md\n"
     }
   },
   "adr/22": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:01:52Z",
-      "commitHash": "1d68e33a01be85122b547f1727ec8b6f5392b2fe"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2022-12-06_022-model-based-testing.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2022-12-06_022-model-based-testing.md\n"
     }
   },
   "adr/23": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2023-04-26_023-local-chain-state.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2023-04-26_023-local-chain-state.md\n"
     }
   },
   "adr/24": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:01:52Z",
-      "commitHash": "1d68e33a01be85122b547f1727ec8b6f5392b2fe"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2023-06-19_024-event-sourced-persistence.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2023-06-19_024-event-sourced-persistence.md\n"
     }
   },
   "adr/25": {
     "source": {
-      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
-      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2023-08-18_025-resource-based-api.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2023-08-18_025-resource-based-api.md\n"
     }
   },
   "adr/26": {
     "source": {
-      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
-      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2023-09-08_026-stateless-observation-construction.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2023-09-08_026-stateless-observation-construction.md\n"
     }
   },
   "adr/27": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2023-09-09_027-network-resilience.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2023-09-09_027-network-resilience.md\n"
     }
   },
   "adr/28": {
     "source": {
-      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
-      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2023-10-16_028_offline_adr.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2023-10-16_028_offline_adr.md\n"
     }
   },
   "adr/29": {
     "source": {
-      "lastUpdatedAt": "2024-03-13T20:39:27+01:00",
-      "commitHash": "724f6e8b8461615e48c3b603c00fb4621a808b69"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2023-11-07_029-event-source-sink.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2023-11-07_029-event-source-sink.md\n"
     }
   },
   "adr/30": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:01:52Z",
-      "commitHash": "1d68e33a01be85122b547f1727ec8b6f5392b2fe"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2023-12-06_030-use-cbor-for-tx.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2023-12-06_030-use-cbor-for-tx.md\n"
     }
   },
   "adr/31": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2024-01-27_031-constant-memory.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2024-01-27_031-constant-memory.md\n"
     }
   },
   "adr/32": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
-    }
-  },
-  "benchmarks/end-to-end-benchmarks": {
-    "source": {
-      "lastUpdatedAt": "",
-      "commitHash": ""
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2025-02-12_032-network-properties-etcd.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2025-02-12_032-network-properties-etcd.md\n"
     }
   },
   "benchmarks": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:32:11Z",
-      "commitHash": "27d44bf30cf75a98f2220efa79cb73b96f11a2ba"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H benchmarks/index.md\n"
     }
   },
   "benchmarks/profiling": {
     "source": {
-      "lastUpdatedAt": "2024-12-25T22:17:53+01:00",
-      "commitHash": "c29a27a6e505c6a08abe9745a95be4aeced3984e"
-    }
-  },
-  "benchmarks/transaction-cost": {
-    "source": {
-      "lastUpdatedAt": "",
-      "commitHash": ""
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/profiling.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H benchmarks/profiling.md\n"
     }
   },
   "docs/api-behavior": {
     "source": {
-      "lastUpdatedAt": "2025-02-27T18:24:23+01:00",
-      "commitHash": "ebefd00d4bbb5da604bee5e03f0d27ca25e2e59d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/api-behavior.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/api-behavior.md\n"
     }
   },
   "docs/clients": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/clients.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/clients.md\n"
     }
   },
   "docs/configuration": {
     "source": {
-      "lastUpdatedAt": "2025-06-16T15:08:24+02:00",
-      "commitHash": "2bbee39ccefa6dc301f4ef4c3dec2fe10552006d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/configuration.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/configuration.md\n"
     }
   },
   "docs/dev/architecture/event-sourcing": {
     "source": {
-      "lastUpdatedAt": "2025-07-15T15:10:51+02:00",
-      "commitHash": "bd9c058da3e2f4f73b7a604d4c3af0a7c34fca62"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/architecture/event-sourcing.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/architecture/event-sourcing.md\n"
     }
   },
   "docs/dev/architecture": {
     "source": {
-      "lastUpdatedAt": "2025-06-04T11:04:18+02:00",
-      "commitHash": "091c1eb0e53f913fd38e2ddd06133943afd4e173"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/architecture/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/architecture/index.md\n"
     }
   },
   "docs/dev/architecture/networking": {
     "source": {
-      "lastUpdatedAt": "2025-02-21T21:39:06+01:00",
-      "commitHash": "fb69fbf6ca375fbf0a12ef9e0ad3bea9f930e89d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/architecture/networking.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/architecture/networking.md\n"
     }
   },
   "docs/dev/commit": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/commit.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/commit.md\n"
     }
   },
   "docs/dev/haskell-packages": {
     "source": {
-      "lastUpdatedAt": "2024-10-16T19:23:07Z",
-      "commitHash": "5354b52be2deb18ed0f7c1407f036be1dc5706ed"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/haskell-packages.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/haskell-packages.md\n"
     }
   },
   "docs/dev": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:01:52Z",
-      "commitHash": "1d68e33a01be85122b547f1727ec8b6f5392b2fe"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/index.md\n"
     }
   },
   "docs/dev/layer-two": {
     "source": {
-      "lastUpdatedAt": "2024-07-10T09:59:38+02:00",
-      "commitHash": "81230a6da262f3fffe7c4a4f936eba577cbc5d08"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/layer-two.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/layer-two.md\n"
     }
   },
   "docs/dev/protocol": {
     "source": {
-      "lastUpdatedAt": "2025-04-28T19:47:20+02:00",
-      "commitHash": "6f8b7506deb11164e6d7c3ce16837fd2b4bf8f9b"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/protocol.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/protocol.md\n"
     }
   },
   "docs/dev/rollbacks": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:01:52Z",
-      "commitHash": "1d68e33a01be85122b547f1727ec8b6f5392b2fe"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/rollbacks/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/rollbacks/index.md\n"
     }
   },
   "docs/dev/scalability": {
     "source": {
-      "lastUpdatedAt": "2024-10-31T11:18:25Z",
-      "commitHash": "cc4cd5c544a0d18506b74ca7c68fa3e62e1cbbbb"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/scalability.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/scalability.md\n"
     }
   },
   "docs/dev/specification": {
     "source": {
-      "lastUpdatedAt": "2024-08-05T12:24:36Z",
-      "commitHash": "8245e1e8c28d10e42663c17e50f0ef395a4674de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/specification.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/specification.md\n"
     }
   },
   "docs/faqs": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:09:38Z",
-      "commitHash": "dae6a4df33254954d9a19aac7a8f0fed6b68dd14"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/faqs.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/faqs.md\n"
     }
   },
   "docs/get-involved": {
     "source": {
-      "lastUpdatedAt": "2024-08-15T11:12:56+03:00",
-      "commitHash": "3a35154832ba5d809f25fb1f4193212238dc972d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/get-involved.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/get-involved.md\n"
     }
   },
   "docs/getting-started-without-docker": {
     "source": {
-      "lastUpdatedAt": "2025-06-16T12:09:26+02:00",
-      "commitHash": "e25e0691acc2b1d5ce9b8e0f5b707063fc10cd13"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/getting-started-without-docker.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/getting-started-without-docker.md\n"
     }
   },
   "docs/getting-started": {
     "source": {
-      "lastUpdatedAt": "2025-06-30T14:15:41+02:00",
-      "commitHash": "eb3bcd033ed293bb9cf432fac96fb37b1f270bb7"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/getting-started.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/getting-started.md\n"
     }
   },
   "docs/how-to/commit-blueprint": {
     "source": {
-      "lastUpdatedAt": "2025-06-30T14:15:41+02:00",
-      "commitHash": "eb3bcd033ed293bb9cf432fac96fb37b1f270bb7"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/commit-blueprint.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/commit-blueprint.md\n"
+    }
+  },
+  "docs/how-to/commit-script-utxo": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/commit-script-utxo.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/commit-script-utxo.md\n"
     }
   },
   "docs/how-to/incremental-commit": {
     "source": {
-      "lastUpdatedAt": "2025-06-30T14:15:41+02:00",
-      "commitHash": "eb3bcd033ed293bb9cf432fac96fb37b1f270bb7"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/incremental-commit.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/incremental-commit.md\n"
     }
   },
   "docs/how-to/incremental-decommit": {
     "source": {
-      "lastUpdatedAt": "2025-06-30T14:15:41+02:00",
-      "commitHash": "eb3bcd033ed293bb9cf432fac96fb37b1f270bb7"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/incremental-decommit.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/incremental-decommit.md\n"
     }
   },
   "docs/how-to/operating-hydra": {
     "source": {
-      "lastUpdatedAt": "2025-05-04T11:38:45Z",
-      "commitHash": "5ae723dd772902daf8a0485eca10fb85ba0891aa"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/operating-hydra.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/operating-hydra.md\n"
     }
   },
   "docs/how-to/sideload-snapshot": {
     "source": {
-      "lastUpdatedAt": "2025-04-03T10:18:47+02:00",
-      "commitHash": "74af23645469114af7f8c2ef02034abcbd99b44d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/sideload-snapshot.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/sideload-snapshot.md\n"
     }
   },
   "docs/how-to/submit-transaction": {
     "source": {
-      "lastUpdatedAt": "2025-06-30T14:15:41+02:00",
-      "commitHash": "eb3bcd033ed293bb9cf432fac96fb37b1f270bb7"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/submit-transaction.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/submit-transaction.md\n"
     }
   },
   "docs/how-to/withdraw-zero": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/withdraw-zero.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/withdraw-zero.md\n"
     }
   },
   "docs": {
     "source": {
-      "lastUpdatedAt": "2024-12-18T10:37:35Z",
-      "commitHash": "3f7dc685f02e21142522f27d7d733445469caecb"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/index.md\n"
     }
   },
   "docs/installation": {
     "source": {
-      "lastUpdatedAt": "2025-05-06T16:44:53+02:00",
-      "commitHash": "e86f93053ac7c21c4b9afed279c1330229b90c2a"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/installation.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/installation.md\n"
     }
   },
   "docs/known-issues": {
     "source": {
-      "lastUpdatedAt": "2025-06-04T10:07:32+02:00",
-      "commitHash": "0d2c351da9618754af428c8ada684cba115cfc90"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/known-issues.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/known-issues.md\n"
     }
   },
   "docs/protocol-overview": {
     "source": {
-      "lastUpdatedAt": "2024-10-31T11:18:25Z",
-      "commitHash": "cc4cd5c544a0d18506b74ca7c68fa3e62e1cbbbb"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/protocol-overview.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/protocol-overview.md\n"
     }
   },
   "docs/tutorial": {
     "source": {
-      "lastUpdatedAt": "2025-07-15T17:08:14+01:00",
-      "commitHash": "ea9f594bedb77e9cfe56bee00fd755dec9b5cda2"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/tutorial/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/tutorial/index.md\n"
     }
   },
   "standalone/audit-guidelines": {
     "source": {
-      "lastUpdatedAt": "2025-05-31T15:02:31+01:00",
-      "commitHash": "8e3e23b0ef1123b61fa040c5603d47f5526a80de"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI standalone/audit-guidelines.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H standalone/audit-guidelines.md\n"
     }
   },
   "standalone/contribute": {
     "source": {
-      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
-      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI standalone/contribute.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H standalone/contribute.md\n"
     }
   },
   "standalone/writing-style-guide": {
     "source": {
-      "lastUpdatedAt": "2024-07-29T14:51:31+01:00",
-      "commitHash": "05b8ad1ddc916939b25f58ab56749f8a79182d6c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI standalone/writing-style-guide.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H standalone/writing-style-guide.md\n"
     }
   },
   "topologies/basic": {
     "source": {
-      "lastUpdatedAt": "2024-07-19T10:40:15+01:00",
-      "commitHash": "cd52660e6eb05e3f10c354999eda5cd58ce7011c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI topologies/basic/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H topologies/basic/index.md\n"
     }
   },
   "topologies/delegated-head": {
     "source": {
-      "lastUpdatedAt": "2024-07-19T10:40:15+01:00",
-      "commitHash": "cd52660e6eb05e3f10c354999eda5cd58ce7011c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI topologies/delegated-head/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H topologies/delegated-head/index.md\n"
     }
   },
   "topologies": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:32:11Z",
-      "commitHash": "27d44bf30cf75a98f2220efa79cb73b96f11a2ba"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI topologies/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H topologies/index.md\n"
     }
   },
   "topologies/star-shaped": {
     "source": {
-      "lastUpdatedAt": "2024-07-19T10:40:15+01:00",
-      "commitHash": "cd52660e6eb05e3f10c354999eda5cd58ce7011c"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI topologies/star-shaped/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H topologies/star-shaped/index.md\n"
     }
   },
   "use-cases/auctions/always-on-service-multi": {
     "source": {
-      "lastUpdatedAt": "2024-07-22T09:34:53+02:00",
-      "commitHash": "a460d8e5429018b06056fb262df2a0bd9bb3d0f3"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/auctions/always-on-service-multi/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/auctions/always-on-service-multi/index.md\n"
     }
   },
   "use-cases/auctions/always-on-service-single": {
     "source": {
-      "lastUpdatedAt": "2024-07-22T09:34:53+02:00",
-      "commitHash": "a460d8e5429018b06056fb262df2a0bd9bb3d0f3"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/auctions/always-on-service-single/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/auctions/always-on-service-single/index.md\n"
     }
   },
   "use-cases/auctions/delegated-voucher-invitational": {
     "source": {
-      "lastUpdatedAt": "2024-07-22T09:34:53+02:00",
-      "commitHash": "a460d8e5429018b06056fb262df2a0bd9bb3d0f3"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/auctions/delegated-voucher-invitational/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/auctions/delegated-voucher-invitational/index.md\n"
     }
   },
   "use-cases/auctions/delegated-voucher-open": {
     "source": {
-      "lastUpdatedAt": "2024-07-22T09:34:53+02:00",
-      "commitHash": "a460d8e5429018b06056fb262df2a0bd9bb3d0f3"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/auctions/delegated-voucher-open/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/auctions/delegated-voucher-open/index.md\n"
     }
   },
   "use-cases/auctions/delegated-voucher-sdk": {
     "source": {
-      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
-      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/auctions/delegated-voucher-sdk/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/auctions/delegated-voucher-sdk/index.md\n"
     }
   },
   "use-cases/auctions": {
     "source": {
-      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
-      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/auctions/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/auctions/index.md\n"
     }
   },
   "use-cases": {
     "source": {
-      "lastUpdatedAt": "2024-12-20T23:32:11Z",
-      "commitHash": "27d44bf30cf75a98f2220efa79cb73b96f11a2ba"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/index.md\n"
     }
   },
   "use-cases/other/poker-game": {
     "source": {
-      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
-      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/other/poker-game/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/other/poker-game/index.md\n"
     }
   },
   "use-cases/payments": {
     "source": {
-      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
-      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/payments/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/payments/index.md\n"
     }
   },
   "use-cases/payments/inter-wallet-payments": {
     "source": {
-      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
-      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/payments/inter-wallet-payments/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/payments/inter-wallet-payments/index.md\n"
     }
   },
   "use-cases/payments/lighting-network-like-payments": {
     "source": {
-      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
-      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/payments/lighting-network-like-payments/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/payments/lighting-network-like-payments/index.md\n"
     }
   },
   "use-cases/payments/pay-per-use-api": {
     "source": {
-      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
-      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI use-cases/payments/pay-per-use-api/index.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H use-cases/payments/pay-per-use-api/index.md\n"
     }
   }
 }

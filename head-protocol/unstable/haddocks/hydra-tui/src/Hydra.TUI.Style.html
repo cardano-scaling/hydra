@@ -1,0 +1,102 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.TUI.Style</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Brick</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-4"></span><span>  </span><span class="annot"><span class="hs-identifier">AttrMap</span></span><span class="hs-special">,</span><span>
+</span><span id="line-5"></span><span>  </span><span class="annot"><span class="hs-identifier">AttrName</span></span><span class="hs-special">,</span><span>
+</span><span id="line-6"></span><span>  </span><span class="annot"><span class="hs-identifier">attrMap</span></span><span class="hs-special">,</span><span>
+</span><span id="line-7"></span><span>  </span><span class="annot"><span class="hs-identifier">attrName</span></span><span class="hs-special">,</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><span class="hs-identifier">fg</span></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Brick.Forms</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">focusedFormInputAttr</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">invalidFormInputAttr</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Graphics.Vty</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier">brightBlack</span></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-identifier">brightBlue</span></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier">defAttr</span></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier">green</span></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">red</span></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="hs-identifier">yellow</span></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html"><span class="hs-identifier">Hydra.TUI.Logging.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Severity"><span class="hs-identifier">Severity</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="annot"><a href="Hydra.TUI.Style.html#severityToAttr"><span class="hs-identifier hs-type">severityToAttr</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Severity"><span class="hs-identifier hs-type">Severity</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AttrName</span></span><span>
+</span><span id="line-22"></span><span id="severityToAttr"><span class="annot"><span class="annottext">severityToAttr :: Severity -&gt; AttrName
+</span><a href="Hydra.TUI.Style.html#severityToAttr"><span class="hs-identifier hs-var hs-var">severityToAttr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Success"><span class="hs-identifier hs-var">Success</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#positive"><span class="hs-identifier hs-var">positive</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Info"><span class="hs-identifier hs-var">Info</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#infoA"><span class="hs-identifier hs-var">infoA</span></a></span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Error"><span class="hs-identifier hs-var">Error</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#negative"><span class="hs-identifier hs-var">negative</span></a></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="annot"><a href="Hydra.TUI.Style.html#infoA"><span class="hs-identifier hs-type">infoA</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AttrName</span></span><span>
+</span><span id="line-28"></span><span id="infoA"><span class="annot"><span class="annottext">infoA :: AttrName
+</span><a href="Hydra.TUI.Style.html#infoA"><span class="hs-identifier hs-var hs-var">infoA</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; AttrName
+</span><span class="hs-identifier hs-var">attrName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;info&quot;</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><a href="Hydra.TUI.Style.html#positive"><span class="hs-identifier hs-type">positive</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AttrName</span></span><span>
+</span><span id="line-31"></span><span id="positive"><span class="annot"><span class="annottext">positive :: AttrName
+</span><a href="Hydra.TUI.Style.html#positive"><span class="hs-identifier hs-var hs-var">positive</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; AttrName
+</span><span class="hs-identifier hs-var">attrName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;positive&quot;</span></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="annot"><a href="Hydra.TUI.Style.html#negative"><span class="hs-identifier hs-type">negative</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AttrName</span></span><span>
+</span><span id="line-34"></span><span id="negative"><span class="annot"><span class="annottext">negative :: AttrName
+</span><a href="Hydra.TUI.Style.html#negative"><span class="hs-identifier hs-var hs-var">negative</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; AttrName
+</span><span class="hs-identifier hs-var">attrName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;negative&quot;</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="annot"><a href="Hydra.TUI.Style.html#neutral"><span class="hs-identifier hs-type">neutral</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AttrName</span></span><span>
+</span><span id="line-37"></span><span id="neutral"><span class="annot"><span class="annottext">neutral :: AttrName
+</span><a href="Hydra.TUI.Style.html#neutral"><span class="hs-identifier hs-var hs-var">neutral</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; AttrName
+</span><span class="hs-identifier hs-var">attrName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;neutral&quot;</span></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="annot"><a href="Hydra.TUI.Style.html#own"><span class="hs-identifier hs-type">own</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AttrName</span></span><span>
+</span><span id="line-40"></span><span id="own"><span class="annot"><span class="annottext">own :: AttrName
+</span><a href="Hydra.TUI.Style.html#own"><span class="hs-identifier hs-var hs-var">own</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; AttrName
+</span><span class="hs-identifier hs-var">attrName</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;own&quot;</span></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span id="local-6989586621679448481"><span class="annot"><a href="Hydra.TUI.Style.html#style"><span class="hs-identifier hs-type">style</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679448481"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AttrMap</span></span></span><span>
+</span><span id="line-43"></span><span id="style"><span class="annot"><span class="annottext">style :: forall s. s -&gt; AttrMap
+</span><a href="Hydra.TUI.Style.html#style"><span class="hs-identifier hs-var hs-var">style</span></a></span></span><span> </span><span class="annot"><span class="annottext">s
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><span class="annottext">Attr -&gt; [(AttrName, Attr)] -&gt; AttrMap
+</span><span class="hs-identifier hs-var">attrMap</span></span><span>
+</span><span id="line-45"></span><span>    </span><span class="annot"><span class="annottext">Attr
+</span><span class="hs-identifier hs-var">defAttr</span></span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#infoA"><span class="hs-identifier hs-var">infoA</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Color -&gt; Attr
+</span><span class="hs-identifier hs-var">fg</span></span><span> </span><span class="annot"><span class="annottext">Color
+</span><span class="hs-identifier hs-var">brightBlue</span></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#negative"><span class="hs-identifier hs-var">negative</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Color -&gt; Attr
+</span><span class="hs-identifier hs-var">fg</span></span><span> </span><span class="annot"><span class="annottext">Color
+</span><span class="hs-identifier hs-var">red</span></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#positive"><span class="hs-identifier hs-var">positive</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Color -&gt; Attr
+</span><span class="hs-identifier hs-var">fg</span></span><span> </span><span class="annot"><span class="annottext">Color
+</span><span class="hs-identifier hs-var">green</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#neutral"><span class="hs-identifier hs-var">neutral</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Color -&gt; Attr
+</span><span class="hs-identifier hs-var">fg</span></span><span> </span><span class="annot"><span class="annottext">Color
+</span><span class="hs-identifier hs-var">brightBlack</span></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#own"><span class="hs-identifier hs-var">own</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Color -&gt; Attr
+</span><span class="hs-identifier hs-var">fg</span></span><span> </span><span class="annot"><span class="annottext">Color
+</span><span class="hs-identifier hs-var">yellow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- Brick forms</span><span>
+</span><span id="line-52"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttrName
+</span><span class="hs-identifier hs-var">focusedFormInputAttr</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Color -&gt; Attr
+</span><span class="hs-identifier hs-var">fg</span></span><span> </span><span class="annot"><span class="annottext">Color
+</span><span class="hs-identifier hs-var">brightBlue</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttrName
+</span><span class="hs-identifier hs-var">invalidFormInputAttr</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Color -&gt; Attr
+</span><span class="hs-identifier hs-var">fg</span></span><span> </span><span class="annot"><span class="annottext">Color
+</span><span class="hs-identifier hs-var">red</span></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-55"></span></pre></body></html>

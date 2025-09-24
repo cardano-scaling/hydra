@@ -1,0 +1,489 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.ContestationPeriod</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier">Show</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">show</span></span><span class="hs-special">)</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Fixed.html"><span class="hs-identifier">Data.Fixed</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Fixed.html#Pico"><span class="hs-identifier">Pico</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Ratio.html"><span class="hs-identifier">Data.Ratio</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#%25"><span class="hs-operator">(%)</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.html"><span class="hs-identifier">Data.Time</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#secondsToNominalDiffTime"><span class="hs-identifier">secondsToNominalDiffTime</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Data.ContestationPeriod</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">OnChain</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">choose</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">oneof</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Text.Show.html"><span class="hs-identifier">Text.Show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier">Show</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- | A positive, non-zero number of seconds. Use 'fromInteger' on positive</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- literals, 'fromEnum' via [1..] syntax or 'fromNominalDiffTime' to create</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- values of unknown sign.</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">newtype</span><span> </span><span id="ContestationPeriod"><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-var">ContestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="UnsafeContestationPeriod"><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679432904"><span id="local-6989586621679432908"><span class="annot"><span class="annottext">ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+(ContestationPeriod -&gt; ContestationPeriod -&gt; Bool)
+-&gt; (ContestationPeriod -&gt; ContestationPeriod -&gt; Bool)
+-&gt; Eq ContestationPeriod
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+== :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+$c/= :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+/= :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432915"><span id="local-6989586621679432919"><span id="local-6989586621679432922"><span id="local-6989586621679432926"><span id="local-6989586621679432929"><span id="local-6989586621679432932"><span id="local-6989586621679432935"><span class="annot"><span class="annottext">Eq ContestationPeriod
+Eq ContestationPeriod =&gt;
+(ContestationPeriod -&gt; ContestationPeriod -&gt; Ordering)
+-&gt; (ContestationPeriod -&gt; ContestationPeriod -&gt; Bool)
+-&gt; (ContestationPeriod -&gt; ContestationPeriod -&gt; Bool)
+-&gt; (ContestationPeriod -&gt; ContestationPeriod -&gt; Bool)
+-&gt; (ContestationPeriod -&gt; ContestationPeriod -&gt; Bool)
+-&gt; (ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod)
+-&gt; (ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod)
+-&gt; Ord ContestationPeriod
+ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+ContestationPeriod -&gt; ContestationPeriod -&gt; Ordering
+ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+$ccompare :: ContestationPeriod -&gt; ContestationPeriod -&gt; Ordering
+compare :: ContestationPeriod -&gt; ContestationPeriod -&gt; Ordering
+$c&lt; :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+&lt; :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+$c&lt;= :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+&lt;= :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+$c&gt; :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+&gt; :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+$c&gt;= :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+&gt;= :: ContestationPeriod -&gt; ContestationPeriod -&gt; Bool
+$cmax :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+max :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+$cmin :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+min :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679432944"><span class="annot"><span class="annottext">Num ContestationPeriod
+Ord ContestationPeriod
+(Num ContestationPeriod, Ord ContestationPeriod) =&gt;
+(ContestationPeriod -&gt; Ratio Integer) -&gt; Real ContestationPeriod
+ContestationPeriod -&gt; Ratio Integer
+forall a. (Num a, Ord a) =&gt; (a -&gt; Ratio Integer) -&gt; Real a
+$ctoRational :: ContestationPeriod -&gt; Ratio Integer
+toRational :: ContestationPeriod -&gt; Ratio Integer
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Real"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432956"><span id="local-6989586621679432960"><span id="local-6989586621679432964"><span id="local-6989586621679432968"><span id="local-6989586621679432972"><span id="local-6989586621679432976"><span id="local-6989586621679432980"><span class="annot"><span class="annottext">Enum ContestationPeriod
+Real ContestationPeriod
+(Real ContestationPeriod, Enum ContestationPeriod) =&gt;
+(ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod)
+-&gt; (ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod)
+-&gt; (ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod)
+-&gt; (ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod)
+-&gt; (ContestationPeriod
+    -&gt; ContestationPeriod -&gt; (ContestationPeriod, ContestationPeriod))
+-&gt; (ContestationPeriod
+    -&gt; ContestationPeriod -&gt; (ContestationPeriod, ContestationPeriod))
+-&gt; (ContestationPeriod -&gt; Integer)
+-&gt; Integral ContestationPeriod
+ContestationPeriod -&gt; Integer
+ContestationPeriod
+-&gt; ContestationPeriod -&gt; (ContestationPeriod, ContestationPeriod)
+ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+forall a.
+(Real a, Enum a) =&gt;
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; Integer)
+-&gt; Integral a
+$cquot :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+quot :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+$crem :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+rem :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+$cdiv :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+div :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+$cmod :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+mod :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+$cquotRem :: ContestationPeriod
+-&gt; ContestationPeriod -&gt; (ContestationPeriod, ContestationPeriod)
+quotRem :: ContestationPeriod
+-&gt; ContestationPeriod -&gt; (ContestationPeriod, ContestationPeriod)
+$cdivMod :: ContestationPeriod
+-&gt; ContestationPeriod -&gt; (ContestationPeriod, ContestationPeriod)
+divMod :: ContestationPeriod
+-&gt; ContestationPeriod -&gt; (ContestationPeriod, ContestationPeriod)
+$ctoInteger :: ContestationPeriod -&gt; Integer
+toInteger :: ContestationPeriod -&gt; Integer
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Integral"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Integral</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432986"><span id="local-6989586621679432991"><span id="local-6989586621679432995"><span id="local-6989586621679432999"><span id="local-6989586621679433003"><span class="annot"><span class="annottext">[ContestationPeriod] -&gt; Value
+[ContestationPeriod] -&gt; Encoding
+ContestationPeriod -&gt; Bool
+ContestationPeriod -&gt; Value
+ContestationPeriod -&gt; Encoding
+(ContestationPeriod -&gt; Value)
+-&gt; (ContestationPeriod -&gt; Encoding)
+-&gt; ([ContestationPeriod] -&gt; Value)
+-&gt; ([ContestationPeriod] -&gt; Encoding)
+-&gt; (ContestationPeriod -&gt; Bool)
+-&gt; ToJSON ContestationPeriod
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: ContestationPeriod -&gt; Value
+toJSON :: ContestationPeriod -&gt; Value
+$ctoEncoding :: ContestationPeriod -&gt; Encoding
+toEncoding :: ContestationPeriod -&gt; Encoding
+$ctoJSONList :: [ContestationPeriod] -&gt; Value
+toJSONList :: [ContestationPeriod] -&gt; Value
+$ctoEncodingList :: [ContestationPeriod] -&gt; Encoding
+toEncodingList :: [ContestationPeriod] -&gt; Encoding
+$comitField :: ContestationPeriod -&gt; Bool
+omitField :: ContestationPeriod -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679433009"><span id="local-6989586621679433014"><span id="local-6989586621679433018"><span class="annot"><span class="annottext">Maybe ContestationPeriod
+Value -&gt; Parser [ContestationPeriod]
+Value -&gt; Parser ContestationPeriod
+(Value -&gt; Parser ContestationPeriod)
+-&gt; (Value -&gt; Parser [ContestationPeriod])
+-&gt; Maybe ContestationPeriod
+-&gt; FromJSON ContestationPeriod
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser ContestationPeriod
+parseJSON :: Value -&gt; Parser ContestationPeriod
+$cparseJSONList :: Value -&gt; Parser [ContestationPeriod]
+parseJSONList :: Value -&gt; Parser [ContestationPeriod]
+$comittedField :: Maybe ContestationPeriod
+omittedField :: Maybe ContestationPeriod
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679433024"><span id="local-6989586621679433029"><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>  </span><span id="local-6989586621679433039"><span class="annot"><span class="annottext">show :: ContestationPeriod -&gt; String
+</span><a href="#local-6989586621679433039"><span class="hs-identifier hs-var hs-var hs-var hs-var">show</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433041"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433041"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433041"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;s&quot;</span></span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679433043"><span id="local-6989586621679433046"><span id="local-6989586621679433051"><span id="local-6989586621679433054"><span id="local-6989586621679433057"><span id="local-6989586621679433060"><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-type">Enum</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-23"></span><span>  </span><span id="local-6989586621679433085"><span class="annot"><span class="annottext">toEnum :: Int -&gt; ContestationPeriod
+</span><a href="#local-6989586621679433085"><span class="hs-identifier hs-var hs-var hs-var hs-var">toEnum</span></a></span></span><span> </span><span id="local-6989586621679433087"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679433087"><span class="hs-identifier hs-var">i</span></a></span></span><span>
+</span><span id="line-24"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679433087"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; ContestationPeriod) -&gt; Natural -&gt; ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Natural
+forall a. Enum a =&gt; Int -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#toEnum"><span class="hs-identifier hs-var">toEnum</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679433087"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-25"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ContestationPeriod
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; ContestationPeriod) -&gt; Text -&gt; ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;ContestationPeriod.toEnum: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+forall a. ToText a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">toText</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679433087"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; is not &gt; 0&quot;</span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span>  </span><span id="local-6989586621679433092"><span class="annot"><span class="annottext">fromEnum :: ContestationPeriod -&gt; Int
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#fromEnum"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromEnum</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433093"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433093"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a. Enum a =&gt; a -&gt; Int
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#fromEnum"><span class="hs-identifier hs-var">fromEnum</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433093"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-type">Num</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>  </span><span id="local-6989586621679433119"><span class="annot"><span class="annottext">fromInteger :: Integer -&gt; ContestationPeriod
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromInteger</span></a></span></span><span> </span><span id="local-6989586621679433120"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433120"><span class="hs-identifier hs-var">i</span></a></span></span><span>
+</span><span id="line-31"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433120"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; ContestationPeriod) -&gt; Natural -&gt; ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Natural
+forall a. Num a =&gt; Integer -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433120"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-32"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ContestationPeriod
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; ContestationPeriod) -&gt; Text -&gt; ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;ContestationPeriod.fromInteger: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+forall a. ToText a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">toText</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433120"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; is not &gt; 0&quot;</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span>  </span><span id="local-6989586621679433122"><span class="annot"><span class="annottext">+ :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+</span><a href="#local-6989586621679433122"><span class="hs-operator hs-var hs-var hs-var hs-var">(+)</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433124"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433124"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433125"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433125"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433124"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433125"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>  </span><span id="local-6989586621679433127"><span class="hs-special">(</span><span class="hs-glyph">-</span><span class="hs-special">)</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433128"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433128"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433129"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433129"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433128"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#-"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433129"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>  </span><span id="local-6989586621679433131"><span class="annot"><span class="annottext">* :: ContestationPeriod -&gt; ContestationPeriod -&gt; ContestationPeriod
+</span><a href="#local-6989586621679433131"><span class="hs-operator hs-var hs-var hs-var hs-var">(*)</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433133"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433133"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433134"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433134"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433133"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433134"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>  </span><span id="local-6989586621679433136"><span class="annot"><span class="annottext">negate :: ContestationPeriod -&gt; ContestationPeriod
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#negate"><span class="hs-identifier hs-var hs-var hs-var hs-var">negate</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433137"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433137"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#negate"><span class="hs-identifier hs-var">negate</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433137"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>  </span><span id="local-6989586621679433139"><span class="annot"><span class="annottext">abs :: ContestationPeriod -&gt; ContestationPeriod
+</span><a href="#local-6989586621679433139"><span class="hs-identifier hs-var hs-var hs-var hs-var">abs</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433141"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433141"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#abs"><span class="hs-identifier hs-var">abs</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433141"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>  </span><span id="local-6989586621679433143"><span class="annot"><span class="annottext">signum :: ContestationPeriod -&gt; ContestationPeriod
+</span><a href="#local-6989586621679433143"><span class="hs-identifier hs-var hs-var hs-var hs-var">signum</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433145"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433145"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#signum"><span class="hs-identifier hs-var">signum</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433145"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679433148"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-42"></span><span>  </span><span id="local-6989586621679433173"><span class="annot"><span class="annottext">arbitrary :: Gen ContestationPeriod
+</span><a href="#local-6989586621679433173"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-43"></span><span>    </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span>
+</span><span id="line-44"></span><span>      </span><span class="annot"><span class="annottext">(Natural -&gt; ContestationPeriod)
+-&gt; (Integer -&gt; Natural) -&gt; Integer -&gt; ContestationPeriod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Natural
+forall a. Num a =&gt; Integer -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span>
+</span><span id="line-45"></span><span>      </span><span class="annot"><span class="annottext">(Integer -&gt; ContestationPeriod)
+-&gt; Gen Integer -&gt; Gen ContestationPeriod
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Gen Integer] -&gt; Gen Integer
+forall a. HasCallStack =&gt; [Gen a] -&gt; Gen a
+</span><span class="hs-identifier hs-var">oneof</span></span><span>
+</span><span id="line-46"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">(Integer, Integer) -&gt; Gen Integer
+forall a. Random a =&gt; (a, a) -&gt; Gen a
+</span><span class="hs-identifier hs-var">choose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433177"><span class="hs-identifier hs-var">confirmedHorizon</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Gen Integer
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433177"><span class="hs-identifier hs-var">confirmedHorizon</span></a></span><span>
+</span><span id="line-48"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Integer, Integer) -&gt; Gen Integer
+forall a. Random a =&gt; (a, a) -&gt; Gen a
+</span><span class="hs-identifier hs-var">choose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433177"><span class="hs-identifier hs-var">confirmedHorizon</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433178"><span class="hs-identifier hs-var">oneDay</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Gen Integer
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433178"><span class="hs-identifier hs-var">oneDay</span></a></span><span>
+</span><span id="line-50"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Gen Integer
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433179"><span class="hs-identifier hs-var">oneWeek</span></a></span><span>
+</span><span id="line-51"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Gen Integer
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433180"><span class="hs-identifier hs-var">oneMonth</span></a></span><span>
+</span><span id="line-52"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Gen Integer
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433181"><span class="hs-identifier hs-var">oneYear</span></a></span><span>
+</span><span id="line-53"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-54"></span><span>   </span><span class="hs-keyword">where</span><span>
+</span><span id="line-55"></span><span>    </span><span id="local-6989586621679433177"><span class="annot"><span class="annottext">confirmedHorizon :: Integer
+</span><a href="#local-6989586621679433177"><span class="hs-identifier hs-var hs-var">confirmedHorizon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">2160</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">20</span></span><span> </span><span class="hs-comment">-- k blocks on mainnet</span><span>
+</span><span id="line-56"></span><span>    </span><span id="local-6989586621679433178"><span class="annot"><span class="annottext">oneDay :: Integer
+</span><a href="#local-6989586621679433178"><span class="hs-identifier hs-var hs-var">oneDay</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">3600</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">24</span></span><span>
+</span><span id="line-57"></span><span>    </span><span id="local-6989586621679433179"><span class="annot"><span class="annottext">oneWeek :: Integer
+</span><a href="#local-6989586621679433179"><span class="hs-identifier hs-var hs-var">oneWeek</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433178"><span class="hs-identifier hs-var">oneDay</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">7</span></span><span>
+</span><span id="line-58"></span><span>    </span><span id="local-6989586621679433180"><span class="annot"><span class="annottext">oneMonth :: Integer
+</span><a href="#local-6989586621679433180"><span class="hs-identifier hs-var hs-var">oneMonth</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433178"><span class="hs-identifier hs-var">oneDay</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">30</span></span><span>
+</span><span id="line-59"></span><span>    </span><span id="local-6989586621679433181"><span class="annot"><span class="annottext">oneYear :: Integer
+</span><a href="#local-6989586621679433181"><span class="hs-identifier hs-var hs-var">oneYear</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679433178"><span class="hs-identifier hs-var">oneDay</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">365</span></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- | Create a 'ContestationPeriod' from a 'NominalDiffTime'. This will fail if a</span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- negative NominalDiffTime is provided and truncates to 1s if values &lt; 1s are given.</span><span>
+</span><span id="line-63"></span><span id="local-6989586621679432852"><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#fromNominalDiffTime"><span class="hs-identifier hs-type">fromNominalDiffTime</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679432852"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#NominalDiffTime"><span class="hs-identifier hs-type">NominalDiffTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679432852"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span></span><span>
+</span><span id="line-64"></span><span id="fromNominalDiffTime"><span class="annot"><span class="annottext">fromNominalDiffTime :: forall (m :: * -&gt; *).
+MonadFail m =&gt;
+NominalDiffTime -&gt; m ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#fromNominalDiffTime"><span class="hs-identifier hs-var hs-var">fromNominalDiffTime</span></a></span></span><span> </span><span id="local-6989586621679433210"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621679433210"><span class="hs-identifier hs-var">dt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Pico
+</span><a href="#local-6989586621679433211"><span class="hs-identifier hs-var">seconds</span></a></span><span> </span><span class="annot"><span class="annottext">Pico -&gt; Pico -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Pico
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; m ContestationPeriod
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(ContestationPeriod -&gt; m ContestationPeriod)
+-&gt; (Natural -&gt; ContestationPeriod)
+-&gt; Natural
+-&gt; m ContestationPeriod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; m ContestationPeriod)
+-&gt; Natural -&gt; m ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Pico -&gt; Natural
+forall b. Integral b =&gt; Pico -&gt; b
+forall a b. (RealFrac a, Integral b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#ceiling"><span class="hs-identifier hs-var">ceiling</span></a></span><span> </span><span class="annot"><span class="annottext">Pico
+</span><a href="#local-6989586621679433211"><span class="hs-identifier hs-var">seconds</span></a></span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">String -&gt; m ContestationPeriod
+forall a. String -&gt; m a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; m ContestationPeriod) -&gt; String -&gt; m ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;fromNominalDiffTime: contestation period &lt;= 0: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621679433210"><span class="hs-identifier hs-var">dt</span></a></span><span>
+</span><span id="line-68"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-69"></span><span>  </span><span id="local-6989586621679433211"><span class="annot"><span class="annottext">Pico
+</span><a href="#local-6989586621679433211"><span class="hs-identifier hs-var">seconds</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Fixed.html#Pico"><span class="hs-identifier hs-type">Pico</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Pico
+forall a b. (Real a, Fractional b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#realToFrac"><span class="hs-identifier hs-var">realToFrac</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621679433210"><span class="hs-identifier hs-var">dt</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#toNominalDiffTime"><span class="hs-identifier hs-type">toNominalDiffTime</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#NominalDiffTime"><span class="hs-identifier hs-type">NominalDiffTime</span></a></span><span>
+</span><span id="line-72"></span><span id="toNominalDiffTime"><span class="annot"><span class="annottext">toNominalDiffTime :: ContestationPeriod -&gt; NominalDiffTime
+</span><a href="Hydra.Tx.ContestationPeriod.html#toNominalDiffTime"><span class="hs-identifier hs-var hs-var">toNominalDiffTime</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433214"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433214"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><span class="annottext">Pico -&gt; NominalDiffTime
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#secondsToNominalDiffTime"><span class="hs-identifier hs-var">secondsToNominalDiffTime</span></a></span><span> </span><span class="annot"><span class="annottext">(Pico -&gt; NominalDiffTime) -&gt; Pico -&gt; NominalDiffTime
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Pico
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433214"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="annot"><span class="hs-comment">-- | Convert an off-chain contestation period to its on-chain representation.</span></span><span>
+</span><span id="line-76"></span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#toChain"><span class="hs-identifier hs-type">toChain</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OnChain.ContestationPeriod</span></span><span>
+</span><span id="line-77"></span><span id="toChain"><span class="annot"><span class="annottext">toChain :: ContestationPeriod -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#toChain"><span class="hs-identifier hs-var hs-var">toChain</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-type">UnsafeContestationPeriod</span></a></span><span> </span><span id="local-6989586621679433216"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433216"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-78"></span><span>  </span><span class="annot"><span class="annottext">DiffMilliSeconds -&gt; ContestationPeriod
+</span><span class="hs-identifier hs-var">OnChain.UnsafeContestationPeriod</span></span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">(DiffMilliSeconds -&gt; ContestationPeriod)
+-&gt; (Natural -&gt; DiffMilliSeconds) -&gt; Natural -&gt; ContestationPeriod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; DiffMilliSeconds
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span>
+</span><span id="line-80"></span><span>    </span><span class="annot"><span class="annottext">(Natural -&gt; ContestationPeriod) -&gt; Natural -&gt; ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433216"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">1000</span></span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-comment">-- | Convert an on-chain contestation period to its off-chain representation.</span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- NOTE: Does truncate to whole seconds.</span><span>
+</span><span id="line-84"></span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#fromChain"><span class="hs-identifier hs-type">fromChain</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OnChain.ContestationPeriod</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span><span>
+</span><span id="line-85"></span><span id="fromChain"><span class="annot"><span class="annottext">fromChain :: ContestationPeriod -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#fromChain"><span class="hs-identifier hs-var hs-var">fromChain</span></a></span></span><span> </span><span id="local-6989586621679433219"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679433219"><span class="hs-identifier hs-var">cp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="annottext">Natural -&gt; ContestationPeriod
+</span><a href="Hydra.Tx.ContestationPeriod.html#UnsafeContestationPeriod"><span class="hs-identifier hs-var">UnsafeContestationPeriod</span></a></span><span>
+</span><span id="line-87"></span><span>    </span><span class="annot"><span class="annottext">(Natural -&gt; ContestationPeriod)
+-&gt; (Ratio Integer -&gt; Natural)
+-&gt; Ratio Integer
+-&gt; ContestationPeriod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Ratio Integer -&gt; Natural
+forall b. Integral b =&gt; Ratio Integer -&gt; b
+forall a b. (RealFrac a, Integral b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#truncate"><span class="hs-identifier hs-var">truncate</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span class="annot"><span class="annottext">(Ratio Integer -&gt; ContestationPeriod)
+-&gt; Ratio Integer -&gt; ContestationPeriod
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">DiffMilliSeconds -&gt; Integer
+forall a. Integral a =&gt; a -&gt; Integer
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var">toInteger</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ContestationPeriod -&gt; DiffMilliSeconds
+</span><span class="hs-identifier hs-var">OnChain.milliseconds</span></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679433219"><span class="hs-identifier hs-var">cp</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Ratio Integer
+forall a. Integral a =&gt; a -&gt; a -&gt; Ratio a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#%25"><span class="hs-operator hs-var">%</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">1000</span></span><span>
+</span><span id="line-89"></span></pre></body></html>

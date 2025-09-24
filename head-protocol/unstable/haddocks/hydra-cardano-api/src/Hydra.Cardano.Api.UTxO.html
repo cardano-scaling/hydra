@@ -1,0 +1,200 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cardano.Api.UTxO</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">fromLedgerUTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.TxId.html"><span class="hs-identifier">Hydra.Cardano.Api.TxId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.TxId.html#toLedgerTxId"><span class="hs-identifier">toLedgerTxId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.TxIn.html"><span class="hs-identifier">Hydra.Cardano.Api.TxIn</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.TxIn.html#txIns%27"><span class="hs-identifier">txIns'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.Tx.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Api.UTxO</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Cardano.Api.UTxO.html"><span class="hs-identifier">Cardano.Api.UTxO</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">outputsTxBodyL</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.BaseTypes</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Shelley.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.TxIn</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(^.)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html"><span class="hs-identifier">Data.Foldable</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#toList"><span class="hs-identifier">toList</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.html"><span class="hs-identifier">Data.Map</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html"><span class="hs-identifier">Data.Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#mapMaybe"><span class="hs-identifier">mapMaybe</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.String.html"><span class="hs-identifier">Data.String</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.String.html#IsString"><span class="hs-identifier">IsString</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.html"><span class="hs-identifier">Data.Text</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Text</span></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="annot"><span class="hs-comment">-- | Get a human-readable pretty text representation of a UTxO.</span></span><span>
+</span><span id="line-21"></span><span id="local-6989586621679292416"><span class="annot"><a href="Hydra.Cardano.Api.UTxO.html#renderUTxO"><span class="hs-identifier hs-type">renderUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.String.html#IsString"><span class="hs-identifier hs-type">IsString</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679292416"><span class="hs-identifier hs-type">str</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Cardano.Api.UTxO.html#UTxO"><span class="hs-identifier hs-type">UTxO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679292416"><span class="hs-identifier hs-type">str</span></a></span></span><span>
+</span><span id="line-22"></span><span id="renderUTxO"><span class="annot"><span class="annottext">renderUTxO :: forall str. IsString str =&gt; UTxO -&gt; str
+</span><a href="Hydra.Cardano.Api.UTxO.html#renderUTxO"><span class="hs-identifier hs-var hs-var">renderUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; str
+forall a. IsString a =&gt; String -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.String.html#fromString"><span class="hs-identifier hs-var">fromString</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; str) -&gt; (UTxO -&gt; String) -&gt; UTxO -&gt; str
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Show.html#unpack"><span class="hs-identifier hs-var">Text.unpack</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; String) -&gt; (UTxO -&gt; Text) -&gt; UTxO -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text] -&gt; Text
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.html#intercalate"><span class="hs-identifier hs-var">Text.intercalate</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;\n&quot;</span></span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Text) -&gt; (UTxO -&gt; [Text]) -&gt; UTxO -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">((TxIn, TxOut CtxUTxO ConwayEra) -&gt; Text)
+-&gt; [(TxIn, TxOut CtxUTxO ConwayEra)] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO ConwayEra) -&gt; Text
+forall ctx era. (TxIn, TxOut ctx era) -&gt; Text
+</span><a href="Cardano.Api.UTxO.html#render"><span class="hs-identifier hs-var">UTxO.render</span></a></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO ConwayEra)] -&gt; [Text])
+-&gt; (UTxO -&gt; [(TxIn, TxOut CtxUTxO ConwayEra)]) -&gt; UTxO -&gt; [Text]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; [(TxIn, TxOut CtxUTxO ConwayEra)]
+forall out. UTxO' out -&gt; [(TxIn, out)]
+</span><a href="Cardano.Api.UTxO.html#toList"><span class="hs-identifier hs-var">UTxO.toList</span></a></span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- | Construct a UTxO from a transaction. This constructs artificial `TxIn`</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- (a.k.a output reference) from the transaction itself, zipping them to the</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- outputs they correspond to.</span><span>
+</span><span id="line-28"></span><span class="annot"><a href="Hydra.Cardano.Api.UTxO.html#utxoFromTx"><span class="hs-identifier hs-type">utxoFromTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Cardano.Api.UTxO.html#UTxO"><span class="hs-identifier hs-type">UTxO</span></a></span><span>
+</span><span id="line-29"></span><span id="utxoFromTx"><span class="annot"><span class="annottext">utxoFromTx :: Tx ConwayEra -&gt; UTxO
+</span><a href="Hydra.Cardano.Api.UTxO.html#utxoFromTx"><span class="hs-identifier hs-var hs-var">utxoFromTx</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679292524"><span class="annot"><span class="annottext">body :: TxBody ConwayEra
+</span><a href="#local-6989586621679292524"><span class="hs-identifier hs-var">body</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyTxBody</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra ConwayEra
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679292526"><span class="annot"><span class="annottext">TxBody (ShelleyLedgerEra ConwayEra)
+</span><a href="#local-6989586621679292526"><span class="hs-identifier hs-var">ledgerBody</span></a></span></span><span> </span><span class="annot"><span class="annottext">[Script (ShelleyLedgerEra ConwayEra)]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">TxBodyScriptData ConwayEra
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TxAuxData (ShelleyLedgerEra ConwayEra))
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">TxScriptValidity ConwayEra
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[KeyWitness ConwayEra]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679292527"><span class="annot"><span class="annottext">txOuts :: [TxOut ConwayEra]
+</span><a href="#local-6989586621679292527"><span class="hs-identifier hs-var hs-var">txOuts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StrictSeq (TxOut ConwayEra) -&gt; [TxOut ConwayEra]
+forall a. StrictSeq a -&gt; [a]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span> </span><span class="annot"><span class="annottext">(StrictSeq (TxOut ConwayEra) -&gt; [TxOut ConwayEra])
+-&gt; StrictSeq (TxOut ConwayEra) -&gt; [TxOut ConwayEra]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody (ShelleyLedgerEra ConwayEra)
+ConwayTxBody ConwayEra
+</span><a href="#local-6989586621679292526"><span class="hs-identifier hs-var">ledgerBody</span></a></span><span> </span><span class="annot"><span class="annottext">ConwayTxBody ConwayEra
+-&gt; Getting
+     (StrictSeq (TxOut ConwayEra))
+     (ConwayTxBody ConwayEra)
+     (StrictSeq (TxOut ConwayEra))
+-&gt; StrictSeq (TxOut ConwayEra)
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(StrictSeq (TxOut ConwayEra)
+ -&gt; Const
+      (StrictSeq (TxOut ConwayEra)) (StrictSeq (TxOut ConwayEra)))
+-&gt; TxBody ConwayEra
+-&gt; Const (StrictSeq (TxOut ConwayEra)) (TxBody ConwayEra)
+Getting
+  (StrictSeq (TxOut ConwayEra))
+  (ConwayTxBody ConwayEra)
+  (StrictSeq (TxOut ConwayEra))
+forall era.
+EraTxBody era =&gt;
+Lens' (TxBody era) (StrictSeq (TxOut era))
+Lens' (TxBody ConwayEra) (StrictSeq (TxOut ConwayEra))
+</span><span class="hs-identifier hs-var">outputsTxBodyL</span></span><span>
+</span><span id="line-31"></span><span>      </span><span id="local-6989586621679292528"><span class="annot"><span class="annottext">txIns :: [TxIn]
+</span><a href="#local-6989586621679292528"><span class="hs-identifier hs-var hs-var">txIns</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-32"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">TxId -&gt; TxIx -&gt; TxIn
+</span><span class="hs-identifier hs-var">Ledger.TxIn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxId -&gt; TxId
+</span><a href="Hydra.Cardano.Api.TxId.html#toLedgerTxId"><span class="hs-identifier hs-var">toLedgerTxId</span></a></span><span> </span><span class="annot"><span class="annottext">(TxId -&gt; TxId) -&gt; TxId -&gt; TxId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody ConwayEra -&gt; TxId
+forall era. TxBody era -&gt; TxId
+</span><span class="hs-identifier hs-var">getTxId</span></span><span> </span><span class="annot"><span class="annottext">TxBody ConwayEra
+</span><a href="#local-6989586621679292524"><span class="hs-identifier hs-var">body</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxIx
+</span><a href="#local-6989586621679292531"><span class="hs-identifier hs-var">ix</span></a></span><span>
+</span><span id="line-33"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679292531"><span class="annot"><span class="annottext">TxIx
+</span><a href="#local-6989586621679292531"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Word16 -&gt; TxIx
+</span><span class="hs-identifier hs-var">Ledger.TxIx</span></span><span> </span><span class="annot"><span class="annottext">Word16
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TxIx
+forall a. Enum a =&gt; Int -&gt; a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#toEnum"><span class="hs-identifier hs-var">toEnum</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[TxOut ConwayEra] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut ConwayEra]
+</span><a href="#local-6989586621679292527"><span class="hs-identifier hs-var">txOuts</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-34"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-35"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">UTxO (ShelleyLedgerEra ConwayEra) -&gt; UTxO
+</span><a href="Hydra.Cardano.Api.UTxO.html#fromLedgerUTxO"><span class="hs-identifier hs-var">fromLedgerUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">(UTxO (ShelleyLedgerEra ConwayEra) -&gt; UTxO)
+-&gt; UTxO (ShelleyLedgerEra ConwayEra) -&gt; UTxO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Map TxIn (TxOut (ShelleyLedgerEra ConwayEra))
+-&gt; UTxO (ShelleyLedgerEra ConwayEra)
+forall era. Map TxIn (TxOut era) -&gt; UTxO era
+</span><span class="hs-identifier hs-var">Ledger.UTxO</span></span><span> </span><span class="annot"><span class="annottext">(Map TxIn (TxOut (ShelleyLedgerEra ConwayEra))
+ -&gt; UTxO (ShelleyLedgerEra ConwayEra))
+-&gt; Map TxIn (TxOut (ShelleyLedgerEra ConwayEra))
+-&gt; UTxO (ShelleyLedgerEra ConwayEra)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[(TxIn, TxOut (ShelleyLedgerEra ConwayEra))]
+-&gt; Map TxIn (TxOut (ShelleyLedgerEra ConwayEra))
+forall k a. Ord k =&gt; [(k, a)] -&gt; Map k a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#fromList"><span class="hs-identifier hs-var">Map.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut (ShelleyLedgerEra ConwayEra))]
+ -&gt; Map TxIn (TxOut (ShelleyLedgerEra ConwayEra)))
+-&gt; [(TxIn, TxOut (ShelleyLedgerEra ConwayEra))]
+-&gt; Map TxIn (TxOut (ShelleyLedgerEra ConwayEra))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn] -&gt; [TxOut ConwayEra] -&gt; [(TxIn, TxOut ConwayEra)]
+forall a b. [a] -&gt; [b] -&gt; [(a, b)]
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679292528"><span class="hs-identifier hs-var">txIns</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut ConwayEra]
+</span><a href="#local-6989586621679292527"><span class="hs-identifier hs-var">txOuts</span></a></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="annot"><span class="hs-comment">-- | Resolve tx inputs in a given UTxO</span></span><span>
+</span><span id="line-38"></span><span class="annot"><a href="Hydra.Cardano.Api.UTxO.html#resolveInputsUTxO"><span class="hs-identifier hs-type">resolveInputsUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Cardano.Api.UTxO.html#UTxO"><span class="hs-identifier hs-type">UTxO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Cardano.Api.UTxO.html#UTxO"><span class="hs-identifier hs-type">UTxO</span></a></span><span>
+</span><span id="line-39"></span><span id="resolveInputsUTxO"><span class="annot"><span class="annottext">resolveInputsUTxO :: UTxO -&gt; Tx ConwayEra -&gt; UTxO
+</span><a href="Hydra.Cardano.Api.UTxO.html#resolveInputsUTxO"><span class="hs-identifier hs-var hs-var">resolveInputsUTxO</span></a></span></span><span> </span><span id="local-6989586621679292539"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679292539"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679292540"><span class="annot"><span class="annottext">Tx ConwayEra
+</span><a href="#local-6989586621679292540"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO ConwayEra)] -&gt; UTxO
+forall out. [(TxIn, out)] -&gt; UTxO' out
+</span><a href="Cardano.Api.UTxO.html#fromList"><span class="hs-identifier hs-var">UTxO.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO ConwayEra)] -&gt; UTxO)
+-&gt; [(TxIn, TxOut CtxUTxO ConwayEra)] -&gt; UTxO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-41"></span><span>    </span><span class="annot"><span class="annottext">(TxIn -&gt; Maybe (TxIn, TxOut CtxUTxO ConwayEra))
+-&gt; [TxIn] -&gt; [(TxIn, TxOut CtxUTxO ConwayEra)]
+forall a b. (a -&gt; Maybe b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#mapMaybe"><span class="hs-identifier hs-var">mapMaybe</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679292542"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679292542"><span class="hs-identifier hs-var">txIn</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679292542"><span class="hs-identifier hs-var">txIn</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO ConwayEra -&gt; (TxIn, TxOut CtxUTxO ConwayEra))
+-&gt; Maybe (TxOut CtxUTxO ConwayEra)
+-&gt; Maybe (TxIn, TxOut CtxUTxO ConwayEra)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; UTxO -&gt; Maybe (TxOut CtxUTxO ConwayEra)
+forall out. TxIn -&gt; UTxO' out -&gt; Maybe out
+</span><a href="Cardano.Api.UTxO.html#resolveTxIn"><span class="hs-identifier hs-var">UTxO.resolveTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679292542"><span class="hs-identifier hs-var">txIn</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679292539"><span class="hs-identifier hs-var">utxo</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx ConwayEra -&gt; [TxIn]
+forall era. Tx era -&gt; [TxIn]
+</span><a href="Hydra.Cardano.Api.TxIn.html#txIns%27"><span class="hs-identifier hs-var">txIns'</span></a></span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra
+</span><a href="#local-6989586621679292540"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="annot"><span class="hs-comment">-- * Type Conversions</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="annot"><a href="Hydra.Cardano.Api.UTxO.html#toLedgerUTxO"><span class="hs-identifier hs-type">toLedgerUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Cardano.Api.UTxO.html#UTxO"><span class="hs-identifier hs-type">UTxO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.UTxO</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#LedgerEra"><span class="hs-identifier hs-type">LedgerEra</span></a></span><span>
+</span><span id="line-46"></span><span id="toLedgerUTxO"><span class="annot"><span class="annottext">toLedgerUTxO :: UTxO -&gt; UTxO (ShelleyLedgerEra ConwayEra)
+</span><a href="Hydra.Cardano.Api.UTxO.html#toLedgerUTxO"><span class="hs-identifier hs-var hs-var">toLedgerUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra ConwayEra
+-&gt; UTxO ConwayEra -&gt; UTxO (ShelleyLedgerEra ConwayEra)
+forall era.
+ShelleyBasedEra era -&gt; UTxO era -&gt; UTxO (ShelleyLedgerEra era)
+</span><span class="hs-identifier hs-var">Api.UTxO.toShelleyUTxO</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra ConwayEra
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="annot"><span class="annottext">(UTxO ConwayEra -&gt; UTxO ConwayEra)
+-&gt; (UTxO -&gt; UTxO ConwayEra) -&gt; UTxO -&gt; UTxO ConwayEra
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO ConwayEra
+</span><a href="Cardano.Api.UTxO.html#toApi"><span class="hs-identifier hs-var">UTxO.toApi</span></a></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="annot"><a href="Hydra.Cardano.Api.UTxO.html#fromLedgerUTxO"><span class="hs-identifier hs-type">fromLedgerUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.UTxO</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#LedgerEra"><span class="hs-identifier hs-type">LedgerEra</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Cardano.Api.UTxO.html#UTxO"><span class="hs-identifier hs-type">UTxO</span></a></span><span>
+</span><span id="line-49"></span><span id="fromLedgerUTxO"><span class="annot"><span class="annottext">fromLedgerUTxO :: UTxO (ShelleyLedgerEra ConwayEra) -&gt; UTxO
+</span><a href="Hydra.Cardano.Api.UTxO.html#fromLedgerUTxO"><span class="hs-identifier hs-var hs-var">fromLedgerUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO ConwayEra -&gt; UTxO
+forall era. UTxO era -&gt; UTxO
+</span><a href="Cardano.Api.UTxO.html#fromApi"><span class="hs-identifier hs-var">UTxO.fromApi</span></a></span><span> </span><span class="annot"><span class="annottext">(UTxO ConwayEra -&gt; UTxO)
+-&gt; (UTxO ConwayEra -&gt; UTxO ConwayEra) -&gt; UTxO ConwayEra -&gt; UTxO
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra ConwayEra
+-&gt; UTxO (ShelleyLedgerEra ConwayEra) -&gt; UTxO ConwayEra
+forall era.
+ShelleyBasedEra era -&gt; UTxO (ShelleyLedgerEra era) -&gt; UTxO era
+</span><span class="hs-identifier hs-var">Api.UTxO.fromShelleyUTxO</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra ConwayEra
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span>
+</span><span id="line-50"></span></pre></body></html>

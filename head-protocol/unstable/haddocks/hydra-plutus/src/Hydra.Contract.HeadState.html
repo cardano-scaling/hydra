@@ -1,0 +1,425 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-specialize #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.HeadState</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Prelude</span></span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html"><span class="hs-identifier">GHC.Generics</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier">Generic</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Data.ContestationPeriod.html"><span class="hs-identifier">Hydra.Data.ContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Data.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier">ContestationPeriod</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Data.Party.html"><span class="hs-identifier">Hydra.Data.Party</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier">Party</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CurrencySymbol</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">POSIXTime</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PubKeyHash</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxOutRef</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx</span></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Text.Show.html"><span class="hs-identifier">Text.Show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier">Show</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">type</span><span> </span><span id="SnapshotNumber"><span class="annot"><a href="Hydra.Contract.HeadState.html#SnapshotNumber"><span class="hs-identifier hs-var">SnapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">type</span><span> </span><span id="SnapshotVersion"><span class="annot"><a href="Hydra.Contract.HeadState.html#SnapshotVersion"><span class="hs-identifier hs-var">SnapshotVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">type</span><span> </span><span id="Hash"><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-var">Hash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">type</span><span> </span><span id="Signature"><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-var">Signature</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="annot"><span class="hs-comment">-- | Sub-type for the open state-machine state.</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">data</span><span> </span><span id="OpenDatum"><span class="annot"><a href="Hydra.Contract.HeadState.html#OpenDatum"><span class="hs-identifier hs-var">OpenDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="OpenDatum"><span class="annot"><a href="Hydra.Contract.HeadState.html#OpenDatum"><span class="hs-identifier hs-var">OpenDatum</span></a></span></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AheadId%3AOpenDatum"><span class="annot"><span class="annottext">OpenDatum -&gt; CurrencySymbol
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AheadId%3AOpenDatum"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: cid</span></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aparties%3AOpenDatum"><span class="annot"><span class="annottext">OpenDatum -&gt; [Party]
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Aparties%3AOpenDatum"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: kH</span></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcontestationPeriod%3AOpenDatum"><span class="annot"><span class="annottext">OpenDatum -&gt; ContestationPeriod
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AcontestationPeriod%3AOpenDatum"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Data.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: T</span></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aversion%3AOpenDatum"><span class="annot"><span class="annottext">OpenDatum -&gt; SnapshotVersion
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Aversion%3AOpenDatum"><span class="hs-identifier hs-var hs-var">version</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#SnapshotVersion"><span class="hs-identifier hs-type">SnapshotVersion</span></a></span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: v</span></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AutxoHash%3AOpenDatum"><span class="annot"><span class="annottext">OpenDatum -&gt; Hash
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AutxoHash%3AOpenDatum"><span class="hs-identifier hs-var hs-var">utxoHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: &#951;</span></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679493695"><span id="local-6989586621679493697"><span class="annot"><span class="annottext">(forall x. OpenDatum -&gt; Rep OpenDatum x)
+-&gt; (forall x. Rep OpenDatum x -&gt; OpenDatum) -&gt; Generic OpenDatum
+forall x. Rep OpenDatum x -&gt; OpenDatum
+forall x. OpenDatum -&gt; Rep OpenDatum x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. OpenDatum -&gt; Rep OpenDatum x
+from :: forall x. OpenDatum -&gt; Rep OpenDatum x
+$cto :: forall x. Rep OpenDatum x -&gt; OpenDatum
+to :: forall x. Rep OpenDatum x -&gt; OpenDatum
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679493701"><span id="local-6989586621679493716"><span id="local-6989586621679493720"><span class="annot"><span class="annottext">Int -&gt; OpenDatum -&gt; ShowS
+[OpenDatum] -&gt; ShowS
+OpenDatum -&gt; String
+(Int -&gt; OpenDatum -&gt; ShowS)
+-&gt; (OpenDatum -&gt; String)
+-&gt; ([OpenDatum] -&gt; ShowS)
+-&gt; Show OpenDatum
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; OpenDatum -&gt; ShowS
+showsPrec :: Int -&gt; OpenDatum -&gt; ShowS
+$cshow :: OpenDatum -&gt; String
+show :: OpenDatum -&gt; String
+$cshowList :: [OpenDatum] -&gt; ShowS
+showList :: [OpenDatum] -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span id="local-6989586621679493725"><span id="local-6989586621679493740"><span id="local-6989586621679493742"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">OpenDatum</span></span></span></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="annot"><span class="hs-comment">-- | Sub-type for the closed state-machine state.</span></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">data</span><span> </span><span id="ClosedDatum"><span class="annot"><a href="Hydra.Contract.HeadState.html#ClosedDatum"><span class="hs-identifier hs-var">ClosedDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ClosedDatum"><span class="annot"><a href="Hydra.Contract.HeadState.html#ClosedDatum"><span class="hs-identifier hs-var">ClosedDatum</span></a></span></span><span>
+</span><span id="line-43"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AheadId%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; CurrencySymbol
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AheadId%3AClosedDatum"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: cid</span></span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aparties%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; [Party]
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Aparties%3AClosedDatum"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-46"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: kH</span></span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcontestationPeriod%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; ContestationPeriod
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AcontestationPeriod%3AClosedDatum"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Data.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: T</span></span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aversion%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; SnapshotVersion
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Aversion%3AClosedDatum"><span class="hs-identifier hs-var hs-var">version</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#SnapshotVersion"><span class="hs-identifier hs-type">SnapshotVersion</span></a></span><span>
+</span><span id="line-50"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: v</span></span><span>
+</span><span id="line-51"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsnapshotNumber%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; SnapshotVersion
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AsnapshotNumber%3AClosedDatum"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#SnapshotNumber"><span class="hs-identifier hs-type">SnapshotNumber</span></a></span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: s</span></span><span>
+</span><span id="line-53"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AutxoHash%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; Hash
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AutxoHash%3AClosedDatum"><span class="hs-identifier hs-var hs-var">utxoHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
+</span><span id="line-54"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: &#951;. Digest of snapshotted UTxO</span></span><span>
+</span><span id="line-55"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AalphaUTxOHash%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; Hash
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AalphaUTxOHash%3AClosedDatum"><span class="hs-identifier hs-var hs-var">alphaUTxOHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AomegaUTxOHash%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; Hash
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AomegaUTxOHash%3AClosedDatum"><span class="hs-identifier hs-var hs-var">omegaUTxOHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
+</span><span id="line-57"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: &#951;&#916;. Digest of UTxO still to be distributed</span></span><span>
+</span><span id="line-58"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Acontesters%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; [PubKeyHash]
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Acontesters%3AClosedDatum"><span class="hs-identifier hs-var hs-var">contesters</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">PubKeyHash</span></span><span class="hs-special">]</span><span>
+</span><span id="line-59"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: C</span></span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcontestationDeadline%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; POSIXTime
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AcontestationDeadline%3AClosedDatum"><span class="hs-identifier hs-var hs-var">contestationDeadline</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">POSIXTime</span></span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: tfinal</span></span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-63"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679493829"><span id="local-6989586621679493831"><span class="annot"><span class="annottext">(forall x. ClosedDatum -&gt; Rep ClosedDatum x)
+-&gt; (forall x. Rep ClosedDatum x -&gt; ClosedDatum)
+-&gt; Generic ClosedDatum
+forall x. Rep ClosedDatum x -&gt; ClosedDatum
+forall x. ClosedDatum -&gt; Rep ClosedDatum x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. ClosedDatum -&gt; Rep ClosedDatum x
+from :: forall x. ClosedDatum -&gt; Rep ClosedDatum x
+$cto :: forall x. Rep ClosedDatum x -&gt; ClosedDatum
+to :: forall x. Rep ClosedDatum x -&gt; ClosedDatum
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679493834"><span id="local-6989586621679493850"><span id="local-6989586621679493854"><span class="annot"><span class="annottext">Int -&gt; ClosedDatum -&gt; ShowS
+[ClosedDatum] -&gt; ShowS
+ClosedDatum -&gt; String
+(Int -&gt; ClosedDatum -&gt; ShowS)
+-&gt; (ClosedDatum -&gt; String)
+-&gt; ([ClosedDatum] -&gt; ShowS)
+-&gt; Show ClosedDatum
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ClosedDatum -&gt; ShowS
+showsPrec :: Int -&gt; ClosedDatum -&gt; ShowS
+$cshow :: ClosedDatum -&gt; String
+show :: ClosedDatum -&gt; String
+$cshowList :: [ClosedDatum] -&gt; ShowS
+showList :: [ClosedDatum] -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span id="local-6989586621679493858"><span id="local-6989586621679493874"><span id="local-6989586621679493876"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">ClosedDatum</span></span></span></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">data</span><span> </span><span id="State"><span class="annot"><a href="Hydra.Contract.HeadState.html#State"><span class="hs-identifier hs-var">State</span></a></span></span><span>
+</span><span id="line-68"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Initial"><span class="annot"><a href="Hydra.Contract.HeadState.html#Initial"><span class="hs-identifier hs-var">Initial</span></a></span></span><span>
+</span><span id="line-69"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AcontestationPeriod%3AInitial"><span class="annot"><span class="annottext">State -&gt; ContestationPeriod
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AcontestationPeriod%3AInitial"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Data.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span><span>
+</span><span id="line-70"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aparties%3AInitial"><span class="annot"><span class="annottext">State -&gt; [Party]
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Aparties%3AInitial"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-71"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AheadId%3AInitial"><span class="annot"><span class="annottext">State -&gt; CurrencySymbol
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AheadId%3AInitial"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span>
+</span><span id="line-72"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aseed%3AInitial"><span class="annot"><span class="annottext">State -&gt; TxOutRef
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Aseed%3AInitial"><span class="hs-identifier hs-var hs-var">seed</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span>
+</span><span id="line-73"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-74"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Open"><span class="annot"><a href="Hydra.Contract.HeadState.html#Open"><span class="hs-identifier hs-var">Open</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#OpenDatum"><span class="hs-identifier hs-type">OpenDatum</span></a></span><span>
+</span><span id="line-75"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Closed"><span class="annot"><a href="Hydra.Contract.HeadState.html#Closed"><span class="hs-identifier hs-var">Closed</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#ClosedDatum"><span class="hs-identifier hs-type">ClosedDatum</span></a></span><span>
+</span><span id="line-76"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Final"><span class="annot"><a href="Hydra.Contract.HeadState.html#Final"><span class="hs-identifier hs-var">Final</span></a></span></span><span>
+</span><span id="line-77"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679493957"><span id="local-6989586621679493959"><span class="annot"><span class="annottext">(forall x. State -&gt; Rep State x)
+-&gt; (forall x. Rep State x -&gt; State) -&gt; Generic State
+forall x. Rep State x -&gt; State
+forall x. State -&gt; Rep State x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. State -&gt; Rep State x
+from :: forall x. State -&gt; Rep State x
+$cto :: forall x. Rep State x -&gt; State
+to :: forall x. Rep State x -&gt; State
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679493962"><span id="local-6989586621679493975"><span id="local-6989586621679493979"><span class="annot"><span class="annottext">Int -&gt; State -&gt; ShowS
+[State] -&gt; ShowS
+State -&gt; String
+(Int -&gt; State -&gt; ShowS)
+-&gt; (State -&gt; String) -&gt; ([State] -&gt; ShowS) -&gt; Show State
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; State -&gt; ShowS
+showsPrec :: Int -&gt; State -&gt; ShowS
+$cshow :: State -&gt; String
+show :: State -&gt; String
+$cshowList :: [State] -&gt; ShowS
+showList :: [State] -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span id="local-6989586621679493982"><span id="local-6989586621679493996"><span id="local-6989586621679493998"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">State</span></span></span></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="annot"><span class="hs-comment">-- | Sub-type for close transition with auxiliary data as needed.</span></span><span>
+</span><span id="line-82"></span><span class="hs-keyword">data</span><span> </span><span id="CloseRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#CloseRedeemer"><span class="hs-identifier hs-var">CloseRedeemer</span></a></span></span><span>
+</span><span id="line-83"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-comment">-- | Initial snapshot is used to close.</span></span><span>
+</span><span id="line-84"></span><span>    </span><span id="CloseInitial"><span class="annot"><a href="Hydra.Contract.HeadState.html#CloseInitial"><span class="hs-identifier hs-var">CloseInitial</span></a></span></span><span>
+</span><span id="line-85"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Any snapshot which doesn't contain anything to inc/decrement but snapshot number is higher than zero.</span></span><span>
+</span><span id="line-86"></span><span>    </span><span id="CloseAny"><span class="annot"><a href="Hydra.Contract.HeadState.html#CloseAny"><span class="hs-identifier hs-var">CloseAny</span></a></span></span><span>
+</span><span id="line-87"></span><span>      </span><span class="hs-special">{</span><span id="%24sel%3Asignature%3ACloseInitial"><span class="annot"><span class="annottext">CloseRedeemer -&gt; [Hash]
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3ACloseInitial"><span class="hs-keyword hs-var hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span class="hs-special">}</span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Closing snapshot refers to the current state version</span></span><span>
+</span><span id="line-89"></span><span>    </span><span id="CloseUnusedDec"><span class="annot"><a href="Hydra.Contract.HeadState.html#CloseUnusedDec"><span class="hs-identifier hs-var">CloseUnusedDec</span></a></span></span><span>
+</span><span id="line-90"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3ACloseInitial"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3ACloseInitial"><span class="hs-keyword hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-91"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Multi-signature of a snapshot &#958;</span></span><span>
+</span><span id="line-92"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-93"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Closing snapshot refers to the previous state version</span></span><span>
+</span><span id="line-94"></span><span>    </span><span id="CloseUsedDec"><span class="annot"><a href="Hydra.Contract.HeadState.html#CloseUsedDec"><span class="hs-identifier hs-var">CloseUsedDec</span></a></span></span><span>
+</span><span id="line-95"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3ACloseInitial"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3ACloseInitial"><span class="hs-keyword hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-96"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Multi-signature of a snapshot &#958;</span></span><span>
+</span><span id="line-97"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AalreadyDecommittedUTxOHash%3ACloseInitial"><span class="annot"><span class="annottext">CloseRedeemer -&gt; Hash
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AalreadyDecommittedUTxOHash%3ACloseInitial"><span class="hs-identifier hs-var hs-var">alreadyDecommittedUTxOHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
+</span><span id="line-98"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ UTxO which was already decommitted &#951;&#969;</span></span><span>
+</span><span id="line-99"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-100"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Closing snapshot refers to the current state version</span></span><span>
+</span><span id="line-101"></span><span>    </span><span id="CloseUnusedInc"><span class="annot"><a href="Hydra.Contract.HeadState.html#CloseUnusedInc"><span class="hs-identifier hs-var">CloseUnusedInc</span></a></span></span><span>
+</span><span id="line-102"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3ACloseInitial"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3ACloseInitial"><span class="hs-keyword hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-103"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Multi-signature of a snapshot &#958;</span></span><span>
+</span><span id="line-104"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AalreadyCommittedUTxOHash%3ACloseInitial"><span class="annot"><span class="annottext">CloseRedeemer -&gt; Hash
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AalreadyCommittedUTxOHash%3ACloseInitial"><span class="hs-identifier hs-var hs-var">alreadyCommittedUTxOHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
+</span><span id="line-105"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ UTxO which was signed but not committed &#951;&#945;</span></span><span>
+</span><span id="line-106"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-107"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Closing snapshot refers to the previous state version</span></span><span>
+</span><span id="line-108"></span><span>    </span><span id="CloseUsedInc"><span class="annot"><a href="Hydra.Contract.HeadState.html#CloseUsedInc"><span class="hs-identifier hs-var">CloseUsedInc</span></a></span></span><span>
+</span><span id="line-109"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3ACloseInitial"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3ACloseInitial"><span class="hs-keyword hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-110"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Multi-signature of a snapshot &#958;</span></span><span>
+</span><span id="line-111"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AalreadyCommittedUTxOHash%3ACloseInitial"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3AalreadyCommittedUTxOHash%3ACloseInitial"><span class="hs-identifier hs-var">alreadyCommittedUTxOHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
+</span><span id="line-112"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ UTxO which was already committed &#951;&#945;</span></span><span>
+</span><span id="line-113"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-114"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679494058"><span id="local-6989586621679494074"><span id="local-6989586621679494078"><span class="annot"><span class="annottext">Int -&gt; CloseRedeemer -&gt; ShowS
+[CloseRedeemer] -&gt; ShowS
+CloseRedeemer -&gt; String
+(Int -&gt; CloseRedeemer -&gt; ShowS)
+-&gt; (CloseRedeemer -&gt; String)
+-&gt; ([CloseRedeemer] -&gt; ShowS)
+-&gt; Show CloseRedeemer
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; CloseRedeemer -&gt; ShowS
+showsPrec :: Int -&gt; CloseRedeemer -&gt; ShowS
+$cshow :: CloseRedeemer -&gt; String
+show :: CloseRedeemer -&gt; String
+$cshowList :: [CloseRedeemer] -&gt; ShowS
+showList :: [CloseRedeemer] -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494081"><span id="local-6989586621679494083"><span class="annot"><span class="annottext">(forall x. CloseRedeemer -&gt; Rep CloseRedeemer x)
+-&gt; (forall x. Rep CloseRedeemer x -&gt; CloseRedeemer)
+-&gt; Generic CloseRedeemer
+forall x. Rep CloseRedeemer x -&gt; CloseRedeemer
+forall x. CloseRedeemer -&gt; Rep CloseRedeemer x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. CloseRedeemer -&gt; Rep CloseRedeemer x
+from :: forall x. CloseRedeemer -&gt; Rep CloseRedeemer x
+$cto :: forall x. Rep CloseRedeemer x -&gt; CloseRedeemer
+to :: forall x. Rep CloseRedeemer x -&gt; CloseRedeemer
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span id="local-6989586621679494086"><span id="local-6989586621679494103"><span id="local-6989586621679494105"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">CloseRedeemer</span></span></span></span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span class="annot"><span class="hs-comment">-- | Sub-type for contest transition with auxiliary data as needed.</span></span><span>
+</span><span id="line-119"></span><span class="hs-keyword">data</span><span> </span><span id="ContestRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#ContestRedeemer"><span class="hs-identifier hs-var">ContestRedeemer</span></a></span></span><span>
+</span><span id="line-120"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-comment">-- | Contesting snapshot refers to the current state version</span></span><span>
+</span><span id="line-121"></span><span>    </span><span id="ContestCurrent"><span class="annot"><a href="Hydra.Contract.HeadState.html#ContestCurrent"><span class="hs-identifier hs-var">ContestCurrent</span></a></span></span><span>
+</span><span id="line-122"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3AContestCurrent"><span class="annot"><span class="annottext">ContestRedeemer -&gt; [Hash]
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3AContestCurrent"><span class="hs-keyword hs-var hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-123"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Multi-signature of a snapshot &#958;</span></span><span>
+</span><span id="line-124"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-125"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Contesting snapshot refers to the previous state version</span></span><span>
+</span><span id="line-126"></span><span>    </span><span id="ContestUsedDec"><span class="annot"><a href="Hydra.Contract.HeadState.html#ContestUsedDec"><span class="hs-identifier hs-var">ContestUsedDec</span></a></span></span><span>
+</span><span id="line-127"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3AContestCurrent"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3AContestCurrent"><span class="hs-keyword hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-128"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Multi-signature of a snapshot &#958;</span></span><span>
+</span><span id="line-129"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AalreadyDecommittedUTxOHash%3AContestCurrent"><span class="annot"><span class="annottext">ContestRedeemer -&gt; Hash
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AalreadyDecommittedUTxOHash%3AContestCurrent"><span class="hs-identifier hs-var hs-var">alreadyDecommittedUTxOHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
+</span><span id="line-130"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ UTxO which was already decommitted &#951;&#969;</span></span><span>
+</span><span id="line-131"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-132"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Redeemer to use when the decommit was not yet observed but we closed the Head.</span></span><span>
+</span><span id="line-133"></span><span>    </span><span id="ContestUnusedDec"><span class="annot"><a href="Hydra.Contract.HeadState.html#ContestUnusedDec"><span class="hs-identifier hs-var">ContestUnusedDec</span></a></span></span><span>
+</span><span id="line-134"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3AContestCurrent"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3AContestCurrent"><span class="hs-keyword hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-135"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Multi-signature of a snapshot &#958;</span></span><span>
+</span><span id="line-136"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-137"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Redeemer to use when the commit was not yet observed but we closed the Head.</span></span><span>
+</span><span id="line-138"></span><span>    </span><span id="ContestUnusedInc"><span class="annot"><a href="Hydra.Contract.HeadState.html#ContestUnusedInc"><span class="hs-identifier hs-var">ContestUnusedInc</span></a></span></span><span>
+</span><span id="line-139"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3AContestCurrent"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3AContestCurrent"><span class="hs-keyword hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-140"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Multi-signature of a snapshot &#958;</span></span><span>
+</span><span id="line-141"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AalreadyCommittedUTxOHash%3AContestCurrent"><span class="annot"><span class="annottext">ContestRedeemer -&gt; Hash
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AalreadyCommittedUTxOHash%3AContestCurrent"><span class="hs-identifier hs-var hs-var">alreadyCommittedUTxOHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
+</span><span id="line-142"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ UTxO which was already committed &#951;&#945;</span></span><span>
+</span><span id="line-143"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-144"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ContestUsedInc"><span class="annot"><a href="Hydra.Contract.HeadState.html#ContestUsedInc"><span class="hs-identifier hs-var">ContestUsedInc</span></a></span></span><span>
+</span><span id="line-145"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3AContestCurrent"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3AContestCurrent"><span class="hs-keyword hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-146"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Multi-signature of a snapshot &#958;</span></span><span>
+</span><span id="line-147"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-148"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679494174"><span id="local-6989586621679494189"><span id="local-6989586621679494193"><span class="annot"><span class="annottext">Int -&gt; ContestRedeemer -&gt; ShowS
+[ContestRedeemer] -&gt; ShowS
+ContestRedeemer -&gt; String
+(Int -&gt; ContestRedeemer -&gt; ShowS)
+-&gt; (ContestRedeemer -&gt; String)
+-&gt; ([ContestRedeemer] -&gt; ShowS)
+-&gt; Show ContestRedeemer
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ContestRedeemer -&gt; ShowS
+showsPrec :: Int -&gt; ContestRedeemer -&gt; ShowS
+$cshow :: ContestRedeemer -&gt; String
+show :: ContestRedeemer -&gt; String
+$cshowList :: [ContestRedeemer] -&gt; ShowS
+showList :: [ContestRedeemer] -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494196"><span id="local-6989586621679494198"><span class="annot"><span class="annottext">(forall x. ContestRedeemer -&gt; Rep ContestRedeemer x)
+-&gt; (forall x. Rep ContestRedeemer x -&gt; ContestRedeemer)
+-&gt; Generic ContestRedeemer
+forall x. Rep ContestRedeemer x -&gt; ContestRedeemer
+forall x. ContestRedeemer -&gt; Rep ContestRedeemer x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. ContestRedeemer -&gt; Rep ContestRedeemer x
+from :: forall x. ContestRedeemer -&gt; Rep ContestRedeemer x
+$cto :: forall x. Rep ContestRedeemer x -&gt; ContestRedeemer
+to :: forall x. Rep ContestRedeemer x -&gt; ContestRedeemer
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span id="local-6989586621679494201"><span id="local-6989586621679494216"><span id="local-6989586621679494218"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">ContestRedeemer</span></span></span></span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span class="annot"><span class="hs-comment">-- | Sub-type for increment transition</span></span><span>
+</span><span id="line-153"></span><span class="hs-keyword">data</span><span> </span><span id="IncrementRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#IncrementRedeemer"><span class="hs-identifier hs-var">IncrementRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="IncrementRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#IncrementRedeemer"><span class="hs-identifier hs-var">IncrementRedeemer</span></a></span></span><span>
+</span><span id="line-154"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3AIncrementRedeemer"><span class="annot"><span class="annottext">IncrementRedeemer -&gt; [Hash]
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3AIncrementRedeemer"><span class="hs-keyword hs-var hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-155"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsnapshotNumber%3AIncrementRedeemer"><span class="annot"><span class="annottext">IncrementRedeemer -&gt; SnapshotVersion
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AsnapshotNumber%3AIncrementRedeemer"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#SnapshotNumber"><span class="hs-identifier hs-type">SnapshotNumber</span></a></span><span>
+</span><span id="line-156"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aincrement%3AIncrementRedeemer"><span class="annot"><span class="annottext">IncrementRedeemer -&gt; TxOutRef
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Aincrement%3AIncrementRedeemer"><span class="hs-identifier hs-var hs-var">increment</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span>
+</span><span id="line-157"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-158"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679494277"><span id="local-6989586621679494284"><span id="local-6989586621679494288"><span class="annot"><span class="annottext">Int -&gt; IncrementRedeemer -&gt; ShowS
+[IncrementRedeemer] -&gt; ShowS
+IncrementRedeemer -&gt; String
+(Int -&gt; IncrementRedeemer -&gt; ShowS)
+-&gt; (IncrementRedeemer -&gt; String)
+-&gt; ([IncrementRedeemer] -&gt; ShowS)
+-&gt; Show IncrementRedeemer
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; IncrementRedeemer -&gt; ShowS
+showsPrec :: Int -&gt; IncrementRedeemer -&gt; ShowS
+$cshow :: IncrementRedeemer -&gt; String
+show :: IncrementRedeemer -&gt; String
+$cshowList :: [IncrementRedeemer] -&gt; ShowS
+showList :: [IncrementRedeemer] -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494291"><span id="local-6989586621679494293"><span class="annot"><span class="annottext">(forall x. IncrementRedeemer -&gt; Rep IncrementRedeemer x)
+-&gt; (forall x. Rep IncrementRedeemer x -&gt; IncrementRedeemer)
+-&gt; Generic IncrementRedeemer
+forall x. Rep IncrementRedeemer x -&gt; IncrementRedeemer
+forall x. IncrementRedeemer -&gt; Rep IncrementRedeemer x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. IncrementRedeemer -&gt; Rep IncrementRedeemer x
+from :: forall x. IncrementRedeemer -&gt; Rep IncrementRedeemer x
+$cto :: forall x. Rep IncrementRedeemer x -&gt; IncrementRedeemer
+to :: forall x. Rep IncrementRedeemer x -&gt; IncrementRedeemer
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span id="local-6989586621679494296"><span id="local-6989586621679494303"><span id="local-6989586621679494305"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">IncrementRedeemer</span></span></span></span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span class="annot"><span class="hs-comment">-- | Sub-type for decrement transition with auxiliary data as needed.</span></span><span>
+</span><span id="line-163"></span><span class="hs-keyword">data</span><span> </span><span id="DecrementRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#DecrementRedeemer"><span class="hs-identifier hs-var">DecrementRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="DecrementRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#DecrementRedeemer"><span class="hs-identifier hs-var">DecrementRedeemer</span></a></span></span><span>
+</span><span id="line-164"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asignature%3ADecrementRedeemer"><span class="annot"><span class="annottext">DecrementRedeemer -&gt; [Hash]
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Asignature%3ADecrementRedeemer"><span class="hs-keyword hs-var hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.HeadState.html#Signature"><span class="hs-identifier hs-type">Signature</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-165"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: &#958;</span></span><span>
+</span><span id="line-166"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsnapshotNumber%3ADecrementRedeemer"><span class="annot"><span class="annottext">DecrementRedeemer -&gt; SnapshotVersion
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AsnapshotNumber%3ADecrementRedeemer"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#SnapshotNumber"><span class="hs-identifier hs-type">SnapshotNumber</span></a></span><span>
+</span><span id="line-167"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: s</span></span><span>
+</span><span id="line-168"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AnumberOfDecommitOutputs%3ADecrementRedeemer"><span class="annot"><span class="annottext">DecrementRedeemer -&gt; SnapshotVersion
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AnumberOfDecommitOutputs%3ADecrementRedeemer"><span class="hs-identifier hs-var hs-var">numberOfDecommitOutputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-169"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: m</span></span><span>
+</span><span id="line-170"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-171"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679494340"><span id="local-6989586621679494347"><span id="local-6989586621679494351"><span class="annot"><span class="annottext">Int -&gt; DecrementRedeemer -&gt; ShowS
+[DecrementRedeemer] -&gt; ShowS
+DecrementRedeemer -&gt; String
+(Int -&gt; DecrementRedeemer -&gt; ShowS)
+-&gt; (DecrementRedeemer -&gt; String)
+-&gt; ([DecrementRedeemer] -&gt; ShowS)
+-&gt; Show DecrementRedeemer
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; DecrementRedeemer -&gt; ShowS
+showsPrec :: Int -&gt; DecrementRedeemer -&gt; ShowS
+$cshow :: DecrementRedeemer -&gt; String
+show :: DecrementRedeemer -&gt; String
+$cshowList :: [DecrementRedeemer] -&gt; ShowS
+showList :: [DecrementRedeemer] -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494354"><span id="local-6989586621679494356"><span class="annot"><span class="annottext">(forall x. DecrementRedeemer -&gt; Rep DecrementRedeemer x)
+-&gt; (forall x. Rep DecrementRedeemer x -&gt; DecrementRedeemer)
+-&gt; Generic DecrementRedeemer
+forall x. Rep DecrementRedeemer x -&gt; DecrementRedeemer
+forall x. DecrementRedeemer -&gt; Rep DecrementRedeemer x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. DecrementRedeemer -&gt; Rep DecrementRedeemer x
+from :: forall x. DecrementRedeemer -&gt; Rep DecrementRedeemer x
+$cto :: forall x. Rep DecrementRedeemer x -&gt; DecrementRedeemer
+to :: forall x. Rep DecrementRedeemer x -&gt; DecrementRedeemer
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span id="local-6989586621679494359"><span id="local-6989586621679494366"><span id="local-6989586621679494368"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">DecrementRedeemer</span></span></span></span><span>
+</span><span id="line-174"></span><span>
+</span><span id="line-175"></span><span class="hs-keyword">data</span><span> </span><span id="Input"><span class="annot"><a href="Hydra.Contract.HeadState.html#Input"><span class="hs-identifier hs-var">Input</span></a></span></span><span>
+</span><span id="line-176"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="CollectCom"><span class="annot"><a href="Hydra.Contract.HeadState.html#CollectCom"><span class="hs-identifier hs-var">CollectCom</span></a></span></span><span>
+</span><span id="line-177"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Increment"><span class="annot"><a href="Hydra.Contract.HeadState.html#Increment"><span class="hs-identifier hs-var">Increment</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#IncrementRedeemer"><span class="hs-identifier hs-type">IncrementRedeemer</span></a></span><span>
+</span><span id="line-178"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Decrement"><span class="annot"><a href="Hydra.Contract.HeadState.html#Decrement"><span class="hs-identifier hs-var">Decrement</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#DecrementRedeemer"><span class="hs-identifier hs-type">DecrementRedeemer</span></a></span><span>
+</span><span id="line-179"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Close"><span class="annot"><a href="Hydra.Contract.HeadState.html#Close"><span class="hs-identifier hs-var">Close</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#CloseRedeemer"><span class="hs-identifier hs-type">CloseRedeemer</span></a></span><span>
+</span><span id="line-180"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Contest"><span class="annot"><a href="Hydra.Contract.HeadState.html#Contest"><span class="hs-identifier hs-var">Contest</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#ContestRedeemer"><span class="hs-identifier hs-type">ContestRedeemer</span></a></span><span>
+</span><span id="line-181"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Abort"><span class="annot"><a href="Hydra.Contract.HeadState.html#Abort"><span class="hs-identifier hs-var">Abort</span></a></span></span><span>
+</span><span id="line-182"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Fanout"><span class="annot"><a href="Hydra.Contract.HeadState.html#Fanout"><span class="hs-identifier hs-var">Fanout</span></a></span></span><span>
+</span><span id="line-183"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AnumberOfFanoutOutputs%3ACollectCom"><span class="annot"><span class="annottext">Input -&gt; SnapshotVersion
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AnumberOfFanoutOutputs%3ACollectCom"><span class="hs-identifier hs-var hs-var">numberOfFanoutOutputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-184"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AnumberOfCommitOutputs%3ACollectCom"><span class="annot"><span class="annottext">Input -&gt; SnapshotVersion
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AnumberOfCommitOutputs%3ACollectCom"><span class="hs-identifier hs-var hs-var">numberOfCommitOutputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-185"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AnumberOfDecommitOutputs%3ACollectCom"><span class="annot"><span class="annottext">Input -&gt; SnapshotVersion
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AnumberOfDecommitOutputs%3ACollectCom"><span class="hs-identifier hs-var hs-var">numberOfDecommitOutputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-186"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-187"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679494409"><span id="local-6989586621679494411"><span class="annot"><span class="annottext">(forall x. Input -&gt; Rep Input x)
+-&gt; (forall x. Rep Input x -&gt; Input) -&gt; Generic Input
+forall x. Rep Input x -&gt; Input
+forall x. Input -&gt; Rep Input x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. Input -&gt; Rep Input x
+from :: forall x. Input -&gt; Rep Input x
+$cto :: forall x. Rep Input x -&gt; Input
+to :: forall x. Rep Input x -&gt; Input
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494414"><span id="local-6989586621679494428"><span id="local-6989586621679494432"><span class="annot"><span class="annottext">Int -&gt; Input -&gt; ShowS
+[Input] -&gt; ShowS
+Input -&gt; String
+(Int -&gt; Input -&gt; ShowS)
+-&gt; (Input -&gt; String) -&gt; ([Input] -&gt; ShowS) -&gt; Show Input
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; Input -&gt; ShowS
+showsPrec :: Int -&gt; Input -&gt; ShowS
+$cshow :: Input -&gt; String
+show :: Input -&gt; String
+$cshowList :: [Input] -&gt; ShowS
+showList :: [Input] -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-188"></span><span>
+</span><span id="line-189"></span><span id="local-6989586621679494435"><span id="local-6989586621679494451"><span id="local-6989586621679494453"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">Input</span></span></span></span><span>
+</span><span id="line-190"></span></pre></body></html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cardano.Api.PolicyId</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Alonzo.Plutus.TxInfo</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Mary.Value</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">FromJSONKey</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ToJSONKey</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.ScriptHash.html"><span class="hs-identifier">Hydra.Cardano.Api.ScriptHash</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CurrencySymbol</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromBuiltin</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">unCurrencySymbol</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Gen.Cardano.Api.Typed</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">genPolicyId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Hedgehog</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">hedgehog</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="annot"><span class="hs-comment">-- * Orphans</span></span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679291658"><span id="local-6989586621679291664"><span class="annot"><span class="hs-identifier hs-type">ToJSONKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span></span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679291669"><span id="local-6989586621679291675"><span class="annot"><span class="hs-identifier hs-type">FromJSONKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span></span></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679291681"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-21"></span><span>  </span><span id="local-6989586621679291685"><span class="annot"><span class="annottext">arbitrary :: Gen PolicyId
+</span><a href="#local-6989586621679291685"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen PolicyId -&gt; Gen PolicyId
+forall a. Gen a -&gt; Gen a
+</span><span class="hs-identifier hs-var">hedgehog</span></span><span> </span><span class="annot"><span class="annottext">Gen PolicyId
+</span><span class="hs-identifier hs-var">genPolicyId</span></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="annot"><span class="hs-comment">-- * Type conversions</span></span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="annot"><span class="hs-comment">-- | Convert Cardano api 'PolicyId' to Cardano ledger `PolicyID`.</span></span><span>
+</span><span id="line-26"></span><span class="annot"><a href="Hydra.Cardano.Api.PolicyId.html#toLedgerPolicyID"><span class="hs-identifier hs-type">toLedgerPolicyID</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.PolicyID</span></span><span>
+</span><span id="line-27"></span><span id="toLedgerPolicyID"><span class="annot"><span class="annottext">toLedgerPolicyID :: PolicyId -&gt; PolicyID
+</span><a href="Hydra.Cardano.Api.PolicyId.html#toLedgerPolicyID"><span class="hs-identifier hs-var hs-var">toLedgerPolicyID</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span><span> </span><span id="local-6989586621679291689"><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679291689"><span class="hs-identifier hs-var">sh</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ScriptHash -&gt; PolicyID
+</span><span class="hs-identifier hs-var">Ledger.PolicyID</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ScriptHash -&gt; ScriptHash
+</span><span class="hs-identifier hs-var">toShelleyScriptHash</span></span><span> </span><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679291689"><span class="hs-identifier hs-var">sh</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="annot"><span class="hs-comment">-- | Convert Cardano api 'PolicyId' to Plutus `CurrencySymbol`.</span></span><span>
+</span><span id="line-30"></span><span class="annot"><a href="Hydra.Cardano.Api.PolicyId.html#toPlutusCurrencySymbol"><span class="hs-identifier hs-type">toPlutusCurrencySymbol</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span>
+</span><span id="line-31"></span><span id="toPlutusCurrencySymbol"><span class="annot"><span class="annottext">toPlutusCurrencySymbol :: PolicyId -&gt; CurrencySymbol
+</span><a href="Hydra.Cardano.Api.PolicyId.html#toPlutusCurrencySymbol"><span class="hs-identifier hs-var hs-var">toPlutusCurrencySymbol</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolicyID -&gt; CurrencySymbol
+</span><span class="hs-identifier hs-var">Ledger.transPolicyID</span></span><span> </span><span class="annot"><span class="annottext">(PolicyID -&gt; CurrencySymbol)
+-&gt; (PolicyId -&gt; PolicyID) -&gt; PolicyId -&gt; CurrencySymbol
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; PolicyID
+</span><a href="Hydra.Cardano.Api.PolicyId.html#toLedgerPolicyID"><span class="hs-identifier hs-var">toLedgerPolicyID</span></a></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="annot"><span class="hs-comment">-- | Convert a plutus 'CurrencySymbol' into a cardano-api 'PolicyId'.</span></span><span>
+</span><span id="line-34"></span><span id="local-6989586621679291633"><span class="annot"><a href="Hydra.Cardano.Api.PolicyId.html#fromPlutusCurrencySymbol"><span class="hs-identifier hs-type">fromPlutusCurrencySymbol</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679291633"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679291633"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span></span><span>
+</span><span id="line-35"></span><span id="fromPlutusCurrencySymbol"><span class="annot"><span class="annottext">fromPlutusCurrencySymbol :: forall (m :: * -&gt; *). MonadFail m =&gt; CurrencySymbol -&gt; m PolicyId
+</span><a href="Hydra.Cardano.Api.PolicyId.html#fromPlutusCurrencySymbol"><span class="hs-identifier hs-var hs-var">fromPlutusCurrencySymbol</span></a></span></span><span> </span><span id="local-6989586621679291709"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679291709"><span class="hs-identifier hs-var">cs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">AsType PolicyId
+-&gt; ByteString -&gt; Either SerialiseAsRawBytesError PolicyId
+forall a.
+SerialiseAsRawBytes a =&gt;
+AsType a -&gt; ByteString -&gt; Either SerialiseAsRawBytesError a
+</span><span class="hs-identifier hs-var">deserialiseFromRawBytes</span></span><span> </span><span class="annot"><span class="annottext">AsType PolicyId
+</span><span class="hs-identifier hs-var">AsPolicyId</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+FromBuiltin BuiltinByteString
+</span><a href="#local-6989586621679291712"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679291713"><span class="annot"><span class="annottext">SerialiseAsRawBytesError
+</span><a href="#local-6989586621679291713"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m PolicyId
+forall a. String -&gt; m a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SerialiseAsRawBytesError -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError
+</span><a href="#local-6989586621679291713"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679291715"><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679291715"><span class="hs-identifier hs-var">pid</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; m PolicyId
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679291715"><span class="hs-identifier hs-var">pid</span></a></span><span>
+</span><span id="line-39"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-40"></span><span>  </span><span id="local-6989586621679291712"><span class="annot"><span class="annottext">bytes :: FromBuiltin BuiltinByteString
+</span><a href="#local-6989586621679291712"><span class="hs-identifier hs-var hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; FromBuiltin BuiltinByteString
+forall arep. HasFromBuiltin arep =&gt; arep -&gt; FromBuiltin arep
+</span><span class="hs-identifier hs-var">fromBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; FromBuiltin BuiltinByteString)
+-&gt; BuiltinByteString -&gt; FromBuiltin BuiltinByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; BuiltinByteString
+</span><span class="hs-identifier hs-var">unCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679291709"><span class="hs-identifier hs-var">cs</span></a></span><span>
+</span><span id="line-41"></span></pre></body></html>
