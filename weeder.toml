@@ -34,6 +34,7 @@ root-instances = [
   { module = "Hydra.Contract.Deposit", instance = "FromData DepositRedeemer" },
   { module = "Hydra.Contract.MintAction", instance = "FromData MintAction" },
   { module = "Hydra.Contract.Initial", instance = "UnsafeFromData RedeemerType" },
+  { module = "Hydra.Contract.Dummy", instance = "FromData R" },
   # This one is odd.
   { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" },
   # TODO: Remove this
