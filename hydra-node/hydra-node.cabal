@@ -184,7 +184,7 @@ library
     , warp-tls
     , websockets
 
-  ghc-options:     -haddock
+  ghc-options:     -haddock -fno-warn-unused-packages
 
 library testlib
   import:          project-config
