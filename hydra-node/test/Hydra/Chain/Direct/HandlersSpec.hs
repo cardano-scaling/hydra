@@ -57,6 +57,8 @@ import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
 import Hydra.Tx.HeadParameters (HeadParameters)
 import Hydra.Tx.OnChainId (OnChainId)
+import Test.Hspec (Spec, describe, shouldBe, shouldThrow)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   counterexample,

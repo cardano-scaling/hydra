@@ -3,7 +3,7 @@
 module Hydra.BehaviorSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
+import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar,
@@ -55,6 +55,8 @@ import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
+import Test.Hspec (Spec, describe, it, parallel, shouldContain)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,

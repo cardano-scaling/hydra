@@ -4,6 +4,8 @@
 module Hydra.Tx.Contract.ContractSpec where
 
 import Hydra.Prelude hiding (label)
+import Test.Hspec (Spec, describe, parallel)
+import Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO

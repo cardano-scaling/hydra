@@ -24,6 +24,8 @@ import Test.Aeson.GenericSpecs (
   roundtripAndGoldenSpecsWithSettings,
   sampleSize,
  )
+import Test.Hspec (Spec, describe)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (forAllShrink, ioProperty, sublistOf, (===))
 import Test.QuickCheck.Gen (listOf)
 

@@ -4,6 +4,8 @@
 module Hydra.NetworkSpec where
 
 import Hydra.Prelude
+import Test.Hspec (Spec, around, describe, it, shouldReturn, shouldSatisfy, xit)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Prelude
 
 import Codec.CBOR.Read (deserialiseFromBytes)

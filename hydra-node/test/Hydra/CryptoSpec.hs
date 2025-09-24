@@ -6,7 +6,8 @@ module Hydra.CryptoSpec where
 import Hydra.Tx.Crypto
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hspec (Spec, describe, it, shouldContain, shouldEndWith, shouldNotBe)
+import Test.Hspec.QuickCheck (prop)
 
 import Cardano.Crypto.DSIGN (SigDSIGN (SigEd25519DSIGN))
 import Cardano.Crypto.PinnedSizedBytes (psbFromByteString)

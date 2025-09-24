@@ -19,6 +19,7 @@ import Hydra.Options (
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcessWithExitCode, readProcess)
+import Test.Hspec (Spec, around, describe, it, shouldBe, shouldContain, shouldSatisfy)
 import Test.QuickCheck (generate)
 
 spec :: Spec

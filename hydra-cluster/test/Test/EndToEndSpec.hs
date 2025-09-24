@@ -4,6 +4,7 @@
 module Test.EndToEndSpec where
 
 import Hydra.Prelude
+import Test.Hspec (Spec, around, describe, it, shouldBe, shouldContain, shouldReturn, shouldSatisfy, shouldThrow)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO

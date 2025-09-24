@@ -43,6 +43,8 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hspec (Expectation, Spec, describe, it, parallel, pendingWith, shouldBe, shouldSatisfy)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Positive (..), Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
 

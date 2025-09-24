@@ -11,6 +11,7 @@ import Data.Text qualified as Text
 import Hydra.Logging (Envelope (..), Verbosity (Verbose), withTracer)
 import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, loadAll)
 import Hydra.PersistenceLog
+import Test.Hspec (Spec, describe, it, shouldReturn, shouldSatisfy)
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)

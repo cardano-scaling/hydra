@@ -2,13 +2,13 @@
 module Hydra.Events.UDPSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Control.Monad.Trans.Resource (runResourceT)
 import Data.ByteString.Char8 qualified as BS8
 import Hydra.Events (EventId, EventSink (..), putEvent)
 import Hydra.Events.UDP (newUDPEventSink, withUDPEventSink)
 import Network.UDP (recvFrom, serverSocket, stop)
+import Test.Hspec (Spec, describe, it, shouldContain)
 import Test.Network.Ports (withFreePort)
 
 spec :: Spec

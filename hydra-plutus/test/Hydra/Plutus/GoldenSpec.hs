@@ -11,7 +11,7 @@
 module Hydra.Plutus.GoldenSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hspec (Spec, it, shouldBe)
 
 import Hydra.Cardano.Api (
   File (..),

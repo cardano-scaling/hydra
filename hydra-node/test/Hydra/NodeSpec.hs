@@ -42,6 +42,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party, deriveParty)
+import Test.Hspec (Spec, around, describe, it, parallel, shouldBe, shouldContain, shouldNotBe, shouldReturn, shouldSatisfy, shouldThrow)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (
   alice,

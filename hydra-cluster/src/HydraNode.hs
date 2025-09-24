@@ -49,7 +49,8 @@ import System.Process.Typed (
   waitExitCode,
   withProcessTerm,
  )
-import Test.Hydra.Prelude (failAfter, failure, shouldNotBe, withLogFile)
+import Test.Hydra.Prelude (failAfter, failure, withLogFile)
+import Test.Hspec (shouldNotBe)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node

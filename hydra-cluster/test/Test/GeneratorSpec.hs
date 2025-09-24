@@ -3,7 +3,6 @@
 module Test.GeneratorSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Text (unpack)
@@ -19,6 +18,8 @@ import Hydra.Generator (
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (Globals, LedgerEnv, Tx, cardanoLedger, newLedgerEnv)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
+import Test.Hspec (Spec, parallel)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultPParams)
 import Test.QuickCheck (
   Positive (Positive),

@@ -10,7 +10,8 @@ import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
 import Hydra.Model.MockChain (scriptLedger)
 import Hydra.Prelude
 import Hydra.Tx.IsTx (IsTx (txId))
-import Test.Hydra.Prelude
+import Test.Hspec (Spec)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Property, Testable (property), counterexample, forAllBlind, (===))
 
 spec :: Spec

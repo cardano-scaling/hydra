@@ -57,6 +57,7 @@ import HydraNode (
  )
 import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
+import Test.Hspec (Expectation, Spec, around, context, it, pendingWith, shouldBe)
 import Test.QuickCheck (Positive (..))
 
 tuiContestationPeriod :: ContestationPeriod

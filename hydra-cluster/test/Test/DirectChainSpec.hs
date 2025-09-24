@@ -81,6 +81,7 @@ import Hydra.Tx.Utils (
  )
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcess)
+import Test.Hspec (Spec, around, it, shouldBe, shouldContain, shouldMatchList, shouldThrow)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, generate)
 

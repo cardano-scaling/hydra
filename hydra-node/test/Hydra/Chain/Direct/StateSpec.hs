@@ -122,6 +122,8 @@ import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hspec (Spec, SpecWith, describe, it, parallel)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
 import Test.Hydra.Tx.Gen (genOutput, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized)
 import Test.Hydra.Tx.Mutation (

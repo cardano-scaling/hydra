@@ -52,6 +52,8 @@ import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Gen.Cardano.Api.Typed (genHashableScriptData)
+import Test.Hspec (Spec, describe, parallel)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Tx.Fixture (
   pparams,
   testNetworkId,

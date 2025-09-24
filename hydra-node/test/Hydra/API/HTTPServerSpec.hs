@@ -1,7 +1,6 @@
 module Hydra.API.HTTPServerSpec where
 
 import Hydra.Prelude hiding (delete, get)
-import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.STM (newTChanIO, writeTChan)
@@ -47,6 +46,8 @@ import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hspec (Spec, describe, it, parallel, runIO)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), delete, get, post, shouldRespondWith, with)
 import Test.Hspec.Wai.Internal (withApplication)
 import Test.Hydra.Node.Fixture (testEnvironment)

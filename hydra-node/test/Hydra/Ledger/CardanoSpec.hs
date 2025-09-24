@@ -4,6 +4,8 @@ module Hydra.Ledger.CardanoSpec where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
+import Test.Hspec (Expectation, Spec, describe, it, parallel)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Prelude
 
 import Cardano.Ledger.Api (ensureMinCoinTxOut)

@@ -1,7 +1,6 @@
 module Hydra.Ledger.SimpleSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Data.Foldable (maximum)
 import Data.Set qualified as Set
@@ -9,6 +8,8 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Simple
 import Hydra.Tx.IsTx (IsTx (..))
+import Test.Hspec (Spec)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Property, choose, forAllShrink, getSize, shrinkList, sublistOf)
 
 spec :: Spec

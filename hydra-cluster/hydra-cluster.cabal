@@ -95,6 +95,7 @@ library
     , contra-tracer
     , directory
     , filepath
+    , hspec
     , http-conduit
     , http-types
     , hydra-cardano-api

@@ -1,7 +1,7 @@
 module Hydra.Node.RunSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hspec (Selector, Spec, it, shouldThrow)
 
 import Hydra.Node.Run (ConfigurationException, run)
 import Hydra.Options (

@@ -12,6 +12,7 @@ import Hydra.Logging (Envelope (..), Tracer, traceInTVar)
 import System.Directory (doesDirectoryExist)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (forEachKnownNetwork)
+import Test.Hspec (Spec, describe, parallel, pendingWith, shouldReturn)
 
 spec :: Spec
 spec = parallel $ do

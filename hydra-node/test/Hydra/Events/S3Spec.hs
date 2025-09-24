@@ -9,6 +9,8 @@ import Amazonka.Auth qualified as AWS
 import Amazonka.S3 qualified as AWS
 import Hydra.Events (EventId, EventSink (..), EventSource, HasEventId, getEvents)
 import Hydra.Events.S3 (fromObjectKey, newS3EventStore, purgeEvents, toObjectKey)
+import Test.Hspec (Spec, around, around_, describe, it, pendingWith, shouldBe, shouldReturn)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (chooseBoundedIntegral, counterexample, forAllShrink, ioProperty, sized, sublistOf, withMaxSuccess, (===))
 
 spec :: Spec

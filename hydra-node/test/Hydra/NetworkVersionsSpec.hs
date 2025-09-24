@@ -5,6 +5,8 @@ import Test.Hydra.Prelude
 
 import Data.Version (Version, makeVersion)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
+import Test.Hspec (Spec, describe, it, shouldSatisfy)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Property, counterexample, forAll, property)
 
 spec :: Spec

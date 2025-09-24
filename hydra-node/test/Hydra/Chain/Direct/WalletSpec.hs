@@ -3,7 +3,6 @@
 module Hydra.Chain.Direct.WalletSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
@@ -55,6 +54,8 @@ import Hydra.Chain.Direct.Wallet (
   findLargestUTxO,
   newTinyWallet,
  )
+import Test.Hspec (Expectation, Spec, describe, parallel, shouldBe, shouldReturn, shouldSatisfy)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genSigningKey)
 import Test.QuickCheck (

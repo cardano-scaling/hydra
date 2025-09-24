@@ -4,6 +4,7 @@
 module Test.Hydra.Cluster.HydraClientSpec where
 
 import Hydra.Prelude
+import Test.Hspec (Spec, around, it)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
