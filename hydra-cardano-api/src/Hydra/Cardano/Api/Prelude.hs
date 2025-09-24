@@ -1,7 +1,6 @@
 module Hydra.Cardano.Api.Prelude (
   module Cardano.Api,
   module Cardano.Api.Shelley,
-  module Data.Aeson,
   HasCallStack,
   Proxy (..),
   Typeable,
@@ -37,7 +36,6 @@ import Cardano.Api.UTxO (UTxO, UTxO' (..))
 import Cardano.Crypto.Hash.Class qualified as CC
 import Cardano.Ledger.Binary qualified as Ledger
 import Cardano.Ledger.Core qualified as Ledger
-import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (fromStrict, toStrict)
 import Data.Map (Map)
