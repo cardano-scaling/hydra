@@ -9,6 +9,14 @@
           # This overlay contains pkg-config mappings via haskell.nix to use the
           # crypto libraries above
           inputs.iohk-nix.overlays.haskell-nix-crypto
+          (final: prev: {
+            librust_accumulator = inputs.rust-accumulator.defaultPackage.${final.system};
+            haskell-nix = prev.haskell-nix // {
+              extraPkgconfigMappings = prev.haskell-nix.extraPkgconfigMappings or { } // {
+                "librust_accumulator" = [ "librust_accumulator" ];
+              };
+            };
+          })
           # Keep haskell.nix as the last overlay!
           #
           # Reason: haskell.nix modules/overlays needs to be last
