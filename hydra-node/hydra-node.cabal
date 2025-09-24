@@ -140,6 +140,7 @@ library
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3
+    , haskell-accumulator
     , http-types
     , hydra-cardano-api
     , hydra-plutus
