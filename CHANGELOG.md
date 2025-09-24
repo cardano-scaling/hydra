@@ -47,6 +47,9 @@ changes.
 - Optimistic approach to statefile corruption by just ignoring invalid JSON
   lines [#2253](https://github.com/cardano-scaling/hydra/issues/2253)
 
+- Select next deposit for ReqSn using FIFO, based on deposit created.
+  - See [#2263](https://github.com/cardano-scaling/hydra/issues/2263)
+
 ## [0.22.4] - 2025-08-05
 
 - Fix API not correctly handling event log rotation. This was evident in not

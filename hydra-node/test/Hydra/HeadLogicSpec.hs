@@ -20,18 +20,18 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
-import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (ChainPoint (..), fromLedgerTx, genBlockHeaderHash, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
   PostChainTx (CollectComTx, ContestTx),
  )
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
-import Hydra.Chain.Direct.State ()
+import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
-import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
+import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Connectivity)
@@ -187,6 +187,37 @@ spec =
                     }
           update bobEnv ledger (inOpenState threeParties) depositOtherHead `hasStateChangedSatisfying` \case
             DepositRecorded{headId, depositTxId} -> headId == otherHeadId && depositTxId == 1
+            _ -> False
+
+        it "on tick, picks the next active deposit in arrival when in Open state order for ReqSn" $ do
+          now <- getCurrentTime
+          let party = [alice]
+              depositTime = plusTime now
+          let deadline = depositTime 5 `plusTime` toNominalDiffTime (depositPeriod aliceEnv) `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+              deposit1 = OnDepositTx{headId = testHeadId, depositTxId = 1, deposited = utxoRef 1, created = depositTime 1, deadline}
+              deposit2 = OnDepositTx{headId = testHeadId, depositTxId = 2, deposited = utxoRef 2, created = depositTime 2, deadline}
+              deposit3 = OnDepositTx{headId = testHeadId, depositTxId = 3, deposited = utxoRef 3, created = depositTime 3, deadline}
+
+          nodeState <- runHeadLogic aliceEnv ledger (inOpenState party) $ do
+            step (observeTxAtSlot 1 deposit1)
+            step (observeTxAtSlot 2 deposit2)
+            step (observeTxAtSlot 3 deposit3)
+            getState
+
+          -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
+          -- so deposits are considered Active
+          let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+          let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4}
+
+          let outcome = update aliceEnv ledger nodeState input
+
+          forM_ [1, 2, 3] $ \depositId ->
+            outcome `hasStateChangedSatisfying` \case
+              DepositActivated{depositTxId} -> depositTxId == depositId
+              _ -> False
+
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 1
             _ -> False
 
       describe "Decommit" $ do
@@ -891,7 +922,111 @@ spec =
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot confirmedSnapshotOtherHead))
             `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
-    describe "Coordinated Head Protocol using real Tx" $
+    describe "Coordinated Head Protocol using real Tx" $ do
+      let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+      prop "on tick, picks the next active deposit in arrival when in Open state order for ReqSn" $ \now -> monadicIO $ do
+        let singleParty = [alice]
+            plusTime = flip addUTCTime
+            depositTime = plusTime now
+        let deadline = depositTime 5 `plusTime` toNominalDiffTime (depositPeriod aliceEnv) `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+        -- party payment keys
+        (vk, sk) <- pick genKeyPair
+        -- helper to build deposit tx
+        let mkDepositTx = do
+              txOut <- genOutput vk
+              utxo <- (,txOut) <$> genTxIn
+              mkSimpleTx
+                utxo
+                (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut)
+                sk
+                & \case
+                  Left _ -> Prelude.error "cannot generate deposit tx"
+                  Right tx -> pure (uncurry UTxO.singleton utxo, tx)
+        -- single party on empty Open state
+        blockHash <- pick genBlockHeaderHash
+        let st0 =
+              NodeState
+                { headState =
+                    Open
+                      OpenState
+                        { parameters = HeadParameters defaultContestationPeriod singleParty
+                        , coordinatedHeadState =
+                            CoordinatedHeadState
+                              { localUTxO = mempty
+                              , allTxs = mempty
+                              , localTxs = []
+                              , confirmedSnapshot = InitialSnapshot testHeadId mempty
+                              , seenSnapshot = NoSeenSnapshot
+                              , currentDepositTxId = Nothing
+                              , decommitTx = Nothing
+                              , version = 0
+                              }
+                        , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Just $ ChainPoint 0 blockHash}
+                        , headId = testHeadId
+                        , headSeed = testHeadSeed
+                        }
+                , pendingDeposits = mempty
+                , currentSlot = ChainSlot . fromIntegral . unSlotNo $ 0
+                }
+        -- deposit txs
+        (deposited1, depositTx1) <- pick mkDepositTx
+        (deposited2, depositTx2) <- pick mkDepositTx
+        (deposited3, depositTx3) <- pick mkDepositTx
+        -- deposit observations
+        let observeRealTxAtSlot slot observedTx = do
+              nextBlockHash <- genBlockHeaderHash
+              pure
+                ChainInput
+                  { chainEvent =
+                      Observation
+                        { observedTx
+                        , newChainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Just $ ChainPoint slot nextBlockHash}
+                        }
+                  }
+            deposit1 = OnDepositTx{headId = testHeadId, depositTxId = txId depositTx1, deposited = deposited1, created = depositTime 1, deadline}
+            deposit2 = OnDepositTx{headId = testHeadId, depositTxId = txId depositTx2, deposited = deposited2, created = depositTime 2, deadline}
+            deposit3 = OnDepositTx{headId = testHeadId, depositTxId = txId depositTx3, deposited = deposited3, created = depositTime 3, deadline}
+        depositObservation1 <- pick (observeRealTxAtSlot 1 deposit1)
+        depositObservation2 <- pick (observeRealTxAtSlot 2 deposit2)
+        depositObservation3 <- pick (observeRealTxAtSlot 3 deposit3)
+        nodeState <-
+          run $
+            runHeadLogic bobEnv ledger st0 $ do
+              step depositObservation1
+              step depositObservation2
+              step depositObservation3
+              getState
+
+        -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
+        -- so deposits are considered Active
+        let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+        let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4}
+
+        let outcome = update aliceEnv ledger nodeState input
+
+        forM_ [txId depositTx1, txId depositTx2, txId depositTx3] $ \depositId ->
+          assert $ case outcome of
+            Wait{} -> False
+            Error{} -> False
+            Continue{stateChanges} ->
+              any
+                ( \case
+                    DepositActivated{depositTxId} -> depositTxId == depositId
+                    _ -> False
+                )
+                stateChanges
+
+        assert $ case outcome of
+          Wait{} -> False
+          Error{} -> False
+          Continue{effects} ->
+            any
+              ( \case
+                  NetworkEffect ReqSn{depositTxId} -> depositTxId == Just (txId depositTx1)
+                  _ -> False
+              )
+              effects
+
       prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> monadicIO $ do
         (utxo, expiringTransaction) <- pick $ do
           (vk, sk) <- genKeyPair
@@ -905,8 +1040,7 @@ spec =
             & \case
               Left _ -> Prelude.error "cannot generate expired tx"
               Right tx -> pure (utxo, tx)
-        let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
-            st0 =
+        let st0 =
               NodeState
                 { headState =
                     Open
