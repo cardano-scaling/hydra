@@ -5,38 +5,40 @@ sidebar_position: 9
 # Best practices for dApp developers
 
 
-- Any dApp developer building on Hydra would benefit from the
-example/information on which validator checks are in order if we want to make
-sure the funds we want to commit are ending up in the correct Hydra Head
-instance.
+- Developers building decentralized applications (dApps) on the Hydra protocol
+would greatly benefit from clear guidance and examples detailing the validator
+checks required to ensure that committed funds are accurately directed to the
+intended Hydra Head instance.
 
-- In this document we would like to highlight the necessary checks for the
-user written validators and give concrete examples (using `PlutusTx`).
+- This document aims to outline the essential validator checks for user-written
+validators, providing concrete examples implemented using PlutusTx.
 
-- Let's start by taking a look at the graph showing how exactly the commit process looks like:
+
+- To begin, let us examine the diagram illustrating the commit process in detail:
 ![](./commit-process.jpg)
 
 <sub> Here rectangulars represent transactions and you can see the UTxO (with rounded corners) depicting transaction inputs and outputs together with their contents (datums, redeemers and assets)</sub>
 
-- Commit transaction takes as the input initial output crafted specially for every Head participant. Initial output contains information on `HeadId` in its redeemer and the datum caries information on what exactly are we trying to commit (which `TxOutRef`'s are to be committed, sorted beforehand).
+The commit transaction utilizes an initial output specifically crafted for each Hydra Head participant. This initial output includes the HeadId in its datum, while the redeemer contains details about the specific TxOutRef values to be committed, which are pre-sorted.
 
-- Initial validator is parametarized by the commit validator hash so in the user crafted validator it should be sufficient to check that:
-  - Initial input with correct hash is spent into the commit transaction.
-  - Initial input contains correct Head ID in it's redeemer.
+The initial validator is parameterized by the commit validator hash. In the user-defined validator, it is sufficient to verify that:
+    - The initial input with the correct hash is consumed in the commit transaction.
+    - The initial input’s datum contains the correct HeadId.
 
-- dApp builders can utilize script redeemer to carry this information. Let's start with building the actual validator from the user perspective!
+dApp developers can leverage the script redeemer to convey the necessary information.
 
-#### Building a secure user validator
+Let us now proceed with constructing the validator from the user’s perspective!
 
-In order to build any dApp on Hydra users want to commit their scripts into a
-Head. This brings custom programmability into the Head protocol and various
-dApps could be imagined.
 
-As a first step we should start by building such validator together with it's
-necessary checks.
+### Building a secure commit validator
 
-For this we will start with the basic `exampleValidator` that doesn't do anything yet:
+To develop decentralized applications (dApps) on the Hydra protocol, users must commit their scripts to a Hydra Head.
 
+This enables custom programmability within the Head protocol, unlocking the potential for a wide range of dApp implementations.
+
+As an initial step, we will focus on constructing a validator along with its essential checks.
+
+To begin, we will examine a basic exampleValidator that currently performs no operations:
 
 ```Haskell
 exampleValidator ::
@@ -58,7 +60,7 @@ exampleSecureValidatorScript =
 ```
 :::warning
 Code examples here are just explanatory and are not suitable for production use!
-They serve the purpose of giving dApp developers a general idea on how to check commit goes to the right Head instance.
+They serve the purpose of giving dApp developers a general idea on how to check that commit goes to the right Head instance.
 :::
 
 We mentioned we will use redeemer in our validator to carry information we need to do the actual checks. Let's define the redeemer first:
@@ -74,9 +76,7 @@ unstableMakeIsData ''R
 
 ```
 
-- To get the information on Hydra scripts hashes:
-
-
+To get the information on Hydra scripts hashes you can use hydra-node:
 
 ```
 hydra-node -- --hydra-script-catalogue
@@ -94,7 +94,12 @@ hydra-node -- --hydra-script-catalogue
 }
 ```
 
-- Now we are able to start working on validator checks. First, let's make sure correct initial input is spent. In order to do that we could grab all inputs and
+To get the information on `HeadId` easiest is to look at the persistence folder of your hydra-node and in the `state` file
+you should be able to find the headId. (NOTE: You need to initialize the Head first)
+
+Now we are able to start working on validator checks.
+
+First, let's make sure correct initial input is spent. In order to do that we could grab all inputs and
 make sure there is exactly one script input which `Address` corresponds to the initial validator hash we have set in our own script redeemer:
 
 ```Haskell
@@ -102,8 +107,8 @@ make sure there is exactly one script input which `Address` corresponds to the i
 
   findInitialInput :: ScriptHash -> Maybe TxInInfo
   findInitialInput initialScriptHash =
-    let allInputs = txInfoInputs info
-     in find (isInitialAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
+    let allInputs = List.fromSOP $ txInfoInputs info
+     in List.find (isInitialAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
 
   -- Check if an address is a script address with the specified script hash
   isInitialAddress :: ScriptHash -> Address -> Bool
@@ -113,17 +118,14 @@ make sure there is exactly one script input which `Address` corresponds to the i
       PubKeyCredential _ -> False
 ```
 
-- To check the correctness of the Head ID we can try to decode the initial datum which holds the `CurrencySymbol` of a Head and compare it with what is set in our
+To check the correctness of the Head ID we can try to decode the initial datum which holds the `CurrencySymbol` of a Head and compare it with what is set in our
 own script redeemer:
 
 ```Haskell
   extractDatum =
     case initialInput of
-      Nothing -> traceError "Initial input not found"
-      Just i ->
-        case decodeDatum (txInInfoResolved i) of
-          Just cs -> Just cs
-          Nothing -> Nothing
+      Nothing -> traceError "Initial input not found, cannot decode datum"
+      Just i -> Just =<< decodeDatum (txInInfoResolved i)
 
   decodeDatum :: TxOut -> Maybe CurrencySymbol
   decodeDatum txOut = case txOutDatum txOut of
@@ -132,11 +134,45 @@ own script redeemer:
 
 ```
 
-
+These checks are all we need in order to add some security and make sure our commit will end up in the correct Head instance.
 
 <details>
   <summary>Complete validator example </summary>
 ```
+
+{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fplugin PlutusTx.Plugin #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.1.0 #-}
+
+module Example where
+
+import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
+import Hydra.Plutus.Extras (wrapValidator)
+import PlutusLedgerApi.V3 (
+  Address,
+  Credential (..),
+  CurrencySymbol,
+  OutputDatum (..),
+  ScriptContext (..),
+  ScriptHash,
+  ScriptInfo (..),
+  TxInInfo,
+  TxOut,
+  addressCredential,
+  fromBuiltinData,
+  getDatum,
+  serialiseCompiledCode,
+  txInInfoResolved,
+  txInfoInputs,
+  txOutAddress,
+  txOutDatum,
+ )
+import PlutusTx (compile, unstableMakeIsData)
+import PlutusTx.Data.List qualified as List
+import PlutusTx.Eq ((==))
+import PlutusTx.Prelude (check, traceError, traceIfFalse)
+
 data R
   = R
   { expectedHeadId :: CurrencySymbol
@@ -156,7 +192,7 @@ exampleValidator _ redeemer ctx =
     && checkCorrectHeadId
  where
   checkInitialInputIsSpent =
-    traceIfFalse "Initial input not found" (isNothing initialInput)
+    traceIfFalse "Initial input not found" (isJust initialInput)
 
   checkCorrectHeadId =
     case extractDatum of
@@ -165,7 +201,7 @@ exampleValidator _ redeemer ctx =
 
   extractDatum =
     case initialInput of
-      Nothing -> traceError "Initial input not found"
+      Nothing -> traceError "Initial input not found, cannot decode datum"
       Just i -> Just =<< decodeDatum (txInInfoResolved i)
 
   decodeDatum :: TxOut -> Maybe CurrencySymbol
@@ -177,8 +213,8 @@ exampleValidator _ redeemer ctx =
 
   findInitialInput :: ScriptHash -> Maybe TxInInfo
   findInitialInput initialScriptHash =
-    let allInputs = txInfoInputs info
-     in find (isInitialAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
+    let allInputs = List.fromSOP $ txInfoInputs info
+     in List.find (isInitialAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
 
   -- Check if an address is a script address with the specified script hash
   isInitialAddress :: ScriptHash -> Address -> Bool
