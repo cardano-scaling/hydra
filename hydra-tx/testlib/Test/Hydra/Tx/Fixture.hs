@@ -11,6 +11,7 @@ module Test.Hydra.Tx.Fixture (
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey, verificationKeyHash)
 import Cardano.Ledger.Alonzo.Core (ppPricesL)
 import Cardano.Ledger.Alonzo.Scripts (Prices (..))
 import Cardano.Ledger.BaseTypes (BoundedRational (..))
@@ -23,12 +24,10 @@ import Hydra.Cardano.Api (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PolicyId,
-  SigningKey,
   TxIn,
   deserialiseFromRawBytes,
   genTxIn,
   serialiseToRawBytes,
-  verificationKeyHash,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)

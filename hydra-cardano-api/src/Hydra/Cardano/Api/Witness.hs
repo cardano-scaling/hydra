@@ -1,6 +1,18 @@
 module Hydra.Cardano.Api.Witness where
 
-import Hydra.Cardano.Api.Prelude
+import Cardano.Api.Shelley (
+  ExecutionUnits (..),
+  HasScriptLanguageInEra,
+  IsPlutusScriptLanguage,
+  PlutusScript,
+  PlutusScriptOrReferenceInput (PReferenceScript, PScript),
+  ScriptDatum,
+  ScriptRedeemer,
+  ScriptWitness (..),
+  TxIn,
+  plutusScriptVersion,
+  scriptLanguageInEra,
+ )
 
 -- | Construct a full script witness from a datum, a redeemer and a full
 -- 'PlutusScript'. That witness has no execution budget.

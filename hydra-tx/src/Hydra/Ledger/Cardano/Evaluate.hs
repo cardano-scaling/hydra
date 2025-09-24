@@ -16,6 +16,7 @@ module Hydra.Ledger.Cardano.Evaluate where
 
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.Shelley (LedgerProtocolParameters (..))
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModel, mkCostModels, txscriptfee)
 import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
@@ -43,7 +44,6 @@ import Hydra.Cardano.Api (
   IsCardanoEra (cardanoEra),
   LedgerEpochInfo (..),
   LedgerEra,
-  LedgerProtocolParameters (..),
   ProtocolParametersConversionError,
   ScriptExecutionError,
   ScriptWitnessIndex,

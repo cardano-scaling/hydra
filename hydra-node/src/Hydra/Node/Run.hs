@@ -2,6 +2,7 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
+import Cardano.Api.Shelley (toShelleyNetwork)
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -16,7 +17,6 @@ import Hydra.Cardano.Api (
   ShelleyEra,
   SystemStart (..),
   Tx,
-  toShelleyNetwork,
  )
 import Hydra.Chain (ChainComponent, ChainStateHistory, maximumNumberOfParties)
 import Hydra.Chain.Backend (ChainBackend (queryGenesisParameters))

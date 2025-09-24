@@ -5,6 +5,7 @@ module HydraNode where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (STM, delete)
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, getVerificationKey)
 import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)

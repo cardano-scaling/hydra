@@ -2,11 +2,12 @@ module Hydra.Utils where
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (Key (SigningKey), getVerificationKey, writeFileTextEnvelope)
 import Crypto.Random (getRandomBytes)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
 import GHC.IO.Exception (userError)
-import Hydra.Cardano.Api (File (..), FileError (FileIOError), Key (SigningKey), getVerificationKey, writeFileTextEnvelope)
+import Hydra.Cardano.Api (File (..), FileError (FileIOError))
 import Hydra.Options (GenerateKeyPair (..))
 import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
 import System.Directory (doesFileExist)

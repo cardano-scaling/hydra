@@ -7,6 +7,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (fromPlutusData, fromShelleyMetadata, getVerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import Cardano.Ledger.Api (

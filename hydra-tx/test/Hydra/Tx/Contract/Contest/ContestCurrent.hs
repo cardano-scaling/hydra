@@ -6,8 +6,8 @@ module Hydra.Tx.Contract.Contest.ContestCurrent where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.Shelley (verificationKeyHash)
 import Data.Maybe (fromJust)
-
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head

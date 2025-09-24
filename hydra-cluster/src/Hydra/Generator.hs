@@ -3,6 +3,7 @@ module Hydra.Generator where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (size)
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, getVerificationKey)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (QueryPoint (QueryTip), mkGenesisTx, queryUTxOFor)
 import Control.Monad (foldM)

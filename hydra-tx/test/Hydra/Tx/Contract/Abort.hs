@@ -7,6 +7,7 @@ module Hydra.Tx.Contract.Abort where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (VerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map

@@ -130,6 +130,7 @@ module Test.Hydra.Tx.Mutation where
 
 import Hydra.Cardano.Api
 
+import Cardano.Api.Shelley (VerificationKey)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger

@@ -4,6 +4,7 @@ module Hydra.Cardano.Api.TxIn where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api.Shelley (fromShelleyTxIn, toShelleyTxIn)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary qualified as Ledger
 import Cardano.Ledger.Plutus (transSafeHash)

@@ -6,6 +6,7 @@ module Hydra.Tx.Contract.Close.Healthy where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)

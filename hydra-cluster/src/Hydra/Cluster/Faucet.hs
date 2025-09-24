@@ -6,6 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, getVerificationKey)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),

@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
+import Cardano.Api.Shelley (getVerificationKey)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
@@ -29,7 +30,7 @@ import Graphics.Vty.Image (DisplayRegion)
 import Graphics.Vty.Platform.Unix.Input (buildInput)
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
 import Graphics.Vty.Platform.Unix.Settings (defaultSettings)
-import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
+import Hydra.Cardano.Api (Coin)
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (
   FaucetLog,

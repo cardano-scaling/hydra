@@ -6,6 +6,7 @@ module Hydra.Tx.Contract.FanOut where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label, toList)
 
+import Cardano.Api.Shelley (verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Error (toErrorCode)

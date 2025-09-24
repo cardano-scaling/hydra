@@ -5,6 +5,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL, reqSignerHashesTxBodyL)
 import CardanoClient (
@@ -20,7 +21,6 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   ChainPoint (..),
   CtxUTxO,
-  Key (SigningKey),
   PaymentKey,
   TxOut,
   UTxO',
@@ -32,7 +32,6 @@ import Hydra.Cardano.Api (
   txIns',
   txOutValue,
   unFile,
-  verificationKeyHash,
  )
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),

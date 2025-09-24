@@ -18,7 +18,6 @@ module Hydra.Cardano.Api (
   Era,
   LedgerEra,
   ledgerEraVersion,
-  LedgerProtocolParameters (..),
 
   -- * Wrapped Types
   module Hydra.Cardano.Api,
@@ -88,25 +87,10 @@ import Cardano.Api.Ledger as X (
 import Cardano.Api.Ledger.Lens as X (
   mkAdaValue,
  )
-import Cardano.Api.Shelley as X (
-  AcquiringFailure (..),
-  Hash (HeaderHash),
-  Key (..),
+import Cardano.Api.Shelley (
+  LedgerProtocolParameters,
   PlutusScriptOrReferenceInput (PScript),
-  PoolId,
-  ShelleyGenesis (..),
   ShelleyLedgerEra,
-  SigningKey (..),
-  StakeCredential (..),
-  VerificationKey (..),
-  fromAlonzoCostModels,
-  fromAlonzoPrices,
-  fromPlutusData,
-  fromShelleyMetadata,
-  toAlonzoPrices,
-  toPlutusData,
-  toShelleyMetadata,
-  toShelleyNetwork,
  )
 import Cardano.Api.UTxO (
   UTxO,
@@ -116,7 +100,6 @@ import Cardano.Ledger.Coin as X (Coin (..))
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
-  LedgerProtocolParameters,
   Map,
   ledgerEraVersion,
  )

@@ -4,6 +4,7 @@ module Hydra.Cardano.Api.PolicyId where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api.Shelley (toShelleyScriptHash)
 import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Data.Aeson (FromJSONKey (..), ToJSONKey (..))

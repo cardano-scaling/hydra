@@ -5,6 +5,7 @@ module Hydra.BehaviorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey)
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar,
   modifyTVar',
@@ -21,7 +22,6 @@ import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
-import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),

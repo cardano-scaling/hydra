@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
+import Cardano.Api.Shelley (getVerificationKey)
 import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
@@ -28,7 +29,7 @@ import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Text (pack)
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
+import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, lovelaceToValue, signTx)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)

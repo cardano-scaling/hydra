@@ -352,6 +352,7 @@ test-suite tests
     , amazonka-s3
     , base
     , bytestring
+    , cardano-api
     , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class

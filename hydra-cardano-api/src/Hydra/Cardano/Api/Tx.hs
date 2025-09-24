@@ -9,6 +9,7 @@ where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api.Shelley (ShelleyLedgerEra, Tx (ShelleyTx))
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (
   EraTx (mkBasicTx),

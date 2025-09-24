@@ -3,6 +3,7 @@ module Hydra.Tx.Decrement where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (VerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head

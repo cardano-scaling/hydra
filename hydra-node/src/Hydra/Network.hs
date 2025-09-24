@@ -16,13 +16,13 @@ module Hydra.Network (
 
 import Hydra.Prelude hiding (show)
 
+import Cardano.Api.Shelley (Key (SigningKey))
 import Cardano.Ledger.Orphans ()
 import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
 import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
 import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Data.Text qualified as T
-import Hydra.Cardano.Api (Key (SigningKey))
 import Hydra.Tx (Party)
 import Hydra.Tx.Crypto (HydraKey)
 import Network.Socket (PortNumber)

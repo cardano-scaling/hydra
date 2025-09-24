@@ -10,6 +10,7 @@ module Hydra.Chain.Direct.State where
 
 import Hydra.Prelude hiding (init)
 
+import Cardano.Api.Shelley (Key (..), toShelleyNetwork, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -20,7 +21,6 @@ import Hydra.Cardano.Api (
   AssetName (AssetName),
   ChainPoint (..),
   CtxUTxO,
-  Key (SigningKey, VerificationKey, verificationKeyHash),
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
@@ -47,7 +47,6 @@ import Hydra.Cardano.Api (
   negateValue,
   selectAsset,
   toCtxUTxOTxOut,
-  toShelleyNetwork,
   txIns',
   txOutScriptData,
   txOutValue,

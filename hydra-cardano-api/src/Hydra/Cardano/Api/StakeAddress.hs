@@ -2,6 +2,8 @@ module Hydra.Cardano.Api.StakeAddress where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api.Shelley (StakeCredential (StakeCredentialByScript))
+
 -- | Construct a stake address from a Plutus script.
 mkScriptStakeAddress ::
   forall lang.

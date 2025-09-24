@@ -6,6 +6,7 @@ module Hydra.Cluster.Scenarios where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (LedgerProtocolParameters (..), SigningKey, getVerificationKey)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
 import Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
@@ -45,9 +46,7 @@ import Hydra.Cardano.Api (
   Coin (..),
   Era,
   File (File),
-  Key (SigningKey),
   KeyWitnessInCtx (..),
-  LedgerProtocolParameters (..),
   PaymentKey,
   PolicyId (..),
   Tx,
@@ -62,7 +61,6 @@ import Hydra.Cardano.Api (
   fromLedgerTx,
   getTxBody,
   getTxId,
-  getVerificationKey,
   lovelaceToValue,
   makeSignedTransaction,
   mkScriptAddress,

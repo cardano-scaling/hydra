@@ -20,6 +20,7 @@ module Hydra.Chain.Direct.TxTraceSpec where
 
 import Hydra.Prelude hiding (Any, State, label, show)
 
+import Cardano.Api.Shelley (VerificationKey)
 import Cardano.Api.UTxO (UTxO, totalLovelace)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
@@ -32,7 +33,6 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   TxId,
   TxOutDatum,
-  VerificationKey,
   getTxBody,
   getTxId,
   lovelaceToValue,

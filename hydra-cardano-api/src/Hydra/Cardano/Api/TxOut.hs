@@ -4,6 +4,7 @@ import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 
+import Cardano.Api.Shelley (Hash (..), ReferenceScript (..), ShelleyLedgerEra, fromShelleyTxOut, toShelleyScriptHash, toShelleyTxOut)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage.TxInfo qualified as Ledger

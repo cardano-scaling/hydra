@@ -8,6 +8,7 @@ module Hydra.TUI.Drawing where
 import Hydra.Prelude hiding (Down, State)
 
 import Brick
+import Cardano.Api.Shelley (VerificationKey, getVerificationKey)
 import Hydra.Cardano.Api hiding (Active)
 
 import Brick.Forms (

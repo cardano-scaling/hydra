@@ -3,6 +3,7 @@ module Hydra.Tx.Deposit where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
+import Cardano.Api.Shelley (toShelleyNetwork)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), ValidityInterval (..), bodyTxL, inputsTxBodyL, outputsTxBodyL)
 import Control.Lens ((.~), (^.))

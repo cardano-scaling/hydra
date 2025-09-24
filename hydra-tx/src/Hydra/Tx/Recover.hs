@@ -2,6 +2,7 @@ module Hydra.Tx.Recover where
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (toShelleyNetwork)
 import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Cardano.Api
 import Hydra.Contract.Commit qualified as Commit

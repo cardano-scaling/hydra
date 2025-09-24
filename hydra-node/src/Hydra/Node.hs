@@ -10,6 +10,7 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (getVerificationKey)
 import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.Class.MonadSTM (
   stateTVar,
@@ -19,9 +20,6 @@ import Control.Monad.Trans.Writer (execWriter, tell)
 import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
-import Hydra.Cardano.Api (
-  getVerificationKey,
- )
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),

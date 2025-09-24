@@ -3,6 +3,7 @@ module Main where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (fromPlutusData)
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BL
 import Data.Text (pack)

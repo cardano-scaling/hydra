@@ -3,6 +3,7 @@ module Hydra.Painter where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey, getVerificationKey)
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Exception (IOException)
 import Data.Aeson qualified as Aeson

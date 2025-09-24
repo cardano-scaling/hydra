@@ -24,6 +24,7 @@ module Hydra.Tx.Crypto (
 
 import Hydra.Prelude hiding (Key, show)
 
+import Cardano.Api.Shelley (Key (..))
 import Cardano.Crypto.DSIGN (
   ContextDSIGN,
   Ed25519DSIGN,
@@ -58,7 +59,6 @@ import Hydra.Cardano.Api (
   HasTextEnvelope (..),
   HasTypeProxy (..),
   Hash,
-  Key (..),
   SerialiseAsCBOR,
   SerialiseAsRawBytes (..),
   SerialiseAsRawBytesError (..),

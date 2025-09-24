@@ -2,6 +2,7 @@ module Hydra.Cardano.Api.AddressInEra where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api.Shelley (fromShelleyAddrIsSbe)
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger

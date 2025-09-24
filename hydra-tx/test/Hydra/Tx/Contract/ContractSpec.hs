@@ -8,6 +8,7 @@ import Test.Hspec (Spec, describe, parallel)
 import Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (toShelleyNetwork)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.Plutus.TxInfo (TxOutSource (TxOutFromOutput))
@@ -21,7 +22,6 @@ import Hydra.Cardano.Api (
   serialiseToRawBytesHexText,
   toLedgerTxOut,
   toPlutusTxOut,
-  toShelleyNetwork,
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit

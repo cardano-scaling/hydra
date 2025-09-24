@@ -4,6 +4,7 @@ module Hydra.Chain.Direct.HandlersSpec where
 
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.Shelley (VerificationKey)
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
@@ -13,7 +14,6 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SlotNo (..),
   Tx,
-  VerificationKey,
   fromLedgerTx,
   genTxIn,
   getChainPoint,

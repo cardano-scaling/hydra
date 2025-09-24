@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Test.Hspec (Spec, around, it)
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (
   withCardanoNodeDevnet,

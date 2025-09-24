@@ -6,6 +6,7 @@ module Hydra.Tx.Utils (
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
+import Cardano.Api.Shelley (VerificationKey, toShelleyMetadata, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Tx qualified as Ledger
 import Cardano.Ledger.Api (AlonzoTxAuxData (..), auxDataHashTxBodyL, auxDataTxL, bodyTxL, hashTxAuxData)

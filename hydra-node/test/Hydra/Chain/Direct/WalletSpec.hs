@@ -4,6 +4,7 @@ module Hydra.Chain.Direct.WalletSpec where
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (VerificationKey, fromShelleyPaymentCredential, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
@@ -26,7 +27,6 @@ import Hydra.Cardano.Api (
   LedgerEra,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
-  VerificationKey,
   fromLedgerTx,
   fromLedgerTxOut,
   fromLedgerUTxO,
@@ -35,10 +35,8 @@ import Hydra.Cardano.Api (
   toLedgerTxIn,
   toLedgerUTxO,
   txOutValue,
-  verificationKeyHash,
  )
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Cardano.Api.Tx (signTx, toLedgerTx)
 import Hydra.Chain.CardanoClient (QueryPoint (..))

@@ -6,6 +6,7 @@ module Hydra.Tx.Contract.Close.CloseUsed where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.Shelley (verificationKeyHash)
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)

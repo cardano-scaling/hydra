@@ -5,6 +5,7 @@ module Hydra.Tx.Contract.Increment where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Commit (Commit)
