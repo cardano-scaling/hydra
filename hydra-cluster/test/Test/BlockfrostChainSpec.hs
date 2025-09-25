@@ -87,8 +87,8 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
 
       withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
         \aliceChain@CardanoChainTest{postTx} -> do
-          _ <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost aliceCardanoVk 100_000_000
-          someUTxO <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost aliceExternalVk 7_000_000
+          _ <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost defaultBlockfrostOptions aliceCardanoVk 100_000_000
+          someUTxO <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost defaultBlockfrostOptions aliceExternalVk 7_000_000
           -- Scenario
           participants <- loadParticipants [Alice]
           let headParameters = HeadParameters blockfrostcperiod [alice]

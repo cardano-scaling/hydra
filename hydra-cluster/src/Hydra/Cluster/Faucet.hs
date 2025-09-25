@@ -28,7 +28,7 @@ import Hydra.Chain.ScriptRegistry (
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
-import Hydra.Options (BlockfrostOptions (..), defaultBlockfrostOptions)
+import Hydra.Options (BlockfrostOptions (..))
 import Hydra.Tx (balance, txId)
 
 data FaucetException
@@ -107,12 +107,13 @@ findFaucetUTxO networkId backend lovelace = do
   pure foundUTxO
 
 seedFromFaucetBlockfrost ::
+  BlockfrostOptions ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Coin ->
   Blockfrost.BlockfrostClientT IO UTxO
-seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
+seedFromFaucetBlockfrost options receivingVerificationKey lovelace = do
   (faucetVk, faucetSk) <- liftIO $ keysFor Faucet
 
   Blockfrost.Genesis
@@ -134,7 +135,7 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
   let stakePools = Set.fromList (Blockfrost.toCardanoPoolId <$> stakePools')
   let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
   eraHistory <- Blockfrost.queryEraHistory
-  foundUTxO <- findUTxO networkId changeAddress lovelace
+  foundUTxO <- findUTxO options networkId changeAddress lovelace
   case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId faucetVk) foundUTxO [] [theOutput] Nothing of
     Left e -> liftIO $ throwIO $ FaucetFailedToBuildTx{reason = e}
     Right tx -> do
@@ -143,11 +144,11 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
       case eResult of
         Left err -> liftIO $ throwIO $ FaucetBlockfrostError{blockFrostError = show err}
         Right _ -> do
-          void $ Blockfrost.awaitUTxO networkId [changeAddress] (txId signedTx) $ defaultBlockfrostOptions{retryTimeout = 200}
-          Blockfrost.awaitUTxO networkId [receivingAddress] (txId signedTx) $ defaultBlockfrostOptions{retryTimeout = 200}
+          void $ Blockfrost.awaitUTxO networkId [changeAddress] (txId signedTx) options
+          Blockfrost.awaitUTxO networkId [receivingAddress] (txId signedTx) options
  where
-  findUTxO networkId address lovelace' = do
-    faucetUTxO <- Blockfrost.queryUTxO defaultBlockfrostOptions networkId [address]
+  findUTxO opts networkId address lovelace' = do
+    faucetUTxO <- Blockfrost.queryUTxO opts networkId [address]
     let foundUTxO = UTxO.find (\o -> (selectLovelace . txOutValue) o >= lovelace') faucetUTxO
     when (isNothing foundUTxO) $
       liftIO $
