@@ -1,14 +1,25 @@
 module Hydra.Cardano.Api.Tx (
   -- * Extras
   module Hydra.Cardano.Api.Tx,
-
-  -- * Re-export normal Tx (any era)
-  Tx,
 )
 where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api (
+  IsShelleyBasedEra,
+  PaymentKey,
+  ShelleyWitnessSigningKey (..),
+  SigningKey (..),
+  Tx (..),
+  TxBodyContent (..),
+  getTxBody,
+  getTxBodyContent,
+  makeShelleyKeyWitness,
+  makeSignedTransaction,
+  shelleyBasedEra,
+  toCtxUTxOTxOut,
+ )
 import Cardano.Api.Shelley (ShelleyLedgerEra, Tx (ShelleyTx))
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (

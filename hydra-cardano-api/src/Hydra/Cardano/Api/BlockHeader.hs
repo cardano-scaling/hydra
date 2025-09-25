@@ -4,6 +4,7 @@ module Hydra.Cardano.Api.BlockHeader where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api (BlockHeader (..), BlockNo (..), Hash, SlotNo (..), deserialiseFromRawBytes, proxyToAsType)
 import Data.ByteString qualified as BS
 import Test.QuickCheck (vectorOf)
 

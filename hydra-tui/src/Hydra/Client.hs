@@ -4,6 +4,7 @@ module Hydra.Client where
 
 import Hydra.Prelude
 
+import Cardano.Api (PaymentKey, SigningKey)
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Async (link)
 import Control.Concurrent.Class.MonadSTM (readTBQueue, writeTBQueue)
@@ -13,10 +14,6 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.API.ServerOutput (ClientMessage, Greetings, InvalidInput, TimedServerOutput)
 import Hydra.Cardano.Api (TxId)
-import Hydra.Cardano.Api.Prelude (
-  PaymentKey,
-  SigningKey,
- )
 import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.CardanoClient (submitTransaction)
 import Hydra.Chain.ChainState (IsChainState)

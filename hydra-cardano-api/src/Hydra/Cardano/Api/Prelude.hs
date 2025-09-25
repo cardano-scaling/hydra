@@ -1,5 +1,4 @@
 module Hydra.Cardano.Api.Prelude (
-  module Cardano.Api,
   HasCallStack,
   Proxy (..),
   Typeable,
@@ -21,11 +20,7 @@ module Hydra.Cardano.Api.Prelude (
   Gen,
 ) where
 
-import Cardano.Api hiding (
-  UTxO,
-  scriptLanguageSupportedInEra,
-  toLedgerUTxO,
- )
+import Cardano.Api (ConwayEra)
 import Cardano.Api.Shelley (ShelleyLedgerEra)
 import Cardano.Api.UTxO (UTxO, UTxO' (..))
 import Cardano.Crypto.Hash.Class qualified as CC

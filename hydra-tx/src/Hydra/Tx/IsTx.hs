@@ -9,6 +9,7 @@ module Hydra.Tx.IsTx where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api qualified as Api
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
@@ -20,8 +21,7 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (withObject)
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
-import Hydra.Cardano.Api.Tx qualified as Api
-import Hydra.Cardano.Api.UTxO qualified as Api
+import Hydra.Cardano.Api qualified as Hydra
 import Hydra.Contract.Util qualified as Util
 import PlutusLedgerApi.V3 (fromBuiltin)
 
@@ -167,9 +167,9 @@ instance IsTx Tx where
   -- NOTE: See note from `Util.hashTxOuts`.
   hashUTxO = fromBuiltin . Util.hashTxOuts . mapMaybe toPlutusTxOut . UTxO.txOutputs
 
-  txSpendingUTxO = Api.txSpendingUTxO
+  txSpendingUTxO = Hydra.txSpendingUTxO
 
-  utxoFromTx = Api.utxoFromTx
+  utxoFromTx = Hydra.utxoFromTx
 
   outputsOfUTxO = UTxO.txOutputs
 

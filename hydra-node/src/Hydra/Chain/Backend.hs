@@ -2,7 +2,6 @@ module Hydra.Chain.Backend where
 
 import Hydra.Prelude
 
-import Cardano.Api.Ledger (PParams)
 import Cardano.Api.Shelley (LedgerProtocolParameters (..), PoolId, VerificationKey)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map

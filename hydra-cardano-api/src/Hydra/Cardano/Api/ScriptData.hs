@@ -2,8 +2,7 @@
 
 module Hydra.Cardano.Api.ScriptData where
 
-import Hydra.Cardano.Api.Prelude hiding (left)
-
+import Cardano.Api (CtxTx, HashableScriptData, TxOut (..), TxOutDatum (..), getScriptData, unsafeHashableScriptData)
 import Cardano.Api.Shelley (fromAlonzoData, fromPlutusData, toAlonzoData, toPlutusData)
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Plutus.Data qualified as Ledger

@@ -5,12 +5,12 @@ module Hydra.Chain.Direct.TimeHandle where
 
 import Hydra.Prelude
 
+import Cardano.Api (ChainPoint (..))
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Cardano.Slotting.Time (SystemStart (SystemStart), fromRelativeTime, toRelativeTime)
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (EraHistory (EraHistory))
-import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)

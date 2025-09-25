@@ -2,6 +2,7 @@ module Hydra.Cardano.Api.Hash where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api (PaymentKey, ScriptData, SerialiseAsCBOR, deserialiseFromCBOR, proxyToAsType, serialiseToCBOR)
 import Cardano.Api.Shelley (Hash (..))
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
 import Cardano.Ledger.Keys qualified as Ledger

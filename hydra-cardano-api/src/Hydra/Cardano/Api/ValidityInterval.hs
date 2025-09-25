@@ -4,6 +4,7 @@ module Hydra.Cardano.Api.ValidityInterval where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api.Shelley (TxValidityLowerBound (..), TxValidityUpperBound (..), allegraBasedEra, cardanoEra, shelleyBasedEra)
 import Cardano.Ledger.Allegra.Scripts qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), maybeToStrictMaybe)
 import Test.Gen.Cardano.Api.Typed (genTxValidityLowerBound, genTxValidityUpperBound)

@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.TxOutDatum where
 
-import Hydra.Cardano.Api.Prelude
+import Cardano.Api (IsAlonzoBasedEra, IsBabbageBasedEra, TxOutDatum (..), alonzoBasedEra, babbageBasedEra, hashScriptDataBytes)
 
 import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
 

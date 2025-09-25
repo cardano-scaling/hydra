@@ -9,6 +9,7 @@ import Blockfrost.Client (
   runBlockfrost,
  )
 import Blockfrost.Client qualified as Blockfrost
+import Cardano.Api (BlockHeader (..))
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
   writeTVar,
@@ -26,9 +27,6 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
   serialiseToRawBytes,
- )
-import Hydra.Cardano.Api.Prelude (
-  BlockHeader (..),
  )
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),

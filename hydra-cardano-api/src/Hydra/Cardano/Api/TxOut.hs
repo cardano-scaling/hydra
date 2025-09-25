@@ -4,7 +4,38 @@ import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 
-import Cardano.Api.Shelley (Hash (..), ReferenceScript (..), ShelleyLedgerEra, fromShelleyTxOut, toShelleyScriptHash, toShelleyTxOut)
+import Cardano.Api (
+  Address (..),
+  AddressInEra (..),
+  AddressTypeInEra (..),
+  CtxTx,
+  CtxUTxO,
+  IsBabbageBasedEra,
+  IsMaryBasedEra,
+  IsPlutusScriptLanguage,
+  IsShelleyBasedEra,
+  PaymentKey,
+  Tx (..),
+  TxBodyContent (..),
+  TxIn (..),
+  TxOut (..),
+  TxOutDatum (..),
+  TxOutValue (..),
+  Value,
+  VerificationKey,
+  getTxBody,
+  getTxBodyContent,
+  hashScript,
+  maryBasedEra,
+  plutusScriptVersion,
+  shelleyBasedEra,
+  shelleyBasedEraConstraints,
+  toLedgerValue,
+  txOutValueToValue,
+  verificationKeyHash,
+ )
+import Cardano.Api qualified as Api
+import Cardano.Api.Shelley (Hash (..), ReferenceScript (..), ShelleyLedgerEra, alonzoBasedEra, babbageBasedEra, fromShelleyTxOut, toShelleyScriptHash, toShelleyTxOut)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
@@ -89,7 +120,7 @@ findTxOutByScript ::
   forall lang.
   IsPlutusScriptLanguage lang =>
   UTxO ->
-  PlutusScript lang ->
+  Api.PlutusScript lang ->
   Maybe (TxIn, TxOut CtxUTxO Era)
 findTxOutByScript utxo script =
   List.find matchScript (UTxO.toList utxo)
@@ -97,7 +128,7 @@ findTxOutByScript utxo script =
   version = plutusScriptVersion @lang
   matchScript = \case
     (_, TxOut (AddressInEra _ (ShelleyAddress _ (Ledger.ScriptHashObj scriptHash') _)) _ _ _) ->
-      let scriptHash = toShelleyScriptHash $ hashScript $ PlutusScript version script
+      let scriptHash = toShelleyScriptHash $ hashScript $ Api.PlutusScript version script
        in scriptHash == scriptHash'
     _ ->
       False
@@ -126,7 +157,7 @@ isVkTxOut vk txOut =
 isScriptTxOut ::
   forall lang ctx era.
   IsPlutusScriptLanguage lang =>
-  PlutusScript lang ->
+  Api.PlutusScript lang ->
   TxOut ctx era ->
   Bool
 isScriptTxOut script txOut =
@@ -135,7 +166,7 @@ isScriptTxOut script txOut =
       scriptHash == sh
     _ -> False
  where
-  scriptHash = toShelleyScriptHash $ hashScript $ PlutusScript version script
+  scriptHash = toShelleyScriptHash $ hashScript $ Api.PlutusScript version script
 
   version = plutusScriptVersion @lang
 

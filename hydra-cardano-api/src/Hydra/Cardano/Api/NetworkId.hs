@@ -4,6 +4,7 @@ module Hydra.Cardano.Api.NetworkId where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api (NetworkId (..))
 import Data.Aeson (FromJSON (..), ToJSON (..), Value (String), object, withObject, (.:), (.=))
 import Hydra.Cardano.Api.NetworkMagic ()
 import Test.QuickCheck (oneof)

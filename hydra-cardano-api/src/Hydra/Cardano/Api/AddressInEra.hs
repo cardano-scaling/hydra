@@ -1,7 +1,9 @@
 module Hydra.Cardano.Api.AddressInEra where
 
-import Hydra.Cardano.Api.Prelude
+import Hydra.Cardano.Api.Prelude (unsafeHashFromBytes)
 
+import Cardano.Api (Address (..), AddressInEra (..), AddressTypeInEra (..), IsPlutusScriptLanguage, IsShelleyBasedEra, NetworkId, PaymentCredential (..), PaymentKey, PlutusScript, StakeAddressReference (..), VerificationKey (..), hashScript, makeShelleyAddressInEra, plutusScriptVersion, shelleyBasedEra, verificationKeyHash)
+import Cardano.Api qualified as Api
 import Cardano.Api.Shelley (fromShelleyAddrIsSbe)
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -51,7 +53,8 @@ mkScriptAddress networkId script =
   makeShelleyAddressInEra
     shelleyBasedEra
     networkId
-    (PaymentCredentialByScript $ hashScript $ PlutusScript version script)
+    -- Erik TODO: The qualified `Api.PlutusScript` may not be needed when all re-exports are removed.
+    (PaymentCredentialByScript $ hashScript $ Api.PlutusScript version script)
     NoStakeAddress
  where
   version = plutusScriptVersion @lang

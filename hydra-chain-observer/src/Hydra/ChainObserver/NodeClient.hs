@@ -4,6 +4,7 @@ module Hydra.ChainObserver.NodeClient where
 
 import Hydra.Prelude
 
+import Cardano.Api (TxId)
 import Hydra.Cardano.Api (
   BlockNo,
   ChainPoint,
@@ -12,7 +13,6 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
  )
-import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Contract (HydraScriptCatalogue)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Tx.HeadId (HeadId (..))

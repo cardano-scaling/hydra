@@ -4,6 +4,22 @@ module Hydra.Cardano.Api.TxIn where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api (
+  BuildTx,
+  BuildTxWith (..),
+  KeyWitnessInCtx (..),
+  Tx,
+  TxBodyContent (..),
+  TxId (..),
+  TxIn (..),
+  TxIx (..),
+  WitCtxTxIn,
+  Witness,
+  getTxBody,
+  getTxBodyContent,
+  getTxId,
+ )
+import Cardano.Api qualified as Api
 import Cardano.Api.Shelley (fromShelleyTxIn, toShelleyTxIn)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary qualified as Ledger
@@ -24,7 +40,9 @@ mkTxIn (getTxId . getTxBody -> txId) index =
 -- | Attach some verification-key witness to a 'TxIn'.
 withWitness :: TxIn -> (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn Era))
 withWitness txIn =
-  (txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)
+  -- Erik TODO: The qualified `Api.KeyWitness` may not be needed when all
+  -- re-exports are removed.
+  (txIn, BuildTxWith $ Api.KeyWitness KeyWitnessForSpending)
 
 -- | Access inputs of a transaction, as an ordered list.
 txIns' :: Tx era -> [TxIn]
