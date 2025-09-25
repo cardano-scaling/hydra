@@ -26,6 +26,7 @@ import PlutusLedgerApi.V3 (
   serialiseCompiledCode,
   txInInfoResolved,
   txInfoInputs,
+  txInfoOutputs,
   txOutAddress,
   txOutDatum,
   unsafeFromBuiltinData,
@@ -92,6 +93,7 @@ dummyRewardingScript =
 data R = R
   { expectedHeadId :: CurrencySymbol
   , expectedInitialValidator :: ScriptHash
+  , expectedCommitValidator :: ScriptHash
   }
   deriving stock (Show, Generic)
 
@@ -105,9 +107,13 @@ exampleValidator ::
 exampleValidator _ redeemer ctx =
   checkInitialInputIsSpent
     && checkCorrectHeadId
+    && checkCommitOutput
  where
   checkInitialInputIsSpent =
     traceIfFalse "Initial input not found" (isJust initialInput)
+
+  checkCommitOutput =
+    traceIfFalse "There should be only one commit output" (List.length commitOutput == 1)
 
   checkCorrectHeadId =
     case extractDatum of
@@ -126,21 +132,28 @@ exampleValidator _ redeemer ctx =
 
   initialInput = findInitialInput expectedInitialValidator
 
+  commitOutput = findCommitOutput expectedCommitValidator
+
+  findCommitOutput :: ScriptHash -> List.List TxOut
+  findCommitOutput commitScriptHash =
+    let allOutputs = List.fromSOP $ txInfoOutputs info
+     in List.filter (isScriptAddress commitScriptHash . txOutAddress) allOutputs
+
   findInitialInput :: ScriptHash -> Maybe TxInInfo
   findInitialInput initialScriptHash =
     let allInputs = List.fromSOP $ txInfoInputs info
-     in List.find (isInitialAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
+     in List.find (isScriptAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
 
   -- Check if an address is a script address with the specified script hash
-  isInitialAddress :: ScriptHash -> Address -> Bool
-  isInitialAddress expectedHash addr =
+  isScriptAddress :: ScriptHash -> Address -> Bool
+  isScriptAddress expectedHash addr =
     case addressCredential addr of
       ScriptCredential vh -> vh == expectedHash
       PubKeyCredential _ -> False
 
   info = scriptContextTxInfo ctx
 
-  R{expectedHeadId, expectedInitialValidator} = redeemer
+  R{expectedHeadId, expectedInitialValidator, expectedCommitValidator} = redeemer
 
 exampleSecureValidatorScript :: PlutusScript
 exampleSecureValidatorScript =
