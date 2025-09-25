@@ -24,6 +24,7 @@ The commit transaction utilizes an initial output specifically crafted for each 
 The initial validator is parameterized by the commit validator hash. In the user-defined validator, it is sufficient to verify that:
     - The initial input with the correct hash is consumed in the commit transaction.
     - The initial input’s datum contains the correct HeadId.
+    - There is only one output at commit script address + the change output.
 
 dApp developers can leverage the script redeemer to convey the necessary information.
 
@@ -70,6 +71,7 @@ data R =
   R
    { expectedHeadId :: CurrencySymbol
    , expectedInitialValidator :: ScriptHash
+   , expectedCommitValidator :: ScriptHash
    } deriving stock (Show, Generic)
 
 unstableMakeIsData ''R
@@ -108,11 +110,11 @@ make sure there is exactly one script input which `Address` corresponds to the i
   findInitialInput :: ScriptHash -> Maybe TxInInfo
   findInitialInput initialScriptHash =
     let allInputs = List.fromSOP $ txInfoInputs info
-     in List.find (isInitialAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
+     in List.find (isScriptAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
 
   -- Check if an address is a script address with the specified script hash
-  isInitialAddress :: ScriptHash -> Address -> Bool
-  isInitialAddress expectedHash addr =
+  isScriptAddress :: ScriptHash -> Address -> Bool
+  isScriptAddress expectedHash addr =
     case addressCredential addr of
       ScriptCredential vh -> vh == expectedHash
       PubKeyCredential _ -> False
@@ -134,7 +136,31 @@ own script redeemer:
 
 ```
 
-These checks are all we need in order to add some security and make sure our commit will end up in the correct Head instance.
+To make sure there is only one output at commit validator address we need to filter all outputs and check that there is only one
+with the correct commit `Address`:
+
+```
+  checkCommitOutput =
+    traceIfFalse "There should be only one commit output" (List.length commitOutput == 1)
+
+  commitOutput = findCommitOutput expectedCommitValidator
+
+  findCommitOutput :: ScriptHash -> List.List TxOut
+  findCommitOutput commitScriptHash =
+    let allOutputs = List.fromSOP $ txInfoOutputs info
+     in List.filter (isScriptAddress commitScriptHash . txOutAddress) allOutputs
+
+```
+These checks are all we need in order to add some security to our validators and make sure our commit will end up in the correct Head instance.
+
+Following step is to build a _blueprint_ transaction as a recipe for committing your script UTxO into a Head. We already have a guide
+on that [here](./commit-script-utxo#step-5-prepare-the-blueprint) but you would need to make some changes since now we use different script,
+there is no datum and our redeemer is `R`.
+
+The hash or our validator script is `c4438c8c41e405aaa9349f1455364261c1006991ead68be459353fa8`. This information is important to be able to build
+the _blueprint_ transaction from the guide and we leave the rest as an exercise to the user. It should not be hard to build this transaction since you
+only need to worry about the transaction inputs. Even if outputs are defined in the transaction they would be ignored since all inputs end up
+on the L2 ledger owned by our script.
 
 <details>
   <summary>Complete validator example </summary>
@@ -164,6 +190,7 @@ import PlutusLedgerApi.V3 (
   getDatum,
   serialiseCompiledCode,
   txInInfoResolved,
+  txInfoOutputs,
   txInfoInputs,
   txOutAddress,
   txOutDatum,
@@ -173,10 +200,10 @@ import PlutusTx.Data.List qualified as List
 import PlutusTx.Eq ((==))
 import PlutusTx.Prelude (check, traceError, traceIfFalse)
 
-data R
-  = R
+data R = R
   { expectedHeadId :: CurrencySymbol
   , expectedInitialValidator :: ScriptHash
+  , expectedCommitValidator :: ScriptHash
   }
   deriving stock (Show, Generic)
 
@@ -190,9 +217,13 @@ exampleValidator ::
 exampleValidator _ redeemer ctx =
   checkInitialInputIsSpent
     && checkCorrectHeadId
+    && checkCommitOutput
  where
   checkInitialInputIsSpent =
     traceIfFalse "Initial input not found" (isJust initialInput)
+
+  checkCommitOutput =
+    traceIfFalse "There should be only one commit output" (List.length commitOutput == 1)
 
   checkCorrectHeadId =
     case extractDatum of
@@ -211,21 +242,28 @@ exampleValidator _ redeemer ctx =
 
   initialInput = findInitialInput expectedInitialValidator
 
+  commitOutput = findCommitOutput expectedCommitValidator
+
+  findCommitOutput :: ScriptHash -> List.List TxOut
+  findCommitOutput commitScriptHash =
+    let allOutputs = List.fromSOP $ txInfoOutputs info
+     in List.filter (isScriptAddress commitScriptHash . txOutAddress) allOutputs
+
   findInitialInput :: ScriptHash -> Maybe TxInInfo
   findInitialInput initialScriptHash =
     let allInputs = List.fromSOP $ txInfoInputs info
-     in List.find (isInitialAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
+     in List.find (isScriptAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
 
   -- Check if an address is a script address with the specified script hash
-  isInitialAddress :: ScriptHash -> Address -> Bool
-  isInitialAddress expectedHash addr =
+  isScriptAddress :: ScriptHash -> Address -> Bool
+  isScriptAddress expectedHash addr =
     case addressCredential addr of
       ScriptCredential vh -> vh == expectedHash
       PubKeyCredential _ -> False
 
   info = scriptContextTxInfo ctx
 
-  R{expectedHeadId, expectedInitialValidator} = redeemer
+  R{expectedHeadId, expectedInitialValidator, expectedCommitValidator} = redeemer
 
 exampleSecureValidatorScript :: PlutusScript
 exampleSecureValidatorScript =
