@@ -906,13 +906,23 @@ singlePartyCommitsScriptToTheRightHead tracer workDir backend hydraScriptsTxId =
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     let initialScript = toPlutusScriptHash $ initialScriptHash hydraScriptCatalogue
-    -- NOTE: let's use different script, like deposit one to trigger errors
-    let wrongScript = toPlutusScriptHash $ depositScriptHash hydraScriptCatalogue
-    let wrongHeadId = UnsafeHeadId "d0786d92892d904ae16c775e85648c6cb669bd053bfed39c746c06ab"
+    let commitScript = toPlutusScriptHash $ commitScriptHash hydraScriptCatalogue
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
-      (wrongInitialInputPayload, _) <- prepareScriptPayload 7_000_000 0 headId wrongScript
+
+      let redeemer =
+            R
+              { expectedHeadId = headIdToCurrencySymbol headId
+              , expectedInitialValidator = initialScript
+              , expectedCommitValidator = commitScript
+              }
+      -- NOTE: let's use different initial script (like deposit) and wrong headId to trigger errors
+      let redeemerWrongInitialScript = redeemer{expectedInitialValidator = toPlutusScriptHash $ depositScriptHash hydraScriptCatalogue}
+      let redeemerWrongCommitScript = redeemer{expectedCommitValidator = toPlutusScriptHash $ depositScriptHash hydraScriptCatalogue}
+      let redeemerWrongHeadId = redeemer{expectedHeadId = headIdToCurrencySymbol $ UnsafeHeadId "d0786d92892d904ae16c775e85648c6cb669bd053bfed39c746c06ab"}
+
+      (wrongInitialInputPayload, _) <- prepareScriptPayload 7_000_000 0 redeemerWrongInitialScript
 
       runReq
         defaultHttpConfig
@@ -925,7 +935,20 @@ singlePartyCommitsScriptToTheRightHead tracer workDir backend hydraScriptsTxId =
         )
         `shouldThrow` expectErrorStatus 500 (Just "Initial input not found")
 
-      (wrongHeadIdPayload, _) <- prepareScriptPayload 7_000_000 0 wrongHeadId initialScript
+      (wrongCommitOutputPayload, _) <- prepareScriptPayload 7_000_000 0 redeemerWrongCommitScript
+
+      runReq
+        defaultHttpConfig
+        ( req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson wrongCommitOutputPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+        )
+        `shouldThrow` expectErrorStatus 500 (Just "There should be only one commit output")
+
+      (wrongHeadIdPayload, _) <- prepareScriptPayload 7_000_000 0 redeemerWrongHeadId
 
       runReq
         defaultHttpConfig
@@ -938,7 +961,7 @@ singlePartyCommitsScriptToTheRightHead tracer workDir backend hydraScriptsTxId =
         )
         `shouldThrow` expectErrorStatus 500 (Just "HeadId is not correct")
 
-      (clientPayload, scriptUTxO) <- prepareScriptPayload 7_000_000 0 headId initialScript
+      (clientPayload, scriptUTxO) <- prepareScriptPayload 7_000_000 0 redeemer
 
       res <-
         runReq defaultHttpConfig $
@@ -960,14 +983,13 @@ singlePartyCommitsScriptToTheRightHead tracer workDir backend hydraScriptsTxId =
 
       getSnapshotUTxO n1 `shouldReturn` scriptUTxO
  where
-  prepareScriptPayload lovelaceAmt commitAmount headId initialValidatorHash = do
+  prepareScriptPayload lovelaceAmt commitAmount redeemer = do
     networkId <- Backend.queryNetworkId backend
     let scriptAddress = mkScriptAddress networkId exampleSecureValidatorScript
     let datumHash :: TxOutDatum ctx
         datumHash = mkTxOutDatumHash ()
     (scriptIn, scriptOut) <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue lovelaceAmt)
     let scriptUTxO = UTxO.singleton scriptIn scriptOut
-    let redeemer = R{expectedHeadId = headIdToCurrencySymbol headId, expectedInitialValidator = initialValidatorHash}
 
     let scriptWitness =
           BuildTxWith $
