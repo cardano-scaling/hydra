@@ -11,6 +11,7 @@ on:
 jobs:
   publishing:
     name: Publish Documentation
+    if: github.ref_name == 'master' || github.ref_name == 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -49,6 +50,8 @@ jobs:
         export out=/tmp/public/head-protocol${OUT_PATH}
         mkdir -p $out
         cp result/build/* $out -r
+
+        sudo chmod -R 777 /tmp/public
 
         nix develop .#hydra-node-bench --command -- tx-cost --output-directory $out/benchmarks/
         nix develop .#hydra-node-bench --command -- micro -o $out/benchmarks/ledger-bench.html
