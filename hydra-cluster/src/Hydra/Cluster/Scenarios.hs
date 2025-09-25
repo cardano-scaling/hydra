@@ -1389,7 +1389,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           -- check that user balance balance contains the change from the commit tx
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
             `shouldReturn` lovelaceToValue (seedAmount + seedAmount - commitAmount)
-            <> tokenDiff
+              <> tokenDiff
 
           send n2 $ input "Close" []
 
@@ -1409,7 +1409,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
             -- NOTE: in the end we expect seedAmount * 2 since we seeded from faucet twice + assets we minted
             `shouldReturn` lovelaceToValue (seedAmount * 2)
-            <> tokenAssetValue
+              <> tokenAssetValue
  where
   hydraTracer = contramap FromHydraNode tracer
 

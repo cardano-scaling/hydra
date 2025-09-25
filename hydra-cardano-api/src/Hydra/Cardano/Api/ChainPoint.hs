@@ -2,11 +2,9 @@
 
 module Hydra.Cardano.Api.ChainPoint where
 
-import Hydra.Cardano.Api.Prelude
-
 import Cardano.Api (BlockHeader (..), ChainPoint (..), SlotNo (..))
 import Hydra.Cardano.Api.BlockHeader (genBlockHeaderHash)
-import Test.QuickCheck (frequency)
+import Test.QuickCheck (Arbitrary (..), Gen, frequency)
 
 -- | Get the chain point corresponding to a given 'BlockHeader'.
 getChainPoint :: BlockHeader -> ChainPoint

@@ -6,7 +6,7 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api (BlockHeader (..), BlockNo (..), Hash, SlotNo (..), deserialiseFromRawBytes, proxyToAsType)
 import Data.ByteString qualified as BS
-import Test.QuickCheck (vectorOf)
+import Test.QuickCheck (Arbitrary (..), Gen, vectorOf)
 
 -- * Generators
 

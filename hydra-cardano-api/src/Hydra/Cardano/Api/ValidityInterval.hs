@@ -8,6 +8,7 @@ import Cardano.Api.Shelley (TxValidityLowerBound (..), TxValidityUpperBound (..)
 import Cardano.Ledger.Allegra.Scripts qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), maybeToStrictMaybe)
 import Test.Gen.Cardano.Api.Typed (genTxValidityLowerBound, genTxValidityUpperBound)
+import Test.QuickCheck (Arbitrary (..))
 import Test.QuickCheck.Hedgehog (hedgehog)
 
 toLedgerValidityInterval ::

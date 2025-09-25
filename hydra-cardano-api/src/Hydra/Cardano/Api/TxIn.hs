@@ -28,7 +28,7 @@ import Cardano.Ledger.TxIn qualified as Ledger
 import Data.ByteString qualified as BS
 import Data.Set qualified as Set
 import PlutusLedgerApi.V3 qualified as Plutus
-import Test.QuickCheck (choose, vectorOf)
+import Test.QuickCheck (Arbitrary (..), Gen, choose, vectorOf)
 
 -- * Extras
 

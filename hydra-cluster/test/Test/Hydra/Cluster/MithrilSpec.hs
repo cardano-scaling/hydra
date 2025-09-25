@@ -11,8 +11,8 @@ import Hydra.Cluster.Mithril (MithrilLog (..), downloadLatestSnapshotTo)
 import Hydra.Logging (Envelope (..), Tracer, traceInTVar)
 import System.Directory (doesDirectoryExist)
 import System.FilePath ((</>))
-import Test.Hydra.Cluster.Utils (forEachKnownNetwork)
 import Test.Hspec (Spec, describe, parallel, pendingWith, shouldReturn)
+import Test.Hydra.Cluster.Utils (forEachKnownNetwork)
 
 spec :: Spec
 spec = parallel $ do

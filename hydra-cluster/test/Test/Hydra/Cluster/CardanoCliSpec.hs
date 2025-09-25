@@ -34,7 +34,8 @@ spec =
         (exitCode, output, _errors) <- readCreateProcessWithExitCode (cardanoCliSign txFile) ""
         exitCode `shouldBe` ExitSuccess
         output
-          ^? key "type" . _String `shouldSatisfy` \case
+          ^? key "type" . _String
+          `shouldSatisfy` \case
             Nothing -> False
             Just something -> something == "Tx ConwayEra"
 

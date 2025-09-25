@@ -15,9 +15,9 @@ import Test.Aeson.GenericSpecs (
   roundtripAndGoldenADTSpecsWithSettings,
   roundtripAndGoldenSpecsWithSettings,
  )
-import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hspec (Spec, parallel)
 import Test.Hspec.QuickCheck (prop)
+import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
 import Test.QuickCheck.Property (checkCoverage)
 
