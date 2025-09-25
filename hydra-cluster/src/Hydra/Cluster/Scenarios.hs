@@ -16,6 +16,7 @@ import Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
 import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
 import Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
 import Cardano.Ledger.Credential (Credential (ScriptHashObj))
+import Cardano.Ledger.Plutus (ExUnits (..))
 import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import CardanoClient (
   QueryPoint (QueryTip),
@@ -67,6 +68,8 @@ import Hydra.Cardano.Api (
   makeSignedTransaction,
   mkScriptAddress,
   mkScriptDatum,
+  mkScriptRef,
+  mkScriptReference,
   mkScriptWitness,
   mkTxIn,
   mkTxOutAutoBalance,
@@ -97,6 +100,7 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import Hydra.Cardano.Api qualified as CAPI
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Cardano.Api.TxOut (modifyTxOutValue)
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
@@ -107,7 +111,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
-import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript)
+import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
@@ -116,7 +120,7 @@ import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectO
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Deposit (capUTxO, diffAssets)
-import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
@@ -882,6 +886,133 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
           , "amount" .= Coin commitAmount
           ]
       , scriptUTxO
+      )
+
+singlePartyDepositReferenceScript ::
+  ChainBackend backend =>
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  backend ->
+  [TxId] ->
+  IO ()
+singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer backend Alice) $ do
+    refuelIfNeeded tracer backend Alice 20_000_000
+    blockTime <- Backend.getBlockTime backend
+    -- NOTE: Adapt periods to block times
+    let contestationPeriod = truncate $ 10 * blockTime
+        depositPeriod = truncate $ 50 * blockTime
+    aliceChainConfig <-
+      chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+        <&> modifyConfig (\c -> c{depositPeriod})
+    let hydraNodeId = 1
+    let hydraTracer = contramap FromHydraNode tracer
+    (_, walletSk) <- keysFor AliceFunds
+    -- incrementally commit script to a running Head
+    (referenceUTxO, scriptUTxO) <- publishReferenceScript tracer 20_000_000
+    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+      res <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson (mempty :: UTxO))
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let commitTx = responseBody res
+      Backend.submitTransaction backend commitTx
+
+      waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        guard $ v ^? key "tag" == Just "HeadIsOpen"
+      clientPayload <- prepareBlueprintRequest referenceUTxO scriptUTxO
+      res' <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let depositTransaction = responseBody res'
+      let tx = signTx walletSk depositTransaction
+
+      putStrLn "---DEPOSIT---"
+      putStrLn $ renderTxWithUTxO scriptUTxO tx
+      Backend.submitTransaction backend tx
+
+      waitFor hydraTracer (2 * realToFrac depositPeriod) [n1] $
+        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= scriptUTxO]
+      waitFor hydraTracer (20 * blockTime) [n1] $
+        output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
+      getSnapshotUTxO n1 `shouldReturn` scriptUTxO
+ where
+  publishReferenceScript :: Tracer IO EndToEndLog -> CAPI.Lovelace -> IO (UTxO, UTxO)
+  publishReferenceScript t lovelaceAmt = do
+    (vk, sk) <- keysFor AliceFunds
+    utxo <- seedFromFaucet backend vk (lovelaceToValue lovelaceAmt) (contramap FromFaucet t)
+    pparams <- Backend.queryProtocolParameters backend QueryTip
+    networkId <- Backend.queryNetworkId backend
+    systemStart <- Backend.querySystemStart backend QueryTip
+    eraHistory <- Backend.queryEraHistory backend QueryTip
+    stakePools <- Backend.queryStakePools backend QueryTip
+    let changeAddress = mkVkAddress networkId (getVerificationKey sk)
+    let unspendableScriptAddress =
+          mkScriptAddress networkId dummyValidatorScriptAlwaysFails
+
+    let mkScriptTxOut =
+          mkTxOutAutoBalance
+            pparams
+            unspendableScriptAddress
+            mempty
+            TxOutDatumNone
+
+    let scriptOut = mkScriptTxOut $ mkScriptRef dummyValidatorScript
+
+    case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxo [] [scriptOut] Nothing of
+      Left err -> error $ show err
+      Right tx -> do
+        let signedTx = signTx sk tx
+        Backend.submitTransaction backend signedTx
+        void $ Backend.awaitTransaction backend signedTx vk
+
+        let scriptAddress = mkScriptAddress networkId dummyValidatorScript
+        let datumHash :: TxOutDatum ctx
+            datumHash = mkTxOutDatumHash ()
+        (scriptIn', scriptOut') <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue 3_000_000)
+        let referenceUTxO = uncurry UTxO.singleton $ List.head $ UTxO.toList $ utxoFromTx signedTx
+        pure (referenceUTxO, UTxO.singleton scriptIn' scriptOut')
+
+  prepareBlueprintRequest :: UTxO -> UTxO -> IO Value
+  prepareBlueprintRequest referenceUTxO scriptUTxO = do
+    let dat = toScriptData ()
+    let (scriptInput, _) = List.head $ UTxO.toList scriptUTxO
+    let (refInput, _) = List.head $ UTxO.toList referenceUTxO
+    let scriptWitness =
+          BuildTxWith $
+            ScriptWitness scriptWitnessInCtx $
+              mkScriptReference refInput dummyValidatorScript CAPI.InlineScriptDatum dat
+
+    let blueprint' =
+          unsafeBuildTransaction $
+            defaultTxBodyContent
+              & CAPI.addTxIns [(scriptInput, scriptWitness)]
+              & CAPI.addTxInReference refInput (Just dat)
+
+    let blueprint =
+          fromLedgerTx $
+            toLedgerTx blueprint'
+              & witsTxL . rdmrsTxWitsL
+                .~ Redeemers (Map.singleton (Ledger.ConwaySpending $ AsIx 0) (toLedgerData dat, ExUnits 0 0))
+    pure
+      ( Aeson.object
+          [ "blueprintTx" .= blueprint
+          , "utxo" .= (scriptUTxO <> referenceUTxO)
+          ]
       )
 
 persistenceCanLoadWithEmptyCommit ::
