@@ -70,6 +70,7 @@ import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams 
 
 data BlockfrostException
   = TimeoutOnUTxO TxId
+  | NoUTxOFound (Address ShelleyAddr)
   | FailedToDecodeAddress Text
   | ByronAddressNotSupported
   | FailedUTxOForHash Text
@@ -456,8 +457,15 @@ queryUTxO BlockfrostOptions{queryTimeout} networkId addresses = do
   -- NOTE: We can't know at the time of doing a query if the information on specific address UTxO is _fresh_ or not
   -- so we try to wait for sufficient period of time and hope for best.
   liftIO $ threadDelay $ fromIntegral queryTimeout
+  let address = List.head addresses
   let address' = Blockfrost.Address . serialiseAddress $ List.head addresses
-  utxoWithAddresses <- Blockfrost.getAddressUtxos address'
+  utxoWithAddresses <-
+    Blockfrost.getAddressUtxos address'
+      `catchError` \case
+        Blockfrost.BlockfrostNotFound ->
+          liftIO (throwIO (BlockfrostError (NoUTxOFound address)))
+        err ->
+          throwError err
 
   foldMapM
     ( \Blockfrost.AddressUtxo

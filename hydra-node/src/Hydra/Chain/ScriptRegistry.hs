@@ -30,6 +30,7 @@ import Hydra.Cardano.Api (
   mkTxIn,
   mkTxOutAutoBalance,
   mkVkAddress,
+  serialiseAddress,
   toCtxUTxOTxOut,
   txOuts',
   pattern TxOutDatumNone,
@@ -37,6 +38,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.Backend (ChainBackend (..), buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..))
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
@@ -77,7 +79,10 @@ publishHydraScripts backend sk = do
   systemStart <- querySystemStart backend QueryTip
   eraHistory <- queryEraHistory backend QueryTip
   stakePools <- queryStakePools backend QueryTip
-  utxo <- queryUTxOFor backend QueryTip vk
+  utxo <-
+    queryUTxOFor backend QueryTip vk
+      `catch` handleError
+
   txs <- buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
   forM txs $ \tx -> do
     submitTransaction backend tx
@@ -86,11 +91,28 @@ publishHydraScripts backend sk = do
  where
   vk = getVerificationKey sk
 
--- | Exception raised when building the script publishing transactions.
-newtype PublishScriptException
-  = FailedToBuildPublishingTx (TxBodyErrorAutoBalance Era)
-  deriving newtype (Show)
-  deriving anyclass (Exception)
+handleError :: SomeException -> IO a
+handleError e =
+  case fromException e of
+    Just (BlockfrostError (NoUTxOFound addr)) ->
+      throwIO $ PublishingFundsMissing (serialiseAddress addr)
+    _ ->
+      throwIO e
+
+-- | Exception raised when publishing Hydra scripts.
+data PublishScriptException
+  = PublishingFundsMissing Text
+  | FailedToBuildPublishingTx (TxBodyErrorAutoBalance Era)
+  deriving stock (Show)
+
+instance Exception PublishScriptException where
+  displayException = \case
+    FailedToBuildPublishingTx e ->
+      "Failed to build publishing transaction: " <> show e
+    PublishingFundsMissing addr ->
+      "Could not find any funds for address "
+        <> toString addr
+        <> ". Please ensure the address has funds and is on-chain."
 
 -- | Builds a chain of script publishing transactions.
 -- Throws: PublishScriptException
