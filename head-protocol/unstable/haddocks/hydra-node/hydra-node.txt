@@ -3829,8 +3829,11 @@ instance GHC.Show.Show Hydra.Chain.Offline.InitialUTxOParseException
 instance GHC.Exception.Type.Exception Hydra.Chain.Offline.InitialUTxOParseException
 
 module Hydra.Chain.Blockfrost.Client
+newtype APIBlockfrostError
+BlockfrostError :: BlockfrostException -> APIBlockfrostError
 data BlockfrostException
 TimeoutOnUTxO :: TxId -> BlockfrostException
+NoUTxOFound :: Address ShelleyAddr -> BlockfrostException
 FailedToDecodeAddress :: Text -> BlockfrostException
 ByronAddressNotSupported :: BlockfrostException
 FailedUTxOForHash :: Text -> BlockfrostException
@@ -3839,8 +3842,6 @@ AssetNameMissing :: BlockfrostException
 DeserialiseError :: Text -> BlockfrostException
 DecodeError :: Text -> BlockfrostException
 BlockfrostAPIError :: Text -> BlockfrostException
-newtype APIBlockfrostError
-BlockfrostError :: BlockfrostException -> APIBlockfrostError
 data BlockfrostConversion
 BlockfrostConversion :: NonNegativeInterval -> UnitInterval -> UnitInterval -> NonNegativeInterval -> NonNegativeInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> Quantity -> Quantity -> Quantity -> Coin -> Integer -> Quantity -> NonNegativeInterval -> BlockfrostConversion
 [$sel:a0:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
@@ -4031,16 +4032,18 @@ module Hydra.Chain.ScriptRegistry
 --   Can throw at least <tt>NewScriptRegistryException</tt> on failure.
 queryScriptRegistry :: (MonadIO m, MonadThrow m, ChainBackend backend) => backend -> [TxId] -> m ScriptRegistry
 publishHydraScripts :: ChainBackend backend => backend -> SigningKey PaymentKey -> IO [TxId]
+handleError :: SomeException -> IO a
 
--- | Exception raised when building the script publishing transactions.
-newtype PublishScriptException
+-- | Exception raised when publishing Hydra scripts.
+data PublishScriptException
+PublishingFundsMissing :: Text -> PublishScriptException
 FailedToBuildPublishingTx :: TxBodyErrorAutoBalance Era -> PublishScriptException
 
 -- | Builds a chain of script publishing transactions. Throws:
 --   PublishScriptException
 buildScriptPublishingTxs :: MonadThrow m => PParams LedgerEra -> SystemStart -> NetworkId -> EraHistory -> Set PoolId -> UTxO -> SigningKey PaymentKey -> m [Tx]
-instance GHC.Exception.Type.Exception Hydra.Chain.ScriptRegistry.PublishScriptException
 instance GHC.Show.Show Hydra.Chain.ScriptRegistry.PublishScriptException
+instance GHC.Exception.Type.Exception Hydra.Chain.ScriptRegistry.PublishScriptException
 
 
 -- | Module to deal with time in direct cardano chain layer. Defines the

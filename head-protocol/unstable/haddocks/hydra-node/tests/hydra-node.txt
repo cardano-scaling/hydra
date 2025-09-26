@@ -171,6 +171,21 @@ knownInputBalance :: Map TxIn TxOut -> Tx LedgerEra -> Value LedgerEra
 -- | NOTE: This does not account for deposits
 outputBalance :: Tx LedgerEra -> Value LedgerEra
 
+module Hydra.Chain.ScriptRegistrySpec
+spec :: Spec
+
+-- | A test backend that will throw <a>NoUTxOFound</a> on
+--   <a>queryUTxOFor</a> call.
+newtype ATestBackend
+ATestBackend :: VerificationKey PaymentKey -> ATestBackend
+
+-- | A test backend that simulates a successful script publishing.
+data SuccessfulBackend
+SuccessfulBackend :: VerificationKey PaymentKey -> UTxO -> SuccessfulBackend
+toAddress :: VerificationKey PaymentKey -> Address ShelleyAddr
+instance Hydra.Chain.Backend.ChainBackend Hydra.Chain.ScriptRegistrySpec.SuccessfulBackend
+instance Hydra.Chain.Backend.ChainBackend Hydra.Chain.ScriptRegistrySpec.ATestBackend
+
 
 -- | Tests for the <a>EventSource</a> and <a>EventSink</a> implementation
 --   in <a>FileBased</a>.
