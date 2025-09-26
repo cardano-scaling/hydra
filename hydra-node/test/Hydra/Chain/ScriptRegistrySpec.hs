@@ -26,7 +26,7 @@ import Hydra.Chain.Blockfrost.Client (
   APIBlockfrostError (..),
   BlockfrostException (..),
  )
-import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..))
+import Hydra.Options (ChainBackendOptions (..), defaultBlockfrostOptions)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
 
@@ -79,7 +79,7 @@ instance ChainBackend ATestBackend where
   submitTransaction _ _ = error "submitTransaction"
   awaitTransaction _ _ = error "awaitTransaction"
   getBlockTime _ = error "getBlockTime"
-  getOptions _ = Blockfrost BlockfrostOptions{projectPath = "./"}
+  getOptions _ = Blockfrost defaultBlockfrostOptions
   queryNetworkId _ = pure Mainnet
   queryProtocolParameters _ _ = pure emptyPParams
   querySystemStart _ _ = SystemStart <$> liftIO getCurrentTime
@@ -105,7 +105,7 @@ instance ChainBackend SuccessfulBackend where
   querySystemStart _ _ = SystemStart <$> liftIO getCurrentTime
   queryEraHistory _ _ = pure eraHistoryWithoutHorizon
   queryStakePools _ _ = pure mempty
-  getOptions _ = Blockfrost BlockfrostOptions{projectPath = "./"}
+  getOptions _ = Blockfrost defaultBlockfrostOptions
 
   -- Other methods are not needed for this test.
   queryGenesisParameters _ = error "queryGenesisParameters"
