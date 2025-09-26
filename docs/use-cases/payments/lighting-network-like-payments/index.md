@@ -9,7 +9,7 @@ Furthermore, this cluster can connect to different base network clusters on the 
 
 Oracle nodes will play a crucial role in managing routing within this network. They will analyze the DAG and the pool of incoming payment requests (known as 'invoices' in the Lightning Network context, though this terminology may change). These oracle nodes will compete to identify the shortest paths within the DAG to process payments efficiently.
 
-From a technical perspective, this network's base layer will mirror that described in the [delegated head network scenario](https://hydra.family/head-protocol/topologies/delegated-head/).
+From a technical perspective, this network's base layer will mirror that described in the [delegated head network scenario](https://hydra.family/head-protocol/topologies/delegated-head).
 
 **Pros:**
 - Faster transaction speed

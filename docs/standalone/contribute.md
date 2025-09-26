@@ -2,7 +2,7 @@
 
 ### *Run* the hydra demo
 
-See Hydra in action by following [these instructions](https://hydra.family/head-protocol/docs/getting-started/demo/).
+See Hydra in action by following [these instructions](https://hydra.family/head-protocol/docs/getting-started).
 
 ### *Tell* us about your use cases
 Are you already building on Cardano? Could Hydra help you scale? We’d love to get your thoughts on payments and auctions use cases.
