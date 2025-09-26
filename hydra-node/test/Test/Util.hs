@@ -3,7 +3,9 @@
 module Test.Util where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude hiding (shouldBe)
+import Test.Hspec (Spec)
+import Test.Hspec.QuickCheck (prop)
+import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Monad.Class.MonadSay (say)

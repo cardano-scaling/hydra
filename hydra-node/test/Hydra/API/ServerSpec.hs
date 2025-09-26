@@ -48,6 +48,7 @@ import Network.Simple.WSS qualified as WSS
 import Network.TLS (ClientHooks (onServerCertificate), ClientParams (clientHooks), defaultParamsClient)
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
+import Test.Hspec (Expectation, Spec, describe, it, shouldBe, shouldReturn, shouldSatisfy, shouldThrow)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
 import Test.Hydra.Tx.Gen ()

@@ -8,6 +8,7 @@ import Data.Map qualified as Map
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (VerificationKey, verificationKeyHash)
 import Data.ByteString qualified as BS
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head

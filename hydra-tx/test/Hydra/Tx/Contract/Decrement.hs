@@ -13,6 +13,7 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotVersion,
  )
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (ToErrorCode (..))

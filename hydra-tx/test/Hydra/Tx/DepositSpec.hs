@@ -1,7 +1,8 @@
 module Hydra.Tx.DepositSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hspec (Spec, describe, it, parallel, shouldBe, shouldSatisfy)
+import Test.Hspec.QuickCheck (prop)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map

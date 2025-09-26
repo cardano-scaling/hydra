@@ -7,8 +7,6 @@ module Test.Hydra.Prelude (
   ReasonablySized (..),
   genericCoverTable,
   pickBlind,
-  module Test.Hspec,
-  module Test.Hspec.QuickCheck,
   createTempDir,
   withTempDir,
   withLogFile,
@@ -20,7 +18,6 @@ module Test.Hydra.Prelude (
 
 import Hydra.Prelude
 import Test.Hspec
-import Test.Hspec.QuickCheck
 
 import Data.List (isInfixOf)
 import Data.Ratio ((%))

@@ -3,6 +3,7 @@ module Hydra.Tx.Commit where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (toShelleyNetwork)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Core (AlonzoEraTxBody, AlonzoEraTxWits, AsIxItem (..))
 import Cardano.Ledger.Alonzo.Scripts (PlutusPurpose)

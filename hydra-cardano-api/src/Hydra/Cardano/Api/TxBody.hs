@@ -2,6 +2,7 @@ module Hydra.Cardano.Api.TxBody where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api (Tx (..), TxBody (..), TxBodyScriptData (..), TxIn (..), getTxBody)
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Api (
   AsItem (..),

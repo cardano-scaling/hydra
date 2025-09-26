@@ -5,9 +5,7 @@ module Hydra.Tx.Party where
 
 import Hydra.Prelude
 
-import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
-import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
-import Hydra.Cardano.Api (
+import Cardano.Api (
   AsType (AsVerificationKey),
   SerialiseAsRawBytes (..),
   SigningKey,
@@ -17,6 +15,8 @@ import Hydra.Cardano.Api (
   serialiseToRawBytesHexText,
   verificationKeyHash,
  )
+import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
+import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Tx.Crypto (AsType (AsHydraKey), HydraKey)
 

@@ -87,6 +87,7 @@ library
     , async
     , base                   >=4.7 && <5
     , bytestring
+    , cardano-api
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-core
@@ -95,6 +96,7 @@ library
     , contra-tracer
     , directory
     , filepath
+    , hspec
     , http-conduit
     , http-types
     , hydra-cardano-api
@@ -164,6 +166,7 @@ test-suite tests
     , async
     , base                >=4.7 && <5
     , bytestring
+    , cardano-api
     , cardano-ledger-api
     , containers
     , directory
@@ -210,6 +213,7 @@ benchmark bench-e2e
     , aeson
     , base                  >=4.7 && <5
     , bytestring
+    , cardano-api
     , containers
     , directory
     , filepath

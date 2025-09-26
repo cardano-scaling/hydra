@@ -20,6 +20,7 @@ module Hydra.Model where
 import Hydra.Cardano.Api hiding (utxoFromTx)
 import Hydra.Prelude hiding (Any, label, lookup, toList)
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, fromShelleyPaymentCredential, getVerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Concurrent.Class.MonadSTM (
@@ -47,7 +48,6 @@ import Hydra.BehaviorSpec (
   shortLabel,
   waitUntilMatch,
  )
-import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadLogic (Committed ())

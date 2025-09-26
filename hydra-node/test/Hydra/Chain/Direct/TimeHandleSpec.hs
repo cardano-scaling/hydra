@@ -1,13 +1,14 @@
 module Hydra.Chain.Direct.TimeHandleSpec where
 
 import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
 
 import Cardano.Ledger.Slot (SlotNo (SlotNo))
 import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..), mkTimeHandle)
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
+import Test.Hspec (Spec, it, shouldBe)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Property, counterexample, forAllBlind, property, (===))
 
 spec :: Spec

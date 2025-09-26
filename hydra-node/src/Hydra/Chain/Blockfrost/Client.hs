@@ -29,6 +29,9 @@ import Blockfrost.Client (
   unSlot,
  )
 import Blockfrost.Client qualified as Blockfrost
+
+import Cardano.Api (fromNetworkMagic)
+import Cardano.Api.Shelley (PoolId, StakePoolKey, VerificationKey, verificationKeyHash)
 import Cardano.Chain.Genesis (mainnetProtocolMagicId)
 import Cardano.Crypto.ProtocolMagic (ProtocolMagicId (..))
 import Data.Map.Strict qualified as Map
@@ -61,7 +64,6 @@ import Data.List qualified as List
 import Data.SOP.NonEmpty (nonEmptyFromList)
 import Data.Set qualified as Set
 import Data.Text qualified as T
-import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
 import Hydra.Options (BlockfrostOptions (..))
 import Hydra.Tx (ScriptRegistry, newScriptRegistry)
 import Money qualified

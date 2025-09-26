@@ -5,12 +5,12 @@ module Hydra.NodeSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey)
 import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
-import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
@@ -42,6 +42,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party, deriveParty)
+import Test.Hspec (Spec, around, describe, it, parallel, shouldBe, shouldContain, shouldNotBe, shouldReturn, shouldSatisfy, shouldThrow)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (
   alice,

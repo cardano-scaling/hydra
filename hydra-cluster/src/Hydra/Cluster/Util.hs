@@ -3,13 +3,12 @@ module Hydra.Cluster.Util where
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, getVerificationKey)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
-  Key (VerificationKey, getVerificationKey),
   NetworkId,
   PaymentKey,
-  SigningKey,
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
   TxId,
   deserialiseFromTextEnvelope,

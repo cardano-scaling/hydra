@@ -2,10 +2,11 @@ module Main where
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (toShelleyNetwork)
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson (eitherDecodeFileStrict)
-import Hydra.Cardano.Api (TxIx (..), textEnvelopeToJSON, toShelleyNetwork, pattern TxIn)
+import Hydra.Cardano.Api (TxIx (..), textEnvelopeToJSON, pattern TxIn)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Deposit (depositTx, observeDepositTxOut)
 import Hydra.Tx.Recover (recoverTx)

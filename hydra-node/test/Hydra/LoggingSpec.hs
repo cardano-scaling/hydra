@@ -1,11 +1,11 @@
 module Hydra.LoggingSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Data.Aeson (object, (.=))
 import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
 import System.IO.Silently (capture_)
+import Test.Hspec (Spec, it, shouldContain)
 
 spec :: Spec
 spec = do

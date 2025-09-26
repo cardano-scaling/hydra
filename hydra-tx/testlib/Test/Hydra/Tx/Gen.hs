@@ -6,6 +6,7 @@ module Test.Hydra.Tx.Gen where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, getVerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Crypto.Hash (hashToBytes)

@@ -4,7 +4,6 @@
 module Hydra.HeadLogicSnapshotSpec where
 
 import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
@@ -20,6 +19,8 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (txId)
 import Hydra.Tx.Party (Party, deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
+import Test.Hspec (Spec, describe, expectationFailure, it, parallel, shouldBe)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,

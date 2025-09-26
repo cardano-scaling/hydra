@@ -17,6 +17,7 @@ import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (EndToEndLog (..))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Test.Hspec (Spec, around, describe, it, shouldBe, shouldSatisfy)
 import Test.Hydra.Tx.Gen (genVerificationKey)
 import Test.QuickCheck (choose, elements, forAll, generate, withMaxSuccess)
 

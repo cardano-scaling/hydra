@@ -14,6 +14,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, getVerificationKey)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Rules (
   FailureDescription (..),

@@ -5,6 +5,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Network.Etcd (newPersistentQueue, peekPersistentQueue, writePersistentQueue)
+import Test.Hspec (Spec, it, shouldReturn)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (counterexample, generate, ioProperty)
 
 spec :: Spec
