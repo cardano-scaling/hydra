@@ -22,7 +22,7 @@ module Hydra.HeadLogic (
 
 import Hydra.Prelude
 
-import Data.List (elemIndex)
+import Data.List (elemIndex, minimumBy)
 import Data.Map.Strict qualified as Map
 import Data.Set ((\\))
 import Data.Set qualified as Set
@@ -61,15 +61,11 @@ import Hydra.HeadLogic.State (
   ClosedState (..),
   Committed,
   CoordinatedHeadState (..),
-  Deposit (..),
-  DepositStatus (..),
   HeadState (..),
   IdleState (IdleState, chainState),
   InitialState (..),
-  NodeState (..),
   OpenState (..),
   PendingCommits,
-  PendingDeposits,
   SeenSnapshot (..),
   getChainState,
   seenSnapshotNumber,
@@ -83,6 +79,7 @@ import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
+import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, depositsForHead)
 import Hydra.Tx (
   HeadId,
   HeadSeed,
@@ -925,20 +922,60 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
     , coordinatedHeadState
     } = openState
 
+determineNextDepositStatus :: Ord (TxIdType tx) => Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
+determineNextDepositStatus env pendingDeposits chainTime =
+  Map.foldlWithKey updateDeposit mempty pendingDeposits
+ where
+  updateDeposit nextSelected depositTxId deposit =
+    let newStatus = determineStatus deposit
+        d' = deposit{status = newStatus}
+     in Map.insert depositTxId d' nextSelected
+
+  determineStatus Deposit{created, deadline}
+    | chainTime > deadline `minusTime` toNominalDiffTime depositPeriod = Expired
+    | chainTime > created `plusTime` toNominalDiffTime depositPeriod = Active
+    | otherwise = Inactive
+
+  minusTime time dt = addUTCTime (-dt) time
+
+  plusTime = flip addUTCTime
+
+  Environment{depositPeriod} = env
+
+-- | Process the chain (and time) advancing in any head state.
+--
+-- __Transition__: 'AnyState' → 'AnyState'
+--
+-- This is primarily used to track deposits status changes.
+onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcome tx
+onChainTick env pendingDeposits chainTime =
+  -- Determine new active and new expired
+  let nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
+      newActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
+      newExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
+   in -- Emit state change for both
+      -- XXX: This is a bit messy
+      mkDepositActivated newActive <> mkDepositExpired newExpired
+ where
+  mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    pure DepositActivated{depositTxId, chainTime, deposit}
+
+  mkDepositExpired m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    pure DepositExpired{depositTxId, chainTime, deposit}
+
 -- | Process the chain (and time) advancing in an open head.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 --
 -- This is primarily used to track deposits and either drop them or request
 -- snapshots for inclusion.
-onOpenChainTick :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> UTCTime -> Outcome tx
-onOpenChainTick env pendingDeposits st chainTime =
+onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
+onOpenChainTick env chainTime pendingDeposits st =
   -- Determine new active and new expired
-  updateDeposits $ \newActive newExpired ->
-    -- Emit state change for both
-    -- XXX: This is a bit messy
-    ((mkDepositActivated newActive <> mkDepositExpired newExpired) <>) $
-      -- Apply state changes and pick next active to request snapshot
+  let nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
+      newActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
+      newExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
+   in -- Apply state changes and pick next active to request snapshot
       -- XXX: This is smelly as we rely on Map <> to override entries (left
       -- biased). This is also weird because we want to actually apply the state
       -- change and also to determine the next active.
@@ -959,44 +996,19 @@ onOpenChainTick env pendingDeposits st chainTime =
           else
             noop
  where
-  updateDeposits cont =
-    uncurry cont $ Map.foldlWithKey updateDeposit (mempty, mempty) pendingDeposits
-
-  updateDeposit (newActive, newExpired) depositTxId deposit@Deposit{status} =
-    let newStatus = determineStatus deposit
-        d' = deposit{status = newStatus}
-     in case newStatus of
-          Active | status /= Active -> (Map.insert depositTxId d' newActive, newExpired)
-          Expired | status /= Expired -> (newActive, Map.insert depositTxId d' newExpired)
-          _ -> (newActive, newExpired)
-
-  determineStatus Deposit{created, deadline}
-    | chainTime > deadline `minusTime` toNominalDiffTime depositPeriod = Expired
-    | chainTime > created `plusTime` toNominalDiffTime depositPeriod = Active
-    | otherwise = Inactive
-
-  minusTime time dt = addUTCTime (-dt) time
-
-  plusTime = flip addUTCTime
-
-  -- REVIEW! check what if there are more than 1 new active deposit
-  -- What is the sorting criteria to pick next?
+  -- Pending active deposits are selected in arrival order (FIFO).
   withNextActive :: forall tx. (Eq (UTxOType tx), Monoid (UTxOType tx)) => Map (TxIdType tx) (Deposit tx) -> (TxIdType tx -> Outcome tx) -> Outcome tx
   withNextActive deposits cont = do
     -- NOTE: Do not consider empty deposits.
     let p :: (x, Deposit tx) -> Bool
         p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
-    maybe noop (cont . fst) . find p $ Map.toList deposits
-
-  mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
-    pure DepositActivated{depositTxId, chainTime, deposit}
-
-  mkDepositExpired m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
-    pure DepositExpired{depositTxId, chainTime, deposit}
+    case filter p (Map.toList deposits) of
+      [] -> noop
+      xs -> cont (fst (minimumBy (comparing ((\Deposit{created} -> created) . snd)) xs))
 
   nextSn = confirmedSn + 1
 
-  Environment{party, depositPeriod} = env
+  Environment{party} = env
 
   CoordinatedHeadState
     { localTxs
@@ -1354,10 +1366,10 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     onOpenClientNewTx tx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
     onOpenNetworkReqTx env ledger currentSlot openState ttl tx
-  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
-    onOpenNetworkReqSn env ledger pendingDeposits currentSlot openState sender sv sn txIds decommitTx depositTxId
-  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
-    onOpenNetworkAckSn env pendingDeposits openState sender snapshotSignature sn
+  (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
+    onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState sender sv sn txIds decommitTx depositTxId
+  (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
+    onOpenNetworkAckSn env (depositsForHead ourHeadId pendingDeposits) openState sender snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
     , ChainInput Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     )
@@ -1378,17 +1390,13 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
-  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
-    | ourHeadId == headId ->
-        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
-    | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{}, ChainInput Tick{chainTime, chainSlot}) ->
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Tick{chainTime, chainSlot}) ->
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
     newState TickObserved{chainSlot}
-      <> onOpenChainTick env pendingDeposits openState chainTime
+      <> onChainTick env pendingDeposits chainTime
+      <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
     | ourHeadId == headId ->
         onOpenChainIncrementTx openState newChainState newVersion depositTxId
@@ -1409,6 +1417,7 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         newState TickObserved{chainSlot}
+          <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
@@ -1418,6 +1427,8 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Node-level
+  (_, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}) ->
+    newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
   (_, ClientInput Recover{recoverTxId}) -> do
     onClientRecover currentSlot pendingDeposits recoverTxId
   (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState}) ->
@@ -1425,8 +1436,9 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
   -- General
   (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
-  (_, ChainInput Tick{chainSlot}) ->
+  (_, ChainInput Tick{chainTime, chainSlot}) ->
     newState TickObserved{chainSlot}
+      <> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
   (_, ClientInput{clientInput}) ->
@@ -1482,6 +1494,8 @@ aggregateNodeState nodeState sc =
                 }
         TickObserved{chainSlot} ->
           ns{currentSlot = chainSlot}
+        ChainRolledBack{chainState} ->
+          ns{currentSlot = chainStateSlot chainState}
         _ -> ns
 
 -- * HeadState aggregate

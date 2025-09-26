@@ -14,6 +14,11 @@ changes.
   Lovelace that should be depositted to a Head returning any leftover to the
   user. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
 
+- Add `--blockfrost-query-timeout` and `--blockfrost-retry-timeout` to configure
+  Blockfrost API timeouts.
+  See the [corresponding issue](https://github.com/cardano-scaling/hydra/issues/2058)
+  and [PR](https://github.com/cardano-scaling/hydra/pull/2267) for more details.
+
 - Fix bug where TUI would have out-of-date head status information
   after restarting on a rotated node (due to event rotation).
 
@@ -41,9 +46,14 @@ changes.
 
 - **BREAKING** Enable handling client recover in all head states.
   - See [Issue #1812](https://github.com/cardano-scaling/hydra/issues/1812) and [PR #2217](https://github.com/cardano-scaling/hydra/pull/2217).
+    > This enables clients (e.g. the TUI) to fully recover after event-log rotation.
+  - The Checkpoint event, and consequently the EventLogRotated server output, now carry the full NodeState instead of just the HeadState.
 
 - Optimistic approach to statefile corruption by just ignoring invalid JSON
   lines [#2253](https://github.com/cardano-scaling/hydra/issues/2253)
+
+- Select next deposit for ReqSn using FIFO, based on deposit created.
+  - See [#2263](https://github.com/cardano-scaling/hydra/issues/2263)
 
 ## [0.22.4] - 2025-08-05
 

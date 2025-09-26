@@ -33,8 +33,7 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainSta
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), NodeState (..), OpenState (..))
-import Hydra.HeadLogic.State (initNodeState)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), OpenState (..))
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -46,6 +45,7 @@ import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
+import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.NodeSpec (createMockEventStore)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
@@ -487,7 +487,7 @@ spec = parallel $ do
           shouldRunInSim $
             withSimulatedChainAndNetwork $ \chain -> do
               -- NOTE: Only a maximum difference of 600 seconds is handled by the HeadLogic. See
-              -- https://hydra.family/head-protocol/unstable/docs/known-issues/#deposit-periods
+              -- https://hydra.family/head-protocol/unstable/docs/known-issues#deposit-periods
               let dpShort = DepositPeriod 60
               let dpLong = DepositPeriod 600
               withHydraNode' dpShort aliceSk [bob] chain $ \n1 ->

@@ -61,4 +61,4 @@ The Hydra node logs all internal side effects as JSON-formatted messages to its 
 
 ### Monitoring
 
-The Hydra node [optionally](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-node-options) exposes [Prometheus](https://prometheus.io/)-compliant _metrics_ through an HTTP server, on the standard `/metrics` endpoint.
+The Hydra node [optionally](https://hydra.family/head-protocol/docs/getting-started#monitoring) exposes [Prometheus](https://prometheus.io/)-compliant _metrics_ through an HTTP server, on the standard `/metrics` endpoint.

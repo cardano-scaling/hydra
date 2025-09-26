@@ -16,6 +16,7 @@ import Hydra.Client (HydraEvent (..))
 import Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHeadState))
 import Hydra.HeadLogic.State qualified as State
 import Hydra.Network (Host (..))
+import Hydra.Node.State (Deposit (..), NodeState (..))
 import Hydra.TUI.Logging.Types (LogState)
 import Hydra.Tx (HeadId, Party (..), Snapshot (..))
 import Hydra.Tx.ContestationPeriod qualified as CP
@@ -249,8 +250,8 @@ isModalOpen s =
     Just OpenHome -> False
     Just _ -> True
 
-recoverHeadState :: UTCTime -> HeadState -> State.NodeState Tx -> HeadState
-recoverHeadState now current State.NodeState{headState, pendingDeposits} =
+recoverHeadState :: UTCTime -> HeadState -> NodeState Tx -> HeadState
+recoverHeadState now current NodeState{headState, pendingDeposits} =
   case headState of
     State.Idle State.IdleState{} -> current
     State.Initial
@@ -317,7 +318,7 @@ recoverHeadState now current State.NodeState{headState, pendingDeposits} =
  where
   pendingIncrements =
     Map.toList pendingDeposits
-      <&> ( \(txId, State.Deposit{deposited, deadline}) ->
+      <&> ( \(txId, Deposit{deposited, deadline}) ->
               PendingIncrement
                 { utxoToCommit = deposited
                 , deposit = txId

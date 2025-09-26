@@ -56,7 +56,6 @@ import Hydra.HeadLogic (
   IdleState (..),
   InitialState (..),
   Input (..),
-  NodeState (..),
   OpenState (..),
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
@@ -69,6 +68,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
 import Hydra.Node.Environment (Environment (Environment, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
+import Hydra.Node.State (NodeState (..))
 import Hydra.NodeSpec (mockServer)
 import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)

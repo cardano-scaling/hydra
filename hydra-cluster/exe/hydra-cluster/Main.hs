@@ -20,7 +20,7 @@ import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
 import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 import Hydra.Logging (Tracer, Verbosity (Verbose), traceWith, withTracer)
-import Hydra.Options (BlockfrostOptions (..))
+import Hydra.Options (BlockfrostOptions (..), defaultBlockfrostOptions)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
@@ -46,7 +46,7 @@ run options =
                 >>= singlePartyHeadFullLifeCycle tracer workDir backend
             else do
               bfProjectPath <- findFileStartingAtDirectory 3 blockfrostProjectPath
-              let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = bfProjectPath}
+              let backend = BlockfrostBackend $ defaultBlockfrostOptions{projectPath = bfProjectPath}
               publishOrReuseHydraScripts tracer backend
                 >>= singlePartyHeadFullLifeCycle tracer workDir backend
         Nothing -> do

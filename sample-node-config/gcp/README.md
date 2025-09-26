@@ -1,7 +1,7 @@
 # Example Hydra Node Infrastructure
 
 This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and GCP based infrastructure code to:
-* Setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation),
+* Setup a single [Hydra node](https://hydra.family/head-protocol/docs/installation),
 * Connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet,
 * Primed by [mithril](https://mithril.network) latest snapshot,
 * Serving [hydraw](../../hydraw) application on port 80.
@@ -67,15 +67,15 @@ $ terraform plan -out vm.plan
 
 The configuration process expects to find some files which are not provided by default and which are required for starting the Hydra node:
 * A Hydra signing key file `keys/arnaud-hydra.sk` which will be used in the Head to sign snapshots.
-  This can be generated using [hydra-node](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-keys),
+  This can be generated using [hydra-node](https://hydra.family/head-protocol/docs/configuration#hydra-keyss),
 * A cardano signing key file  `keys/arnaud.sk` which is required to identify the parties on-chain and sign transactions.
-  This is a standard Cardano key so one can reuse an existing key or [generate a new one](https://hydra.family/head-protocol/docs/getting-started/quickstart#cardano-keys),
+  This is a standard Cardano key so one can reuse an existing key or [generate a new one](https://hydra.family/head-protocol/docs/configuration#cardano-keys),
 * 0 or more hydra verification keys and cardano verification keys for the other Head parties,
 * The IP addresses and ports of _peer_ nodes,
 * Configuration files [prometheus](https://prometheus.io/) which is run as part of the stack, for monitoring purpose,
 * Configuration files for the off-chain ledger.
 
-The key files should be put in a `keys/` directory. Then the [docker-compose.yaml](./docker-compose.yaml) should be edited to reflect the above parameters as [command-line arguments](https://hydra.family/head-protocol/docs/getting-started/quickstart) to the `hydra-node` container.
+The key files should be put in a `keys/` directory. Then the [docker-compose.yaml](./docker-compose.yaml) should be edited to reflect the above parameters as [command-line arguments](https://hydra.family/head-protocol/docs/configuration) to the `hydra-node` container.
 
 ### Starting VM
 

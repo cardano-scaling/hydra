@@ -4,7 +4,7 @@
 -- | Top-level module to run a single Hydra node.
 --
 -- Checkout [Hydra
--- Documentation](https://hydra.family/head-protocol/dev/architecture)
+-- Documentation](https://hydra.family/head-protocol/docs/dev/architecture)
 -- for some details about the overall architecture of the `Node`.
 module Hydra.Node where
 
@@ -36,7 +36,6 @@ import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
   Input (..),
-  NodeState (..),
   Outcome (..),
   TTL,
   aggregateChainStateHistory,
@@ -45,7 +44,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
-import Hydra.HeadLogic.State (getHeadParameters, initNodeState)
+import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -55,6 +54,7 @@ import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
+import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
@@ -403,8 +403,6 @@ processEffects node tracer inputId effects = do
     } = node
 
 -- ** Manage state
-
--- TODO! pendingDeposits :: Map (TxIdType tx) (Deposit tx)
 
 -- | Handle to access and modify the state in the Hydra Node.
 data NodeStateHandler tx m = NodeStateHandler

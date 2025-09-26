@@ -9,11 +9,11 @@ import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
-import Hydra.HeadLogic.State (Deposit, NodeState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Network.Message (Message)
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
+import Hydra.Node.State (Deposit, NodeState)
 import Hydra.Tx (
   HeadId,
   HeadParameters,
