@@ -169,12 +169,22 @@ data DirectOptions = DirectOptions
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
 
-newtype BlockfrostOptions = BlockfrostOptions
+data BlockfrostOptions = BlockfrostOptions
   { projectPath :: FilePath
   -- ^ Path to the blockfrost project file
+  , queryTimeout :: Int
+  , retryTimeout :: Int
   }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
+
+defaultBlockfrostOptions :: BlockfrostOptions
+defaultBlockfrostOptions =
+  BlockfrostOptions
+    { projectPath = "blockfrost-project.txt"
+    , queryTimeout = 10
+    , retryTimeout = 300
+    }
 
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
@@ -335,6 +345,8 @@ chainBackendOptionsParser = directOptionsParser <|> blockfrostOptionsParser
     fmap Blockfrost $
       BlockfrostOptions
         <$> blockfrostProjectPathParser
+        <*> blockfrostQueryTimeoutParser
+        <*> blockfrostRetryTimeoutParser
 
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
@@ -468,7 +480,7 @@ instance Arbitrary ChainConfig where
       chainBackendOptions <-
         oneof
           [ pure $ Direct defaultDirectOptions
-          , pure $ Blockfrost BlockfrostOptions{projectPath = "blockfrost-project.txt"}
+          , pure $ Blockfrost defaultBlockfrostOptions
           ]
       pure
         CardanoChainConfig
@@ -550,6 +562,28 @@ blockfrostProjectPathParser =
         <> value "blockfrost.txt"
         <> help
           "Blockfrost project path containing the api key."
+    )
+
+blockfrostQueryTimeoutParser :: Parser Int
+blockfrostQueryTimeoutParser =
+  option
+    auto
+    ( long "blockfrost-query-timeout"
+        <> metavar "SECONDS"
+        <> value 10
+        <> showDefault
+        <> help "Timeout for single queries to the Blockfrost API, in seconds."
+    )
+
+blockfrostRetryTimeoutParser :: Parser Int
+blockfrostRetryTimeoutParser =
+  option
+    auto
+    ( long "blockfrost-retry-timeout"
+        <> metavar "SECONDS"
+        <> value 300
+        <> showDefault
+        <> help "Timeout for retrying queries to the Blockfrost API, in seconds."
     )
 
 networkIdParser :: Parser NetworkId
@@ -1057,8 +1091,10 @@ toArgs
           , chainBackendOptions
           } ->
           ( case chainBackendOptions of
-              Blockfrost BlockfrostOptions{projectPath} ->
+              Blockfrost BlockfrostOptions{projectPath, queryTimeout, retryTimeout} ->
                 ["--blockfrost", projectPath]
+                  <> ["--blockfrost-query-timeout", show queryTimeout]
+                  <> ["--blockfrost-retry-timeout", show retryTimeout]
               Direct DirectOptions{networkId, nodeSocket} ->
                 toArgNetworkId networkId
                   <> toArgNodeSocket nodeSocket
