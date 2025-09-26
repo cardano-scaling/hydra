@@ -5,7 +5,7 @@
 
 # Example Hydra Node Infrastructure
 
-This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and AWS based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/getting-started/installation) connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet. It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
+This directory contains some [Terraform](https://www.hashicorp.com/products/terraform) and AWS based infrastructure code to setup a single [Hydra node](https://hydra.family/head-protocol/docs/installation) connected to a [Cardano node](https://docs.cardano.org/getting-started/installing-the-cardano-node) running on `preview` testnet. It's not a complete turnkey solution and requires some tweaking and parameterisation to be completely usable but we thought it would be good starting point for new Hydra users.
 
 ### Pre-requisites
 1.  **AWS Account**: You need access to an AWS account with privileges to create EC2 instances and related resources.

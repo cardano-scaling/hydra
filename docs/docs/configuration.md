@@ -213,7 +213,7 @@ Hydra supports an offline mode that allows for disabling the layer 1 interface â
 
 As an offline head will not connect to any chain, we need to provide an `--offline-head-seed` manually, which is a hexadecimal byte string. Offline heads can still use the L2 network and to make multiple `hydra-node` "see" the same offline head, the offline head seed needs to match along with provided [hydra keys](#hydra-keys).
 
-To initialize UTxO state available on the L2 ledger, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](https://hydra.family/head-protocol/api-reference/#schema-UTxO) for the schema.
+To initialize UTxO state available on the L2 ledger, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](https://hydra.family/head-protocol/api-reference#schema-UTxO) for the schema.
 
 For example, the following UTxO contains 100 ADA owned by test key [alice-funds.sk](https://github.com/cardano-scaling/hydra/tree/master/hydra-cluster/config/credentials/alice-funds.sk):
 ```json utxo.json

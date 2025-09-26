@@ -487,7 +487,7 @@ spec = parallel $ do
           shouldRunInSim $
             withSimulatedChainAndNetwork $ \chain -> do
               -- NOTE: Only a maximum difference of 600 seconds is handled by the HeadLogic. See
-              -- https://hydra.family/head-protocol/unstable/docs/known-issues/#deposit-periods
+              -- https://hydra.family/head-protocol/unstable/docs/known-issues#deposit-periods
               let dpShort = DepositPeriod 60
               let dpLong = DepositPeriod 600
               withHydraNode' dpShort aliceSk [bob] chain $ \n1 ->
