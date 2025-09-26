@@ -42,9 +42,9 @@ instance ChainBackend BlockfrostBackend where
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
 
-  queryScriptRegistry (BlockfrostBackend BlockfrostOptions{projectPath}) txIds = do
+  queryScriptRegistry (BlockfrostBackend opts@BlockfrostOptions{projectPath}) txIds = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry txIds
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry opts txIds
 
   queryNetworkId (BlockfrostBackend BlockfrostOptions{projectPath}) = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
@@ -56,7 +56,7 @@ instance ChainBackend BlockfrostBackend where
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj Blockfrost.queryTip
 
-  queryUTxO (BlockfrostBackend BlockfrostOptions{projectPath}) addresses = do
+  queryUTxO (BlockfrostBackend opts@BlockfrostOptions{projectPath}) addresses = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.Genesis
       { _genesisNetworkMagic
@@ -64,9 +64,9 @@ instance ChainBackend BlockfrostBackend where
       } <-
       Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO networkId addresses
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO opts networkId addresses
 
-  queryUTxOByTxIn (BlockfrostBackend BlockfrostOptions{projectPath}) txins = do
+  queryUTxOByTxIn (BlockfrostBackend opts@BlockfrostOptions{projectPath}) txins = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.Genesis
       { _genesisNetworkMagic
@@ -74,7 +74,7 @@ instance ChainBackend BlockfrostBackend where
       } <-
       Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOByTxIn networkId txins
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOByTxIn opts networkId txins
 
   queryEraHistory (BlockfrostBackend BlockfrostOptions{projectPath}) _ = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
@@ -92,17 +92,17 @@ instance ChainBackend BlockfrostBackend where
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj Blockfrost.queryStakePools
 
-  queryUTxOFor (BlockfrostBackend BlockfrostOptions{projectPath}) _ vk = do
+  queryUTxOFor (BlockfrostBackend opts@BlockfrostOptions{projectPath}) _ vk = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor vk
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor opts vk
 
   submitTransaction (BlockfrostBackend BlockfrostOptions{projectPath}) tx = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     void $ Blockfrost.runBlockfrostM prj $ Blockfrost.submitTransaction tx
 
-  awaitTransaction (BlockfrostBackend BlockfrostOptions{projectPath}) tx vk = do
+  awaitTransaction (BlockfrostBackend opts@BlockfrostOptions{projectPath}) tx vk = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction tx vk
+    Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction opts tx vk
 
   getOptions (BlockfrostBackend blockfrostOptions) = Blockfrost blockfrostOptions
 

@@ -29,7 +29,7 @@ import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Cluster.Util (readConfigFile)
-import Hydra.Options (BlockfrostOptions (..), DirectOptions (..))
+import Hydra.Options (BlockfrostOptions (..), DirectOptions (..), defaultBlockfrostOptions)
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (
   createDirectoryIfMissing,
@@ -179,7 +179,7 @@ withBlockfrostBackend _tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
   shelleyGenesis <- readFileBS >=> unsafeDecodeJson $ stateDirectory </> nodeShelleyGenesisFile args
   bfProjectPath <- findFileStartingAtDirectory 3 Backend.blockfrostProjectPath
-  let backend = BlockfrostBackend $ BlockfrostOptions{projectPath = bfProjectPath}
+  let backend = BlockfrostBackend $ defaultBlockfrostOptions{projectPath = bfProjectPath}
   action (getShelleyGenesisBlockTime shelleyGenesis) backend
 
 -- | Find the given file in the current directory or its parents.

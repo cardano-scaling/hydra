@@ -30,6 +30,7 @@ import Hydra.Options (
   ParserResult (..),
   PublishOptions (..),
   RunOptions (..),
+  defaultBlockfrostOptions,
   defaultCardanoChainConfig,
   defaultDirectOptions,
   defaultLedgerConfig,
@@ -348,7 +349,29 @@ spec = parallel $
       ["--blockfrost", "blockfrost-project.txt"]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = Cardano (defaultCardanoChainConfig & #chainBackendOptions .~ Blockfrost (BlockfrostOptions "blockfrost-project.txt"))
+            { chainConfig = Cardano (defaultCardanoChainConfig & #chainBackendOptions .~ Blockfrost defaultBlockfrostOptions)
+            }
+
+    it "parses --blockfrost with timeouts" $
+      [ "--blockfrost"
+      , "blockfrost-project.txt"
+      , "--blockfrost-query-timeout"
+      , "30"
+      , "--blockfrost-retry-timeout"
+      , "600"
+      ]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                Cardano
+                  ( defaultCardanoChainConfig
+                      & #chainBackendOptions
+                        .~ Blockfrost
+                          defaultBlockfrostOptions
+                            { queryTimeout = 30
+                            , retryTimeout = 600
+                            }
+                  )
             }
 
     it "switches to offline mode when using --offline-head-seed and --initial-utxo" $
@@ -463,6 +486,8 @@ spec = parallel $
                     Blockfrost
                       BlockfrostOptions
                         { projectPath = "baz"
+                        , queryTimeout = 10
+                        , retryTimeout = 300
                         }
                 , publishSigningKey = "cardano.sk"
                 }
