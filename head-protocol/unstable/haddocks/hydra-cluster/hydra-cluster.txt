@@ -173,7 +173,7 @@ seedFromFaucet :: ChainBackend backend => backend -> VerificationKey PaymentKey 
 --   <a>Value</a> by redeeming funds available to the well-known faucet.
 seedFromFaucetWithMinting :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> Maybe PlutusScript -> IO UTxO
 findFaucetUTxO :: ChainBackend backend => NetworkId -> backend -> Coin -> IO UTxO
-seedFromFaucetBlockfrost :: VerificationKey PaymentKey -> Coin -> BlockfrostClientT IO UTxO
+seedFromFaucetBlockfrost :: BlockfrostOptions -> VerificationKey PaymentKey -> Coin -> BlockfrostClientT IO UTxO
 
 -- | Like <a>seedFromFaucet</a>, but without returning the seeded
 --   <a>UTxO'</a>.

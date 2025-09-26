@@ -358,161 +358,6 @@ instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx
 instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.OnChainTx tx)
 instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.PostChainTx tx)
 
-module Hydra.Chain.Blockfrost.Client
-data BlockfrostException
-TimeoutOnUTxO :: TxId -> BlockfrostException
-FailedToDecodeAddress :: Text -> BlockfrostException
-ByronAddressNotSupported :: BlockfrostException
-FailedUTxOForHash :: Text -> BlockfrostException
-FailedEraHistory :: BlockfrostException
-AssetNameMissing :: BlockfrostException
-DeserialiseError :: Text -> BlockfrostException
-DecodeError :: Text -> BlockfrostException
-BlockfrostAPIError :: Text -> BlockfrostException
-newtype APIBlockfrostError
-BlockfrostError :: BlockfrostException -> APIBlockfrostError
-data BlockfrostConversion
-BlockfrostConversion :: NonNegativeInterval -> UnitInterval -> UnitInterval -> NonNegativeInterval -> NonNegativeInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> Quantity -> Quantity -> Quantity -> Coin -> Integer -> Quantity -> NonNegativeInterval -> BlockfrostConversion
-[$sel:a0:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
-[$sel:rho:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:tau:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:priceMemory:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
-[$sel:priceSteps:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
-[$sel:pvtMotionNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:pvtCommitteeNormal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:pvtCommitteeNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:pvtHardForkInitiation:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:pvtPPSecurityGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtMotionNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtCommitteeNormal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtCommitteeNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtUpdateToConstitution:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtHardForkInitiation:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtPPNetworkGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtPPEconomicGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtPPTechnicalGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtPPGovGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtTreasuryWithdrawal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:committeeMinSize:BlockfrostConversion] :: BlockfrostConversion -> Quantity
-[$sel:committeeMaxTermLength:BlockfrostConversion] :: BlockfrostConversion -> Quantity
-[$sel:govActionLifetime:BlockfrostConversion] :: BlockfrostConversion -> Quantity
-[$sel:govActionDeposit:BlockfrostConversion] :: BlockfrostConversion -> Coin
-[$sel:drepDeposit:BlockfrostConversion] :: BlockfrostConversion -> Integer
-[$sel:drepActivity:BlockfrostConversion] :: BlockfrostConversion -> Quantity
-[$sel:minFeeRefScriptCostPerByte:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
-
--- | Query the Blockfrost API for <a>Genesis</a>
-queryGenesisParameters :: BlockfrostClientT IO Genesis
-
--- | Query for <a>TxIn</a>s in the search for outputs containing all the
---   reference scripts of the <a>ScriptRegistry</a>.
---   
---   This is implemented by repeated querying until we have all necessary
---   reference scripts as we do only know the transaction id, not the
---   indices.
---   
---   Can throw at least <tt>NewScriptRegistryException</tt> on failure.
-queryScriptRegistry :: [TxId] -> BlockfrostClientT IO ScriptRegistry
-queryEraHistory :: BlockfrostClientT IO EraHistory
-queryProtocolParameters :: MonadIO m => BlockfrostClientT m (PParams LedgerEra)
-queryStakePools :: BlockfrostClientT IO (Set PoolId)
-querySystemStart :: BlockfrostClientT IO SystemStart
-runBlockfrostM :: (MonadIO m, MonadThrow m) => Project -> BlockfrostClientT IO a -> m a
-toCardanoNetworkId :: Integer -> NetworkId
-
--- | Query the Blockfrost API to get the <a>UTxO'</a> for <a>TxIn</a> and
---   convert to cardano <a>UTxO'</a>. FIXME: make blockfrost wait times
---   configurable.
-queryUTxOByTxIn :: NetworkId -> [TxIn] -> BlockfrostClientT IO UTxO
-scriptTypeToPlutusVersion :: ScriptType -> Maybe Language
-toCardanoUTxO :: NetworkId -> TxIn -> Address -> Maybe ScriptHash -> Maybe DatumHash -> [Amount] -> Maybe InlineDatum -> BlockfrostClientT IO (UTxO' (TxOut ctx))
-toCardanoValue :: [Amount] -> BlockfrostClientT IO Value
-queryScript :: Text -> BlockfrostClientT IO (Maybe PlutusScript)
-toCardanoTxOut :: NetworkId -> Text -> Value -> Maybe Text -> Maybe Text -> Maybe PlutusScript -> BlockfrostClientT IO (TxOut ctx)
-toCardanoPoolId :: PoolId -> Hash StakePoolKey
-toCardanoTxIn :: Text -> Integer -> TxIn
-toCardanoAddress :: Text -> Maybe AddressInEra
-toCardanoPolicyIdAndAssetName :: Text -> BlockfrostClientT IO (PolicyId, AssetName)
-toCardanoGenesisParameters :: Genesis -> GenesisParameters ShelleyEra
-submitTransaction :: MonadIO m => Tx -> BlockfrostClientT m TxHash
-queryTimeout :: Int
-retryTimeout :: Int
-
--- | Query the Blockfrost API for address UTxO and convert to cardano
---   <a>UTxO'</a>. NOTE: We accept the address list here to be compatible
---   with cardano-api but in fact this is a single address query always.
-queryUTxO :: NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
-queryUTxOFor :: VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
-
--- | Query the Blockfrost API for <a>Genesis</a> and convert to cardano
---   <a>ChainPoint</a>.
-queryTip :: BlockfrostClientT IO ChainPoint
-awaitTransaction :: Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
-
--- | Await for specific UTxO at address - the one that is produced by the
---   given <a>TxId</a>.
-awaitUTxO :: NetworkId -> [Address ShelleyAddr] -> TxId -> Int -> BlockfrostClientT IO UTxO
-data () => Block
-Block :: POSIXTime -> Maybe Integer -> BlockHash -> Maybe Slot -> Maybe Epoch -> Maybe Integer -> Text -> Integer -> Integer -> Maybe Lovelaces -> Maybe Lovelaces -> Maybe Text -> Maybe Text -> Maybe Quantity -> Maybe BlockHash -> Maybe BlockHash -> Integer -> Block
-[$sel:_blockTime:Block] :: Block -> POSIXTime
-[$sel:_blockHeight:Block] :: Block -> Maybe Integer
-[$sel:_blockHash:Block] :: Block -> BlockHash
-[$sel:_blockSlot:Block] :: Block -> Maybe Slot
-[$sel:_blockEpoch:Block] :: Block -> Maybe Epoch
-[$sel:_blockEpochSlot:Block] :: Block -> Maybe Integer
-[$sel:_blockSlotLeader:Block] :: Block -> Text
-[$sel:_blockSize:Block] :: Block -> Integer
-[$sel:_blockTxCount:Block] :: Block -> Integer
-[$sel:_blockOutput:Block] :: Block -> Maybe Lovelaces
-[$sel:_blockFees:Block] :: Block -> Maybe Lovelaces
-[$sel:_blockBlockVrf:Block] :: Block -> Maybe Text
-[$sel:_blockOpCert:Block] :: Block -> Maybe Text
-[$sel:_blockOpCertCounter:Block] :: Block -> Maybe Quantity
-[$sel:_blockPreviousBlock:Block] :: Block -> Maybe BlockHash
-[$sel:_blockNextBlock:Block] :: Block -> Maybe BlockHash
-[$sel:_blockConfirmations:Block] :: Block -> Integer
-newtype () => Slot
-Slot :: Integer -> Slot
-newtype () => BlockHash
-BlockHash :: Text -> BlockHash
-data () => BlockfrostClientT (m :: Type -> Type) a
-data () => Genesis
-Genesis :: Rational -> Integer -> Lovelaces -> Integer -> Integer -> POSIXTime -> Integer -> Integer -> Integer -> Integer -> Genesis
-[$sel:_genesisActiveSlotsCoefficient:Genesis] :: Genesis -> Rational
-[$sel:_genesisUpdateQuorum:Genesis] :: Genesis -> Integer
-[$sel:_genesisMaxLovelaceSupply:Genesis] :: Genesis -> Lovelaces
-[$sel:_genesisNetworkMagic:Genesis] :: Genesis -> Integer
-[$sel:_genesisEpochLength:Genesis] :: Genesis -> Integer
-[$sel:_genesisSystemStart:Genesis] :: Genesis -> POSIXTime
-[$sel:_genesisSlotsPerKesPeriod:Genesis] :: Genesis -> Integer
-[$sel:_genesisSlotLength:Genesis] :: Genesis -> Integer
-[$sel:_genesisMaxKesEvolutions:Genesis] :: Genesis -> Integer
-[$sel:_genesisSecurityParam:Genesis] :: Genesis -> Integer
-data () => Project
-newtype () => TransactionCBOR
-TransactionCBOR :: Text -> TransactionCBOR
-[$sel:_transactionCBORCbor:TransactionCBOR] :: TransactionCBOR -> Text
-newtype () => TxHashCBOR
-TxHashCBOR :: (TxHash, TransactionCBOR) -> TxHashCBOR
-[$sel:getTxHashCBOR:TxHashCBOR] :: TxHashCBOR -> (TxHash, TransactionCBOR)
-
--- | <a>MonadError</a> analogue to the <a>try</a> function.
-tryError :: MonadError e m => m a -> m (Either e a)
-allPages :: Monad m => (Paged -> m [a]) -> m [a]
-def :: Default a => a
-getBlock :: MonadBlockfrost m => Either Integer BlockHash -> m Block
-getBlockTxsCBOR' :: MonadBlockfrost m => Either Integer BlockHash -> Paged -> SortOrder -> m [TxHashCBOR]
-getLedgerGenesis :: MonadBlockfrost m => m Genesis
-listPools :: MonadBlockfrost m => m [PoolId]
-projectFromFile :: FilePath -> IO Project
-runBlockfrost :: Project -> BlockfrostClientT IO a -> IO (Either BlockfrostError a)
-unBlockHash :: BlockHash -> Text
-unSlot :: Slot -> Integer
-instance GHC.Exception.Type.Exception Hydra.Chain.Blockfrost.Client.BlockfrostException
-instance GHC.Show.Show Hydra.Chain.Blockfrost.Client.BlockfrostException
-instance GHC.Exception.Type.Exception Hydra.Chain.Blockfrost.Client.APIBlockfrostError
-instance GHC.Show.Show Hydra.Chain.Blockfrost.Client.APIBlockfrostError
-
 
 -- | A basic cardano-node client that can talk to a local cardano-node.
 --   
@@ -3717,11 +3562,13 @@ GenHydraKey :: GenerateKeyPair -> Command
 data ChainBackendOptions
 Direct :: DirectOptions -> ChainBackendOptions
 Blockfrost :: BlockfrostOptions -> ChainBackendOptions
-newtype BlockfrostOptions
-BlockfrostOptions :: FilePath -> BlockfrostOptions
+data BlockfrostOptions
+BlockfrostOptions :: FilePath -> Int -> Int -> BlockfrostOptions
 
 -- | Path to the blockfrost project file
 [$sel:projectPath:BlockfrostOptions] :: BlockfrostOptions -> FilePath
+[$sel:queryTimeout:BlockfrostOptions] :: BlockfrostOptions -> Int
+[$sel:retryTimeout:BlockfrostOptions] :: BlockfrostOptions -> Int
 data CardanoChainConfig
 CardanoChainConfig :: [TxId] -> FilePath -> [FilePath] -> Maybe ChainPoint -> ContestationPeriod -> DepositPeriod -> ChainBackendOptions -> CardanoChainConfig
 
@@ -3838,6 +3685,7 @@ outputFileParser :: Parser FilePath
 --   <a>runOptionsParser</a>.
 defaultPublishOptions :: PublishOptions
 defaultDirectOptions :: DirectOptions
+defaultBlockfrostOptions :: BlockfrostOptions
 chainBackendOptionsParser :: Parser ChainBackendOptions
 cardanoSigningKeyFileParser :: Parser FilePath
 genFilePath :: String -> Gen FilePath
@@ -3871,6 +3719,8 @@ offlineChainConfigParser :: Parser OfflineChainConfig
 networkIdParser :: Parser NetworkId
 nodeSocketParser :: Parser SocketPath
 blockfrostProjectPathParser :: Parser FilePath
+blockfrostQueryTimeoutParser :: Parser Int
+blockfrostRetryTimeoutParser :: Parser Int
 cardanoLedgerProtocolParametersParser :: Parser FilePath
 offlineHeadSeedParser :: Parser HeadSeed
 initialUTxOFileParser :: Parser FilePath
@@ -3977,6 +3827,159 @@ withOfflineChain :: OfflineChainConfig -> Party -> [Party] -> ChainStateHistory 
 tickForever :: GenesisParameters ShelleyEra -> (ChainEvent Tx -> IO ()) -> IO ()
 instance GHC.Show.Show Hydra.Chain.Offline.InitialUTxOParseException
 instance GHC.Exception.Type.Exception Hydra.Chain.Offline.InitialUTxOParseException
+
+module Hydra.Chain.Blockfrost.Client
+data BlockfrostException
+TimeoutOnUTxO :: TxId -> BlockfrostException
+FailedToDecodeAddress :: Text -> BlockfrostException
+ByronAddressNotSupported :: BlockfrostException
+FailedUTxOForHash :: Text -> BlockfrostException
+FailedEraHistory :: BlockfrostException
+AssetNameMissing :: BlockfrostException
+DeserialiseError :: Text -> BlockfrostException
+DecodeError :: Text -> BlockfrostException
+BlockfrostAPIError :: Text -> BlockfrostException
+newtype APIBlockfrostError
+BlockfrostError :: BlockfrostException -> APIBlockfrostError
+data BlockfrostConversion
+BlockfrostConversion :: NonNegativeInterval -> UnitInterval -> UnitInterval -> NonNegativeInterval -> NonNegativeInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> Quantity -> Quantity -> Quantity -> Coin -> Integer -> Quantity -> NonNegativeInterval -> BlockfrostConversion
+[$sel:a0:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
+[$sel:rho:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:tau:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:priceMemory:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
+[$sel:priceSteps:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
+[$sel:pvtMotionNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:pvtCommitteeNormal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:pvtCommitteeNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:pvtHardForkInitiation:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:pvtPPSecurityGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtMotionNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtCommitteeNormal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtCommitteeNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtUpdateToConstitution:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtHardForkInitiation:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtPPNetworkGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtPPEconomicGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtPPTechnicalGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtPPGovGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtTreasuryWithdrawal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:committeeMinSize:BlockfrostConversion] :: BlockfrostConversion -> Quantity
+[$sel:committeeMaxTermLength:BlockfrostConversion] :: BlockfrostConversion -> Quantity
+[$sel:govActionLifetime:BlockfrostConversion] :: BlockfrostConversion -> Quantity
+[$sel:govActionDeposit:BlockfrostConversion] :: BlockfrostConversion -> Coin
+[$sel:drepDeposit:BlockfrostConversion] :: BlockfrostConversion -> Integer
+[$sel:drepActivity:BlockfrostConversion] :: BlockfrostConversion -> Quantity
+[$sel:minFeeRefScriptCostPerByte:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
+
+-- | Query the Blockfrost API for <a>Genesis</a>
+queryGenesisParameters :: BlockfrostClientT IO Genesis
+
+-- | Query for <a>TxIn</a>s in the search for outputs containing all the
+--   reference scripts of the <a>ScriptRegistry</a>.
+--   
+--   This is implemented by repeated querying until we have all necessary
+--   reference scripts as we do only know the transaction id, not the
+--   indices.
+--   
+--   Can throw at least <tt>NewScriptRegistryException</tt> on failure.
+queryScriptRegistry :: BlockfrostOptions -> [TxId] -> BlockfrostClientT IO ScriptRegistry
+queryEraHistory :: BlockfrostClientT IO EraHistory
+queryProtocolParameters :: MonadIO m => BlockfrostClientT m (PParams LedgerEra)
+queryStakePools :: BlockfrostClientT IO (Set PoolId)
+querySystemStart :: BlockfrostClientT IO SystemStart
+
+-- | Query the Blockfrost API for address UTxO and convert to cardano
+--   <a>UTxO'</a>. NOTE: We accept the address list here to be compatible
+--   with cardano-api but in fact this is a single address query always.
+queryUTxO :: BlockfrostOptions -> NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
+submitTransaction :: MonadIO m => Tx -> BlockfrostClientT m TxHash
+awaitTransaction :: BlockfrostOptions -> Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+
+-- | Query the Blockfrost API to get the <a>UTxO'</a> for <a>TxIn</a> and
+--   convert to cardano <a>UTxO'</a>. FIXME: make blockfrost wait times
+--   configurable.
+queryUTxOByTxIn :: BlockfrostOptions -> NetworkId -> [TxIn] -> BlockfrostClientT IO UTxO
+
+-- | Query the Blockfrost API for <a>Genesis</a> and convert to cardano
+--   <a>ChainPoint</a>.
+queryTip :: BlockfrostClientT IO ChainPoint
+queryUTxOFor :: BlockfrostOptions -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+runBlockfrostM :: (MonadIO m, MonadThrow m) => Project -> BlockfrostClientT IO a -> m a
+toCardanoNetworkId :: Integer -> NetworkId
+scriptTypeToPlutusVersion :: ScriptType -> Maybe Language
+toCardanoUTxO :: NetworkId -> TxIn -> Address -> Maybe ScriptHash -> Maybe DatumHash -> [Amount] -> Maybe InlineDatum -> BlockfrostClientT IO (UTxO' (TxOut ctx))
+toCardanoValue :: [Amount] -> BlockfrostClientT IO Value
+queryScript :: Text -> BlockfrostClientT IO (Maybe PlutusScript)
+toCardanoTxOut :: NetworkId -> Text -> Value -> Maybe Text -> Maybe Text -> Maybe PlutusScript -> BlockfrostClientT IO (TxOut ctx)
+toCardanoPoolId :: PoolId -> Hash StakePoolKey
+toCardanoTxIn :: Text -> Integer -> TxIn
+toCardanoAddress :: Text -> Maybe AddressInEra
+toCardanoPolicyIdAndAssetName :: Text -> BlockfrostClientT IO (PolicyId, AssetName)
+toCardanoGenesisParameters :: Genesis -> GenesisParameters ShelleyEra
+
+-- | Await for specific UTxO at address - the one that is produced by the
+--   given <a>TxId</a>.
+awaitUTxO :: NetworkId -> [Address ShelleyAddr] -> TxId -> BlockfrostOptions -> BlockfrostClientT IO UTxO
+data () => Block
+Block :: POSIXTime -> Maybe Integer -> BlockHash -> Maybe Slot -> Maybe Epoch -> Maybe Integer -> Text -> Integer -> Integer -> Maybe Lovelaces -> Maybe Lovelaces -> Maybe Text -> Maybe Text -> Maybe Quantity -> Maybe BlockHash -> Maybe BlockHash -> Integer -> Block
+[$sel:_blockTime:Block] :: Block -> POSIXTime
+[$sel:_blockHeight:Block] :: Block -> Maybe Integer
+[$sel:_blockHash:Block] :: Block -> BlockHash
+[$sel:_blockSlot:Block] :: Block -> Maybe Slot
+[$sel:_blockEpoch:Block] :: Block -> Maybe Epoch
+[$sel:_blockEpochSlot:Block] :: Block -> Maybe Integer
+[$sel:_blockSlotLeader:Block] :: Block -> Text
+[$sel:_blockSize:Block] :: Block -> Integer
+[$sel:_blockTxCount:Block] :: Block -> Integer
+[$sel:_blockOutput:Block] :: Block -> Maybe Lovelaces
+[$sel:_blockFees:Block] :: Block -> Maybe Lovelaces
+[$sel:_blockBlockVrf:Block] :: Block -> Maybe Text
+[$sel:_blockOpCert:Block] :: Block -> Maybe Text
+[$sel:_blockOpCertCounter:Block] :: Block -> Maybe Quantity
+[$sel:_blockPreviousBlock:Block] :: Block -> Maybe BlockHash
+[$sel:_blockNextBlock:Block] :: Block -> Maybe BlockHash
+[$sel:_blockConfirmations:Block] :: Block -> Integer
+newtype () => Slot
+Slot :: Integer -> Slot
+newtype () => BlockHash
+BlockHash :: Text -> BlockHash
+data () => BlockfrostClientT (m :: Type -> Type) a
+data () => Genesis
+Genesis :: Rational -> Integer -> Lovelaces -> Integer -> Integer -> POSIXTime -> Integer -> Integer -> Integer -> Integer -> Genesis
+[$sel:_genesisActiveSlotsCoefficient:Genesis] :: Genesis -> Rational
+[$sel:_genesisUpdateQuorum:Genesis] :: Genesis -> Integer
+[$sel:_genesisMaxLovelaceSupply:Genesis] :: Genesis -> Lovelaces
+[$sel:_genesisNetworkMagic:Genesis] :: Genesis -> Integer
+[$sel:_genesisEpochLength:Genesis] :: Genesis -> Integer
+[$sel:_genesisSystemStart:Genesis] :: Genesis -> POSIXTime
+[$sel:_genesisSlotsPerKesPeriod:Genesis] :: Genesis -> Integer
+[$sel:_genesisSlotLength:Genesis] :: Genesis -> Integer
+[$sel:_genesisMaxKesEvolutions:Genesis] :: Genesis -> Integer
+[$sel:_genesisSecurityParam:Genesis] :: Genesis -> Integer
+data () => Project
+newtype () => TransactionCBOR
+TransactionCBOR :: Text -> TransactionCBOR
+[$sel:_transactionCBORCbor:TransactionCBOR] :: TransactionCBOR -> Text
+newtype () => TxHashCBOR
+TxHashCBOR :: (TxHash, TransactionCBOR) -> TxHashCBOR
+[$sel:getTxHashCBOR:TxHashCBOR] :: TxHashCBOR -> (TxHash, TransactionCBOR)
+
+-- | <a>MonadError</a> analogue to the <a>try</a> function.
+tryError :: MonadError e m => m a -> m (Either e a)
+allPages :: Monad m => (Paged -> m [a]) -> m [a]
+def :: Default a => a
+getBlock :: MonadBlockfrost m => Either Integer BlockHash -> m Block
+getBlockTxsCBOR' :: MonadBlockfrost m => Either Integer BlockHash -> Paged -> SortOrder -> m [TxHashCBOR]
+getLedgerGenesis :: MonadBlockfrost m => m Genesis
+listPools :: MonadBlockfrost m => m [PoolId]
+projectFromFile :: FilePath -> IO Project
+runBlockfrost :: Project -> BlockfrostClientT IO a -> IO (Either BlockfrostError a)
+unBlockHash :: BlockHash -> Text
+unSlot :: Slot -> Integer
+instance GHC.Exception.Type.Exception Hydra.Chain.Blockfrost.Client.BlockfrostException
+instance GHC.Show.Show Hydra.Chain.Blockfrost.Client.BlockfrostException
+instance GHC.Exception.Type.Exception Hydra.Chain.Blockfrost.Client.APIBlockfrostError
+instance GHC.Show.Show Hydra.Chain.Blockfrost.Client.APIBlockfrostError
 
 module Hydra.Chain.Backend
 blockfrostProjectPath :: FilePath

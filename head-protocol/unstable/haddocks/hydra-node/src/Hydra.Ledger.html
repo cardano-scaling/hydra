@@ -14,10 +14,10 @@
 </span><span id="line-14"></span><span class="hs-comment">-- instances to 'ChainSlot'.</span><span>
 </span><span id="line-15"></span><span class="annot"><a href="Hydra.Ledger.html#nextChainSlot"><span class="hs-identifier hs-type">nextChainSlot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span>
 </span><span id="line-16"></span><span id="nextChainSlot"><span class="annot"><span class="annottext">nextChainSlot :: ChainSlot -&gt; ChainSlot
-</span><a href="Hydra.Ledger.html#nextChainSlot"><span class="hs-identifier hs-var hs-var">nextChainSlot</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span> </span><span id="local-6989586621680558607"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621680558607"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ChainSlot
+</span><a href="Hydra.Ledger.html#nextChainSlot"><span class="hs-identifier hs-var hs-var">nextChainSlot</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span> </span><span id="local-6989586621680557124"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621680557124"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ChainSlot
 </span><span class="hs-identifier hs-var">ChainSlot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621680558607"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+</span><a href="#local-6989586621680557124"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
@@ -25,7 +25,7 @@ forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span id="line-18"></span><span class="hs-comment">-- | An abstract interface for a 'Ledger'. Allows to define mock / simpler</span><span>
 </span><span id="line-19"></span><span class="hs-comment">-- implementation for testing as well as limiting feature-envy from the business</span><span>
 </span><span id="line-20"></span><span class="hs-comment">-- logic by forcing a closed interface.</span><span>
-</span><span id="line-21"></span><span class="hs-keyword">newtype</span><span> </span><span id="Ledger"><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier hs-var">Ledger</span></a></span></span><span> </span><span id="local-6989586621680558362"><span class="annot"><a href="#local-6989586621680558362"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Ledger"><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier hs-var">Ledger</span></a></span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">newtype</span><span> </span><span id="Ledger"><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier hs-var">Ledger</span></a></span></span><span> </span><span id="local-6989586621680556879"><span class="annot"><a href="#local-6989586621680556879"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Ledger"><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier hs-var">Ledger</span></a></span></span><span>
 </span><span id="line-22"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AapplyTransactions%3ALedger"><span class="annot"><span class="annottext">forall tx.
 Ledger tx
 -&gt; ChainSlot
@@ -34,9 +34,9 @@ Ledger tx
 -&gt; Either (tx, ValidationError) (UTxOType tx)
 </span><a href="Hydra.Ledger.html#%24sel%3AapplyTransactions%3ALedger"><span class="hs-identifier hs-var hs-var">applyTransactions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span>
 </span><span id="line-23"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-24"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680558362"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-25"></span><span>      </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621680558362"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-26"></span><span>      </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621680558362"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-type">ValidationError</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680558362"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680556879"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-25"></span><span>      </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621680556879"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-26"></span><span>      </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621680556879"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-type">ValidationError</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680556879"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-27"></span><span>  </span><span class="hs-comment">-- ^ Apply a set of transaction to a given UTxO set. Returns the new UTxO or</span><span>
 </span><span id="line-28"></span><span>  </span><span class="hs-comment">-- validation failures returned from the ledger.</span><span>
 </span><span id="line-29"></span><span>  </span><span class="hs-comment">-- TODO: 'ValidationError' should also include the UTxO, which is not</span><span>
@@ -45,11 +45,11 @@ Ledger tx
 </span><span id="line-32"></span><span>
 </span><span id="line-33"></span><span class="hs-comment">-- | Collect applicable transactions and resulting UTxO. In contrast to</span><span>
 </span><span id="line-34"></span><span class="hs-comment">-- 'applyTransactions', this functions continues on validation errors.</span><span>
-</span><span id="line-35"></span><span id="local-6989586621680558367"><span class="annot"><a href="Hydra.Ledger.html#collectTransactions"><span class="hs-identifier hs-type">collectTransactions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier hs-type">Ledger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680558367"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680558367"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621680558367"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621680558367"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680558367"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-35"></span><span id="local-6989586621680556884"><span class="annot"><a href="Hydra.Ledger.html#collectTransactions"><span class="hs-identifier hs-type">collectTransactions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier hs-type">Ledger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680556884"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680556884"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621680556884"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621680556884"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680556884"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
 </span><span id="line-36"></span><span id="collectTransactions"><span class="annot"><span class="annottext">collectTransactions :: forall tx.
 Ledger tx
 -&gt; ChainSlot -&gt; UTxOType tx -&gt; [tx] -&gt; ([tx], UTxOType tx)
-</span><a href="Hydra.Ledger.html#collectTransactions"><span class="hs-identifier hs-var hs-var">collectTransactions</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier hs-type">Ledger</span></a></span><span class="hs-special">{</span><span id="local-6989586621680558617"><span class="annot"><span class="annottext">ChainSlot
+</span><a href="Hydra.Ledger.html#collectTransactions"><span class="hs-identifier hs-var hs-var">collectTransactions</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier hs-type">Ledger</span></a></span><span class="hs-special">{</span><span id="local-6989586621680557134"><span class="annot"><span class="annottext">ChainSlot
 -&gt; UTxOType tx
 -&gt; [tx]
 -&gt; Either (tx, ValidationError) (UTxOType tx)
@@ -63,9 +63,9 @@ applyTransactions :: ChainSlot
 -&gt; UTxOType tx
 -&gt; [tx]
 -&gt; Either (tx, ValidationError) (UTxOType tx)
-</span><a href="Hydra.Ledger.html#%24sel%3AapplyTransactions%3ALedger"><span class="hs-identifier hs-var hs-var">applyTransactions</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621680558618"><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621680558618"><span class="hs-identifier hs-var">slot</span></a></span></span><span> </span><span id="local-6989586621680558619"><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621680558619"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Ledger.html#%24sel%3AapplyTransactions%3ALedger"><span class="hs-identifier hs-var hs-var">applyTransactions</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621680557135"><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621680557135"><span class="hs-identifier hs-var">slot</span></a></span></span><span> </span><span id="local-6989586621680557136"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680557136"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-37"></span><span>  </span><span class="annot"><span class="annottext">(tx -&gt; ([tx], UTxOType tx) -&gt; ([tx], UTxOType tx))
 -&gt; ([tx], UTxOType tx) -&gt; [tx] -&gt; ([tx], UTxOType tx)
 forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; [a] -&gt; b
@@ -73,39 +73,39 @@ forall (t :: * -&gt; *) a b.
 Foldable t =&gt;
 (a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldr"><span class="hs-identifier hs-var">foldr</span></a></span><span> </span><span class="annot"><span class="annottext">tx -&gt; ([tx], UTxOType tx) -&gt; ([tx], UTxOType tx)
-</span><a href="#local-6989586621680558621"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621680558619"><span class="hs-identifier hs-var">utxo</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680557138"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680557136"><span class="hs-identifier hs-var">utxo</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-38"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-39"></span><span>  </span><span id="local-6989586621680558621"><span class="annot"><span class="annottext">go :: tx -&gt; ([tx], UTxOType tx) -&gt; ([tx], UTxOType tx)
-</span><a href="#local-6989586621680558621"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621680558622"><span class="annot"><span class="annottext">tx
-</span><a href="#local-6989586621680558622"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680558623"><span class="annot"><span class="annottext">[tx]
-</span><a href="#local-6989586621680558623"><span class="hs-identifier hs-var">applicableTxs</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680558624"><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621680558624"><span class="hs-identifier hs-var">u</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-39"></span><span>  </span><span id="local-6989586621680557138"><span class="annot"><span class="annottext">go :: tx -&gt; ([tx], UTxOType tx) -&gt; ([tx], UTxOType tx)
+</span><a href="#local-6989586621680557138"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621680557139"><span class="annot"><span class="annottext">tx
+</span><a href="#local-6989586621680557139"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680557140"><span class="annot"><span class="annottext">[tx]
+</span><a href="#local-6989586621680557140"><span class="hs-identifier hs-var">applicableTxs</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680557141"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680557141"><span class="hs-identifier hs-var">u</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-40"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainSlot
 -&gt; UTxOType tx
 -&gt; [tx]
 -&gt; Either (tx, ValidationError) (UTxOType tx)
-</span><a href="#local-6989586621680558617"><span class="hs-identifier hs-var">applyTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621680558618"><span class="hs-identifier hs-var">slot</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621680558624"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">tx
-</span><a href="#local-6989586621680558622"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621680557134"><span class="hs-identifier hs-var">applyTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621680557135"><span class="hs-identifier hs-var">slot</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680557141"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">tx
+</span><a href="#local-6989586621680557139"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-41"></span><span>      </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="annot"><span class="annottext">(tx, ValidationError)
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[tx]
-</span><a href="#local-6989586621680558623"><span class="hs-identifier hs-var">applicableTxs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621680558624"><span class="hs-identifier hs-var">u</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-42"></span><span>      </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680558625"><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621680558625"><span class="hs-identifier hs-var">u'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[tx]
-</span><a href="#local-6989586621680558623"><span class="hs-identifier hs-var">applicableTxs</span></a></span><span> </span><span class="annot"><span class="annottext">[tx] -&gt; [tx] -&gt; [tx]
+</span><a href="#local-6989586621680557140"><span class="hs-identifier hs-var">applicableTxs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680557141"><span class="hs-identifier hs-var">u</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>      </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680557142"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680557142"><span class="hs-identifier hs-var">u'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[tx]
+</span><a href="#local-6989586621680557140"><span class="hs-identifier hs-var">applicableTxs</span></a></span><span> </span><span class="annot"><span class="annottext">[tx] -&gt; [tx] -&gt; [tx]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">tx
-</span><a href="#local-6989586621680558622"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621680558625"><span class="hs-identifier hs-var">u'</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680557139"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680557142"><span class="hs-identifier hs-var">u'</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-43"></span><span>
 </span><span id="line-44"></span><span class="annot"><span class="hs-comment">-- | Either valid or an error which we get from the ledger-specs tx validation.</span></span><span>
 </span><span id="line-45"></span><span class="hs-keyword">data</span><span> </span><span id="ValidationResult"><span class="annot"><a href="Hydra.Ledger.html#ValidationResult"><span class="hs-identifier hs-var">ValidationResult</span></a></span></span><span>
 </span><span id="line-46"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Valid"><span class="annot"><a href="Hydra.Ledger.html#Valid"><span class="hs-identifier hs-var">Valid</span></a></span></span><span>
 </span><span id="line-47"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Invalid"><span class="annot"><a href="Hydra.Ledger.html#Invalid"><span class="hs-identifier hs-var">Invalid</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-type">ValidationError</span></a></span><span>
-</span><span id="line-48"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680558629"><span id="local-6989586621680558633"><span class="annot"><span class="annottext">ValidationResult -&gt; ValidationResult -&gt; Bool
+</span><span id="line-48"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680557146"><span id="local-6989586621680557150"><span class="annot"><span class="annottext">ValidationResult -&gt; ValidationResult -&gt; Bool
 (ValidationResult -&gt; ValidationResult -&gt; Bool)
 -&gt; (ValidationResult -&gt; ValidationResult -&gt; Bool)
 -&gt; Eq ValidationResult
@@ -114,7 +114,7 @@ $c== :: ValidationResult -&gt; ValidationResult -&gt; Bool
 == :: ValidationResult -&gt; ValidationResult -&gt; Bool
 $c/= :: ValidationResult -&gt; ValidationResult -&gt; Bool
 /= :: ValidationResult -&gt; ValidationResult -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680558638"><span id="local-6989586621680558644"><span id="local-6989586621680558648"><span class="annot"><span class="annottext">Int -&gt; ValidationResult -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680557155"><span id="local-6989586621680557161"><span id="local-6989586621680557165"><span class="annot"><span class="annottext">Int -&gt; ValidationResult -&gt; ShowS
 [ValidationResult] -&gt; ShowS
 ValidationResult -&gt; String
 (Int -&gt; ValidationResult -&gt; ShowS)
@@ -129,7 +129,7 @@ $cshow :: ValidationResult -&gt; String
 show :: ValidationResult -&gt; String
 $cshowList :: [ValidationResult] -&gt; ShowS
 showList :: [ValidationResult] -&gt; ShowS
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680558652"><span id="local-6989586621680558654"><span class="annot"><span class="annottext">(forall x. ValidationResult -&gt; Rep ValidationResult x)
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680557169"><span id="local-6989586621680557171"><span class="annot"><span class="annottext">(forall x. ValidationResult -&gt; Rep ValidationResult x)
 -&gt; (forall x. Rep ValidationResult x -&gt; ValidationResult)
 -&gt; Generic ValidationResult
 forall x. Rep ValidationResult x -&gt; ValidationResult
@@ -144,7 +144,7 @@ to :: forall x. Rep ValidationResult x -&gt; ValidationResult
 </span><span id="line-49"></span><span>
 </span><span id="line-50"></span><span class="hs-keyword">newtype</span><span> </span><span id="ValidationError"><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-var">ValidationError</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ValidationError"><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-var">ValidationError</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3Areason%3AValidationError"><span class="annot"><span class="annottext">ValidationError -&gt; Text
 </span><a href="Hydra.Ledger.html#%24sel%3Areason%3AValidationError"><span class="hs-identifier hs-var hs-var">reason</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-51"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680558659"><span id="local-6989586621680558663"><span class="annot"><span class="annottext">ValidationError -&gt; ValidationError -&gt; Bool
+</span><span id="line-51"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680557176"><span id="local-6989586621680557180"><span class="annot"><span class="annottext">ValidationError -&gt; ValidationError -&gt; Bool
 (ValidationError -&gt; ValidationError -&gt; Bool)
 -&gt; (ValidationError -&gt; ValidationError -&gt; Bool)
 -&gt; Eq ValidationError
@@ -153,7 +153,7 @@ $c== :: ValidationError -&gt; ValidationError -&gt; Bool
 == :: ValidationError -&gt; ValidationError -&gt; Bool
 $c/= :: ValidationError -&gt; ValidationError -&gt; Bool
 /= :: ValidationError -&gt; ValidationError -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680558666"><span id="local-6989586621680558671"><span id="local-6989586621680558674"><span class="annot"><span class="annottext">Int -&gt; ValidationError -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680557183"><span id="local-6989586621680557188"><span id="local-6989586621680557191"><span class="annot"><span class="annottext">Int -&gt; ValidationError -&gt; ShowS
 [ValidationError] -&gt; ShowS
 ValidationError -&gt; String
 (Int -&gt; ValidationError -&gt; ShowS)
@@ -168,7 +168,7 @@ $cshow :: ValidationError -&gt; String
 show :: ValidationError -&gt; String
 $cshowList :: [ValidationError] -&gt; ShowS
 showList :: [ValidationError] -&gt; ShowS
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680558677"><span id="local-6989586621680558679"><span class="annot"><span class="annottext">(forall x. ValidationError -&gt; Rep ValidationError x)
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680557194"><span id="local-6989586621680557196"><span class="annot"><span class="annottext">(forall x. ValidationError -&gt; Rep ValidationError x)
 -&gt; (forall x. Rep ValidationError x -&gt; ValidationError)
 -&gt; Generic ValidationError
 forall x. Rep ValidationError x -&gt; ValidationError
@@ -180,7 +180,7 @@ from :: forall x. ValidationError -&gt; Rep ValidationError x
 $cto :: forall x. Rep ValidationError x -&gt; ValidationError
 to :: forall x. Rep ValidationError x -&gt; ValidationError
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-52"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680558682"><span id="local-6989586621680558689"><span id="local-6989586621680558692"><span id="local-6989586621680558695"><span id="local-6989586621680558698"><span class="annot"><span class="annottext">[ValidationError] -&gt; Value
+</span><span id="line-52"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680557199"><span id="local-6989586621680557206"><span id="local-6989586621680557209"><span id="local-6989586621680557212"><span id="local-6989586621680557215"><span class="annot"><span class="annottext">[ValidationError] -&gt; Value
 [ValidationError] -&gt; Encoding
 ValidationError -&gt; Bool
 ValidationError -&gt; Value
@@ -208,7 +208,7 @@ $ctoEncodingList :: [ValidationError] -&gt; Encoding
 toEncodingList :: [ValidationError] -&gt; Encoding
 $comitField :: ValidationError -&gt; Bool
 omitField :: ValidationError -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680558773"><span id="local-6989586621680558780"><span id="local-6989586621680558783"><span class="annot"><span class="annottext">Maybe ValidationError
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680557290"><span id="local-6989586621680557297"><span id="local-6989586621680557300"><span class="annot"><span class="annottext">Maybe ValidationError
 Value -&gt; Parser [ValidationError]
 Value -&gt; Parser ValidationError
 (Value -&gt; Parser ValidationError)
@@ -226,9 +226,9 @@ $comittedField :: Maybe ValidationError
 omittedField :: Maybe ValidationError
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-53"></span><span>
-</span><span id="line-54"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680558840"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-type">ValidationError</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-55"></span><span>  </span><span id="local-6989586621680558869"><span class="annot"><span class="annottext">arbitrary :: Gen ValidationError
-</span><a href="#local-6989586621680558869"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen ValidationError
+</span><span id="line-54"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680557357"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-type">ValidationError</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-55"></span><span>  </span><span id="local-6989586621680557386"><span class="annot"><span class="annottext">arbitrary :: Gen ValidationError
+</span><a href="#local-6989586621680557386"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen ValidationError
 forall a.
 (Generic a, GA UnsizedOpts (Rep a),
  UniformWeight (Weights_ (Rep a))) =&gt;
