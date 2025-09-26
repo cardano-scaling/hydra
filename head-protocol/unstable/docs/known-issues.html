@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.bcd74a8b.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.e93ee577.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.73a73527.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.ed758db0.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -25,11 +25,11 @@
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="head-protocol-limits">Head protocol limits<a href="#head-protocol-limits" class="hash-link" aria-label="Direct link to Head protocol limits" title="Direct link to Head protocol limits">​</a></h3>
 <p>Due to the limitations on transaction sizes and execution budgets on Cardano, the Hydra protocol has the following constraints:</p>
 <ul>
-<li>The protocol can only handle a maximum number of participants in a head (see <a href="https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-collectcom-transaction" target="_blank" rel="noopener noreferrer">the cost of CollectCom transaction</a>). When attempting to configure too many peers, the Hydra node will inform you of the current configured maximum.</li>
+<li>The protocol can only handle a maximum number of participants in a head (see <a href="https://hydra.family/head-protocol/benchmarks/transaction-cost#collectcom-transaction-costs" target="_blank" rel="noopener noreferrer">the cost of CollectCom transaction</a>). When attempting to configure too many peers, the Hydra node will inform you of the current configured maximum.</li>
 </ul>
 <p>Currently, participants may be denied access to their funds by other protocol participants at different stages within a Hydra head because of the complexity or size of the UTXO being committed or created while the head is open:</p>
 <ul>
-<li>The Hydra head cannot be <em>finalized</em> if it holds more than approximately 80 assets (see <a href="https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-fanout-transaction" target="_blank" rel="noopener noreferrer">the cost of FanOut transaction</a> for latest numbers), although it can be <em>closed</em></li>
+<li>The Hydra head cannot be <em>finalized</em> if it holds more than approximately 80 assets (see <a href="https://hydra.family/head-protocol/benchmarks/transaction-cost#fanout-transaction-costs" target="_blank" rel="noopener noreferrer">the cost of FanOut transaction</a> for latest numbers), although it can be <em>closed</em></li>
 <li>Tokens that are minted and not burned within an open Hydra head will prevent the head from being <em>finalized</em></li>
 <li>If one or more participants commit UTXOs that are too large to be processed together in a <code>CollectCom</code> or  <code>Abort</code> transaction, the Hydra head will remain stuck in the <em>initialising</em> stage.</li>
 </ul>
