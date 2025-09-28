@@ -52,7 +52,6 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
   pattern TxValidityNoUpperBound,
   pattern TxValidityUpperBound,
-  pattern UTxO,
  )
 import Hydra.Prelude hiding (toList)
 

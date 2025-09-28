@@ -232,7 +232,7 @@ genUTxOWithSimplifiedAddresses =
 -- * Others
 
 instance Arbitrary AssetName where
-  arbitrary = UnsafeAssetName . BS.take 32 <$> arbitrary
+  arbitrary = UnsafeAssetName . BS.pack . take 32 <$> arbitrary
 
 instance Arbitrary PolicyAssets where
   arbitrary = PolicyAssets <$> arbitrary
@@ -257,7 +257,7 @@ genAddressInEra networkId =
   mkVkAddress networkId <$> genVerificationKey
 
 genScriptData :: Gen ScriptData
-genScriptData = oneof [ScriptDataBytes <$> arbitrary, ScriptDataNumber <$> arbitrary]
+genScriptData = oneof [ScriptDataBytes . BS.pack <$> arbitrary, ScriptDataNumber <$> arbitrary]
 
 genDatum :: Gen (TxOutDatum ctx)
 genDatum = do
