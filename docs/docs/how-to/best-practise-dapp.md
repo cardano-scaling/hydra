@@ -2,7 +2,7 @@
 sidebar_position: 9
 ---
 
-# Best practices for dApp developers
+# Commit from a dApp
 
 
 - Developers building decentralized applications (dApps) on the Hydra protocol
@@ -22,9 +22,10 @@ validators, providing concrete examples implemented using PlutusTx.
 The commit transaction utilizes an initial output specifically crafted for each Hydra Head participant. This initial output includes the HeadId in its datum, while the redeemer contains details about the specific TxOutRef values to be committed, which are pre-sorted.
 
 The initial validator is parameterized by the commit validator hash. In the user-defined validator, it is sufficient to verify that:
-    - The initial input with the correct hash is consumed in the commit transaction.
-    - The initial input’s datum contains the correct HeadId.
-    - There is only one output at commit script address + the change output.
+
+- The initial input with the correct hash is consumed in the commit transaction.
+- The initial input’s datum contains the correct HeadId.
+- There is only one output at commit script address + the change output.
 
 dApp developers can leverage the script redeemer to convey the necessary information.
 
@@ -64,7 +65,8 @@ Code examples here are just explanatory and are not suitable for production use!
 They serve the purpose of giving dApp developers a general idea on how to check that commit goes to the right Head instance.
 :::
 
-We mentioned we will use redeemer in our validator to carry information we need to do the actual checks. Let's define the redeemer first:
+We mentioned we will use redeemer in our validator to carry information we
+need to do the actual checks. Let's define the redeemer first:
 
 ```Haskell
 data R =
@@ -81,7 +83,7 @@ unstableMakeIsData ''R
 To get the information on Hydra scripts hashes you can use hydra-node:
 
 ```
-hydra-node -- --hydra-script-catalogue
+nix run .#hydra-node -- --hydra-script-catalogue
 {
  "commitScriptHash": "61458bc2f297fff3cc5df6ac7ab57cefd87763b0b7bd722146a1035c",
  "commitScriptSize": 685,
@@ -96,13 +98,16 @@ hydra-node -- --hydra-script-catalogue
 }
 ```
 
-To get the information on `HeadId` easiest is to look at the persistence folder of your hydra-node and in the `state` file
-you should be able to find the headId. (NOTE: You need to initialize the Head first)
+To get the information on `HeadId` easiest is to look at the persistence
+folder of your hydra-node and in the `state` file you should be able to find
+the headId. (NOTE: You need to initialize the Head first)
 
 Now we are able to start working on validator checks.
 
-First, let's make sure correct initial input is spent. In order to do that we could grab all inputs and
-make sure there is exactly one script input which `Address` corresponds to the initial validator hash we have set in our own script redeemer:
+First, let's make sure correct initial input is spent. In order to do that we
+could grab all inputs and make sure there is exactly one script input which
+`Address` corresponds to the initial validator hash we have set in our own
+script redeemer:
 
 ```Haskell
   initialInput = findInitialInput expectedInitialValidator
@@ -139,7 +144,7 @@ own script redeemer:
 To make sure there is only one output at commit validator address we need to filter all outputs and check that there is only one
 with the correct commit `Address`:
 
-```
+```Haskell
   checkCommitOutput =
     traceIfFalse "There should be only one commit output" (List.length commitOutput == 1)
 
@@ -164,8 +169,8 @@ on the L2 ledger owned by our script.
 
 <details>
   <summary>Complete validator example </summary>
-```
 
+```haskell
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fplugin PlutusTx.Plugin #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
@@ -275,5 +280,5 @@ exampleSecureValidatorScript =
  where
   wrap = wrapValidator @() @R
 ```
-</details>
 
+</details>
