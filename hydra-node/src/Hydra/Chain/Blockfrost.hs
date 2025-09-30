@@ -119,8 +119,9 @@ withBlockfrostChain ::
   TinyWallet IO ->
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
+  TMVar IO () ->
   ChainComponent Tx IO a
-withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
+withBlockfrostChain backend tracer config ctx wallet chainStateHistory isSynced callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newLabelledTQueueIO "blockfrost-chain-queue"
@@ -141,7 +142,6 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
           localChainState
           (submitTx queue)
 
-  isSynced <- newLabelledEmptyTMVarIO "direct-chain-is-synced"
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod isSynced
   res <-
     raceLabelled

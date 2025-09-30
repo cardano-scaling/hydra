@@ -136,8 +136,9 @@ withDirectChain ::
   TinyWallet IO ->
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
+  TMVar IO () ->
   ChainComponent Tx IO a
-withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
+withDirectChain backend tracer config ctx wallet chainStateHistory isSynced callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newLabelledTQueueIO "direct-chain-queue"
@@ -157,8 +158,6 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
           ctx
           localChainState
           (submitTx queue)
-
-  isSynced <- newLabelledEmptyTMVarIO "direct-chain-is-synced"
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod isSynced
   res <-
     raceLabelled
@@ -168,12 +167,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
             (connectInfo networkId nodeSocket)
             (clientProtocols chainPoint queue handler)
       )
-      ( "direct-chain-chain-handle"
-      , do
-          -- Wait until synced
-          atomically $ takeTMVar isSynced
-          action chainHandle
-      )
+      ("direct-chain-chain-handle", action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a

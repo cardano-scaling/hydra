@@ -8,6 +8,7 @@ import Hydra.Prelude hiding (catMaybes, map, mapM_, seq, state)
 import Cardano.Ledger.Core (PParams)
 import Conduit (mapM_C, runConduitRes, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
+import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (map)
@@ -90,10 +91,11 @@ withAPIServer ::
   Chain tx IO ->
   PParams LedgerEra ->
   ServerOutputFilter tx ->
+  TMVar IO () ->
   (ClientInput tx -> IO ()) ->
   ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
   IO ()
-withAPIServer config env party eventSource tracer chain pparams serverOutputFilter callback action =
+withAPIServer config env party eventSource tracer chain pparams serverOutputFilter isSynced callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
@@ -128,6 +130,8 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     raceLabelled_
       ( "api-server"
       , do
+          -- Wait until synced
+          atomically $ takeTMVar isSynced
           traceWith tracer (APIServerStarted port)
           startServer serverSettings
             . simpleCors
