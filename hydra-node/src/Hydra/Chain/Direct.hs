@@ -158,7 +158,8 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
           localChainState
           (submitTx queue)
 
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
+  isSynced <- newLabelledEmptyTMVarIO "direct-chain-is-synced"
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod isSynced
   res <-
     raceLabelled
       ( "direct-chain-connection"
@@ -167,13 +168,18 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
             (connectInfo networkId nodeSocket)
             (clientProtocols chainPoint queue handler)
       )
-      ("direct-chain-chain-handle", action chainHandle)
+      ( "direct-chain-chain-handle"
+      , do
+          -- Wait until synced
+          atomically $ takeTMVar isSynced
+          action chainHandle
+      )
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
   DirectBackend{options = DirectOptions{networkId, nodeSocket}} = backend
-  CardanoChainConfig{startChainFrom} = config
+  CardanoChainConfig{startChainFrom, contestationPeriod} = config
 
   connectInfo networkId' nodeSocket' =
     LocalNodeConnectInfo
