@@ -12,7 +12,7 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams)
 import Cardano.Slotting.Slot (SlotNo (..))
-import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
+import Control.Concurrent.Class.MonadSTM (isEmptyTMVar, modifyTVar, tryPutTMVar, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
@@ -82,7 +82,7 @@ import Hydra.Tx (
   UTxOType,
   headSeedToTxIn,
  )
-import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx, splitTokens)
 import Hydra.Tx.Observe (
   AbortObservation (..),
@@ -312,7 +312,7 @@ data TimeConversionException = TimeConversionException
 -- converted to a 'UTCTime' with the given 'TimeHandle'.
 chainSyncHandler ::
   forall m.
-  (MonadSTM m, MonadThrow m) =>
+  (MonadSTM m, MonadThrow m, MonadTime m) =>
   -- | Tracer for logging
   Tracer m CardanoChainLog ->
   ChainCallback Tx m ->
@@ -321,9 +321,11 @@ chainSyncHandler ::
   -- | Contextual information about our chain connection.
   ChainContext ->
   LocalChainState m Tx ->
+  ContestationPeriod ->
+  TMVar m () ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx localChainState =
+chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod isSynced =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -357,6 +359,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
           Right utcTime -> do
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
             callback (Tick{chainTime = utcTime, chainSlot})
+            checkSync utcTime
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case
@@ -376,6 +379,17 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
+
+  checkSync slotUTCTime =
+    atomically (isEmptyTMVar isSynced) >>= \case
+      -- already synced, skip
+      False -> pure ()
+      True -> do
+        now <- getCurrentTime
+        when (now `diffUTCTime` slotUTCTime < toNominalDiffTime contestationPeriod) $
+          atomically $
+            void $
+              tryPutTMVar isSynced ()
 
 convertObservation :: TimeHandle -> HeadObservation -> Maybe (OnChainTx Tx)
 convertObservation TimeHandle{slotToUTCTime} = \case

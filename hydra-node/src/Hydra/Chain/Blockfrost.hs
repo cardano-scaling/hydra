@@ -141,7 +141,8 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
           localChainState
           (submitTx queue)
 
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
+  isSynced <- newLabelledEmptyTMVarIO "direct-chain-is-synced"
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod isSynced
   res <-
     raceLabelled
       ( "blockfrost-chain-connection"
@@ -155,7 +156,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
     Right a -> pure a
  where
   BlockfrostBackend{options = BlockfrostOptions{projectPath}} = backend
-  CardanoChainConfig{startChainFrom} = config
+  CardanoChainConfig{startChainFrom, contestationPeriod} = config
 
   submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
   submitTx queue tx = do
