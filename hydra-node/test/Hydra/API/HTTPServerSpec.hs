@@ -12,7 +12,6 @@ import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain.SyncedStatus (SyncedStatus(..))
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
@@ -213,6 +212,7 @@ spec = do
                 Success{} -> property True
                 Error e -> counterexample (toString $ toText e) $ property False
 
+-- TODO! test unSynced
 apiServerSpec :: Spec
 apiServerSpec = do
   describe "API should respond correctly" $ do
@@ -224,8 +224,6 @@ apiServerSpec = do
         putClientInput = const (pure ())
         getNodeState = pure inIdleState
 
-        chainSyncedStatus :: IO SyncedStatus
-        chainSyncedStatus = SyncedStatus { status = True, diff = Nothing }
     describe "GET /protocol-parameters" $ do
       responseChannel <- runIO newTChanIO
       with

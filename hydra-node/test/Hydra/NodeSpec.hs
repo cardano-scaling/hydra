@@ -359,6 +359,7 @@ mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
     { mkChainState = error "mockChain: unexpected mkChainState"
+    , chainSyncedStatus = error "mockChain: unexpected chainSyncedStatus"
     , postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
     , draftDepositTx = \_ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
@@ -520,6 +521,7 @@ throwExceptionOnPostTx exception node =
       { oc =
           Chain
             { mkChainState = error "mkChainState not implemented"
+            , chainSyncedStatus = error "chainSyncedStatus not implemented"
             , postTx = \_ -> throwIO exception
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             , draftDepositTx = \_ -> error "draftDepositTx not implemented"
