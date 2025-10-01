@@ -17,7 +17,6 @@ import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
 import Hydra.API.Projection (Projection (..), mkProjection)
-import Hydra.Chain.SyncedStatus (SyncedStatus(..))
 import Hydra.API.ServerOutput (
   ClientMessage,
   CommitInfo (..),
@@ -33,6 +32,7 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
+import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (
   HeadState (..),
@@ -134,7 +134,8 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                 SyncedStatus{status} <- chainSyncedStatus
                 unless status $
                   -- check every second
-                  threadDelay 1_000_000 >> waitUntilSynced
+                  -- TODO! configure threadDelay
+                  threadDelay 1 >> waitUntilSynced
           waitUntilSynced
           startServer serverSettings
             . simpleCors
@@ -152,7 +153,6 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                   callback
                   (apiTransactionTimeout config)
                   responseChannel
-                  chainSyncedStatus
               )
       )
       ( "api-server-eventsink"

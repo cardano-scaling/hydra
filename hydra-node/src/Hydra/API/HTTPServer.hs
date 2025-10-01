@@ -4,7 +4,6 @@ module Hydra.API.HTTPServer where
 
 import Hydra.Prelude
 
-import Hydra.Chain.SyncedStatus (SyncedStatus(..))
 import Cardano.Ledger.Core (PParams)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Data.Aeson (KeyValue ((.=)), object, withObject, (.:), (.:?))
@@ -20,6 +19,7 @@ import Hydra.Cardano.Api (Coin, LedgerEra, PolicyAssets, PolicyId, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
+import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
@@ -28,7 +28,7 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
 import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
-import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS, ResponseReceived)
+import Network.Wai (Application, Request (pathInfo, requestMethod), Response, ResponseReceived, consumeRequestBodyStrict, rawPathInfo, responseLBS)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx
@@ -212,9 +212,8 @@ httpApp ::
   ApiTransactionTimeout ->
   -- | Channel to listen for events
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
-  IO SyncedStatus ->
   Application
-httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel chainSyncedStatus request respond = do
+httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -286,14 +285,18 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
             >>= respond
     _ ->
       respond $ responseLBS status400 jsonContent . Aeson.encode $ Aeson.String "Resource not found"
+ where
+  Chain{chainSyncedStatus} = directChain
 
 rejectChainNotSynced :: IO SyncedStatus -> (Response -> IO ResponseReceived) -> IO (Maybe ResponseReceived)
 rejectChainNotSynced chainSyncedStatus respond = do
   SyncedStatus{status} <- chainSyncedStatus
   if status
     then pure Nothing
-    else Just <$> respond
-      (responseLBS status503 jsonContent (Aeson.encode ("Chain not yet synced, try again later" :: Text)))
+    else
+      Just
+        <$> respond
+          (responseLBS status503 jsonContent (Aeson.encode ("Chain not yet synced, try again later" :: Text)))
 
 -- * Handlers
 
