@@ -186,24 +186,16 @@ waitForAll tracer delay nodes expected = do
         _ ->
           tryNext c msgs stillExpected
 
--- | Helper to make it easy to obtain a commit tx using some wallet utxo.
--- Create a commit tx using the hydra-node for later submission.
-requestCommitTx :: HydraClient -> UTxO -> IO Tx
-requestCommitTx client utxos =
-  requestCommitTx' client utxos Nothing Nothing
-
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo
--- optional amount of lovelace and optional map of assets.
--- Create a commit tx using the hydra-node for later submission.
-requestCommitTx' :: HydraClient -> UTxO -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> IO Tx
-requestCommitTx' HydraClient{apiHost = Host{hostname, port}} utxos amount tokens =
+requestCommitTx :: HydraClient -> UTxO -> IO Tx
+requestCommitTx HydraClient{apiHost = Host{hostname, port}} utxo =
   runReq defaultHttpConfig request <&> commitTx . responseBody
  where
   request =
     Req.req
       POST
       (Req.http hostname /: "commit")
-      (ReqBodyJson $ SimpleCommitRequest @Tx utxos amount tokens)
+      (ReqBodyJson $ SimpleCommitRequest @Tx utxo)
       (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
       (Req.port (fromInteger . toInteger $ port))
 
