@@ -5,7 +5,6 @@ module Hydra.API.WSServer where
 
 import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 
-import Hydra.Chain.SyncedStatus (SyncedStatus(..))
 import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
@@ -42,6 +41,7 @@ import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
+import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
@@ -50,14 +50,14 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (HeadId, Party)
 import Network.WebSockets (
+  ConnectionException (ConnectionClosed),
   PendingConnection (pendingRequest),
   RequestHead (..),
   acceptRequest,
   receiveData,
+  sendCloseCode,
   sendTextData,
   withPingThread,
-  sendCloseCode,
-  ConnectionException( ConnectionClosed )
  )
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
@@ -81,7 +81,6 @@ wsApp ::
   IO ()
 wsApp env party tracer history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} chainSyncedStatus pending = do
   traceWith tracer NewAPIConnection
-  -- TODO! configure threadDelay
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
   con <- acceptRequest pending
@@ -91,7 +90,8 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
       sendCloseCode con 4001 ("Chain went out of sync, try again later" :: Text)
       throwIO ConnectionClosed
     -- check every second
-    threadDelay 1_000_000
+    -- TODO! configure threadDelay
+    threadDelay 1
   chan <- STM.atomically $ dupTChan responseChannel
 
   let outConfig = mkServerOutputConfig queryParams
