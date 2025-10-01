@@ -100,12 +100,11 @@ run opts = do
         let eventSinks :: [EventSink (StateEvent Tx) IO] = []
         wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
         -- Chain
-        isSynced <- newLabelledEmptyTMVarIO "chain-is-synced"
-        withChain <- prepareChainComponent tracer env isSynced chainConfig
+        withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
           -- API
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout}
-          withAPIServer apiServerConfig env party eventSource (contramap APIServer tracer) chain pparams serverOutputFilter isSynced (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
+          withAPIServer apiServerConfig env party eventSource (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
             -- Network
             let networkConfiguration =
                   NetworkConfiguration
@@ -140,13 +139,11 @@ run opts = do
     Monad m =>
     Tracer IO (HydraLog tx) ->
     Environment ->
-    TMVar IO () ->
     ChainConfig ->
     m (ChainStateHistory Tx -> ChainComponent Tx IO a)
-  prepareChainComponent tracer Environment{party, otherParties} isSynced = \case
+  prepareChainComponent tracer Environment{party, otherParties} = \case
     Offline cfg -> pure $ withOfflineChain cfg party otherParties
-    Cardano cfg -> do
-      pure $ withCardanoChain (contramap DirectChain tracer) cfg party isSynced
+    Cardano cfg -> pure $ withCardanoChain (contramap DirectChain tracer) cfg party
 
   prepareEventStore eventStore = do
     case RotateAfter <$> persistenceRotateAfter of
