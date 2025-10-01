@@ -32,6 +32,7 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (ChainContext, ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
 
@@ -119,9 +120,8 @@ withBlockfrostChain ::
   TinyWallet IO ->
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
-  TMVar IO () ->
   ChainComponent Tx IO a
-withBlockfrostChain backend tracer config ctx wallet chainStateHistory isSynced callback action = do
+withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newLabelledTQueueIO "blockfrost-chain-queue"
@@ -133,6 +133,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory isSynced 
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
+  syncedStatus <- newLabelledTVarIO "blockfrost-chain-sync-status" unSynced
   let chainHandle =
         mkChain
           tracer
@@ -141,8 +142,9 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory isSynced 
           ctx
           localChainState
           (submitTx queue)
+          syncedStatus
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod syncedStatus
 
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod isSynced
   res <-
     raceLabelled
       ( "blockfrost-chain-connection"
