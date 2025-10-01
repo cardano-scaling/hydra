@@ -60,6 +60,7 @@ import Hydra.Cardano.Api (
   addTxOuts,
   createAndValidateTransactionBody,
   defaultTxBodyContent,
+  fromCtxUTxOTxOut,
   fromLedgerTx,
   getTxBody,
   getTxId,
@@ -93,6 +94,7 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
   pattern BuildTxWith,
   pattern KeyWitness,
+  pattern PlutusScript,
   pattern PlutusScriptWitness,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
@@ -111,6 +113,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
+import Hydra.Contract (depositScriptHash, hydraScriptCatalogue)
 import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
@@ -119,7 +122,7 @@ import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.Deposit (capUTxO, diffAssets)
+import Hydra.Tx.Deposit (constructDepositUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
@@ -133,7 +136,6 @@ import HydraNode (
   postDecommit,
   prepareHydraNode,
   requestCommitTx,
-  requestCommitTx',
   send,
   waitFor,
   waitForAllMatch,
@@ -841,8 +843,7 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
       let commitAmount = 2_000_000
       (clientPayload', scriptUTxO') <- prepareScriptPayload 5_000_000 commitAmount
 
-      let toCommit = fst $ capUTxO scriptUTxO' (Coin commitAmount)
-
+      let toCommit :: UTxO = undefined -- fst $ capUTxO scriptUTxO' (Coin commitAmount)
       res' <-
         runReq defaultHttpConfig $
           req
@@ -909,7 +910,7 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
     let hydraTracer = contramap FromHydraNode tracer
     (_, walletSk) <- keysFor AliceFunds
     -- incrementally commit script to a running Head
-    (referenceUTxO, scriptUTxO) <- publishReferenceScript tracer 20_000_000
+    (networkId, referenceUTxO, scriptUTxO) <- publishReferenceScript tracer 20_000_000
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -928,7 +929,7 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
       waitMatch (10 * blockTime) n1 $ \v -> do
         guard $ v ^? key "headId" == Just (toJSON headId)
         guard $ v ^? key "tag" == Just "HeadIsOpen"
-      clientPayload <- prepareBlueprintRequest referenceUTxO scriptUTxO
+      (clientPayload, blueprint) <- prepareBlueprintRequest networkId referenceUTxO scriptUTxO
       res' <-
         runReq defaultHttpConfig $
           req
@@ -941,17 +942,17 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
       let depositTransaction = responseBody res'
       let tx = signTx walletSk depositTransaction
 
-      putStrLn "---DEPOSIT---"
-      putStrLn $ renderTxWithUTxO scriptUTxO tx
       Backend.submitTransaction backend tx
 
+      let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)
+
       waitFor hydraTracer (2 * realToFrac depositPeriod) [n1] $
-        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= scriptUTxO]
+        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= expectedDeposit]
       waitFor hydraTracer (20 * blockTime) [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
-      getSnapshotUTxO n1 `shouldReturn` scriptUTxO
+      getSnapshotUTxO n1 `shouldReturn` expectedDeposit
  where
-  publishReferenceScript :: Tracer IO EndToEndLog -> CAPI.Lovelace -> IO (UTxO, UTxO)
+  publishReferenceScript :: Tracer IO EndToEndLog -> CAPI.Lovelace -> IO (CAPI.NetworkId, UTxO, UTxO)
   publishReferenceScript t lovelaceAmt = do
     (vk, sk) <- keysFor AliceFunds
     utxo <- seedFromFaucet backend vk (lovelaceToValue lovelaceAmt) (contramap FromFaucet t)
@@ -983,14 +984,16 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
         let scriptAddress = mkScriptAddress networkId dummyValidatorScript
         let datumHash :: TxOutDatum ctx
             datumHash = mkTxOutDatumHash ()
-        (scriptIn', scriptOut') <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue 3_000_000)
+        (scriptIn', scriptOut') <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue 5_000_000)
         let referenceUTxO = uncurry UTxO.singleton $ List.head $ UTxO.toList $ utxoFromTx signedTx
-        pure (referenceUTxO, UTxO.singleton scriptIn' scriptOut')
+        pure (networkId, referenceUTxO, UTxO.singleton scriptIn' scriptOut')
 
-  prepareBlueprintRequest :: UTxO -> UTxO -> IO Value
-  prepareBlueprintRequest referenceUTxO scriptUTxO = do
+  prepareBlueprintRequest :: CAPI.NetworkId -> UTxO -> UTxO -> IO (Value, Tx)
+  prepareBlueprintRequest networkId referenceUTxO scriptUTxO = do
     let dat = toScriptData ()
-    let (scriptInput, _) = List.head $ UTxO.toList scriptUTxO
+    let (scriptInput, scriptOut) = List.head $ UTxO.toList scriptUTxO
+    let TxOut a v d r = scriptOut
+    let scriptOut' = TxOut a (lovelaceToValue 3_000_000) d r
     let (refInput, _) = List.head $ UTxO.toList referenceUTxO
     let scriptWitness =
           BuildTxWith $
@@ -1001,6 +1004,7 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
           unsafeBuildTransaction $
             defaultTxBodyContent
               & CAPI.addTxIns [(scriptInput, scriptWitness)]
+              & CAPI.addTxOut (fromCtxUTxOTxOut scriptOut')
               & CAPI.addTxInReference refInput (Just dat)
 
     let blueprint =
@@ -1013,6 +1017,7 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
           [ "blueprintTx" .= blueprint
           , "utxo" .= (scriptUTxO <> referenceUTxO)
           ]
+      , blueprint
       )
 
 persistenceCanLoadWithEmptyCommit ::
@@ -1479,7 +1484,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           let quantityMoreThan20 = (> 20)
           let partialTokenAssets = Map.map (\(CAPI.PolicyAssets policyAssetMap) -> CAPI.PolicyAssets $ Map.filter quantityMoreThan20 policyAssetMap) tokenAssets
           -- NOTE: using diffAssets here implicitly tests that function too.
-          let tokenDiff = assetsToValue $ Map.fromList $ diffAssets tokenAssets partialTokenAssets
+          let tokenDiff = undefined -- assetsToValue $ Map.fromList $ diffAssets tokenAssets partialTokenAssets
           let partialTokenAssetValue = assetsToValue partialTokenAssets
           let tokenAssetValueWithoutAda = assetsToValue $ valueToPolicyAssets partialTokenAssetValue
           let seedAmount = 10_000_000
@@ -1489,14 +1494,14 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           commitUTxOWithoutTokens <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount) (contramap FromFaucet tracer)
           commitUTxOWithTokens <- seedFromFaucetWithMinting backend walletVk (lovelaceToValue seedAmount <> tokenAssetValue) (contramap FromFaucet tracer) (Just dummyMintingScript)
           -- This one is expected to fail since there is not enough ADA value
-          (requestCommitTx' n1 commitUTxOWithoutTokens (Just 10_000_001) Nothing <&> toJSON)
+          (requestCommitTx n1 commitUTxOWithoutTokens <&> toJSON) -- (Just 10_000_001) Nothing
             `shouldThrow` expectErrorStatus 400 (Just "AmountTooLow")
 
           -- This one is expected to fail since there are no extra assets but we specified some to commit
-          (requestCommitTx' n1 commitUTxOWithoutTokens (Just commitAmount) (Just partialTokenAssets) <&> toJSON)
+          (requestCommitTx n1 commitUTxOWithoutTokens <&> toJSON) -- (Just commitAmount) (Just partialTokenAssets)
             `shouldThrow` expectErrorStatus 400 (Just "InvalidTokenRequest")
 
-          depositTransaction <- requestCommitTx' n1 commitUTxOWithTokens (Just commitAmount) (Just partialTokenAssets)
+          depositTransaction <- requestCommitTx n1 commitUTxOWithTokens -- (Just commitAmount) (Just partialTokenAssets)
           let tx = signTx walletSk depositTransaction
 
           Backend.submitTransaction backend tx

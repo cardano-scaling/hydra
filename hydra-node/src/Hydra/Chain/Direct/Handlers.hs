@@ -15,11 +15,9 @@ import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.List qualified as List
-import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
-  Coin,
   LedgerEra,
   Tx,
   TxId,
@@ -83,7 +81,7 @@ import Hydra.Tx (
   headSeedToTxIn,
  )
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
-import Hydra.Tx.Deposit (DepositObservation (..), depositTx, splitTokens)
+import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
 import Hydra.Tx.Observe (
   AbortObservation (..),
   CloseObservation (..),
@@ -185,7 +183,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
           commit' ctx headId spendableUTxO commitBlueprintTx
-    , draftDepositTx = \headId pparams commitBlueprintTx deadline amount tokens -> do
+    , draftDepositTx = \headId pparams commitBlueprintTx deadline -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
         TimeHandle{currentPointInTime} <- queryTimeHandle
@@ -193,12 +191,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         runExceptT $
           do
             liftEither $ do
-              checkAmount lookupUTxO amount
-              rejectLowDeposits pparams lookupUTxO amount
-            let (validTokens, invalidTokens) = splitTokens lookupUTxO (fromMaybe mempty tokens)
-            unless (null invalidTokens) $
-              throwError $
-                InvalidTokenRequest (Map.assocs invalidTokens)
+              rejectLowDeposits pparams lookupUTxO
             (currentSlot, currentTime) <- case currentPointInTime of
               Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
               Right (s, t) -> pure (s, t)
@@ -211,7 +204,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             -- -- NOTE: But also not make it smaller than 10 slots.
             let validBeforeSlot = currentSlot + fromInteger (truncate graceTime `max` 10)
             lift . finalizeTx wallet ctx spendableUTxO lookupUTxO $
-              depositTx (networkId ctx) headId commitBlueprintTx validBeforeSlot deadline amount validTokens
+              depositTx (networkId ctx) headId commitBlueprintTx validBeforeSlot deadline
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
@@ -219,14 +212,14 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
 
 -- Check each UTxO entry against the minADAUTxO value.
 -- Throws 'DepositTooLow' exception.
-rejectLowDeposits :: PParams LedgerEra -> UTxO.UTxO -> Maybe Coin -> Either (PostTxError Tx) ()
-rejectLowDeposits pparams utxo amount = do
+rejectLowDeposits :: PParams LedgerEra -> UTxO.UTxO -> Either (PostTxError Tx) ()
+rejectLowDeposits pparams utxo = do
   let insAndOuts = UTxO.toList utxo
   let providedValues = (\(i, o) -> (i, UTxO.totalLovelace $ UTxO.singleton i o)) <$> insAndOuts
   let minimumValues = (\(i, o) -> (i, calculateMinimumUTxO shelleyBasedEra pparams $ fromCtxUTxOTxOut o)) <$> insAndOuts
   let results =
         ( \(i, minVal) ->
-            case List.find (\(ix, providedVal) -> i == ix && providedVal < minVal || maybe False (< minVal) amount) providedValues of
+            case List.find (\(ix, providedVal) -> i == ix && providedVal < minVal) providedValues of
               Nothing -> Right ()
               Just (_, tooLowValue) ->
                 Left (DepositTooLow{providedValue = tooLowValue, minimumValue = minVal} :: PostTxError Tx)
@@ -235,15 +228,6 @@ rejectLowDeposits pparams utxo amount = do
   case lefts results of
     [] -> pure ()
     (e : _) -> Left e
-
-checkAmount :: UTxO.UTxO -> Maybe Coin -> Either (PostTxError Tx) ()
-checkAmount utxo amount =
-  case amount of
-    Nothing -> pure ()
-    Just amt -> do
-      let totalLovelace = UTxO.totalLovelace utxo
-      when (totalLovelace < amt) $
-        Left (AmountTooLow{providedValue = amt, totalUTxOValue = totalLovelace} :: PostTxError Tx)
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
