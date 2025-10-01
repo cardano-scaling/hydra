@@ -171,7 +171,7 @@ withBlockfrostChainTest tracer config party action = do
   let callback event = atomically $ putTMVar eventMVar event
 
   wallet <- mkTinyWallet backend tracer configuration
-  withBlockfrostChain backend tracer configuration ctx wallet (initHistory initialChainState) undefined callback $ \Chain{postTx, draftCommitTx} -> do
+  withBlockfrostChain backend tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
     action
       CardanoChainTest
         { postTx
