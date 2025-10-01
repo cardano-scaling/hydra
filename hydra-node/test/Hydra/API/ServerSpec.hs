@@ -33,6 +33,7 @@ import Hydra.Chain (
   draftCommitTx,
   draftDepositTx,
   mkChainState,
+  chainSyncedStatus,
   postTx,
   submitTx,
  )
@@ -378,6 +379,7 @@ dummyChainHandle :: Chain tx IO
 dummyChainHandle =
   Chain
     { mkChainState = error "unexpected call to mkChainState"
+    , chainSyncedStatus = error "unexpected call to chainSyncedStatus"
     , postTx = \_ -> error "unexpected call to postTx"
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"

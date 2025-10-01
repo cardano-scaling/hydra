@@ -41,22 +41,21 @@ withCardanoChain ::
   Tracer IO CardanoChainLog ->
   CardanoChainConfig ->
   Party ->
-  TMVar IO () ->
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withCardanoChain tracer cfg party isSynced chainStateHistory callback action =
+withCardanoChain tracer cfg party chainStateHistory callback action =
   case chainBackendOptions of
     Direct directOptions -> do
       let directBackend = DirectBackend directOptions
       wallet <- mkTinyWallet directBackend tracer cfg
       ctx <- loadChainContext directBackend cfg party
-      withDirectChain directBackend tracer cfg ctx wallet chainStateHistory isSynced callback action
+      withDirectChain directBackend tracer cfg ctx wallet chainStateHistory callback action
     Blockfrost blockfrostOptions -> do
       let blockfrostBackend = BlockfrostBackend blockfrostOptions
       wallet <- mkTinyWallet blockfrostBackend tracer cfg
       ctx <- loadChainContext blockfrostBackend cfg party
-      withBlockfrostChain blockfrostBackend tracer cfg ctx wallet chainStateHistory isSynced callback action
+      withBlockfrostChain blockfrostBackend tracer cfg ctx wallet chainStateHistory callback action
  where
   CardanoChainConfig{chainBackendOptions} = cfg
 

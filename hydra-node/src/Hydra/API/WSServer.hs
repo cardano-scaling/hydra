@@ -5,6 +5,7 @@ module Hydra.API.WSServer where
 
 import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 
+import Hydra.Chain.SyncedStatus (SyncedStatus(..))
 import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
@@ -56,6 +57,8 @@ import Network.WebSockets (
   receiveData,
   sendTextData,
   withPingThread,
+  sendCloseCode,
+  ConnectionException( ConnectionClosed )
  )
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
@@ -75,13 +78,22 @@ wsApp ::
   Projection STM.STM (StateChanged tx) NetworkInfo ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   ServerOutputFilter tx ->
+  IO SyncedStatus ->
   PendingConnection ->
   IO ()
-wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} chainSyncedStatus pending = do
   traceWith tracer NewAPIConnection
+  -- TODO! configure threadDelay
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
   con <- acceptRequest pending
+  _ <- forkLabelled "ws-check-sync-status" $ forever $ do
+    SyncedStatus{status} <- chainSyncedStatus
+    unless status $ do
+      sendCloseCode con 4001 ("Chain went out of sync, try again later" :: Text)
+      throwIO ConnectionClosed
+    -- check every second
+    threadDelay 1_000_000
   chan <- STM.atomically $ dupTChan responseChannel
 
   let outConfig = mkServerOutputConfig queryParams

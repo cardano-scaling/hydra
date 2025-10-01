@@ -12,6 +12,7 @@ import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
 import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.Chain.SyncedStatus (SyncedStatus(..))
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
@@ -222,6 +223,9 @@ apiServerSpec = do
         putClientInput :: ClientInput tx -> IO ()
         putClientInput = const (pure ())
         getNodeState = pure inIdleState
+
+        chainSyncedStatus :: IO SyncedStatus
+        chainSyncedStatus = SyncedStatus { status = True, diff = Nothing }
     describe "GET /protocol-parameters" $ do
       responseChannel <- runIO newTChanIO
       with

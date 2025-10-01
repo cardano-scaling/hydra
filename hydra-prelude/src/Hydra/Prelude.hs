@@ -56,6 +56,7 @@ module Hydra.Prelude (
   concurrentlyLabelled,
   concurrentlyLabelled_,
   asyncLabelled,
+  forkLabelled,
   raceLabelled,
   raceLabelled_,
   withAsyncLabelled,
@@ -376,3 +377,7 @@ concurrentlyLabelled_ = (void .) . concurrentlyLabelled
 
 asyncLabelled :: MonadAsync m => String -> m a -> m (Async m a)
 asyncLabelled lbl mA = async $ labelThisThread lbl >> mA
+
+forkLabelled :: (MonadAsync m, MonadThread m) => String -> m () -> m ()
+forkLabelled lbl action =
+  void $ async $ labelThisThread lbl >> action
