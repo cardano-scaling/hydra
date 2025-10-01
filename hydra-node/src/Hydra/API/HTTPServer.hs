@@ -4,7 +4,6 @@ module Hydra.API.HTTPServer where
 
 import Hydra.Prelude
 
-import Hydra.Chain.SyncedStatus (SyncedStatus(..))
 import Cardano.Ledger.Core (PParams)
 import Conduit (
   ConduitT,
@@ -34,6 +33,7 @@ import Hydra.Cardano.Api (AddressInEra, LedgerEra, SlotNo, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
+import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
@@ -226,9 +226,8 @@ httpApp ::
   ApiTransactionTimeout ->
   -- | Channel to listen for events
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
-  IO SyncedStatus ->
   Application
-httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel chainSyncedStatus, request respond = do
+httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -295,14 +294,18 @@ httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getP
             >>= respond
     _ ->
       respond $ responseLBS status400 jsonContent . Aeson.encode $ Aeson.String "Resource not found"
+ where
+  Chain{chainSyncedStatus} = directChain
 
 rejectChainNotSynced :: IO SyncedStatus -> (Response -> IO ResponseReceived) -> IO (Maybe ResponseReceived)
 rejectChainNotSynced chainSyncedStatus respond = do
   SyncedStatus{status} <- chainSyncedStatus
   if status
     then pure Nothing
-    else Just <$> respond
-      (responseLBS status503 jsonContent (Aeson.encode ("Chain not yet synced, try again later" :: Text)))
+    else
+      Just
+        <$> respond
+          (responseLBS status503 jsonContent (Aeson.encode ("Chain not yet synced, try again later" :: Text)))
 
 -- * Handlers
 
