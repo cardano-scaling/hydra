@@ -29,7 +29,7 @@ depositTx ::
   UTCTime ->
   Maybe AddressInEra ->
   Tx
-depositTx networkId headId commitBlueprintTx upperSlot deadline _changeAddress =
+depositTx networkId headId commitBlueprintTx upperSlot deadline changeAddress =
   let blueprint =
         case txOuts' blueprintTx of
           [] ->
@@ -37,9 +37,24 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline _changeAddress =
               & bodyTxL . outputsTxBodyL
                 .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId lookupUTxO deadline)
           outs ->
-            toLedgerTx blueprintTx
-              & bodyTxL . outputsTxBodyL
-                .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline)
+            case changeAddress of
+              Nothing ->
+                toLedgerTx blueprintTx
+                  & bodyTxL . outputsTxBodyL
+                    .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline)
+              Just addr ->
+                let completeUTxO = resolveInputsUTxO lookupUTxO blueprintTx
+                    -- FIXME: This only returns complete, non consumed outputs. We need to go through each record and take out any value which was already deposited
+                    leftoverOutputs = filter (`notElem` outs) $ fromCtxUTxOTxOut . snd <$> UTxO.toList completeUTxO
+
+                    depositOutput =
+                      StrictSeq.singleton
+                        (toLedgerTxOut $ mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline)
+
+                    changeOutput = ((\(TxOut _ v d r) -> toLedgerTxOut $ TxOut addr v d r) . toCtxUTxOTxOut <$> leftoverOutputs)
+                 in toLedgerTx blueprintTx
+                      & bodyTxL . outputsTxBodyL
+                        .~ (depositOutput <> StrictSeq.fromList changeOutput)
    in fromLedgerTx $
         blueprint
           & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
