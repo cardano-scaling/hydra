@@ -104,6 +104,7 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
           - $ref: "api.yaml#/components/messages/EventLogRotated"
+          - $ref: "api.yaml#/components/messages/ChainOutOfSync"
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
@@ -775,6 +776,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/EventLogRotated"
 
+    ChainOutOfSync:
+      title: ChainOutOfSync
+      description: |
+        The chain-state is out of sync with node-state and insecure to be used.
+      payload:
+        $ref: "api.yaml#/components/schemas/ChainOutOfSync"
+
     # Other messages
 
     DraftCommitTxRequest:
@@ -858,6 +866,7 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
         - $ref: "api.yaml#/components/schemas/EventLogRotated"
+        - $ref: "api.yaml#/components/schemas/ChainOutOfSync"
 
     ClientMessage:
       oneOf:
@@ -1784,6 +1793,31 @@ components:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         checkpoint:
           $ref: "api.yaml#/components/schemas/NodeState"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    ChainOutOfSync:
+      title: ChainOutOfSync
+      description: |
+        The chain-state is out of sync with node-state and insecure to be used.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - seq
+        - syncedStatus
+        - nodeStateSlot
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["ChainOutOfSync"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        syncedStatus:
+          $ref: "api.yaml#/components/schemas/SyncedStatus"
+        nodeStateSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
@@ -3506,3 +3540,56 @@ components:
             tag:
               type: string
               enum: ["Expired"]
+
+    ChainPoint:
+      oneOf:
+        - title: ChainPointAtGenesis
+          description: |
+            Special chain point representing the beginning of the chain, before any blocks have been produced.
+          additionalProperties: false
+          type: object
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPointAtGenesis"]
+        - title: ChainPoint
+          description: |
+            Concrete chain point referencing a block on-chain by its slot number and header hash.
+          additionalProperties: false
+          type: object
+          required:
+            - tag
+            - slot
+            - blockHash
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPoint"]
+            slot:
+              type: integer
+              minimum: 0
+            blockHash:
+              type: string
+              contentEncoding: base16
+
+    SyncedStatus:
+      type: object
+      description: |
+        The synced status of the chain backend.
+      additionalProperties: false
+      required:
+        - status
+        - diff
+        - point
+      properties:
+        status:
+          type: boolean
+        diff:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: "null"
+        point:
+          $ref: "api.yaml#/components/schemas/ChainPoint"
