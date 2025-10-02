@@ -573,7 +573,7 @@ apiServerSpec = do
           failingChainHandle postTxError =
             dummyChainHandle
               { draftCommitTx = \_ _ -> pure $ Left postTxError
-              , draftDepositTx = \_ _ _ _ -> pure $ Left postTxError
+              , draftDepositTx = \_ _ _ _ _ -> pure $ Left postTxError
               }
 
       prop "reject deposits with less than min ADA" $ do

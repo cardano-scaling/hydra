@@ -27,8 +27,9 @@ depositTx ::
   SlotNo ->
   -- | Deposit deadline from which onward the deposit can be recovered.
   UTCTime ->
+  Maybe AddressInEra ->
   Tx
-depositTx networkId headId commitBlueprintTx upperSlot deadline =
+depositTx networkId headId commitBlueprintTx upperSlot deadline _changeAddress =
   let blueprint =
         case txOuts' blueprintTx of
           [] ->
@@ -114,8 +115,8 @@ observeDepositTx networkId spendableUTxO tx = do
       }
  where
   matchesDepositValue utxo =
-      UTxO.totalValue (resolveInputsUTxO spendableUTxO tx)
-        `containsValue` UTxO.totalValue utxo
+    UTxO.totalValue (resolveInputsUTxO spendableUTxO tx)
+      `containsValue` UTxO.totalValue utxo
 
   getUpperBound =
     case tx & getTxBody & getTxBodyContent & txValidityUpperBound of

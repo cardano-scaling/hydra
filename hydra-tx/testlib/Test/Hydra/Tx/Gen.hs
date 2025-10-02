@@ -251,6 +251,11 @@ genValue = fmap ((lovelaceToValue $ Coin 20_000_000) <>) (scale (`div` 10) $ fro
 genVerificationKey :: Gen (VerificationKey PaymentKey)
 genVerificationKey = getVerificationKey <$> genSigningKey
 
+-- NOTE: This instance is here just because we use this type in Hydra api server so it is ok
+-- to generate various network ids.
+instance Arbitrary AddressInEra where
+  arbitrary = genAddressInEra =<< arbitrary
+
 -- | NOTE: See note on 'mkVkAddress' about 'NetworkId'.
 genAddressInEra :: NetworkId -> Gen AddressInEra
 genAddressInEra networkId =
