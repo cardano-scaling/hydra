@@ -1,0 +1,18 @@
+{
+    "samples": [
+        {
+            "nodeStateSlot": 0,
+            "syncedStatus": {
+                "diff": 0,
+                "point": {
+                    "blockHash": "0001000000010100010100000000010101010001010000010000010101000001",
+                    "slot": 0,
+                    "tag": "ChainPoint"
+                },
+                "status": true
+            },
+            "tag": "ChainOutOfSync"
+        }
+    ],
+    "seed": -429184662
+}
