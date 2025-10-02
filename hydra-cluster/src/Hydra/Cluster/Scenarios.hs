@@ -1483,8 +1483,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           -- and some ADA is added to it after balancing in the wallet, then we have problems matching on the 'CommitApproved' etc.
           let commitAmount = 5_000_000
           commitUTxOWithTokens <- seedFromFaucetWithMinting backend walletVk (lovelaceToValue seedAmount <> tokenAssetValue) (contramap FromFaucet tracer) (Just dummyMintingScript)
-
-          (clientPayload, blueprint) <- prepareBlueprintRequest commitUTxOWithTokens commitAmount
+          (clientPayload, blueprint) <- prepareBlueprintRequest commitUTxOWithTokens commitAmount walletVk
 
           res <-
             runReq defaultHttpConfig $
@@ -1510,7 +1509,8 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           getSnapshotUTxO n1 `shouldReturn` expectedDeposit
           -- check that user balance balance contains the change from the commit tx
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
-            `shouldReturn` lovelaceToValue (seedAmount + seedAmount - commitAmount)
+            `shouldReturn` lovelaceToValue (seedAmount - commitAmount)
+            <> tokenAssetValue
 
           send n2 $ input "Close" []
 
@@ -1528,17 +1528,16 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
 
           -- Assert final wallet balance
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
-            -- NOTE: in the end we expect seedAmount * 2 since we seeded from faucet twice + assets we minted
-            `shouldReturn` lovelaceToValue (seedAmount * 2)
+            `shouldReturn` lovelaceToValue seedAmount
             <> tokenAssetValue
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  prepareBlueprintRequest :: UTxO -> Coin -> IO (Value, Tx)
-  prepareBlueprintRequest utxo commitAmount = do
+  prepareBlueprintRequest :: UTxO -> Coin -> CAPI.VerificationKey PaymentKey -> IO (Value, Tx)
+  prepareBlueprintRequest utxo commitAmount vk = do
+    networkId <- Backend.queryNetworkId backend
+    let changeAddress = mkVkAddress @Era networkId vk
     let (i, o') = List.head $ UTxO.toList utxo
-    let TxOut a v d r = o'
-    let changeOut = TxOut a v d r
     let o = modifyTxOutValue (const $ lovelaceToValue commitAmount) o'
     let witness = BuildTxWith $ KeyWitness KeyWitnessForSpending
 
@@ -1547,13 +1546,13 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
             defaultTxBodyContent
               & addTxIns [(i, witness)]
               & addTxOut (fromCtxUTxOTxOut o)
-              & addTxOut (fromCtxUTxOTxOut changeOut)
 
     putStrLn $ renderTxWithUTxO utxo blueprint
     pure
       ( Aeson.object
           [ "blueprintTx" .= blueprint
           , "utxo" .= utxo
+          , "changeAddress" .= changeAddress
           ]
       , blueprint
       )
