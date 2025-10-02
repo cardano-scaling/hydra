@@ -27,6 +27,7 @@ import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
 import Hydra.API.ServerOutput (InvalidInput (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
+import Hydra.Cardano.Api (ChainPoint (ChainPointAtGenesis))
 import Hydra.Chain (
   Chain (Chain),
   checkNonADAAssets,
@@ -380,7 +381,7 @@ dummyChainHandle :: Chain tx IO
 dummyChainHandle =
   Chain
     { mkChainState = error "unexpected call to mkChainState"
-    , chainSyncedStatus = pure SyncedStatus{status = True, diff = Nothing}
+    , chainSyncedStatus = pure SyncedStatus{status = True, diff = Nothing, point = ChainPointAtGenesis}
     , postTx = \_ -> error "unexpected call to postTx"
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"

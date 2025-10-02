@@ -6,6 +6,7 @@ module Hydra.API.WSServer where
 import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 
 import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
+import Control.Concurrent.Class.MonadSTM.TChan (writeTChan)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
 import Control.Lens ((.~))
@@ -22,6 +23,7 @@ import Hydra.API.ServerOutput (
   HeadStatus (..),
   InvalidInput (..),
   NetworkInfo,
+  ServerOutput (ChainOutOfSync),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithAddressedTx (..),
@@ -41,7 +43,7 @@ import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (
   IsChainState,
  )
-import Hydra.Chain.Direct.State ()
+import Hydra.Chain.Direct.State (chainSlotFromPoint)
 import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
@@ -51,12 +53,10 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (HeadId, Party)
 import Network.WebSockets (
-  ConnectionException (ConnectionClosed),
   PendingConnection (pendingRequest),
   RequestHead (..),
   acceptRequest,
   receiveData,
-  sendCloseCode,
   sendTextData,
   withPingThread,
  )
@@ -87,10 +87,13 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
   queryParams <- uriQuery <$> mkURIBs path
   con <- acceptRequest pending
   _ <- forkLabelled "ws-check-sync-status" $ forever $ do
-    SyncedStatus{status} <- chainSyncedStatus
-    unless status $ do
-      sendCloseCode con 4001 ("Chain went out of sync, try again later" :: Text)
-      throwIO ConnectionClosed
+    NodeState{currentSlot} <- atomically getLatestNodeState
+    synced@SyncedStatus{status, point} <- chainSyncedStatus
+    if status && currentSlot <= chainSlotFromPoint point
+      then pure ()
+      else do
+        tso <- timed 0 (ChainOutOfSync synced currentSlot)
+        atomically $ writeTChan responseChannel (Left tso)
     -- check every second
     -- TODO! configure threadDelay
     threadDelay 1
@@ -179,26 +182,36 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
         traceWith tracer (APIOutputSent $ toJSON response)
 
   Chain{checkNonADAAssets} = chain
+  
+  timed :: Natural -> ServerOutput tx -> IO (TimedServerOutput tx)
+  timed seq out = TimedServerOutput out seq <$> getCurrentTime
 
   receiveInputs con = forever $ do
     msg <- receiveData con
     case Aeson.eitherDecode msg of
       Right input -> do
-        traceWith tracer (APIInputReceived $ toJSON input)
-        NodeState{headState} <- atomically getLatestNodeState
-        case input of
-          SafeClose ->
-            case HeadState.getOpenStateConfirmedSnapshot headState of
-              Nothing -> callback input
-              Just confirmedSnapshot ->
-                case checkNonADAAssets confirmedSnapshot of
-                  Left nonADAValue -> do
-                    let clientInput = decodeUtf8With lenientDecode $ toStrict msg
-                    let errorStr = "Cannot SafeClose with non-ADA assets present: " <> show nonADAValue
-                    sendTextData con $ Aeson.encode $ InvalidInput errorStr clientInput
-                    traceWith tracer (APIInvalidInput errorStr clientInput)
-                  Right _ -> callback input
-          _ -> callback input
+        NodeState{currentSlot, headState} <- atomically getLatestNodeState
+        SyncedStatus{status, point} <- chainSyncedStatus
+        if status && currentSlot <= chainSlotFromPoint point
+          then do
+            traceWith tracer (APIInputReceived $ toJSON input)
+            case input of
+              SafeClose ->
+                case HeadState.getOpenStateConfirmedSnapshot headState of
+                  Nothing -> callback input
+                  Just confirmedSnapshot ->
+                    case checkNonADAAssets confirmedSnapshot of
+                      Left nonADAValue -> do
+                        let clientInput = decodeUtf8With lenientDecode $ toStrict msg
+                        let errorStr = "Cannot SafeClose with non-ADA assets present: " <> show nonADAValue
+                        sendTextData con $ Aeson.encode $ InvalidInput errorStr clientInput
+                        traceWith tracer (APIInvalidInput errorStr clientInput)
+                      Right _ -> callback input
+              _ -> callback input
+          else do
+            let err = "Rejected: chain out of sync" :: Text
+            sendTextData con (Aeson.encode $ InvalidInput (toString err) (decodeUtf8With lenientDecode $ toStrict msg))
+            traceWith tracer (APIInvalidInput (toString err) (decodeUtf8With lenientDecode $ toStrict msg))
       Left e -> do
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
