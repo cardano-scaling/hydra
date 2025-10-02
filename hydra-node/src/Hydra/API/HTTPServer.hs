@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
-import Data.Aeson (KeyValue ((.=)), object, withObject, (.:))
+import Data.Aeson (KeyValue ((.=)), object, withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Parser)
 import Data.ByteString.Lazy qualified as LBS
@@ -15,7 +15,7 @@ import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
-import Hydra.Cardano.Api (LedgerEra, Tx)
+import Hydra.Cardano.Api (AddressInEra, LedgerEra, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
@@ -55,6 +55,7 @@ data DraftCommitTxRequest tx
   | FullCommitRequest
       { blueprintTx :: tx
       , utxo :: UTxOType tx
+      , changeAddress :: Maybe AddressInEra
       }
   deriving stock (Generic)
 
@@ -63,10 +64,11 @@ deriving stock instance (Show tx, Show (UTxOType tx)) => Show (DraftCommitTxRequ
 
 instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DraftCommitTxRequest tx) where
   toJSON = \case
-    FullCommitRequest{blueprintTx, utxo} ->
+    FullCommitRequest{blueprintTx, utxo, changeAddress} ->
       object
         [ "blueprintTx" .= toJSON blueprintTx
         , "utxo" .= toJSON utxo
+        , "changeAddress" .= toJSON changeAddress
         ]
     SimpleCommitRequest{utxoToCommit} ->
       object
@@ -79,7 +81,8 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
     fullVariant = withObject "FullCommitRequest" $ \o -> do
       blueprintTx :: tx <- o .: "blueprintTx"
       utxo <- o .: "utxo"
-      pure FullCommitRequest{blueprintTx, utxo}
+      changeAddress <- o .:? "changeAddress"
+      pure FullCommitRequest{blueprintTx, utxo, changeAddress}
 
     simpleVariant = withObject "SimpleCommitRequest" $ \o -> do
       utxoToCommit <- o .: "utxoToCommit"
@@ -93,7 +96,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequ
 
   shrink = \case
     SimpleCommitRequest u -> SimpleCommitRequest <$> shrink u
-    FullCommitRequest a b -> FullCommitRequest <$> shrink a <*> shrink b
+    FullCommitRequest a b c -> FullCommitRequest <$> shrink a <*> shrink b <*> shrink c
 
 newtype SubmitTxRequest tx = SubmitTxRequest
   { txToSubmit :: tx
@@ -284,18 +287,18 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
               draftCommit headId utxoToCommit blueprintTx
         IncrementalCommit headId -> do
           case someCommitRequest of
-            FullCommitRequest{blueprintTx, utxo} -> do
-              deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo}
+            FullCommitRequest{blueprintTx, utxo, changeAddress} -> do
+              deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo} changeAddress
             SimpleCommitRequest{utxoToCommit} ->
-              deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit}
+              deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit} Nothing
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
-  deposit headId commitBlueprint = do
+  deposit headId commitBlueprint changeAddress = do
     -- NOTE: Three times deposit period means we have one deposit period time to
     -- increment because a deposit only activates after one deposit period and
     -- expires one deposit period before deadline.
     deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
-    draftDepositTx headId pparams commitBlueprint deadline <&> \case
+    draftDepositTx headId pparams commitBlueprint deadline changeAddress <&> \case
       Left e -> responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
 

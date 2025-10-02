@@ -333,7 +333,7 @@ spec = parallel $ do
 
     prop "observes deposit" $
       forAllDeposit $ \utxo tx ->
-        case observeDepositTx testNetworkId tx of
+        case observeDepositTx testNetworkId utxo tx of
           Just DepositObservation{} -> property True
           Nothing ->
             False & counterexample ("observeDepositTx ignored transaction: " <> renderTxWithUTxO utxo tx)
@@ -536,9 +536,9 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
 
 prop_incrementObservesCorrectUTxO :: Property
 prop_incrementObservesCorrectUTxO = monadicIO $ do
-  (ctx, st@OpenState{headId}, _, txDeposit) <- pickBlind $ genDepositTx maxGenParties
+  (ctx, st@OpenState{headId}, utxo', txDeposit) <- pickBlind $ genDepositTx maxGenParties
   (_, _, _, txDeposit2) <- pickBlind $ genDepositTx maxGenParties
-  case observeDepositTx (ctxNetworkId ctx) txDeposit of
+  case observeDepositTx (ctxNetworkId ctx) utxo' txDeposit of
     Nothing -> assertWith False "Deposit not observed"
     Just DepositObservation{depositTxId = depositedTxId, deadline} -> do
       cctx <- pickBlind $ pickChainContext ctx

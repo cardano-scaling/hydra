@@ -128,14 +128,14 @@ spec = parallel $ do
     prop "healthy evaluates" $
       forAll genHealthyDepositTx propTransactionEvaluates
     prop "healthy observed" $
-      forAll genHealthyDepositTx $ \(tx, _) ->
-        isJust $ observeDepositTx testNetworkId tx
+      forAll genHealthyDepositTx $ \(tx, utxo) ->
+        isJust $ observeDepositTx testNetworkId utxo tx
     prop "mutated not observed" $
       forAll genHealthyDepositTx $ \(tx, utxo) ->
         forAll (genDepositMutation (tx, utxo)) $ \SomeMutation{label, mutation} -> do
           let (tx', utxo') = (tx, utxo) & applyMutation mutation
           counterexample ("Mutated transaction: " <> renderTxWithUTxO utxo' tx') $
-            property (isNothing $ observeDepositTx testNetworkId tx')
+            property (isNothing $ observeDepositTx testNetworkId utxo' tx')
               & counterexample "Mutated transaction still observed"
               & genericCoverTable [label]
               & checkCoverage
