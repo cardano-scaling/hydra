@@ -96,12 +96,13 @@ data DepositObservation = DepositObservation
 -- - an upper validity bound has been set (used as creation slot).
 observeDepositTx ::
   NetworkId ->
+  UTxO ->
   Tx ->
   Maybe DepositObservation
-observeDepositTx networkId tx = do
+observeDepositTx networkId spendableUTxO tx = do
   depositOut <- fmap head . nonEmpty $ txOuts' tx
   (headId, deposited, deadline) <- observeDepositTxOut network (toCtxUTxOTxOut depositOut)
-  guard $ containsDepositValue deposited
+  guard $ matchesDepositValue deposited
   created <- getUpperBound
   pure
     DepositObservation
@@ -112,7 +113,9 @@ observeDepositTx networkId tx = do
       , deadline = posixToUTCTime deadline
       }
  where
-  containsDepositValue utxo = UTxO.totalValue (Hydra.Cardano.Api.utxoFromTx tx) `containsValue` UTxO.totalValue utxo
+  matchesDepositValue utxo =
+      UTxO.totalValue (resolveInputsUTxO spendableUTxO tx)
+        `containsValue` UTxO.totalValue utxo
 
   getUpperBound =
     case tx & getTxBody & getTxBodyContent & txValidityUpperBound of

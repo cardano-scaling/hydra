@@ -102,7 +102,7 @@ observeHeadTx networkId utxo tx =
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
-      <|> Deposit <$> observeDepositTx networkId tx
+      <|> Deposit <$> observeDepositTx networkId utxo tx
       <|> Recover <$> observeRecoverTx networkId utxo tx
       <|> Increment <$> observeIncrementTx utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
