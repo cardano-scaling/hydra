@@ -362,7 +362,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationP
           Right utcTime -> do
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
             callback (Tick{chainTime = utcTime, chainSlot})
-            updateSyncStatus syncedStatus contestationPeriod utcTime
+            updateSyncStatus syncedStatus contestationPeriod utcTime point
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case
