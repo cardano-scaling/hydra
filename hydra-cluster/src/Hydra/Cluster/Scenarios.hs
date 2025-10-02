@@ -2022,6 +2022,84 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
  where
   hydraTracer = contramap FromHydraNode tracer
 
+-- XXX: restart scenarios require 3 party cluster in order to observe PeerDisconnected instead of NetworkDisconnected
+waitsForChainInSynchAndSecure :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
+  let clients = [Alice, Bob, Carol]
+  [(aliceCardanoVk, _aliceCardanoSk), (bobCardanoVk, _bobCardanoSk), (carolCardanoVk, carolCardanoSk)] <- forM clients keysFor
+  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  blockTime <- Backend.getBlockTime backend
+  networkId <- Backend.queryNetworkId backend
+  let contestationPeriod = 100
+  aliceChainConfig <-
+    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob, Carol] contestationPeriod
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice, Carol] contestationPeriod
+      <&> setNetworkId networkId
+  carolChainConfig <-
+    chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] contestationPeriod
+      <&> setNetworkId networkId
+
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      carolUTxO <- seedFromFaucet backend carolCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
+      -- Open a head while Carol online
+      headId <- withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        send n1 $ input "Init" []
+        headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+
+        -- Alice commits nothing
+        requestCommitTx n1 mempty >>= Backend.submitTransaction backend
+        -- Bob commits nothing
+        requestCommitTx n2 mempty >>= Backend.submitTransaction backend
+        -- Carol commits something
+        requestCommitTx n3 carolUTxO >>= Backend.submitTransaction backend
+
+        -- Observe open with the relevant UTxOs
+        waitFor hydraTracer (20 * blockTime) [n1, n2, n3] $
+          output "HeadIsOpen" ["utxo" .= toJSON carolUTxO, "headId" .= headId]
+
+        pure headId
+
+      -- Carol disconnects and the others observe it
+      waitForAllMatch (1000 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "PeerDisconnected"
+
+      -- Wait for some blocks to roll forward
+      threadDelay 10
+
+      -- Alice closes the head while Carol offline
+      send n1 $ input "Close" []
+      waitForAllMatch (20 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
+        guard $ v ^? key "headId" == Just (toJSON headId)
+
+      -- Carol restarts
+      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        -- Carol API started in Open
+        -- FIXME! should start in Closed
+        waitMatch 20 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "Greetings"
+          guard $ v ^? key "headStatus" == Just (toJSON Open)
+          guard $ v ^? key "me" == Just (toJSON carol)
+          guard $ isJust (v ^? key "hydraNodeVersion")
+
+        -- Carol submits a new transaction,
+        -- without waiting for head to be closed
+        utxo <- getSnapshotUTxO n3
+        tx <- mkTransferTx testNetworkId utxo carolCardanoSk carolCardanoVk
+        send n3 $ input "NewTx" ["transaction" .= tx]
+
+        -- FIXME! should waitNoMatch
+        waitMatch (20 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "CommandFailed"
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
 -- | Three hydra nodes open a head and we assert that none of them sees errors if a party is duplicated.
 threeNodesWithMirrorParty :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do

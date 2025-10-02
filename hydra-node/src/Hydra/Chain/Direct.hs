@@ -66,6 +66,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
  )
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
+import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
 import Ouroboros.Network.Magic (NetworkMagic (..))
@@ -149,6 +150,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
+  syncedStatus <- newLabelledTVarIO "direct-chain-sync-status" unSynced
   let chainHandle =
         mkChain
           tracer
@@ -157,8 +159,8 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
           ctx
           localChainState
           (submitTx queue)
-
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
+          syncedStatus
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod syncedStatus
   res <-
     raceLabelled
       ( "direct-chain-connection"
@@ -173,7 +175,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
     Right a -> pure a
  where
   DirectBackend{options = DirectOptions{networkId, nodeSocket}} = backend
-  CardanoChainConfig{startChainFrom} = config
+  CardanoChainConfig{startChainFrom, contestationPeriod} = config
 
   connectInfo networkId' nodeSocket' =
     LocalNodeConnectInfo

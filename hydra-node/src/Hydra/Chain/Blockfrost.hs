@@ -32,6 +32,7 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (ChainContext, ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
 
@@ -132,6 +133,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
+  syncedStatus <- newLabelledTVarIO "blockfrost-chain-sync-status" unSynced
   let chainHandle =
         mkChain
           tracer
@@ -140,8 +142,9 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
           ctx
           localChainState
           (submitTx queue)
+          syncedStatus
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod syncedStatus
 
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
     raceLabelled
       ( "blockfrost-chain-connection"
@@ -155,7 +158,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
     Right a -> pure a
  where
   BlockfrostBackend{options = BlockfrostOptions{projectPath}} = backend
-  CardanoChainConfig{startChainFrom} = config
+  CardanoChainConfig{startChainFrom, contestationPeriod} = config
 
   submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
   submitTx queue tx = do
