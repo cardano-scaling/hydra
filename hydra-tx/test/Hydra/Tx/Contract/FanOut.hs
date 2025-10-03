@@ -24,7 +24,7 @@ import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, splitUTxO)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genOutput, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue)
+import Test.Hydra.Tx.Gen (genOutputFor, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -129,7 +129,7 @@ genFanoutMutation (tx, _utxo) =
     , -- Spec: The first m outputs are distributing funds according to η. That is, the outputs exactly
       -- correspond to the UTxO canonically combined U
       SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateAddUnexpectedOutput . PrependOutput <$> do
-        arbitrary >>= genOutput
+        arbitrary >>= genOutputFor
     , -- Spec: The following n outputs are distributing funds according to η∆ .
       -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
       SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateFanoutOutputValue <$> do
