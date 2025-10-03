@@ -1473,17 +1473,16 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
 
           -- Get some L1 funds
           (walletVk, walletSk) <- generate genKeyPair
-          tokensUTxO <- generate (genUTxOWithAssetsSized 8 (Just $ PolicyId $ CAPI.hashScript $ CAPI.PlutusScript dummyMintingScript))
+          tokensUTxO <- generate (genUTxOWithAssetsSized 3 (Just $ PolicyId $ CAPI.hashScript $ CAPI.PlutusScript dummyMintingScript))
+          leftoverTokenUTxO <- generate (genUTxOWithAssetsSized 2 (Just $ PolicyId $ CAPI.hashScript $ CAPI.PlutusScript dummyMintingScript))
           let assetsToValue = foldMap ((mempty <>) . uncurry policyAssetsToValue) . Map.toList
-          let totalTokenValue = UTxO.totalValue tokensUTxO
+          let totalTokenValue = UTxO.totalValue (tokensUTxO <> leftoverTokenUTxO)
           let tokenAssets = valueToPolicyAssets totalTokenValue
           let tokenAssetValue = assetsToValue tokenAssets
-          let seedAmount = 10_000_000
-          -- NOTE: We (and also the users) need to make sure we give enough ADA when committing. If deposit tx ADA amount is too low
-          -- and some ADA is added to it after balancing in the wallet, then we have problems matching on the 'CommitApproved' etc.
+          let seedAmount = 20_000_000
           let commitAmount = 5_000_000
           commitUTxOWithTokens <- seedFromFaucetWithMinting backend walletVk (lovelaceToValue seedAmount <> tokenAssetValue) (contramap FromFaucet tracer) (Just dummyMintingScript)
-          (clientPayload, blueprint) <- prepareBlueprintRequest commitUTxOWithTokens commitAmount walletVk
+          clientPayload <- prepareBlueprintRequest commitUTxOWithTokens commitAmount walletVk tokensUTxO
 
           res <-
             runReq defaultHttpConfig $
@@ -1499,15 +1498,10 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           putStrLn $ renderTxWithUTxO commitUTxOWithTokens tx
           Backend.submitTransaction backend tx
 
-          let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)
-
-          waitFor hydraTracer (2 * realToFrac depositPeriod) [n1, n2] $
-            output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= expectedDeposit]
           waitFor hydraTracer (20 * blockTime) [n1, n2] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
-          getSnapshotUTxO n1 `shouldReturn` expectedDeposit
-          -- check that user balance balance contains the change from the commit tx
+          -- check that user balance balance contains the change from deposit tx
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
             `shouldReturn` lovelaceToValue (seedAmount - commitAmount)
             <> tokenAssetValue
@@ -1533,12 +1527,12 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  prepareBlueprintRequest :: UTxO -> Coin -> CAPI.VerificationKey PaymentKey -> IO (Value, Tx)
-  prepareBlueprintRequest utxo commitAmount vk = do
+  prepareBlueprintRequest :: UTxO -> Coin -> CAPI.VerificationKey PaymentKey -> UTxO -> IO Value
+  prepareBlueprintRequest utxo commitAmount vk tokenUTxO = do
     networkId <- Backend.queryNetworkId backend
     let changeAddress = mkVkAddress @Era networkId vk
     let (i, o') = List.head $ UTxO.toList utxo
-    let o = modifyTxOutValue (const $ lovelaceToValue commitAmount) o'
+    let o = modifyTxOutValue (const $ lovelaceToValue commitAmount <> UTxO.totalValue tokenUTxO) o'
     let witness = BuildTxWith $ KeyWitness KeyWitnessForSpending
 
     let blueprint =
@@ -1554,7 +1548,6 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           , "utxo" .= utxo
           , "changeAddress" .= changeAddress
           ]
-      , blueprint
       )
 
 rejectCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()

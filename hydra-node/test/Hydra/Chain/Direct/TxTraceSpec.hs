@@ -822,6 +822,7 @@ newDepositTx _ utxoToDeposit = do
     Right $
       depositTx
         Fixture.testNetworkId
+        Fixture.defaultPParams
         (mkHeadId Fixture.testPolicyId)
         blueprint
         validBefore

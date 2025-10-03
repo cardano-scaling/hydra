@@ -121,7 +121,7 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Hydra.Tx.Utils (setIncrementalActionMaybe, splitUTxO, verificationKeyToOnChainId)
-import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
   genScriptRegistry,
@@ -1147,7 +1147,7 @@ genDepositTx numParties = do
   slot <- chooseEnum (0, 1_000_000)
   slotsUntilDeadline <- chooseEnum (0, 86400)
   let deadline = slotNoToUTCTime systemStart slotLength (slot + slotsUntilDeadline)
-  let tx = depositTx (ctxNetworkId ctx) headId (mkSimpleBlueprintTx utxo) slot deadline Nothing
+  let tx = depositTx (ctxNetworkId ctx) defaultPParams headId (mkSimpleBlueprintTx utxo) slot deadline Nothing
   pure (ctx, st, utxo <> utxoFromTx tx, tx)
 
 genRecoverTx ::
