@@ -1,48 +1,50 @@
 roots = [
-   "^Main.main$"
- , "^Spec.main$"
- , "^Paths_.*"
- , "^main$"
- , "validatorHash$"
- , "validatorScript$"
- , "queryEpochNo$"
- , "queryUTxOWhole$"
- , "traceDebug$"
- , "spy$"
- , "spy'$"
- , "redeemer$"
- ]
+  "^Main.main$",
+  "^Spec.main$",
+  "^Paths_.*",
+  "^main$",
+  "validatorHash$",
+  "validatorScript$",
+  "queryEpochNo$",
+  "queryUTxOWhole$",
+  "traceDebug$",
+  "spy$",
+  "spy'$",
+  "redeemer$",
+]
 
 root-instances = [
- # Stock instances are treated as roots.
-   { class = '\.Eq$' }
- , { class = '\.Show$' }
- , { class = '\.Read$' }
- , { class = '\.Enum$' }
- , { class = '\.Bounded$' }
- , { class = '\.Generic$' }
- , { class = '\.Ord$' }
- , { class = '\.Num$' }
- , { class = '\.Real$' }
- , { class = '\.Integral$' }
- , { class = '\.IsString$' }
- # unstableMakeIsData creates all Data instances at once, some are unused and
- # so are treated as roots.
- , { module = "Hydra.Contract.Commit", instance = "UnsafeFromData Commit" }
- , { module = "Hydra.Contract.Commit", instance = "FromData RedeemerType" }
- , { module = "Hydra.Contract.Commit", instance = "UnsafeFromData RedeemerType" }
- , { module = "Hydra.Contract.Deposit", instance = "FromData DepositRedeemer" }
- , { module = "Hydra.Contract.MintAction", instance = "FromData MintAction" }
- , { module = "Hydra.Contract.Initial", instance = "UnsafeFromData RedeemerType" }
- # This one is odd.
- , { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" }
- # TODO: Remove this
- , { module = "Hydra.Model.Payment", instance = "IsTx" }
- # These are used for debugging.
- , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" }
- , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" }
- , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadThrow AppM" }
- # Orphan instances needed by hydra-explorer
- , { module = "Hydra.Cardano.Api.NetworkId", instance = "Arbitrary NetworkId" }
- , { module = "Hydra.Cardano.Api.NetworkMagic", instance = "Arbitrary NetworkMagic" }
- ]
+  # Stock instances are treated as roots.
+  { class = '\.Eq$' },
+  { class = '\.Show$' },
+  { class = '\.Read$' },
+  { class = '\.Enum$' },
+  { class = '\.Bounded$' },
+  { class = '\.Generic$' },
+  { class = '\.Ord$' },
+  { class = '\.Num$' },
+  { class = '\.Real$' },
+  { class = '\.Integral$' },
+  { class = '\.IsString$' },
+  # unstableMakeIsData creates all Data instances at once, some are unused and
+  # so are treated as roots.
+  { module = "Hydra.Contract.Commit", instance = "UnsafeFromData Commit" },
+  { module = "Hydra.Contract.Commit", instance = "FromData RedeemerType" },
+  { module = "Hydra.Contract.Commit", instance = "UnsafeFromData RedeemerType" },
+  { module = "Hydra.Contract.Deposit", instance = "FromData DepositRedeemer" },
+  { module = "Hydra.Contract.MintAction", instance = "FromData MintAction" },
+  { module = "Hydra.Contract.Initial", instance = "UnsafeFromData RedeemerType" },
+  # This one is odd.
+  { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" },
+  # TODO: Remove this
+  { module = "Hydra.Model.Payment", instance = "IsTx" },
+  # These are used for debugging.
+  { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" },
+  { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" },
+  { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadThrow AppM" },
+  # Orphan instances needed by hydra-explorer
+  { module = "Hydra.Cardano.Api.NetworkId", instance = "Arbitrary NetworkId" },
+  { module = "Hydra.Cardano.Api.NetworkMagic", instance = "Arbitrary NetworkMagic" },
+  # test instances
+  { module = "Hydra.ModelSpec", instance = "HasVariables" },
+]
