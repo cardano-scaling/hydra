@@ -21,6 +21,7 @@ import PlutusLedgerApi.V3 (POSIXTime)
 -- | Builds a deposit transaction to lock funds into the v_deposit script.
 depositTx ::
   NetworkId ->
+  PParams LedgerEra ->
   HeadId ->
   CommitBlueprintTx Tx ->
   -- | Slot to use as upper validity. Will mark the time of creation of the deposit.
@@ -29,7 +30,7 @@ depositTx ::
   UTCTime ->
   Maybe AddressInEra ->
   Tx
-depositTx networkId headId commitBlueprintTx upperSlot deadline changeAddress =
+depositTx networkId pparams headId commitBlueprintTx upperSlot deadline changeAddress =
   let blueprint =
         case txOuts' blueprintTx of
           [] ->
@@ -43,18 +44,24 @@ depositTx networkId headId commitBlueprintTx upperSlot deadline changeAddress =
                   & bodyTxL . outputsTxBodyL
                     .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline)
               Just addr ->
-                let completeUTxO = resolveInputsUTxO lookupUTxO blueprintTx
-                    -- FIXME: This only returns complete, non consumed outputs. We need to go through each record and take out any value which was already deposited
-                    leftoverOutputs = filter (`notElem` outs) $ fromCtxUTxOTxOut . snd <$> UTxO.toList completeUTxO
+                let depositOutput =
+                      toLedgerTxOut $ mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline
 
-                    depositOutput =
-                      StrictSeq.singleton
-                        (toLedgerTxOut $ mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline)
+                    balance = evaluateTransactionBalance shelleyBasedEra pparams mempty mempty mempty
 
-                    changeOutput = ((\(TxOut _ v d r) -> toLedgerTxOut $ TxOut addr v d r) . toCtxUTxOTxOut <$> leftoverOutputs)
-                 in toLedgerTx blueprintTx
+                    partialTx =
+                      fromLedgerTx $
+                        toLedgerTx blueprintTx
+                          & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton depositOutput
+
+                    completeUTxO = resolveInputsUTxO lookupUTxO blueprintTx
+
+                    leftoverValue = txOutValueToValue $ balance (UTxO.toApi completeUTxO) (getTxBody partialTx)
+
+                    changeOutput = toLedgerTxOut $ TxOut addr leftoverValue TxOutDatumNone ReferenceScriptNone
+                 in toLedgerTx partialTx
                       & bodyTxL . outputsTxBodyL
-                        .~ (depositOutput <> StrictSeq.fromList changeOutput)
+                        .~ StrictSeq.fromList [depositOutput, changeOutput]
    in fromLedgerTx $
         blueprint
           & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
