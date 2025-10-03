@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -167,9 +168,9 @@ spec = do
     prop "parties contest to wrong closed snapshot" $ propDL partyContestsToWrongClosedSnapshot
 
 propFanoutLimit :: Int -> Property
-propFanoutLimit size =
+propFanoutLimit limit =
   within 10000000 $ propDL $ do
-    aliceCardanoSks <- forAllQ $ withGenQ ((:|) <$> arbitrary <*> vectorOf size (arbitrary @Payment.CardanoSigningKey)) (const True) (const [])
+    aliceCardanoSks <- forAllQ $ withGenQ ((:|) <$> arbitrary <*> vectorOf limit (arbitrary @Payment.CardanoSigningKey)) (const True) (const [])
     let utxo = toList $ fmap (,lovelaceToValue 1_000_000) aliceCardanoSks
     void $
       action $
