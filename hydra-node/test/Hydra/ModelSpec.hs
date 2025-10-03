@@ -114,7 +114,7 @@ import System.IO.Temp (writeSystemTempFile)
 import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Node.Fixture (alice, aliceSk)
-import Test.QuickCheck (Property, Testable, counterexample, expectFailure, forAllShrink, property, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, expectFailure, forAllShrink, property, vectorOf, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -155,26 +155,26 @@ spec = do
     prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
   prop "check model" propHydraModel
   prop "check model balances" propCheckModelBalances
-  prop "fanout limit" $ expectFailure propFanoutLimit
+  -- This scenario seeds a head with a single party and an UTxO set of 42 elements,
+  -- which is over the budget of the mocked chain implementation.
+  -- See https://github.com/cardano-scaling/hydra/issues/2270
+  prop "fails fanout over the limit" $ expectFailure (propFanoutLimit 42)
+  prop "succeeds fanout under the limit" $ propFanoutLimit 41
   context "logic" $ do
     prop "check conflict-free liveness" $ propDL conflictFreeLiveness
     prop "check head opens if all participants commit" $ propDL headOpensIfAllPartiesCommit
     prop "fanout contains whole confirmed UTxO" $ propDL fanoutContainsWholeConfirmedUTxO
     prop "parties contest to wrong closed snapshot" $ propDL partyContestsToWrongClosedSnapshot
 
-propFanoutLimit :: Property
-propFanoutLimit =
+propFanoutLimit :: Int -> Property
+propFanoutLimit size =
   within 10000000 $ propDL $ do
-    -- This scenario seeds a head with a single party and a UTxO set of 81 elements.
-    -- This is known to be above the fanout limit of the protocol and should fail.
-    --
-    -- See https://github.com/cardano-scaling/hydra/issues/2270
-    aliceCardanoSk <- forAllQ $ withGenQ (arbitrary @Payment.CardanoSigningKey) (const True) (const [])
-    let utxo = replicate 81 (aliceCardanoSk, lovelaceToValue 1_000_000)
+    aliceCardanoSks <- forAllQ $ withGenQ ((:|) <$> arbitrary <*> vectorOf size (arbitrary @Payment.CardanoSigningKey)) (const True) (const [])
+    let utxo = toList $ fmap (,lovelaceToValue 1_000_000) aliceCardanoSks
     void $
       action $
         Seed
-          { seedKeys = [(aliceSk, aliceCardanoSk)]
+          { seedKeys = [(aliceSk, head aliceCardanoSks)]
           , contestationPeriod = UnsafeContestationPeriod 10
           , toCommit = Map.fromList [(alice, utxo)]
           , additionalUTxO = mempty
