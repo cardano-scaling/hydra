@@ -1,9 +1,10 @@
 module Hydra.Cardano.Api.UTxO where
 
-import Hydra.Cardano.Api.Prelude hiding (fromLedgerUTxO)
+import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxId (toLedgerTxId)
 import Hydra.Cardano.Api.TxIn (txIns')
 
+import Cardano.Api (Tx (..), TxBody (..), getTxId, shelleyBasedEra)
 import Cardano.Api.Tx.UTxO qualified as Api.UTxO
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (outputsTxBodyL)

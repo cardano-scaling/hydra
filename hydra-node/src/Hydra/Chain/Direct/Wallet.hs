@@ -6,6 +6,7 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
@@ -81,9 +82,7 @@ import Hydra.Cardano.Api (
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   ShelleyAddr,
-  SigningKey,
   StakeAddressReference (NoStakeAddress),
-  VerificationKey,
   fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerUTxO,
@@ -93,7 +92,6 @@ import Hydra.Cardano.Api (
   toLedgerAddr,
   toLedgerTx,
   toLedgerUTxO,
-  verificationKeyHash,
  )
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))

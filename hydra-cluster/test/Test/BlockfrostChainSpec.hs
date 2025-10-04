@@ -61,6 +61,7 @@ import Test.DirectChainSpec (
   observesInTimeSatisfying',
   waitMatch,
  )
+import Test.Hspec (Spec, around, it, pendingWith)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
 

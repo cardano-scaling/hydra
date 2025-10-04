@@ -9,6 +9,7 @@ import Hydra.Prelude hiding (Down)
 
 import Brick
 import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
+import Cardano.Api.Shelley (VerificationKey, getVerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
 import Data.Map qualified as Map

@@ -7,6 +7,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (fromPlutusData, fromShelleyMetadata, getVerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import Cardano.Ledger.Api (
@@ -52,6 +53,8 @@ import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Gen.Cardano.Api.Typed (genHashableScriptData)
+import Test.Hspec (Spec, describe, parallel)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Tx.Fixture (
   pparams,
   testNetworkId,

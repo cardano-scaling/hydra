@@ -1,7 +1,8 @@
 module Hydra.Tx.IsTxSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hspec (Spec, describe, parallel)
+import Test.Hspec.QuickCheck (prop)
 
 -- NOTE: Arbitrary UTxO and Tx instances
 import Test.Hydra.Tx.Gen ()

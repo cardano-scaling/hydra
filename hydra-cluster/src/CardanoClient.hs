@@ -15,6 +15,7 @@ import Hydra.Cardano.Api hiding (Block)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, getVerificationKey, verificationKeyHash)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
 import Hydra.Chain.Backend (ChainBackend)

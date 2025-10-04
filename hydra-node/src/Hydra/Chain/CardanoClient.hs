@@ -8,6 +8,7 @@ import Hydra.Prelude
 
 import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 
+import Cardano.Api.Shelley (AcquiringFailure, PoolId, ShelleyLedgerEra, VerificationKey)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson (eitherDecode', encode)
 import Data.Set qualified as Set

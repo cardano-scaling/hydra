@@ -3,8 +3,9 @@
 module Hydra.BehaviorSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
+import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey)
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar,
   modifyTVar',
@@ -21,7 +22,6 @@ import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
-import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -55,6 +55,8 @@ import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
+import Test.Hspec (Spec, describe, it, parallel, shouldContain)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,

@@ -2,7 +2,8 @@
 
 module Hydra.Cardano.Api.PolicyAssets where
 
-import Hydra.Cardano.Api.Prelude
+import Cardano.Api (PolicyAssets (..))
+import Data.Aeson (FromJSON (..), ToJSON (..))
 
 -- * Orphans
 

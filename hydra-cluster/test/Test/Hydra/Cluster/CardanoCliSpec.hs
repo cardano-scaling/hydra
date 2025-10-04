@@ -19,6 +19,7 @@ import Hydra.Options (
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcessWithExitCode, readProcess)
+import Test.Hspec (Spec, around, describe, it, shouldBe, shouldContain, shouldSatisfy)
 import Test.QuickCheck (generate)
 
 spec :: Spec
@@ -33,7 +34,8 @@ spec =
         (exitCode, output, _errors) <- readCreateProcessWithExitCode (cardanoCliSign txFile) ""
         exitCode `shouldBe` ExitSuccess
         output
-          ^? key "type" . _String `shouldSatisfy` \case
+          ^? key "type" . _String
+          `shouldSatisfy` \case
             Nothing -> False
             Just something -> something == "Tx ConwayEra"
 

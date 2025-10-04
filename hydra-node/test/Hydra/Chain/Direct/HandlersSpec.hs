@@ -4,6 +4,7 @@ module Hydra.Chain.Direct.HandlersSpec where
 
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.Shelley (VerificationKey)
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
@@ -13,7 +14,6 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SlotNo (..),
   Tx,
-  VerificationKey,
   fromLedgerTx,
   genTxIn,
   getChainPoint,
@@ -57,6 +57,8 @@ import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
 import Hydra.Tx.HeadParameters (HeadParameters)
 import Hydra.Tx.OnChainId (OnChainId)
+import Test.Hspec (Spec, describe, shouldBe, shouldThrow)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   counterexample,

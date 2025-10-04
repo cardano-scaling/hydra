@@ -78,7 +78,6 @@ module Hydra.ModelSpec where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
-import Test.Hydra.Prelude hiding (after)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Monad.Class.MonadTimer ()
@@ -111,7 +110,9 @@ import Hydra.Model.Payment qualified as Payment
 import Hydra.Tx.Party (Party (..), deriveParty)
 import System.IO.Temp (writeSystemTempFile)
 import System.IO.Unsafe (unsafePerformIO)
-import Test.HUnit.Lang (formatFailureReason)
+import Test.HUnit.Lang (HUnitFailure (..), formatFailureReason)
+import Test.Hspec (Spec, context)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,

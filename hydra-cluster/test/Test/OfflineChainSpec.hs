@@ -17,6 +17,7 @@ import Hydra.Cluster.Fixture (alice)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (OfflineChainConfig (..))
 import System.FilePath ((</>))
+import Test.Hspec (Spec, it, shouldBe, shouldNotBe)
 
 spec :: Spec
 spec = do

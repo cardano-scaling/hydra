@@ -17,6 +17,7 @@ import Hydra.Node (HydraNodeLog (..))
 
 -- import Network.Socket (PortNumber(PortNumber))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
+import Test.Hspec (Spec, it, shouldContain)
 import Test.Hydra.Tx.Fixture (alice, testHeadId)
 import Test.Network.Ports (randomUnusedTCPPorts)
 

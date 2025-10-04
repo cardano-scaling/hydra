@@ -1,7 +1,8 @@
 module Hydra.Tx.HeadIdSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hspec (Spec, describe, parallel)
+import Test.Hspec.QuickCheck (prop)
 
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Tx.HeadId (currencySymbolToHeadId, headIdToCurrencySymbol, headIdToPolicyId, headSeedToTxIn, mkHeadId, txInToHeadSeed)

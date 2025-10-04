@@ -5,6 +5,7 @@ import Hydra.Options (GenerateKeyPair (GenerateKeyPair))
 import Hydra.Prelude
 import Hydra.Utils (genHydraKeys)
 import System.FilePath ((</>))
+import Test.Hspec (Spec, expectationFailure, it)
 import Test.Hydra.Prelude
 
 spec :: Spec

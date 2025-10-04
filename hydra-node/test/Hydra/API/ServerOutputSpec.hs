@@ -16,6 +16,8 @@ import Test.Aeson.GenericSpecs (
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
  )
+import Test.Hspec (Spec, it, parallel)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (conjoin, withMaxSuccess)
 
 spec :: Spec

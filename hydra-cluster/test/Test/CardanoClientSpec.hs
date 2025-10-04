@@ -1,6 +1,7 @@
 module Test.CardanoClientSpec where
 
 import Hydra.Prelude
+import Test.Hspec (Spec, around, it, shouldBe)
 import Test.Hydra.Prelude
 
 import CardanoNode (withCardanoNodeDevnet)

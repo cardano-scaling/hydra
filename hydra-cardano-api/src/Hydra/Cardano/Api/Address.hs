@@ -2,9 +2,10 @@
 
 module Hydra.Cardano.Api.Address where
 
-import Hydra.Cardano.Api.Prelude
+import Cardano.Api (Address, ByronAddr)
 
 import Test.Gen.Cardano.Api.Typed (genAddressByron)
+import Test.QuickCheck (Arbitrary (..))
 import Test.QuickCheck.Hedgehog (hedgehog)
 
 -- * Orphans
