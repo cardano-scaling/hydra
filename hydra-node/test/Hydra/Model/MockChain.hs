@@ -71,7 +71,6 @@ import Hydra.Node.Environment (Environment (Environment, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.NodeSpec (mockServer)
-import Hydra.Options (defaultContestationPeriod)
 import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey)
@@ -103,7 +102,7 @@ mockChainAndNetwork ::
   UTxO ->
   m (SimulatedChainNetwork Tx m)
 mockChainAndNetwork tr seedKeys commits = do
-  syncedStatus <- newLabelledTVarIO "mock-chain-sync-status" unSynced
+  syncedStatus <- newLabelledTVarIO "mock-chain-sync-status" (unSynced ChainPointAtGenesis)
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
   queue <- newLabelledTQueueIO "mock-chain-chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
@@ -196,8 +195,8 @@ mockChainAndNetwork tr seedKeys commits = do
                   getTimeHandle
                   ctx
                   localChainState
-                  defaultContestationPeriod
                   syncedStatus
+                  (pure ChainPointAtGenesis)
             }
     atomically $ modifyTVar nodes (mockNode :)
     pure node'

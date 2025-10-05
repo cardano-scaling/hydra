@@ -9,7 +9,7 @@ import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
-import Hydra.Cardano.Api (GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), Tx)
+import Hydra.Cardano.Api (ChainPoint (ChainPointAtGenesis), GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), Tx)
 import Hydra.Chain (
   Chain (..),
   ChainComponent,
@@ -86,7 +86,7 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
   chainHandle =
     Chain
       { mkChainState = initialChainState
-      , chainSyncedStatus = pure unSynced
+      , chainSyncedStatus = pure (unSynced ChainPointAtGenesis)
       , submitTx = const $ pure ()
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}
