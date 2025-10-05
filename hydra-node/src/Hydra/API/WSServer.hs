@@ -42,7 +42,6 @@ import Hydra.API.ServerOutputFilter (
 import Hydra.Chain.ChainState (
   IsChainState,
  )
-import Hydra.Chain.Direct.State (chainSlotFromPoint)
 import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
@@ -85,13 +84,10 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
   queryParams <- uriQuery <$> mkURIBs path
   con <- acceptRequest pending
   _ <- forkLabelled "ws-check-sync-status" $ forever $ do
-    NodeState{currentSlot} <- atomically getLatestNodeState
-    synced@SyncedStatus{status, point} <- chainSyncedStatus
-    if status && currentSlot <= chainSlotFromPoint point
-      then pure ()
-      else do
-        tso <- timed 0 (ChainOutOfSync synced currentSlot)
-        atomically $ writeTChan responseChannel (Left tso)
+    synced@SyncedStatus{status} <- chainSyncedStatus
+    unless status $ do
+      tso <- timed 0 (ChainOutOfSync synced)
+      atomically $ writeTChan responseChannel (Left tso)
     -- check every second
     -- TODO! configure threadDelay
     threadDelay 1
@@ -186,9 +182,8 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
     msg <- receiveData con
     case Aeson.eitherDecode msg of
       Right input -> do
-        NodeState{currentSlot} <- atomically getLatestNodeState
-        SyncedStatus{status, point} <- chainSyncedStatus
-        if status && currentSlot <= chainSlotFromPoint point
+        SyncedStatus{status} <- chainSyncedStatus
+        if status
           then do
             traceWith tracer (APIInputReceived $ toJSON input)
             callback input

@@ -143,14 +143,16 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newLabelledTQueueIO "direct-chain-queue"
   -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip backend) pure $ do
+  let getCurrentTip = queryTip backend
+  chainPoint <- maybe getCurrentTip pure $ do
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
-  syncedStatus <- newLabelledTVarIO "direct-chain-sync-status" unSynced
+  tip <- getCurrentTip
+  syncedStatus <- newLabelledTVarIO "direct-chain-sync-status" (unSynced tip)
   let chainHandle =
         mkChain
           tracer
@@ -160,7 +162,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
           localChainState
           (submitTx queue)
           syncedStatus
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod syncedStatus
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState syncedStatus getCurrentTip
   res <-
     raceLabelled
       ( "direct-chain-connection"
@@ -175,7 +177,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
     Right a -> pure a
  where
   DirectBackend{options = DirectOptions{networkId, nodeSocket}} = backend
-  CardanoChainConfig{startChainFrom, contestationPeriod} = config
+  CardanoChainConfig{startChainFrom} = config
 
   connectInfo networkId' nodeSocket' =
     LocalNodeConnectInfo
