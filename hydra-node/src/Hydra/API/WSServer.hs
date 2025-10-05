@@ -6,7 +6,6 @@ module Hydra.API.WSServer where
 import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 
 import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
-import Control.Concurrent.Class.MonadSTM.TChan (writeTChan)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
 import Control.Lens ((.~))
@@ -85,11 +84,13 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
   con <- acceptRequest pending
+  -- we notify clients every time the chain is out of sync
+  -- as their inputs will get rejected
   _ <- forkLabelled "ws-check-sync-status" $ forever $ do
     synced@SyncedStatus{status} <- chainSyncedStatus
     unless status $ do
-      tso <- timed 0 (ChainOutOfSync synced)
-      atomically $ writeTChan responseChannel (Left tso)
+      let output :: ServerOutput tx = ChainOutOfSync synced
+      sendTextData con (Aeson.encode output)
     -- check every second
     -- TODO! configure threadDelay
     threadDelay 1
@@ -178,9 +179,6 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
         traceWith tracer (APIOutputSent $ toJSON response)
 
   Chain{checkNonADAAssets} = chain
-  
-  timed :: Natural -> ServerOutput tx -> IO (TimedServerOutput tx)
-  timed seq out = TimedServerOutput out seq <$> getCurrentTime
 
   receiveInputs con = forever $ do
     msg <- receiveData con
