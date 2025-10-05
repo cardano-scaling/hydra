@@ -127,14 +127,16 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newLabelledTQueueIO "blockfrost-chain-queue"
   -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip backend) pure $ do
+  let getCurrentTip = queryTip backend
+  chainPoint <- maybe getCurrentTip pure $ do
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
-  syncedStatus <- newLabelledTVarIO "blockfrost-chain-sync-status" unSynced
+  tip <- getCurrentTip
+  syncedStatus <- newLabelledTVarIO "blockfrost-chain-sync-status" (unSynced tip)
   let chainHandle =
         mkChain
           tracer
@@ -144,7 +146,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
           localChainState
           (submitTx queue)
           syncedStatus
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod syncedStatus
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState syncedStatus getCurrentTip
 
   res <-
     raceLabelled
@@ -159,7 +161,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
     Right a -> pure a
  where
   BlockfrostBackend{options = BlockfrostOptions{projectPath}} = backend
-  CardanoChainConfig{startChainFrom, contestationPeriod} = config
+  CardanoChainConfig{startChainFrom} = config
 
   submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
   submitTx queue tx = do

@@ -83,7 +83,7 @@ import Hydra.Tx (
   UTxOType,
   headSeedToTxIn,
  )
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
+import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx, splitTokens)
 import Hydra.Tx.Observe (
   AbortObservation (..),
@@ -306,7 +306,7 @@ data TimeConversionException = TimeConversionException
 -- converted to a 'UTCTime' with the given 'TimeHandle'.
 chainSyncHandler ::
   forall m.
-  (MonadSTM m, MonadThrow m, MonadTime m) =>
+  (MonadSTM m, MonadThrow m) =>
   -- | Tracer for logging
   Tracer m CardanoChainLog ->
   ChainCallback Tx m ->
@@ -315,11 +315,11 @@ chainSyncHandler ::
   -- | Contextual information about our chain connection.
   ChainContext ->
   LocalChainState m Tx ->
-  ContestationPeriod ->
   TVar m SyncedStatus ->
+  m ChainPoint ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod syncedStatus = do
+chainSyncHandler tracer callback getTimeHandle ctx localChainState syncedStatus getCurrentTip = do
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -353,7 +353,8 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationP
           Right utcTime -> do
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
             callback (Tick{chainTime = utcTime, chainSlot})
-            updateSyncStatus syncedStatus contestationPeriod utcTime point
+            tip <- getCurrentTip
+            updateSyncStatus syncedStatus tip point
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case

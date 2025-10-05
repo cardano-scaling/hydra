@@ -381,7 +381,7 @@ dummyChainHandle :: Chain tx IO
 dummyChainHandle =
   Chain
     { mkChainState = error "unexpected call to mkChainState"
-    , chainSyncedStatus = pure SyncedStatus{status = True, diff = Nothing, point = ChainPointAtGenesis}
+    , chainSyncedStatus = pure SyncedStatus{status = True, diff = 0, point = ChainPointAtGenesis, tip = ChainPointAtGenesis}
     , postTx = \_ -> error "unexpected call to postTx"
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
