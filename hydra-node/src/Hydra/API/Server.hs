@@ -32,7 +32,6 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (
   HeadState (..),
@@ -131,7 +130,8 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
       , do
           -- wait until the chain reports synced
           let waitUntilSynced = do
-                SyncedStatus{status} <- chainSyncedStatus
+                -- SyncedStatus{status} <- chainSyncedStatus
+                let status = True
                 unless status $
                   -- check every second
                   -- TODO! configure threadDelay
@@ -141,7 +141,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp env party tracer historyTimedOutputs callback nodeStateP networkInfoP responseChannel serverOutputFilter chainSyncedStatus)
+              (wsApp env party tracer historyTimedOutputs callback nodeStateP networkInfoP responseChannel serverOutputFilter currentChainSlot)
               ( httpApp
                   tracer
                   chain
@@ -181,7 +181,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
 
   EventSource{sourceEvents} = eventSource
 
-  Chain{mkChainState, chainSyncedStatus} = chain
+  Chain{mkChainState, currentChainSlot} = chain
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of

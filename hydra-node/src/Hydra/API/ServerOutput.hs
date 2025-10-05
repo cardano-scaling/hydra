@@ -12,7 +12,6 @@ import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
-import Hydra.Chain.SyncedStatus (SyncedStatus)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
@@ -216,7 +215,7 @@ data ServerOutput tx
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | EventLogRotated {checkpoint :: NodeState tx}
-  | ChainOutOfSync {syncedStatus :: SyncedStatus, nodeStateSlot :: ChainSlot}
+  | ChainOutOfSync {currentChainSlot :: ChainSlot, nodeStateSlot :: ChainSlot}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)

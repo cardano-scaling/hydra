@@ -1805,7 +1805,7 @@ components:
       required:
         - tag
         - seq
-        - syncedStatus
+        - currentChainSlot
         - nodeStateSlot
         - timestamp
       properties:
@@ -1814,8 +1814,8 @@ components:
           enum: ["ChainOutOfSync"]
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
-        syncedStatus:
-          $ref: "api.yaml#/components/schemas/SyncedStatus"
+        currentChainSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
         nodeStateSlot:
           $ref: "api.yaml#/components/schemas/ChainSlot"
         timestamp:
@@ -3541,55 +3541,3 @@ components:
               type: string
               enum: ["Expired"]
 
-    ChainPoint:
-      oneOf:
-        - title: ChainPointAtGenesis
-          description: |
-            Special chain point representing the beginning of the chain, before any blocks have been produced.
-          additionalProperties: false
-          type: object
-          required:
-            - tag
-          properties:
-            tag:
-              type: string
-              enum: ["ChainPointAtGenesis"]
-        - title: ChainPoint
-          description: |
-            Concrete chain point referencing a block on-chain by its slot number and header hash.
-          additionalProperties: false
-          type: object
-          required:
-            - tag
-            - slot
-            - blockHash
-          properties:
-            tag:
-              type: string
-              enum: ["ChainPoint"]
-            slot:
-              type: integer
-              minimum: 0
-            blockHash:
-              type: string
-              contentEncoding: base16
-
-    SyncedStatus:
-      type: object
-      description: |
-        The synced status of the chain backend.
-      additionalProperties: false
-      required:
-        - status
-        - diff
-        - point
-      properties:
-        status:
-          type: boolean
-        diff:
-          oneOf:
-            - type: number
-              minimum: 0
-            - type: "null"
-        point:
-          $ref: "api.yaml#/components/schemas/ChainPoint"

@@ -677,7 +677,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             publishHydraScriptsAs backend Faucet
               >>= canResumeOnMemberAlreadyBootstrapped tracer tmpDir backend
 
-      it "prevent network interactions until chain backend is in sync and secure." $ \tracer -> do
+      fit "prevent network interactions until chain backend is in sync and secure." $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet

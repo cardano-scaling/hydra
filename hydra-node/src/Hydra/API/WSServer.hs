@@ -42,8 +42,7 @@ import Hydra.API.ServerOutputFilter (
 import Hydra.Chain.ChainState (
   IsChainState,
  )
-import Hydra.Chain.Direct.State (chainSlotFromPoint)
-import Hydra.Chain.SyncedStatus (SyncedStatus (..))
+import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
@@ -76,21 +75,22 @@ wsApp ::
   Projection STM.STM (StateChanged tx) NetworkInfo ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   ServerOutputFilter tx ->
-  IO SyncedStatus ->
+  IO (Either Text ChainSlot) ->
   PendingConnection ->
   IO ()
-wsApp env party tracer history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} chainSyncedStatus pending = do
+wsApp env party tracer history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} currentChainSlot pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
   con <- acceptRequest pending
   _ <- forkLabelled "ws-check-sync-status" $ forever $ do
     NodeState{currentSlot} <- atomically getLatestNodeState
-    synced@SyncedStatus{status, point} <- chainSyncedStatus
-    if status && currentSlot <= chainSlotFromPoint point
+    -- FIXME!
+    Right chainSlot <- currentChainSlot
+    if currentSlot <= chainSlot
       then pure ()
       else do
-        tso <- timed 0 (ChainOutOfSync synced currentSlot)
+        tso <- timed 0 (ChainOutOfSync chainSlot currentSlot)
         atomically $ writeTChan responseChannel (Left tso)
     -- check every second
     -- TODO! configure threadDelay
@@ -187,8 +187,9 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
     case Aeson.eitherDecode msg of
       Right input -> do
         NodeState{currentSlot} <- atomically getLatestNodeState
-        SyncedStatus{status, point} <- chainSyncedStatus
-        if status && currentSlot <= chainSlotFromPoint point
+        -- FIXME!
+        Right chainSlot <- currentChainSlot
+        if currentSlot <= chainSlot
           then do
             traceWith tracer (APIInputReceived $ toJSON input)
             callback input

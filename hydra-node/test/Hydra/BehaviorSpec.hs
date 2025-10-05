@@ -31,7 +31,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), OpenState (..))
@@ -1065,7 +1064,6 @@ simulatedChainAndNetwork ::
   ChainStateType SimpleTx ->
   m (SimulatedChainNetwork SimpleTx m)
 simulatedChainAndNetwork initialChainState = do
-  syncedStatus <- newLabelledTVarIO "sim-chain-sync-status" unSynced
   history <- newLabelledTVarIO "sim-chain-history" []
   nodes <- newLabelledTVarIO "sim-chain-nodes" []
   nextTxId <- newLabelledTVarIO "sim-chain-next-txid" 10000
@@ -1077,7 +1075,6 @@ simulatedChainAndNetwork initialChainState = do
           let mockChain =
                 Chain
                   { mkChainState = initialChainState
-                  , chainSyncedStatus = readTVarIO syncedStatus
                   , postTx = \tx -> do
                       now <- getCurrentTime
                       -- Only observe "after one block"

@@ -23,7 +23,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party)
@@ -86,7 +85,6 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
   chainHandle =
     Chain
       { mkChainState = initialChainState
-      , chainSyncedStatus = pure unSynced
       , submitTx = const $ pure ()
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}

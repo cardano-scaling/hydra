@@ -2026,7 +2026,7 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
 waitsForChainInSynchAndSecure :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
   let clients = [Alice, Bob, Carol]
-  [(aliceCardanoVk, _aliceCardanoSk), (bobCardanoVk, _bobCardanoSk), (carolCardanoVk, carolCardanoSk)] <- forM clients keysFor
+  [(aliceCardanoVk, _), (bobCardanoVk, _), (carolCardanoVk, carolCardanoSk)] <- forM clients keysFor
   seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
   seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
   seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
@@ -2078,13 +2078,11 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
         guard $ v ^? key "headId" == Just (toJSON headId)
 
-      -- Carol restarts
+      -- Carol API restarts in Closed
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
-        -- Carol API started in Open
-        -- FIXME! should start in Closed
         waitMatch 20 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "Greetings"
-          guard $ v ^? key "headStatus" == Just (toJSON Open)
+          guard $ v ^? key "headStatus" == Just (toJSON Closed)
           guard $ v ^? key "me" == Just (toJSON carol)
           guard $ isJust (v ^? key "hydraNodeVersion")
 

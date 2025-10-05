@@ -24,7 +24,6 @@ import Hydra.Cardano.Api (
   PolicyId,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
-import Hydra.Chain.SyncedStatus (SyncedStatus)
 import Hydra.Tx (
   CommitBlueprintTx,
   ConfirmedSnapshot,
@@ -259,8 +258,9 @@ instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
 data Chain tx m = Chain
   { mkChainState :: ChainStateType tx
   -- ^ Provide an initial chain state that may be evolved through 'ChainEvent'.
-  , chainSyncedStatus :: m SyncedStatus
   -- ^ Get the current chain synced status.
+  , currentChainSlot :: m (Either Text ChainSlot)
+  -- ^ Get the current chain point.
   , postTx :: MonadThrow m => PostChainTx tx -> m ()
   -- ^ Construct and send a transaction to the main chain corresponding to the
   -- given 'PostChainTx' description.

@@ -19,7 +19,6 @@ import Hydra.Cardano.Api (Coin, LedgerEra, PolicyAssets, PolicyId, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
@@ -240,7 +239,7 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
         >>= handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel
         >>= respond
     ("POST", ["commit"]) -> do
-      mRejected <- rejectChainNotSynced chainSyncedStatus respond
+      mRejected <- undefined -- rejectChainNotSynced chainSyncedStatus respond
       case mRejected of
         Just rr -> pure rr
         Nothing -> do
@@ -248,7 +247,7 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
             >>= handleDraftCommitUtxo env pparams directChain getCommitInfo
             >>= respond
     ("DELETE", ["commits", _]) -> do
-      mRejected <- rejectChainNotSynced chainSyncedStatus respond
+      mRejected <- undefined -- rejectChainNotSynced chainSyncedStatus respond
       case mRejected of
         Just rr -> pure rr
         Nothing -> do
@@ -258,7 +257,7 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
     ("GET", ["commits"]) ->
       getPendingDeposits >>= respond . responseLBS status200 jsonContent . Aeson.encode
     ("POST", ["decommit"]) -> do
-      mRejected <- rejectChainNotSynced chainSyncedStatus respond
+      mRejected <- undefined -- rejectChainNotSynced chainSyncedStatus respond
       case mRejected of
         Just rr -> pure rr
         Nothing -> do
@@ -268,7 +267,7 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
     ("GET", ["protocol-parameters"]) ->
       respond . responseLBS status200 jsonContent . Aeson.encode $ pparams
     ("POST", ["cardano-transaction"]) -> do
-      mRejected <- rejectChainNotSynced chainSyncedStatus respond
+      mRejected <- undefined -- rejectChainNotSynced chainSyncedStatus respond
       case mRejected of
         Just rr -> pure rr
         Nothing -> do
@@ -276,7 +275,7 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
             >>= handleSubmitUserTx directChain
             >>= respond
     ("POST", ["transaction"]) -> do
-      mRejected <- rejectChainNotSynced chainSyncedStatus respond
+      mRejected <- undefined -- rejectChainNotSynced chainSyncedStatus respond
       case mRejected of
         Just rr -> pure rr
         Nothing -> do
@@ -286,17 +285,17 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
     _ ->
       respond $ responseLBS status400 jsonContent . Aeson.encode $ Aeson.String "Resource not found"
  where
-  Chain{chainSyncedStatus} = directChain
+  Chain{} = directChain
 
-rejectChainNotSynced :: IO SyncedStatus -> (Response -> IO ResponseReceived) -> IO (Maybe ResponseReceived)
-rejectChainNotSynced chainSyncedStatus respond = do
-  SyncedStatus{status} <- chainSyncedStatus
-  if status
-    then pure Nothing
-    else
-      Just
-        <$> respond
-          (responseLBS status503 jsonContent (Aeson.encode ("Chain not yet synced, try again later" :: Text)))
+-- rejectChainNotSynced :: IO SyncedStatus -> (Response -> IO ResponseReceived) -> IO (Maybe ResponseReceived)
+-- rejectChainNotSynced chainSyncedStatus respond = do
+--   SyncedStatus{status} <- chainSyncedStatus
+--   if status
+--     then pure Nothing
+--     else
+--       Just
+--         <$> respond
+--           (responseLBS status503 jsonContent (Aeson.encode ("Chain not yet synced, try again later" :: Text)))
 
 -- * Handlers
 

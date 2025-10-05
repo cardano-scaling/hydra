@@ -12,7 +12,7 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams)
 import Cardano.Slotting.Slot (SlotNo (..))
-import Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
@@ -73,7 +73,6 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.Chain.SyncedStatus (SyncedStatus (..), updateSyncStatus)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (
@@ -83,7 +82,7 @@ import Hydra.Tx (
   UTxOType,
   headSeedToTxIn,
  )
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
+import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx, splitTokens)
 import Hydra.Tx.Observe (
   AbortObservation (..),
@@ -169,12 +168,14 @@ mkChain ::
   ChainContext ->
   LocalChainState m Tx ->
   SubmitTx m ->
-  TVar m SyncedStatus ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx syncedStatus =
+mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
     { mkChainState = initialChainState
-    , chainSyncedStatus = readTVarIO syncedStatus
+    , currentChainSlot = do
+        TimeHandle{currentPointInTime} <- queryTimeHandle
+        let currentChainSlot = ChainSlot . fromIntegral . unSlotNo . fst <$> currentPointInTime
+        pure currentChainSlot
     , postTx = \tx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
@@ -315,7 +316,7 @@ data TimeConversionException = TimeConversionException
 -- converted to a 'UTCTime' with the given 'TimeHandle'.
 chainSyncHandler ::
   forall m.
-  (MonadSTM m, MonadThrow m, MonadTime m) =>
+  (MonadSTM m, MonadThrow m) =>
   -- | Tracer for logging
   Tracer m CardanoChainLog ->
   ChainCallback Tx m ->
@@ -324,11 +325,9 @@ chainSyncHandler ::
   -- | Contextual information about our chain connection.
   ChainContext ->
   LocalChainState m Tx ->
-  ContestationPeriod ->
-  TVar m SyncedStatus ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationPeriod syncedStatus = do
+chainSyncHandler tracer callback getTimeHandle ctx localChainState = do
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -362,7 +361,6 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState contestationP
           Right utcTime -> do
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
             callback (Tick{chainTime = utcTime, chainSlot})
-            updateSyncStatus syncedStatus contestationPeriod utcTime point
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case

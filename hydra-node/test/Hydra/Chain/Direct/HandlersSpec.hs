@@ -54,7 +54,6 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
-import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Tx.HeadParameters (HeadParameters)
 import Hydra.Tx.OnChainId (OnChainId)
@@ -119,7 +118,6 @@ spec = do
         chainContext <- pickBlind arbitrary
         chainState <- pickBlind arbitrary
         localChainState <- run $ newLocalChainState chainState
-        syncedStatus <- run $ newLabelledTVarIO "chain-sync-status" unSynced
         let chainSyncCallback :: ChainEvent Tx -> IO ()
             chainSyncCallback = const $ failure "Unexpected callback"
             handler =
@@ -129,8 +127,6 @@ spec = do
                 (pure timeHandle)
                 chainContext
                 localChainState
-                defaultContestationPeriod
-                syncedStatus
         run $
           onRollForward handler header txs
             `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
@@ -163,7 +159,6 @@ spec = do
                       OnDepositTx{} -> error "OnDepositTx not expected"
                       OnRecoverTx{} -> error "OnRecoverTx not expected"
               observedTransition `shouldBe` transition
-      syncedStatus <- run $ newLabelledTVarIO "chain-sync-status" unSynced
       let handler =
             chainSyncHandler
               nullTracer
@@ -171,8 +166,6 @@ spec = do
               (pure timeHandle)
               ctx
               localChainState
-              defaultContestationPeriod
-              syncedStatus
       run $ onRollForward handler header txs
 
     prop "ignores invalid transactions onRollForward" . monadicIO $ do
@@ -198,7 +191,6 @@ spec = do
             Tick{} -> pure ()
             Observation{observedTx} -> failure $ "Unexpected observation: " <> show observedTx
 
-      syncedStatus <- run $ newLabelledTVarIO "chain-sync-status" unSynced
       let handler =
             chainSyncHandler
               nullTracer
@@ -206,8 +198,6 @@ spec = do
               (pure timeHandle)
               ctx
               localChainState
-              defaultContestationPeriod
-              syncedStatus
       run $ onRollForward handler header txs
 
     prop "rollbacks state onRollBackward" . monadicIO $ do
@@ -223,7 +213,6 @@ spec = do
               atomically $ putTMVar rolledBackTo (initHistory rolledBackChainState)
             _ -> pure ()
       localChainState <- run $ newLocalChainState (initHistory chainStateAt)
-      syncedStatus <- run $ newLabelledTVarIO "chain-sync-status" unSynced
       let handler =
             chainSyncHandler
               nullTracer
@@ -231,8 +220,6 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
-              defaultContestationPeriod
-              syncedStatus
 
       -- Simulate some chain following
       run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
@@ -253,7 +240,6 @@ spec = do
 
       -- Use the handler to evolve the chain state to some new, latest version
       localChainState <- run $ newLocalChainState (initHistory chainStateAt)
-      syncedStatus <- run $ newLabelledTVarIO "chain-sync-status" unSynced
       let handler =
             chainSyncHandler
               nullTracer
@@ -261,8 +247,6 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
-              defaultContestationPeriod
-              syncedStatus
       run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
       latestChainState <- run . atomically $ getLatest localChainState
       assert $ latestChainState /= chainStateAt
@@ -271,7 +255,6 @@ spec = do
       -- rollback and forward
       prevAdvancedChainState <- run . atomically $ history localChainState
       resumedLocalChainState <- run $ newLocalChainState prevAdvancedChainState
-      syncedStatus' <- run $ newLabelledTVarIO "chain-sync-status" unSynced
       let resumedHandler =
             chainSyncHandler
               nullTracer
@@ -279,8 +262,6 @@ spec = do
               (pure timeHandle)
               chainContext
               resumedLocalChainState
-              defaultContestationPeriod
-              syncedStatus'
 
       (rollbackPoint, blocksAfter) <- pickBlind $ genRollbackBlocks blocks
       monitor $ label $ "Rollback " <> show (length blocksAfter) <> " blocks"
@@ -298,7 +279,6 @@ recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (C
 recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newLabelledTVarIO "events-recorded" []
   localChainState <- newLocalChainState (initHistory cs)
-  syncedStatus <- newLabelledTVarIO "chain-sync-status" unSynced
   let handler =
         chainSyncHandler
           nullTracer
@@ -306,8 +286,6 @@ recordEventsHandler ctx cs getTimeHandle = do
           getTimeHandle
           ctx
           localChainState
-          defaultContestationPeriod
-          syncedStatus
   pure (handler, getEvents eventsVar)
  where
   getEvents :: TVar IO [ChainEvent Tx] -> IO [ChainEvent Tx]
