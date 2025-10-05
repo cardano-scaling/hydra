@@ -1839,7 +1839,6 @@ components:
         - tag
         - seq
         - syncedStatus
-        - nodeStateSlot
         - timestamp
       properties:
         tag:
@@ -1849,8 +1848,6 @@ components:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         syncedStatus:
           $ref: "api.yaml#/components/schemas/SyncedStatus"
-        nodeStateSlot:
-          $ref: "api.yaml#/components/schemas/ChainSlot"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
@@ -3616,13 +3613,14 @@ components:
         - status
         - diff
         - point
+        - tip
       properties:
         status:
           type: boolean
         diff:
-          oneOf:
-            - type: number
-              minimum: 0
-            - type: "null"
+          type: number
+          minimum: 0
         point:
+          $ref: "api.yaml#/components/schemas/ChainPoint"
+        tip:
           $ref: "api.yaml#/components/schemas/ChainPoint"
