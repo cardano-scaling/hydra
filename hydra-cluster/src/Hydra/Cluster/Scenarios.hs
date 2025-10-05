@@ -2267,7 +2267,7 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
 waitsForChainInSynchAndSecure :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
   let clients = [Alice, Bob, Carol]
-  [(aliceCardanoVk, _aliceCardanoSk), (bobCardanoVk, _bobCardanoSk), (carolCardanoVk, carolCardanoSk)] <- forM clients keysFor
+  [(aliceCardanoVk, _), (bobCardanoVk, _), (carolCardanoVk, carolCardanoSk)] <- forM clients keysFor
   seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
   seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
   seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
@@ -2321,23 +2321,30 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
 
       -- Carol restarts
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
-        -- Carol API started in Open
-        -- FIXME! should start in Closed
+        -- Carol API starts notifying the chain is out of sync
+        waitMatch 20 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "ChainOutOfSync"
+
+        -- Carol starts in Open
         waitMatch 20 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "Greetings"
           guard $ v ^? key "headStatus" == Just (toJSON Open)
           guard $ v ^? key "me" == Just (toJSON carol)
           guard $ isJust (v ^? key "hydraNodeVersion")
 
-        -- Carol submits a new transaction,
+        -- Then, Carol attempts submits a new transaction,
         -- without waiting for head to be closed
         utxo <- getSnapshotUTxO n3
         tx <- mkTransferTx testNetworkId utxo carolCardanoSk carolCardanoVk
         send n3 $ input "NewTx" ["transaction" .= tx]
 
-        -- FIXME! should waitNoMatch
         waitMatch (20 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "CommandFailed"
+          guard $ v ^? key "reason" == Just "Rejected: chain out of sync"
+
+        -- Finally, Carol observes the head getting closed
+        waitMatch (20 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          guard $ v ^? key "headId" == Just (toJSON headId)
  where
   hydraTracer = contramap FromHydraNode tracer
 
