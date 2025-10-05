@@ -21,7 +21,7 @@ import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
-import Hydra.Cardano.Api (SigningKey)
+import Hydra.Cardano.Api (ChainPoint (ChainPointAtGenesis), SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -1065,7 +1065,7 @@ simulatedChainAndNetwork ::
   ChainStateType SimpleTx ->
   m (SimulatedChainNetwork SimpleTx m)
 simulatedChainAndNetwork initialChainState = do
-  syncedStatus <- newLabelledTVarIO "sim-chain-sync-status" unSynced
+  syncedStatus <- newLabelledTVarIO "sim-chain-sync-status" (unSynced ChainPointAtGenesis)
   history <- newLabelledTVarIO "sim-chain-history" []
   nodes <- newLabelledTVarIO "sim-chain-nodes" []
   nextTxId <- newLabelledTVarIO "sim-chain-next-txid" 10000
