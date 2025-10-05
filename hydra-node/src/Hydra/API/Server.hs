@@ -32,7 +32,6 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (
   HeadState (..),
@@ -130,14 +129,6 @@ withAPIServer config env stateFile party eventSource tracer chain pparams server
     raceLabelled_
       ( "api-server"
       , do
-          -- wait until the chain reports synced
-          let waitUntilSynced = do
-                SyncedStatus{status} <- chainSyncedStatus
-                unless status $
-                  -- check every second
-                  -- TODO! configure threadDelay
-                  threadDelay 1 >> waitUntilSynced
-          waitUntilSynced
           startServer serverSettings
             . simpleCors
             $ websocketsOr
