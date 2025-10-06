@@ -42,7 +42,7 @@ import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (
   IsChainState,
  )
-import Hydra.Chain.SyncedStatus (SyncedStatus (..))
+import Hydra.Chain.SyncedStatus (SyncedStatus (..), status)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
@@ -87,8 +87,8 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
   -- we notify clients every time the chain is out of sync
   -- as their inputs will get rejected
   _ <- forkLabelled "ws-check-sync-status" $ forever $ do
-    synced@SyncedStatus{status} <- chainSyncedStatus
-    unless status $ do
+    synced <- chainSyncedStatus
+    unless (status synced) $ do
       let output :: ServerOutput tx = ChainOutOfSync synced
       sendTextData con (Aeson.encode output)
     -- check every second
@@ -184,8 +184,8 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
     msg <- receiveData con
     case Aeson.eitherDecode msg of
       Right input -> do
-        SyncedStatus{status} <- chainSyncedStatus
-        if status
+        syncedStatus <- chainSyncedStatus
+        if status syncedStatus
           then do
             traceWith tracer (APIInputReceived $ toJSON input)
             case input of

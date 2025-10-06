@@ -72,7 +72,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.Chain.SyncedStatus (SyncedStatus (..), updateSyncStatus)
+import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
@@ -354,7 +354,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState syncedStatus 
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
             callback (Tick{chainTime = utcTime, chainSlot})
             tip <- getCurrentTip
-            updateSyncStatus syncedStatus tip point
+            atomically $ writeTVar syncedStatus SyncedStatus{point = Just point, tip}
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case
