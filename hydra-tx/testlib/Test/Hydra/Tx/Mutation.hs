@@ -946,7 +946,3 @@ removePTFromMintedValue output tx =
     (AssetId pid asset, _) ->
       pid == headId && asset == assetName
     _ -> False
-
-randomBetween :: Integer -> Integer -> IO Integer
-randomBetween min' max' =
-  fst . randomR (min', max') <$> newStdGen

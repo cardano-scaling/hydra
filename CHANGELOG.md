@@ -10,9 +10,9 @@ changes.
 
 ## [1.0.0] - 2025-10-08
 
-- Accept additional field `amount` when depositing to specify the amount of
-  Lovelace that should be depositted to a Head returning any leftover to the
-  user. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
+- Implement partial assets depositing user feature. This also enables more complex scenarios
+  when depositing (like Using reference inputs) and gives more flexibility to our users
+  since hydra-node is capable of balancing the deposit tx outputs now. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
 
 - Add `--blockfrost-query-timeout` and `--blockfrost-retry-timeout` to configure
   Blockfrost API timeouts.

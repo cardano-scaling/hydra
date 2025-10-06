@@ -14,14 +14,6 @@ import PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
 
--- | Check whether left contains right.
-containsValue :: Value -> Value -> Bool
-containsValue a b =
-  all positive . toList $ a <> negateValue b
- where
-  positive :: (a, Quantity) -> Bool
-  positive (_, q) = q >= 0
-
 -- | Calculate minimum ada as 'Value' for a 'TxOut'.
 -- NOTE: This function can throw although you can't tell from the signature.
 -- 'toLedgerValue' can error out with _Illegal Value in TxOut_
