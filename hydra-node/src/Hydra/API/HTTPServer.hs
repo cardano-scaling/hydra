@@ -19,7 +19,7 @@ import Hydra.Cardano.Api (AddressInEra, LedgerEra, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.Chain.SyncedStatus (SyncedStatus (..))
+import Hydra.Chain.SyncedStatus (SyncedStatus (..), status)
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
@@ -281,8 +281,8 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
 
 rejectChainNotSynced :: IO SyncedStatus -> (Response -> IO ResponseReceived) -> IO (Maybe ResponseReceived)
 rejectChainNotSynced chainSyncedStatus respond = do
-  SyncedStatus{status} <- chainSyncedStatus
-  if status
+  syncedStatus <- chainSyncedStatus
+  if status syncedStatus
     then pure Nothing
     else
       Just
