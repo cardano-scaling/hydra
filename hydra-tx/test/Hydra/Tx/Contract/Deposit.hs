@@ -12,7 +12,7 @@ import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx (mkHeadId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Deposit (depositTx)
-import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOSized)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..))
 import Test.QuickCheck (chooseEnum, chooseInteger, elements)
@@ -26,6 +26,7 @@ genHealthyDepositTx = do
   let tx =
         depositTx
           testNetworkId
+          defaultPParams
           (mkHeadId testPolicyId)
           (mkSimpleBlueprintTx toDeposit)
           slot

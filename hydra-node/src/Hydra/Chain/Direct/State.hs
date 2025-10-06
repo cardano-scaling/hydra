@@ -1154,7 +1154,7 @@ genRecoverTx ::
   Gen (UTxO, Tx)
 genRecoverTx = do
   (_, _, depositedUTxO, txDeposit) <- genDepositTx maximumNumberOfParties
-  let DepositObservation{deposited, deadline} = fromJust $ observeDepositTx testNetworkId depositedUTxO txDeposit
+  let DepositObservation{deposited, deadline} = fromJust $ observeDepositTx testNetworkId txDeposit
   let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
   slotAfterDeadline <- chooseEnum (deadlineSlot, deadlineSlot + 86400)
   let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited slotAfterDeadline
@@ -1164,7 +1164,7 @@ genIncrementTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
 genIncrementTx numParties = do
   (ctx, st@OpenState{headId}, utxo, txDeposit) <- genDepositTx numParties
   cctx <- pickChainContext ctx
-  let DepositObservation{deposited, depositTxId, deadline} = fromJust $ observeDepositTx (ctxNetworkId ctx) utxo txDeposit
+  let DepositObservation{deposited, depositTxId, deadline} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
   let openUTxO = getKnownUTxO st
   let version = 0
   snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)

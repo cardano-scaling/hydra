@@ -34,18 +34,23 @@ depositTx networkId pparams headId commitBlueprintTx upperSlot deadline changeAd
   let blueprint =
         case txOuts' blueprintTx of
           [] ->
+            -- When blueprint tx doesn't contain any outputs we just construct outputs taking the whole of lookupUTxO
             toLedgerTx blueprintTx
               & bodyTxL . outputsTxBodyL
                 .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId lookupUTxO deadline)
           outs ->
             case changeAddress of
               Nothing ->
+                -- In case change address is not specified we expect to see a fully balanced blueprint tx so we
+                -- just take all the outputs and replace the `TxIn` to the blueprint one.
                 toLedgerTx blueprintTx
                   & bodyTxL . outputsTxBodyL
                     .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline)
               Just addr ->
+                -- When change address is specified we balance the blueprint tx ourselves adding the change output to return to the user.
                 let depositOutput =
-                      toLedgerTxOut $ mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline
+                      toLedgerTxOut $
+                        mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline
 
                     balance = evaluateTransactionBalance shelleyBasedEra pparams mempty mempty mempty
 
@@ -119,13 +124,11 @@ data DepositObservation = DepositObservation
 -- - an upper validity bound has been set (used as creation slot).
 observeDepositTx ::
   NetworkId ->
-  UTxO ->
   Tx ->
   Maybe DepositObservation
-observeDepositTx networkId spendableUTxO tx = do
-  depositOut <- fmap head . nonEmpty $ txOuts' tx
+observeDepositTx networkId tx = do
+  (_, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
   (headId, deposited, deadline) <- observeDepositTxOut network (toCtxUTxOTxOut depositOut)
-  guard $ matchesDepositValue deposited
   created <- getUpperBound
   pure
     DepositObservation
@@ -136,10 +139,6 @@ observeDepositTx networkId spendableUTxO tx = do
       , deadline = posixToUTCTime deadline
       }
  where
-  matchesDepositValue utxo =
-    UTxO.totalValue (resolveInputsUTxO spendableUTxO tx)
-      `containsValue` UTxO.totalValue utxo
-
   getUpperBound =
     case tx & getTxBody & getTxBodyContent & txValidityUpperBound of
       TxValidityUpperBound{upperBound} -> Just upperBound
@@ -156,7 +155,7 @@ observeDepositTxOut network depositOut = do
   headId <- currencySymbolToHeadId headCurrencySymbol
   deposit <- do
     depositedUTxO <- UTxO.fromList <$> traverse (Commit.deserializeCommit network) onChainDeposits
-    guard $ depositValue `containsValue` UTxO.totalValue depositedUTxO
+    guard $ depositValue == UTxO.totalValue depositedUTxO
     pure depositedUTxO
   pure (headId, deposit, deadline)
  where
