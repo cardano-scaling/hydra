@@ -3610,17 +3610,12 @@ components:
         The synced status of the chain backend.
       additionalProperties: false
       required:
-        - status
-        - diff
         - point
         - tip
       properties:
-        status:
-          type: boolean
-        diff:
-          type: number
-          minimum: 0
         point:
-          $ref: "api.yaml#/components/schemas/ChainPoint"
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/ChainPoint"
+            - type: "null"
         tip:
           $ref: "api.yaml#/components/schemas/ChainPoint"
