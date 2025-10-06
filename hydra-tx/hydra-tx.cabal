@@ -144,7 +144,6 @@ library testlib
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
-    , random
 
   ghc-options:     -haddock
 
