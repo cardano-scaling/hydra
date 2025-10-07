@@ -4,14 +4,14 @@ sidebar_position: 9
 
 # Commit from a dApp
 
-
 - Developers building decentralized applications (dApps) on the Hydra protocol
 would greatly benefit from clear guidance and examples detailing the validator
-checks required to ensure that committed funds are accurately directed to the
+check required to ensure that committed funds are accurately directed to the
 intended Hydra Head instance.
 
-- This document aims to outline the essential validator checks for user-written
-validators, providing concrete examples implemented using PlutusTx.
+- This document aims to outline one essential validator check needed for
+user-written validators, providing concrete examples implemented using PlutusTx
+and briefly explain how the commit transaction looks like.
 
 
 - To begin, let us examine the diagram illustrating the commit process in detail:
@@ -23,9 +23,7 @@ The commit transaction utilizes an initial output specifically crafted for each 
 
 The initial validator is parameterized by the commit validator hash. In the user-defined validator, it is sufficient to verify that:
 
-- The initial input with the correct hash is consumed in the commit transaction.
-- The initial input’s datum contains the correct HeadId.
-- There is only one output at commit script address + the change output.
+- There is only one output at commit script address containing the PT (participation) token + the change output.
 
 dApp developers can leverage the script redeemer to convey the necessary information.
 
@@ -69,18 +67,16 @@ We mentioned we will use redeemer in our validator to carry information we
 need to do the actual checks. Let's define the redeemer first:
 
 ```Haskell
-data R =
-  R
-   { expectedHeadId :: CurrencySymbol
-   , expectedInitialValidator :: ScriptHash
-   , expectedCommitValidator :: ScriptHash
-   } deriving stock (Show, Generic)
+newtype R = R
+  { expectedHeadId :: CurrencySymbol
+  }
+  deriving stock (Show, Generic)
 
 unstableMakeIsData ''R
 
 ```
-
-To get the information on Hydra scripts hashes you can use hydra-node:
+:::info
+If you need to get the information on Hydra scripts hashes you can use hydra-node:
 
 ```
 nix run .#hydra-node -- --hydra-script-catalogue
@@ -97,72 +93,41 @@ nix run .#hydra-node -- --hydra-script-catalogue
  "mintingScriptSize": 5284
 }
 ```
+:::
 
 To get the information on `HeadId` easiest is to look at the persistence
 folder of your hydra-node and in the `state` file you should be able to find
 the headId. (NOTE: You need to initialize the Head first)
 
-Now we are able to start working on validator checks.
+Now we are able to start working on our single validator check.
 
-First, let's make sure correct initial input is spent. In order to do that we
-could grab all inputs and make sure there is exactly one script input which
-`Address` corresponds to the initial validator hash we have set in our own
-script redeemer:
+Let's make sure there is a output containing the single PT token with correct policy:
 
 ```Haskell
-  initialInput = findInitialInput expectedInitialValidator
+  checkCorrectHeadId =
+    let outputValue = foldMap txOutValue (txInfoOutputs (scriptContextTxInfo ctx))
+        pts = findParticipationToken expectedHeadId outputValue
+     in L.length pts == 1
 
-  findInitialInput :: ScriptHash -> Maybe TxInInfo
-  findInitialInput initialScriptHash =
-    let allInputs = List.fromSOP $ txInfoInputs info
-     in List.find (isScriptAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
+  findParticipationToken :: CurrencySymbol -> Value -> [TokenName]
+  findParticipationToken headCurrency (Value val) =
+    case AssocMap.toList <$> AssocMap.lookup headCurrency val of
+      Just tokens ->
+        mapMaybe (\(tokenName, n) -> if n == 1 then Just tokenName else Nothing) tokens
+      _ ->
+        []
+  {-# INLINEABLE findParticipationTokens #-}
 
-  -- Check if an address is a script address with the specified script hash
-  isScriptAddress :: ScriptHash -> Address -> Bool
-  isScriptAddress expectedHash addr =
-    case addressCredential addr of
-      ScriptCredential vh -> vh == expectedHash
-      PubKeyCredential _ -> False
-```
-
-To check the correctness of the Head ID we can try to decode the initial datum which holds the `CurrencySymbol` of a Head and compare it with what is set in our
-own script redeemer:
-
-```Haskell
-  extractDatum =
-    case initialInput of
-      Nothing -> traceError "Initial input not found, cannot decode datum"
-      Just i -> Just =<< decodeDatum (txInInfoResolved i)
-
-  decodeDatum :: TxOut -> Maybe CurrencySymbol
-  decodeDatum txOut = case txOutDatum txOut of
-    OutputDatum d -> fromBuiltinData (getDatum d)
-    _ -> Nothing
+  R{expectedHeadId} = redeemer
 
 ```
+This check is all we need in order to add some security to our validators and make sure our commit will end up in the correct Head instance.
 
-To make sure there is only one output at commit validator address we need to filter all outputs and check that there is only one
-with the correct commit `Address`:
-
-```Haskell
-  checkCommitOutput =
-    traceIfFalse "There should be only one commit output" (List.length commitOutput == 1)
-
-  commitOutput = findCommitOutput expectedCommitValidator
-
-  findCommitOutput :: ScriptHash -> List.List TxOut
-  findCommitOutput commitScriptHash =
-    let allOutputs = List.fromSOP $ txInfoOutputs info
-     in List.filter (isScriptAddress commitScriptHash . txOutAddress) allOutputs
-
-```
-These checks are all we need in order to add some security to our validators and make sure our commit will end up in the correct Head instance.
-
-Following step is to build a _blueprint_ transaction as a recipe for committing your script UTxO into a Head. We already have a guide
+Following step is to build a _blueprint_ transaction as a recipe for committing your script UTxO into a Head (while the Head is initializing). We already have a guide
 on that [here](./commit-script-utxo#step-5-prepare-the-blueprint) but you would need to make some changes since now we use different script,
 there is no datum and our redeemer is `R`.
 
-The hash or our validator script is `c4438c8c41e405aaa9349f1455364261c1006991ead68be459353fa8`. This information is important to be able to build
+The hash or our validator script is `b75360ccdf61d8dea63a072e402d9e883c34a68f9e35fb7056c9a610`. This information is important to be able to build
 the _blueprint_ transaction from the guide and we leave the rest as an exercise to the user. It should not be hard to build this transaction since you
 only need to worry about the transaction inputs. Even if outputs are defined in the transaction they would be ignored since all inputs end up
 on the L2 ledger owned by our script.
@@ -181,34 +146,26 @@ module Example where
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import Hydra.Plutus.Extras (wrapValidator)
 import PlutusLedgerApi.V3 (
-  Address,
-  Credential (..),
   CurrencySymbol,
-  OutputDatum (..),
   ScriptContext (..),
-  ScriptHash,
   ScriptInfo (..),
-  TxInInfo,
-  TxOut,
-  addressCredential,
-  fromBuiltinData,
-  getDatum,
+  TokenName,
+  Value (..),
   serialiseCompiledCode,
-  txInInfoResolved,
   txInfoOutputs,
-  txInfoInputs,
-  txOutAddress,
-  txOutDatum,
+  txOutValue,
+  unsafeFromBuiltinData,
  )
 import PlutusTx (compile, unstableMakeIsData)
-import PlutusTx.Data.List qualified as List
+import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Eq ((==))
-import PlutusTx.Prelude (check, traceError, traceIfFalse)
+import PlutusTx.Foldable (foldMap)
+import PlutusTx.Functor ((<$>))
+import PlutusTx.List qualified as L
+import PlutusTx.Prelude (check)
 
-data R = R
+newtype R = R
   { expectedHeadId :: CurrencySymbol
-  , expectedInitialValidator :: ScriptHash
-  , expectedCommitValidator :: ScriptHash
   }
   deriving stock (Show, Generic)
 
@@ -220,55 +177,23 @@ exampleValidator ::
   ScriptContext ->
   Bool
 exampleValidator _ redeemer ctx =
-  checkInitialInputIsSpent
-    && checkCorrectHeadId
-    && checkCommitOutput
+  checkCorrectHeadId
  where
-  checkInitialInputIsSpent =
-    traceIfFalse "Initial input not found" (isJust initialInput)
-
-  checkCommitOutput =
-    traceIfFalse "There should be only one commit output" (List.length commitOutput == 1)
-
   checkCorrectHeadId =
-    case extractDatum of
-      Nothing -> traceError "Could not decode initial datum"
-      Just headId -> traceIfFalse "HeadId is not correct" $ headId == expectedHeadId
+    let outputValue = foldMap txOutValue (txInfoOutputs (scriptContextTxInfo ctx))
+        pts = findParticipationToken expectedHeadId outputValue
+     in L.length pts == 1
 
-  extractDatum =
-    case initialInput of
-      Nothing -> traceError "Initial input not found, cannot decode datum"
-      Just i -> Just =<< decodeDatum (txInInfoResolved i)
+  findParticipationToken :: CurrencySymbol -> Value -> [(TokenName, Integer)]
+  findParticipationToken headCurrency (Value val) =
+    case AssocMap.toList <$> AssocMap.lookup headCurrency val of
+      Just tokens ->
+        L.filter (\(_, n) -> n == 1) tokens
+      _ ->
+        []
+  {-# INLINEABLE findParticipationToken #-}
 
-  decodeDatum :: TxOut -> Maybe CurrencySymbol
-  decodeDatum txOut = case txOutDatum txOut of
-    OutputDatum d -> fromBuiltinData (getDatum d)
-    _ -> Nothing
-
-  initialInput = findInitialInput expectedInitialValidator
-
-  commitOutput = findCommitOutput expectedCommitValidator
-
-  findCommitOutput :: ScriptHash -> List.List TxOut
-  findCommitOutput commitScriptHash =
-    let allOutputs = List.fromSOP $ txInfoOutputs info
-     in List.filter (isScriptAddress commitScriptHash . txOutAddress) allOutputs
-
-  findInitialInput :: ScriptHash -> Maybe TxInInfo
-  findInitialInput initialScriptHash =
-    let allInputs = List.fromSOP $ txInfoInputs info
-     in List.find (isScriptAddress initialScriptHash . txOutAddress . txInInfoResolved) allInputs
-
-  -- Check if an address is a script address with the specified script hash
-  isScriptAddress :: ScriptHash -> Address -> Bool
-  isScriptAddress expectedHash addr =
-    case addressCredential addr of
-      ScriptCredential vh -> vh == expectedHash
-      PubKeyCredential _ -> False
-
-  info = scriptContextTxInfo ctx
-
-  R{expectedHeadId, expectedInitialValidator, expectedCommitValidator} = redeemer
+  R{expectedHeadId} = redeemer
 
 exampleSecureValidatorScript :: PlutusScript
 exampleSecureValidatorScript =
