@@ -33,11 +33,16 @@ jobs:
           - hydra-tx
           - hydra-chain-observer
           - hydra-node
-          - hydra-tui
           - hydra-cluster
+          - hydra-tui
         os:
           - ubuntu-latest
           - ubuntu-24.04-arm
+        exclude:
+          - package: hydra-cluster
+            os: ubuntu-24.04-arm
+          - package: hydra-tui
+            os: ubuntu-24.04-arm
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
