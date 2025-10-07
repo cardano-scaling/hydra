@@ -5,7 +5,7 @@
 module Hydra.API.ServerOutput where
 
 import Control.Lens ((.~))
-import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, tagSingleConstructors, withObject, (.:))
+import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, object, omitNothingFields, tagSingleConstructors, withObject, (.:), (.=))
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
@@ -142,6 +142,21 @@ data InvalidInput = InvalidInput
 deriving instance ToJSON InvalidInput
 deriving instance FromJSON InvalidInput
 
+newtype ChainOutOfSync = ChainOutOfSync {syncedStatus :: SyncedStatus}
+  deriving newtype (Eq, Show)
+  deriving (Generic)
+  deriving newtype (Arbitrary)
+
+instance ToJSON ChainOutOfSync where
+  toJSON (ChainOutOfSync s) =
+    object ["tag" .= String "ChainOutOfSync", "syncedStatus" .= s]
+
+instance FromJSON ChainOutOfSync where
+  parseJSON = withObject "ChainOutOfSync" $ \o ->
+    ChainOutOfSync <$> o .: "syncedStatus"
+
+instance ToADTArbitrary ChainOutOfSync
+
 data ServerOutput tx
   = NetworkConnected
   | NetworkDisconnected
@@ -216,7 +231,6 @@ data ServerOutput tx
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | EventLogRotated {checkpoint :: NodeState tx}
-  | ChainOutOfSync {syncedStatus :: SyncedStatus}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -290,7 +304,6 @@ prepareServerOutput config response =
     PeerDisconnected{} -> encodedResponse
     SnapshotSideLoaded{} -> encodedResponse
     EventLogRotated{} -> encodedResponse
-    ChainOutOfSync{} -> encodedResponse
  where
   encodedResponse = encode response
 
