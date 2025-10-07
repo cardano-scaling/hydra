@@ -4,7 +4,7 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Cardano.Slotting.Time (RelativeTime, diffRelativeTime, getRelativeTime, toRelativeTime)
+import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
 import CardanoClient (QueryPoint (QueryTip))
 import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
@@ -60,7 +60,7 @@ data NodeLog
   | MsgCLIRetryResult Text Int
   | MsgNodeStarting {stateDirectory :: FilePath}
   | MsgSocketIsReady SocketPath
-  | MsgSynchronizing {percentDone :: Centi, blockTime :: NominalDiffTime, tipTime :: NominalDiffTime, targetTime :: NominalDiffTime}
+  | MsgSynchronizing {percentDone :: Centi, timeDifference :: NominalDiffTime, blockTime :: NominalDiffTime, tipTime :: NominalDiffTime, targetTime :: NominalDiffTime}
   | MsgQueryGenesisParametersFailed {err :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
@@ -424,7 +424,7 @@ waitForFullySynchronized tracer backend = do
     let timeDifference = diffRelativeTime targetTime tipTime
     let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
     blockTime <- Backend.getBlockTime backend
-    traceWith tracer $ MsgSynchronizing{percentDone, blockTime, tipTime = getRelativeTime tipTime, targetTime = getRelativeTime targetTime}
+    traceWith tracer $ MsgSynchronizing{percentDone, blockTime, tipTime = getRelativeTime tipTime, targetTime = getRelativeTime targetTime, timeDifference}
     if timeDifference < blockTime
       then pure ()
       else threadDelay 3 >> check systemStart
