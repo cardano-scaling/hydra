@@ -168,6 +168,7 @@ channels:
           * DraftCommitTxResponse - 200 ok
           * CommittedTooMuchADAForMainnet - 400 bad request
           * UnsupportedLegacyOutput - 400 bad request
+          * ChainOutOfSync - 503 service unavailable
       message:
         $ref: "api.yaml#/components/messages/DraftCommitTxResponse"
       bindings:
@@ -227,6 +228,7 @@ channels:
         Possible responses of this endpoint are:
           * 200 OK
           * 400 Bad Request
+          * 503 Service Unavailable
       message:
         payload:
           type: string
@@ -333,6 +335,7 @@ channels:
         Possible responses of this endpoint are:
           * String - 200 OK
           * String - 400 bad request
+          * ChainOutOfSync - 503 service unavailable
       message:
         payload:
             $ref: "api.yaml#/components/messages/DecommitResponse"
@@ -389,6 +392,10 @@ channels:
           summary: 400 Bad Request
           payload:
             $ref: "api.yaml#/components/schemas/PostTxError"
+        - name: ChainOutOfSync
+          summary: 503 Service Unavailable
+          payload:
+            $ref: "api.yaml#/components/schemas/ChainOutOfSync"
       bindings:
         http:
           type: response
@@ -450,6 +457,10 @@ channels:
               tag:
                 type: string
                 enum: ["SubmitTxSubmitted"]
+        - name: ChainOutOfSync
+          summary: 503 Service Unavailable
+          payload:
+            $ref: "api.yaml#/components/schemas/ChainOutOfSync"
       bindings:
         http:
           type: response
@@ -1837,19 +1848,13 @@ components:
       type: object
       required:
         - tag
-        - seq
         - syncedStatus
-        - timestamp
       properties:
         tag:
           type: string
           enum: ["ChainOutOfSync"]
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
         syncedStatus:
           $ref: "api.yaml#/components/schemas/SyncedStatus"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
 
     # END OF SERVER OUTPUT SCHEMAS
 
@@ -3615,7 +3620,7 @@ components:
       properties:
         point:
           oneOf:
-            - $ref: "api.yaml#/components/schemas/ChainPoint"
-            - type: "null"
+          - $ref: "api.yaml#/components/schemas/ChainPoint"
+          - type: "null"
         tip:
           $ref: "api.yaml#/components/schemas/ChainPoint"
