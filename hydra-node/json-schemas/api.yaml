@@ -11,7 +11,7 @@ info:
 
     They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
 
-    See [the documentation](https://hydra.family/head-protocol/docs/dev/api-behavior/) for more details on the overall API behavior.
+    See [the documentation](https://hydra.family/head-protocol/docs/dev/architecture#api) for more details on the overall API behavior.
 
   license:
     name: Apache 2.0

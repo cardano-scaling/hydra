@@ -123,7 +123,7 @@ import Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
-import Test.Hydra.Tx.Gen (genOutput, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized)
+import Test.Hydra.Tx.Gen (genOutputFor, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   applyMutation,
@@ -600,7 +600,7 @@ forAllInit ::
 forAllInit action =
   forAllBlind (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
-      forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
+      forAll ((,) <$> genTxIn <*> genOutputFor (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
         let tx = initialize cctx seedIn (ctxParticipants ctx) (ctxHeadParameters ctx)
             utxo = UTxO.singleton seedIn seedOut <> getKnownUTxO cctx
          in action utxo tx

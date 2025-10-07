@@ -230,7 +230,14 @@ newtype IntersectionNotFoundException = IntersectionNotFound
   }
   deriving newtype (Show)
 
-instance Exception IntersectionNotFoundException
+instance Exception IntersectionNotFoundException where
+  displayException (IntersectionNotFound point) =
+    printf
+      "The requested intersection point %s was not found on the local node. \
+      \This may happen if the point is too recent and the node has not yet \
+      \synchronized that far, or if the point is too old and has been pruned \
+      \from the local node. Please try again with a different point."
+      (show point :: String)
 
 data EraNotSupportedException
   = EraNotSupportedAnymore {otherEraName :: Text}

@@ -21,7 +21,7 @@ import Hydra.Ledger.Cardano (cardanoLedger, genSequenceOfSimplePaymentTransactio
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
-import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutput, genTxOut, genUTxOFor, genValue)
+import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutputFor, genTxOut, genUTxOFor, genValue)
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -78,9 +78,9 @@ spec =
         it "does generate good values" $
           forAll genTxOut propGeneratesGoodTxOut
 
-      describe "genOutput" $
+      describe "genOutputFor" $
         it "has enough lovelace to cover assets" $
-          forAll (arbitrary >>= genOutput) propHasEnoughLovelace
+          forAll (arbitrary >>= genOutputFor) propHasEnoughLovelace
 
       describe "genValue" $
         it "produces realistic values" $

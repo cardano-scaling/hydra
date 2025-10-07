@@ -199,7 +199,7 @@ genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
 genUTxOFor vk = do
   n <- arbitrary `suchThat` (> 0)
   inps <- vectorOf n arbitrary
-  outs <- vectorOf n (genOutput vk)
+  outs <- vectorOf n (genOutputFor vk)
   pure $ UTxO $ Map.fromList $ zip inps outs
 
 -- | Generate a fixed size UTxO with ada-only outputs.
@@ -217,7 +217,7 @@ genOneUTxOFor vk = do
   -- NOTE(AB): calling this generator while running a property will yield larger and larger
   -- values (quikcheck increases the 'size' parameter upon success) up to the point they are
   -- too large to fit in a transaction and validation fails in the ledger
-  output <- scale (const 1) $ genOutput vk
+  output <- scale (const 1) $ genOutputFor vk
   pure $ UTxO $ Map.singleton input output
 
 -- | Generate "simplified" UTXO, ie. without some of the complexities required
@@ -272,15 +272,16 @@ genDatum = do
     , pure $ TxOutDatumInline $ unsafeHashableScriptData scriptData
     ]
 
--- TODO: This should better be called 'genOutputFor'
-genOutput ::
+genOutputFor ::
   forall ctx.
   VerificationKey PaymentKey ->
   Gen (TxOut ctx)
-genOutput vk = do
+genOutputFor vk = do
   value <- genValue
   datum <- genDatum
-  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value datum ReferenceScriptNone
+  let out :: TxOut CtxUTxO
+      out = TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value datum ReferenceScriptNone
+  pure $ ensureMinAda out
 
 genSigningKey :: Gen (SigningKey PaymentKey)
 genSigningKey = do

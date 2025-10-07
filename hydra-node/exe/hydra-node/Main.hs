@@ -29,6 +29,7 @@ main = do
         `catch` \(SomeException e) -> die $ displayException e
     Publish options ->
       publish options
+        `catch` \(SomeException e) -> die $ displayException e
     GenHydraKey outputFile ->
       either (die . show) pure =<< genHydraKeys outputFile
  where

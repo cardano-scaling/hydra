@@ -63,7 +63,7 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
-import Test.Hydra.Tx.Gen (genOutput, genUTxOAdaOnlyOfSize)
+import Test.Hydra.Tx.Gen (genOutputFor, genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (oneof)
 
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
@@ -85,7 +85,7 @@ computeInitCost = do
     ctx <- genHydraContextFor numParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
-    seedOutput <- genOutput =<< arbitrary
+    seedOutput <- genOutputFor =<< arbitrary
     let utxo = UTxO.singleton seedInput seedOutput
     pure (initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx), utxo)
 

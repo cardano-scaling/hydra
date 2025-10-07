@@ -4,7 +4,7 @@
 -- | Top-level module to run a single Hydra node.
 --
 -- Checkout [Hydra
--- Documentation](https://hydra.family/head-protocol/dev/architecture)
+-- Documentation](https://hydra.family/head-protocol/docs/dev/architecture)
 -- for some details about the overall architecture of the `Node`.
 module Hydra.Node where
 
