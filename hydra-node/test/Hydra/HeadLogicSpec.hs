@@ -51,7 +51,7 @@ import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
-import Test.Hydra.Tx.Gen (genKeyPair, genOutput)
+import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor)
 import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
 import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
@@ -933,7 +933,7 @@ spec =
         (vk, sk) <- pick genKeyPair
         -- helper to build deposit tx
         let mkDepositTx = do
-              txOut <- genOutput vk
+              txOut <- genOutputFor vk
               utxo <- (,txOut) <$> genTxIn
               mkSimpleTx
                 utxo
@@ -1030,7 +1030,7 @@ spec =
       prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> monadicIO $ do
         (utxo, expiringTransaction) <- pick $ do
           (vk, sk) <- genKeyPair
-          txOut <- genOutput vk
+          txOut <- genOutputFor vk
           utxo <- (,txOut) <$> genTxIn
           mkRangedTx
             utxo
