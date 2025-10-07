@@ -17,12 +17,12 @@ import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
+  ChainOutOfSync (..),
   ClientMessage,
   Greetings (..),
   HeadStatus (..),
   InvalidInput (..),
   NetworkInfo,
-  ServerOutput (ChainOutOfSync),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithAddressedTx (..),
@@ -85,9 +85,9 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
   -- we notify clients every time the chain is out of sync
   -- as their inputs will get rejected
   _ <- forkLabelled "ws-check-sync-status" $ forever $ do
-    synced <- chainSyncedStatus
-    unless (status synced) $ do
-      let output :: ServerOutput tx = ChainOutOfSync synced
+    syncedStatus <- chainSyncedStatus
+    unless (status syncedStatus) $ do
+      let output = ChainOutOfSync syncedStatus
       sendTextData con (Aeson.encode output)
     -- check every second
     -- TODO! configure threadDelay
