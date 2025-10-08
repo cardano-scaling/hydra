@@ -425,7 +425,7 @@ waitForFullySynchronized tracer backend = do
     let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
     blockTime <- Backend.getBlockTime backend
     traceWith tracer $ MsgSynchronizing{percentDone, blockTime, tipTime = getRelativeTime tipTime, targetTime = getRelativeTime targetTime, timeDifference}
-    if timeDifference < 20*blockTime
+    if timeDifference < 20 * blockTime
       then pure ()
       else threadDelay 3 >> check systemStart
 
