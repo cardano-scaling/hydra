@@ -19,8 +19,8 @@ import Data.Map (notMember)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
-import Hydra.API.ServerOutput (DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), fromLedgerTx, genBlockHeaderHash, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
+import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, genBlockHeaderHash, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.ChainPoint (genChainPointAt)
 import Hydra.Chain (
   ChainEvent (..),
@@ -54,7 +54,7 @@ import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor)
-import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
+import Test.QuickCheck (Property, choose, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
 import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
@@ -86,6 +86,40 @@ spec =
 
     describe "Coordinated Head Protocol" $ do
       let ledger = simpleLedger
+
+      -- unsynced means: NodeState's currentSlot is not
+      -- within the contestation period window relative to the latest known tip
+      describe "NodeState is unsynced" $ do
+        let genRandomNodeState =
+              oneof
+                [ pure inIdleState
+                , pure (inInitialState threeParties)
+                , pure (inOpenState threeParties)
+                , pure (inClosedState threeParties)
+                ]
+        -- Generate a ChainPoint whose slot is beyond the contestation period window
+        -- relative to the given 'currentSlot'.
+        let genUnsafeChainPoint (ChainSlot nodeSlot) = do
+              let cp = fromIntegral defaultContestationPeriod
+              delta <- choose (cp + 1, cp * 2)
+              let slotNo = fromIntegral nodeSlot + delta
+              genChainPointAt (SlotNo slotNo)
+
+        -- TODO! make it a property
+        it "rejects any ClientInput if unsynced" $ do
+          input@ClientInput{clientInput} <- generate $ ClientInput <$> arbitrary
+          nodeState@NodeState{headState, currentSlot} <- generate genRandomNodeState
+          knownTip <- generate $ genUnsafeChainPoint currentSlot
+          update bobEnv ledger knownTip nodeState input
+            `hasEffect` ClientEffect{clientMessage = CommandFailed{clientInput, state = headState}}
+
+        -- TODO! make it a property
+        it "wait on any NetworkInput if unsynced" $ do
+          input <- generate $ NetworkInput <$> arbitrary <*> arbitrary
+          nodeState@NodeState{currentSlot} <- generate genRandomNodeState
+          knownTip <- generate $ genUnsafeChainPoint currentSlot
+          let outcome = update bobEnv ledger knownTip nodeState input
+          outcome `assertWait` WaitOnNotApplicableTx ValidationError{reason = "NodeState out of synch"}
 
       let coordinatedHeadState =
             CoordinatedHeadState
@@ -1437,6 +1471,12 @@ assertWait outcome waitReason =
   case outcome of
     Wait{reason} -> reason `shouldBe` waitReason
     _ -> failure $ "Expected a wait, but got: " <> show outcome
+
+assertError :: (HasCallStack, IsChainState tx) => Outcome tx -> LogicError tx -> IO ()
+assertError outcome logicError =
+  case outcome of
+    (Error e) -> e `shouldBe` logicError
+    _ -> failure $ "Expected a error, but got: " <> show outcome
 
 hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasEffectSatisfying outcome predicate =
