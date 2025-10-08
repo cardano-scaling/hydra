@@ -259,8 +259,12 @@ MsgCLIRetryResult :: Text -> Int -> NodeLog
 MsgNodeStarting :: FilePath -> NodeLog
 [$sel:stateDirectory:MsgNodeCmdSpec] :: NodeLog -> FilePath
 MsgSocketIsReady :: SocketPath -> NodeLog
-MsgSynchronizing :: Centi -> NodeLog
+MsgSynchronizing :: Centi -> NominalDiffTime -> NominalDiffTime -> NominalDiffTime -> NominalDiffTime -> NodeLog
 [$sel:percentDone:MsgNodeCmdSpec] :: NodeLog -> Centi
+[$sel:timeDifference:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
+[$sel:blockTime:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
+[$sel:tipTime:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
+[$sel:targetTime:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
 MsgQueryGenesisParametersFailed :: Text -> NodeLog
 [$sel:err:MsgNodeCmdSpec] :: NodeLog -> Text
 type Port = Int
