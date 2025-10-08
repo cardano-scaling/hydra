@@ -6,7 +6,7 @@
 --   
 --   A Haskell API for Cardano, tailored to the Hydra project.
 @package hydra-cardano-api
-@version 0.22.4
+@version 1.0.0
 
 
 -- | NOTE (1): This module is meant to be imported qualified as

@@ -6,7 +6,7 @@
 --   
 --   Hydra Plutus Contracts
 @package hydra-plutus
-@version 0.22.4
+@version 1.0.0
 
 
 -- | Simple asserting validators that are primarily useful for testing.

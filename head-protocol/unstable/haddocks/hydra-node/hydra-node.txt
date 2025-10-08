@@ -6,7 +6,7 @@
 --   
 --   The Hydra node
 @package hydra-node
-@version 0.22.4
+@version 1.0.0
 
 module Hydra.API.ClientInput
 data ClientInput tx
