@@ -60,7 +60,7 @@ data NodeLog
   | MsgCLIRetryResult Text Int
   | MsgNodeStarting {stateDirectory :: FilePath}
   | MsgSocketIsReady SocketPath
-  | MsgSynchronizing {percentDone :: Centi}
+  | MsgSynchronizing {percentDone :: Centi, timeDifference :: NominalDiffTime, blockTime :: NominalDiffTime, tipTime :: NominalDiffTime, targetTime :: NominalDiffTime}
   | MsgQueryGenesisParametersFailed {err :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
@@ -424,8 +424,8 @@ waitForFullySynchronized tracer backend = do
     let timeDifference = diffRelativeTime targetTime tipTime
     let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
     blockTime <- Backend.getBlockTime backend
-    traceWith tracer $ MsgSynchronizing{percentDone}
-    if timeDifference < blockTime
+    traceWith tracer $ MsgSynchronizing{percentDone, blockTime, tipTime = getRelativeTime tipTime, targetTime = getRelativeTime targetTime, timeDifference}
+    if timeDifference < 20 * blockTime
       then pure ()
       else threadDelay 3 >> check systemStart
 
