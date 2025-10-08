@@ -29,6 +29,7 @@ import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
+import Hydra.Cardano.Api (ChainPoint)
 import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
@@ -1336,12 +1337,13 @@ update ::
   IsChainState tx =>
   Environment ->
   Ledger tx ->
+  ChainPoint ->
   -- | Current NodeState to validate the command against.
   NodeState tx ->
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
+update env ledger _knownTip NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   (Idle _, ClientInput Init) ->

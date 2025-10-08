@@ -20,7 +20,8 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (ChainPoint (..), fromLedgerTx, genBlockHeaderHash, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api.ChainPoint (genChainPointAt)
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
@@ -105,7 +106,8 @@ spec =
             reqTx = NetworkInput ttl $ ReceivedMessage{sender = alice, msg = ReqTx tx}
             s0 = inOpenState threeParties
 
-        update bobEnv ledger s0 reqTx `hasStateChangedSatisfying` \case
+        knownTip <- generate $ genKnownTip s0
+        update bobEnv ledger knownTip s0 reqTx `hasStateChangedSatisfying` \case
           TxInvalid{transaction} -> transaction == tx
           _ -> False
 
@@ -114,7 +116,8 @@ spec =
             inputs = utxoRef 1
             s0 = inOpenState threeParties
 
-        update bobEnv ledger s0 reqTx
+        knownTip <- generate $ genKnownTip s0
+        update bobEnv ledger knownTip s0 reqTx
           `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
@@ -171,7 +174,9 @@ spec =
               party = [alice]
               openState = (inOpenState party){pendingDeposits = Map.fromList [(1, deposit1), (2, deposit2)]}
               input = ChainInput $ Tick{chainTime = depositTime 3, chainSlot = ChainSlot 3}
-              outcome = update aliceEnv ledger openState input
+
+          knownTip <- generate $ genKnownTip openState
+          let outcome = update aliceEnv ledger knownTip openState input
 
           outcome `hasEffectSatisfying` \case
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 2
@@ -187,7 +192,9 @@ spec =
                     , created = genUTCTime `generateWith` 41
                     , deadline = genUTCTime `generateWith` 42
                     }
-          update bobEnv ledger (inOpenState threeParties) depositOtherHead `hasStateChangedSatisfying` \case
+              s0 = inOpenState threeParties
+          knownTip <- generate $ genKnownTip s0
+          update bobEnv ledger knownTip (inOpenState threeParties) depositOtherHead `hasStateChangedSatisfying` \case
             DepositRecorded{headId, depositTxId} -> headId == otherHeadId && depositTxId == 1
             _ -> False
 
@@ -211,7 +218,8 @@ spec =
           let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
           let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4}
 
-          let outcome = update aliceEnv ledger nodeState input
+          knownTip <- generate $ genKnownTip nodeState
+          let outcome = update aliceEnv ledger knownTip nodeState input
 
           forM_ [1, 2, 3] $ \depositId ->
             outcome `hasStateChangedSatisfying` \case
@@ -228,7 +236,8 @@ spec =
               transaction = SimpleTx 1 mempty outputs
               input = receiveMessage ReqDec{transaction}
               st = inOpenState threeParties
-          update aliceEnv ledger st input `hasStateChangedSatisfying` \case
+          knownTip <- generate $ genKnownTip st
+          update aliceEnv ledger knownTip st input `hasStateChangedSatisfying` \case
             DecommitRecorded{headId, utxoToDecommit} -> headId == testHeadId && utxoToDecommit == outputs
             _ -> False
 
@@ -236,8 +245,9 @@ spec =
           let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1)}
           let input = receiveMessage reqDec
           st <- pickBlind $ elements [inInitialState threeParties, inIdleState, inClosedState threeParties]
+          knownTip <- pick $ genKnownTip st
           pure $
-            update aliceEnv ledger st input
+            update aliceEnv ledger knownTip st input
               `shouldNotBe` cause (NetworkEffect reqDec)
 
         it "reports if a requested decommit tx is expired" $ do
@@ -252,7 +262,8 @@ spec =
                   coordinatedHeadState
                     { decommitTx = Just decommitTxInFlight
                     }
-          update bobEnv ledger s0 reqDecEvent `hasStateChangedSatisfying` \case
+          knownTip <- generate $ genKnownTip s0
+          update bobEnv ledger knownTip s0 reqDecEvent `hasStateChangedSatisfying` \case
             DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
             _ -> False
 
@@ -266,7 +277,8 @@ spec =
               step $ receiveMessageFrom alice ReqDec{transaction = decommitTx1}
               getState
 
-            update bobEnv ledger s1 (receiveMessageFrom bob ReqDec{transaction = decommitTx2})
+            knownTip <- generate $ genKnownTip s1
+            update bobEnv ledger knownTip s1 (receiveMessageFrom bob ReqDec{transaction = decommitTx2})
               `assertWait` WaitOnNotApplicableDecommitTx
                 { notApplicableReason =
                     DecommitAlreadyInFlight
@@ -279,7 +291,8 @@ spec =
               s0 = inOpenState threeParties
               reqDecEvent = receiveMessage ReqDec{transaction = decommitTx}
 
-          update aliceEnv ledger s0 reqDecEvent
+          knownTip <- generate $ genKnownTip s0
+          update aliceEnv ledger knownTip s0 reqDecEvent
             `assertWait` WaitOnNotApplicableDecommitTx (DecommitTxInvalid mempty (ValidationError "cannot apply transaction"))
 
         it "updates decommitTx on valid ReqDec" $ do
@@ -320,7 +333,8 @@ spec =
 
           let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx'}
 
-          let s1 = update aliceEnv ledger s0 reqDecEvent
+          knownTip <- generate $ genKnownTip s0
+          let s1 = update aliceEnv ledger knownTip s0 reqDecEvent
 
           let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', depositTxId = Nothing}
           s1 `hasEffect` NetworkEffect reqSn
@@ -387,7 +401,9 @@ spec =
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
             getState
-        update bobEnv ledger waitingForLastAck (invalidAckFrom bobSk bob)
+
+        knownTip <- generate $ genKnownTip waitingForLastAck
+        update bobEnv ledger knownTip waitingForLastAck (invalidAckFrom bobSk bob)
           `shouldSatisfy` \case
             Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
             _ -> False
@@ -404,7 +420,8 @@ spec =
             step (ackFrom aliceSk alice)
             getState
 
-        update bobEnv ledger waitingForLastAck (ackFrom (generateSigningKey "foo") bob)
+        knownTip <- generate $ genKnownTip waitingForLastAck
+        update bobEnv ledger knownTip waitingForLastAck (ackFrom (generateSigningKey "foo") bob)
           `shouldSatisfy` \case
             Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
             _ -> False
@@ -426,7 +443,8 @@ spec =
             step (invalidAckFrom bobSk bob)
             getState
 
-        update bobEnv ledger waitingForLastAck (ackFrom aliceSk alice)
+        knownTip <- generate $ genKnownTip waitingForLastAck
+        update bobEnv ledger knownTip waitingForLastAck (ackFrom aliceSk alice)
           `shouldSatisfy` \case
             Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
             _ -> False
@@ -442,7 +460,8 @@ spec =
             step (ackFrom carolSk carol)
             getState
 
-        update bobEnv ledger waitingForAck (ackFrom carolSk carol)
+        knownTip <- generate $ genKnownTip waitingForAck
+        update bobEnv ledger knownTip waitingForAck (ackFrom carolSk carol)
           `shouldSatisfy` \case
             Error (RequireFailed SnapshotAlreadySigned{receivedSignature}) -> receivedSignature == carol
             _ -> False
@@ -460,7 +479,8 @@ spec =
           step (ackFrom aliceSk)
           getState
 
-        update bobEnv ledger s0 (ackFrom carolSk)
+        knownTip <- generate $ genKnownTip s0
+        update bobEnv ledger knownTip s0 (ackFrom carolSk)
           `shouldBe` noop
 
       it "rejects snapshot request with transaction not applicable to previous snapshot" $ do
@@ -474,19 +494,23 @@ spec =
           step reqTx1
           getState
 
-        update bobEnv ledger s2 input
+        knownTip <- generate $ genKnownTip s2
+        update bobEnv ledger knownTip s2 input
           `shouldBe` Error (RequireFailed (SnapshotDoesNotApply 1 1 (ValidationError "cannot apply transaction")))
 
       it "waits if we receive a snapshot with unseen transactions" $ do
         let s0 = inOpenState threeParties
             reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
-        update bobEnv ledger s0 reqSn
+        knownTip <- generate $ genKnownTip s0
+        update bobEnv ledger knownTip s0 reqSn
           `assertWait` WaitOnTxs [1]
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
         let snapshot = testSnapshot 1 0 [] mempty
             input = receiveMessage $ AckSn (sign aliceSk snapshot) 1
-        update bobEnv ledger (inOpenState threeParties) input
+            s0 = inOpenState threeParties
+        knownTip <- generate $ genKnownTip s0
+        update bobEnv ledger knownTip s0 input
           `assertWait` WaitOnSeenSnapshot
 
       -- TODO: Write property tests for various future / old snapshot behavior.
@@ -497,7 +521,8 @@ spec =
         let input :: Input tx
             input = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
             st = inOpenState threeParties
-        update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
         let reqSn1 :: Input tx
@@ -509,7 +534,8 @@ spec =
             step reqSn1
             getState
 
-        update bobEnv ledger st reqSn2
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st reqSn2
           `assertWait` WaitOnSnapshotNumber 1
 
       it "acks signed snapshot from the constant leader" $ do
@@ -519,14 +545,16 @@ spec =
             sig = sign bobSk snapshot
             st = inOpenState threeParties
             ack = AckSn sig (number snapshot)
-        update bobEnv ledger st input `hasEffect` NetworkEffect ack
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st input `hasEffect` NetworkEffect ack
 
       it "does not ack snapshots from non-leaders" $ do
         let input :: Input tx
             input = receiveMessageFrom notTheLeader $ ReqSn 0 1 [] Nothing Nothing
             notTheLeader = bob
             st = inOpenState threeParties
-        update bobEnv ledger st input `shouldSatisfy` \case
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st input `shouldSatisfy` \case
           Error (RequireFailed ReqSnNotLeader{requestedSn = 1, leader}) -> leader == notTheLeader
           _ -> False
 
@@ -538,7 +566,8 @@ spec =
             st =
               inOpenState' threeParties $
                 coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])}
-        update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "rejects too-old snapshots when collecting signatures" $ do
         let input :: Input tx
@@ -551,14 +580,16 @@ spec =
                   { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
                   , seenSnapshot = SeenSnapshot (testSnapshot 3 0 [] mempty) mempty
                   }
-        update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
       it "rejects too-new snapshots from the leader" $ do
         let input :: Input tx
             input = receiveMessageFrom theLeader $ ReqSn 0 3 [] Nothing Nothing
             theLeader = carol
             st = inOpenState threeParties
-        update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
 
       it "rejects invalid snapshots version" $ do
         let validSnNumber = 0
@@ -567,7 +598,8 @@ spec =
             theLeader = carol
             expectedSnVersion = 0
             st = inOpenState threeParties
-        update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSvNumberInvalid invalidSnVersion expectedSnVersion)
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st input `shouldBe` Error (RequireFailed $ ReqSvNumberInvalid invalidSnVersion expectedSnVersion)
 
       it "rejects overlapping snapshot requests from the leader" $ do
         let theLeader = alice
@@ -583,7 +615,8 @@ spec =
           step secondReqTx
           getState
 
-        update bobEnv ledger s3 secondReqSn `shouldSatisfy` \case
+        knownTip <- generate $ genKnownTip s3
+        update bobEnv ledger knownTip s3 secondReqSn `shouldSatisfy` \case
           Error RequireFailed{} -> True
           _ -> False
 
@@ -622,12 +655,14 @@ spec =
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
             input = receiveMessage $ ReqTx (aValidTx 42)
-        update bobEnv ledger s0 input `shouldBe` Error (UnhandledInput input (headState s0))
+        knownTip <- generate $ genKnownTip s0
+        update bobEnv ledger knownTip s0 input `shouldBe` Error (UnhandledInput input (headState s0))
 
       it "ignores in-flight ReqDec when closed" $ do
         let s0 = inClosedState threeParties
             input = receiveMessage $ ReqDec{transaction = aValidTx 42}
-        update bobEnv ledger s0 input `shouldBe` Error (UnhandledInput input (headState s0))
+        knownTip <- generate $ genKnownTip s0
+        update bobEnv ledger knownTip s0 input `shouldBe` Error (UnhandledInput input (headState s0))
 
       it "everyone does collect on last commit after collect com" $ do
         let aliceCommit = OnCommitTx testHeadId alice (utxoRef 1)
@@ -639,8 +674,9 @@ spec =
             step (observeTxAtSlot 2 bobCommit)
             getState
 
+        knownTip <- generate $ genKnownTip waitingForLastCommit
         -- Bob is not the last party, but still does post a collect
-        update bobEnv ledger waitingForLastCommit (observeTxAtSlot 3 carolCommit)
+        update bobEnv ledger knownTip waitingForLastCommit (observeTxAtSlot 3 carolCommit)
           `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = CollectComTx{}} -> True
             _ -> False
@@ -652,7 +688,8 @@ spec =
             getState
 
         let unhandledInput = observeTx OnAbortTx{headId = testHeadId}
-        update bobEnv ledger afterCollectCom unhandledInput
+        knownTip <- generate $ genKnownTip afterCollectCom
+        update bobEnv ledger knownTip afterCollectCom unhandledInput
           `shouldBe` Error (UnhandledInput unhandledInput (headState afterCollectCom))
 
       it "cannot observe collect com after abort" $ do
@@ -662,7 +699,8 @@ spec =
             getState
 
         let unhandledInput = observeTx (OnCollectComTx testHeadId)
-        update bobEnv ledger afterAbort unhandledInput
+        knownTip <- generate $ genKnownTip afterAbort
+        update bobEnv ledger knownTip afterAbort unhandledInput
           `shouldBe` Error (UnhandledInput unhandledInput (headState afterAbort))
 
       it "notifies user on head closing and when passing the contestation deadline" $ do
@@ -721,7 +759,8 @@ spec =
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             deadline = arbitrary `generateWith` 42
             params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters (headState s0))
-        update bobEnv ledger s0 (observeTx $ OnContestTx testHeadId 1 deadline)
+        knownTip <- generate $ genKnownTip s0
+        update bobEnv ledger knownTip s0 (observeTx $ OnContestTx testHeadId 1 deadline)
           `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
 
       it "ignores unrelated initTx" prop_ignoresUnrelatedOnInitTx
@@ -729,7 +768,8 @@ spec =
       prop "connectivity messages passthrough without affecting the current state" $
         \(ttl, connectivityMessage, headState) -> do
           let input = connectivityChanged ttl connectivityMessage
-          let outcome = update bobEnv ledger headState input
+          knownTip <- generate $ genKnownTip headState
+          let outcome = update bobEnv ledger knownTip headState input
           outcome `shouldSatisfy` \case
             Continue{stateChanges, effects} ->
               null effects
@@ -749,43 +789,55 @@ spec =
 
       prop "ignores abortTx of another head" $ \otherHeadId -> do
         let abortOtherHead = observeTx $ OnAbortTx{headId = otherHeadId}
-        update bobEnv ledger (inInitialState threeParties) abortOtherHead
+            st = inInitialState threeParties
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st abortOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores collectComTx of another head" $ \otherHeadId -> do
         let collectOtherHead = observeTx $ OnCollectComTx{headId = otherHeadId}
-        update bobEnv ledger (inInitialState threeParties) collectOtherHead
+            st = inInitialState threeParties
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
         let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId, newVersion = 1, distributedUTxO = mempty}
-        update bobEnv ledger (inOpenState threeParties) decrementOtherHead
+            st = inOpenState threeParties
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st decrementOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores closeTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
-        let openState = inOpenState threeParties
         let closeOtherHead = observeTx $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
-        update bobEnv ledger openState closeOtherHead
+            st = inOpenState threeParties
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st closeOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores contestTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
         let contestOtherHead = observeTx $ OnContestTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
-        update bobEnv ledger (inClosedState threeParties) contestOtherHead
+            st = inClosedState threeParties
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st contestOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores fanoutTx of another head" $ \otherHeadId fanoutUTxO -> do
         let collectOtherHead = observeTx $ OnFanoutTx{headId = otherHeadId, fanoutUTxO}
-        update bobEnv ledger (inClosedState threeParties) collectOtherHead
+            st = inClosedState threeParties
+        knownTip <- generate $ genKnownTip st
+        update bobEnv ledger knownTip st collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "fanout utxo always relies on observed utxo" $ \fanoutUTxO ->
         forAllShrink genClosedState shrink $ \closedState -> do
-          let fanoutHead = observeTx $ OnFanoutTx{headId = testHeadId, fanoutUTxO}
-          let outcome = update bobEnv ledger closedState fanoutHead
-          counterexample ("Outcome: " <> show outcome) $
-            outcome `hasStateChangedSatisfying` \case
-              HeadFannedOut{utxo} -> utxo == fanoutUTxO
-              _ -> False
+          forAllShrink (genKnownTip closedState) shrink $ \knownTip -> do
+            let fanoutHead = observeTx $ OnFanoutTx{headId = testHeadId, fanoutUTxO}
+            let outcome = update bobEnv ledger knownTip closedState fanoutHead
+            counterexample ("Outcome: " <> show outcome) $
+              outcome `hasStateChangedSatisfying` \case
+                HeadFannedOut{utxo} -> utxo == fanoutUTxO
+                _ -> False
 
       describe "SideLoad InitialSnapshot" $ do
         it "accept side load initial snapshot with idempotence" $ do
@@ -804,7 +856,8 @@ spec =
               snapshot0 = getSnapshot initialSn
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
           let wrongInitialSnapshot = InitialSnapshot testHeadId (utxoRef 2)
-          update bobEnv ledger s0 (ClientInput (SideLoadSnapshot wrongInitialSnapshot))
+          knownTip <- generate $ genKnownTip s0
+          update bobEnv ledger knownTip s0 (ClientInput (SideLoadSnapshot wrongInitialSnapshot))
             `shouldBe` Error (SideLoadSnapshotFailed SideLoadInitialSnapshotMismatch)
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
 
@@ -814,7 +867,8 @@ spec =
               snapshot0 = getSnapshot initialSn
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
           let initialSnapshotOtherHead = InitialSnapshot otherHeadId mempty
-          update bobEnv ledger s0 (ClientInput (SideLoadSnapshot initialSnapshotOtherHead))
+          knownTip <- generate $ genKnownTip s0
+          update bobEnv ledger knownTip s0 (ClientInput (SideLoadSnapshot initialSnapshotOtherHead))
             `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
 
@@ -865,7 +919,8 @@ spec =
 
           getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot2
 
-          update bobEnv ledger sideLoadedState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot1 multisig1))
+          knownTip <- generate $ genKnownTip sideLoadedState
+          update bobEnv ledger knownTip sideLoadedState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot1 multisig1))
             `shouldBe` Error (SideLoadSnapshotFailed{sideLoadRequirementFailure = SideLoadSnNumberInvalid 1 2})
 
         it "reject side load confirmed snapshot because missing signature" $ do
@@ -874,7 +929,8 @@ spec =
           let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
-          update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
+          knownTip <- generate $ genKnownTip startingState
+          update bobEnv ledger knownTip startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
             `shouldSatisfy` \case
               Error (SideLoadSnapshotFailed SideLoadInvalidMultisignature{vkeys}) -> vkeys == [vkey alice, vkey bob, vkey carol]
               _ -> False
@@ -885,7 +941,8 @@ spec =
           let snapshot2 = Snapshot testHeadId 1 2 [tx2] (utxoRef 3) Nothing Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
-          update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
+          knownTip <- generate $ genKnownTip startingState
+          update bobEnv ledger knownTip startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
             `shouldBe` Error (SideLoadSnapshotFailed{sideLoadRequirementFailure = SideLoadSvNumberInvalid 1 0})
 
         prop "reject side load confirmed snapshot because wrong snapshot utxoToDecommit" $ \utxoToDecommit -> do
@@ -893,7 +950,8 @@ spec =
           let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing (Just utxoToDecommit)
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
-          update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
+          knownTip <- generate $ genKnownTip startingState
+          update bobEnv ledger knownTip startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
             `shouldBe` Error (SideLoadSnapshotFailed $ SideLoadUTxOToDecommitInvalid (Just utxoToDecommit) Nothing)
 
         prop "reject side load confirmed snapshot because wrong snapshot utxoToCommit" $ \utxoToCommit -> do
@@ -902,7 +960,8 @@ spec =
           let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) (Just utxoToCommit) Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
-          update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
+          knownTip <- generate $ genKnownTip startingState
+          update bobEnv ledger knownTip startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
             `shouldBe` Error (SideLoadSnapshotFailed $ SideLoadUTxOToCommitInvalid (Just utxoToCommit) Nothing)
 
         it "accept side load confirmed snapshot with idempotence" $ do
@@ -921,7 +980,8 @@ spec =
               multisig1OtherHead = aggregate [sign aliceSk snapshot1OtherHead, sign bobSk snapshot1OtherHead, sign carolSk snapshot1OtherHead]
               confirmedSnapshotOtherHead = ConfirmedSnapshot snapshot1OtherHead multisig1OtherHead
 
-          update bobEnv ledger startingState (ClientInput (SideLoadSnapshot confirmedSnapshotOtherHead))
+          knownTip <- generate $ genKnownTip startingState
+          update bobEnv ledger knownTip startingState (ClientInput (SideLoadSnapshot confirmedSnapshotOtherHead))
             `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
     describe "Coordinated Head Protocol using real Tx" $ do
@@ -1004,7 +1064,8 @@ spec =
         let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
         let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4}
 
-        let outcome = update aliceEnv ledger nodeState input
+        knownTip <- pick $ genKnownTip nodeState
+        let outcome = update aliceEnv ledger knownTip nodeState input
 
         forM_ [txId depositTx1, txId depositTx2, txId depositTx3] $ \depositId ->
           assert $ case outcome of
@@ -1110,7 +1171,8 @@ spec =
 
       let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
       let input = receiveMessage $ ReqDec{transaction = tx'}
-      update bobEnv ledger st input `shouldSatisfy` \case
+      knownTip <- generate $ genKnownTip st
+      update bobEnv ledger knownTip st input `shouldSatisfy` \case
         Wait WaitOnNotApplicableDecommitTx{notApplicableReason = DecommitTxInvalid{}} _ -> True
         _ -> False
 
@@ -1120,11 +1182,12 @@ prop_ignoresUnrelatedOnInitTx :: Property
 prop_ignoresUnrelatedOnInitTx =
   forAll arbitrary $ \env ->
     forAll (genUnrelatedInit env) $ \unrelatedInit -> do
-      let outcome = update env simpleLedger inIdleState (observeTx unrelatedInit)
-      counterexample ("Outcome: " <> show outcome) $
-        outcome `hasStateChangedSatisfying` \case
-          IgnoredHeadInitializing{} -> True
-          _ -> False
+      forAll (genKnownTip inIdleState) $ \knownTip -> do
+        let outcome = update env simpleLedger knownTip inIdleState (observeTx unrelatedInit)
+        counterexample ("Outcome: " <> show outcome) $
+          outcome `hasStateChangedSatisfying` \case
+            IgnoredHeadInitializing{} -> True
+            _ -> False
  where
   genUnrelatedInit :: Environment -> Gen (OnChainTx tx)
   genUnrelatedInit env =
@@ -1355,12 +1418,13 @@ getState = nodeState <$> get
 
 -- | Calls 'update' and 'aggregate' to drive the 'runHeadLogic' monad forward.
 step ::
-  (MonadState (StepState tx) m, IsChainState tx) =>
+  (MonadState (StepState tx) m, IsChainState tx, MonadIO m) =>
   Input tx ->
   m (Outcome tx)
 step input = do
   StepState{nodeState, env, ledger} <- get
-  let outcome = update env ledger nodeState input
+  knownTip <- liftIO $ generate (genKnownTip nodeState)
+  let outcome = update env ledger knownTip nodeState input
   let nodeState' = aggregateState nodeState outcome
   put StepState{env, ledger, nodeState = nodeState'}
   pure outcome
@@ -1431,3 +1495,6 @@ testSnapshot number version confirmed utxo =
     , utxoToCommit = mempty
     , utxoToDecommit = mempty
     }
+
+genKnownTip :: NodeState tx -> Gen ChainPoint
+genKnownTip NodeState{currentSlot = (ChainSlot slotNo)} = genChainPointAt (fromIntegral slotNo)
