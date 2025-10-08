@@ -30,6 +30,7 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
@@ -306,7 +307,8 @@ stepHydraNode ::
 stepHydraNode node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
-  outcome <- atomically $ processNextInput node queuedItem
+  syncedStatus <- chainSyncedStatus
+  outcome <- atomically $ processNextInput node queuedItem syncedStatus
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     Continue{stateChanges, effects} -> do
@@ -326,7 +328,9 @@ stepHydraNode node = do
 
   Environment{party} = env
 
-  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
+  Chain{chainSyncedStatus} = oc
+
+  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env, oc} = node
 
 -- | The maximum number of times to re-enqueue a network messages upon 'Wait'.
 -- outcome.
@@ -347,15 +351,16 @@ processNextInput ::
   IsChainState tx =>
   HydraNode tx m ->
   Input tx ->
+  SyncedStatus ->
   STM m (Outcome tx)
-processNextInput HydraNode{nodeStateHandler, ledger, env} e =
+processNextInput HydraNode{nodeStateHandler, ledger, env} e SyncedStatus{tip} =
   modifyNodeState $ \s ->
     let outcome = computeOutcome s e
      in (outcome, aggregateState s outcome)
  where
   NodeStateHandler{modifyNodeState} = nodeStateHandler
 
-  computeOutcome = HeadLogic.update env ledger
+  computeOutcome = HeadLogic.update env ledger tip
 
 processStateChanges :: (MonadSTM m, MonadTime m) => HydraNode tx m -> [StateChanged tx] -> m ()
 processStateChanges node stateChanges = do
