@@ -121,6 +121,7 @@ executable inspect-script
   build-depends:
     , aeson
     , bytestring
+    , cardano-api
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude

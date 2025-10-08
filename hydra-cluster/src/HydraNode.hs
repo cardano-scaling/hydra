@@ -5,6 +5,7 @@ module HydraNode where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (STM, delete)
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, getVerificationKey)
 import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
@@ -49,7 +50,8 @@ import System.Process.Typed (
   waitExitCode,
   withProcessTerm,
  )
-import Test.Hydra.Prelude (failAfter, failure, shouldNotBe, withLogFile)
+import Test.Hspec (shouldNotBe)
+import Test.Hydra.Prelude (failAfter, failure, withLogFile)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node

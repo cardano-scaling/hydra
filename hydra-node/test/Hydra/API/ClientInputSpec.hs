@@ -1,7 +1,6 @@
 module Hydra.API.ClientInputSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Data.Aeson (Result (..), fromJSON)
 import Data.Aeson.Lens (key)
@@ -14,6 +13,8 @@ import Test.Aeson.GenericSpecs (
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
  )
+import Test.Hspec (Spec, describe, parallel)
+import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (counterexample, forAll, property)
 
 spec :: Spec

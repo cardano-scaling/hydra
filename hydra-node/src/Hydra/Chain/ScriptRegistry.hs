@@ -4,18 +4,16 @@ module Hydra.Chain.ScriptRegistry where
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (Key (..), PoolId, SigningKey)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((!!))
 import Hydra.Cardano.Api (
   Era,
   EraHistory,
-  Key (..),
   LedgerEra,
   NetworkId,
   PParams,
   PaymentKey,
-  PoolId,
-  SigningKey,
   SystemStart,
   Tx,
   TxBodyErrorAutoBalance,

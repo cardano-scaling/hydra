@@ -5,11 +5,12 @@ module Hydra.Tx.Snapshot where
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey)
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.:?), (.=))
 import Data.ByteString.Lazy qualified as LBS
-import Hydra.Cardano.Api (SerialiseAsRawBytes (..), SigningKey)
+import Hydra.Cardano.Api (SerialiseAsRawBytes (..))
 import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.HeadId (HeadId)

@@ -4,12 +4,13 @@ import Hydra.Prelude
 
 import Cardano.Api.Internal.Genesis (shelleyGenesisDefaults)
 import Cardano.Api.Internal.GenesisParameters (fromShelleyGenesis)
+import Cardano.Api.Shelley (ShelleyGenesis (..))
 import Cardano.Ledger.Slot (unSlotNo)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
-import Hydra.Cardano.Api (GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), Tx)
+import Hydra.Cardano.Api (GenesisParameters (..), ShelleyEra, Tx)
 import Hydra.Chain (
   Chain (..),
   ChainComponent,

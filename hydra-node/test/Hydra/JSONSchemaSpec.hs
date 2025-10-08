@@ -9,6 +9,7 @@ import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson.Lens (key)
 import Hydra.JSONSchema (prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import System.FilePath ((</>))
+import Test.Hspec (Spec, describe, it, shouldThrow)
 import Test.QuickCheck.Instances.Time ()
 
 spec :: Spec

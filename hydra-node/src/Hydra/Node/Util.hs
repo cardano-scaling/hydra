@@ -4,13 +4,12 @@ module Hydra.Node.Util where
 
 import Hydra.Prelude
 
+import Cardano.Api.Shelley (SigningKey, VerificationKey, getVerificationKey)
+
 import Hydra.Cardano.Api (
   File (..),
   HasTextEnvelope,
   PaymentKey,
-  SigningKey,
-  VerificationKey,
-  getVerificationKey,
   readFileTextEnvelope,
  )
 

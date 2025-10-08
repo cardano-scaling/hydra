@@ -17,6 +17,7 @@ import Options.Applicative (
   info,
   renderFailure,
  )
+import Test.Hspec (Expectation, Spec, it, parallel, shouldBe, shouldSatisfy)
 import Text.Regex.TDFA ((=~))
 
 spec :: Spec

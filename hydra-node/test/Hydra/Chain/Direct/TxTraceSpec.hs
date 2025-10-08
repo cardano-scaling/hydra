@@ -19,8 +19,8 @@
 module Hydra.Chain.Direct.TxTraceSpec where
 
 import Hydra.Prelude hiding (Any, State, label, show)
-import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (VerificationKey)
 import Cardano.Api.UTxO (UTxO, totalLovelace)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
@@ -33,7 +33,6 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   TxId,
   TxOutDatum,
-  VerificationKey,
   getTxBody,
   getTxId,
   lovelaceToValue,
@@ -64,6 +63,8 @@ import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), getSnapshot, number)
 import PlutusTx.Builtins (toBuiltin)
+import Test.Hspec (Spec)
+import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (

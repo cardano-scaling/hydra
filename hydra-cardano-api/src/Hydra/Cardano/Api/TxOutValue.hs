@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.TxOutValue where
 
-import Hydra.Cardano.Api.Prelude
+import Cardano.Api (IsMaryBasedEra, TxOutValue (..), Value, maryBasedEra, shelleyBasedEra, shelleyBasedEraConstraints, toLedgerValue)
 
 -- | Inject some 'Value' into a 'TxOutValue'
 mkTxOutValue ::

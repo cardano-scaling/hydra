@@ -1,7 +1,7 @@
 module Test.Hydra.Cluster.Utils where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hspec (Spec, it)
 
 import Hydra.Cardano.Api (ChainPoint, SlotNo, chainPointToSlotNo)
 import Hydra.Cluster.Fixture (KnownNetwork (..))

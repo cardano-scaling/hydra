@@ -58,6 +58,7 @@ library
     , async
     , base
     , brick                 >=1.10
+    , cardano-api
     , containers
     , hydra-cardano-api
     , hydra-node
@@ -99,6 +100,7 @@ test-suite tests
   build-depends:
     , blaze-builder
     , bytestring
+    , cardano-api
     , filepath
     , hspec
     , hydra-cardano-api

@@ -6,6 +6,7 @@ module Hydra.Cluster.Scenarios where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (LedgerProtocolParameters (..), SigningKey, getVerificationKey)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
 import Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
@@ -45,9 +46,7 @@ import Hydra.Cardano.Api (
   Coin (..),
   Era,
   File (File),
-  Key (SigningKey),
   KeyWitnessInCtx (..),
-  LedgerProtocolParameters (..),
   PaymentKey,
   PolicyId (..),
   Tx,
@@ -62,7 +61,6 @@ import Hydra.Cardano.Api (
   fromLedgerTx,
   getTxBody,
   getTxId,
-  getVerificationKey,
   lovelaceToValue,
   makeSignedTransaction,
   mkScriptAddress,
@@ -160,6 +158,7 @@ import Network.HTTP.Types (urlEncode)
 import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
 import System.Process (callProcess)
+import Test.Hspec (shouldBe, shouldContain, shouldMatchList, shouldNotBe, shouldReturn, shouldSatisfy, shouldThrow)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript, genUTxOWithAssetsSized)
 import Test.QuickCheck (Positive, choose, elements, generate)
@@ -1390,7 +1389,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           -- check that user balance balance contains the change from the commit tx
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
             `shouldReturn` lovelaceToValue (seedAmount + seedAmount - commitAmount)
-            <> tokenDiff
+              <> tokenDiff
 
           send n2 $ input "Close" []
 
@@ -1410,7 +1409,7 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
             -- NOTE: in the end we expect seedAmount * 2 since we seeded from faucet twice + assets we minted
             `shouldReturn` lovelaceToValue (seedAmount * 2)
-            <> tokenAssetValue
+              <> tokenAssetValue
  where
   hydraTracer = contramap FromHydraNode tracer
 
