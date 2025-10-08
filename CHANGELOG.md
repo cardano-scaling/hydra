@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.23.0] - UNRELEASED
+## [1.0.0] - 2025-10-08
 
 - Accept additional field `amount` when depositing to specify the amount of
   Lovelace that should be depositted to a Head returning any leftover to the

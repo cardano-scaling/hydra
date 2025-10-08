@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-plutus-extras
-version:       0.22.4
+version:       1.0.0
 synopsis:
   Several extras and extensions of plutus-tx and plutus-ledger-api
 
