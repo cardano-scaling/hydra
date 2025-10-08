@@ -3,7 +3,6 @@
 module Hydra.Cluster.Options where
 
 import Data.ByteString.Char8 qualified as BSC
-import Data.List qualified as List
 import Hydra.Cardano.Api (TxId, deserialiseFromRawBytesHex)
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Options (persistenceRotateAfterParser)
@@ -93,7 +92,7 @@ parseOptions =
    where
     parseTxIds :: String -> Either String [TxId]
     parseTxIds str =
-      let parsed = fmap (deserialiseFromRawBytesHex . BSC.pack) (List.lines str)
+      let parsed = fmap deserialiseFromRawBytesHex (BSC.split ',' (BSC.pack str))
        in if null (lefts parsed) then Right (rights parsed) else Left ("Invalid TxId" :: String)
 
   parseUseMithril =
