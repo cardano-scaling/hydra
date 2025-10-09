@@ -541,7 +541,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       describe "Fanout maximum UTxOs" $ do
         -- This constant is set to the maximum number of UTxOs that can be
         -- fanned out in a single transaction. It is derived from the maximum
-        -- transaction execution budget.
+        -- transaction execution budget. See <https://github.com/cardano-scaling/hydra/issues/1468> work on addressing this.
+        
+        let ledgerSizeLimit = 41
         let ledgerSizeLimit = 41
 
         it "reaches the fan out limit" $ \tracer ->
