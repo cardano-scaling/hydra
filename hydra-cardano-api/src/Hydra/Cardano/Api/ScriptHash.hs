@@ -3,7 +3,6 @@
 module Hydra.Cardano.Api.ScriptHash where
 
 import Hydra.Cardano.Api.Prelude
-import PlutusLedgerApi.Data.V1 qualified as Plutus
 
 -- * Extras
 
@@ -11,6 +10,3 @@ import PlutusLedgerApi.Data.V1 qualified as Plutus
 hashScriptInAnyLang :: ScriptInAnyLang -> ScriptHash
 hashScriptInAnyLang (ScriptInAnyLang _ script) =
   hashScript script
-
-toPlutusScriptHash :: ScriptHash -> Plutus.ScriptHash
-toPlutusScriptHash = Plutus.ScriptHash . Plutus.toBuiltin . serialiseToRawBytes
