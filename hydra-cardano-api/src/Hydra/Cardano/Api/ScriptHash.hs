@@ -12,5 +12,3 @@ hashScriptInAnyLang :: ScriptInAnyLang -> ScriptHash
 hashScriptInAnyLang (ScriptInAnyLang _ script) =
   hashScript script
 
-toPlutusScriptHash :: ScriptHash -> Plutus.ScriptHash
-toPlutusScriptHash = Plutus.ScriptHash . Plutus.toBuiltin . serialiseToRawBytes

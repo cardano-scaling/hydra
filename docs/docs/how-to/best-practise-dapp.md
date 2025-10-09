@@ -162,7 +162,7 @@ import PlutusTx.Eq ((==))
 import PlutusTx.Foldable (foldMap)
 import PlutusTx.Functor ((<$>))
 import PlutusTx.List qualified as L
-import PlutusTx.Prelude (check)
+import PlutusTx.Prelude (check, traceIfFalse)
 
 newtype R = R
   { expectedHeadId :: CurrencySymbol
@@ -182,7 +182,7 @@ exampleValidator _ redeemer ctx =
   checkCorrectHeadId =
     let outputValue = foldMap txOutValue (txInfoOutputs (scriptContextTxInfo ctx))
         pts = findParticipationToken expectedHeadId outputValue
-     in L.length pts == 1
+     in traceIfFalse "HeadId is not correct" (L.length pts == 1)
 
   findParticipationToken :: CurrencySymbol -> Value -> [(TokenName, Integer)]
   findParticipationToken headCurrency (Value val) =
