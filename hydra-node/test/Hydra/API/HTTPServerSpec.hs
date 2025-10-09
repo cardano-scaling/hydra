@@ -208,6 +208,7 @@ spec = do
                 Success{} -> property True
                 Error e -> counterexample (toString $ toText e) $ property False
 
+-- TODO! test unSynced
 apiServerSpec :: Spec
 apiServerSpec = do
   describe "API should respond correctly" $ do
@@ -218,6 +219,7 @@ apiServerSpec = do
         putClientInput :: ClientInput tx -> IO ()
         putClientInput = const (pure ())
         getNodeState = pure inIdleState
+
     describe "GET /protocol-parameters" $ do
       responseChannel <- runIO newTChanIO
       with

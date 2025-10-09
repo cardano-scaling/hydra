@@ -128,12 +128,11 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     raceLabelled_
       ( "api-server"
       , do
-          traceWith tracer (APIServerStarted port)
           startServer serverSettings
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp env party tracer historyTimedOutputs callback nodeStateP networkInfoP responseChannel serverOutputFilter)
+              (wsApp env party tracer historyTimedOutputs callback nodeStateP networkInfoP responseChannel serverOutputFilter chainSyncedStatus)
               ( httpApp
                   tracer
                   chain
@@ -173,7 +172,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
 
   EventSource{sourceEvents} = eventSource
 
-  Chain{mkChainState} = chain
+  Chain{mkChainState, chainSyncedStatus} = chain
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of

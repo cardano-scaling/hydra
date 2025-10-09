@@ -66,6 +66,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
  )
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
+import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
 import Ouroboros.Network.Magic (NetworkMagic (..))
@@ -142,13 +143,16 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newLabelledTQueueIO "direct-chain-queue"
   -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip backend) pure $ do
+  let getCurrentTip = queryTip backend
+  chainPoint <- maybe getCurrentTip pure $ do
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
+  tip <- getCurrentTip
+  syncedStatus <- newLabelledTVarIO "direct-chain-sync-status" (unSynced tip)
   let chainHandle =
         mkChain
           tracer
@@ -157,8 +161,8 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
           ctx
           localChainState
           (submitTx queue)
-
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
+          syncedStatus
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState syncedStatus getCurrentTip
   res <-
     raceLabelled
       ( "direct-chain-connection"

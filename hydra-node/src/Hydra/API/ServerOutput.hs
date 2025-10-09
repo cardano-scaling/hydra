@@ -5,13 +5,14 @@
 module Hydra.API.ServerOutput where
 
 import Control.Lens ((.~))
-import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, tagSingleConstructors, withObject, (.:))
+import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, object, omitNothingFields, tagSingleConstructors, withObject, (.:), (.=))
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain.SyncedStatus (SyncedStatus)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
@@ -140,6 +141,21 @@ data InvalidInput = InvalidInput
 
 deriving instance ToJSON InvalidInput
 deriving instance FromJSON InvalidInput
+
+newtype ChainOutOfSync = ChainOutOfSync {syncedStatus :: SyncedStatus}
+  deriving newtype (Eq, Show)
+  deriving (Generic)
+  deriving newtype (Arbitrary)
+
+instance ToJSON ChainOutOfSync where
+  toJSON (ChainOutOfSync s) =
+    object ["tag" .= String "ChainOutOfSync", "syncedStatus" .= s]
+
+instance FromJSON ChainOutOfSync where
+  parseJSON = withObject "ChainOutOfSync" $ \o ->
+    ChainOutOfSync <$> o .: "syncedStatus"
+
+instance ToADTArbitrary ChainOutOfSync
 
 data ServerOutput tx
   = NetworkConnected
