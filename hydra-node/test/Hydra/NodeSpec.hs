@@ -11,6 +11,7 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
+import Hydra.Cardano.Api.ChainPoint (genChainPointAt)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Chain.SyncedStatus (SyncedStatus (..))
@@ -362,7 +363,7 @@ mockChain =
   Chain
     { mkChainState = error "mockChain: unexpected mkChainState"
     , chainSyncedStatus = do
-        chainPoint <- liftIO . generate $ arbitrary
+        chainPoint <- liftIO . generate $ genChainPointAt 0
         pure $ SyncedStatus{point = Just chainPoint, tip = chainPoint}
     , postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
@@ -526,7 +527,7 @@ throwExceptionOnPostTx exception node =
           Chain
             { mkChainState = error "mkChainState not implemented"
             , chainSyncedStatus = do
-                chainPoint <- generate arbitrary
+                chainPoint <- generate $ genChainPointAt 0
                 pure $ SyncedStatus{point = Just chainPoint, tip = chainPoint}
             , postTx = \_ -> throwIO exception
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
