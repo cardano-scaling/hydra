@@ -29,7 +29,7 @@ import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
-import Hydra.Cardano.Api (ChainPoint)
+import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
@@ -39,7 +39,7 @@ import Hydra.Chain (
   pushNewState,
   rollbackHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
 import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
@@ -72,10 +72,7 @@ import Hydra.HeadLogic.State (
   seenSnapshotNumber,
   setChainState,
  )
-import Hydra.Ledger (
-  Ledger (..),
-  applyTransactions,
- )
+import Hydra.Ledger (Ledger (..), ValidationError (..), applyTransactions)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
@@ -1330,6 +1327,16 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
  where
   ClosedState{headId} = closedState
 
+-- | True if the node is synced with the chain within the contestation window
+isSynced :: ChainSlot -> ChainPoint -> Environment -> Bool
+isSynced (ChainSlot nodeSlot) knownTip Environment{contestationPeriod} =
+  let cp = fromIntegral contestationPeriod
+   in case knownTip of
+        ChainPointAtGenesis -> nodeSlot == 0
+        ChainPoint slotNo _ ->
+          fromIntegral nodeSlot <= slotNo
+            && fromIntegral nodeSlot >= slotNo - cp
+
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
 -- 'aggregate' the events, resulting in a new 'HeadState'.
@@ -1343,7 +1350,16 @@ update ::
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-update env ledger _knownTip NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
+update env ledger knownTip NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
+  -- General Unsynced
+  (_, NetworkInput{})
+    | not (isSynced currentSlot knownTip env) ->
+        -- TODO! add ClientEffect $ ServerOutput
+        wait $ WaitOnNotApplicableTx $ ValidationError "NodeState out of synch"
+  (_, ClientInput{clientInput})
+    | not (isSynced currentSlot knownTip env) ->
+        -- TODO! change ClientEffect $ ServerOutput
+        cause . ClientEffect $ ServerOutput.CommandFailed clientInput st
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   (Idle _, ClientInput Init) ->
