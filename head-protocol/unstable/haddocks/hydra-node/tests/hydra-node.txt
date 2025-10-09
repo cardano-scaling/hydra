@@ -1004,6 +1004,7 @@ instance Test.QuickCheck.StateModel.Variables.HasVariables (Test.QuickCheck.Stat
 --   08:24:08.669152896211 UTC"} pure () </tt>@
 module Hydra.ModelSpec
 spec :: Spec
+propFanoutLimit :: Int -> Property
 propDL :: DL WorldState () -> Property
 propHydraModel :: Actions WorldState -> Property
 propCheckModelBalances :: Property
@@ -1033,6 +1034,8 @@ runIOSimProp :: Testable a => (forall s. PropertyM (RunMonad (IOSim s)) a) -> Pr
 runRunMonadIOSimGen :: forall a. Testable a => (forall s. Gen (RunMonad (IOSim s) a)) -> Gen Property
 eventually :: Action WorldState () -> DL WorldState ()
 action_ :: Typeable a => Action WorldState a -> DL WorldState ()
+instance Test.QuickCheck.StateModel.Variables.HasVariables (Cardano.Api.Internal.Keys.Class.SigningKey Cardano.Api.Internal.Keys.Shelley.PaymentKey)
+instance Test.QuickCheck.StateModel.Variables.HasVariables Hydra.Model.Payment.CardanoSigningKey
 
 
 -- | Stateful model-based testing of the transactions created by the

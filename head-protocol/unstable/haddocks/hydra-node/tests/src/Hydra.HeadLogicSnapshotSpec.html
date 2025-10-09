@@ -41,41 +41,41 @@ forall a. SpecWith a -&gt; SpecWith a
 </span><span class="hs-identifier hs-var">parallel</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-39"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623338"><span class="annot"><span class="annottext">threeParties :: [Party]
-</span><a href="#local-6989586621679623338"><span class="hs-identifier hs-var hs-var">threeParties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
+</span><span id="line-39"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623656"><span class="annot"><span class="annottext">threeParties :: [Party]
+</span><a href="#local-6989586621679623656"><span class="hs-identifier hs-var hs-var">threeParties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">carol</span></span><span class="hs-special">]</span><span>
-</span><span id="line-40"></span><span>        </span><span id="local-6989586621679623342"><span class="annot"><span class="annottext">u0 :: Set SimpleTxOut
-</span><a href="#local-6989586621679623342"><span class="hs-identifier hs-var hs-var">u0</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><span id="line-40"></span><span>        </span><span id="local-6989586621679623660"><span class="annot"><span class="annottext">u0 :: Set SimpleTxOut
+</span><a href="#local-6989586621679623660"><span class="hs-identifier hs-var hs-var">u0</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 forall a. Monoid a =&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
-</span><span id="line-41"></span><span>        </span><span id="local-6989586621679623349"><span class="annot"><span class="annottext">envFor :: SigningKey HydraKey -&gt; Environment
-</span><a href="#local-6989586621679623349"><span class="hs-identifier hs-var hs-var">envFor</span></a></span></span><span> </span><span id="local-6989586621679623350"><span class="annot"><span class="annottext">SigningKey HydraKey
-</span><a href="#local-6989586621679623350"><span class="hs-identifier hs-var">signingKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-42"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623351"><span class="annot"><span class="annottext">party :: Party
-</span><a href="#local-6989586621679623351"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party
+</span><span id="line-41"></span><span>        </span><span id="local-6989586621679623667"><span class="annot"><span class="annottext">envFor :: SigningKey HydraKey -&gt; Environment
+</span><a href="#local-6989586621679623667"><span class="hs-identifier hs-var hs-var">envFor</span></a></span></span><span> </span><span id="local-6989586621679623668"><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623668"><span class="hs-identifier hs-var">signingKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-42"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623669"><span class="annot"><span class="annottext">party :: Party
+</span><a href="#local-6989586621679623669"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party
 </span><span class="hs-identifier hs-var">deriveParty</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
-</span><a href="#local-6989586621679623350"><span class="hs-identifier hs-var">signingKey</span></a></span><span>
-</span><span id="line-43"></span><span>              </span><span id="local-6989586621679623352"><span class="annot"><span class="annottext">otherParties :: [Party]
-</span><a href="#local-6989586621679623352"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party -&gt; [Party] -&gt; [Party]
+</span><a href="#local-6989586621679623668"><span class="hs-identifier hs-var">signingKey</span></a></span><span>
+</span><span id="line-43"></span><span>              </span><span id="local-6989586621679623670"><span class="annot"><span class="annottext">otherParties :: [Party]
+</span><a href="#local-6989586621679623670"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party -&gt; [Party] -&gt; [Party]
 forall a. Eq a =&gt; a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.OldList.html#delete"><span class="hs-identifier hs-var">List.delete</span></a></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679623351"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679623338"><span class="hs-identifier hs-var">threeParties</span></a></span><span>
+</span><a href="#local-6989586621679623669"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679623656"><span class="hs-identifier hs-var">threeParties</span></a></span><span>
 </span><span id="line-44"></span><span>           </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Environment</span></span><span>
 </span><span id="line-45"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">Party
 party :: Party
 $sel:party:Environment :: Party
-</span><a href="#local-6989586621679623351"><span class="hs-identifier hs-var hs-var">party</span></a></span><span>
+</span><a href="#local-6989586621679623669"><span class="hs-identifier hs-var hs-var">party</span></a></span><span>
 </span><span id="line-46"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 signingKey :: SigningKey HydraKey
 $sel:signingKey:Environment :: SigningKey HydraKey
-</span><a href="#local-6989586621679623350"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span><span>
+</span><a href="#local-6989586621679623668"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span><span>
 </span><span id="line-47"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Party]
 otherParties :: [Party]
 $sel:otherParties:Environment :: [Party]
-</span><a href="#local-6989586621679623352"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span><span>
+</span><a href="#local-6989586621679623670"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span><span>
 </span><span id="line-48"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:contestationPeriod:Environment :: ContestationPeriod
 </span><span class="hs-identifier hs-var">contestationPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
 </span><span class="hs-identifier hs-var">defaultContestationPeriod</span></span><span>
@@ -87,19 +87,19 @@ $sel:otherParties:Environment :: [Party]
 </span><span class="hs-identifier hs-var">deriveOnChainId</span></span><span> </span><span class="annot"><span class="annottext">(Party -&gt; OnChainId) -&gt; [Party] -&gt; [OnChainId]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679623338"><span class="hs-identifier hs-var">threeParties</span></a></span><span>
+</span><a href="#local-6989586621679623656"><span class="hs-identifier hs-var">threeParties</span></a></span><span>
 </span><span id="line-51"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:configuredPeers:Environment :: Text
 </span><span class="hs-identifier hs-var">configuredPeers</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;&quot;</span></span><span>
 </span><span id="line-52"></span><span>                </span><span class="hs-special">}</span><span>
 </span><span id="line-53"></span><span>
-</span><span id="line-54"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623363"><span class="annot"><span class="annottext">coordinatedHeadState :: CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623363"><span class="hs-identifier hs-var hs-var">coordinatedHeadState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623681"><span class="annot"><span class="annottext">coordinatedHeadState :: CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679623681"><span class="hs-identifier hs-var hs-var">coordinatedHeadState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-55"></span><span>          </span><span class="annot"><span class="hs-identifier hs-type">CoordinatedHeadState</span></span><span>
 </span><span id="line-56"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:localUTxO:CoordinatedHeadState :: UTxOType SimpleTx
 </span><span class="hs-identifier hs-var">localUTxO</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679623342"><span class="hs-identifier hs-var">u0</span></a></span><span>
+</span><a href="#local-6989586621679623660"><span class="hs-identifier hs-var">u0</span></a></span><span>
 </span><span id="line-57"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:allTxs:CoordinatedHeadState :: Map (TxIdType SimpleTx) SimpleTx
 </span><span class="hs-identifier hs-var">allTxs</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Map SimpleId SimpleTx
 Map (TxIdType SimpleTx) SimpleTx
@@ -115,7 +115,7 @@ forall tx. HeadId -&gt; UTxOType tx -&gt; ConfirmedSnapshot tx
 </span><span class="hs-identifier hs-var">InitialSnapshot</span></span><span> </span><span class="annot"><span class="annottext">HeadId
 </span><span class="hs-identifier hs-var">testHeadId</span></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679623342"><span class="hs-identifier hs-var">u0</span></a></span><span>
+</span><a href="#local-6989586621679623660"><span class="hs-identifier hs-var">u0</span></a></span><span>
 </span><span id="line-60"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:seenSnapshot:CoordinatedHeadState :: SeenSnapshot SimpleTx
 </span><span class="hs-identifier hs-var">seenSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SeenSnapshot SimpleTx
 forall tx. SeenSnapshot tx
@@ -133,16 +133,16 @@ forall a. Maybe a
 </span><span class="hs-identifier hs-var">version</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
 </span><span class="hs-number">0</span></span><span>
 </span><span id="line-64"></span><span>            </span><span class="hs-special">}</span><span>
-</span><span id="line-65"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679622987"><span class="annot"><a href="#local-6989586621679623375"><span class="hs-identifier hs-type">sendReqSn</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Effect</span></span><span> </span><span class="annot"><a href="#local-6989586621679622987"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span></span><span>
-</span><span id="line-66"></span><span>        </span><span id="local-6989586621679623375"><span class="annot"><span class="annottext">sendReqSn :: forall tx. Effect tx -&gt; Bool
-</span><a href="#local-6989586621679623375"><span class="hs-identifier hs-var hs-var">sendReqSn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623305"><span class="annot"><a href="#local-6989586621679623693"><span class="hs-identifier hs-type">sendReqSn</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Effect</span></span><span> </span><span class="annot"><a href="#local-6989586621679623305"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span></span><span>
+</span><span id="line-66"></span><span>        </span><span id="local-6989586621679623693"><span class="annot"><span class="annottext">sendReqSn :: forall tx. Effect tx -&gt; Bool
+</span><a href="#local-6989586621679623693"><span class="hs-identifier hs-var hs-var">sendReqSn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-67"></span><span>          </span><span class="annot"><span class="hs-identifier hs-type">NetworkEffect</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ReqSn</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
 </span><span id="line-68"></span><span>          </span><span class="annot"><span class="annottext">Effect tx
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
-</span><span id="line-69"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623383"><span class="annot"><span class="annottext">snapshot1 :: Snapshot SimpleTx
-</span><a href="#local-6989586621679623383"><span class="hs-identifier hs-var hs-var">snapshot1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><span id="line-69"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623701"><span class="annot"><span class="annottext">snapshot1 :: Snapshot SimpleTx
+</span><a href="#local-6989586621679623701"><span class="hs-identifier hs-var hs-var">snapshot1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
 -&gt; SnapshotVersion
 -&gt; SnapshotNumber
 -&gt; [SimpleTx]
@@ -170,13 +170,13 @@ forall a. Maybe a
 forall a. Maybe a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
 </span><span id="line-70"></span><span>
-</span><span id="line-71"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623385"><span class="annot"><span class="annottext">ackFrom :: SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var hs-var">ackFrom</span></a></span></span><span> </span><span id="local-6989586621679623386"><span class="annot"><span class="annottext">SigningKey HydraKey
-</span><a href="#local-6989586621679623386"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span id="local-6989586621679623387"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679623387"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party -&gt; Message SimpleTx -&gt; Input SimpleTx
+</span><span id="line-71"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623703"><span class="annot"><span class="annottext">ackFrom :: SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var hs-var">ackFrom</span></a></span></span><span> </span><span id="local-6989586621679623704"><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623704"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span id="local-6989586621679623705"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679623705"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party -&gt; Message SimpleTx -&gt; Input SimpleTx
 forall tx. Party -&gt; Message tx -&gt; Input tx
 </span><a href="Hydra.HeadLogicSpec.html#receiveMessageFrom"><span class="hs-identifier hs-var">receiveMessageFrom</span></a></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679623387"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="annot"><span class="annottext">(Message SimpleTx -&gt; Input SimpleTx)
+</span><a href="#local-6989586621679623705"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="annot"><span class="annottext">(Message SimpleTx -&gt; Input SimpleTx)
 -&gt; Message SimpleTx -&gt; Input SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Signature (Snapshot SimpleTx) -&gt; SnapshotNumber -&gt; Message SimpleTx
@@ -187,8 +187,8 @@ forall a.
 SignableRepresentation a =&gt;
 SigningKey HydraKey -&gt; a -&gt; Signature a
 </span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
-</span><a href="#local-6989586621679623386"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
-</span><a href="#local-6989586621679623383"><span class="hs-identifier hs-var">snapshot1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621679623704"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="#local-6989586621679623701"><span class="hs-identifier hs-var">snapshot1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
 </span><span class="hs-number">1</span></span><span>
 </span><span id="line-72"></span><span>
 </span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
@@ -228,12 +228,12 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-80"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623394"><span class="annot"><span class="annottext">tx :: SimpleTx
-</span><a href="#local-6989586621679623394"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTx
+</span><span id="line-80"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623712"><span class="annot"><span class="annottext">tx :: SimpleTx
+</span><a href="#local-6989586621679623712"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTx
 </span><span class="hs-identifier hs-var">aValidTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
 </span><span class="hs-number">1</span></span><span>
-</span><span id="line-81"></span><span>            </span><span id="local-6989586621679623395"><span class="annot"><span class="annottext">outcome :: Outcome SimpleTx
-</span><a href="#local-6989586621679623395"><span class="hs-identifier hs-var hs-var">outcome</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><span id="line-81"></span><span>            </span><span id="local-6989586621679623713"><span class="annot"><span class="annottext">outcome :: Outcome SimpleTx
+</span><a href="#local-6989586621679623713"><span class="hs-identifier hs-var hs-var">outcome</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment
 -&gt; Ledger SimpleTx
 -&gt; NodeState SimpleTx
 -&gt; Input SimpleTx
@@ -242,13 +242,13 @@ forall tx.
 IsChainState tx =&gt;
 Environment -&gt; Ledger tx -&gt; NodeState tx -&gt; Input tx -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">update</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Environment
-</span><a href="#local-6989586621679623349"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623667"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; CoordinatedHeadState SimpleTx -&gt; NodeState SimpleTx
 </span><a href="Hydra.HeadLogicSpec.html#inOpenState%27"><span class="hs-identifier hs-var">inOpenState'</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623363"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Input SimpleTx -&gt; Outcome SimpleTx)
+</span><a href="#local-6989586621679623681"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Input SimpleTx -&gt; Outcome SimpleTx)
 -&gt; Input SimpleTx -&gt; Outcome SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx -&gt; Input SimpleTx
@@ -259,10 +259,10 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; Message SimpleTx
 forall tx. tx -&gt; Message tx
 </span><span class="hs-identifier hs-var">ReqTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621679623394"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679623712"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-82"></span><span>
 </span><span id="line-83"></span><span>        </span><span class="annot"><span class="annottext">Outcome SimpleTx
-</span><a href="#local-6989586621679623395"><span class="hs-identifier hs-var">outcome</span></a></span><span>
+</span><a href="#local-6989586621679623713"><span class="hs-identifier hs-var">outcome</span></a></span><span>
 </span><span id="line-84"></span><span>          </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; Effect SimpleTx -&gt; IO ()
 forall tx.
 (HasCallStack, IsChainState tx) =&gt;
@@ -287,7 +287,7 @@ SnapshotVersion
 </span><span class="hs-number">1</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">SimpleTx -&gt; TxIdType SimpleTx
 forall tx. IsTx tx =&gt; tx -&gt; TxIdType tx
 </span><span class="hs-identifier hs-var">txId</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621679623394"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleTx
+</span><a href="#local-6989586621679623712"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleTx
 forall a. Maybe a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
 Maybe (TxIdType SimpleTx)
@@ -303,15 +303,15 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-87"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623397"><span class="annot"><span class="annottext">tx :: SimpleTx
-</span><a href="#local-6989586621679623397"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTx
+</span><span id="line-87"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623715"><span class="annot"><span class="annottext">tx :: SimpleTx
+</span><a href="#local-6989586621679623715"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTx
 </span><span class="hs-identifier hs-var">aValidTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
 </span><span class="hs-number">1</span></span><span>
-</span><span id="line-88"></span><span>            </span><span id="local-6989586621679623398"><span class="annot"><span class="annottext">st :: CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623398"><span class="hs-identifier hs-var hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623363"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">localTxs</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679623397"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span class="hs-special">}</span><span>
-</span><span id="line-89"></span><span>            </span><span id="local-6989586621679623399"><span class="annot"><span class="annottext">outcome :: Outcome SimpleTx
-</span><a href="#local-6989586621679623399"><span class="hs-identifier hs-var hs-var">outcome</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><span id="line-88"></span><span>            </span><span id="local-6989586621679623716"><span class="annot"><span class="annottext">st :: CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679623716"><span class="hs-identifier hs-var hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679623681"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">localTxs</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679623715"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span class="hs-special">}</span><span>
+</span><span id="line-89"></span><span>            </span><span id="local-6989586621679623717"><span class="annot"><span class="annottext">outcome :: Outcome SimpleTx
+</span><a href="#local-6989586621679623717"><span class="hs-identifier hs-var hs-var">outcome</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment
 -&gt; Ledger SimpleTx
 -&gt; NodeState SimpleTx
 -&gt; Input SimpleTx
@@ -320,13 +320,13 @@ forall tx.
 IsChainState tx =&gt;
 Environment -&gt; Ledger tx -&gt; NodeState tx -&gt; Input tx -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">update</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Environment
-</span><a href="#local-6989586621679623349"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623667"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">bobSk</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; CoordinatedHeadState SimpleTx -&gt; NodeState SimpleTx
 </span><a href="Hydra.HeadLogicSpec.html#inOpenState%27"><span class="hs-identifier hs-var">inOpenState'</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623398"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Input SimpleTx -&gt; Outcome SimpleTx)
+</span><a href="#local-6989586621679623716"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Input SimpleTx -&gt; Outcome SimpleTx)
 -&gt; Input SimpleTx -&gt; Outcome SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; Message SimpleTx -&gt; Input SimpleTx
@@ -338,16 +338,16 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; Message SimpleTx
 forall tx. tx -&gt; Message tx
 </span><span class="hs-identifier hs-var">ReqTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621679623397"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679623715"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-90"></span><span>
 </span><span id="line-91"></span><span>        </span><span class="annot"><span class="annottext">Outcome SimpleTx
-</span><a href="#local-6989586621679623399"><span class="hs-identifier hs-var">outcome</span></a></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; (Effect SimpleTx -&gt; Bool) -&gt; IO ()
+</span><a href="#local-6989586621679623717"><span class="hs-identifier hs-var">outcome</span></a></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; (Effect SimpleTx -&gt; Bool) -&gt; IO ()
 forall tx.
 (HasCallStack, IsChainState tx) =&gt;
 Outcome tx -&gt; (Effect tx -&gt; Bool) -&gt; IO ()
 </span><a href="Hydra.HeadLogicSpec.html#hasNoEffectSatisfying"><span class="hs-operator hs-var">`hasNoEffectSatisfying`</span></a></span><span> </span><span class="annot"><span class="annottext">Effect SimpleTx -&gt; Bool
 forall tx. Effect tx -&gt; Bool
-</span><a href="#local-6989586621679623375"><span class="hs-identifier hs-var">sendReqSn</span></a></span><span>
+</span><a href="#local-6989586621679623693"><span class="hs-identifier hs-var">sendReqSn</span></a></span><span>
 </span><span id="line-92"></span><span>
 </span><span id="line-93"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
@@ -358,12 +358,12 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-94"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623400"><span class="annot"><span class="annottext">tx :: SimpleTx
-</span><a href="#local-6989586621679623400"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTx
+</span><span id="line-94"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623718"><span class="annot"><span class="annottext">tx :: SimpleTx
+</span><a href="#local-6989586621679623718"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTx
 </span><span class="hs-identifier hs-var">aValidTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
 </span><span class="hs-number">1</span></span><span>
-</span><span id="line-95"></span><span>            </span><span id="local-6989586621679623401"><span class="annot"><span class="annottext">sn1 :: Snapshot SimpleTx
-</span><a href="#local-6989586621679623401"><span class="hs-identifier hs-var hs-var">sn1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><span id="line-95"></span><span>            </span><span id="local-6989586621679623719"><span class="annot"><span class="annottext">sn1 :: Snapshot SimpleTx
+</span><a href="#local-6989586621679623719"><span class="hs-identifier hs-var hs-var">sn1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
 -&gt; SnapshotVersion
 -&gt; SnapshotNumber
 -&gt; [SimpleTx]
@@ -385,18 +385,18 @@ HeadId
 </span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
 </span><span class="hs-number">1</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679623342"><span class="hs-identifier hs-var">u0</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (Set SimpleTxOut)
+</span><a href="#local-6989586621679623660"><span class="hs-identifier hs-var">u0</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (Set SimpleTxOut)
 Maybe (UTxOType SimpleTx)
 forall a. Maybe a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (Set SimpleTxOut)
 Maybe (UTxOType SimpleTx)
 forall a. Maybe a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
-</span><span id="line-96"></span><span>            </span><span id="local-6989586621679623402"><span class="annot"><span class="annottext">st :: CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623402"><span class="hs-identifier hs-var hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623363"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">seenSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SeenSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621679623401"><span class="hs-identifier hs-type">sn1</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-type">mempty</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-97"></span><span>            </span><span id="local-6989586621679623404"><span class="annot"><span class="annottext">outcome :: Outcome SimpleTx
-</span><a href="#local-6989586621679623404"><span class="hs-identifier hs-var hs-var">outcome</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><span id="line-96"></span><span>            </span><span id="local-6989586621679623720"><span class="annot"><span class="annottext">st :: CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679623720"><span class="hs-identifier hs-var hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679623681"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">seenSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SeenSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621679623719"><span class="hs-identifier hs-type">sn1</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-type">mempty</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-97"></span><span>            </span><span id="local-6989586621679623722"><span class="annot"><span class="annottext">outcome :: Outcome SimpleTx
+</span><a href="#local-6989586621679623722"><span class="hs-identifier hs-var hs-var">outcome</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment
 -&gt; Ledger SimpleTx
 -&gt; NodeState SimpleTx
 -&gt; Input SimpleTx
@@ -405,13 +405,13 @@ forall tx.
 IsChainState tx =&gt;
 Environment -&gt; Ledger tx -&gt; NodeState tx -&gt; Input tx -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">update</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Environment
-</span><a href="#local-6989586621679623349"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623667"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; CoordinatedHeadState SimpleTx -&gt; NodeState SimpleTx
 </span><a href="Hydra.HeadLogicSpec.html#inOpenState%27"><span class="hs-identifier hs-var">inOpenState'</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623402"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Input SimpleTx -&gt; Outcome SimpleTx)
+</span><a href="#local-6989586621679623720"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Input SimpleTx -&gt; Outcome SimpleTx)
 -&gt; Input SimpleTx -&gt; Outcome SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx -&gt; Input SimpleTx
@@ -422,16 +422,16 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; Message SimpleTx
 forall tx. tx -&gt; Message tx
 </span><span class="hs-identifier hs-var">ReqTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621679623400"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679623718"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-98"></span><span>
 </span><span id="line-99"></span><span>        </span><span class="annot"><span class="annottext">Outcome SimpleTx
-</span><a href="#local-6989586621679623404"><span class="hs-identifier hs-var">outcome</span></a></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; (Effect SimpleTx -&gt; Bool) -&gt; IO ()
+</span><a href="#local-6989586621679623722"><span class="hs-identifier hs-var">outcome</span></a></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; (Effect SimpleTx -&gt; Bool) -&gt; IO ()
 forall tx.
 (HasCallStack, IsChainState tx) =&gt;
 Outcome tx -&gt; (Effect tx -&gt; Bool) -&gt; IO ()
 </span><a href="Hydra.HeadLogicSpec.html#hasNoEffectSatisfying"><span class="hs-operator hs-var">`hasNoEffectSatisfying`</span></a></span><span> </span><span class="annot"><span class="annottext">Effect SimpleTx -&gt; Bool
 forall tx. Effect tx -&gt; Bool
-</span><a href="#local-6989586621679623375"><span class="hs-identifier hs-var">sendReqSn</span></a></span><span>
+</span><a href="#local-6989586621679623693"><span class="hs-identifier hs-var">sendReqSn</span></a></span><span>
 </span><span id="line-100"></span><span>
 </span><span id="line-101"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
@@ -442,33 +442,33 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-102"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623405"><span class="annot"><span class="annottext">tx :: SimpleTx
-</span><a href="#local-6989586621679623405"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTx
+</span><span id="line-102"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623723"><span class="annot"><span class="annottext">tx :: SimpleTx
+</span><a href="#local-6989586621679623723"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTx
 </span><span class="hs-identifier hs-var">aValidTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
 </span><span class="hs-number">1</span></span><span>
-</span><span id="line-103"></span><span>            </span><span id="local-6989586621679623406"><span class="annot"><span class="annottext">st :: NodeState SimpleTx
-</span><a href="#local-6989586621679623406"><span class="hs-identifier hs-var hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Party] -&gt; CoordinatedHeadState SimpleTx -&gt; NodeState SimpleTx
+</span><span id="line-103"></span><span>            </span><span id="local-6989586621679623724"><span class="annot"><span class="annottext">st :: NodeState SimpleTx
+</span><a href="#local-6989586621679623724"><span class="hs-identifier hs-var hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Party] -&gt; CoordinatedHeadState SimpleTx -&gt; NodeState SimpleTx
 </span><a href="Hydra.HeadLogicSpec.html#inOpenState%27"><span class="hs-identifier hs-var">inOpenState'</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679623338"><span class="hs-identifier hs-var">threeParties</span></a></span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623363"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span>
-</span><span id="line-104"></span><span>            </span><span id="local-6989586621679623407"><span class="annot"><span class="annottext">st' :: NodeState SimpleTx
-</span><a href="#local-6989586621679623407"><span class="hs-identifier hs-var hs-var">st'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679623656"><span class="hs-identifier hs-var">threeParties</span></a></span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679623681"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span>
+</span><span id="line-104"></span><span>            </span><span id="local-6989586621679623725"><span class="annot"><span class="annottext">st' :: NodeState SimpleTx
+</span><a href="#local-6989586621679623725"><span class="hs-identifier hs-var hs-var">st'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-105"></span><span>              </span><span class="annot"><span class="annottext">[Party] -&gt; CoordinatedHeadState SimpleTx -&gt; NodeState SimpleTx
 </span><a href="Hydra.HeadLogicSpec.html#inOpenState%27"><span class="hs-identifier hs-var">inOpenState'</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679623338"><span class="hs-identifier hs-var">threeParties</span></a></span><span> </span><span class="annot"><span class="annottext">(CoordinatedHeadState SimpleTx -&gt; NodeState SimpleTx)
+</span><a href="#local-6989586621679623656"><span class="hs-identifier hs-var">threeParties</span></a></span><span> </span><span class="annot"><span class="annottext">(CoordinatedHeadState SimpleTx -&gt; NodeState SimpleTx)
 -&gt; CoordinatedHeadState SimpleTx -&gt; NodeState SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-106"></span><span>                </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623363"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span>
-</span><span id="line-107"></span><span>                  </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">localTxs</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679623405"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-108"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">allTxs</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#singleton"><span class="hs-identifier hs-type">Map.singleton</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">txId</span></span><span> </span><span class="annot"><a href="#local-6989586621679623405"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679623405"><span class="hs-identifier hs-type">tx</span></a></span><span>
-</span><span id="line-109"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">localUTxO</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679623342"><span class="hs-identifier hs-type">u0</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-type">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">utxoRef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">txId</span></span><span> </span><span class="annot"><a href="#local-6989586621679623405"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679623681"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span>
+</span><span id="line-107"></span><span>                  </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">localTxs</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679623723"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-108"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">allTxs</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#singleton"><span class="hs-identifier hs-type">Map.singleton</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">txId</span></span><span> </span><span class="annot"><a href="#local-6989586621679623723"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679623723"><span class="hs-identifier hs-type">tx</span></a></span><span>
+</span><span id="line-109"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">localUTxO</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679623660"><span class="hs-identifier hs-type">u0</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-type">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">utxoRef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">txId</span></span><span> </span><span class="annot"><a href="#local-6989586621679623723"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-110"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">seenSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RequestedSnapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">lastSeen</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">requested</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">}</span><span>
 </span><span id="line-111"></span><span>                  </span><span class="hs-special">}</span><span>
 </span><span id="line-112"></span><span>
-</span><span id="line-113"></span><span>        </span><span id="local-6989586621679623412"><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623412"><span class="hs-identifier hs-var">actualState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><span id="line-113"></span><span>        </span><span id="local-6989586621679623730"><span class="annot"><span class="annottext">NodeState SimpleTx
+</span><a href="#local-6989586621679623730"><span class="hs-identifier hs-var">actualState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Environment
 -&gt; Ledger SimpleTx
 -&gt; NodeState SimpleTx
 -&gt; StateT (StepState SimpleTx) IO (NodeState SimpleTx)
@@ -478,10 +478,10 @@ Monad m =&gt;
 Environment
 -&gt; Ledger tx -&gt; NodeState tx -&gt; StateT (StepState tx) m a -&gt; m a
 </span><a href="Hydra.HeadLogicSpec.html#runHeadLogic"><span class="hs-identifier hs-var">runHeadLogic</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Environment
-</span><a href="#local-6989586621679623349"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623667"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623406"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">(StateT (StepState SimpleTx) IO (NodeState SimpleTx)
+</span><a href="#local-6989586621679623724"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">(StateT (StepState SimpleTx) IO (NodeState SimpleTx)
  -&gt; IO (NodeState SimpleTx))
 -&gt; StateT (StepState SimpleTx) IO (NodeState SimpleTx)
 -&gt; IO (NodeState SimpleTx)
@@ -504,17 +504,17 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; Message SimpleTx
 forall tx. tx -&gt; Message tx
 </span><span class="hs-identifier hs-var">ReqTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621679623405"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679623723"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-115"></span><span>          </span><span class="annot"><span class="annottext">StateT (StepState SimpleTx) IO (NodeState SimpleTx)
 forall tx (m :: * -&gt; *).
 MonadState (StepState tx) m =&gt;
 m (NodeState tx)
 </span><a href="Hydra.HeadLogicSpec.html#getState"><span class="hs-identifier hs-var">getState</span></a></span><span>
 </span><span id="line-116"></span><span>        </span><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623412"><span class="hs-identifier hs-var">actualState</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState SimpleTx -&gt; NodeState SimpleTx -&gt; IO ()
+</span><a href="#local-6989586621679623730"><span class="hs-identifier hs-var">actualState</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState SimpleTx -&gt; NodeState SimpleTx -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623407"><span class="hs-identifier hs-var">st'</span></a></span><span>
+</span><a href="#local-6989586621679623725"><span class="hs-identifier hs-var">st'</span></a></span><span>
 </span><span id="line-117"></span><span>
 </span><span id="line-118"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
 forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
@@ -522,9 +522,9 @@ forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
 </span><span class="hs-string">&quot;On AckSn&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-119"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623414"><span class="annot"><span class="annottext">bobEnv :: Environment
-</span><a href="#local-6989586621679623414"><span class="hs-identifier hs-var hs-var">bobEnv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Environment
-</span><a href="#local-6989586621679623349"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><span id="line-119"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623732"><span class="annot"><span class="annottext">bobEnv :: Environment
+</span><a href="#local-6989586621679623732"><span class="hs-identifier hs-var hs-var">bobEnv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Environment
+</span><a href="#local-6989586621679623667"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">bobSk</span></span><span>
 </span><span id="line-120"></span><span>
 </span><span id="line-121"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
@@ -536,8 +536,8 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-122"></span><span>        </span><span id="local-6989586621679623415"><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623415"><span class="hs-identifier hs-var">headState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><span id="line-122"></span><span>        </span><span id="local-6989586621679623733"><span class="annot"><span class="annottext">NodeState SimpleTx
+</span><a href="#local-6989586621679623733"><span class="hs-identifier hs-var">headState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Environment
 -&gt; Ledger SimpleTx
 -&gt; NodeState SimpleTx
 -&gt; StateT (StepState SimpleTx) IO (NodeState SimpleTx)
@@ -547,10 +547,10 @@ Monad m =&gt;
 Environment
 -&gt; Ledger tx -&gt; NodeState tx -&gt; StateT (StepState tx) m a -&gt; m a
 </span><a href="Hydra.HeadLogicSpec.html#runHeadLogic"><span class="hs-identifier hs-var">runHeadLogic</span></a></span><span> </span><span class="annot"><span class="annottext">Environment
-</span><a href="#local-6989586621679623414"><span class="hs-identifier hs-var">bobEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
+</span><a href="#local-6989586621679623732"><span class="hs-identifier hs-var">bobEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; NodeState SimpleTx
 </span><a href="Hydra.HeadLogicSpec.html#inOpenState"><span class="hs-identifier hs-var">inOpenState</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679623338"><span class="hs-identifier hs-var">threeParties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(StateT (StepState SimpleTx) IO (NodeState SimpleTx)
+</span><a href="#local-6989586621679623656"><span class="hs-identifier hs-var">threeParties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(StateT (StepState SimpleTx) IO (NodeState SimpleTx)
  -&gt; IO (NodeState SimpleTx))
 -&gt; StateT (StepState SimpleTx) IO (NodeState SimpleTx)
 -&gt; IO (NodeState SimpleTx)
@@ -607,7 +607,7 @@ forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
 Input tx -&gt; m (Outcome tx)
 </span><a href="Hydra.HeadLogicSpec.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">carolSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">carol</span></span><span class="hs-special">)</span><span>
 </span><span id="line-126"></span><span>          </span><span class="annot"><span class="annottext">Input SimpleTx -&gt; StateT (StepState SimpleTx) IO (Outcome SimpleTx)
@@ -615,7 +615,7 @@ forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
 Input tx -&gt; m (Outcome tx)
 </span><a href="Hydra.HeadLogicSpec.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">)</span><span>
 </span><span id="line-127"></span><span>          </span><span class="annot"><span class="annottext">StateT (StepState SimpleTx) IO (NodeState SimpleTx)
@@ -633,10 +633,10 @@ forall tx.
 IsChainState tx =&gt;
 Environment -&gt; Ledger tx -&gt; NodeState tx -&gt; Input tx -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">update</span></span><span> </span><span class="annot"><span class="annottext">Environment
-</span><a href="#local-6989586621679623414"><span class="hs-identifier hs-var">bobEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
+</span><a href="#local-6989586621679623732"><span class="hs-identifier hs-var">bobEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623415"><span class="hs-identifier hs-var">headState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623733"><span class="hs-identifier hs-var">headState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">bobSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">)</span><span>
 </span><span id="line-130"></span><span>          </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; (Effect SimpleTx -&gt; Bool) -&gt; IO ()
@@ -645,7 +645,7 @@ forall tx.
 Outcome tx -&gt; (Effect tx -&gt; Bool) -&gt; IO ()
 </span><a href="Hydra.HeadLogicSpec.html#hasEffectSatisfying"><span class="hs-operator hs-var">`hasEffectSatisfying`</span></a></span><span> </span><span class="annot"><span class="annottext">Effect SimpleTx -&gt; Bool
 forall tx. Effect tx -&gt; Bool
-</span><a href="#local-6989586621679623375"><span class="hs-identifier hs-var">sendReqSn</span></a></span><span>
+</span><a href="#local-6989586621679623693"><span class="hs-identifier hs-var">sendReqSn</span></a></span><span>
 </span><span id="line-131"></span><span>
 </span><span id="line-132"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
@@ -656,8 +656,8 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-133"></span><span>        </span><span id="local-6989586621679623416"><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623416"><span class="hs-identifier hs-var">headState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><span id="line-133"></span><span>        </span><span id="local-6989586621679623734"><span class="annot"><span class="annottext">NodeState SimpleTx
+</span><a href="#local-6989586621679623734"><span class="hs-identifier hs-var">headState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Environment
 -&gt; Ledger SimpleTx
 -&gt; NodeState SimpleTx
 -&gt; StateT (StepState SimpleTx) IO (NodeState SimpleTx)
@@ -667,10 +667,10 @@ Monad m =&gt;
 Environment
 -&gt; Ledger tx -&gt; NodeState tx -&gt; StateT (StepState tx) m a -&gt; m a
 </span><a href="Hydra.HeadLogicSpec.html#runHeadLogic"><span class="hs-identifier hs-var">runHeadLogic</span></a></span><span> </span><span class="annot"><span class="annottext">Environment
-</span><a href="#local-6989586621679623414"><span class="hs-identifier hs-var">bobEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
+</span><a href="#local-6989586621679623732"><span class="hs-identifier hs-var">bobEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; NodeState SimpleTx
 </span><a href="Hydra.HeadLogicSpec.html#inOpenState"><span class="hs-identifier hs-var">inOpenState</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679623338"><span class="hs-identifier hs-var">threeParties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(StateT (StepState SimpleTx) IO (NodeState SimpleTx)
+</span><a href="#local-6989586621679623656"><span class="hs-identifier hs-var">threeParties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(StateT (StepState SimpleTx) IO (NodeState SimpleTx)
  -&gt; IO (NodeState SimpleTx))
 -&gt; StateT (StepState SimpleTx) IO (NodeState SimpleTx)
 -&gt; IO (NodeState SimpleTx)
@@ -710,7 +710,7 @@ forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
 Input tx -&gt; m (Outcome tx)
 </span><a href="Hydra.HeadLogicSpec.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">carolSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">carol</span></span><span class="hs-special">)</span><span>
 </span><span id="line-136"></span><span>          </span><span class="annot"><span class="annottext">Input SimpleTx -&gt; StateT (StepState SimpleTx) IO (Outcome SimpleTx)
@@ -718,7 +718,7 @@ forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
 Input tx -&gt; m (Outcome tx)
 </span><a href="Hydra.HeadLogicSpec.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">)</span><span>
 </span><span id="line-137"></span><span>          </span><span class="annot"><span class="annottext">StateT (StepState SimpleTx) IO (NodeState SimpleTx)
@@ -736,10 +736,10 @@ forall tx.
 IsChainState tx =&gt;
 Environment -&gt; Ledger tx -&gt; NodeState tx -&gt; Input tx -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">update</span></span><span> </span><span class="annot"><span class="annottext">Environment
-</span><a href="#local-6989586621679623414"><span class="hs-identifier hs-var">bobEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
+</span><a href="#local-6989586621679623732"><span class="hs-identifier hs-var">bobEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623416"><span class="hs-identifier hs-var">headState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623734"><span class="hs-identifier hs-var">headState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">bobSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">)</span><span>
 </span><span id="line-140"></span><span>          </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; (Effect SimpleTx -&gt; Bool) -&gt; IO ()
@@ -748,7 +748,7 @@ forall tx.
 Outcome tx -&gt; (Effect tx -&gt; Bool) -&gt; IO ()
 </span><a href="Hydra.HeadLogicSpec.html#hasNoEffectSatisfying"><span class="hs-operator hs-var">`hasNoEffectSatisfying`</span></a></span><span> </span><span class="annot"><span class="annottext">Effect SimpleTx -&gt; Bool
 forall tx. Effect tx -&gt; Bool
-</span><a href="#local-6989586621679623375"><span class="hs-identifier hs-var">sendReqSn</span></a></span><span>
+</span><a href="#local-6989586621679623693"><span class="hs-identifier hs-var">sendReqSn</span></a></span><span>
 </span><span id="line-141"></span><span>
 </span><span id="line-142"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
@@ -760,17 +760,17 @@ String -&gt; a -&gt; SpecWith (Arg a)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-143"></span><span>        </span><span class="hs-keyword">let</span><span>
-</span><span id="line-144"></span><span>          </span><span id="local-6989586621679623417"><span class="annot"><span class="annottext">notLeaderEnv :: Environment
-</span><a href="#local-6989586621679623417"><span class="hs-identifier hs-var hs-var">notLeaderEnv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Environment
-</span><a href="#local-6989586621679623349"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><span id="line-144"></span><span>          </span><span id="local-6989586621679623735"><span class="annot"><span class="annottext">notLeaderEnv :: Environment
+</span><a href="#local-6989586621679623735"><span class="hs-identifier hs-var hs-var">notLeaderEnv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Environment
+</span><a href="#local-6989586621679623667"><span class="hs-identifier hs-var">envFor</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">carolSk</span></span><span>
 </span><span id="line-145"></span><span>
-</span><span id="line-146"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623019"><span class="annot"><a href="#local-6989586621679623418"><span class="hs-identifier hs-type">initiateSigningASnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/mtl-2.3.1/src/Control.Monad.State.Class.html#MonadState"><span class="hs-identifier hs-type">MonadState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogicSpec.html#StepState"><span class="hs-identifier hs-type">StepState</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679623019"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679623019"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Outcome</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span></span><span>
-</span><span id="line-147"></span><span>            </span><span id="local-6989586621679623418"><span class="annot"><span class="annottext">initiateSigningASnapshot :: forall (m :: * -&gt; *).
+</span><span id="line-146"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623337"><span class="annot"><a href="#local-6989586621679623736"><span class="hs-identifier hs-type">initiateSigningASnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/mtl-2.3.1/src/Control.Monad.State.Class.html#MonadState"><span class="hs-identifier hs-type">MonadState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogicSpec.html#StepState"><span class="hs-identifier hs-type">StepState</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679623337"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679623337"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Outcome</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-147"></span><span>            </span><span id="local-6989586621679623736"><span class="annot"><span class="annottext">initiateSigningASnapshot :: forall (m :: * -&gt; *).
 MonadState (StepState SimpleTx) m =&gt;
 Party -&gt; m (Outcome SimpleTx)
-</span><a href="#local-6989586621679623418"><span class="hs-identifier hs-var hs-var">initiateSigningASnapshot</span></a></span></span><span> </span><span id="local-6989586621679623424"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679623424"><span class="hs-identifier hs-var">actor</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679623736"><span class="hs-identifier hs-var hs-var">initiateSigningASnapshot</span></a></span></span><span> </span><span id="local-6989586621679623742"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679623742"><span class="hs-identifier hs-var">actor</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-148"></span><span>              </span><span class="annot"><span class="annottext">Input SimpleTx -&gt; m (Outcome SimpleTx)
 forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
@@ -778,7 +778,7 @@ Input tx -&gt; m (Outcome tx)
 </span><a href="Hydra.HeadLogicSpec.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Party -&gt; Message SimpleTx -&gt; Input SimpleTx
 forall tx. Party -&gt; Message tx -&gt; Input tx
 </span><a href="Hydra.HeadLogicSpec.html#receiveMessageFrom"><span class="hs-identifier hs-var">receiveMessageFrom</span></a></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679623424"><span class="hs-identifier hs-var">actor</span></a></span><span> </span><span class="annot"><span class="annottext">(Message SimpleTx -&gt; Input SimpleTx)
+</span><a href="#local-6989586621679623742"><span class="hs-identifier hs-var">actor</span></a></span><span> </span><span class="annot"><span class="annottext">(Message SimpleTx -&gt; Input SimpleTx)
 -&gt; Message SimpleTx -&gt; Input SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
@@ -802,8 +802,8 @@ forall a. Maybe a
 Maybe (TxIdType SimpleTx)
 forall a. Maybe a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-149"></span><span>            </span><span id="local-6989586621679623434"><span class="annot"><span class="annottext">newTxBeforeSnapshotAcknowledged :: StateT (StepState SimpleTx) IO (Outcome SimpleTx)
-</span><a href="#local-6989586621679623434"><span class="hs-identifier hs-var hs-var">newTxBeforeSnapshotAcknowledged</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-149"></span><span>            </span><span id="local-6989586621679623752"><span class="annot"><span class="annottext">newTxBeforeSnapshotAcknowledged :: StateT (StepState SimpleTx) IO (Outcome SimpleTx)
+</span><a href="#local-6989586621679623752"><span class="hs-identifier hs-var hs-var">newTxBeforeSnapshotAcknowledged</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-150"></span><span>              </span><span class="annot"><span class="annottext">Input SimpleTx -&gt; StateT (StepState SimpleTx) IO (Outcome SimpleTx)
 forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
@@ -822,8 +822,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">aValidTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
 </span><span id="line-151"></span><span>
-</span><span id="line-152"></span><span>        </span><span id="local-6989586621679623435"><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623435"><span class="hs-identifier hs-var">headState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><span id="line-152"></span><span>        </span><span id="local-6989586621679623753"><span class="annot"><span class="annottext">NodeState SimpleTx
+</span><a href="#local-6989586621679623753"><span class="hs-identifier hs-var">headState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Environment
 -&gt; Ledger SimpleTx
 -&gt; NodeState SimpleTx
 -&gt; StateT (StepState SimpleTx) IO (NodeState SimpleTx)
@@ -833,10 +833,10 @@ Monad m =&gt;
 Environment
 -&gt; Ledger tx -&gt; NodeState tx -&gt; StateT (StepState tx) m a -&gt; m a
 </span><a href="Hydra.HeadLogicSpec.html#runHeadLogic"><span class="hs-identifier hs-var">runHeadLogic</span></a></span><span> </span><span class="annot"><span class="annottext">Environment
-</span><a href="#local-6989586621679623417"><span class="hs-identifier hs-var">notLeaderEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
+</span><a href="#local-6989586621679623735"><span class="hs-identifier hs-var">notLeaderEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; NodeState SimpleTx
 </span><a href="Hydra.HeadLogicSpec.html#inOpenState"><span class="hs-identifier hs-var">inOpenState</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679623338"><span class="hs-identifier hs-var">threeParties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(StateT (StepState SimpleTx) IO (NodeState SimpleTx)
+</span><a href="#local-6989586621679623656"><span class="hs-identifier hs-var">threeParties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(StateT (StepState SimpleTx) IO (NodeState SimpleTx)
  -&gt; IO (NodeState SimpleTx))
 -&gt; StateT (StepState SimpleTx) IO (NodeState SimpleTx)
 -&gt; IO (NodeState SimpleTx)
@@ -846,24 +846,24 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall (m :: * -&gt; *).
 MonadState (StepState SimpleTx) m =&gt;
 Party -&gt; m (Outcome SimpleTx)
-</span><a href="#local-6989586621679623418"><span class="hs-identifier hs-var">initiateSigningASnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679623736"><span class="hs-identifier hs-var">initiateSigningASnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span>
 </span><span id="line-154"></span><span>          </span><span class="annot"><span class="annottext">Input SimpleTx -&gt; StateT (StepState SimpleTx) IO (Outcome SimpleTx)
 forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
 Input tx -&gt; m (Outcome tx)
 </span><a href="Hydra.HeadLogicSpec.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">carolSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">carol</span></span><span class="hs-special">)</span><span>
 </span><span id="line-155"></span><span>          </span><span class="annot"><span class="annottext">StateT (StepState SimpleTx) IO (Outcome SimpleTx)
-</span><a href="#local-6989586621679623434"><span class="hs-identifier hs-var">newTxBeforeSnapshotAcknowledged</span></a></span><span>
+</span><a href="#local-6989586621679623752"><span class="hs-identifier hs-var">newTxBeforeSnapshotAcknowledged</span></a></span><span>
 </span><span id="line-156"></span><span>          </span><span class="annot"><span class="annottext">Input SimpleTx -&gt; StateT (StepState SimpleTx) IO (Outcome SimpleTx)
 forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
 Input tx -&gt; m (Outcome tx)
 </span><a href="Hydra.HeadLogicSpec.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">)</span><span>
 </span><span id="line-157"></span><span>          </span><span class="annot"><span class="annottext">StateT (StepState SimpleTx) IO (NodeState SimpleTx)
@@ -872,8 +872,8 @@ MonadState (StepState tx) m =&gt;
 m (NodeState tx)
 </span><a href="Hydra.HeadLogicSpec.html#getState"><span class="hs-identifier hs-var">getState</span></a></span><span>
 </span><span id="line-158"></span><span>
-</span><span id="line-159"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623436"><span class="annot"><span class="annottext">everybodyAcknowledged :: Outcome SimpleTx
-</span><a href="#local-6989586621679623436"><span class="hs-identifier hs-var hs-var">everybodyAcknowledged</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><span id="line-159"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623754"><span class="annot"><span class="annottext">everybodyAcknowledged :: Outcome SimpleTx
+</span><a href="#local-6989586621679623754"><span class="hs-identifier hs-var hs-var">everybodyAcknowledged</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment
 -&gt; Ledger SimpleTx
 -&gt; NodeState SimpleTx
 -&gt; Input SimpleTx
@@ -882,23 +882,23 @@ forall tx.
 IsChainState tx =&gt;
 Environment -&gt; Ledger tx -&gt; NodeState tx -&gt; Input tx -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">update</span></span><span> </span><span class="annot"><span class="annottext">Environment
-</span><a href="#local-6989586621679623417"><span class="hs-identifier hs-var">notLeaderEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
+</span><a href="#local-6989586621679623735"><span class="hs-identifier hs-var">notLeaderEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623435"><span class="hs-identifier hs-var">headState</span></a></span><span> </span><span class="annot"><span class="annottext">(Input SimpleTx -&gt; Outcome SimpleTx)
+</span><a href="#local-6989586621679623753"><span class="hs-identifier hs-var">headState</span></a></span><span> </span><span class="annot"><span class="annottext">(Input SimpleTx -&gt; Outcome SimpleTx)
 -&gt; Input SimpleTx -&gt; Outcome SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">bobSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span>
 </span><span id="line-160"></span><span>        </span><span class="annot"><span class="annottext">Outcome SimpleTx
-</span><a href="#local-6989586621679623436"><span class="hs-identifier hs-var">everybodyAcknowledged</span></a></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; (Effect SimpleTx -&gt; Bool) -&gt; IO ()
+</span><a href="#local-6989586621679623754"><span class="hs-identifier hs-var">everybodyAcknowledged</span></a></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; (Effect SimpleTx -&gt; Bool) -&gt; IO ()
 forall tx.
 (HasCallStack, IsChainState tx) =&gt;
 Outcome tx -&gt; (Effect tx -&gt; Bool) -&gt; IO ()
 </span><a href="Hydra.HeadLogicSpec.html#hasNoEffectSatisfying"><span class="hs-operator hs-var">`hasNoEffectSatisfying`</span></a></span><span> </span><span class="annot"><span class="annottext">Effect SimpleTx -&gt; Bool
 forall tx. Effect tx -&gt; Bool
-</span><a href="#local-6989586621679623375"><span class="hs-identifier hs-var">sendReqSn</span></a></span><span>
+</span><a href="#local-6989586621679623693"><span class="hs-identifier hs-var">sendReqSn</span></a></span><span>
 </span><span id="line-161"></span><span>
 </span><span id="line-162"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
@@ -909,8 +909,8 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-163"></span><span>        </span><span id="local-6989586621679623437"><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623437"><span class="hs-identifier hs-var">nodeState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><span id="line-163"></span><span>        </span><span id="local-6989586621679623755"><span class="annot"><span class="annottext">NodeState SimpleTx
+</span><a href="#local-6989586621679623755"><span class="hs-identifier hs-var">nodeState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Environment
 -&gt; Ledger SimpleTx
 -&gt; NodeState SimpleTx
 -&gt; StateT (StepState SimpleTx) IO (NodeState SimpleTx)
@@ -920,10 +920,10 @@ Monad m =&gt;
 Environment
 -&gt; Ledger tx -&gt; NodeState tx -&gt; StateT (StepState tx) m a -&gt; m a
 </span><a href="Hydra.HeadLogicSpec.html#runHeadLogic"><span class="hs-identifier hs-var">runHeadLogic</span></a></span><span> </span><span class="annot"><span class="annottext">Environment
-</span><a href="#local-6989586621679623414"><span class="hs-identifier hs-var">bobEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
+</span><a href="#local-6989586621679623732"><span class="hs-identifier hs-var">bobEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; NodeState SimpleTx
 </span><a href="Hydra.HeadLogicSpec.html#inOpenState"><span class="hs-identifier hs-var">inOpenState</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679623338"><span class="hs-identifier hs-var">threeParties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(StateT (StepState SimpleTx) IO (NodeState SimpleTx)
+</span><a href="#local-6989586621679623656"><span class="hs-identifier hs-var">threeParties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(StateT (StepState SimpleTx) IO (NodeState SimpleTx)
  -&gt; IO (NodeState SimpleTx))
 -&gt; StateT (StepState SimpleTx) IO (NodeState SimpleTx)
 -&gt; IO (NodeState SimpleTx)
@@ -980,7 +980,7 @@ forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
 Input tx -&gt; m (Outcome tx)
 </span><a href="Hydra.HeadLogicSpec.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">carolSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">carol</span></span><span class="hs-special">)</span><span>
 </span><span id="line-167"></span><span>          </span><span class="annot"><span class="annottext">Input SimpleTx -&gt; StateT (StepState SimpleTx) IO (Outcome SimpleTx)
@@ -988,7 +988,7 @@ forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
 Input tx -&gt; m (Outcome tx)
 </span><a href="Hydra.HeadLogicSpec.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">)</span><span>
 </span><span id="line-168"></span><span>          </span><span class="annot"><span class="annottext">Input SimpleTx -&gt; StateT (StepState SimpleTx) IO (Outcome SimpleTx)
@@ -996,7 +996,7 @@ forall tx (m :: * -&gt; *).
 (MonadState (StepState tx) m, IsChainState tx) =&gt;
 Input tx -&gt; m (Outcome tx)
 </span><a href="Hydra.HeadLogicSpec.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; Party -&gt; Input SimpleTx
-</span><a href="#local-6989586621679623385"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679623703"><span class="hs-identifier hs-var">ackFrom</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">bobSk</span></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">)</span><span>
 </span><span id="line-169"></span><span>          </span><span class="annot"><span class="annottext">StateT (StepState SimpleTx) IO (NodeState SimpleTx)
@@ -1008,21 +1008,21 @@ m (NodeState tx)
 </span><span id="line-171"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">NodeState SimpleTx -&gt; HeadState SimpleTx
 forall tx. NodeState tx -&gt; HeadState tx
 </span><span class="hs-identifier hs-var">headState</span></span><span> </span><span class="annot"><span class="annottext">NodeState SimpleTx
-</span><a href="#local-6989586621679623437"><span class="hs-identifier hs-var">nodeState</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679623755"><span class="hs-identifier hs-var">nodeState</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-172"></span><span>          </span><span class="annot"><span class="hs-identifier hs-type">Open</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">OpenState</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:coordinatedHeadState:OpenState :: forall tx. OpenState tx -&gt; CoordinatedHeadState tx
 </span><span class="hs-identifier hs-var">coordinatedHeadState</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CoordinatedHeadState</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:seenSnapshot:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; SeenSnapshot tx
-</span><span class="hs-identifier hs-var">seenSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679623439"><span class="annot"><span class="annottext">SeenSnapshot SimpleTx
-</span><a href="#local-6989586621679623439"><span class="hs-identifier hs-var">actualSnapshot</span></a></span></span><span class="hs-special">}</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span class="hs-identifier hs-var">seenSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679623757"><span class="annot"><span class="annottext">SeenSnapshot SimpleTx
+</span><a href="#local-6989586621679623757"><span class="hs-identifier hs-var">actualSnapshot</span></a></span></span><span class="hs-special">}</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-173"></span><span>            </span><span class="annot"><span class="annottext">SeenSnapshot SimpleTx
-</span><a href="#local-6989586621679623439"><span class="hs-identifier hs-var">actualSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SeenSnapshot SimpleTx -&gt; SeenSnapshot SimpleTx -&gt; IO ()
+</span><a href="#local-6989586621679623757"><span class="hs-identifier hs-var">actualSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SeenSnapshot SimpleTx -&gt; SeenSnapshot SimpleTx -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">RequestedSnapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:lastSeen:NoSeenSnapshot :: SnapshotNumber
 </span><span class="hs-identifier hs-var">lastSeen</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
 </span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:requested:NoSeenSnapshot :: SnapshotNumber
 </span><span class="hs-identifier hs-var">requested</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
 </span><span class="hs-number">2</span></span><span class="hs-special">}</span><span>
-</span><span id="line-174"></span><span>          </span><span id="local-6989586621679623440"><span class="annot"><span class="annottext">HeadState SimpleTx
-</span><a href="#local-6989586621679623440"><span class="hs-identifier hs-var">other</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; IO ()
+</span><span id="line-174"></span><span>          </span><span id="local-6989586621679623758"><span class="annot"><span class="annottext">HeadState SimpleTx
+</span><a href="#local-6989586621679623758"><span class="hs-identifier hs-var">other</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; IO ()
 String -&gt; IO ()
 </span><span class="hs-identifier hs-var">expectationFailure</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; IO ()) -&gt; String -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -1032,20 +1032,20 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState SimpleTx -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">HeadState SimpleTx
-</span><a href="#local-6989586621679623440"><span class="hs-identifier hs-var">other</span></a></span><span>
+</span><a href="#local-6989586621679623758"><span class="hs-identifier hs-var">other</span></a></span><span>
 </span><span id="line-175"></span><span>
 </span><span id="line-176"></span><span class="annot"><a href="Hydra.HeadLogicSnapshotSpec.html#prop_singleMemberHeadAlwaysSnapshotOnReqTx"><span class="hs-identifier hs-type">prop_singleMemberHeadAlwaysSnapshotOnReqTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
 </span><span id="line-177"></span><span id="prop_singleMemberHeadAlwaysSnapshotOnReqTx"><span class="annot"><span class="annottext">prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -&gt; Property
-</span><a href="Hydra.HeadLogicSnapshotSpec.html#prop_singleMemberHeadAlwaysSnapshotOnReqTx"><span class="hs-identifier hs-var hs-var">prop_singleMemberHeadAlwaysSnapshotOnReqTx</span></a></span></span><span> </span><span id="local-6989586621679623443"><span class="annot"><span class="annottext">ConfirmedSnapshot SimpleTx
-</span><a href="#local-6989586621679623443"><span class="hs-identifier hs-var">sn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. PropertyM (ST s) Property) -&gt; Property
+</span><a href="Hydra.HeadLogicSnapshotSpec.html#prop_singleMemberHeadAlwaysSnapshotOnReqTx"><span class="hs-identifier hs-var hs-var">prop_singleMemberHeadAlwaysSnapshotOnReqTx</span></a></span></span><span> </span><span id="local-6989586621679623761"><span class="annot"><span class="annottext">ConfirmedSnapshot SimpleTx
+</span><a href="#local-6989586621679623761"><span class="hs-identifier hs-var">sn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. PropertyM (ST s) Property) -&gt; Property
 forall a. Testable a =&gt; (forall s. PropertyM (ST s) a) -&gt; Property
 </span><span class="hs-identifier hs-var">monadicST</span></span><span> </span><span class="annot"><span class="annottext">((forall s. PropertyM (ST s) Property) -&gt; Property)
 -&gt; (forall s. PropertyM (ST s) Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-178"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679623489"><span class="annot"><span class="annottext">SeenSnapshot SimpleTx
-</span><a href="#local-6989586621679623489"><span class="hs-identifier hs-var">seenSnapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679623490"><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621679623490"><span class="hs-identifier hs-var">version</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-178"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679623807"><span class="annot"><span class="annottext">SeenSnapshot SimpleTx
+</span><a href="#local-6989586621679623807"><span class="hs-identifier hs-var">seenSnapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679623808"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679623808"><span class="hs-identifier hs-var">version</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span>
 </span><span id="line-179"></span><span>    </span><span class="annot"><span class="annottext">Gen (SeenSnapshot SimpleTx, SnapshotVersion)
 -&gt; PropertyM (ST s) (SeenSnapshot SimpleTx, SnapshotVersion)
 forall (m :: * -&gt; *) a. (Monad m, Show a) =&gt; Gen a -&gt; PropertyM m a
@@ -1068,17 +1068,17 @@ forall tx. SeenSnapshot tx
 </span><span class="hs-identifier hs-var">NoSeenSnapshot</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
 </span><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
 </span><span id="line-182"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-183"></span><span>            </span><span id="local-6989586621679623491"><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621679623491"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen SnapshotNumber
+</span><span id="line-183"></span><span>            </span><span id="local-6989586621679623809"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621679623809"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen SnapshotNumber
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
-</span><span id="line-184"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623493"><span class="annot"><span class="annottext">v :: SnapshotVersion
-</span><a href="#local-6989586621679623493"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SnapshotVersion
+</span><span id="line-184"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623811"><span class="annot"><span class="annottext">v :: SnapshotVersion
+</span><a href="#local-6989586621679623811"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SnapshotVersion
 forall a. Num a =&gt; SimpleId -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SnapshotNumber -&gt; SimpleId
 forall a. Integral a =&gt; a -&gt; SimpleId
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var">toInteger</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621679623491"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679623809"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-185"></span><span>            </span><span class="annot"><span class="annottext">(SeenSnapshot SimpleTx, SnapshotVersion)
 -&gt; Gen (SeenSnapshot SimpleTx, SnapshotVersion)
 forall a. a -&gt; Gen a
@@ -1086,11 +1086,11 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SnapshotNumber -&gt; SeenSnapshot SimpleTx
 forall tx. SnapshotNumber -&gt; SeenSnapshot tx
 </span><span class="hs-identifier hs-var">LastSeenSnapshot</span></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621679623491"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621679623493"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679623809"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679623811"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-186"></span><span>        </span><span class="hs-special">]</span><span>
-</span><span id="line-187"></span><span>  </span><span id="local-6989586621679623495"><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621679623495"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen SimpleTx -&gt; PropertyM (ST s) SimpleTx
+</span><span id="line-187"></span><span>  </span><span id="local-6989586621679623813"><span class="annot"><span class="annottext">SimpleTx
+</span><a href="#local-6989586621679623813"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen SimpleTx -&gt; PropertyM (ST s) SimpleTx
 forall (m :: * -&gt; *) a. (Monad m, Show a) =&gt; Gen a -&gt; PropertyM m a
 </span><span class="hs-identifier hs-var">pick</span></span><span> </span><span class="annot"><span class="annottext">(Gen SimpleTx -&gt; PropertyM (ST s) SimpleTx)
 -&gt; Gen SimpleTx -&gt; PropertyM (ST s) SimpleTx
@@ -1102,10 +1102,10 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
 </span><span id="line-188"></span><span>  </span><span class="hs-keyword">let</span><span>
-</span><span id="line-189"></span><span>    </span><span id="local-6989586621679623497"><span class="annot"><span class="annottext">aliceEnv :: Environment
-</span><a href="#local-6989586621679623497"><span class="hs-identifier hs-var hs-var">aliceEnv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-190"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623498"><span class="annot"><span class="annottext">party :: Party
-</span><a href="#local-6989586621679623498"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party
+</span><span id="line-189"></span><span>    </span><span id="local-6989586621679623815"><span class="annot"><span class="annottext">aliceEnv :: Environment
+</span><a href="#local-6989586621679623815"><span class="hs-identifier hs-var hs-var">aliceEnv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-190"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679623816"><span class="annot"><span class="annottext">party :: Party
+</span><a href="#local-6989586621679623816"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span>
 </span><span id="line-191"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Environment</span></span><span>
 </span><span id="line-192"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">Party
@@ -1126,13 +1126,13 @@ party :: Party
 </span><span id="line-197"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:participants:Environment :: [OnChainId]
 </span><span class="hs-identifier hs-var">participants</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party -&gt; OnChainId
 </span><span class="hs-identifier hs-var">deriveOnChainId</span></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679623498"><span class="hs-identifier hs-var">party</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679623816"><span class="hs-identifier hs-var">party</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-198"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:configuredPeers:Environment :: Text
 </span><span class="hs-identifier hs-var">configuredPeers</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;&quot;</span></span><span>
 </span><span id="line-199"></span><span>            </span><span class="hs-special">}</span><span>
-</span><span id="line-200"></span><span>    </span><span id="local-6989586621679623499"><span class="annot"><span class="annottext">st :: CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623499"><span class="hs-identifier hs-var hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-200"></span><span>    </span><span id="local-6989586621679623817"><span class="annot"><span class="annottext">st :: CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679623817"><span class="hs-identifier hs-var hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-201"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">CoordinatedHeadState</span></span><span>
 </span><span id="line-202"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:localUTxO:CoordinatedHeadState :: UTxOType SimpleTx
 </span><span class="hs-identifier hs-var">localUTxO</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
@@ -1148,7 +1148,7 @@ forall a. Monoid a =&gt; a
 </span><span class="hs-identifier hs-var">localTxs</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
 </span><span id="line-205"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:confirmedSnapshot:CoordinatedHeadState :: ConfirmedSnapshot SimpleTx
 </span><span class="hs-identifier hs-var">confirmedSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot SimpleTx
-</span><a href="#local-6989586621679623443"><span class="hs-identifier hs-var">sn</span></a></span><span>
+</span><a href="#local-6989586621679623761"><span class="hs-identifier hs-var">sn</span></a></span><span>
 </span><span id="line-206"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SeenSnapshot SimpleTx
 $sel:seenSnapshot:CoordinatedHeadState :: SeenSnapshot SimpleTx
 seenSnapshot :: SeenSnapshot SimpleTx
@@ -1167,8 +1167,8 @@ $sel:version:CoordinatedHeadState :: SnapshotVersion
 version :: SnapshotVersion
 </span><span class="hs-identifier hs-var hs-var">version</span></span><span>
 </span><span id="line-210"></span><span>        </span><span class="hs-special">}</span><span>
-</span><span id="line-211"></span><span>    </span><span id="local-6989586621679623500"><span class="annot"><span class="annottext">outcome :: Outcome SimpleTx
-</span><a href="#local-6989586621679623500"><span class="hs-identifier hs-var hs-var">outcome</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><span id="line-211"></span><span>    </span><span id="local-6989586621679623818"><span class="annot"><span class="annottext">outcome :: Outcome SimpleTx
+</span><a href="#local-6989586621679623818"><span class="hs-identifier hs-var hs-var">outcome</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment
 -&gt; Ledger SimpleTx
 -&gt; NodeState SimpleTx
 -&gt; Input SimpleTx
@@ -1177,11 +1177,11 @@ forall tx.
 IsChainState tx =&gt;
 Environment -&gt; Ledger tx -&gt; NodeState tx -&gt; Input tx -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">update</span></span><span> </span><span class="annot"><span class="annottext">Environment
-</span><a href="#local-6989586621679623497"><span class="hs-identifier hs-var">aliceEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
+</span><a href="#local-6989586621679623815"><span class="hs-identifier hs-var">aliceEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
 </span><span class="hs-identifier hs-var">simpleLedger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; CoordinatedHeadState SimpleTx -&gt; NodeState SimpleTx
 </span><a href="Hydra.HeadLogicSpec.html#inOpenState%27"><span class="hs-identifier hs-var">inOpenState'</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
-</span><a href="#local-6989586621679623499"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Input SimpleTx -&gt; Outcome SimpleTx)
+</span><a href="#local-6989586621679623817"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Input SimpleTx -&gt; Outcome SimpleTx)
 -&gt; Input SimpleTx -&gt; Outcome SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx -&gt; Input SimpleTx
@@ -1192,16 +1192,16 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; Message SimpleTx
 forall tx. tx -&gt; Message tx
 </span><span class="hs-identifier hs-var">ReqTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621679623495"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679623813"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-212"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:number:Snapshot :: forall tx. Snapshot tx -&gt; SnapshotNumber
-</span><span class="hs-identifier hs-var">number</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679623502"><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621679623502"><span class="hs-identifier hs-var">confirmedSn</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot SimpleTx -&gt; Snapshot SimpleTx
+</span><span class="hs-identifier hs-var">number</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679623820"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621679623820"><span class="hs-identifier hs-var">confirmedSn</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot SimpleTx -&gt; Snapshot SimpleTx
 forall tx. ConfirmedSnapshot tx -&gt; Snapshot tx
 </span><span class="hs-identifier hs-var">getSnapshot</span></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot SimpleTx
-</span><a href="#local-6989586621679623443"><span class="hs-identifier hs-var">sn</span></a></span><span>
-</span><span id="line-213"></span><span>    </span><span id="local-6989586621679623503"><span class="annot"><span class="annottext">nextSn :: SnapshotNumber
-</span><a href="#local-6989586621679623503"><span class="hs-identifier hs-var hs-var">nextSn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621679623502"><span class="hs-identifier hs-var">confirmedSn</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber -&gt; SnapshotNumber -&gt; SnapshotNumber
+</span><a href="#local-6989586621679623761"><span class="hs-identifier hs-var">sn</span></a></span><span>
+</span><span id="line-213"></span><span>    </span><span id="local-6989586621679623821"><span class="annot"><span class="annottext">nextSn :: SnapshotNumber
+</span><a href="#local-6989586621679623821"><span class="hs-identifier hs-var hs-var">nextSn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621679623820"><span class="hs-identifier hs-var">confirmedSn</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber -&gt; SnapshotNumber -&gt; SnapshotNumber
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
 </span><span class="hs-number">1</span></span><span>
@@ -1213,7 +1213,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-215"></span><span>    </span><span class="annot"><span class="annottext">Outcome SimpleTx
-</span><a href="#local-6989586621679623500"><span class="hs-identifier hs-var">outcome</span></a></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; Effect SimpleTx -&gt; IO ()
+</span><a href="#local-6989586621679623818"><span class="hs-identifier hs-var">outcome</span></a></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; Effect SimpleTx -&gt; IO ()
 forall tx.
 (HasCallStack, IsChainState tx) =&gt;
 Outcome tx -&gt; Effect tx -&gt; IO ()
@@ -1233,11 +1233,11 @@ SnapshotVersion
 -&gt; Maybe (TxIdType tx)
 -&gt; Message tx
 </span><span class="hs-identifier hs-var">ReqSn</span></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621679623490"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621679623503"><span class="hs-identifier hs-var">nextSn</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">SimpleTx -&gt; TxIdType SimpleTx
+</span><a href="#local-6989586621679623808"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621679623821"><span class="hs-identifier hs-var">nextSn</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">SimpleTx -&gt; TxIdType SimpleTx
 forall tx. IsTx tx =&gt; tx -&gt; TxIdType tx
 </span><span class="hs-identifier hs-var">txId</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621679623495"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleTx
+</span><a href="#local-6989586621679623813"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleTx
 forall a. Maybe a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
 Maybe (TxIdType SimpleTx)
@@ -1250,7 +1250,7 @@ forall prop. Testable prop =&gt; String -&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">counterexample</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx
-</span><a href="#local-6989586621679623500"><span class="hs-identifier hs-var">outcome</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679623818"><span class="hs-identifier hs-var">outcome</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-217"></span><span>
 </span><span id="line-218"></span><span class="annot"><a href="Hydra.HeadLogicSnapshotSpec.html#prop_thereIsAlwaysALeader"><span class="hs-identifier hs-type">prop_thereIsAlwaysALeader</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
 </span><span id="line-219"></span><span id="prop_thereIsAlwaysALeader"><span class="annot"><span class="annottext">prop_thereIsAlwaysALeader :: Property
@@ -1264,8 +1264,8 @@ forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">((SnapshotNumber -&gt; Property) -&gt; Property)
 -&gt; (SnapshotNumber -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679623506"><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621679623506"><span class="hs-identifier hs-var">sn</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679623824"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621679623824"><span class="hs-identifier hs-var">sn</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-221"></span><span>    </span><span class="annot"><span class="annottext">Gen HeadParameters -&gt; (HeadParameters -&gt; Property) -&gt; Property
 forall a prop.
 (Show a, Testable prop) =&gt;
@@ -1275,26 +1275,26 @@ forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">((HeadParameters -&gt; Property) -&gt; Property)
 -&gt; (HeadParameters -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679623507"><span class="annot"><span class="annottext">params :: HeadParameters
-</span><a href="#local-6989586621679623507"><span class="hs-identifier hs-var">params</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span class="hs-special">{</span><span id="local-6989586621679623509"><span class="annot"><span class="annottext">[Party]
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679623825"><span class="annot"><span class="annottext">params :: HeadParameters
+</span><a href="#local-6989586621679623825"><span class="hs-identifier hs-var">params</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span class="hs-special">{</span><span id="local-6989586621679623827"><span class="annot"><span class="annottext">[Party]
 parties :: [Party]
 $sel:parties:HeadParameters :: HeadParameters -&gt; [Party]
-</span><a href="#local-6989586621679623509"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679623827"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-222"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#not"><span class="hs-identifier hs-var">not</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; Bool
 forall a. [a] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#null"><span class="hs-identifier hs-var">null</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679623509"><span class="hs-identifier hs-var">parties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Property
+</span><a href="#local-6989586621679623827"><span class="hs-identifier hs-var">parties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Property
 forall prop. Testable prop =&gt; Bool -&gt; prop -&gt; Property
 </span><span class="hs-operator hs-var">==&gt;</span></span><span>
 </span><span id="line-223"></span><span>        </span><span class="annot"><span class="annottext">(Party -&gt; Bool) -&gt; [Party] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#any"><span class="hs-identifier hs-var">any</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679623514"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679623514"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadParameters -&gt; Party -&gt; SnapshotNumber -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#any"><span class="hs-identifier hs-var">any</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679623832"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679623832"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadParameters -&gt; Party -&gt; SnapshotNumber -&gt; Bool
 </span><span class="hs-identifier hs-var">isLeader</span></span><span> </span><span class="annot"><span class="annottext">HeadParameters
-</span><a href="#local-6989586621679623507"><span class="hs-identifier hs-var">params</span></a></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679623514"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621679623506"><span class="hs-identifier hs-var">sn</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679623509"><span class="hs-identifier hs-var">parties</span></a></span><span>
+</span><a href="#local-6989586621679623825"><span class="hs-identifier hs-var">params</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679623832"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621679623824"><span class="hs-identifier hs-var">sn</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679623827"><span class="hs-identifier hs-var">parties</span></a></span><span>
 </span><span id="line-224"></span></pre></body></html>
