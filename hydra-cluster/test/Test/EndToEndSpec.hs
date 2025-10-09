@@ -18,7 +18,7 @@ import Control.Lens ((^..), (^?))
 import Control.Monad (foldM_)
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
+import Data.Aeson.Lens (AsJSON (_JSON), AsValue (_String), key, values, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
@@ -539,6 +539,31 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               publishHydraScriptsAs backend Faucet
                 >>= threeNodesWithMirrorParty tracer tmpDir backend
 
+      describe "Fanout maximum UTxOs" $ do
+        -- This constant is set to the maximum number of UTxOs that can be
+        -- fanned out in a single transaction. It is derived from the maximum
+        -- transaction execution budget.
+        --
+        -- See <https://github.com/cardano-scaling/hydra/issues/1468> for work
+        -- on addressing this.
+
+        let ledgerSizeLimit = 41
+
+        it "reaches the fan out limit" $ \tracer ->
+          failAfter 60 $
+            withClusterTempDir $ \tmpDir -> do
+              withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+                scriptsTxs <- publishHydraScriptsAs backend Faucet
+                reachFanoutLimit ledgerSizeLimit tmpDir tracer scriptsTxs backend
+
+        it "doesn't reach the fan out limit by one" $ \tracer ->
+          failAfter 60 $
+            withClusterTempDir $ \tmpDir -> do
+              withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+                scriptsTxs <- publishHydraScriptsAs backend Faucet
+                reachFanoutLimit (ledgerSizeLimit - 1) tmpDir tracer scriptsTxs backend
+                  `shouldThrow` \(e :: SomeException) -> "HeadIsFinalized" `isInfixOf` show e
+
     describe "restarting nodes" $ do
       it "can abort head after restart" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
@@ -1008,6 +1033,73 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
       Data.Aeson.Success u -> do
         waitForAllMatch 3 [n1] $ checkFanout headId u
         failAfter 5 $ waitForUTxO backend u
+
+reachFanoutLimit :: Integer -> ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> [TxId] -> backend -> IO ()
+reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
+  aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
+
+  let contestationPeriod = 2
+  let hydraTracer = contramap FromHydraNode tracer
+  let nodeSocket' = case Backend.getOptions backend of
+        Direct DirectOptions{nodeSocket} -> nodeSocket
+        _ -> error "Unexpected Blockfrost backend"
+
+  withHydraCluster hydraTracer tmpDir nodeSocket' 1 [aliceKeys] [aliceSk] hydraScriptsTxId contestationPeriod $ \nodes -> do
+    let [node] = toList nodes
+
+    waitForNodesConnected hydraTracer 20 $ node :| []
+
+    -- Funds to be used as fuel by Hydra protocol transactions
+    seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+    send node $ input "Init" []
+    headId <-
+      waitForAllMatch 10 [node] $
+        headIsInitializingWith (Set.fromList [alice])
+
+    -- Get some UTXOs to commit to a head
+    (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+    committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 41_000_000) (contramap FromFaucet tracer)
+    requestCommitTx node committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
+
+    waitFor hydraTracer 10 [node] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
+
+    -- Create many transactions to reach the ledger limit
+    let loop 0 _ res = return res
+        loop n utxo _ = do
+          let Right tx =
+                mkSimpleTx
+                  utxo
+                  (inHeadAddress aliceExternalVk, lovelaceToValue 1_000_000)
+                  aliceExternalSk
+              Just out' = viaNonEmpty last (txOuts' tx)
+              txId' = TxIn (txId tx) (toEnum 1)
+              utxo' = (txId', toCtxUTxOTxOut out')
+
+          send node $ input "NewTx" ["transaction" .= tx]
+          waitFor hydraTracer 10 [node] $
+            output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
+          loop (n - 1 :: Integer) utxo' (Just tx)
+
+    Just lastTx <- loop (ledgerSize - 1) (Prelude.head $ UTxO.toList committedUTxOByAlice) Nothing
+    waitMatch 10 node $ \v -> do
+      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+      guard $ v ^? key "headId" == Just (toJSON headId)
+      snapshot <- v ^? key "snapshot"
+      let
+        txIds = snapshot ^.. key "confirmed" . values . key "txId" . _JSON
+      guard $ txId lastTx `elem` (txIds :: [TxId])
+
+    send node $ input "Close" []
+    waitFor hydraTracer 10 [node] $
+      output "ReadyToFanout" ["headId" .= headId]
+
+    send node $ input "Fanout" []
+
+    waitMatch 5 node $ \v -> do
+      guard $ v ^? key "tag" == Just "PostTxOnChainFailed"
+      failureReason <- v ^? key "postTxError" . key "failureReason" . _String
+      guard $ "The machine terminated part way through evaluation due to overspending the budget." `isInfixOf` failureReason
 
 -- * Fixtures
 
