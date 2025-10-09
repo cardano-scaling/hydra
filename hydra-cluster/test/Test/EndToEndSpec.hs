@@ -538,13 +538,25 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
               publishHydraScriptsAs backend Faucet
                 >>= threeNodesWithMirrorParty tracer tmpDir backend
+      describe "Fanout maximum UTxOs" $ do
+        -- This constant is set to the maximum number of UTxOs that can be
+        -- fanned out in a single transaction. It is derived from the maximum
+        -- transaction execution budget.
+        let ledgerSizeLimit = 41
 
-      it "reaches the fan out limit" $ \tracer ->
-        failAfter 60 $
-          withClusterTempDir $ \tmpDir -> do
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-              scriptsTxs <- publishHydraScriptsAs backend Faucet
-              reachFanoutLimit tmpDir tracer scriptsTxs backend
+        it "reaches the fan out limit" $ \tracer ->
+          failAfter 60 $
+            withClusterTempDir $ \tmpDir -> do
+              withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+                scriptsTxs <- publishHydraScriptsAs backend Faucet
+                reachFanoutLimit ledgerSizeLimit tmpDir tracer scriptsTxs backend
+        it "doesn't reach the fan out limit by one" $ \tracer ->
+          failAfter 60 $
+            withClusterTempDir $ \tmpDir -> do
+              withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+                scriptsTxs <- publishHydraScriptsAs backend Faucet
+                reachFanoutLimit (ledgerSizeLimit - 1) tmpDir tracer scriptsTxs backend
+                  `shouldThrow` \(e :: SomeException) -> "HeadIsFinalized" `isInfixOf` show e
 
     describe "restarting nodes" $ do
       it "can abort head after restart" $ \tracer -> do
@@ -1016,8 +1028,8 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
         waitForAllMatch 3 [n1] $ checkFanout headId u
         failAfter 5 $ waitForUTxO backend u
 
-reachFanoutLimit :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> [TxId] -> backend -> IO ()
-reachFanoutLimit tmpDir tracer hydraScriptsTxId backend = do
+reachFanoutLimit :: Integer -> ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> [TxId] -> backend -> IO ()
+reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
 
   let contestationPeriod = 2
@@ -1046,7 +1058,7 @@ reachFanoutLimit tmpDir tracer hydraScriptsTxId backend = do
 
     waitFor hydraTracer 10 [node] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
-    let ledgerSize = 41
+    -- Create many transactions to reach the ledger limit
     let loop 0 _ res = return res
         loop n utxo _ = do
           let Right tx =
@@ -1078,7 +1090,7 @@ reachFanoutLimit tmpDir tracer hydraScriptsTxId backend = do
 
     send node $ input "Fanout" []
 
-    waitMatch 10 node $ \v -> do
+    waitMatch 5 node $ \v -> do
       guard $ v ^? key "tag" == Just "PostTxOnChainFailed"
       failureReason <- v ^? key "postTxError" . key "failureReason" . _String
       guard $ "The machine terminated part way through evaluation due to overspending the budget." `isInfixOf` failureReason
