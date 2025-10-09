@@ -539,7 +539,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               publishHydraScriptsAs backend Faucet
                 >>= threeNodesWithMirrorParty tracer tmpDir backend
 
-      it "reach the fan out limit" $ \tracer ->
+      it "reaches the fan out limit" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
             withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
