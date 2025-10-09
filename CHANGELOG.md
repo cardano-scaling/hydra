@@ -9,7 +9,7 @@ As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
 
-## [1.0.1] - UNRELEASED
+## [1.1.0] - UNRELEASED
 - **BREAKING** Partial assets depositing works a bit differently now so you should consult our [API reference](https://hydra.family/head-protocol/api-reference).
   These changes also enable more complex scenarios when depositing and gives more flexibility to our users
   since hydra-node is capable of balancing the deposit tx outputs now. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
