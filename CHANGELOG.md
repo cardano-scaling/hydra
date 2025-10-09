@@ -8,11 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+
+## [1.0.1] - UNRELEASED
+- **BREAKING** Partial assets depositing works a bit differently now so you should consult our [API reference](https://hydra.family/head-protocol/api-reference).
+  These changes also enable more complex scenarios when depositing and gives more flexibility to our users
+  since hydra-node is capable of balancing the deposit tx outputs now. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
+
 ## [1.0.0] - 2025-10-08
 
-- Implement partial assets depositing user feature. This also enables more complex scenarios
-  when depositing (like Using reference inputs) and gives more flexibility to our users
-  since hydra-node is capable of balancing the deposit tx outputs now. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
 
 - Add `--blockfrost-query-timeout` and `--blockfrost-retry-timeout` to configure
   Blockfrost API timeouts.

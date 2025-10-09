@@ -169,7 +169,7 @@ The last option is most flexible one for dApp builders since they can just speci
    You can see that the UTxO contains the following assets present in the blueprint input:
 
 
-   ```json
+   ```
            30000000 lovelace
            6459586778467727683 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.32
            4726846541838542289 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.38
@@ -185,7 +185,7 @@ The last option is most flexible one for dApp builders since they can just speci
 
    But we decided to deposit some of them which we specified in the single blueprint output:
 
-   ```json
+   ```
 
            15000000 lovelace
            2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.58cfd525f109
