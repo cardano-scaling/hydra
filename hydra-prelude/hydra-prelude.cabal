@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          hydra-prelude
-version:       0.22.4
+version:       1.0.0
 synopsis:      Custom Hydra Prelude used across other Hydra packages.
 author:        IOG
 copyright:     2022 IOG

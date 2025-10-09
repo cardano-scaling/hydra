@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-cardano-api
-version:       0.22.4
+version:       1.0.0
 synopsis:      A Haskell API for Cardano, tailored to the Hydra project.
 author:        IOG
 copyright:     2022 IOG

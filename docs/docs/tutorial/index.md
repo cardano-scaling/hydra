@@ -45,7 +45,7 @@ that you have a good version of jq with this command:
 ```shell
 mkdir -p bin
 
-hydra_version=0.22.4
+hydra_version=1.0.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-x86_64-linux-${hydra_version}.zip
 unzip -d bin hydra-x86_64-linux-${hydra_version}.zip
 
@@ -71,7 +71,7 @@ Finally, verify your node installation by running `./bin/hydra-node --help`
 ```shell
 mkdir -p bin
 
-hydra_version=0.22.4
+hydra_version=1.0.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-aarch64-darwin-${hydra_version}.zip
 unzip -d bin hydra-aarch64-darwin-${hydra_version}.zip
 
@@ -415,7 +415,7 @@ Start the `hydra-node` using these parameters:
 <TabItem value="alice" label="Alice">
 
 ```shell
-hydra_version=0.22.4
+hydra_version=1.0.0
 hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
@@ -437,7 +437,7 @@ hydra-node \
 <TabItem value="bob" label="Bob">
 
 ```shell
-hydra_version=0.22.4
+hydra_version=1.0.0
 hydra-node \
   --node-id "bob-node" \
   --persistence-dir persistence-bob \

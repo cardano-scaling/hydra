@@ -486,7 +486,7 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
           guard $ v ^? key "headId" == Just (toJSON headId)
           v ^? key "contestationDeadline" . _JSON
         remainingTime <- diffUTCTime deadline <$> getCurrentTime
-        waitFor hydraTracer (remainingTime + 10 * blockTime) [n1] $
+        waitFor hydraTracer (remainingTime + 50 * blockTime) [n1] $
           output "ReadyToFanout" ["headId" .= headId]
         send n1 $ input "Fanout" []
 
