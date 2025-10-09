@@ -538,12 +538,15 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
               publishHydraScriptsAs backend Faucet
                 >>= threeNodesWithMirrorParty tracer tmpDir backend
+
       describe "Fanout maximum UTxOs" $ do
         -- This constant is set to the maximum number of UTxOs that can be
         -- fanned out in a single transaction. It is derived from the maximum
-        -- transaction execution budget. See <https://github.com/cardano-scaling/hydra/issues/1468> work on addressing this.
-        
-        let ledgerSizeLimit = 41
+        -- transaction execution budget.
+        --
+        -- See <https://github.com/cardano-scaling/hydra/issues/1468> for work
+        -- on addressing this.
+
         let ledgerSizeLimit = 41
 
         it "reaches the fan out limit" $ \tracer ->
@@ -552,6 +555,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
                 scriptsTxs <- publishHydraScriptsAs backend Faucet
                 reachFanoutLimit ledgerSizeLimit tmpDir tracer scriptsTxs backend
+
         it "doesn't reach the fan out limit by one" $ \tracer ->
           failAfter 60 $
             withClusterTempDir $ \tmpDir -> do
