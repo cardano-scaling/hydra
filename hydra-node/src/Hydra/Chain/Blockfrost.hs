@@ -22,6 +22,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), currentState)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import Blockfrost.Client qualified as BlockfrostAPI
 import Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler (..),
@@ -205,20 +206,31 @@ blockfrostChainFollow ::
   TinyWallet m ->
   m ()
 blockfrostChainFollow tracer prj chainPoint handler wallet = do
-  Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <- Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
-
-  Blockfrost.Block{_blockHash = (Blockfrost.BlockHash genesisBlockHash)} <-
-    Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 0))
+  Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <-
+    Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
 
   let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
-  let blockHash = fromChainPoint chainPoint genesisBlockHash
+  blockHash <- case chainPoint of
+    ChainPointAtGenesis -> do
+      result <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj (Blockfrost.getBlock (Left 0))
+      case result of
+        Right (Right (Blockfrost.Block{_blockHash = Blockfrost.BlockHash genesisBlockHash})) -> do
+          pure $ Blockfrost.BlockHash genesisBlockHash
+        _ -> do
+          Blockfrost.Block{_blockHash = Blockfrost.BlockHash block1Hash} <-
+            Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 1))
+          pure $ Blockfrost.BlockHash block1Hash
+    ChainPoint _ headerHash ->
+      pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
 
   stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
 
+  latestBlockHash <- catchUpToLatest blockHash stateTVar
+
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
-      loop stateTVar
+      pollForNewBlocks blockTime stateTVar
         `catch` \(ex :: APIBlockfrostError) ->
           pure $ Left ex
  where
@@ -230,12 +242,43 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
   retryPolicy :: Double -> RetryPolicyM m
   retryPolicy blockTime' = constantDelay (truncate blockTime' * 1000 * 1000)
 
-  loop stateTVar = do
+  catchUpToLatest currentHash stateTVar = do
+    latestBlock <- Blockfrost.runBlockfrostM prj BlockfrostAPI.getLatestBlock
+    let targetHash = BlockfrostAPI._blockHash latestBlock
+    let targetHeight = BlockfrostAPI._blockHeight latestBlock
+
+    currentBlock <- Blockfrost.runBlockfrostM prj $
+      Blockfrost.getBlock (Right currentHash)
+    let currentHeight = Blockfrost._blockHeight currentBlock
+
+    catchUpLoop currentHash targetHash stateTVar
+
+  catchUpLoop currentHash targetHash stateTVar = do
+    if currentHash == targetHash
+      then do
+        pure currentHash
+      else do
+        nextBlockHash <- rollForward tracer prj handler wallet 0 currentHash
+        atomically $ writeTVar stateTVar nextBlockHash
+
+        if nextBlockHash == targetHash
+          then do
+            pure nextBlockHash
+          else catchUpLoop nextBlockHash targetHash stateTVar
+
+  pollForNewBlocks blockTime' stateTVar = do
+    threadDelay (realToFrac blockTime')
     current <- readTVarIO stateTVar
     nextBlockHash <- rollForward tracer prj handler wallet 1 current
-    threadDelay 1
-    atomically $ writeTVar stateTVar nextBlockHash
-    loop stateTVar
+      `catch` \case
+        MissingNextBlockHash{} -> do
+          pure current
+        ex -> throwIO ex
+
+    when (nextBlockHash /= current) $
+      atomically $ writeTVar stateTVar nextBlockHash
+
+    pollForNewBlocks blockTime' stateTVar
 
 rollForward ::
   (MonadIO m, MonadThrow m) =>
