@@ -144,7 +144,6 @@ library testlib
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
-    , random
 
   ghc-options:     -haddock
 
@@ -172,7 +171,6 @@ test-suite tests
     Hydra.Tx.Contract.Increment
     Hydra.Tx.Contract.Init
     Hydra.Tx.Contract.Recover
-    Hydra.Tx.DepositSpec
     Hydra.Tx.HeadIdSpec
     Hydra.Tx.IsTxSpec
     Spec

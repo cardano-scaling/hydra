@@ -8,11 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+
+## [1.1.0] - UNRELEASED
+- **BREAKING** Partial assets depositing works a bit differently now so you should consult our [API reference](https://hydra.family/head-protocol/api-reference).
+  These changes also enable more complex scenarios when depositing and gives more flexibility to our users
+  since hydra-node is capable of balancing the deposit tx outputs now. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
+
 ## [1.0.0] - 2025-10-08
 
-- Accept additional field `amount` when depositing to specify the amount of
-  Lovelace that should be depositted to a Head returning any leftover to the
-  user. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
 
 - Add `--blockfrost-query-timeout` and `--blockfrost-retry-timeout` to configure
   Blockfrost API timeouts.

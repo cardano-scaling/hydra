@@ -17,6 +17,7 @@ import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
+  AddressInEra,
   ByronAddr,
   Coin (..),
   LedgerEra,
@@ -280,8 +281,7 @@ data Chain tx m = Chain
       PParams LedgerEra ->
       CommitBlueprintTx tx ->
       UTCTime ->
-      Maybe Coin ->
-      Maybe (Map PolicyId PolicyAssets) ->
+      Maybe AddressInEra ->
       m (Either (PostTxError tx) tx)
   -- ^ Create a deposit transaction using user provided utxos (zero or many) ,
   -- _blueprint_ transaction which spends these outputs and a deadline for

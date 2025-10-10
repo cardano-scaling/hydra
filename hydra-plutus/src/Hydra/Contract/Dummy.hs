@@ -9,9 +9,10 @@ module Hydra.Contract.Dummy where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
+import Hydra.Plutus.Extras (wrapValidator)
 import PlutusLedgerApi.V3 (ScriptContext (..), ScriptInfo (..), serialiseCompiledCode, unsafeFromBuiltinData)
 import PlutusTx (compile)
-import PlutusTx.Prelude (check)
+import PlutusTx.Prelude (check, traceIfFalse)
 
 dummyValidatorScript :: PlutusScript
 dummyValidatorScript =
@@ -25,6 +26,17 @@ dummyValidatorScript =
                 _ -> False
             ||]
         )
+
+alwaysFailingScript :: () -> () -> ScriptContext -> Bool
+alwaysFailingScript _ _ _ = traceIfFalse "alwaysFailingScript" False
+
+dummyValidatorScriptAlwaysFails :: PlutusScript
+dummyValidatorScriptAlwaysFails =
+  PlutusScriptSerialised $
+    serialiseCompiledCode
+      $$(PlutusTx.compile [||wrap alwaysFailingScript||])
+ where
+  wrap = wrapValidator @() @()
 
 dummyMintingScript :: PlutusScript
 dummyMintingScript =

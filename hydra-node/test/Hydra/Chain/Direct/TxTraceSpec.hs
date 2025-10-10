@@ -21,13 +21,12 @@ module Hydra.Chain.Direct.TxTraceSpec where
 import Hydra.Prelude hiding (Any, State, label, show)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO, totalLovelace)
+import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
-  Coin (..),
   CtxUTxO,
   PaymentKey,
   SlotNo (..),
@@ -73,7 +72,7 @@ import Test.Hydra.Tx.Gen (
   genUTxO1,
   genVerificationKey,
  )
-import Test.Hydra.Tx.Mutation (addParticipationTokens, randomBetween)
+import Test.Hydra.Tx.Mutation (addParticipationTokens)
 import Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty)
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
@@ -818,18 +817,17 @@ newDepositTx _ utxoToDeposit = do
   let validBefore = SlotNo 0
   deadline <- liftIO getCurrentTime
   let depositUTxO = realWorldModelUTxO utxoToDeposit
-  amount <- liftIO $ randomBetween 1_000_000 (unCoin $ totalLovelace depositUTxO)
   let blueprint = CommitBlueprintTx{blueprintTx = txSpendingUTxO depositUTxO, lookupUTxO = depositUTxO}
   pure $
     Right $
       depositTx
         Fixture.testNetworkId
+        Fixture.defaultPParams
         (mkHeadId Fixture.testPolicyId)
         blueprint
         validBefore
         deadline
-        (Just $ Coin amount)
-        mempty
+        Nothing
 
 -- | Creates a increment transaction using given utxo and given snapshot.
 newIncrementTx :: Actor -> ConfirmedSnapshot Tx -> AppM (Either IncrementTxError Tx)
