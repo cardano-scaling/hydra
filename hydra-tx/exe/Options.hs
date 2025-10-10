@@ -20,6 +20,7 @@ data DepositOptions = DepositOptions
   , headId :: HeadId
   , outFile :: FilePath
   , networkId :: NetworkId
+  , pparamsFilePath :: FilePath
   , depositSlotNo :: SlotNo
   , depositDeadline :: UTCTime
   }
@@ -68,6 +69,7 @@ depositOptionsParser =
     <*> headIdParser
     <*> outputFileParser
     <*> networkIdParser
+    <*> pparamsParser
     <*> depositSlotParser
     <*> deadlineParser
 
@@ -116,6 +118,18 @@ utxoParser =
               [ "Provide a path to a file containing the UTxO to deposit/recover. "
               , "You can use cardano-cli to query the UTxO set of an address and put the json output into a file directly. "
               , "cardano-cli query utxo --address $(cat path-to-address.addr) --mainnet --out-file utxo.json "
+              ]
+          )
+    )
+
+pparamsParser :: Parser FilePath
+pparamsParser =
+  strOption
+    ( long "protocol-parameters"
+        <> metavar "pparams"
+        <> help
+          ( mconcat
+              [ "Provide a path to a file containing the protocol parameters related to the network you are running."
               ]
           )
     )

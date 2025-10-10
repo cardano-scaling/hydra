@@ -15,7 +15,7 @@ import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
-import Hydra.Cardano.Api (Coin, LedgerEra, PolicyAssets, PolicyId, Tx)
+import Hydra.Cardano.Api (AddressInEra, LedgerEra, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
@@ -51,14 +51,11 @@ instance Arbitrary tx => Arbitrary (DraftCommitTxResponse tx) where
 data DraftCommitTxRequest tx
   = SimpleCommitRequest
       { utxoToCommit :: UTxOType tx
-      , amount :: Maybe Coin
-      , tokens :: Maybe (Map PolicyId PolicyAssets)
       }
   | FullCommitRequest
       { blueprintTx :: tx
       , utxo :: UTxOType tx
-      , amount :: Maybe Coin
-      , tokens :: Maybe (Map PolicyId PolicyAssets)
+      , changeAddress :: Maybe AddressInEra
       }
   deriving stock (Generic)
 
@@ -67,18 +64,15 @@ deriving stock instance (Show tx, Show (UTxOType tx)) => Show (DraftCommitTxRequ
 
 instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DraftCommitTxRequest tx) where
   toJSON = \case
-    FullCommitRequest{blueprintTx, utxo, amount, tokens} ->
+    FullCommitRequest{blueprintTx, utxo, changeAddress} ->
       object
         [ "blueprintTx" .= toJSON blueprintTx
         , "utxo" .= toJSON utxo
-        , "amount" .= toJSON amount
-        , "tokens" .= toJSON tokens
+        , "changeAddress" .= toJSON changeAddress
         ]
-    SimpleCommitRequest{utxoToCommit, amount, tokens} ->
+    SimpleCommitRequest{utxoToCommit} ->
       object
         [ "utxoToCommit" .= toJSON utxoToCommit
-        , "amount" .= toJSON amount
-        , "tokens" .= toJSON tokens
         ]
 
 instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest tx) where
@@ -87,25 +81,22 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
     fullVariant = withObject "FullCommitRequest" $ \o -> do
       blueprintTx :: tx <- o .: "blueprintTx"
       utxo <- o .: "utxo"
-      amount <- o .:? "amount"
-      tokens <- o .:? "tokens"
-      pure FullCommitRequest{blueprintTx, utxo, amount, tokens}
+      changeAddress <- o .:? "changeAddress"
+      pure FullCommitRequest{blueprintTx, utxo, changeAddress}
 
     simpleVariant = withObject "SimpleCommitRequest" $ \o -> do
       utxoToCommit <- o .: "utxoToCommit"
-      amount <- o .:? "amount"
-      tokens <- o .:? "tokens"
-      pure SimpleCommitRequest{utxoToCommit, amount, tokens}
+      pure SimpleCommitRequest{utxoToCommit}
 
     simpleDirectVariant :: Aeson.Value -> Parser (DraftCommitTxRequest tx)
-    simpleDirectVariant val = SimpleCommitRequest <$> parseJSON val <*> pure Nothing <*> pure Nothing
+    simpleDirectVariant val = SimpleCommitRequest <$> parseJSON val
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
-    SimpleCommitRequest u amt tokens -> SimpleCommitRequest <$> shrink u <*> shrink amt <*> shrink tokens
-    FullCommitRequest a b c d -> FullCommitRequest <$> shrink a <*> shrink b <*> shrink c <*> shrink d
+    SimpleCommitRequest u -> SimpleCommitRequest <$> shrink u
+    FullCommitRequest a b c -> FullCommitRequest <$> shrink a <*> shrink b <*> shrink c
 
 newtype SubmitTxRequest tx = SubmitTxRequest
   { txToSubmit :: tx
@@ -296,18 +287,18 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
               draftCommit headId utxoToCommit blueprintTx
         IncrementalCommit headId -> do
           case someCommitRequest of
-            FullCommitRequest{blueprintTx, utxo, amount, tokens} -> do
-              deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo} amount tokens
-            SimpleCommitRequest{utxoToCommit, amount, tokens} ->
-              deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit} amount tokens
+            FullCommitRequest{blueprintTx, utxo, changeAddress} -> do
+              deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo} changeAddress
+            SimpleCommitRequest{utxoToCommit} ->
+              deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit} Nothing
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
-  deposit headId commitBlueprint amount tokens = do
+  deposit headId commitBlueprint changeAddress = do
     -- NOTE: Three times deposit period means we have one deposit period time to
     -- increment because a deposit only activates after one deposit period and
     -- expires one deposit period before deadline.
     deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
-    draftDepositTx headId pparams commitBlueprint deadline amount tokens <&> \case
+    draftDepositTx headId pparams commitBlueprint deadline changeAddress <&> \case
       Left e -> responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
 
