@@ -34,7 +34,7 @@
 
       docs-unstable = docs.overrideAttrs {
         configurePhase = ''
-          sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
+          sed -i '/^const BASE_URL/s|head-protocol|head-protocol/unstable|' docusaurus.config.js
         '';
       };
     };
