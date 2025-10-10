@@ -262,7 +262,7 @@ rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> Chain
 
 -- | Handle to interface with the main chain network
 data Chain tx m
-Chain :: ChainStateType tx -> (MonadThrow m => PostChainTx tx -> m ()) -> (MonadThrow m => HeadId -> CommitBlueprintTx tx -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => tx -> m ()) -> Chain tx m
+Chain :: ChainStateType tx -> (MonadThrow m => PostChainTx tx -> m ()) -> (MonadThrow m => HeadId -> CommitBlueprintTx tx -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe AddressInEra -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => tx -> m ()) -> Chain tx m
 
 -- | Provide an initial chain state that may be evolved through
 --   <a>ChainEvent</a>.
@@ -285,7 +285,7 @@ Chain :: ChainStateType tx -> (MonadThrow m => PostChainTx tx -> m ()) -> (Monad
 -- | Create a deposit transaction using user provided utxos (zero or many)
 --   , _blueprint_ transaction which spends these outputs and a deadline
 --   for their inclusion into L2. Errors are handled at the call site.
-[$sel:draftDepositTx:Chain] :: Chain tx m -> MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> m (Either (PostTxError tx) tx)
+[$sel:draftDepositTx:Chain] :: Chain tx m -> MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe AddressInEra -> m (Either (PostTxError tx) tx)
 
 -- | Submit a cardano transaction.
 --   
@@ -3383,15 +3383,12 @@ newtype DraftCommitTxResponse tx
 DraftCommitTxResponse :: tx -> DraftCommitTxResponse tx
 [$sel:commitTx:DraftCommitTxResponse] :: DraftCommitTxResponse tx -> tx
 data DraftCommitTxRequest tx
-SimpleCommitRequest :: UTxOType tx -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> DraftCommitTxRequest tx
+SimpleCommitRequest :: UTxOType tx -> DraftCommitTxRequest tx
 [$sel:utxoToCommit:SimpleCommitRequest] :: DraftCommitTxRequest tx -> UTxOType tx
-[$sel:amount:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe Coin
-[$sel:tokens:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe (Map PolicyId PolicyAssets)
-FullCommitRequest :: tx -> UTxOType tx -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> DraftCommitTxRequest tx
+FullCommitRequest :: tx -> UTxOType tx -> Maybe AddressInEra -> DraftCommitTxRequest tx
 [$sel:blueprintTx:SimpleCommitRequest] :: DraftCommitTxRequest tx -> tx
 [$sel:utxo:SimpleCommitRequest] :: DraftCommitTxRequest tx -> UTxOType tx
-[$sel:amount:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe Coin
-[$sel:tokens:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe (Map PolicyId PolicyAssets)
+[$sel:changeAddress:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe AddressInEra
 newtype SubmitTxRequest tx
 SubmitTxRequest :: tx -> SubmitTxRequest tx
 [$sel:txToSubmit:SubmitTxRequest] :: SubmitTxRequest tx -> tx
@@ -4125,8 +4122,7 @@ type GetTimeHandle m = m TimeHandle
 --   within <tt>IOSim</tt> and does not require any actual <a>IO</a> to
 --   happen which makes it highly suitable for simulations and testing.
 mkChain :: (MonadSTM m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> GetTimeHandle m -> TinyWallet m -> ChainContext -> LocalChainState m Tx -> SubmitTx m -> Chain Tx m
-rejectLowDeposits :: PParams LedgerEra -> UTxO -> Maybe Coin -> Either (PostTxError Tx) ()
-checkAmount :: UTxO -> Maybe Coin -> Either (PostTxError Tx) ()
+rejectLowDeposits :: PParams LedgerEra -> UTxO -> Either (PostTxError Tx) ()
 
 -- | Balance and sign the given partial transaction.
 finalizeTx :: MonadThrow m => TinyWallet m -> ChainContext -> UTxO -> UTxO -> Tx -> m Tx

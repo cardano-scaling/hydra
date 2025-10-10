@@ -12,6 +12,8 @@
 -- | Simple asserting validators that are primarily useful for testing.
 module Hydra.Contract.Dummy
 dummyValidatorScript :: PlutusScript
+alwaysFailingScript :: () -> () -> ScriptContext -> Bool
+dummyValidatorScriptAlwaysFails :: PlutusScript
 dummyMintingScript :: PlutusScript
 dummyRewardingScript :: PlutusScript
 

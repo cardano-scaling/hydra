@@ -434,10 +434,13 @@ instance Cardano.Binary.FromCBOR.FromCBOR Cardano.Api.UTxO.UTxO
 
 module Hydra.Tx.BlueprintTx
 
--- | _Blueprint/Draft_ transaction paired with the <tt>UTxO</tt> which
---   resolves it's inputs. The transaction inputs are committed to a
---   <tt>Head</tt> and the <a>$sel:lookupUTxO:CommitBlueprintTx</a> is
---   expected to contain these inputs.
+-- | _Blueprint/Draft_ transaction paired with the related <tt>UTxO</tt>
+--   and used for resolving the inputs and committing/depositing into a
+--   Head. Deposit behaviour: - In case blueprint transaction contains
+--   outputs then these outputs will be taken into account. - If the
+--   blueprint tx contains only inputs then the whole provided UTxO will
+--   get deposited into a Head. Commit behaviour: - Only inputs would be
+--   considered ignoring any outputs and complete UTxO gets committed.
 data CommitBlueprintTx tx
 CommitBlueprintTx :: UTxOType tx -> tx -> CommitBlueprintTx tx
 [$sel:lookupUTxO:CommitBlueprintTx] :: CommitBlueprintTx tx -> UTxOType tx
@@ -821,87 +824,10 @@ instance GHC.Classes.Eq Hydra.Tx.Fanout.FanoutObservation
 module Hydra.Tx.Deposit
 
 -- | Builds a deposit transaction to lock funds into the v_deposit script.
-depositTx :: NetworkId -> HeadId -> CommitBlueprintTx Tx -> SlotNo -> UTCTime -> Maybe Coin -> Map PolicyId PolicyAssets -> Tx
-
--- | Find the difference between the first argument UTxO's non ADA assets
---   in and the second UTxO argument. Matching asset quantities will be
---   subtracted if they are found.
-diffExistingAssets :: UTxO -> UTxO -> UTxO
-
--- | Diff the first argument map of assets in case any asset exists in the
---   second argument.
-diffAssets :: Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets -> [(PolicyId, PolicyAssets)]
-
--- | Merges the two <a>UTxO'</a> favoring data coming from the first
---   argument <a>UTxO'</a>. In case the same <a>TxIn</a> was found in the
---   first <a>UTxO'</a> - second <a>UTxO'</a> value will be appended to the
---   input. NOTE: We need this since mappend on <a>UTxO'</a> is happy to
---   accept the first <a>Value</a> it encounters in case <a>TxId</a>/s are
---   the same.
-mergeUTxO :: UTxO -> UTxO -> UTxO
-pickTokensToDeposit :: UTxO -> Map PolicyId PolicyAssets -> UTxO
-mkTxOutValueNotKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
+depositTx :: NetworkId -> PParams LedgerEra -> HeadId -> CommitBlueprintTx Tx -> SlotNo -> UTCTime -> Maybe AddressInEra -> Tx
 mkDepositOutput :: NetworkId -> HeadId -> UTxO -> UTCTime -> TxOut ctx
+constructDepositUTxO :: TxId -> [TxOut CtxTx] -> UTxO
 depositAddress :: NetworkId -> AddressInEra
-
--- | Splits the specified tokens into those that are available in
---   sufficient quantities in the user's UTxO and those that are not
---   (either because the policy is missing or the asset quantities are
---   insufficient).
---   
---   This function takes a user's UTxO and a map of specified policy IDs to
---   their desired assets and quantities. It checks the total value in the
---   UTxO, converts it to a policy-assets map, and then partitions the
---   specified tokens into "ok" (available) and "invalid" (unavailable or
---   insufficient).
---   
---   If no tokens are specified, it returns two empty maps. Otherwise, it
---   returns the partitioned maps, ensuring that if there are no invalid
---   tokens, the second map is empty.
-splitTokens :: UTxO -> Map PolicyId PolicyAssets -> (Map PolicyId PolicyAssets, Map PolicyId PolicyAssets)
-
--- | Caps a UTxO set to a specified target amount of Lovelace, splitting
---   outputs if necessary.
---   
---   Given a <a>UTxO'</a> set and a target <a>Coin</a> value (in Lovelace),
---   this function selects unspent transaction outputs (UTxOs) to form a
---   subset that sums as close as possible to the target value without
---   exceeding it. If an output needs to be split to meet the target
---   exactly, it creates two new outputs: one contributing to the target
---   and another for the remaining value. The function ensures that the
---   total Lovelace in the selected outputs does not exceed the target.
---   
---   <h3>Algorithm</h3>
---   
---   <ol>
---   <li>**Base Cases**: - If the target is 0, return an empty <a>UTxO'</a>
---   as the selected set and the original <a>UTxO'</a> as leftovers. - If
---   the input <a>UTxO'</a> is empty, return two empty <a>UTxO'</a>
---   sets.</li>
---   <li>**Main Logic**: - Sort the UTxO entries by their Lovelace value
---   (ascending) to prioritize smaller outputs for efficiency. - Use a
---   recursive helper function <tt>go</tt> to iterate through the sorted
---   UTxO list, accumulating outputs until the target value is reached or
---   no suitable outputs remain. - For each output: - If adding the
---   output's Lovelace value does not exceed the target, include it fully
---   in the selected set and remove it from the leftovers. - If adding the
---   output would exceed the target, split the output into two parts: - One
---   part contributes exactly the remaining amount needed to reach the
---   target. - The other part holds the excess Lovelace. - Reuse
---   <a>TxIn</a> identifiers for the split outputs. - Continue processing
---   until the target is met or no outputs remain.</li>
---   <li>**Termination**: - The function stops when the accumulated
---   Lovelace equals the target or when no more outputs are available. -
---   Returns a pair of <a>UTxO'</a> sets: the selected outputs (summing to
---   at most the target) and the remaining outputs.</li>
---   </ol>
-capUTxO :: UTxO -> Coin -> (UTxO, UTxO)
-
--- | Helper to create a new TxOut with specified lovelace value
-updateTxOutAdaValue :: TxOut ctx -> Coin -> TxOut ctx
-
--- | Helper to create a new TxOut with specified <a>Value</a>
-updateTxOutValue :: TxOut ctx -> Value -> TxOut ctx
 data DepositObservation
 DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObservation
 [$sel:headId:DepositObservation] :: DepositObservation -> HeadId
@@ -914,9 +840,9 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 --   deadline and deposited utxo in the datum.
 --   
 --   This includes checking whether - the first output is a deposit output
---   - all inputs of deposited utxo are actually spent, - the deposit
---   script output actually contains the deposited value, - an upper
---   validity bound has been set (used as creation slot).
+--   - all of deposited value is contained in the deposit tx output, - the
+--   deposit script output actually contains the deposited value, - an
+--   upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Deposit.DepositObservation
@@ -1178,9 +1104,9 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 --   deadline and deposited utxo in the datum.
 --   
 --   This includes checking whether - the first output is a deposit output
---   - all inputs of deposited utxo are actually spent, - the deposit
---   script output actually contains the deposited value, - an upper
---   validity bound has been set (used as creation slot).
+--   - all of deposited value is contained in the deposit tx output, - the
+--   deposit script output actually contains the deposited value, - an
+--   upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 data IncrementObservation
 IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> IncrementObservation

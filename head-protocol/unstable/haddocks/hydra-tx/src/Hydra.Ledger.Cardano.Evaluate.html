@@ -104,12 +104,12 @@
 </span><span id="line-100"></span><span>  </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#EvaluationError"><span class="hs-identifier hs-type">EvaluationError</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#EvaluationReport"><span class="hs-identifier hs-type">EvaluationReport</span></a></span><span>
 </span><span id="line-101"></span><span id="evaluateTx%27"><span class="annot"><span class="annottext">evaluateTx' :: ExecutionUnits
 -&gt; Tx -&gt; UTxO -&gt; Either EvaluationError EvaluationReport
-</span><a href="Hydra.Ledger.Cardano.Evaluate.html#evaluateTx%27"><span class="hs-identifier hs-var hs-var">evaluateTx'</span></a></span></span><span> </span><span id="local-6989586621679434133"><span class="annot"><span class="annottext">ExecutionUnits
-</span><a href="#local-6989586621679434133"><span class="hs-identifier hs-var">maxUnits</span></a></span></span><span> </span><span id="local-6989586621679434134"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434134"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span id="local-6989586621679434135"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679434135"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-102"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679434136"><span class="annot"><span class="annottext">pparams' :: PParams ConwayEra
-</span><a href="#local-6989586621679434136"><span class="hs-identifier hs-var hs-var">pparams'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="Hydra.Ledger.Cardano.Evaluate.html#evaluateTx%27"><span class="hs-identifier hs-var hs-var">evaluateTx'</span></a></span></span><span> </span><span id="local-6989586621679433107"><span class="annot"><span class="annottext">ExecutionUnits
+</span><a href="#local-6989586621679433107"><span class="hs-identifier hs-var">maxUnits</span></a></span></span><span> </span><span id="local-6989586621679433108"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679433108"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span id="local-6989586621679433109"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679433109"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-102"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679433110"><span class="annot"><span class="annottext">pparams' :: PParams ConwayEra
+</span><a href="#local-6989586621679433110"><span class="hs-identifier hs-var hs-var">pparams'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
 PParams ConwayEra
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#pparams"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra
 -&gt; (PParams ConwayEra -&gt; PParams ConwayEra) -&gt; PParams ConwayEra
@@ -124,10 +124,10 @@ Lens' (PParams ConwayEra) ExUnits
 forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
 </span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">ExecutionUnits -&gt; ExUnits
 </span><span class="hs-identifier hs-var">toLedgerExUnits</span></span><span> </span><span class="annot"><span class="annottext">ExecutionUnits
-</span><a href="#local-6989586621679434133"><span class="hs-identifier hs-var">maxUnits</span></a></span><span>
-</span><span id="line-103"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679434138"><span class="annot"><span class="annottext">report :: EvaluationReport
-</span><a href="#local-6989586621679434138"><span class="hs-identifier hs-var hs-var">report</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LedgerProtocolParameters Era -&gt; EvaluationReport
-</span><a href="#local-6989586621679434139"><span class="hs-identifier hs-var">result</span></a></span><span> </span><span class="annot"><span class="annottext">(LedgerProtocolParameters Era -&gt; EvaluationReport)
+</span><a href="#local-6989586621679433107"><span class="hs-identifier hs-var">maxUnits</span></a></span><span>
+</span><span id="line-103"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679433112"><span class="annot"><span class="annottext">report :: EvaluationReport
+</span><a href="#local-6989586621679433112"><span class="hs-identifier hs-var hs-var">report</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LedgerProtocolParameters Era -&gt; EvaluationReport
+</span><a href="#local-6989586621679433113"><span class="hs-identifier hs-var">result</span></a></span><span> </span><span class="annot"><span class="annottext">(LedgerProtocolParameters Era -&gt; EvaluationReport)
 -&gt; LedgerProtocolParameters Era -&gt; EvaluationReport
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra -&gt; LedgerProtocolParameters Era
@@ -135,27 +135,27 @@ forall era.
 PParams (ShelleyLedgerEra era) -&gt; LedgerProtocolParameters era
 </span><span class="hs-identifier hs-var">LedgerProtocolParameters</span></span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
 PParams ConwayEra
-</span><a href="#local-6989586621679434136"><span class="hs-identifier hs-var">pparams'</span></a></span><span>
+</span><a href="#local-6989586621679433110"><span class="hs-identifier hs-var">pparams'</span></a></span><span>
 </span><span id="line-104"></span><span>  </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">(Either ScriptExecutionError ExecutionUnits -&gt; Bool)
 -&gt; EvaluationReport -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#all"><span class="hs-identifier hs-var">all</span></a></span><span> </span><span class="annot"><span class="annottext">Either ScriptExecutionError ExecutionUnits -&gt; Bool
 forall a b. Either a b -&gt; Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#isRight"><span class="hs-identifier hs-var">isRight</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434138"><span class="hs-identifier hs-var">report</span></a></span><span>
+</span><a href="#local-6989586621679433112"><span class="hs-identifier hs-var">report</span></a></span><span>
 </span><span id="line-105"></span><span>    </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">ExecutionUnits
 -&gt; EvaluationReport -&gt; Either EvaluationError EvaluationReport
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#checkBudget"><span class="hs-identifier hs-var">checkBudget</span></a></span><span> </span><span class="annot"><span class="annottext">ExecutionUnits
-</span><a href="#local-6989586621679434133"><span class="hs-identifier hs-var">maxUnits</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434138"><span class="hs-identifier hs-var">report</span></a></span><span>
+</span><a href="#local-6989586621679433107"><span class="hs-identifier hs-var">maxUnits</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
+</span><a href="#local-6989586621679433112"><span class="hs-identifier hs-var">report</span></a></span><span>
 </span><span id="line-106"></span><span>    </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">EvaluationReport -&gt; Either EvaluationError EvaluationReport
 forall a b. b -&gt; Either a b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434138"><span class="hs-identifier hs-var">report</span></a></span><span>
+</span><a href="#local-6989586621679433112"><span class="hs-identifier hs-var">report</span></a></span><span>
 </span><span id="line-107"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-108"></span><span>  </span><span id="local-6989586621679434139"><span class="annot"><span class="annottext">result :: LedgerProtocolParameters Era -&gt; EvaluationReport
-</span><a href="#local-6989586621679434139"><span class="hs-identifier hs-var hs-var">result</span></a></span></span><span> </span><span id="local-6989586621679434144"><span class="annot"><span class="annottext">LedgerProtocolParameters Era
-</span><a href="#local-6989586621679434144"><span class="hs-identifier hs-var">pparams'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-108"></span><span>  </span><span id="local-6989586621679433113"><span class="annot"><span class="annottext">result :: LedgerProtocolParameters Era -&gt; EvaluationReport
+</span><a href="#local-6989586621679433113"><span class="hs-identifier hs-var hs-var">result</span></a></span></span><span> </span><span id="local-6989586621679433118"><span class="annot"><span class="annottext">LedgerProtocolParameters Era
+</span><a href="#local-6989586621679433118"><span class="hs-identifier hs-var">pparams'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-109"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Either
    ScriptExecutionError (EvalTxExecutionUnitsLog, ExecutionUnits)
  -&gt; Either ScriptExecutionError ExecutionUnits)
@@ -240,39 +240,39 @@ forall era. IsCardanoEra era =&gt; CardanoEra era
 forall (m :: * -&gt; *). Monad m =&gt; EpochInfo m
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#epochInfo"><span class="hs-identifier hs-var">epochInfo</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-114"></span><span>        </span><span class="annot"><span class="annottext">LedgerProtocolParameters Era
-</span><a href="#local-6989586621679434144"><span class="hs-identifier hs-var">pparams'</span></a></span><span>
+</span><a href="#local-6989586621679433118"><span class="hs-identifier hs-var">pparams'</span></a></span><span>
 </span><span id="line-115"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO -&gt; UTxO Era
 </span><span class="hs-identifier hs-var">UTxO.toApi</span></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679434135"><span class="hs-identifier hs-var">utxo</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433109"><span class="hs-identifier hs-var">utxo</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-116"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; TxBody Era
 forall era. Tx era -&gt; TxBody era
 </span><span class="hs-identifier hs-var">getTxBody</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434134"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433108"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-117"></span><span>
 </span><span id="line-118"></span><span class="hs-comment">-- | Check the budget used by provided 'EvaluationReport' does not exceed given</span><span>
 </span><span id="line-119"></span><span class="hs-comment">-- maximum 'ExecutionUnits'.</span><span>
 </span><span id="line-120"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#checkBudget"><span class="hs-identifier hs-type">checkBudget</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExecutionUnits</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#EvaluationReport"><span class="hs-identifier hs-type">EvaluationReport</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#EvaluationError"><span class="hs-identifier hs-type">EvaluationError</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#EvaluationReport"><span class="hs-identifier hs-type">EvaluationReport</span></a></span><span>
 </span><span id="line-121"></span><span id="checkBudget"><span class="annot"><span class="annottext">checkBudget :: ExecutionUnits
 -&gt; EvaluationReport -&gt; Either EvaluationError EvaluationReport
-</span><a href="Hydra.Ledger.Cardano.Evaluate.html#checkBudget"><span class="hs-identifier hs-var hs-var">checkBudget</span></a></span></span><span> </span><span id="local-6989586621679434150"><span class="annot"><span class="annottext">ExecutionUnits
-</span><a href="#local-6989586621679434150"><span class="hs-identifier hs-var">maxUnits</span></a></span></span><span> </span><span id="local-6989586621679434151"><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434151"><span class="hs-identifier hs-var">report</span></a></span></span><span>
+</span><a href="Hydra.Ledger.Cardano.Evaluate.html#checkBudget"><span class="hs-identifier hs-var hs-var">checkBudget</span></a></span></span><span> </span><span id="local-6989586621679433124"><span class="annot"><span class="annottext">ExecutionUnits
+</span><a href="#local-6989586621679433124"><span class="hs-identifier hs-var">maxUnits</span></a></span></span><span> </span><span id="local-6989586621679433125"><span class="annot"><span class="annottext">EvaluationReport
+</span><a href="#local-6989586621679433125"><span class="hs-identifier hs-var">report</span></a></span></span><span>
 </span><span id="line-122"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679434152"><span class="hs-identifier hs-var">usedMemory</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+</span><a href="#local-6989586621679433126"><span class="hs-identifier hs-var">usedMemory</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">ExecutionUnits -&gt; Natural
 </span><span class="hs-identifier hs-var">executionMemory</span></span><span> </span><span class="annot"><span class="annottext">ExecutionUnits
-</span><a href="#local-6989586621679434150"><span class="hs-identifier hs-var">maxUnits</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="#local-6989586621679433124"><span class="hs-identifier hs-var">maxUnits</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679434156"><span class="hs-identifier hs-var">usedCpu</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+</span><a href="#local-6989586621679433130"><span class="hs-identifier hs-var">usedCpu</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">ExecutionUnits -&gt; Natural
 </span><span class="hs-identifier hs-var">executionSteps</span></span><span> </span><span class="annot"><span class="annottext">ExecutionUnits
-</span><a href="#local-6989586621679434150"><span class="hs-identifier hs-var">maxUnits</span></a></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679433124"><span class="hs-identifier hs-var">maxUnits</span></a></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-123"></span><span>      </span><span class="annot"><span class="annottext">EvaluationReport -&gt; Either EvaluationError EvaluationReport
 forall a b. b -&gt; Either a b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434151"><span class="hs-identifier hs-var">report</span></a></span><span>
+</span><a href="#local-6989586621679433125"><span class="hs-identifier hs-var">report</span></a></span><span>
 </span><span id="line-124"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-125"></span><span>      </span><span class="annot"><span class="annottext">EvaluationError -&gt; Either EvaluationError EvaluationReport
@@ -282,23 +282,23 @@ forall a b. a -&gt; Either a b
 </span><span id="line-127"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">ExecutionUnits
 used :: ExecutionUnits
 $sel:used:TransactionBudgetOverspent :: ExecutionUnits
-</span><a href="#local-6989586621679434159"><span class="hs-identifier hs-var hs-var">used</span></a></span><span>
+</span><a href="#local-6989586621679433133"><span class="hs-identifier hs-var hs-var">used</span></a></span><span>
 </span><span id="line-128"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:available:TransactionBudgetOverspent :: ExecutionUnits
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#%24sel%3Aavailable%3ATransactionBudgetOverspent"><span class="hs-identifier hs-var">available</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExecutionUnits
-</span><a href="#local-6989586621679434150"><span class="hs-identifier hs-var">maxUnits</span></a></span><span>
+</span><a href="#local-6989586621679433124"><span class="hs-identifier hs-var">maxUnits</span></a></span><span>
 </span><span id="line-129"></span><span>          </span><span class="hs-special">}</span><span>
 </span><span id="line-130"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-131"></span><span>  </span><span id="local-6989586621679434159"><span class="annot"><span class="annottext">used :: ExecutionUnits
-</span><a href="#local-6989586621679434159"><span class="hs-identifier hs-var">used</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">ExecutionUnits</span></span><span>
+</span><span id="line-131"></span><span>  </span><span id="local-6989586621679433133"><span class="annot"><span class="annottext">used :: ExecutionUnits
+</span><a href="#local-6989586621679433133"><span class="hs-identifier hs-var">used</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">ExecutionUnits</span></span><span>
 </span><span id="line-132"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">executionMemory :: ExecutionUnits -&gt; Natural
-</span><span class="hs-identifier hs-var">executionMemory</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679434152"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679434152"><span class="hs-identifier hs-var">usedMemory</span></a></span></span><span>
+</span><span class="hs-identifier hs-var">executionMemory</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679433126"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433126"><span class="hs-identifier hs-var">usedMemory</span></a></span></span><span>
 </span><span id="line-133"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">executionSteps :: ExecutionUnits -&gt; Natural
-</span><span class="hs-identifier hs-var">executionSteps</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679434156"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679434156"><span class="hs-identifier hs-var">usedCpu</span></a></span></span><span>
+</span><span class="hs-identifier hs-var">executionSteps</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679433130"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679433130"><span class="hs-identifier hs-var">usedCpu</span></a></span></span><span>
 </span><span id="line-134"></span><span>    </span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EvaluationReport -&gt; ExecutionUnits
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#usedExecutionUnits"><span class="hs-identifier hs-var">usedExecutionUnits</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434151"><span class="hs-identifier hs-var">report</span></a></span><span>
+</span><a href="#local-6989586621679433125"><span class="hs-identifier hs-var">report</span></a></span><span>
 </span><span id="line-135"></span><span>
 </span><span id="line-136"></span><span class="hs-comment">-- | Errors returned by 'evaluateTx' extending the upstream</span><span>
 </span><span id="line-137"></span><span class="hs-comment">-- 'TransactionValidityError' with additional cases.</span><span>
@@ -308,7 +308,7 @@ $sel:used:TransactionBudgetOverspent :: ExecutionUnits
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#%24sel%3Aavailable%3ATransactionBudgetOverspent"><span class="hs-identifier hs-var hs-var">available</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExecutionUnits</span></span><span class="hs-special">}</span><span>
 </span><span id="line-140"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="TransactionInvalid"><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#TransactionInvalid"><span class="hs-identifier hs-var">TransactionInvalid</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TransactionValidityError</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span class="hs-special">)</span><span>
 </span><span id="line-141"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="PParamsConversion"><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#PParamsConversion"><span class="hs-identifier hs-var">PParamsConversion</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ProtocolParametersConversionError</span></span><span>
-</span><span id="line-142"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434166"><span id="local-6989586621679434178"><span id="local-6989586621679434181"><span class="annot"><span class="annottext">Int -&gt; EvaluationError -&gt; ShowS
+</span><span id="line-142"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679433140"><span id="local-6989586621679433152"><span id="local-6989586621679433155"><span class="annot"><span class="annottext">Int -&gt; EvaluationError -&gt; ShowS
 [EvaluationError] -&gt; ShowS
 EvaluationError -&gt; String
 (Int -&gt; EvaluationError -&gt; ShowS)
@@ -349,7 +349,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="annot"><span class="annottext">(ScriptWitnessIndex, Either ScriptExecutionError ExecutionUnits)
 -&gt; Text
-</span><a href="#local-6989586621679434186"><span class="hs-identifier hs-var">render</span></a></span><span> </span><span class="annot"><span class="annottext">([(ScriptWitnessIndex, Either ScriptExecutionError ExecutionUnits)]
+</span><a href="#local-6989586621679433160"><span class="hs-identifier hs-var">render</span></a></span><span> </span><span class="annot"><span class="annottext">([(ScriptWitnessIndex, Either ScriptExecutionError ExecutionUnits)]
  -&gt; EvalTxExecutionUnitsLog)
 -&gt; (EvaluationReport
     -&gt; [(ScriptWitnessIndex,
@@ -363,19 +363,19 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall k a. Map k a -&gt; [(k, a)]
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#toList"><span class="hs-identifier hs-var">Map.toList</span></a></span><span>
 </span><span id="line-153"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-154"></span><span>  </span><span class="annot"><a href="#local-6989586621679434186"><span class="hs-identifier hs-type">render</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ScriptWitnessIndex</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptExecutionError</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExecutionUnits</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
-</span><span id="line-155"></span><span>  </span><span id="local-6989586621679434186"><span class="annot"><span class="annottext">render :: (ScriptWitnessIndex, Either ScriptExecutionError ExecutionUnits)
+</span><span id="line-154"></span><span>  </span><span class="annot"><a href="#local-6989586621679433160"><span class="hs-identifier hs-type">render</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ScriptWitnessIndex</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptExecutionError</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExecutionUnits</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
+</span><span id="line-155"></span><span>  </span><span id="local-6989586621679433160"><span class="annot"><span class="annottext">render :: (ScriptWitnessIndex, Either ScriptExecutionError ExecutionUnits)
 -&gt; Text
-</span><a href="#local-6989586621679434186"><span class="hs-identifier hs-var hs-var">render</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434188"><span class="annot"><span class="annottext">ScriptWitnessIndex
-</span><a href="#local-6989586621679434188"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679434189"><span class="annot"><span class="annottext">ExecutionUnits
-</span><a href="#local-6989586621679434189"><span class="hs-identifier hs-var">exunits</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679433160"><span class="hs-identifier hs-var hs-var">render</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679433162"><span class="annot"><span class="annottext">ScriptWitnessIndex
+</span><a href="#local-6989586621679433162"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679433163"><span class="annot"><span class="annottext">ExecutionUnits
+</span><a href="#local-6989586621679433163"><span class="hs-identifier hs-var">exunits</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-156"></span><span>    </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;- &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptWitnessIndex -&gt; Text
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">ScriptWitnessIndex
-</span><a href="#local-6989586621679434188"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+</span><a href="#local-6989586621679433162"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot; OK and used &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
@@ -383,10 +383,10 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ExecutionUnits -&gt; Text
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">ExecutionUnits
-</span><a href="#local-6989586621679434189"><span class="hs-identifier hs-var">exunits</span></a></span><span>
-</span><span id="line-157"></span><span>  </span><span class="annot"><a href="#local-6989586621679434186"><span class="hs-identifier hs-var">render</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434191"><span class="annot"><span class="annottext">ScriptWitnessIndex
-</span><a href="#local-6989586621679434191"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679434192"><span class="annot"><span class="annottext">ScriptExecutionError
-</span><a href="#local-6989586621679434192"><span class="hs-identifier hs-var">err</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679433163"><span class="hs-identifier hs-var">exunits</span></a></span><span>
+</span><span id="line-157"></span><span>  </span><span class="annot"><a href="#local-6989586621679433160"><span class="hs-identifier hs-var">render</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679433165"><span class="annot"><span class="annottext">ScriptWitnessIndex
+</span><a href="#local-6989586621679433165"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679433166"><span class="annot"><span class="annottext">ScriptExecutionError
+</span><a href="#local-6989586621679433166"><span class="hs-identifier hs-var">err</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-158"></span><span>    </span><span class="annot"><span class="annottext">EvalTxExecutionUnitsLog -&gt; Text
 forall t. IsText t &quot;unlines&quot; =&gt; [t] -&gt; t
 </span><span class="hs-identifier hs-var">unlines</span></span><span>
@@ -396,7 +396,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptWitnessIndex -&gt; Text
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">ScriptWitnessIndex
-</span><a href="#local-6989586621679434191"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+</span><a href="#local-6989586621679433165"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot; FAIL with error: &quot;</span></span><span>
@@ -413,26 +413,26 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall e ann. Error e =&gt; e -&gt; Doc ann
 forall ann. ScriptExecutionError -&gt; Doc ann
 </span><span class="hs-identifier hs-var">prettyError</span></span><span> </span><span class="annot"><span class="annottext">ScriptExecutionError
-</span><a href="#local-6989586621679434192"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><a href="#local-6989586621679433166"><span class="hs-identifier hs-var">err</span></a></span><span>
 </span><span id="line-161"></span><span>      </span><span class="hs-special">]</span><span>
 </span><span id="line-162"></span><span>
 </span><span id="line-163"></span><span class="hs-comment">-- | Get the total used 'ExecutionUnits' from an 'EvaluationReport'. Useful to</span><span>
 </span><span id="line-164"></span><span class="hs-comment">-- further process the result of 'evaluateTx'.</span><span>
 </span><span id="line-165"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#usedExecutionUnits"><span class="hs-identifier hs-type">usedExecutionUnits</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#EvaluationReport"><span class="hs-identifier hs-type">EvaluationReport</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExecutionUnits</span></span><span>
 </span><span id="line-166"></span><span id="usedExecutionUnits"><span class="annot"><span class="annottext">usedExecutionUnits :: EvaluationReport -&gt; ExecutionUnits
-</span><a href="Hydra.Ledger.Cardano.Evaluate.html#usedExecutionUnits"><span class="hs-identifier hs-var hs-var">usedExecutionUnits</span></a></span></span><span> </span><span id="local-6989586621679434193"><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434193"><span class="hs-identifier hs-var">report</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Ledger.Cardano.Evaluate.html#usedExecutionUnits"><span class="hs-identifier hs-var hs-var">usedExecutionUnits</span></a></span></span><span> </span><span id="local-6989586621679433167"><span class="annot"><span class="annottext">EvaluationReport
+</span><a href="#local-6989586621679433167"><span class="hs-identifier hs-var">report</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-167"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ExecutionUnits</span></span><span>
 </span><span id="line-168"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">executionMemory :: Natural
 </span><span class="hs-identifier hs-var">executionMemory</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679434194"><span class="hs-identifier hs-var">usedMemory</span></a></span><span>
+</span><a href="#local-6989586621679433168"><span class="hs-identifier hs-var">usedMemory</span></a></span><span>
 </span><span id="line-169"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">executionSteps :: Natural
 </span><span class="hs-identifier hs-var">executionSteps</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679434195"><span class="hs-identifier hs-var">usedCpu</span></a></span><span>
+</span><a href="#local-6989586621679433169"><span class="hs-identifier hs-var">usedCpu</span></a></span><span>
 </span><span id="line-170"></span><span>    </span><span class="hs-special">}</span><span>
 </span><span id="line-171"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-172"></span><span>  </span><span id="local-6989586621679434194"><span class="annot"><span class="annottext">usedMemory :: Natural
-</span><a href="#local-6989586621679434194"><span class="hs-identifier hs-var hs-var">usedMemory</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Natural] -&gt; Natural
+</span><span id="line-172"></span><span>  </span><span id="local-6989586621679433168"><span class="annot"><span class="annottext">usedMemory :: Natural
+</span><a href="#local-6989586621679433168"><span class="hs-identifier hs-var hs-var">usedMemory</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Natural] -&gt; Natural
 forall a (f :: * -&gt; *). (Foldable f, Num a) =&gt; f a -&gt; a
 </span><span class="hs-identifier hs-var">sum</span></span><span> </span><span class="annot"><span class="annottext">([Natural] -&gt; Natural) -&gt; [Natural] -&gt; Natural
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -440,10 +440,10 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">executionMemory</span></span><span> </span><span class="annot"><span class="annottext">(ExecutionUnits -&gt; Natural) -&gt; [ExecutionUnits] -&gt; [Natural]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[ExecutionUnits]
-</span><a href="#local-6989586621679434198"><span class="hs-identifier hs-var">budgets</span></a></span><span>
+</span><a href="#local-6989586621679433172"><span class="hs-identifier hs-var">budgets</span></a></span><span>
 </span><span id="line-173"></span><span>
-</span><span id="line-174"></span><span>  </span><span id="local-6989586621679434195"><span class="annot"><span class="annottext">usedCpu :: Natural
-</span><a href="#local-6989586621679434195"><span class="hs-identifier hs-var hs-var">usedCpu</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Natural] -&gt; Natural
+</span><span id="line-174"></span><span>  </span><span id="local-6989586621679433169"><span class="annot"><span class="annottext">usedCpu :: Natural
+</span><a href="#local-6989586621679433169"><span class="hs-identifier hs-var hs-var">usedCpu</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Natural] -&gt; Natural
 forall a (f :: * -&gt; *). (Foldable f, Num a) =&gt; f a -&gt; a
 </span><span class="hs-identifier hs-var">sum</span></span><span> </span><span class="annot"><span class="annottext">([Natural] -&gt; Natural) -&gt; [Natural] -&gt; Natural
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -451,10 +451,10 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">executionSteps</span></span><span> </span><span class="annot"><span class="annottext">(ExecutionUnits -&gt; Natural) -&gt; [ExecutionUnits] -&gt; [Natural]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[ExecutionUnits]
-</span><a href="#local-6989586621679434198"><span class="hs-identifier hs-var">budgets</span></a></span><span>
+</span><a href="#local-6989586621679433172"><span class="hs-identifier hs-var">budgets</span></a></span><span>
 </span><span id="line-175"></span><span>
-</span><span id="line-176"></span><span>  </span><span id="local-6989586621679434198"><span class="annot"><span class="annottext">budgets :: [ExecutionUnits]
-</span><a href="#local-6989586621679434198"><span class="hs-identifier hs-var hs-var">budgets</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Either ScriptExecutionError ExecutionUnits] -&gt; [ExecutionUnits]
+</span><span id="line-176"></span><span>  </span><span id="local-6989586621679433172"><span class="annot"><span class="annottext">budgets :: [ExecutionUnits]
+</span><a href="#local-6989586621679433172"><span class="hs-identifier hs-var hs-var">budgets</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Either ScriptExecutionError ExecutionUnits] -&gt; [ExecutionUnits]
 forall a b. [Either a b] -&gt; [b]
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#rights"><span class="hs-identifier hs-var">rights</span></a></span><span> </span><span class="annot"><span class="annottext">([Either ScriptExecutionError ExecutionUnits] -&gt; [ExecutionUnits])
 -&gt; [Either ScriptExecutionError ExecutionUnits] -&gt; [ExecutionUnits]
@@ -463,7 +463,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. Map ScriptWitnessIndex a -&gt; [a]
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434193"><span class="hs-identifier hs-var">report</span></a></span><span>
+</span><a href="#local-6989586621679433167"><span class="hs-identifier hs-var">report</span></a></span><span>
 </span><span id="line-177"></span><span>
 </span><span id="line-178"></span><span class="hs-comment">-- | Estimate minimum fee for given transaction and evaluated redeemers. Instead</span><span>
 </span><span id="line-179"></span><span class="hs-comment">-- of using the budgets from the transaction (which are usually set to 0 until</span><span>
@@ -476,35 +476,35 @@ forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
 </span><span id="line-186"></span><span>  </span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#EvaluationReport"><span class="hs-identifier hs-type">EvaluationReport</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-187"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span>
 </span><span id="line-188"></span><span id="estimateMinFee"><span class="annot"><span class="annottext">estimateMinFee :: Tx -&gt; EvaluationReport -&gt; Coin
-</span><a href="Hydra.Ledger.Cardano.Evaluate.html#estimateMinFee"><span class="hs-identifier hs-var hs-var">estimateMinFee</span></a></span></span><span> </span><span id="local-6989586621679434202"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434202"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span id="local-6989586621679434203"><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434203"><span class="hs-identifier hs-var">evaluationReport</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Ledger.Cardano.Evaluate.html#estimateMinFee"><span class="hs-identifier hs-var hs-var">estimateMinFee</span></a></span></span><span> </span><span id="local-6989586621679433176"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679433176"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span id="local-6989586621679433177"><span class="annot"><span class="annottext">EvaluationReport
+</span><a href="#local-6989586621679433177"><span class="hs-identifier hs-var">evaluationReport</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-189"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679434204"><span class="hs-identifier hs-var">txSize</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Coin -&gt; Coin
+</span><a href="#local-6989586621679433178"><span class="hs-identifier hs-var">txSize</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Coin -&gt; Coin
 forall i. Integral i =&gt; i -&gt; Coin -&gt; Coin
 forall t i. (Val t, Integral i) =&gt; i -&gt; t -&gt; t
 </span><span class="hs-operator hs-var">&lt;&#215;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Coin
-</span><a href="#local-6989586621679434205"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Coin -&gt; Coin -&gt; Coin
+</span><a href="#local-6989586621679433179"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Coin -&gt; Coin -&gt; Coin
 forall t. Val t =&gt; t -&gt; t -&gt; t
 </span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">Coin
-</span><a href="#local-6989586621679434206"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433180"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-190"></span><span>    </span><span class="annot"><span class="annottext">Coin -&gt; Coin -&gt; Coin
 forall t. Val t =&gt; t -&gt; t -&gt; t
 </span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">Prices -&gt; ExUnits -&gt; Coin
 </span><span class="hs-identifier hs-var">txscriptfee</span></span><span> </span><span class="annot"><span class="annottext">Prices
-</span><a href="#local-6989586621679434207"><span class="hs-identifier hs-var">prices</span></a></span><span> </span><span class="annot"><span class="annottext">ExUnits
-</span><a href="#local-6989586621679434208"><span class="hs-identifier hs-var">allExunits</span></a></span><span>
+</span><a href="#local-6989586621679433181"><span class="hs-identifier hs-var">prices</span></a></span><span> </span><span class="annot"><span class="annottext">ExUnits
+</span><a href="#local-6989586621679433182"><span class="hs-identifier hs-var">allExunits</span></a></span><span>
 </span><span id="line-191"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-192"></span><span>  </span><span id="local-6989586621679434204"><span class="annot"><span class="annottext">txSize :: Int
-</span><a href="#local-6989586621679434204"><span class="hs-identifier hs-var hs-var">txSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
+</span><span id="line-192"></span><span>  </span><span id="local-6989586621679433178"><span class="annot"><span class="annottext">txSize :: Int
+</span><a href="#local-6989586621679433178"><span class="hs-identifier hs-var hs-var">txSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#length"><span class="hs-identifier hs-var">BS.length</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Int) -&gt; ByteString -&gt; Int
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; ByteString
 forall a. SerialiseAsCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialiseToCBOR</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434202"><span class="hs-identifier hs-var">tx</span></a></span><span>
-</span><span id="line-193"></span><span>  </span><span id="local-6989586621679434205"><span class="annot"><span class="annottext">a :: Coin
-</span><a href="#local-6989586621679434205"><span class="hs-identifier hs-var hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+</span><a href="#local-6989586621679433176"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-193"></span><span>  </span><span id="local-6989586621679433179"><span class="annot"><span class="annottext">a :: Coin
+</span><a href="#local-6989586621679433179"><span class="hs-identifier hs-var hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
 PParams ConwayEra
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#pparams"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra -&gt; Getting Coin (PParams ConwayEra) Coin -&gt; Coin
 forall s a. s -&gt; Getting a s a -&gt; a
@@ -512,8 +512,8 @@ forall s a. s -&gt; Getting a s a -&gt; a
 forall era. EraPParams era =&gt; Lens' (PParams era) Coin
 Lens' (PParams ConwayEra) Coin
 </span><span class="hs-identifier hs-var">ppMinFeeAL</span></span><span>
-</span><span id="line-194"></span><span>  </span><span id="local-6989586621679434206"><span class="annot"><span class="annottext">b :: Coin
-</span><a href="#local-6989586621679434206"><span class="hs-identifier hs-var hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+</span><span id="line-194"></span><span>  </span><span id="local-6989586621679433180"><span class="annot"><span class="annottext">b :: Coin
+</span><a href="#local-6989586621679433180"><span class="hs-identifier hs-var hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
 PParams ConwayEra
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#pparams"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra -&gt; Getting Coin (PParams ConwayEra) Coin -&gt; Coin
 forall s a. s -&gt; Getting a s a -&gt; a
@@ -521,8 +521,8 @@ forall s a. s -&gt; Getting a s a -&gt; a
 forall era. EraPParams era =&gt; Lens' (PParams era) Coin
 Lens' (PParams ConwayEra) Coin
 </span><span class="hs-identifier hs-var">ppMinFeeBL</span></span><span>
-</span><span id="line-195"></span><span>  </span><span id="local-6989586621679434207"><span class="annot"><span class="annottext">prices :: Prices
-</span><a href="#local-6989586621679434207"><span class="hs-identifier hs-var hs-var">prices</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
+</span><span id="line-195"></span><span>  </span><span id="local-6989586621679433181"><span class="annot"><span class="annottext">prices :: Prices
+</span><a href="#local-6989586621679433181"><span class="hs-identifier hs-var hs-var">prices</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra
 PParams ConwayEra
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#pparams"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra
 -&gt; Getting Prices (PParams ConwayEra) Prices -&gt; Prices
@@ -531,8 +531,8 @@ forall s a. s -&gt; Getting a s a -&gt; a
 forall era. AlonzoEraPParams era =&gt; Lens' (PParams era) Prices
 Lens' (PParams ConwayEra) Prices
 </span><span class="hs-identifier hs-var">ppPricesL</span></span><span>
-</span><span id="line-196"></span><span>  </span><span id="local-6989586621679434208"><span class="annot"><span class="annottext">allExunits :: ExUnits
-</span><a href="#local-6989586621679434208"><span class="hs-identifier hs-var hs-var">allExunits</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExecutionUnits -&gt; ExUnits) -&gt; [ExecutionUnits] -&gt; ExUnits
+</span><span id="line-196"></span><span>  </span><span id="local-6989586621679433182"><span class="annot"><span class="annottext">allExunits :: ExUnits
+</span><a href="#local-6989586621679433182"><span class="hs-identifier hs-var hs-var">allExunits</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExecutionUnits -&gt; ExUnits) -&gt; [ExecutionUnits] -&gt; ExUnits
 forall m a. Monoid m =&gt; (a -&gt; m) -&gt; [a] -&gt; m
 forall (t :: * -&gt; *) m a.
 (Foldable t, Monoid m) =&gt;
@@ -553,7 +553,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. Map ScriptWitnessIndex a -&gt; [a]
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434203"><span class="hs-identifier hs-var">evaluationReport</span></a></span><span>
+</span><a href="#local-6989586621679433177"><span class="hs-identifier hs-var">evaluationReport</span></a></span><span>
 </span><span id="line-197"></span><span>
 </span><span id="line-198"></span><span class="annot"><span class="hs-comment">-- * Fixtures</span></span><span>
 </span><span id="line-199"></span><span>
@@ -798,7 +798,7 @@ forall k a. Ord k =&gt; [(k, a)] -&gt; Map k a
 </span><span id="line-249"></span><span>
 </span><span id="line-250"></span><span class="hs-comment">-- | An artificial 'EpochInfo' comprised by a single never ending (forking) era,</span><span>
 </span><span id="line-251"></span><span class="hs-comment">-- with fixed 'epochSize' and 'slotLength'.</span><span>
-</span><span id="line-252"></span><span id="local-6989586621679433321"><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#epochInfo"><span class="hs-identifier hs-type">epochInfo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679433321"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EpochInfo</span></span><span> </span><span class="annot"><a href="#local-6989586621679433321"><span class="hs-identifier hs-type">m</span></a></span></span><span>
+</span><span id="line-252"></span><span id="local-6989586621679432295"><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#epochInfo"><span class="hs-identifier hs-type">epochInfo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679432295"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EpochInfo</span></span><span> </span><span class="annot"><a href="#local-6989586621679432295"><span class="hs-identifier hs-type">m</span></a></span></span><span>
 </span><span id="line-253"></span><span id="epochInfo"><span class="annot"><span class="annottext">epochInfo :: forall (m :: * -&gt; *). Monad m =&gt; EpochInfo m
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#epochInfo"><span class="hs-identifier hs-var hs-var">epochInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EpochSize -&gt; SlotLength -&gt; EpochInfo m
 forall (m :: * -&gt; *).
@@ -819,9 +819,9 @@ EpochSize -&gt; SlotLength -&gt; EpochInfo m
 </span><span id="line-263"></span><span class="hs-comment">-- length of 1</span><span>
 </span><span id="line-264"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#eraHistoryWithHorizonAt"><span class="hs-identifier hs-type">eraHistoryWithHorizonAt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EraHistory</span></span><span>
 </span><span id="line-265"></span><span id="eraHistoryWithHorizonAt"><span class="annot"><span class="annottext">eraHistoryWithHorizonAt :: SlotNo -&gt; EraHistory
-</span><a href="Hydra.Ledger.Cardano.Evaluate.html#eraHistoryWithHorizonAt"><span class="hs-identifier hs-var hs-var">eraHistoryWithHorizonAt</span></a></span></span><span> </span><span id="local-6989586621679434241"><span class="annot"><span class="annottext">slotNo :: SlotNo
-</span><a href="#local-6989586621679434241"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span id="local-6989586621679434242"><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679434242"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Ledger.Cardano.Evaluate.html#eraHistoryWithHorizonAt"><span class="hs-identifier hs-var hs-var">eraHistoryWithHorizonAt</span></a></span></span><span> </span><span id="local-6989586621679433215"><span class="annot"><span class="annottext">slotNo :: SlotNo
+</span><a href="#local-6989586621679433215"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span id="local-6989586621679433216"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679433216"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-266"></span><span>  </span><span class="annot"><span class="annottext">Interpreter (CardanoEras StandardCrypto) -&gt; EraHistory
 forall (xs :: [*]).
 (CardanoBlock StandardCrypto ~ HardForkBlock xs) =&gt;
@@ -830,11 +830,11 @@ Interpreter xs -&gt; EraHistory
 -&gt; Interpreter (CardanoEras StandardCrypto)
 forall (xs :: [*]). Summary xs -&gt; Interpreter xs
 </span><span class="hs-identifier hs-var">mkInterpreter</span></span><span> </span><span class="annot"><span class="annottext">Summary (CardanoEras StandardCrypto)
-</span><a href="#local-6989586621679434243"><span class="hs-identifier hs-var">summary</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433217"><span class="hs-identifier hs-var">summary</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-267"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-268"></span><span>  </span><span class="annot"><a href="#local-6989586621679434243"><span class="hs-identifier hs-type">summary</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Summary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CardanoEras</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">StandardCrypto</span></span><span class="hs-special">)</span><span>
-</span><span id="line-269"></span><span>  </span><span id="local-6989586621679434243"><span class="annot"><span class="annottext">summary :: Summary (CardanoEras StandardCrypto)
-</span><a href="#local-6989586621679434243"><span class="hs-identifier hs-var hs-var">summary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-268"></span><span>  </span><span class="annot"><a href="#local-6989586621679433217"><span class="hs-identifier hs-type">summary</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Summary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CardanoEras</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">StandardCrypto</span></span><span class="hs-special">)</span><span>
+</span><span id="line-269"></span><span>  </span><span id="local-6989586621679433217"><span class="annot"><span class="annottext">summary :: Summary (CardanoEras StandardCrypto)
+</span><a href="#local-6989586621679433217"><span class="hs-identifier hs-var hs-var">summary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-270"></span><span>    </span><span class="annot"><span class="annottext">NonEmpty (CardanoEras StandardCrypto) EraSummary
 -&gt; Summary (CardanoEras StandardCrypto)
 forall (xs :: [*]). NonEmpty xs EraSummary -&gt; Summary xs
@@ -868,23 +868,23 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; POSIXTime
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679434242"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><a href="#local-6989586621679433216"><span class="hs-identifier hs-var">n</span></a></span><span>
 </span><span id="line-277"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">boundSlot :: SlotNo
 </span><span class="hs-identifier hs-var">boundSlot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679434241"><span class="hs-identifier hs-var">slotNo</span></a></span><span>
+</span><a href="#local-6989586621679433215"><span class="hs-identifier hs-var">slotNo</span></a></span><span>
 </span><span id="line-278"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">boundEpoch :: EpochNo
 </span><span class="hs-identifier hs-var">boundEpoch</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; EpochNo
 </span><span class="hs-identifier hs-var">EpochNo</span></span><span> </span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679434242"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><a href="#local-6989586621679433216"><span class="hs-identifier hs-var">n</span></a></span><span>
 </span><span id="line-279"></span><span>                </span><span class="hs-special">}</span><span>
 </span><span id="line-280"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">EraParams
 eraParams :: EraParams
 eraParams :: EraParams
-</span><a href="#local-6989586621679434247"><span class="hs-identifier hs-var hs-var">eraParams</span></a></span><span>
+</span><a href="#local-6989586621679433221"><span class="hs-identifier hs-var hs-var">eraParams</span></a></span><span>
 </span><span id="line-281"></span><span>        </span><span class="hs-special">}</span><span>
 </span><span id="line-282"></span><span>
-</span><span id="line-283"></span><span>  </span><span id="local-6989586621679434247"><span class="annot"><span class="annottext">eraParams :: EraParams
-</span><a href="#local-6989586621679434247"><span class="hs-identifier hs-var hs-var">eraParams</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-283"></span><span>  </span><span id="local-6989586621679433221"><span class="annot"><span class="annottext">eraParams :: EraParams
+</span><a href="#local-6989586621679433221"><span class="hs-identifier hs-var hs-var">eraParams</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-284"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">EraParams</span></span><span>
 </span><span id="line-285"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">eraEpochSize :: EpochSize
 </span><span class="hs-identifier hs-var">eraEpochSize</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; EpochSize
@@ -916,11 +916,11 @@ Interpreter xs -&gt; EraHistory
 -&gt; Interpreter (CardanoEras StandardCrypto)
 forall (xs :: [*]). Summary xs -&gt; Interpreter xs
 </span><span class="hs-identifier hs-var">mkInterpreter</span></span><span> </span><span class="annot"><span class="annottext">Summary (CardanoEras StandardCrypto)
-</span><a href="#local-6989586621679434259"><span class="hs-identifier hs-var">summary</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433233"><span class="hs-identifier hs-var">summary</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-296"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-297"></span><span>  </span><span class="annot"><a href="#local-6989586621679434259"><span class="hs-identifier hs-type">summary</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Summary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CardanoEras</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">StandardCrypto</span></span><span class="hs-special">)</span><span>
-</span><span id="line-298"></span><span>  </span><span id="local-6989586621679434259"><span class="annot"><span class="annottext">summary :: Summary (CardanoEras StandardCrypto)
-</span><a href="#local-6989586621679434259"><span class="hs-identifier hs-var hs-var">summary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-297"></span><span>  </span><span class="annot"><a href="#local-6989586621679433233"><span class="hs-identifier hs-type">summary</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Summary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CardanoEras</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">StandardCrypto</span></span><span class="hs-special">)</span><span>
+</span><span id="line-298"></span><span>  </span><span id="local-6989586621679433233"><span class="annot"><span class="annottext">summary :: Summary (CardanoEras StandardCrypto)
+</span><a href="#local-6989586621679433233"><span class="hs-identifier hs-var hs-var">summary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-299"></span><span>    </span><span class="annot"><span class="annottext">NonEmpty (CardanoEras StandardCrypto) EraSummary
 -&gt; Summary (CardanoEras StandardCrypto)
 forall (xs :: [*]). NonEmpty xs EraSummary -&gt; Summary xs
@@ -949,8 +949,8 @@ eraParams :: EraParams
 </span><span class="hs-identifier hs-var hs-var">eraParams</span></span><span>
 </span><span id="line-304"></span><span>        </span><span class="hs-special">}</span><span>
 </span><span id="line-305"></span><span>
-</span><span id="line-306"></span><span>  </span><span id="local-6989586621679434261"><span class="annot"><span class="annottext">eraParams :: EraParams
-</span><a href="#local-6989586621679434261"><span class="hs-identifier hs-var hs-var">eraParams</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-306"></span><span>  </span><span id="local-6989586621679433235"><span class="annot"><span class="annottext">eraParams :: EraParams
+</span><a href="#local-6989586621679433235"><span class="hs-identifier hs-var hs-var">eraParams</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-307"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">EraParams</span></span><span>
 </span><span id="line-308"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">eraEpochSize :: EpochSize
 </span><span class="hs-identifier hs-var">eraEpochSize</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; EpochSize
@@ -997,15 +997,15 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-327"></span><span class="annot"><span class="hs-comment">-- | Expect a given 'Tx' and 'UTxO' to pass evaluation.</span></span><span>
 </span><span id="line-328"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#propTransactionEvaluates"><span class="hs-identifier hs-type">propTransactionEvaluates</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
 </span><span id="line-329"></span><span id="propTransactionEvaluates"><span class="annot"><span class="annottext">propTransactionEvaluates :: (Tx, UTxO) -&gt; Property
-</span><a href="Hydra.Ledger.Cardano.Evaluate.html#propTransactionEvaluates"><span class="hs-identifier hs-var hs-var">propTransactionEvaluates</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434266"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434266"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434267"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679434267"><span class="hs-identifier hs-var">lookupUTxO</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Ledger.Cardano.Evaluate.html#propTransactionEvaluates"><span class="hs-identifier hs-var hs-var">propTransactionEvaluates</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679433240"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679433240"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679433241"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679433241"><span class="hs-identifier hs-var">lookupUTxO</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-330"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; UTxO -&gt; Either EvaluationError EvaluationReport
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#evaluateTx"><span class="hs-identifier hs-var">evaluateTx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434266"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679434267"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-331"></span><span>    </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679434268"><span class="annot"><span class="annottext">EvaluationError
-</span><a href="#local-6989586621679434268"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679433240"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679433241"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-331"></span><span>    </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679433242"><span class="annot"><span class="annottext">EvaluationError
+</span><a href="#local-6989586621679433242"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-332"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; Property
 forall prop. Testable prop =&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">Bool
@@ -1019,8 +1019,8 @@ forall prop. Testable prop =&gt; String -&gt; prop -&gt; Property
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Tx -&gt; String
 </span><span class="hs-identifier hs-var">renderTxWithUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679434267"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434266"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433241"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679433240"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-334"></span><span>        </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
@@ -1031,9 +1031,9 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationError -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">EvaluationError
-</span><a href="#local-6989586621679434268"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-335"></span><span>    </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679434269"><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434269"><span class="hs-identifier hs-var">redeemerReport</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679433242"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-335"></span><span>    </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679433243"><span class="annot"><span class="annottext">EvaluationReport
+</span><a href="#local-6989586621679433243"><span class="hs-identifier hs-var">redeemerReport</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-336"></span><span>      </span><span class="annot"><span class="annottext">(Either ScriptExecutionError ExecutionUnits -&gt; Bool)
 -&gt; [Either ScriptExecutionError ExecutionUnits] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
@@ -1042,7 +1042,7 @@ forall a b. Either a b -&gt; Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#isRight"><span class="hs-identifier hs-var">isRight</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">EvaluationReport -&gt; [Either ScriptExecutionError ExecutionUnits]
 forall k a. Map k a -&gt; [a]
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#elems"><span class="hs-identifier hs-var">Map.elems</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434269"><span class="hs-identifier hs-var">redeemerReport</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433243"><span class="hs-identifier hs-var">redeemerReport</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-337"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; (Bool -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Bool -&gt; Property
@@ -1052,8 +1052,8 @@ forall prop. Testable prop =&gt; String -&gt; prop -&gt; Property
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Tx -&gt; String
 </span><span class="hs-identifier hs-var">renderTxWithUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679434267"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434266"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433241"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679433240"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-338"></span><span>        </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
@@ -1065,7 +1065,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 forall a. ToString a =&gt; a -&gt; String
 </span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">EvaluationReport -&gt; Text
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#renderEvaluationReport"><span class="hs-identifier hs-var">renderEvaluationReport</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434269"><span class="hs-identifier hs-var">redeemerReport</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433243"><span class="hs-identifier hs-var">redeemerReport</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-339"></span><span>        </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
@@ -1076,27 +1076,27 @@ forall prop. Testable prop =&gt; String -&gt; prop -&gt; Property
 </span><span id="line-341"></span><span class="annot"><span class="hs-comment">-- | Expect a given 'Tx' and 'UTxO' to fail phase 1 or phase 2 evaluation.</span></span><span>
 </span><span id="line-342"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#propTransactionFailsEvaluation"><span class="hs-identifier hs-type">propTransactionFailsEvaluation</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
 </span><span id="line-343"></span><span id="propTransactionFailsEvaluation"><span class="annot"><span class="annottext">propTransactionFailsEvaluation :: (Tx, UTxO) -&gt; Property
-</span><a href="Hydra.Ledger.Cardano.Evaluate.html#propTransactionFailsEvaluation"><span class="hs-identifier hs-var hs-var">propTransactionFailsEvaluation</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434273"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434273"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679434274"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679434274"><span class="hs-identifier hs-var">lookupUTxO</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Ledger.Cardano.Evaluate.html#propTransactionFailsEvaluation"><span class="hs-identifier hs-var hs-var">propTransactionFailsEvaluation</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679433247"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679433247"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679433248"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679433248"><span class="hs-identifier hs-var">lookupUTxO</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-344"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; UTxO -&gt; Either EvaluationError EvaluationReport
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#evaluateTx"><span class="hs-identifier hs-var">evaluateTx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434273"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679434274"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679433247"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679433248"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-345"></span><span>    </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationError
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property
 forall prop. Testable prop =&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
-</span><span id="line-346"></span><span>    </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679434275"><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434275"><span class="hs-identifier hs-var">redeemerReport</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-346"></span><span>    </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679433249"><span class="annot"><span class="annottext">EvaluationReport
+</span><a href="#local-6989586621679433249"><span class="hs-identifier hs-var">redeemerReport</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-347"></span><span>      </span><span class="annot"><span class="annottext">(Either ScriptExecutionError ExecutionUnits -&gt; Bool)
 -&gt; EvaluationReport -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#any"><span class="hs-identifier hs-var">any</span></a></span><span> </span><span class="annot"><span class="annottext">Either ScriptExecutionError ExecutionUnits -&gt; Bool
 forall a b. Either a b -&gt; Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#isLeft"><span class="hs-identifier hs-var">isLeft</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434275"><span class="hs-identifier hs-var">redeemerReport</span></a></span><span>
+</span><a href="#local-6989586621679433249"><span class="hs-identifier hs-var">redeemerReport</span></a></span><span>
 </span><span id="line-348"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; (Bool -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Bool -&gt; Property
@@ -1106,8 +1106,8 @@ forall prop. Testable prop =&gt; String -&gt; prop -&gt; Property
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Tx -&gt; String
 </span><span class="hs-identifier hs-var">renderTxWithUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679434274"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679434273"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433248"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679433247"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-349"></span><span>        </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
@@ -1118,7 +1118,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">EvaluationReport -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">EvaluationReport
-</span><a href="#local-6989586621679434275"><span class="hs-identifier hs-var">redeemerReport</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433249"><span class="hs-identifier hs-var">redeemerReport</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-350"></span><span>        </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
@@ -1134,74 +1134,74 @@ forall prop. Testable prop =&gt; String -&gt; prop -&gt; Property
 </span><span id="line-357"></span><span class="hs-comment">-- Returned slots are tx validity bounds</span><span>
 </span><span id="line-358"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#genValidityBoundsFromContestationPeriod"><span class="hs-identifier hs-type">genValidityBoundsFromContestationPeriod</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier hs-type">ContestationPeriod</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-359"></span><span id="genValidityBoundsFromContestationPeriod"><span class="annot"><span class="annottext">genValidityBoundsFromContestationPeriod :: ContestationPeriod -&gt; Gen (SlotNo, (SlotNo, UTCTime))
-</span><a href="Hydra.Ledger.Cardano.Evaluate.html#genValidityBoundsFromContestationPeriod"><span class="hs-identifier hs-var hs-var">genValidityBoundsFromContestationPeriod</span></a></span></span><span> </span><span id="local-6989586621679434279"><span class="annot"><span class="annottext">ContestationPeriod
-</span><a href="#local-6989586621679434279"><span class="hs-identifier hs-var">cpSeconds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-360"></span><span>  </span><span id="local-6989586621679434280"><span class="annot"><span class="annottext">startSlot :: SlotNo
-</span><a href="#local-6989586621679434280"><span class="hs-identifier hs-var">startSlot</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span id="local-6989586621679434281"><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679434281"><span class="hs-identifier hs-var">start</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><a href="Hydra.Ledger.Cardano.Evaluate.html#genValidityBoundsFromContestationPeriod"><span class="hs-identifier hs-var hs-var">genValidityBoundsFromContestationPeriod</span></a></span></span><span> </span><span id="local-6989586621679433253"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679433253"><span class="hs-identifier hs-var">cpSeconds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-360"></span><span>  </span><span id="local-6989586621679433254"><span class="annot"><span class="annottext">startSlot :: SlotNo
+</span><a href="#local-6989586621679433254"><span class="hs-identifier hs-var">startSlot</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span id="local-6989586621679433255"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679433255"><span class="hs-identifier hs-var">start</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; SlotNo) -&gt; Gen Word64 -&gt; Gen SlotNo
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen Word64
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
-</span><span id="line-361"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679434283"><span class="annot"><span class="annottext">end :: Word64
-</span><a href="#local-6989586621679434283"><span class="hs-identifier hs-var hs-var">end</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679434281"><span class="hs-identifier hs-var">start</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+</span><span id="line-361"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679433257"><span class="annot"><span class="annottext">end :: Word64
+</span><a href="#local-6989586621679433257"><span class="hs-identifier hs-var hs-var">end</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679433255"><span class="hs-identifier hs-var">start</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; Word64
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
-</span><a href="#local-6989586621679434279"><span class="hs-identifier hs-var">cpSeconds</span></a></span><span>
-</span><span id="line-362"></span><span>  </span><span id="local-6989586621679434285"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679434285"><span class="hs-identifier hs-var">endSlot</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><a href="#local-6989586621679433253"><span class="hs-identifier hs-var">cpSeconds</span></a></span><span>
+</span><span id="line-362"></span><span>  </span><span id="local-6989586621679433259"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679433259"><span class="hs-identifier hs-var">endSlot</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; SlotNo) -&gt; Gen Word64 -&gt; Gen SlotNo
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">(Word64, Word64) -&gt; Gen Word64
 </span><span class="hs-identifier hs-var">chooseWord64</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679434281"><span class="hs-identifier hs-var">start</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679434283"><span class="hs-identifier hs-var">end</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-363"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679434286"><span class="annot"><span class="annottext">time :: UTCTime
-</span><a href="#local-6989586621679434286"><span class="hs-identifier hs-var hs-var">time</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
+</span><a href="#local-6989586621679433255"><span class="hs-identifier hs-var">start</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679433257"><span class="hs-identifier hs-var">end</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-363"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679433260"><span class="annot"><span class="annottext">time :: UTCTime
+</span><a href="#local-6989586621679433260"><span class="hs-identifier hs-var hs-var">time</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
 </span><a href="Hydra.Ledger.Cardano.Time.html#slotNoToUTCTime"><span class="hs-identifier hs-var">slotNoToUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#systemStart"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#slotLength"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679434285"><span class="hs-identifier hs-var">endSlot</span></a></span><span>
+</span><a href="#local-6989586621679433259"><span class="hs-identifier hs-var">endSlot</span></a></span><span>
 </span><span id="line-364"></span><span>  </span><span class="annot"><span class="annottext">(SlotNo, (SlotNo, UTCTime)) -&gt; Gen (SlotNo, (SlotNo, UTCTime))
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679434280"><span class="hs-identifier hs-var">startSlot</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679434285"><span class="hs-identifier hs-var">endSlot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679434286"><span class="hs-identifier hs-var">time</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433254"><span class="hs-identifier hs-var">startSlot</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679433259"><span class="hs-identifier hs-var">endSlot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679433260"><span class="hs-identifier hs-var">time</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-365"></span><span>
 </span><span id="line-366"></span><span class="annot"><a href="Hydra.Ledger.Cardano.Evaluate.html#genPointInTimeBefore"><span class="hs-identifier hs-type">genPointInTimeBefore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-367"></span><span id="genPointInTimeBefore"><span class="annot"><span class="annottext">genPointInTimeBefore :: UTCTime -&gt; Gen (SlotNo, UTCTime)
-</span><a href="Hydra.Ledger.Cardano.Evaluate.html#genPointInTimeBefore"><span class="hs-identifier hs-var hs-var">genPointInTimeBefore</span></a></span></span><span> </span><span id="local-6989586621679434288"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679434288"><span class="hs-identifier hs-var">deadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-368"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span id="local-6989586621679434289"><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679434289"><span class="hs-identifier hs-var">slotDeadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; UTCTime -&gt; SlotNo
+</span><a href="Hydra.Ledger.Cardano.Evaluate.html#genPointInTimeBefore"><span class="hs-identifier hs-var hs-var">genPointInTimeBefore</span></a></span></span><span> </span><span id="local-6989586621679433262"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679433262"><span class="hs-identifier hs-var">deadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-368"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span id="local-6989586621679433263"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679433263"><span class="hs-identifier hs-var">slotDeadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; UTCTime -&gt; SlotNo
 </span><a href="Hydra.Ledger.Cardano.Time.html#slotNoFromUTCTime"><span class="hs-identifier hs-var">slotNoFromUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#systemStart"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#slotLength"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679434288"><span class="hs-identifier hs-var">deadline</span></a></span><span>
-</span><span id="line-369"></span><span>  </span><span id="local-6989586621679434290"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679434290"><span class="hs-identifier hs-var">slot</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><a href="#local-6989586621679433262"><span class="hs-identifier hs-var">deadline</span></a></span><span>
+</span><span id="line-369"></span><span>  </span><span id="local-6989586621679433264"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679433264"><span class="hs-identifier hs-var">slot</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; SlotNo) -&gt; Gen Word64 -&gt; Gen SlotNo
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">(Word64, Word64) -&gt; Gen Word64
 forall a. Random a =&gt; (a, a) -&gt; Gen a
 </span><span class="hs-identifier hs-var">choose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
 </span><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679434289"><span class="hs-identifier hs-var">slotDeadline</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433263"><span class="hs-identifier hs-var">slotDeadline</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-370"></span><span>  </span><span class="annot"><span class="annottext">(SlotNo, UTCTime) -&gt; Gen (SlotNo, UTCTime)
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679434290"><span class="hs-identifier hs-var">slot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
+</span><a href="#local-6989586621679433264"><span class="hs-identifier hs-var">slot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
 </span><a href="Hydra.Ledger.Cardano.Time.html#slotNoToUTCTime"><span class="hs-identifier hs-var">slotNoToUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#systemStart"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
 </span><a href="Hydra.Ledger.Cardano.Evaluate.html#slotLength"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679434290"><span class="hs-identifier hs-var">slot</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679433264"><span class="hs-identifier hs-var">slot</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-371"></span><span>
 </span><span id="line-372"></span><span class="annot"><span class="hs-comment">-- ** Plutus cost model fixtures</span></span><span>
 </span><span id="line-373"></span><span>

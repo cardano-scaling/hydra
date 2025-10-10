@@ -43,43 +43,43 @@
 </span><span id="line-40"></span><span class="hs-comment">-- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'</span><span>
 </span><span id="line-41"></span><span class="annot"><a href="Hydra.Contract.Util.html#hasST"><span class="hs-identifier hs-type">hasST</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
 </span><span id="line-42"></span><span id="hasST"><span class="annot"><span class="annottext">hasST :: CurrencySymbol -&gt; Value -&gt; Bool
-</span><a href="Hydra.Contract.Util.html#hasST"><span class="hs-identifier hs-var hs-var">hasST</span></a></span></span><span> </span><span id="local-6989586621679494928"><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679494928"><span class="hs-identifier hs-var">headPolicyId</span></a></span></span><span> </span><span id="local-6989586621679494929"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679494929"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Contract.Util.html#hasST"><span class="hs-identifier hs-var hs-var">hasST</span></a></span></span><span> </span><span id="local-6989586621679495208"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679495208"><span class="hs-identifier hs-var">headPolicyId</span></a></span></span><span> </span><span id="local-6989586621679495209"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679495209"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-43"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; Maybe Bool -&gt; Bool
 forall a. a -&gt; Maybe a -&gt; a
 </span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe Bool -&gt; Bool) -&gt; Maybe Bool -&gt; Bool
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-44"></span><span>    </span><span id="local-6989586621679494932"><span class="annot"><span class="annottext">Map TokenName Integer
-</span><a href="#local-6989586621679494932"><span class="hs-identifier hs-var">tokenMap</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
+</span><span id="line-44"></span><span>    </span><span id="local-6989586621679495212"><span class="annot"><span class="annottext">Map TokenName Integer
+</span><a href="#local-6989586621679495212"><span class="hs-identifier hs-var">tokenMap</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
 -&gt; Map CurrencySymbol (Map TokenName Integer)
 -&gt; Maybe (Map TokenName Integer)
 forall k v. Eq k =&gt; k -&gt; Map k v -&gt; Maybe v
 </span><span class="hs-identifier hs-var">AssocMap.lookup</span></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679494928"><span class="hs-identifier hs-var">headPolicyId</span></a></span><span> </span><span class="annot"><span class="annottext">(Map CurrencySymbol (Map TokenName Integer)
+</span><a href="#local-6989586621679495208"><span class="hs-identifier hs-var">headPolicyId</span></a></span><span> </span><span class="annot"><span class="annottext">(Map CurrencySymbol (Map TokenName Integer)
  -&gt; Maybe (Map TokenName Integer))
 -&gt; Map CurrencySymbol (Map TokenName Integer)
 -&gt; Maybe (Map TokenName Integer)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Map CurrencySymbol (Map TokenName Integer)
 </span><span class="hs-identifier hs-var">getValue</span></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679494929"><span class="hs-identifier hs-var">v</span></a></span><span>
-</span><span id="line-45"></span><span>    </span><span id="local-6989586621679494934"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679494934"><span class="hs-identifier hs-var">quantity</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TokenName -&gt; Map TokenName Integer -&gt; Maybe Integer
+</span><a href="#local-6989586621679495209"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-45"></span><span>    </span><span id="local-6989586621679495214"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679495214"><span class="hs-identifier hs-var">quantity</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TokenName -&gt; Map TokenName Integer -&gt; Maybe Integer
 forall k v. Eq k =&gt; k -&gt; Map k v -&gt; Maybe v
 </span><span class="hs-identifier hs-var">AssocMap.lookup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinByteString -&gt; TokenName
 </span><span class="hs-identifier hs-var">TokenName</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
 </span><a href="Hydra.Contract.Util.html#hydraHeadV1"><span class="hs-identifier hs-var">hydraHeadV1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Map TokenName Integer
-</span><a href="#local-6989586621679494932"><span class="hs-identifier hs-var">tokenMap</span></a></span><span>
+</span><a href="#local-6989586621679495212"><span class="hs-identifier hs-var">tokenMap</span></a></span><span>
 </span><span id="line-46"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Maybe Bool
 forall a. a -&gt; Maybe a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe Bool) -&gt; Bool -&gt; Maybe Bool
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679494934"><span class="hs-identifier hs-var">quantity</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+</span><a href="#local-6989586621679495214"><span class="hs-identifier hs-var">quantity</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">1</span></span><span>
@@ -90,55 +90,55 @@ forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><span id="line-51"></span><span class="hs-comment">-- This checks both PTs and ST are burnt.</span><span>
 </span><span id="line-52"></span><span class="annot"><a href="Hydra.Contract.Util.html#mustBurnAllHeadTokens"><span class="hs-identifier hs-type">mustBurnAllHeadTokens</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MintValue</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
 </span><span id="line-53"></span><span id="mustBurnAllHeadTokens"><span class="annot"><span class="annottext">mustBurnAllHeadTokens :: MintValue -&gt; CurrencySymbol -&gt; [Party] -&gt; Bool
-</span><a href="Hydra.Contract.Util.html#mustBurnAllHeadTokens"><span class="hs-identifier hs-var hs-var">mustBurnAllHeadTokens</span></a></span></span><span> </span><span id="local-6989586621679494938"><span class="annot"><span class="annottext">MintValue
-</span><a href="#local-6989586621679494938"><span class="hs-identifier hs-var">mintValue</span></a></span></span><span> </span><span id="local-6989586621679494939"><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679494939"><span class="hs-identifier hs-var">headCurrencySymbol</span></a></span></span><span> </span><span id="local-6989586621679494940"><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679494940"><span class="hs-identifier hs-var">parties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Contract.Util.html#mustBurnAllHeadTokens"><span class="hs-identifier hs-var hs-var">mustBurnAllHeadTokens</span></a></span></span><span> </span><span id="local-6989586621679495218"><span class="annot"><span class="annottext">MintValue
+</span><a href="#local-6989586621679495218"><span class="hs-identifier hs-var">mintValue</span></a></span></span><span> </span><span id="local-6989586621679495219"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679495219"><span class="hs-identifier hs-var">headCurrencySymbol</span></a></span></span><span> </span><span id="local-6989586621679495220"><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679495220"><span class="hs-identifier hs-var">parties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-54"></span><span>  </span><span class="annot"><span class="annottext">BuiltinString -&gt; Bool -&gt; Bool
 </span><span class="hs-identifier hs-var">traceIfFalse</span></span><span> </span><span class="hs-special">$</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier hs-type">errorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadError.html#BurntTokenNumberMismatch"><span class="hs-identifier hs-type">BurntTokenNumberMismatch</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; Bool -&gt; Bool
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span>
 </span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679494943"><span class="hs-identifier hs-var">burntTokens</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+</span><a href="#local-6989586621679495223"><span class="hs-identifier hs-var">burntTokens</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">[Party] -&gt; Integer
 forall a. [a] -&gt; Integer
 </span><span class="hs-identifier hs-var">L.length</span></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679494940"><span class="hs-identifier hs-var">parties</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+</span><a href="#local-6989586621679495220"><span class="hs-identifier hs-var">parties</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
 forall a. AdditiveSemigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">1</span></span><span>
 </span><span id="line-56"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-57"></span><span>  </span><span id="local-6989586621679494943"><span class="annot"><span class="annottext">burntTokens :: Integer
-</span><a href="#local-6989586621679494943"><span class="hs-identifier hs-var hs-var">burntTokens</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-57"></span><span>  </span><span id="local-6989586621679495223"><span class="annot"><span class="annottext">burntTokens :: Integer
+</span><a href="#local-6989586621679495223"><span class="hs-identifier hs-var hs-var">burntTokens</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-58"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
 -&gt; Map CurrencySymbol (Map TokenName Integer)
 -&gt; Maybe (Map TokenName Integer)
 forall k v. Eq k =&gt; k -&gt; Map k v -&gt; Maybe v
 </span><span class="hs-identifier hs-var">AssocMap.lookup</span></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679494939"><span class="hs-identifier hs-var">headCurrencySymbol</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MintValue -&gt; Map CurrencySymbol (Map TokenName Integer)
+</span><a href="#local-6989586621679495219"><span class="hs-identifier hs-var">headCurrencySymbol</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MintValue -&gt; Map CurrencySymbol (Map TokenName Integer)
 </span><span class="hs-identifier hs-var">mintValueToMap</span></span><span> </span><span class="annot"><span class="annottext">MintValue
-</span><a href="#local-6989586621679494938"><span class="hs-identifier hs-var">mintValue</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679495218"><span class="hs-identifier hs-var">mintValue</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-59"></span><span>      </span><span class="annot"><span class="annottext">Maybe (Map TokenName Integer)
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">0</span></span><span>
-</span><span id="line-60"></span><span>      </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679494946"><span class="annot"><span class="annottext">Map TokenName Integer
-</span><a href="#local-6989586621679494946"><span class="hs-identifier hs-var">tokenMap</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer
+</span><span id="line-60"></span><span>      </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679495226"><span class="annot"><span class="annottext">Map TokenName Integer
+</span><a href="#local-6989586621679495226"><span class="hs-identifier hs-var">tokenMap</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer
 forall a. AdditiveGroup a =&gt; a -&gt; a
 </span><span class="hs-identifier hs-var">negate</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; Integer) -&gt; Integer -&gt; Integer
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Map TokenName Integer -&gt; Integer
 forall (t :: * -&gt; *) a. (Foldable t, AdditiveMonoid a) =&gt; t a -&gt; a
 </span><span class="hs-identifier hs-var">F.sum</span></span><span> </span><span class="annot"><span class="annottext">Map TokenName Integer
-</span><a href="#local-6989586621679494946"><span class="hs-identifier hs-var">tokenMap</span></a></span><span>
+</span><a href="#local-6989586621679495226"><span class="hs-identifier hs-var">tokenMap</span></a></span><span>
 </span><span id="line-61"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Hydra.Contract.Util.html#mustBurnAllHeadTokens"><span class="hs-pragma hs-type">mustBurnAllHeadTokens</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-62"></span><span>
 </span><span id="line-63"></span><span class="annot"><a href="Hydra.Contract.Util.html#mustNotMintOrBurn"><span class="hs-identifier hs-type">mustNotMintOrBurn</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxInfo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
 </span><span id="line-64"></span><span id="mustNotMintOrBurn"><span class="annot"><span class="annottext">mustNotMintOrBurn :: TxInfo -&gt; Bool
-</span><a href="Hydra.Contract.Util.html#mustNotMintOrBurn"><span class="hs-identifier hs-var hs-var">mustNotMintOrBurn</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxInfo</span></span><span class="hs-special">{</span><span id="local-6989586621679494951"><span class="annot"><span class="annottext">MintValue
+</span><a href="Hydra.Contract.Util.html#mustNotMintOrBurn"><span class="hs-identifier hs-var hs-var">mustNotMintOrBurn</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxInfo</span></span><span class="hs-special">{</span><span id="local-6989586621679495231"><span class="annot"><span class="annottext">MintValue
 txInfoMint :: MintValue
 txInfoMint :: TxInfo -&gt; MintValue
-</span><a href="#local-6989586621679494951"><span class="hs-identifier hs-var hs-var">txInfoMint</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679495231"><span class="hs-identifier hs-var hs-var">txInfoMint</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-65"></span><span>  </span><span class="annot"><span class="annottext">BuiltinString -&gt; Bool -&gt; Bool
 </span><span class="hs-identifier hs-var">traceIfFalse</span></span><span> </span><span class="annot"><span class="annottext">BuiltinString
 </span><span class="hs-string">&quot;U01&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; Bool -&gt; Bool
@@ -147,11 +147,11 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">Value -&gt; Bool
 </span><span class="hs-identifier hs-var">isZero</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MintValue -&gt; Value
 </span><span class="hs-identifier hs-var">mintValueMinted</span></span><span> </span><span class="annot"><span class="annottext">MintValue
-</span><a href="#local-6989586621679494951"><span class="hs-identifier hs-var">txInfoMint</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="#local-6989586621679495231"><span class="hs-identifier hs-var">txInfoMint</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
 </span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Bool
 </span><span class="hs-identifier hs-var">isZero</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MintValue -&gt; Value
 </span><span class="hs-identifier hs-var">mintValueBurned</span></span><span> </span><span class="annot"><span class="annottext">MintValue
-</span><a href="#local-6989586621679494951"><span class="hs-identifier hs-var">txInfoMint</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679495231"><span class="hs-identifier hs-var">txInfoMint</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-67"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Hydra.Contract.Util.html#mustNotMintOrBurn"><span class="hs-pragma hs-type">mustNotMintOrBurn</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-68"></span><span>
 </span><span id="line-69"></span><span class="hs-comment">-- | Hash a potentially unordered list of commits by sorting them, concatenating</span><span>
@@ -160,8 +160,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-72"></span><span class="hs-comment">-- NOTE: See note from `hashTxOuts`.</span><span>
 </span><span id="line-73"></span><span class="annot"><a href="Hydra.Contract.Util.html#hashPreSerializedCommits"><span class="hs-identifier hs-type">hashPreSerializedCommits</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.Commit.html#Commit"><span class="hs-identifier hs-type">Commit</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span>
 </span><span id="line-74"></span><span id="hashPreSerializedCommits"><span class="annot"><span class="annottext">hashPreSerializedCommits :: [Commit] -&gt; BuiltinByteString
-</span><a href="Hydra.Contract.Util.html#hashPreSerializedCommits"><span class="hs-identifier hs-var hs-var">hashPreSerializedCommits</span></a></span></span><span> </span><span id="local-6989586621679494957"><span class="annot"><span class="annottext">[Commit]
-</span><a href="#local-6989586621679494957"><span class="hs-identifier hs-var">commits</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Contract.Util.html#hashPreSerializedCommits"><span class="hs-identifier hs-var hs-var">hashPreSerializedCommits</span></a></span></span><span> </span><span id="local-6989586621679495237"><span class="annot"><span class="annottext">[Commit]
+</span><a href="#local-6989586621679495237"><span class="hs-identifier hs-var">commits</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-75"></span><span>  </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString
 </span><span class="hs-identifier hs-var">sha2_256</span></span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinByteString)
 -&gt; ([Commit] -&gt; BuiltinByteString) -&gt; [Commit] -&gt; BuiltinByteString
@@ -176,15 +176,15 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span>
 </span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">(Commit -&gt; Commit -&gt; Ordering) -&gt; [Commit] -&gt; [Commit]
 forall a. (a -&gt; a -&gt; Ordering) -&gt; [a] -&gt; [a]
-</span><span class="hs-identifier hs-var">L.sortBy</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679494962"><span class="annot"><span class="annottext">Commit
-</span><a href="#local-6989586621679494962"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679494963"><span class="annot"><span class="annottext">Commit
-</span><a href="#local-6989586621679494963"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxOutRef -&gt; TxOutRef -&gt; Ordering
+</span><span class="hs-identifier hs-var">L.sortBy</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679495242"><span class="annot"><span class="annottext">Commit
+</span><a href="#local-6989586621679495242"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679495243"><span class="annot"><span class="annottext">Commit
+</span><a href="#local-6989586621679495243"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxOutRef -&gt; TxOutRef -&gt; Ordering
 </span><a href="Hydra.Contract.Util.html#compareRef"><span class="hs-identifier hs-var">compareRef</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Commit -&gt; TxOutRef
 </span><a href="Hydra.Contract.Commit.html#input"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">Commit
-</span><a href="#local-6989586621679494962"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Commit -&gt; TxOutRef
+</span><a href="#local-6989586621679495242"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Commit -&gt; TxOutRef
 </span><a href="Hydra.Contract.Commit.html#input"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">Commit
-</span><a href="#local-6989586621679494963"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Commit]
-</span><a href="#local-6989586621679494957"><span class="hs-identifier hs-var">commits</span></a></span><span>
+</span><a href="#local-6989586621679495243"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Commit]
+</span><a href="#local-6989586621679495237"><span class="hs-identifier hs-var">commits</span></a></span><span>
 </span><span id="line-77"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Hydra.Contract.Util.html#hashPreSerializedCommits"><span class="hs-pragma hs-type">hashPreSerializedCommits</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-78"></span><span>
 </span><span id="line-79"></span><span class="hs-comment">-- | Hash a pre-ordered list of transaction outputs by serializing each</span><span>
@@ -218,39 +218,39 @@ forall a. ToData a =&gt; a -&gt; BuiltinData
 </span><span id="line-92"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Hydra.Contract.Util.html#hashTxOuts"><span class="hs-pragma hs-type">hashTxOuts</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-93"></span><span>
 </span><span id="line-94"></span><span class="annot"><a href="Hydra.Contract.Util.html#compareRef"><span class="hs-identifier hs-type">compareRef</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Ordering"><span class="hs-identifier hs-type">Ordering</span></a></span><span>
-</span><span id="line-95"></span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span class="hs-special">{</span><span id="local-6989586621679494970"><span class="annot"><span class="annottext">TxId
+</span><span id="line-95"></span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span class="hs-special">{</span><span id="local-6989586621679495250"><span class="annot"><span class="annottext">TxId
 txOutRefId :: TxId
 txOutRefId :: TxOutRef -&gt; TxId
-</span><a href="#local-6989586621679494970"><span class="hs-identifier hs-var hs-var">txOutRefId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494972"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679495250"><span class="hs-identifier hs-var hs-var">txOutRefId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679495252"><span class="annot"><span class="annottext">Integer
 txOutRefIdx :: Integer
 txOutRefIdx :: TxOutRef -&gt; Integer
-</span><a href="#local-6989586621679494972"><span class="hs-identifier hs-var hs-var">txOutRefIdx</span></a></span></span><span class="hs-special">}</span><span> </span><span id="compareRef"><span class="annot"><span class="annottext">compareRef :: TxOutRef -&gt; TxOutRef -&gt; Ordering
+</span><a href="#local-6989586621679495252"><span class="hs-identifier hs-var hs-var">txOutRefIdx</span></a></span></span><span class="hs-special">}</span><span> </span><span id="compareRef"><span class="annot"><span class="annottext">compareRef :: TxOutRef -&gt; TxOutRef -&gt; Ordering
 </span><a href="Hydra.Contract.Util.html#compareRef"><span class="hs-operator hs-var hs-var">`compareRef`</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">txOutRefId :: TxOutRef -&gt; TxId
-</span><span class="hs-identifier hs-var">txOutRefId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679494974"><span class="annot"><span class="annottext">TxId
-</span><a href="#local-6989586621679494974"><span class="hs-identifier hs-var">id'</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">txOutRefIdx :: TxOutRef -&gt; Integer
-</span><span class="hs-identifier hs-var">txOutRefIdx</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679494975"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679494975"><span class="hs-identifier hs-var">idx'</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span class="hs-identifier hs-var">txOutRefId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679495254"><span class="annot"><span class="annottext">TxId
+</span><a href="#local-6989586621679495254"><span class="hs-identifier hs-var">id'</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">txOutRefIdx :: TxOutRef -&gt; Integer
+</span><span class="hs-identifier hs-var">txOutRefIdx</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679495255"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679495255"><span class="hs-identifier hs-var">idx'</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-96"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TxId -&gt; TxId -&gt; Ordering
 forall a. Ord a =&gt; a -&gt; a -&gt; Ordering
 </span><span class="hs-identifier hs-var">compare</span></span><span> </span><span class="annot"><span class="annottext">TxId
-</span><a href="#local-6989586621679494970"><span class="hs-identifier hs-var">txOutRefId</span></a></span><span> </span><span class="annot"><span class="annottext">TxId
-</span><a href="#local-6989586621679494974"><span class="hs-identifier hs-var">id'</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679495250"><span class="hs-identifier hs-var">txOutRefId</span></a></span><span> </span><span class="annot"><span class="annottext">TxId
+</span><a href="#local-6989586621679495254"><span class="hs-identifier hs-var">id'</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-97"></span><span>    </span><span class="annot"><span class="annottext">Ordering
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#EQ"><span class="hs-identifier hs-var">EQ</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Ordering
 forall a. Ord a =&gt; a -&gt; a -&gt; Ordering
 </span><span class="hs-identifier hs-var">compare</span></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679494972"><span class="hs-identifier hs-var">txOutRefIdx</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679494975"><span class="hs-identifier hs-var">idx'</span></a></span><span>
-</span><span id="line-98"></span><span>    </span><span id="local-6989586621679494977"><span class="annot"><span class="annottext">Ordering
-</span><a href="#local-6989586621679494977"><span class="hs-identifier hs-var">ord</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Ordering
-</span><a href="#local-6989586621679494977"><span class="hs-identifier hs-var">ord</span></a></span><span>
+</span><a href="#local-6989586621679495252"><span class="hs-identifier hs-var">txOutRefIdx</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679495255"><span class="hs-identifier hs-var">idx'</span></a></span><span>
+</span><span id="line-98"></span><span>    </span><span id="local-6989586621679495257"><span class="annot"><span class="annottext">Ordering
+</span><a href="#local-6989586621679495257"><span class="hs-identifier hs-var">ord</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Ordering
+</span><a href="#local-6989586621679495257"><span class="hs-identifier hs-var">ord</span></a></span><span>
 </span><span id="line-99"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Hydra.Contract.Util.html#compareRef"><span class="hs-pragma hs-type">compareRef</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-100"></span><span>
 </span><span id="line-101"></span><span class="annot"><span class="hs-comment">-- * Errors</span></span><span>
 </span><span id="line-102"></span><span>
 </span><span id="line-103"></span><span class="hs-keyword">data</span><span> </span><span id="UtilError"><span class="annot"><a href="Hydra.Contract.Util.html#UtilError"><span class="hs-identifier hs-var">UtilError</span></a></span></span><span>
 </span><span id="line-104"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="MintingOrBurningIsForbidden"><span class="annot"><a href="Hydra.Contract.Util.html#MintingOrBurningIsForbidden"><span class="hs-identifier hs-var">MintingOrBurningIsForbidden</span></a></span></span><span>
-</span><span id="line-105"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679494980"><span id="local-6989586621679494982"><span id="local-6989586621679494986"><span class="annot"><span class="annottext">Int -&gt; UtilError -&gt; ShowS
+</span><span id="line-105"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679495260"><span id="local-6989586621679495262"><span id="local-6989586621679495266"><span class="annot"><span class="annottext">Int -&gt; UtilError -&gt; ShowS
 [UtilError] -&gt; ShowS
 UtilError -&gt; String
 (Int -&gt; UtilError -&gt; ShowS)
@@ -268,8 +268,8 @@ showList :: [UtilError] -&gt; ShowS
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-106"></span><span>
 </span><span id="line-107"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier hs-type">ToErrorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.Util.html#UtilError"><span class="hs-identifier hs-type">UtilError</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-108"></span><span>  </span><span id="local-6989586621679494994"><span class="annot"><span class="annottext">toErrorCode :: UtilError -&gt; Text
-</span><a href="#local-6989586621679494994"><span class="hs-identifier hs-var hs-var hs-var hs-var">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-108"></span><span>  </span><span id="local-6989586621679495274"><span class="annot"><span class="annottext">toErrorCode :: UtilError -&gt; Text
+</span><a href="#local-6989586621679495274"><span class="hs-identifier hs-var hs-var hs-var hs-var">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-109"></span><span>    </span><span class="annot"><span class="annottext">UtilError
 </span><a href="Hydra.Contract.Util.html#MintingOrBurningIsForbidden"><span class="hs-identifier hs-var">MintingOrBurningIsForbidden</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;U01&quot;</span></span><span>
@@ -278,28 +278,28 @@ showList :: [UtilError] -&gt; ShowS
 </span><span id="line-112"></span><span class="hs-comment">-- a given script address.</span><span>
 </span><span id="line-113"></span><span class="annot"><a href="Hydra.Contract.Util.html#scriptOutputsAt"><span class="hs-identifier hs-type">scriptOutputsAt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxInfo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">OutputDatum</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-114"></span><span id="scriptOutputsAt"><span class="annot"><span class="annottext">scriptOutputsAt :: ScriptHash -&gt; TxInfo -&gt; [(OutputDatum, Value)]
-</span><a href="Hydra.Contract.Util.html#scriptOutputsAt"><span class="hs-identifier hs-var hs-var">scriptOutputsAt</span></a></span></span><span> </span><span id="local-6989586621679494997"><span class="annot"><span class="annottext">ScriptHash
-</span><a href="#local-6989586621679494997"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679494998"><span class="annot"><span class="annottext">TxInfo
-</span><a href="#local-6989586621679494998"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-115"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679494999"><span class="annot"><span class="annottext">flt :: TxOut -&gt; Maybe (OutputDatum, Value)
-</span><a href="#local-6989586621679494999"><span class="hs-identifier hs-var hs-var">flt</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">txOutDatum :: TxOut -&gt; OutputDatum
-</span><span class="hs-identifier hs-var">txOutDatum</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679495001"><span class="annot"><span class="annottext">OutputDatum
-</span><a href="#local-6989586621679495001"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">txOutAddress :: TxOut -&gt; Address
-</span><span class="hs-identifier hs-var">txOutAddress</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Address</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ScriptCredential</span></span><span> </span><span id="local-6989586621679495005"><span class="annot"><span class="annottext">ScriptHash
-</span><a href="#local-6989586621679495005"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe StakingCredential
-</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679495006"><span class="annot"><span class="annottext">Value
+</span><a href="Hydra.Contract.Util.html#scriptOutputsAt"><span class="hs-identifier hs-var hs-var">scriptOutputsAt</span></a></span></span><span> </span><span id="local-6989586621679495277"><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679495277"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679495278"><span class="annot"><span class="annottext">TxInfo
+</span><a href="#local-6989586621679495278"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-115"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679495279"><span class="annot"><span class="annottext">flt :: TxOut -&gt; Maybe (OutputDatum, Value)
+</span><a href="#local-6989586621679495279"><span class="hs-identifier hs-var hs-var">flt</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">txOutDatum :: TxOut -&gt; OutputDatum
+</span><span class="hs-identifier hs-var">txOutDatum</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679495281"><span class="annot"><span class="annottext">OutputDatum
+</span><a href="#local-6989586621679495281"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">txOutAddress :: TxOut -&gt; Address
+</span><span class="hs-identifier hs-var">txOutAddress</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Address</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ScriptCredential</span></span><span> </span><span id="local-6989586621679495285"><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679495285"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe StakingCredential
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679495286"><span class="annot"><span class="annottext">Value
 txOutValue :: Value
 txOutValue :: TxOut -&gt; Value
-</span><a href="#local-6989586621679495006"><span class="hs-identifier hs-var hs-var">txOutValue</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ScriptHash
-</span><a href="#local-6989586621679495005"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash -&gt; ScriptHash -&gt; Bool
+</span><a href="#local-6989586621679495286"><span class="hs-identifier hs-var hs-var">txOutValue</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ScriptHash
+</span><a href="#local-6989586621679495285"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash -&gt; ScriptHash -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ScriptHash
-</span><a href="#local-6989586621679494997"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(OutputDatum, Value) -&gt; Maybe (OutputDatum, Value)
+</span><a href="#local-6989586621679495277"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(OutputDatum, Value) -&gt; Maybe (OutputDatum, Value)
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">OutputDatum
-</span><a href="#local-6989586621679495001"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679495006"><span class="hs-identifier hs-var">txOutValue</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-116"></span><span>      </span><span class="annot"><a href="#local-6989586621679494999"><span class="hs-identifier hs-var">flt</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut
+</span><a href="#local-6989586621679495281"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679495286"><span class="hs-identifier hs-var">txOutValue</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>      </span><span class="annot"><a href="#local-6989586621679495279"><span class="hs-identifier hs-var">flt</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (OutputDatum, Value)
 forall a. Maybe a
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
@@ -307,8 +307,8 @@ forall a. Maybe a
 -&gt; [TxOut] -&gt; [(OutputDatum, Value)]
 forall a b. (a -&gt; Maybe b) -&gt; [a] -&gt; [b]
 </span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="annot"><span class="annottext">TxOut -&gt; Maybe (OutputDatum, Value)
-</span><a href="#local-6989586621679494999"><span class="hs-identifier hs-var">flt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxInfo -&gt; [TxOut]
+</span><a href="#local-6989586621679495279"><span class="hs-identifier hs-var">flt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxInfo -&gt; [TxOut]
 </span><span class="hs-identifier hs-var">txInfoOutputs</span></span><span> </span><span class="annot"><span class="annottext">TxInfo
-</span><a href="#local-6989586621679494998"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679495278"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-118"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Hydra.Contract.Util.html#scriptOutputsAt"><span class="hs-pragma hs-type">scriptOutputsAt</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
 </span><span id="line-119"></span></pre></body></html>

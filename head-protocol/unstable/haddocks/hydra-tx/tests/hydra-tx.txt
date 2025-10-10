@@ -839,62 +839,6 @@ prop_consistentHashPreSerializedCommits :: Property
 prop_hashingCaresAboutOrderingOfTxOuts :: Property
 prop_verifySnapshotSignatures :: Property
 
-module Hydra.Tx.DepositSpec
-spec :: Spec
-
--- | Property: The sum of selected and leftover values equals the input
---   value
-propPreservesTotalValue :: UTxO -> Coin -> Property
-
--- | Property: Selected value never exceeds the target
-propSelectedValueNeverExceedsTarget :: UTxO -> Coin -> Property
-
--- | Property: Greedy selection - takes smallest UTxOs first
-propGreedySelection :: UTxO -> Coin -> Property
-
--- | Property: Reaches target exactly when possible
-propExactTargetWhenPossible :: UTxO -> Coin -> Property
-
--- | Property: Function is idempotent
-propIdempotent :: UTxO -> Coin -> Property
-
--- | Property: Monotonic with respect to target
-propMonotonicTarget :: UTxO -> Coin -> Coin -> Property
-
--- | Property: No UTxO loss - all input UTxOs appear in either selected or
---   leftovers
-propNoUTxOLoss :: UTxO -> Coin -> Property
-
--- | Create additional test PolicyIds for testing (using the existing
---   testPolicyId from fixtures)
-testPolicyId2 :: PolicyId
-testPolicyId3 :: PolicyId
-
--- | Create test AssetNames for testing
-testAssetName :: AssetName
-testAssetName2 :: AssetName
-testAssetName3 :: AssetName
-
--- | Create a UTxO with specific tokens for testing
-utxoWithTokens :: [(PolicyId, AssetName, Quantity)] -> UTxO
-
--- | Property: All input tokens are preserved in either valid or invalid
---   results
-propPreservesAllTokens :: UTxO -> Map PolicyId PolicyAssets -> Property
-
--- | Property: Valid and invalid results are disjoint sets
-propValidInvalidDisjoint :: UTxO -> Map PolicyId PolicyAssets -> Property
-
--- | Property: All valid tokens must exist in UTxO with sufficient
---   quantities
-propValidTokensExistInUTxO :: UTxO -> Map PolicyId PolicyAssets -> Property
-
--- | Property: Adding more assets to UTxO never decreases valid tokens
---   (monotonic)
-propMonotonicUTxOAdditions :: UTxO -> UTxO -> Map PolicyId PolicyAssets -> Property
-propSplitMultiAssetCorrectly :: UTxO -> Map PolicyId PolicyAssets -> Property
-prepareAssetMap :: UTxO -> Gen (Map PolicyId PolicyAssets)
-
 module Hydra.Tx.HeadIdSpec
 spec :: Spec
 

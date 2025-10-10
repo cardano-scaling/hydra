@@ -438,14 +438,8 @@ waitForAllMatch :: (Eq a, Show a, HasCallStack) => NominalDiffTime -> [HydraClie
 --   several messages to be waited for and received in <i>any order</i>.
 waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> [Value] -> IO ()
 
--- | Helper to make it easy to obtain a commit tx using some wallet utxo.
---   Create a commit tx using the hydra-node for later submission.
-requestCommitTx :: HydraClient -> UTxO -> IO Tx
-
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo
---   optional amount of lovelace and optional map of assets. Create a
---   commit tx using the hydra-node for later submission.
-requestCommitTx' :: HydraClient -> UTxO -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> IO Tx
+requestCommitTx :: HydraClient -> UTxO -> IO Tx
 
 -- | Submit a decommit transaction to the hydra-node.
 postDecommit :: HydraClient -> Tx -> IO ()
@@ -559,6 +553,7 @@ singlePartyUsesWithdrawZeroTrick :: ChainBackend backend => Tracer IO EndToEndLo
 --   languages.
 recomputeIntegrityHash :: (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) => PParams ppera -> [Language] -> Tx txera -> Tx txera
 singlePartyCommitsScriptBlueprint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+singlePartyDepositReferenceScript :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 persistenceCanLoadWithEmptyCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 
 -- | Single hydra-node where the commit is done from a raw transaction

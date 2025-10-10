@@ -1,4 +1,4 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679481476"><span id="local-6989586621679481477"></span></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679482486"><span id="local-6989586621679482487"></span></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span>
 </span><span id="line-2"></span><span>
 </span><span id="line-3"></span><span class="annot"><span class="hs-comment">-- | Example values and utilities used across hydra-cluster tests and benchmarks.</span></span><span>
 </span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cluster.Fixture</span><span> </span><span class="hs-keyword">where</span><span>
@@ -76,7 +76,7 @@ SigningKey keyrole -&gt; VerificationKey keyrole
 </span><span id="line-34"></span><span>
 </span><span id="line-35"></span><span class="hs-comment">-- NOTE: This is hard-coded and needs to correspond to the initial funds set in</span><span>
 </span><span id="line-36"></span><span class="hs-comment">-- the genesis-shelley.json file.</span><span>
-</span><span id="line-37"></span><span id="local-6989586621679481359"><span class="annot"><a href="Hydra.Cluster.Fixture.html#availableInitialFunds"><span class="hs-identifier hs-type">availableInitialFunds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-type">Num</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679481359"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679481359"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-37"></span><span id="local-6989586621679482369"><span class="annot"><a href="Hydra.Cluster.Fixture.html#availableInitialFunds"><span class="hs-identifier hs-type">availableInitialFunds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-type">Num</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679482369"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679482369"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-38"></span><span id="availableInitialFunds"><span class="annot"><span class="annottext">availableInitialFunds :: forall a. Num a =&gt; a
 </span><a href="Hydra.Cluster.Fixture.html#availableInitialFunds"><span class="hs-identifier hs-var hs-var">availableInitialFunds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a
 </span><span class="hs-number">900_000_000_000</span></span><span>
@@ -90,14 +90,14 @@ SigningKey keyrole -&gt; VerificationKey keyrole
 </span><span id="line-46"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Carol"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Carol"><span class="hs-identifier hs-var">Carol</span></a></span></span><span>
 </span><span id="line-47"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="CarolFunds"><span class="annot"><a href="Hydra.Cluster.Fixture.html#CarolFunds"><span class="hs-identifier hs-var">CarolFunds</span></a></span></span><span>
 </span><span id="line-48"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Faucet"><span class="annot"><a href="Hydra.Cluster.Fixture.html#Faucet"><span class="hs-identifier hs-var">Faucet</span></a></span></span><span>
-</span><span id="line-49"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679481525"><span id="local-6989586621679481527"><span class="annot"><span class="annottext">Actor -&gt; Actor -&gt; Bool
+</span><span id="line-49"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679482535"><span id="local-6989586621679482537"><span class="annot"><span class="annottext">Actor -&gt; Actor -&gt; Bool
 (Actor -&gt; Actor -&gt; Bool) -&gt; (Actor -&gt; Actor -&gt; Bool) -&gt; Eq Actor
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
 $c== :: Actor -&gt; Actor -&gt; Bool
 == :: Actor -&gt; Actor -&gt; Bool
 $c/= :: Actor -&gt; Actor -&gt; Bool
 /= :: Actor -&gt; Actor -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679481532"><span id="local-6989586621679481534"><span id="local-6989586621679481538"><span class="annot"><span class="annottext">Int -&gt; Actor -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679482542"><span id="local-6989586621679482544"><span id="local-6989586621679482548"><span class="annot"><span class="annottext">Int -&gt; Actor -&gt; ShowS
 [Actor] -&gt; ShowS
 Actor -&gt; String
 (Int -&gt; Actor -&gt; ShowS)
@@ -172,7 +172,7 @@ showList :: [Actor] -&gt; ShowS
 </span><span id="line-78"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="BlockfrostPreview"><span class="annot"><a href="Hydra.Cluster.Fixture.html#BlockfrostPreview"><span class="hs-identifier hs-var">BlockfrostPreview</span></a></span></span><span>
 </span><span id="line-79"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="BlockfrostPreprod"><span class="annot"><a href="Hydra.Cluster.Fixture.html#BlockfrostPreprod"><span class="hs-identifier hs-var">BlockfrostPreprod</span></a></span></span><span>
 </span><span id="line-80"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="BlockfrostMainnet"><span class="annot"><a href="Hydra.Cluster.Fixture.html#BlockfrostMainnet"><span class="hs-identifier hs-var">BlockfrostMainnet</span></a></span></span><span>
-</span><span id="line-81"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679481551"><span id="local-6989586621679481553"><span class="annot"><span class="annottext">(forall x. KnownNetwork -&gt; Rep KnownNetwork x)
+</span><span id="line-81"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679482561"><span id="local-6989586621679482563"><span class="annot"><span class="annottext">(forall x. KnownNetwork -&gt; Rep KnownNetwork x)
 -&gt; (forall x. Rep KnownNetwork x -&gt; KnownNetwork)
 -&gt; Generic KnownNetwork
 forall x. Rep KnownNetwork x -&gt; KnownNetwork
@@ -183,7 +183,7 @@ $cfrom :: forall x. KnownNetwork -&gt; Rep KnownNetwork x
 from :: forall x. KnownNetwork -&gt; Rep KnownNetwork x
 $cto :: forall x. Rep KnownNetwork x -&gt; KnownNetwork
 to :: forall x. Rep KnownNetwork x -&gt; KnownNetwork
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679481557"><span id="local-6989586621679481559"><span id="local-6989586621679481563"><span class="annot"><span class="annottext">Int -&gt; KnownNetwork -&gt; ShowS
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679482567"><span id="local-6989586621679482569"><span id="local-6989586621679482573"><span class="annot"><span class="annottext">Int -&gt; KnownNetwork -&gt; ShowS
 [KnownNetwork] -&gt; ShowS
 KnownNetwork -&gt; String
 (Int -&gt; KnownNetwork -&gt; ShowS)
@@ -198,7 +198,7 @@ $cshow :: KnownNetwork -&gt; String
 show :: KnownNetwork -&gt; String
 $cshowList :: [KnownNetwork] -&gt; ShowS
 showList :: [KnownNetwork] -&gt; ShowS
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679481566"><span id="local-6989586621679481568"><span class="annot"><span class="annottext">KnownNetwork -&gt; KnownNetwork -&gt; Bool
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679482576"><span id="local-6989586621679482578"><span class="annot"><span class="annottext">KnownNetwork -&gt; KnownNetwork -&gt; Bool
 (KnownNetwork -&gt; KnownNetwork -&gt; Bool)
 -&gt; (KnownNetwork -&gt; KnownNetwork -&gt; Bool) -&gt; Eq KnownNetwork
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -206,7 +206,7 @@ $c== :: KnownNetwork -&gt; KnownNetwork -&gt; Bool
 == :: KnownNetwork -&gt; KnownNetwork -&gt; Bool
 $c/= :: KnownNetwork -&gt; KnownNetwork -&gt; Bool
 /= :: KnownNetwork -&gt; KnownNetwork -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679481572"><span id="local-6989586621679481580"><span id="local-6989586621679481586"><span id="local-6989586621679481600"><span id="local-6989586621679481602"><span id="local-6989586621679481606"><span id="local-6989586621679481610"><span id="local-6989586621679481614"><span class="annot"><span class="annottext">Int -&gt; KnownNetwork
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679482582"><span id="local-6989586621679482590"><span id="local-6989586621679482596"><span id="local-6989586621679482610"><span id="local-6989586621679482612"><span id="local-6989586621679482616"><span id="local-6989586621679482620"><span id="local-6989586621679482624"><span class="annot"><span class="annottext">Int -&gt; KnownNetwork
 KnownNetwork -&gt; Int
 KnownNetwork -&gt; [KnownNetwork]
 KnownNetwork -&gt; KnownNetwork
@@ -247,7 +247,7 @@ $cenumFromTo :: KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
 enumFromTo :: KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
 $cenumFromThenTo :: KnownNetwork -&gt; KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
 enumFromThenTo :: KnownNetwork -&gt; KnownNetwork -&gt; KnownNetwork -&gt; [KnownNetwork]
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679481618"><span id="local-6989586621679481620"><span class="annot"><span class="annottext">KnownNetwork
+</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679482628"><span id="local-6989586621679482630"><span class="annot"><span class="annottext">KnownNetwork
 KnownNetwork -&gt; KnownNetwork -&gt; Bounded KnownNetwork
 forall a. a -&gt; a -&gt; Bounded a
 $cminBound :: KnownNetwork
@@ -255,7 +255,7 @@ minBound :: KnownNetwork
 $cmaxBound :: KnownNetwork
 maxBound :: KnownNetwork
 </span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Bounded"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Bounded</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-82"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679481624"><span id="local-6989586621679481631"><span id="local-6989586621679481634"><span id="local-6989586621679481637"><span id="local-6989586621679481640"><span class="annot"><span class="annottext">[KnownNetwork] -&gt; Value
+</span><span id="line-82"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679482634"><span id="local-6989586621679482641"><span id="local-6989586621679482644"><span id="local-6989586621679482647"><span id="local-6989586621679482650"><span class="annot"><span class="annottext">[KnownNetwork] -&gt; Value
 [KnownNetwork] -&gt; Encoding
 KnownNetwork -&gt; Bool
 KnownNetwork -&gt; Value

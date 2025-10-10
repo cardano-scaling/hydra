@@ -4240,8 +4240,6 @@ toPlutusCurrencySymbol :: PolicyId -> CurrencySymbol
 -- | Convert a plutus <a>CurrencySymbol</a> into a cardano-api
 --   <a>PolicyId</a>.
 fromPlutusCurrencySymbol :: MonadFail m => CurrencySymbol -> m PolicyId
-instance Data.Aeson.Types.ToJSON.ToJSONKey Cardano.Api.Internal.Value.PolicyId
-instance Data.Aeson.Types.FromJSON.FromJSONKey Cardano.Api.Internal.Value.PolicyId
 instance Test.QuickCheck.Arbitrary.Arbitrary Cardano.Api.Internal.Value.PolicyId
 
 module Hydra.Cardano.Api.StakeAddress
@@ -4353,9 +4351,6 @@ instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Internal.Tx.Body.TxVal
 instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Internal.Tx.Body.TxValidityUpperBound Hydra.Cardano.Api.Prelude.Era)
 
 module Hydra.Cardano.Api.Value
-
--- | Check whether left contains right.
-containsValue :: Value -> Value -> Bool
 
 -- | Calculate minimum ada as <a>Value</a> for a <a>TxOut</a>. NOTE: This
 --   function can throw although you can't tell from the signature.
@@ -4742,9 +4737,6 @@ toLedgerValidityInterval :: (TxValidityLowerBound era, TxValidityUpperBound era)
 -- | Convert a plutus <a>CurrencySymbol</a> into a cardano-api
 --   <a>PolicyId</a>.
 fromPlutusCurrencySymbol :: MonadFail m => CurrencySymbol -> m PolicyId
-
--- | Check whether left contains right.
-containsValue :: Value -> Value -> Bool
 
 -- | Construct a full script witness from a datum, a redeemer and a full
 --   <a>Script</a>. That witness has no execution budget.
