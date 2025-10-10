@@ -170,7 +170,7 @@ const config = {
       announcementBar: isUnstable
         ? {
           id: "unstable_docs_banner",
-          content: `This is the documentation for the unstable version of Hydra. For the latest stable version, see <a target="_blank" rel="noopener noreferrer" href="${SITE_URL}${BASE_URL}docs">here</a>.`,
+          content: `This is the documentation for the unstable version of Hydra. For the latest stable version, see <a target="_blank" rel="noopener noreferrer" href="https://hydra.family/head-protocol/docs">here</a>.`,
           isCloseable: false,
         }
         : undefined,
