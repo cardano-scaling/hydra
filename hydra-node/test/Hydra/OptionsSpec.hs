@@ -486,7 +486,7 @@ spec = parallel $
                     Blockfrost
                       BlockfrostOptions
                         { projectPath = "baz"
-                        , queryTimeout = 10
+                        , queryTimeout = 20
                         , retryTimeout = 300
                         }
                 , publishSigningKey = "cardano.sk"

@@ -180,6 +180,12 @@ withBlockfrostBackend _tracer stateDirectory action = do
   shelleyGenesis <- readFileBS >=> unsafeDecodeJson $ stateDirectory </> nodeShelleyGenesisFile args
   bfProjectPath <- findFileStartingAtDirectory 3 Backend.blockfrostProjectPath
   let backend = BlockfrostBackend $ defaultBlockfrostOptions{projectPath = bfProjectPath}
+  -- We need to make sure somehow that, before we start our blockfrost tests,
+  -- doing queries will give us updated information on some UTxO. There is no
+  -- way to definitely know if this information is correct since it might be
+  -- outdated. We just try to wait for sufficient amount of time before
+  -- starting another BF related test.
+  threadDelay 20
   action (getShelleyGenesisBlockTime shelleyGenesis) backend
 
 -- | Find the given file in the current directory or its parents.

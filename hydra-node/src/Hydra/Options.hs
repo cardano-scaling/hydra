@@ -182,7 +182,7 @@ defaultBlockfrostOptions :: BlockfrostOptions
 defaultBlockfrostOptions =
   BlockfrostOptions
     { projectPath = "blockfrost-project.txt"
-    , queryTimeout = 10
+    , queryTimeout = 20
     , retryTimeout = 300
     }
 
@@ -570,7 +570,7 @@ blockfrostQueryTimeoutParser =
     auto
     ( long "blockfrost-query-timeout"
         <> metavar "SECONDS"
-        <> value 10
+        <> value 20
         <> showDefault
         <> help "Timeout for single queries to the Blockfrost API, in seconds."
     )
