@@ -88,6 +88,14 @@ waitNext HydraClient{connection} = do
 output :: Text -> [Pair] -> Aeson.Value
 output tag pairs = object $ ("tag" .= tag) : pairs
 
+setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
+setupBFDelay d = do
+  mBackend <- lookupEnv "HYDRA_BACKEND"
+  case mBackend of
+    Nothing -> pure d
+    Just backend ->
+      pure $ if backend == "blockfrost" then d * 10 else d
+
 -- | Wait some time for a single API server output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
 -- given @nodes@.
@@ -104,8 +112,9 @@ waitNoMatch delay client match = do
 
 -- | Wait up to some time for an API server output to match the given predicate.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
-waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
+waitMatch delay' client@HydraClient{tracer, hydraNodeId} match = do
   seenMsgs <- newLabelledTVarIO "wait-match-seen-msgs" []
+  delay <- setupBFDelay delay'
   timeout (realToFrac delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
@@ -148,8 +157,9 @@ waitForAllMatch delay nodes match = do
 -- This function is the generalised version of 'waitFor', allowing several messages
 -- to be waited for and received in /any order/.
 waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
-waitForAll tracer delay nodes expected = do
+waitForAll tracer d nodes expected = do
   traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
+  delay <- setupBFDelay d
   forConcurrently_ nodes $ \client@HydraClient{hydraNodeId} -> do
     msgs <- newIORef []
     result <- timeout (realToFrac delay) $ tryNext client msgs expected
@@ -501,7 +511,7 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryP
           retryOrThrow :: forall proxy e. Exception e => proxy e -> e -> IO a
           retryOrThrow _ e =
             readIORef connectedOnce >>= \case
-              False -> threadDelay 0.1 >> tryConnect connectedOnce (n - 1)
+              False -> threadDelay 1 >> tryConnect connectedOnce (n - 1)
               True -> throwIO e
         doConnect connectedOnce
           `catches` [ Handler $ retryOrThrow (Proxy @IOException)

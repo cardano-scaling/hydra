@@ -28,7 +28,7 @@ import Hydra.Chain.ScriptRegistry (
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
-import Hydra.Options (BlockfrostOptions (..))
+import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..))
 import Hydra.Tx (balance, txId)
 
 data FaucetException
@@ -45,6 +45,13 @@ data FaucetLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
+delayBF :: (MonadDelay m, ChainBackend backend) => backend -> m ()
+delayBF backend = do
+  let delay = case Backend.getOptions backend of
+        Blockfrost _ -> 40
+        _ -> 1
+  threadDelay delay
+
 seedFromFaucet ::
   ChainBackend backend =>
   backend ->
@@ -55,6 +62,7 @@ seedFromFaucet ::
   Tracer IO FaucetLog ->
   IO UTxO
 seedFromFaucet backend receivingVerificationKey val tracer = do
+  delayBF backend
   seedFromFaucetWithMinting backend receivingVerificationKey val tracer Nothing
 
 -- | Create a specially marked "seed" UTXO containing requested 'Value' by
@@ -72,7 +80,7 @@ seedFromFaucetWithMinting ::
 seedFromFaucetWithMinting backend receivingVerificationKey val tracer mintingScript = do
   (faucetVk, faucetSk) <- keysFor Faucet
   networkId <- Backend.queryNetworkId backend
-  seedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk networkId
+  seedTx <- retryOnExceptions tracer backend $ submitSeedTx faucetVk faucetSk networkId
   producedUTxO <- Backend.awaitTransaction backend seedTx receivingVerificationKey
   pure $ UTxO.filter (== toCtxUTxOTxOut (theOutput networkId)) producedUTxO
  where
@@ -195,7 +203,7 @@ returnFundsToFaucet' tracer backend senderSk = do
   returnAmount <-
     if UTxO.null utxo
       then pure 0
-      else retryOnExceptions tracer $ do
+      else retryOnExceptions tracer backend $ do
         let utxoValue = balance @Tx utxo
         let allLovelace = selectLovelace utxoValue
         tx <- sign senderSk <$> buildTxBody utxo faucetAddress
@@ -239,20 +247,20 @@ createOutputAtAddress networkId backend atAddress datum val = do
         Just u -> pure u
 
 -- | Try to submit tx and retry when some caught exception/s take place.
-retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m a -> m a
-retryOnExceptions tracer action =
+retryOnExceptions :: (MonadCatch m, MonadDelay m, ChainBackend backend) => Tracer m FaucetLog -> backend -> m a -> m a
+retryOnExceptions tracer backend action =
   action
     `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
-                  threadDelay 1
-                  retryOnExceptions tracer action
+                  delayBF backend
+                  retryOnExceptions tracer backend action
               , Handler $ \(ex :: IOException) -> do
                   unless (isResourceExhausted ex) $
                     throwIO ex
                   traceWith tracer $
                     TraceResourceExhaustedHandled $
                       "Expected exception raised from seedFromFaucet: " <> show ex
-                  threadDelay 1
-                  retryOnExceptions tracer action
+                  delayBF backend
+                  retryOnExceptions tracer backend action
               ]
  where
   isResourceExhausted ex = case ioe_type ex of
@@ -266,4 +274,6 @@ retryOnExceptions tracer action =
 publishHydraScriptsAs :: ChainBackend backend => backend -> Actor -> IO [TxId]
 publishHydraScriptsAs backend actor = do
   (_, sk) <- keysFor actor
-  publishHydraScripts backend sk
+  txids <- publishHydraScripts backend sk
+  delayBF backend
+  pure txids
