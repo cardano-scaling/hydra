@@ -184,28 +184,21 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
     msg <- receiveData con
     case Aeson.eitherDecode msg of
       Right input -> do
-        syncedStatus <- chainSyncedStatus
-        if status syncedStatus
-          then do
-            traceWith tracer (APIInputReceived $ toJSON input)
-            case input of
-              SafeClose -> do
-                NodeState{headState} <- atomically getLatestNodeState
-                case HeadState.getOpenStateConfirmedSnapshot headState of
-                  Nothing -> callback input
-                  Just confirmedSnapshot ->
-                    case checkNonADAAssets confirmedSnapshot of
-                      Left nonADAValue -> do
-                        let clientInput = decodeUtf8With lenientDecode $ toStrict msg
-                        let errorStr = "Cannot SafeClose with non-ADA assets present: " <> show nonADAValue
-                        sendTextData con $ Aeson.encode $ InvalidInput errorStr clientInput
-                        traceWith tracer (APIInvalidInput errorStr clientInput)
-                      Right _ -> callback input
-              _ -> callback input
-          else do
-            let err = "Rejected: chain out of sync" :: Text
-            sendTextData con (Aeson.encode $ InvalidInput (toString err) (decodeUtf8With lenientDecode $ toStrict msg))
-            traceWith tracer (APIInvalidInput (toString err) (decodeUtf8With lenientDecode $ toStrict msg))
+        traceWith tracer (APIInputReceived $ toJSON input)
+        case input of
+          SafeClose -> do
+            NodeState{headState} <- atomically getLatestNodeState
+            case HeadState.getOpenStateConfirmedSnapshot headState of
+              Nothing -> callback input
+              Just confirmedSnapshot ->
+                case checkNonADAAssets confirmedSnapshot of
+                  Left nonADAValue -> do
+                    let clientInput = decodeUtf8With lenientDecode $ toStrict msg
+                    let errorStr = "Cannot SafeClose with non-ADA assets present: " <> show nonADAValue
+                    sendTextData con $ Aeson.encode $ InvalidInput errorStr clientInput
+                    traceWith tracer (APIInvalidInput errorStr clientInput)
+                  Right _ -> callback input
+          _ -> callback input
       Left e -> do
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
