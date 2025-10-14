@@ -33,7 +33,6 @@ import Hydra.Cardano.Api (AddressInEra, LedgerEra, SlotNo, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.Chain.SyncedStatus (SyncedStatus (..), status)
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
@@ -41,8 +40,8 @@ import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
-import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
-import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS, ResponseReceived)
+import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500)
+import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
 import System.Directory (doesFileExist)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
@@ -266,46 +265,22 @@ httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getP
         >>= respond
     ("GET", ["commits"]) ->
       getPendingDeposits >>= respond . responseLBS status200 jsonContent . Aeson.encode
-    ("POST", ["decommit"]) -> do
-      mRejected <- rejectChainNotSynced chainSyncedStatus respond
-      case mRejected of
-        Just rr -> pure rr
-        Nothing -> do
-          consumeRequestBodyStrict request
-            >>= handleDecommit putClientInput apiTransactionTimeout responseChannel
-            >>= respond
+    ("POST", ["decommit"]) ->
+      consumeRequestBodyStrict request
+        >>= handleDecommit putClientInput apiTransactionTimeout responseChannel
+        >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond . responseLBS status200 jsonContent . Aeson.encode $ pparams
-    ("POST", ["cardano-transaction"]) -> do
-      mRejected <- rejectChainNotSynced chainSyncedStatus respond
-      case mRejected of
-        Just rr -> pure rr
-        Nothing -> do
-          consumeRequestBodyStrict request
-            >>= handleSubmitUserTx directChain
-            >>= respond
-    ("POST", ["transaction"]) -> do
-      mRejected <- rejectChainNotSynced chainSyncedStatus respond
-      case mRejected of
-        Just rr -> pure rr
-        Nothing -> do
-          consumeRequestBodyStrict request
-            >>= handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel
-            >>= respond
+    ("POST", ["cardano-transaction"]) ->
+      consumeRequestBodyStrict request
+        >>= handleSubmitUserTx directChain
+        >>= respond
+    ("POST", ["transaction"]) ->
+      consumeRequestBodyStrict request
+        >>= handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel
+        >>= respond
     _ ->
       respond $ responseLBS status400 jsonContent . Aeson.encode $ Aeson.String "Resource not found"
- where
-  Chain{chainSyncedStatus} = directChain
-
-rejectChainNotSynced :: IO SyncedStatus -> (Response -> IO ResponseReceived) -> IO (Maybe ResponseReceived)
-rejectChainNotSynced chainSyncedStatus respond = do
-  syncedStatus <- chainSyncedStatus
-  if status syncedStatus
-    then pure Nothing
-    else
-      Just
-        <$> respond
-          (responseLBS status503 jsonContent (Aeson.encode ("Chain not yet synced, try again later" :: Text)))
 
 -- * Handlers
 
