@@ -1351,7 +1351,7 @@ update ::
   Input tx ->
   Outcome tx
 update env ledger knownTip NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
-  -- General Unsynced
+  -- Unsynced Mode
   (_, NetworkInput{})
     | not (isSynced currentSlot knownTip env) ->
         -- TODO! add ClientEffect $ ServerOutput
@@ -1360,6 +1360,7 @@ update env ledger knownTip NodeState{headState = st, pendingDeposits, currentSlo
     | not (isSynced currentSlot knownTip env) ->
         -- TODO! change ClientEffect $ ServerOutput
         cause . ClientEffect $ ServerOutput.CommandFailed clientInput st
+  -- Synced Mode
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   (Idle _, ClientInput Init) ->
