@@ -19,6 +19,7 @@ import Hydra.Cardano.Api (
   Address,
   AddressInEra,
   ByronAddr,
+  ChainPoint,
   Coin (..),
   LedgerEra,
   PolicyAssets,
@@ -314,6 +315,7 @@ data ChainEvent tx
     Tick
       { chainTime :: UTCTime
       , chainSlot :: ChainSlot
+      , knownTip :: ChainPoint
       }
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx, failingTx :: Maybe tx}
