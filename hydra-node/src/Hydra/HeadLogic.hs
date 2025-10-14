@@ -72,7 +72,7 @@ import Hydra.HeadLogic.State (
   seenSnapshotNumber,
   setChainState,
  )
-import Hydra.Ledger (Ledger (..), ValidationError (..), applyTransactions)
+import Hydra.Ledger (Ledger (..), applyTransactions)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
@@ -1344,23 +1344,12 @@ update ::
   IsChainState tx =>
   Environment ->
   Ledger tx ->
-  ChainPoint ->
   -- | Current NodeState to validate the command against.
   NodeState tx ->
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-update env ledger knownTip NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
-  -- Unsynced Mode
-  (_, NetworkInput{})
-    | not (isSynced currentSlot knownTip env) ->
-        -- TODO! add ClientEffect $ ServerOutput
-        wait $ WaitOnNotApplicableTx $ ValidationError "NodeState out of synch"
-  (_, ClientInput{clientInput})
-    | not (isSynced currentSlot knownTip env) ->
-        -- TODO! change ClientEffect $ ServerOutput
-        cause . ClientEffect $ ServerOutput.CommandFailed clientInput st
-  -- Synced Mode
+update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   (Idle _, ClientInput Init) ->

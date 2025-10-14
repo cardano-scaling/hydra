@@ -1848,13 +1848,18 @@ components:
       type: object
       required:
         - tag
-        - syncedStatus
+        - point
+        - tip
       properties:
         tag:
           type: string
           enum: ["ChainOutOfSync"]
-        syncedStatus:
-          $ref: "api.yaml#/components/schemas/SyncedStatus"
+        point:
+          oneOf:
+          - $ref: "api.yaml#/components/schemas/ChainPoint"
+          - type: "null"
+        tip:
+          $ref: "api.yaml#/components/schemas/ChainPoint"
 
     # END OF SERVER OUTPUT SCHEMAS
 
@@ -3608,19 +3613,3 @@ components:
             blockHash:
               type: string
               contentEncoding: base16
-
-    SyncedStatus:
-      type: object
-      description: |
-        The synced status of the chain backend.
-      additionalProperties: false
-      required:
-        - point
-        - tip
-      properties:
-        point:
-          oneOf:
-          - $ref: "api.yaml#/components/schemas/ChainPoint"
-          - type: "null"
-        tip:
-          $ref: "api.yaml#/components/schemas/ChainPoint"

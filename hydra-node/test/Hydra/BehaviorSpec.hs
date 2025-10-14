@@ -21,7 +21,7 @@ import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
-import Hydra.Cardano.Api (ChainPoint (ChainPointAtGenesis), SigningKey)
+import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -31,7 +31,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), OpenState (..))
@@ -1065,7 +1064,6 @@ simulatedChainAndNetwork ::
   ChainStateType SimpleTx ->
   m (SimulatedChainNetwork SimpleTx m)
 simulatedChainAndNetwork initialChainState = do
-  syncedStatus <- newLabelledTVarIO "sim-chain-sync-status" (unSynced ChainPointAtGenesis)
   history <- newLabelledTVarIO "sim-chain-history" []
   nodes <- newLabelledTVarIO "sim-chain-nodes" []
   nextTxId <- newLabelledTVarIO "sim-chain-next-txid" 10000
@@ -1077,7 +1075,6 @@ simulatedChainAndNetwork initialChainState = do
           let mockChain =
                 Chain
                   { mkChainState = initialChainState
-                  , chainSyncedStatus = readTVarIO syncedStatus
                   , postTx = \tx -> do
                       now <- getCurrentTime
                       -- Only observe "after one block"

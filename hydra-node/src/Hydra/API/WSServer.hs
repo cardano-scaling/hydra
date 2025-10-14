@@ -17,7 +17,6 @@ import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput (SafeClose))
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
-  ChainOutOfSync (..),
   ClientMessage,
   Greetings (..),
   HeadStatus (..),
@@ -42,7 +41,6 @@ import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (
   IsChainState,
  )
-import Hydra.Chain.SyncedStatus (SyncedStatus (..), status)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
@@ -76,24 +74,13 @@ wsApp ::
   Projection STM.STM (StateChanged tx) NetworkInfo ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   ServerOutputFilter tx ->
-  IO SyncedStatus ->
   PendingConnection ->
   IO ()
-wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} chainSyncedStatus pending = do
+wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
   con <- acceptRequest pending
-  -- we notify clients every time the chain is out of sync
-  -- as their inputs will get rejected
-  _ <- forkLabelled "ws-check-sync-status" $ forever $ do
-    syncedStatus <- chainSyncedStatus
-    unless (status syncedStatus) $ do
-      let output = ChainOutOfSync syncedStatus
-      sendTextData con (Aeson.encode output)
-    -- check every second
-    -- TODO! configure threadDelay
-    threadDelay 1
   chan <- STM.atomically $ dupTChan responseChannel
 
   let outConfig = mkServerOutputConfig queryParams

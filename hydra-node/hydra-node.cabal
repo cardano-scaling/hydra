@@ -69,7 +69,6 @@ library
     Hydra.Chain.Direct.Wallet
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
-    Hydra.Chain.SyncedStatus
     Hydra.Events
     Hydra.Events.FileBased
     Hydra.Events.Rotation
