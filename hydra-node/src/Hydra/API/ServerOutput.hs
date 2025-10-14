@@ -10,9 +10,9 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
-import Hydra.Chain.SyncedStatus (SyncedStatus)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
@@ -142,18 +142,29 @@ data InvalidInput = InvalidInput
 deriving instance ToJSON InvalidInput
 deriving instance FromJSON InvalidInput
 
-newtype ChainOutOfSync = ChainOutOfSync {syncedStatus :: SyncedStatus}
-  deriving newtype (Eq, Show)
-  deriving (Generic)
-  deriving newtype (Arbitrary)
+data ChainOutOfSync = ChainOutOfSync {point :: Maybe ChainPoint, tip :: ChainPoint}
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON ChainOutOfSync where
-  toJSON (ChainOutOfSync s) =
-    object ["tag" .= String "ChainOutOfSync", "syncedStatus" .= s]
+  toJSON s =
+    object
+      [ "tag" .= String "ChainOutOfSync"
+      , "point" .= point s
+      , "tip" .= tip s
+      ]
 
 instance FromJSON ChainOutOfSync where
-  parseJSON = withObject "ChainOutOfSync" $ \o ->
-    ChainOutOfSync <$> o .: "syncedStatus"
+  parseJSON = withObject "ChainOutOfSync" $ \o -> do
+    tag <- o .: "tag"
+    when (tag /= String "ChainOutOfSync") $
+      fail $
+        "Expected tag = ChainOutOfSync, got: " <> show tag
+    point <- o .: "point"
+    tip <- o .: "tip"
+    pure $ ChainOutOfSync point tip
+
+instance Arbitrary ChainOutOfSync where
+  arbitrary = genericArbitrary
 
 instance ToADTArbitrary ChainOutOfSync
 

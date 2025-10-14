@@ -33,7 +33,6 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (ChainContext, ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
 
@@ -135,8 +134,6 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
-  tip <- getCurrentTip
-  syncedStatus <- newLabelledTVarIO "blockfrost-chain-sync-status" (unSynced tip)
   let chainHandle =
         mkChain
           tracer
@@ -145,8 +142,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
           ctx
           localChainState
           (submitTx queue)
-          syncedStatus
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState syncedStatus getCurrentTip
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState getCurrentTip
 
   res <-
     raceLabelled
