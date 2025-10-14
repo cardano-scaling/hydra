@@ -209,7 +209,6 @@ spec = do
                 Success{} -> property True
                 Error e -> counterexample (toString $ toText e) $ property False
 
--- TODO! test unSynced
 apiServerSpec :: Spec
 apiServerSpec = do
   describe "API should respond correctly" $ do
