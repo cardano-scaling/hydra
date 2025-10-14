@@ -21,6 +21,7 @@ import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, genBlockHeaderHash, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api.ChainPoint (genChainPointAt)
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
@@ -168,7 +169,8 @@ spec =
               -- open state with pending deposits from another head
               party = [alice]
               openState = (inOpenState party){pendingDeposits = Map.fromList [(1, deposit1), (2, deposit2)]}
-              input = ChainInput $ Tick{chainTime = depositTime 3, chainSlot = ChainSlot 3}
+          knownTip <- generate (genChainPointAt 3)
+          let input = ChainInput $ Tick{chainTime = depositTime 3, chainSlot = ChainSlot 3, knownTip}
 
           let outcome = update aliceEnv ledger openState input
 
@@ -209,7 +211,8 @@ spec =
           -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
           -- so deposits are considered Active
           let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
-          let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4}
+          knownTip <- generate (genChainPointAt 4)
+          let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4, knownTip}
 
           let outcome = update aliceEnv ledger nodeState input
 
@@ -690,8 +693,11 @@ spec =
                 _ -> False
 
           let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
-              someChainSlot = arbitrary `generateWith` 42
-              stepTimePastDeadline = ChainInput $ Tick oneSecondsPastDeadline someChainSlot
+              someChainSlot@(ChainSlot slotNo) = arbitrary `generateWith` 42
+          blockHash <- lift $ generate genBlockHeaderHash
+          let knownTip = ChainPoint (fromIntegral slotNo) blockHash
+              stepTimePastDeadline = ChainInput $ Tick oneSecondsPastDeadline someChainSlot knownTip
+
           outcome2 <- step stepTimePastDeadline
           lift $
             outcome2 `hasStateChangedSatisfying` \case
@@ -1009,7 +1015,8 @@ spec =
         -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
         -- so deposits are considered Active
         let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
-        let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4}
+        knownTip <- pick (genChainPointAt 4)
+        let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4, knownTip}
 
         let outcome = update aliceEnv ledger nodeState input
 

@@ -339,7 +339,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             delayUntil deadline
 
             waitMatch aliceChain $ \case
-              Tick t _ | t > deadline -> Just ()
+              Tick t _ _ | t > deadline -> Just ()
               _ -> Nothing
             postTx $
               FanoutTx
