@@ -12,7 +12,7 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams)
 import Cardano.Slotting.Slot (SlotNo (..))
-import Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.List qualified as List
 import Hydra.Cardano.Api (
@@ -348,9 +348,8 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState getCurrentTip
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime -> do
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
-            -- TODO! add to Tick
-            tip <- getCurrentTip
-            callback (Tick{chainTime = utcTime, chainSlot})
+            knownTip <- getCurrentTip
+            callback (Tick{chainTime = utcTime, chainSlot, knownTip})
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case
