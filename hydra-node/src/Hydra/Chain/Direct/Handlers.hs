@@ -84,7 +84,7 @@ import Hydra.Tx (
   headSeedToTxIn,
  )
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
-import Hydra.Tx.Deposit (DepositObservation (..), depositTx, splitTokens)
+import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
 import Hydra.Tx.Observe (
   AbortObservation (..),
   CloseObservation (..),
