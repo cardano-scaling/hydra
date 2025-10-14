@@ -123,7 +123,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
               _ -> Nothing
 
           waitMatch aliceChain $ \case
-            Tick t _ | t > deadline -> Just ()
+            Tick t _ _ | t > deadline -> Just ()
             _ -> Nothing
           postTx $
             FanoutTx
