@@ -13,6 +13,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
 import Hydra.Cardano.Api (GenesisParameters (..), NetworkMagic (..), ShelleyEra, ShelleyGenesis (..), Tx, fromShelleyNetwork)
 import Hydra.Cardano.Api (ChainPoint (ChainPointAtGenesis), GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), Tx)
+import Hydra.Cardano.Api (GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), Tx)
 import Hydra.Chain (
   Chain (..),
   ChainComponent,
@@ -26,7 +27,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
@@ -128,7 +128,6 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
   chainHandle =
     Chain
       { mkChainState = initialChainState
-      , chainSyncedStatus = pure (unSynced ChainPointAtGenesis)
       , submitTx = const $ pure ()
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}

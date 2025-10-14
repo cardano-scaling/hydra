@@ -72,7 +72,6 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
@@ -170,12 +169,10 @@ mkChain ::
   ChainContext ->
   LocalChainState m Tx ->
   SubmitTx m ->
-  TVar m SyncedStatus ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx syncedStatus =
+mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
     { mkChainState = initialChainState
-    , chainSyncedStatus = readTVarIO syncedStatus
     , postTx = \tx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
@@ -315,11 +312,10 @@ chainSyncHandler ::
   -- | Contextual information about our chain connection.
   ChainContext ->
   LocalChainState m Tx ->
-  TVar m SyncedStatus ->
   m ChainPoint ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx localChainState syncedStatus getCurrentTip = do
+chainSyncHandler tracer callback getTimeHandle ctx localChainState getCurrentTip = do
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -352,9 +348,9 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState syncedStatus 
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime -> do
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
-            callback (Tick{chainTime = utcTime, chainSlot})
+            -- TODO! add to Tick
             tip <- getCurrentTip
-            atomically $ writeTVar syncedStatus SyncedStatus{point = Just point, tip}
+            callback (Tick{chainTime = utcTime, chainSlot})
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case

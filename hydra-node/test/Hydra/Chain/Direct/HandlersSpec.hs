@@ -59,7 +59,6 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
-import Hydra.Chain.SyncedStatus (unSynced)
 import Hydra.Tx.HeadParameters (HeadParameters)
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.Hydra.Prelude
@@ -124,8 +123,6 @@ spec = do
         chainState <- pickBlind arbitrary
         localChainState <- run $ newLocalChainState chainState
         let getCurrentTip = pure ChainPointAtGenesis
-        tip <- run getCurrentTip
-        syncedStatus <- run $ newLabelledTVarIO "chain-sync-status" (unSynced tip)
         let chainSyncCallback :: ChainEvent Tx -> IO ()
             chainSyncCallback = const $ failure "Unexpected callback"
             handler =
@@ -135,7 +132,6 @@ spec = do
                 (pure timeHandle)
                 chainContext
                 localChainState
-                syncedStatus
                 getCurrentTip
         run $
           onRollForward handler header txs
@@ -170,8 +166,6 @@ spec = do
                       OnRecoverTx{} -> error "OnRecoverTx not expected"
               observedTransition `shouldBe` transition
       let getCurrentTip = pure ChainPointAtGenesis
-      tip <- run getCurrentTip
-      syncedStatus <- run $ newLabelledTVarIO "chain-sync-status" (unSynced tip)
       let handler =
             chainSyncHandler
               nullTracer
@@ -179,7 +173,6 @@ spec = do
               (pure timeHandle)
               ctx
               localChainState
-              syncedStatus
               getCurrentTip
       run $ onRollForward handler header txs
 
@@ -206,8 +199,6 @@ spec = do
             Tick{} -> pure ()
             Observation{observedTx} -> failure $ "Unexpected observation: " <> show observedTx
       let getCurrentTip = pure ChainPointAtGenesis
-      tip <- run getCurrentTip
-      syncedStatus <- run $ newLabelledTVarIO "chain-sync-status" (unSynced tip)
       let handler =
             chainSyncHandler
               nullTracer
@@ -215,7 +206,6 @@ spec = do
               (pure timeHandle)
               ctx
               localChainState
-              syncedStatus
               getCurrentTip
       run $ onRollForward handler header txs
 
@@ -233,8 +223,6 @@ spec = do
             _ -> pure ()
       localChainState <- run $ newLocalChainState (initHistory chainStateAt)
       let getCurrentTip = pure ChainPointAtGenesis
-      tip <- run getCurrentTip
-      syncedStatus <- run $ newLabelledTVarIO "chain-sync-status" (unSynced tip)
       let handler =
             chainSyncHandler
               nullTracer
@@ -242,7 +230,6 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
-              syncedStatus
               getCurrentTip
 
       -- Simulate some chain following
@@ -265,8 +252,6 @@ spec = do
       -- Use the handler to evolve the chain state to some new, latest version
       localChainState <- run $ newLocalChainState (initHistory chainStateAt)
       let getCurrentTip = pure ChainPointAtGenesis
-      tip <- run getCurrentTip
-      syncedStatus <- run $ newLabelledTVarIO "chain-sync-status" (unSynced tip)
       let handler =
             chainSyncHandler
               nullTracer
@@ -274,7 +259,6 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
-              syncedStatus
               getCurrentTip
       run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
       latestChainState <- run . atomically $ getLatest localChainState
@@ -284,8 +268,6 @@ spec = do
       -- rollback and forward
       prevAdvancedChainState <- run . atomically $ history localChainState
       resumedLocalChainState <- run $ newLocalChainState prevAdvancedChainState
-      tip' <- run getCurrentTip
-      syncedStatus' <- run $ newLabelledTVarIO "chain-sync-status" (unSynced tip')
       let resumedHandler =
             chainSyncHandler
               nullTracer
@@ -293,7 +275,6 @@ spec = do
               (pure timeHandle)
               chainContext
               resumedLocalChainState
-              syncedStatus'
               getCurrentTip
       (rollbackPoint, blocksAfter) <- pickBlind $ genRollbackBlocks blocks
       monitor $ label $ "Rollback " <> show (length blocksAfter) <> " blocks"
@@ -312,8 +293,6 @@ recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newLabelledTVarIO "events-recorded" []
   localChainState <- newLocalChainState (initHistory cs)
   let getCurrentTip = pure ChainPointAtGenesis
-  tip <- getCurrentTip
-  syncedStatus <- newLabelledTVarIO "chain-sync-status" (unSynced tip)
   let handler =
         chainSyncHandler
           nullTracer
@@ -321,7 +300,6 @@ recordEventsHandler ctx cs getTimeHandle = do
           getTimeHandle
           ctx
           localChainState
-          syncedStatus
           getCurrentTip
   pure (handler, getEvents eventsVar)
  where

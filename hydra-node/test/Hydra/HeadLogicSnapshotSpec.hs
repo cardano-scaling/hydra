@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
-import Hydra.HeadLogicSpec (StepState, genKnownTip, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', receiveMessage, receiveMessageFrom, runHeadLogic, step)
+import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
@@ -31,7 +31,6 @@ import Test.Hydra.Tx.Fixture (
   testHeadId,
  )
 import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
-import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Monadic (monadicST, pick)
 
 spec :: Spec
@@ -80,8 +79,7 @@ spec = do
       it "sends ReqSn when leader and no snapshot in flight" $ do
         let tx = aValidTx 1
             s0 = inOpenState' [alice, bob] coordinatedHeadState
-        knownTip <- generate $ genKnownTip s0
-        let outcome = update (envFor aliceSk) simpleLedger knownTip s0 $ receiveMessage $ ReqTx tx
+        let outcome = update (envFor aliceSk) simpleLedger s0 $ receiveMessage $ ReqTx tx
 
         outcome
           `hasEffect` NetworkEffect (ReqSn 0 1 [txId tx] Nothing Nothing)
@@ -90,8 +88,7 @@ spec = do
         let tx = aValidTx 1
             st = coordinatedHeadState{localTxs = [tx]}
             s0 = inOpenState' [alice, bob] st
-        knownTip <- generate $ genKnownTip s0
-        let outcome = update (envFor bobSk) simpleLedger knownTip s0 $ receiveMessageFrom bob $ ReqTx tx
+        let outcome = update (envFor bobSk) simpleLedger s0 $ receiveMessageFrom bob $ ReqTx tx
 
         outcome `hasNoEffectSatisfying` sendReqSn
 
@@ -100,8 +97,7 @@ spec = do
             sn1 = Snapshot testHeadId 1 1 [] u0 Nothing Nothing :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
             s0 = inOpenState' [alice, bob] st
-        knownTip <- generate $ genKnownTip s0
-        let outcome = update (envFor aliceSk) simpleLedger knownTip s0 $ receiveMessage $ ReqTx tx
+        let outcome = update (envFor aliceSk) simpleLedger s0 $ receiveMessage $ ReqTx tx
 
         outcome `hasNoEffectSatisfying` sendReqSn
 
@@ -133,8 +129,7 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        knownTip <- generate $ genKnownTip headState
-        update bobEnv simpleLedger knownTip headState (ackFrom bobSk bob)
+        update bobEnv simpleLedger headState (ackFrom bobSk bob)
           `hasEffectSatisfying` sendReqSn
 
       it "does NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
@@ -144,15 +139,14 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        knownTip <- generate $ genKnownTip headState
-        update bobEnv simpleLedger knownTip headState (ackFrom bobSk bob)
+        update bobEnv simpleLedger headState (ackFrom bobSk bob)
           `hasNoEffectSatisfying` sendReqSn
 
       it "does NOT send ReqSn when we are NOT the leader but there are seen transactions" $ do
         let
           notLeaderEnv = envFor carolSk
 
-        let initiateSigningASnapshot :: (MonadState (StepState SimpleTx) m, MonadIO m) => Party -> m (Outcome SimpleTx)
+        let initiateSigningASnapshot :: MonadState (StepState SimpleTx) m => Party -> m (Outcome SimpleTx)
             initiateSigningASnapshot actor =
               step (receiveMessageFrom actor $ ReqSn 0 1 [] Nothing Nothing)
             newTxBeforeSnapshotAcknowledged =
@@ -165,8 +159,7 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        knownTip <- generate $ genKnownTip headState
-        let everybodyAcknowledged = update notLeaderEnv simpleLedger knownTip headState $ ackFrom bobSk bob
+        let everybodyAcknowledged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
         everybodyAcknowledged `hasNoEffectSatisfying` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
@@ -219,8 +212,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
         , version
         }
     s0 = inOpenState' [alice] st
-  knownTip <- pick $ genKnownTip s0
-  let outcome = update aliceEnv simpleLedger knownTip s0 $ receiveMessage $ ReqTx tx
+  let outcome = update aliceEnv simpleLedger s0 $ receiveMessage $ ReqTx tx
       Snapshot{number = confirmedSn} = getSnapshot sn
       nextSn = confirmedSn + 1
   pure $

@@ -11,10 +11,8 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Cardano.Api.ChainPoint (genChainPointAt)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
-import Hydra.Chain.SyncedStatus (SyncedStatus (..))
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
 import Hydra.Events.Rotation (EventStore (..), LogId)
 import Hydra.HeadLogic (Input (..), TTL)
@@ -58,7 +56,6 @@ import Test.Hydra.Tx.Fixture (
   testHeadSeed,
  )
 import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
-import Test.QuickCheck.Gen (generate)
 import Test.Util (isStrictlyMonotonic)
 
 spec :: Spec
@@ -344,7 +341,7 @@ primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}} = do
   pure node
 
 -- | Convert a 'DraftHydraNode' to a 'HydraNode' by providing mock implementations.
-notConnect :: (MonadThrow m, MonadIO m) => DraftHydraNode tx m -> m (HydraNode tx m)
+notConnect :: MonadThrow m => DraftHydraNode tx m -> m (HydraNode tx m)
 notConnect =
   connect mockChain mockNetwork mockServer
 
@@ -358,13 +355,10 @@ mockNetwork :: Monad m => Network m (Message tx)
 mockNetwork =
   Network{broadcast = \_ -> pure ()}
 
-mockChain :: (MonadThrow m, MonadIO m) => Chain tx m
+mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
     { mkChainState = error "mockChain: unexpected mkChainState"
-    , chainSyncedStatus = do
-        chainPoint <- liftIO . generate $ genChainPointAt 0
-        pure $ SyncedStatus{point = Just chainPoint, tip = chainPoint}
     , postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
     , draftDepositTx = \_ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
@@ -526,9 +520,6 @@ throwExceptionOnPostTx exception node =
       { oc =
           Chain
             { mkChainState = error "mkChainState not implemented"
-            , chainSyncedStatus = do
-                chainPoint <- generate $ genChainPointAt 0
-                pure $ SyncedStatus{point = Just chainPoint, tip = chainPoint}
             , postTx = \_ -> throwIO exception
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             , draftDepositTx = \_ -> error "draftDepositTx not implemented"

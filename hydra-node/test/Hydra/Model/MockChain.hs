@@ -50,7 +50,6 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import Hydra.Chain.SyncedStatus (SyncedStatus, unSynced)
 import Hydra.HeadLogic (
   ClosedState (..),
   HeadState (..),
@@ -104,7 +103,6 @@ mockChainAndNetwork ::
   UTxO ->
   m (SimulatedChainNetwork Tx m)
 mockChainAndNetwork tr seedKeys commits = do
-  syncedStatus <- newLabelledTVarIO "mock-chain-sync-status" (unSynced ChainPointAtGenesis)
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
   queue <- newLabelledTQueueIO "mock-chain-chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
@@ -112,7 +110,7 @@ mockChainAndNetwork tr seedKeys commits = do
   link tickThread
   pure
     SimulatedChainNetwork
-      { connectNode = connectNode nodes chain queue syncedStatus
+      { connectNode = connectNode nodes chain queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateCommit = simulateCommit nodes
@@ -142,7 +140,7 @@ mockChainAndNetwork tr seedKeys commits = do
     let vks = getVerificationKey . signingKey . snd <$> seedKeys
     env{participants = verificationKeyToOnChainId <$> vks}
 
-  connectNode nodes chain queue syncedStatus draftNode = do
+  connectNode nodes chain queue draftNode = do
     localChainState <- newLocalChainState (initHistory initialChainState)
     let DraftHydraNode{env} = draftNode
         Environment{party = ownParty} = env
@@ -184,7 +182,6 @@ mockChainAndNetwork tr seedKeys commits = do
             getTimeHandle
             seedInput
             localChainState
-            syncedStatus
     node <- connect mockChain (createMockNetwork draftNode nodes) mockServer draftNode
     let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
     let mockNode =
@@ -197,7 +194,6 @@ mockChainAndNetwork tr seedKeys commits = do
                   getTimeHandle
                   ctx
                   localChainState
-                  syncedStatus
                   (pure ChainPointAtGenesis)
             }
     atomically $ modifyTVar nodes (mockNode :)
@@ -398,9 +394,8 @@ createMockChain ::
   m TimeHandle ->
   TxIn ->
   LocalChainState m Tx ->
-  TVar m SyncedStatus ->
   Chain Tx m
-createMockChain tracer ctx submitTx timeHandle seedInput chainState syncedStatus =
+createMockChain tracer ctx submitTx timeHandle seedInput chainState =
   -- NOTE: The wallet basically does nothing
   let wallet =
         TinyWallet
@@ -418,7 +413,6 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState syncedStatus
         ctx
         chainState
         submitTx
-        syncedStatus
 
 -- NOTE: This is a workaround until the upstream PR is merged:
 -- https://github.com/input-output-hk/io-sim/issues/133
