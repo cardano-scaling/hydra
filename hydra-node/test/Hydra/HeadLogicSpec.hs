@@ -984,6 +984,7 @@ spec =
                         }
                 , pendingDeposits = mempty
                 , currentSlot = ChainSlot . fromIntegral . unSlotNo $ 0
+                , knownTip = ChainPoint 0 blockHash
                 }
         -- deposit txs
         (deposited1, depositTx1) <- pick mkDepositTx
@@ -1046,6 +1047,7 @@ spec =
               effects
 
       prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> monadicIO $ do
+        knownTip <- pick (genChainPointAt $ slotNo + 1)
         (utxo, expiringTransaction) <- pick $ do
           (vk, sk) <- genKeyPair
           txOut <- genOutputFor vk
@@ -1081,6 +1083,7 @@ spec =
                         }
                 , pendingDeposits = mempty
                 , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
+                , knownTip
                 }
 
         st <-
@@ -1098,6 +1101,7 @@ spec =
           _ -> False
 
     prop "empty inputs in decommit tx are prevented" $ \tx -> do
+      knownTip <- generate (genChainPointAt 1)
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
       let st =
             NodeState
@@ -1122,6 +1126,7 @@ spec =
                       }
               , pendingDeposits = mempty
               , currentSlot = ChainSlot 1
+              , knownTip
               }
 
       let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
@@ -1204,6 +1209,7 @@ genClosedState = do
       { headState = Closed $ closedState{headId = testHeadId}
       , pendingDeposits = mempty
       , currentSlot = ChainSlot 0
+      , knownTip = ChainPointAtGenesis
       }
 
 -- * Utilities
@@ -1266,6 +1272,7 @@ inInitialState parties =
             }
     , pendingDeposits = mempty
     , currentSlot = ChainSlot 0
+    , knownTip = ChainPointAtGenesis
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1307,6 +1314,7 @@ inOpenState' parties coordinatedHeadState =
             }
     , pendingDeposits = mempty
     , currentSlot = chainSlot
+    , knownTip = ChainPointAtGenesis
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1337,6 +1345,7 @@ inClosedState' parties confirmedSnapshot =
             }
     , pendingDeposits = mempty
     , currentSlot = ChainSlot 0
+    , knownTip = ChainPointAtGenesis
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties

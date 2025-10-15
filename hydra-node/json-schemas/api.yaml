@@ -3483,6 +3483,7 @@ components:
         - headState
         - pendingDeposits
         - currentSlot
+        - knownTip
       properties:
         headState:
           $ref: "api.yaml#/components/schemas/HeadState"
@@ -3494,6 +3495,8 @@ components:
             $ref: "api.yaml#/components/schemas/Deposit"
         currentSlot:
           $ref: "api.yaml#/components/schemas/ChainSlot"
+        knownTip:
+          $ref: "api.yaml#/components/schemas/ChainPoint"
 
     SubmitL2TxResponse:
       oneOf:
