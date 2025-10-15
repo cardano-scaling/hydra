@@ -5,6 +5,7 @@ module Hydra.Node.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
+import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Tx (
@@ -23,6 +24,7 @@ data NodeState tx = NodeState
   -- TODO: could even move the chain state here (also see todo below)
   -- , chainState :: ChainStateType tx
   , currentSlot :: ChainSlot
+  , knownTip :: ChainPoint
   }
   deriving stock (Generic)
 
@@ -40,6 +42,7 @@ initNodeState chainState =
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
     , currentSlot = chainStateSlot chainState
+    , knownTip = ChainPointAtGenesis
     }
 
 -- | A deposit tracked by the protocol. The 'DepositStatus' determines whether
