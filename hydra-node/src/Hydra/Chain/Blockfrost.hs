@@ -388,4 +388,3 @@ toTx (Blockfrost.TransactionCBOR txCbor) =
       case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
         Left deserializeErr -> throwIO . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
         Right tx -> pure tx
-
