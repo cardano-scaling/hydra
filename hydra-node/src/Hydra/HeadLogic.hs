@@ -1793,6 +1793,8 @@ aggregate st = \case
       Open ost{coordinatedHeadState = coordState{allTxs = foldr Map.delete allTransactions [txId transaction]}}
     _otherState -> st
   Checkpoint NodeState{headState = state'} -> state'
+  NodeSynced -> st
+  NodeUnsynced -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -1847,3 +1849,5 @@ aggregateChainStateHistory history = \case
   TxInvalid{} -> history
   LocalStateCleared{} -> history
   Checkpoint NodeState{headState = state'} -> initHistory $ getChainState state'
+  NodeUnsynced -> history
+  NodeSynced -> history
