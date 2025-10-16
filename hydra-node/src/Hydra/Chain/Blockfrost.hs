@@ -2,6 +2,7 @@ module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
 
+import Blockfrost.Client qualified as BlockfrostAPI
 import Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
 import Control.Retry (RetryPolicyM, constantDelay, retrying)
@@ -22,7 +23,6 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), currentState)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Blockfrost.Client qualified as BlockfrostAPI
 import Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler (..),
@@ -247,8 +247,9 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
     let targetHash = BlockfrostAPI._blockHash latestBlock
     let targetHeight = BlockfrostAPI._blockHeight latestBlock
 
-    currentBlock <- Blockfrost.runBlockfrostM prj $
-      Blockfrost.getBlock (Right currentHash)
+    currentBlock <-
+      Blockfrost.runBlockfrostM prj $
+        Blockfrost.getBlock (Right currentHash)
     let currentHeight = Blockfrost._blockHeight currentBlock
 
     catchUpLoop currentHash targetHash stateTVar
@@ -269,14 +270,16 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
   pollForNewBlocks blockTime' stateTVar = do
     threadDelay (realToFrac blockTime')
     current <- readTVarIO stateTVar
-    nextBlockHash <- rollForward tracer prj handler wallet 1 current
-      `catch` \case
-        MissingNextBlockHash{} -> do
-          pure current
-        ex -> throwIO ex
+    nextBlockHash <-
+      rollForward tracer prj handler wallet 1 current
+        `catch` \case
+          MissingNextBlockHash{} -> do
+            pure current
+          ex -> throwIO ex
 
     when (nextBlockHash /= current) $
-      atomically $ writeTVar stateTVar nextBlockHash
+      atomically $
+        writeTVar stateTVar nextBlockHash
 
     pollForNewBlocks blockTime' stateTVar
 
