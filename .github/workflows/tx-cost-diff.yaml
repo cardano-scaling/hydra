@@ -11,7 +11,7 @@ on:
 
 permissions:
   checks: write-all
-  pull-requests: write-all
+  pull-requests: write
 
 
 jobs:
