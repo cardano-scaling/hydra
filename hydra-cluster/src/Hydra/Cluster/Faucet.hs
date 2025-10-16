@@ -28,7 +28,7 @@ import Hydra.Chain.ScriptRegistry (
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
-import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..))
+import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBFQueryTimeout)
 import Hydra.Tx (balance, txId)
 
 data FaucetException
@@ -48,9 +48,9 @@ data FaucetLog
 delayBF :: (MonadDelay m, ChainBackend backend) => backend -> m ()
 delayBF backend = do
   let delay = case Backend.getOptions backend of
-        Blockfrost _ -> 40
+        Blockfrost _ -> defaultBFQueryTimeout
         _ -> 1
-  threadDelay delay
+  threadDelay $ fromIntegral delay
 
 seedFromFaucet ::
   ChainBackend backend =>
@@ -185,6 +185,7 @@ returnFundsToFaucet ::
   Actor ->
   IO ()
 returnFundsToFaucet tracer backend sender = do
+  delayBF backend
   senderKeys <- keysFor sender
   void $ returnFundsToFaucet' tracer backend (snd senderKeys)
 

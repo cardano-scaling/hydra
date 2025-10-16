@@ -1332,7 +1332,7 @@ threeNodesNoErrorsOnOpen tracer tmpDir backend hydraScriptsTxId = do
   --  Fail if a 'PostTxOnChainFailed' message is received.
   shouldNotReceivePostTxError client@HydraClient{hydraNodeId} = do
     blockTime <- Backend.getBlockTime backend
-    err <- waitMatch (10 * blockTime) client $ \v -> do
+    err <- waitMatch (20 * blockTime) client $ \v -> do
       case v ^? key "tag" of
         Just "PostTxOnChainFailed" -> pure $ Left $ v ^? key "postTxError"
         Just "HeadIsOpen" -> pure $ Right ()
@@ -2385,7 +2385,6 @@ returnFundsToFaucet ::
   Actor ->
   IO ()
 returnFundsToFaucet tracer backend actor = do
-  Faucet.delayBF backend
   Faucet.returnFundsToFaucet (contramap FromFaucet tracer) backend actor
 
 headIsInitializingWith :: Set Party -> Value -> Maybe HeadId

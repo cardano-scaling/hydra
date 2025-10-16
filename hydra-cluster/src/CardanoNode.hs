@@ -27,6 +27,7 @@ import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Direct (DirectBackend (..))
+import Hydra.Cluster.Faucet (delayBF)
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (BlockfrostOptions (..), DirectOptions (..), defaultBlockfrostOptions)
@@ -185,7 +186,7 @@ withBlockfrostBackend _tracer stateDirectory action = do
   -- way to definitely know if this information is correct since it might be
   -- outdated. We just try to wait for sufficient amount of time before
   -- starting another BF related test.
-  threadDelay 20
+  delayBF backend
   action (getShelleyGenesisBlockTime shelleyGenesis) backend
 
 -- | Find the given file in the current directory or its parents.
