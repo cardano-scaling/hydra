@@ -226,7 +226,7 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
 
   stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
 
-  latestBlockHash <- catchUpToLatest blockHash stateTVar
+  void $ catchUpToLatest blockHash stateTVar
 
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
@@ -245,12 +245,6 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
   catchUpToLatest currentHash stateTVar = do
     latestBlock <- Blockfrost.runBlockfrostM prj BlockfrostAPI.getLatestBlock
     let targetHash = BlockfrostAPI._blockHash latestBlock
-    let targetHeight = BlockfrostAPI._blockHeight latestBlock
-
-    currentBlock <-
-      Blockfrost.runBlockfrostM prj $
-        Blockfrost.getBlock (Right currentHash)
-    let currentHeight = Blockfrost._blockHeight currentBlock
 
     catchUpLoop currentHash targetHash stateTVar
 
