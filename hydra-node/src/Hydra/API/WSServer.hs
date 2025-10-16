@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -100,7 +101,9 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
   forwardGreetingOnly config con = do
-    NodeState{headState} <- atomically getLatestNodeState
+    nodeState <- atomically getLatestNodeState
+    -- REVIEW: is OverloadedRecordDot okay with sum types?
+    let headState = nodeState.headState
     networkInfo <- atomically getLatestNetworkInfo
     sendTextData con $
       handleUtxoInclusion config (atKey "snapshotUtxo" .~ Nothing) $
