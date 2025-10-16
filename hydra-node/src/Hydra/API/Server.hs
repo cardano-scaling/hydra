@@ -128,7 +128,6 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     raceLabelled_
       ( "api-server"
       , do
-          traceWith tracer (APIServerStarted port)
           startServer serverSettings
             . simpleCors
             $ websocketsOr
@@ -263,6 +262,8 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.TickObserved{} -> Nothing
     StateChanged.LocalStateCleared{..} -> Just SnapshotSideLoaded{..}
     StateChanged.Checkpoint{state} -> Just $ EventLogRotated state
+    StateChanged.NodeUnsynced -> Just NodeUnsynced
+    StateChanged.NodeSynced -> Just NodeSynced
 
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]

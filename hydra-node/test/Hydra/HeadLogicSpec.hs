@@ -20,7 +20,8 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), fromLedgerTx, genBlockHeaderHash, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, genBlockHeaderHash, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api.ChainPoint (genChainPointAt)
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
@@ -168,8 +169,10 @@ spec =
               -- open state with pending deposits from another head
               party = [alice]
               openState = (inOpenState party){pendingDeposits = Map.fromList [(1, deposit1), (2, deposit2)]}
-              input = ChainInput $ Tick{chainTime = depositTime 3, chainSlot = ChainSlot 3}
-              outcome = update aliceEnv ledger openState input
+          knownTip <- generate (genChainPointAt 3)
+          let input = ChainInput $ Tick{chainTime = depositTime 3, chainSlot = ChainSlot 3, knownTip}
+
+          let outcome = update aliceEnv ledger openState input
 
           outcome `hasEffectSatisfying` \case
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 2
@@ -185,7 +188,8 @@ spec =
                     , created = genUTCTime `generateWith` 41
                     , deadline = genUTCTime `generateWith` 42
                     }
-          update bobEnv ledger (inOpenState threeParties) depositOtherHead `hasStateChangedSatisfying` \case
+              s0 = inOpenState threeParties
+          update bobEnv ledger s0 depositOtherHead `hasStateChangedSatisfying` \case
             DepositRecorded{headId, depositTxId} -> headId == otherHeadId && depositTxId == 1
             _ -> False
 
@@ -207,7 +211,8 @@ spec =
           -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
           -- so deposits are considered Active
           let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
-          let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4}
+          knownTip <- generate (genChainPointAt 4)
+          let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4, knownTip}
 
           let outcome = update aliceEnv ledger nodeState input
 
@@ -385,6 +390,7 @@ spec =
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
             getState
+
         update bobEnv ledger waitingForLastAck (invalidAckFrom bobSk bob)
           `shouldSatisfy` \case
             Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
@@ -484,7 +490,8 @@ spec =
       it "waits if we receive an AckSn for an unseen snapshot" $ do
         let snapshot = testSnapshot 1 0 [] mempty
             input = receiveMessage $ AckSn (sign aliceSk snapshot) 1
-        update bobEnv ledger (inOpenState threeParties) input
+            s0 = inOpenState threeParties
+        update bobEnv ledger s0 input
           `assertWait` WaitOnSeenSnapshot
 
       -- TODO: Write property tests for various future / old snapshot behavior.
@@ -686,8 +693,11 @@ spec =
                 _ -> False
 
           let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
-              someChainSlot = arbitrary `generateWith` 42
-              stepTimePastDeadline = ChainInput $ Tick oneSecondsPastDeadline someChainSlot
+              someChainSlot@(ChainSlot slotNo) = arbitrary `generateWith` 42
+          blockHash <- lift $ generate genBlockHeaderHash
+          let knownTip = ChainPoint (fromIntegral slotNo) blockHash
+              stepTimePastDeadline = ChainInput $ Tick oneSecondsPastDeadline someChainSlot knownTip
+
           outcome2 <- step stepTimePastDeadline
           lift $
             outcome2 `hasStateChangedSatisfying` \case
@@ -747,33 +757,38 @@ spec =
 
       prop "ignores abortTx of another head" $ \otherHeadId -> do
         let abortOtherHead = observeTx $ OnAbortTx{headId = otherHeadId}
-        update bobEnv ledger (inInitialState threeParties) abortOtherHead
+            st = inInitialState threeParties
+        update bobEnv ledger st abortOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores collectComTx of another head" $ \otherHeadId -> do
         let collectOtherHead = observeTx $ OnCollectComTx{headId = otherHeadId}
-        update bobEnv ledger (inInitialState threeParties) collectOtherHead
+            st = inInitialState threeParties
+        update bobEnv ledger st collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
         let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId, newVersion = 1, distributedUTxO = mempty}
-        update bobEnv ledger (inOpenState threeParties) decrementOtherHead
+            st = inOpenState threeParties
+        update bobEnv ledger st decrementOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores closeTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
-        let openState = inOpenState threeParties
         let closeOtherHead = observeTx $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
-        update bobEnv ledger openState closeOtherHead
+            st = inOpenState threeParties
+        update bobEnv ledger st closeOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores contestTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
         let contestOtherHead = observeTx $ OnContestTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
-        update bobEnv ledger (inClosedState threeParties) contestOtherHead
+            st = inClosedState threeParties
+        update bobEnv ledger st contestOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores fanoutTx of another head" $ \otherHeadId fanoutUTxO -> do
         let collectOtherHead = observeTx $ OnFanoutTx{headId = otherHeadId, fanoutUTxO}
-        update bobEnv ledger (inClosedState threeParties) collectOtherHead
+            st = inClosedState threeParties
+        update bobEnv ledger st collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "fanout utxo always relies on observed utxo" $ \fanoutUTxO ->
@@ -967,6 +982,7 @@ spec =
                         }
                 , pendingDeposits = mempty
                 , currentSlot = ChainSlot . fromIntegral . unSlotNo $ 0
+                , knownTip = ChainPoint 0 blockHash
                 }
         -- deposit txs
         (deposited1, depositTx1) <- pick mkDepositTx
@@ -1000,7 +1016,8 @@ spec =
         -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
         -- so deposits are considered Active
         let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
-        let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4}
+        knownTip <- pick (genChainPointAt 4)
+        let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4, knownTip}
 
         let outcome = update aliceEnv ledger nodeState input
 
@@ -1028,6 +1045,7 @@ spec =
               effects
 
       prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> monadicIO $ do
+        knownTip <- pick (genChainPointAt $ slotNo + 1)
         (utxo, expiringTransaction) <- pick $ do
           (vk, sk) <- genKeyPair
           txOut <- genOutputFor vk
@@ -1063,6 +1081,7 @@ spec =
                         }
                 , pendingDeposits = mempty
                 , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
+                , knownTip
                 }
 
         st <-
@@ -1080,6 +1099,7 @@ spec =
           _ -> False
 
     prop "empty inputs in decommit tx are prevented" $ \tx -> do
+      knownTip <- generate (genChainPointAt 1)
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
       let st =
             NodeState
@@ -1104,6 +1124,7 @@ spec =
                       }
               , pendingDeposits = mempty
               , currentSlot = ChainSlot 1
+              , knownTip
               }
 
       let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
@@ -1186,6 +1207,7 @@ genClosedState = do
       { headState = Closed $ closedState{headId = testHeadId}
       , pendingDeposits = mempty
       , currentSlot = ChainSlot 0
+      , knownTip = ChainPointAtGenesis
       }
 
 -- * Utilities
@@ -1248,6 +1270,7 @@ inInitialState parties =
             }
     , pendingDeposits = mempty
     , currentSlot = ChainSlot 0
+    , knownTip = ChainPointAtGenesis
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1289,6 +1312,7 @@ inOpenState' parties coordinatedHeadState =
             }
     , pendingDeposits = mempty
     , currentSlot = chainSlot
+    , knownTip = ChainPointAtGenesis
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1319,6 +1343,7 @@ inClosedState' parties confirmedSnapshot =
             }
     , pendingDeposits = mempty
     , currentSlot = ChainSlot 0
+    , knownTip = ChainPointAtGenesis
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1371,6 +1396,12 @@ assertWait outcome waitReason =
   case outcome of
     Wait{reason} -> reason `shouldBe` waitReason
     _ -> failure $ "Expected a wait, but got: " <> show outcome
+
+assertError :: (HasCallStack, IsChainState tx) => Outcome tx -> LogicError tx -> IO ()
+assertError outcome logicError =
+  case outcome of
+    (Error e) -> e `shouldBe` logicError
+    _ -> failure $ "Expected a error, but got: " <> show outcome
 
 hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasEffectSatisfying outcome predicate =

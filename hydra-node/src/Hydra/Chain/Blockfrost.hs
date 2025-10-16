@@ -125,7 +125,8 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newLabelledTQueueIO "blockfrost-chain-queue"
   -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip backend) pure $ do
+  let getCurrentTip = queryTip backend
+  chainPoint <- maybe getCurrentTip pure $ do
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
@@ -140,8 +141,8 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
           ctx
           localChainState
           (submitTx queue)
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState getCurrentTip
 
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
     raceLabelled
       ( "blockfrost-chain-connection"

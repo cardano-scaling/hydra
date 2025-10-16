@@ -5,11 +5,12 @@
 module Hydra.API.ServerOutput where
 
 import Control.Lens ((.~))
-import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, tagSingleConstructors, withObject, (.:))
+import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, object, omitNothingFields, tagSingleConstructors, withObject, (.:), (.=))
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
@@ -141,6 +142,32 @@ data InvalidInput = InvalidInput
 deriving instance ToJSON InvalidInput
 deriving instance FromJSON InvalidInput
 
+data ChainOutOfSync = ChainOutOfSync {point :: Maybe ChainPoint, tip :: ChainPoint}
+  deriving stock (Eq, Show, Generic)
+
+instance ToJSON ChainOutOfSync where
+  toJSON s =
+    object
+      [ "tag" .= String "ChainOutOfSync"
+      , "point" .= point s
+      , "tip" .= tip s
+      ]
+
+instance FromJSON ChainOutOfSync where
+  parseJSON = withObject "ChainOutOfSync" $ \o -> do
+    tag <- o .: "tag"
+    when (tag /= String "ChainOutOfSync") $
+      fail $
+        "Expected tag = ChainOutOfSync, got: " <> show tag
+    point <- o .: "point"
+    tip <- o .: "tip"
+    pure $ ChainOutOfSync point tip
+
+instance Arbitrary ChainOutOfSync where
+  arbitrary = genericArbitrary
+
+instance ToADTArbitrary ChainOutOfSync
+
 data ServerOutput tx
   = NetworkConnected
   | NetworkDisconnected
@@ -215,6 +242,8 @@ data ServerOutput tx
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | EventLogRotated {checkpoint :: NodeState tx}
+  | NodeUnsynced
+  | NodeSynced
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -288,6 +317,8 @@ prepareServerOutput config response =
     PeerDisconnected{} -> encodedResponse
     SnapshotSideLoaded{} -> encodedResponse
     EventLogRotated{} -> encodedResponse
+    NodeUnsynced{} -> encodedResponse
+    NodeSynced{} -> encodedResponse
  where
   encodedResponse = encode response
 

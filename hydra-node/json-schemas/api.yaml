@@ -104,6 +104,7 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
           - $ref: "api.yaml#/components/messages/EventLogRotated"
+          - $ref: "api.yaml#/components/messages/ChainOutOfSync"
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
@@ -167,6 +168,7 @@ channels:
           * DraftCommitTxResponse - 200 ok
           * CommittedTooMuchADAForMainnet - 400 bad request
           * UnsupportedLegacyOutput - 400 bad request
+          * ChainOutOfSync - 503 service unavailable
       message:
         $ref: "api.yaml#/components/messages/DraftCommitTxResponse"
       bindings:
@@ -226,6 +228,7 @@ channels:
         Possible responses of this endpoint are:
           * 200 OK
           * 400 Bad Request
+          * 503 Service Unavailable
       message:
         payload:
           type: string
@@ -332,6 +335,7 @@ channels:
         Possible responses of this endpoint are:
           * String - 200 OK
           * String - 400 bad request
+          * ChainOutOfSync - 503 service unavailable
       message:
         payload:
             $ref: "api.yaml#/components/messages/DecommitResponse"
@@ -388,6 +392,10 @@ channels:
           summary: 400 Bad Request
           payload:
             $ref: "api.yaml#/components/schemas/PostTxError"
+        - name: ChainOutOfSync
+          summary: 503 Service Unavailable
+          payload:
+            $ref: "api.yaml#/components/schemas/ChainOutOfSync"
       bindings:
         http:
           type: response
@@ -449,6 +457,10 @@ channels:
               tag:
                 type: string
                 enum: ["SubmitTxSubmitted"]
+        - name: ChainOutOfSync
+          summary: 503 Service Unavailable
+          payload:
+            $ref: "api.yaml#/components/schemas/ChainOutOfSync"
       bindings:
         http:
           type: response
@@ -775,6 +787,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/EventLogRotated"
 
+    ChainOutOfSync:
+      title: ChainOutOfSync
+      description: |
+        The chain-state is out of sync with node-state and insecure to be used.
+      payload:
+        $ref: "api.yaml#/components/schemas/ChainOutOfSync"
+
     # Other messages
 
     DraftCommitTxRequest:
@@ -858,6 +877,7 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
         - $ref: "api.yaml#/components/schemas/EventLogRotated"
+        - $ref: "api.yaml#/components/schemas/ChainOutOfSync"
 
     ClientMessage:
       oneOf:
@@ -1786,6 +1806,27 @@ components:
           $ref: "api.yaml#/components/schemas/NodeState"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
+
+    ChainOutOfSync:
+      title: ChainOutOfSync
+      description: |
+        The chain-state is out of sync with node-state and insecure to be used.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - point
+        - tip
+      properties:
+        tag:
+          type: string
+          enum: ["ChainOutOfSync"]
+        point:
+          oneOf:
+          - $ref: "api.yaml#/components/schemas/ChainPoint"
+          - type: "null"
+        tip:
+          $ref: "api.yaml#/components/schemas/ChainPoint"
 
     # END OF SERVER OUTPUT SCHEMAS
 
@@ -3428,6 +3469,7 @@ components:
         - headState
         - pendingDeposits
         - currentSlot
+        - knownTip
       properties:
         headState:
           $ref: "api.yaml#/components/schemas/HeadState"
@@ -3439,6 +3481,8 @@ components:
             $ref: "api.yaml#/components/schemas/Deposit"
         currentSlot:
           $ref: "api.yaml#/components/schemas/ChainSlot"
+        knownTip:
+          $ref: "api.yaml#/components/schemas/ChainPoint"
 
     SubmitL2TxResponse:
       oneOf:
@@ -3506,3 +3550,36 @@ components:
             tag:
               type: string
               enum: ["Expired"]
+
+    ChainPoint:
+      oneOf:
+        - title: ChainPointAtGenesis
+          description: |
+            Special chain point representing the beginning of the chain, before any blocks have been produced.
+          additionalProperties: false
+          type: object
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPointAtGenesis"]
+        - title: ChainPoint
+          description: |
+            Concrete chain point referencing a block on-chain by its slot number and header hash.
+          additionalProperties: false
+          type: object
+          required:
+            - tag
+            - slot
+            - blockHash
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPoint"]
+            slot:
+              type: integer
+              minimum: 0
+            blockHash:
+              type: string
+              contentEncoding: base16

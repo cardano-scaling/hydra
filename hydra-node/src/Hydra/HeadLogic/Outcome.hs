@@ -6,6 +6,7 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
+import Hydra.Cardano.Api (ChainPoint)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
@@ -136,7 +137,7 @@ data StateChanged tx
   | HeadIsReadyToFanout {headId :: HeadId}
   | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
   | ChainRolledBack {chainState :: ChainStateType tx}
-  | TickObserved {chainSlot :: ChainSlot}
+  | TickObserved {chainSlot :: ChainSlot, knownTip :: ChainPoint}
   | IgnoredHeadInitializing
       { headId :: HeadId
       , contestationPeriod :: ContestationPeriod
@@ -146,6 +147,8 @@ data StateChanged tx
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | LocalStateCleared {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | Checkpoint {state :: NodeState tx}
+  | NodeUnsynced
+  | NodeSynced
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (NodeState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
@@ -158,6 +161,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) wher
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 
+-- XXX: Missing Checkpoint and other events?
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
@@ -186,6 +190,8 @@ genStateChanged env =
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
     , LocalStateCleared <$> arbitrary <*> arbitrary
+    , pure NodeUnsynced
+    , pure NodeSynced
     ]
  where
   Environment{party} = env

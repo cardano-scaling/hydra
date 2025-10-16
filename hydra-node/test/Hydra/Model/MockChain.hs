@@ -94,6 +94,7 @@ mockChainAndNetwork ::
   , MonadLabelledSTM m
   , MonadFork m
   , MonadDelay m
+  , MonadTime m
   ) =>
   Tracer m CardanoChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
@@ -191,6 +192,7 @@ mockChainAndNetwork tr seedKeys commits = do
                   getTimeHandle
                   ctx
                   localChainState
+                  (pure ChainPointAtGenesis)
             }
     atomically $ modifyTVar nodes (mockNode :)
     pure node'

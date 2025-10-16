@@ -4,12 +4,14 @@ module Hydra.Chain.Direct.HandlersSpec where
 
 import Hydra.Prelude hiding (label)
 
+import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
+import Control.Lens ((.~))
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
-  ChainPoint (ChainPointAtGenesis),
+  ChainPoint (..),
   PaymentKey,
   SlotNo (..),
   Tx,
@@ -19,9 +21,6 @@ import Hydra.Cardano.Api (
   getChainPoint,
   toLedgerTx,
  )
-
-import Cardano.Ledger.Api (IsValid (..), isValidTxL)
-import Control.Lens ((.~))
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
 import Hydra.Chain.ChainState (ChainSlot (..), chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
@@ -108,7 +107,7 @@ spec = do
           run $
             either (failure . ("Time conversion failed: " <>) . toString) pure $
               slotToUTCTime timeHandle slot
-        void . stop $ events === [Tick expectedUTCTime (ChainSlot . fromIntegral $ unSlotNo slot)]
+        void . stop $ events === [Tick expectedUTCTime (ChainSlot . fromIntegral $ unSlotNo slot) ChainPointAtGenesis]
 
     prop "roll forward fails with outdated TimeHandle" $
       monadicIO $ do
@@ -118,6 +117,7 @@ spec = do
         chainContext <- pickBlind arbitrary
         chainState <- pickBlind arbitrary
         localChainState <- run $ newLocalChainState chainState
+        let getCurrentTip = pure ChainPointAtGenesis
         let chainSyncCallback :: ChainEvent Tx -> IO ()
             chainSyncCallback = const $ failure "Unexpected callback"
             handler =
@@ -127,6 +127,7 @@ spec = do
                 (pure timeHandle)
                 chainContext
                 localChainState
+                getCurrentTip
         run $
           onRollForward handler header txs
             `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
@@ -159,7 +160,7 @@ spec = do
                       OnDepositTx{} -> error "OnDepositTx not expected"
                       OnRecoverTx{} -> error "OnRecoverTx not expected"
               observedTransition `shouldBe` transition
-
+      let getCurrentTip = pure ChainPointAtGenesis
       let handler =
             chainSyncHandler
               nullTracer
@@ -167,6 +168,7 @@ spec = do
               (pure timeHandle)
               ctx
               localChainState
+              getCurrentTip
       run $ onRollForward handler header txs
 
     prop "ignores invalid transactions onRollForward" . monadicIO $ do
@@ -191,7 +193,7 @@ spec = do
             PostTxError{} -> failure "Unexpected PostTxError event"
             Tick{} -> pure ()
             Observation{observedTx} -> failure $ "Unexpected observation: " <> show observedTx
-
+      let getCurrentTip = pure ChainPointAtGenesis
       let handler =
             chainSyncHandler
               nullTracer
@@ -199,6 +201,7 @@ spec = do
               (pure timeHandle)
               ctx
               localChainState
+              getCurrentTip
       run $ onRollForward handler header txs
 
     prop "rollbacks state onRollBackward" . monadicIO $ do
@@ -214,6 +217,7 @@ spec = do
               atomically $ putTMVar rolledBackTo (initHistory rolledBackChainState)
             _ -> pure ()
       localChainState <- run $ newLocalChainState (initHistory chainStateAt)
+      let getCurrentTip = pure ChainPointAtGenesis
       let handler =
             chainSyncHandler
               nullTracer
@@ -221,6 +225,7 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
+              getCurrentTip
 
       -- Simulate some chain following
       run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
@@ -241,6 +246,7 @@ spec = do
 
       -- Use the handler to evolve the chain state to some new, latest version
       localChainState <- run $ newLocalChainState (initHistory chainStateAt)
+      let getCurrentTip = pure ChainPointAtGenesis
       let handler =
             chainSyncHandler
               nullTracer
@@ -248,6 +254,7 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
+              getCurrentTip
       run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
       latestChainState <- run . atomically $ getLatest localChainState
       assert $ latestChainState /= chainStateAt
@@ -263,7 +270,7 @@ spec = do
               (pure timeHandle)
               chainContext
               resumedLocalChainState
-
+              getCurrentTip
       (rollbackPoint, blocksAfter) <- pickBlind $ genRollbackBlocks blocks
       monitor $ label $ "Rollback " <> show (length blocksAfter) <> " blocks"
 
@@ -280,7 +287,15 @@ recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (C
 recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newLabelledTVarIO "events-recorded" []
   localChainState <- newLocalChainState (initHistory cs)
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState
+  let getCurrentTip = pure ChainPointAtGenesis
+  let handler =
+        chainSyncHandler
+          nullTracer
+          (recordEvents eventsVar)
+          getTimeHandle
+          ctx
+          localChainState
+          getCurrentTip
   pure (handler, getEvents eventsVar)
  where
   getEvents :: TVar IO [ChainEvent Tx] -> IO [ChainEvent Tx]

@@ -38,7 +38,7 @@ import Hydra.Chain (
   pushNewState,
   rollbackHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
 import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
@@ -71,10 +71,7 @@ import Hydra.HeadLogic.State (
   seenSnapshotNumber,
   setChainState,
  )
-import Hydra.Ledger (
-  Ledger (..),
-  applyTransactions,
- )
+import Hydra.Ledger (Ledger (..), applyTransactions)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
@@ -90,6 +87,7 @@ import Hydra.Tx (
   utxoFromTx,
   withoutUTxO,
  )
+import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (
   Signature,
   Verified (..),
@@ -1329,6 +1327,21 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
  where
   ClosedState{headId} = closedState
 
+-- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
+-- event when this is the case.
+handleOutOfSync ::
+  Environment ->
+  -- | Current system time
+  UTCTime ->
+  -- | Chain time
+  UTCTime ->
+  Outcome tx
+handleOutOfSync Environment{contestationPeriod} now chainTime
+  | chainTime `plus` CP.unsyncedPolicy contestationPeriod < now = newState NodeUnsynced
+  | otherwise = noop
+ where
+  plus = flip addUTCTime
+
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
 -- 'aggregate' the events, resulting in a new 'HeadState'.
@@ -1336,12 +1349,23 @@ update ::
   IsChainState tx =>
   Environment ->
   Ledger tx ->
+  -- | Current system time.
+  UTCTime ->
   -- | Current NodeState to validate the command against.
   NodeState tx ->
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
+update env ledger now nodeState ev =
+  case nodeState of
+    NodeCatchingUp{headState} ->
+      -- FIXME: handle relevant stuff from 'update' here (chain inputs)
+      noop
+    NodeInSync{headState, pendingDeposits, currentSlot} ->
+      -- TODO: group
+      updateHead env ledger now currentSlot pendingDeposits headState ev
+
+updateHead env ledger now currentSlot pendingDeposits st ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   (Idle _, ClientInput Init) ->
@@ -1390,11 +1414,12 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Tick{chainTime, chainSlot}) ->
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Tick{chainTime, chainSlot, knownTip}) ->
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
-    newState TickObserved{chainSlot}
+    handleOutOfSync env now chainTime
+      <> newState TickObserved{chainSlot, knownTip}
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
@@ -1414,9 +1439,11 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
+  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot, knownTip})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState TickObserved{chainSlot}
+        -- XXX: Avoid repetition of handleOutOfSync and compose input handling better.
+        handleOutOfSync env now chainTime
+          <> newState TickObserved{chainSlot, knownTip}
           <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
@@ -1436,8 +1463,9 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
   -- General
   (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
-  (_, ChainInput Tick{chainTime, chainSlot}) ->
-    newState TickObserved{chainSlot}
+  (_, ChainInput Tick{chainTime, chainSlot, knownTip}) ->
+    handleOutOfSync env now chainTime
+      <> newState TickObserved{chainSlot, knownTip}
       <> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
@@ -1451,26 +1479,31 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
 -- | Reflect 'StateChanged' events onto the 'NodeState' aggregateNodeState.
 aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
 aggregateNodeState nodeState sc =
-  let st = aggregate (headState nodeState) sc
-      ns@NodeState{pendingDeposits} = nodeState{headState = st}
+  let st = aggregate headState sc
+      headState = case nodeState of
+        NodeInSync{headState} -> headState
+        NodeCatchingUp{headState} -> headState
+      pendingDeposits = case nodeState of
+        NodeInSync{pendingDeposits} -> pendingDeposits
+        NodeCatchingUp{pendingDeposits} -> pendingDeposits
    in case sc of
         HeadOpened{chainState} ->
-          ns{pendingDeposits, currentSlot = chainStateSlot chainState}
+          nodeState{pendingDeposits, currentSlot = chainStateSlot chainState}
         DepositRecorded{headId, depositTxId, deposited, created, deadline} ->
-          ns{pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} pendingDeposits}
+          nodeState{pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} pendingDeposits}
         DepositActivated{depositTxId, deposit} ->
-          ns{pendingDeposits = Map.insert depositTxId deposit pendingDeposits}
+          nodeState{pendingDeposits = Map.insert depositTxId deposit pendingDeposits}
         DepositExpired{depositTxId, deposit} ->
-          ns{pendingDeposits = Map.insert depositTxId deposit pendingDeposits}
+          nodeState{pendingDeposits = Map.insert depositTxId deposit pendingDeposits}
         DepositRecovered{depositTxId} ->
-          ns{pendingDeposits = Map.delete depositTxId pendingDeposits}
+          nodeState{pendingDeposits = Map.delete depositTxId pendingDeposits}
         CommitFinalized{chainState, newVersion, depositTxId} ->
           case st of
             Open
               os@OpenState{coordinatedHeadState} ->
                 let deposit = Map.lookup depositTxId pendingDeposits
                     newUTxO = maybe mempty (\Deposit{deposited} -> deposited) deposit
-                 in ns
+                 in nodeState
                       { headState =
                           Open
                             os
@@ -1489,14 +1522,16 @@ aggregateNodeState nodeState sc =
                where
                 CoordinatedHeadState{localUTxO} = coordinatedHeadState
             _otherState ->
-              ns
+              nodeState
                 { pendingDeposits = Map.delete depositTxId pendingDeposits
                 }
-        TickObserved{chainSlot} ->
-          ns{currentSlot = chainSlot}
+        TickObserved{chainSlot, knownTip} ->
+          nodeState{currentSlot = chainSlot, knownTip}
         ChainRolledBack{chainState} ->
-          ns{currentSlot = chainStateSlot chainState}
-        _ -> ns
+          nodeState{currentSlot = chainStateSlot chainState}
+        NodeUnsynced ->
+          NodeCatchingUp{headState = st, pendingDeposits}
+        _ -> nodeState
 
 -- * HeadState aggregate
 
@@ -1780,7 +1815,9 @@ aggregate st = \case
     Open ost@OpenState{coordinatedHeadState = coordState@CoordinatedHeadState{allTxs = allTransactions}} ->
       Open ost{coordinatedHeadState = coordState{allTxs = foldr Map.delete allTransactions [txId transaction]}}
     _otherState -> st
-  Checkpoint NodeState{headState = state'} -> state'
+  Checkpoint state -> state.headState
+  NodeSynced -> st
+  NodeUnsynced -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -1834,4 +1871,7 @@ aggregateChainStateHistory history = \case
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
   LocalStateCleared{} -> history
-  Checkpoint NodeState{headState = state'} -> initHistory $ getChainState state'
+  -- REVIEW: Is OveloadedRecordDot safe to be used with sum types?
+  Checkpoint nodeState -> initHistory $ getChainState nodeState.headState
+  NodeUnsynced -> history
+  NodeSynced -> history

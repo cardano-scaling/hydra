@@ -5,6 +5,7 @@ module Hydra.Node.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
+import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Tx (
@@ -16,14 +17,24 @@ import Test.QuickCheck (recursivelyShrink)
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
 
-data NodeState tx = NodeState
-  { headState :: HeadState tx
-  , pendingDeposits :: PendingDeposits tx
-  -- ^ Pending deposits as observed on chain.
-  -- TODO: could even move the chain state here (also see todo below)
-  -- , chainState :: ChainStateType tx
-  , currentSlot :: ChainSlot
-  }
+data NodeState tx
+  = -- | Normal operation of the node where it is connected and has a recent
+    -- view of the chain.
+    NodeInSync
+      { headState :: HeadState tx
+      , pendingDeposits :: PendingDeposits tx
+      -- ^ Pending deposits as observed on chain.
+      -- TODO: could even move the chain state here (also see todo below)
+      -- , chainState :: ChainStateType tx
+      , currentSlot :: ChainSlot
+      , knownTip :: ChainPoint
+      }
+  | -- | Node is catching up on its view of the chain and should behave
+    -- differently.
+    NodeCatchingUp
+      { headState :: HeadState tx
+      , pendingDeposits :: PendingDeposits tx
+      }
   deriving stock (Generic)
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
@@ -36,10 +47,12 @@ deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
-  NodeState
+  -- REVIEW: Should we start in NodeCatchingUp?
+  NodeInSync
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
     , currentSlot = chainStateSlot chainState
+    , knownTip = ChainPointAtGenesis
     }
 
 -- | A deposit tracked by the protocol. The 'DepositStatus' determines whether

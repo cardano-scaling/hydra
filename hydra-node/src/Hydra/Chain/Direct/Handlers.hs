@@ -305,9 +305,10 @@ chainSyncHandler ::
   -- | Contextual information about our chain connection.
   ChainContext ->
   LocalChainState m Tx ->
+  m ChainPoint ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx localChainState =
+chainSyncHandler tracer callback getTimeHandle ctx localChainState getCurrentTip = do
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -340,7 +341,8 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime -> do
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
-            callback (Tick{chainTime = utcTime, chainSlot})
+            knownTip <- getCurrentTip
+            callback (Tick{chainTime = utcTime, chainSlot, knownTip})
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case

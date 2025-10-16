@@ -78,7 +78,8 @@ spec = do
 
       it "sends ReqSn when leader and no snapshot in flight" $ do
         let tx = aValidTx 1
-            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] coordinatedHeadState) $ receiveMessage $ ReqTx tx
+            s0 = inOpenState' [alice, bob] coordinatedHeadState
+        let outcome = update (envFor aliceSk) simpleLedger s0 $ receiveMessage $ ReqTx tx
 
         outcome
           `hasEffect` NetworkEffect (ReqSn 0 1 [txId tx] Nothing Nothing)
@@ -86,7 +87,8 @@ spec = do
       it "does NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
             st = coordinatedHeadState{localTxs = [tx]}
-            outcome = update (envFor bobSk) simpleLedger (inOpenState' [alice, bob] st) $ receiveMessageFrom bob $ ReqTx tx
+            s0 = inOpenState' [alice, bob] st
+        let outcome = update (envFor bobSk) simpleLedger s0 $ receiveMessageFrom bob $ ReqTx tx
 
         outcome `hasNoEffectSatisfying` sendReqSn
 
@@ -94,7 +96,8 @@ spec = do
         let tx = aValidTx 1
             sn1 = Snapshot testHeadId 1 1 [] u0 Nothing Nothing :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
-            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ receiveMessage $ ReqTx tx
+            s0 = inOpenState' [alice, bob] st
+        let outcome = update (envFor aliceSk) simpleLedger s0 $ receiveMessage $ ReqTx tx
 
         outcome `hasNoEffectSatisfying` sendReqSn
 
@@ -208,9 +211,10 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
         , decommitTx = Nothing
         , version
         }
-    outcome = update aliceEnv simpleLedger (inOpenState' [alice] st) $ receiveMessage $ ReqTx tx
-    Snapshot{number = confirmedSn} = getSnapshot sn
-    nextSn = confirmedSn + 1
+    s0 = inOpenState' [alice] st
+  let outcome = update aliceEnv simpleLedger s0 $ receiveMessage $ ReqTx tx
+      Snapshot{number = confirmedSn} = getSnapshot sn
+      nextSn = confirmedSn + 1
   pure $
     outcome `hasEffect` NetworkEffect (ReqSn version nextSn [txId tx] Nothing Nothing)
       & counterexample (show outcome)
