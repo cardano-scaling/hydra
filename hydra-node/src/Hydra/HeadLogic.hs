@@ -1328,8 +1328,8 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
   ClosedState{headId} = closedState
 
 -- | True if the node is synced with the chain within the contestation window
-isSynced :: ChainSlot -> ChainPoint -> Environment -> Bool
-isSynced (ChainSlot nodeSlot) knownTip Environment{contestationPeriod} =
+isSynced :: ChainSlot -> UTCTime -> ChainPoint -> Environment -> Bool
+isSynced (ChainSlot nodeSlot) now knownTip Environment{contestationPeriod} =
   let cp = fromIntegral contestationPeriod
    in case knownTip of
         ChainPointAtGenesis -> nodeSlot == 0
@@ -1344,12 +1344,14 @@ update ::
   IsChainState tx =>
   Environment ->
   Ledger tx ->
+  -- | Current system time.
+  UTCTime ->
   -- | Current NodeState to validate the command against.
   NodeState tx ->
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = case (st, ev) of
+update env ledger now NodeState{headState = st, pendingDeposits, currentSlot, knownTip} ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   (Idle _, ClientInput Init) ->
