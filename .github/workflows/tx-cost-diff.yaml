@@ -10,8 +10,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  checks: write
-  pull-requests: write
+  checks: write-all
+  pull-requests: write-all
+
 
 jobs:
   # Compute the cost difference between this branch and master.
