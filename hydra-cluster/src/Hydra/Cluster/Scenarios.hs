@@ -2274,7 +2274,7 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
 
   blockTime <- Backend.getBlockTime backend
   networkId <- Backend.queryNetworkId backend
-  let contestationPeriod = 100
+  contestationPeriod <- CP.fromNominalDiffTime (100 * blockTime)
   aliceChainConfig <-
     chainConfigFor Alice workDir backend hydraScriptsTxId [Bob, Carol] contestationPeriod
       <&> setNetworkId networkId
@@ -2307,11 +2307,11 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
         pure headId
 
       -- Carol disconnects and the others observe it
-      waitForAllMatch (1000 * blockTime) [n1, n2] $ \v -> do
+      waitForAllMatch 5 [n1, n2] $ \v -> do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
       -- Wait for some blocks to roll forward
-      threadDelay 10
+      threadDelay $ realToFrac (CP.unsyncedPolicy contestationPeriod + 20 * blockTime)
 
       -- Alice closes the head while Carol offline
       send n1 $ input "Close" []
@@ -2321,12 +2321,12 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
 
       -- Carol restarts
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
-        -- Carol API starts notifying the chain is out of sync
-        waitMatch 20 n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "ChainOutOfSync"
+        -- Carol API starts notifying the node is out of sync with the chain
+        waitMatch 5 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "NodeUnsynced"
 
         -- Carol starts in Open
-        waitMatch 20 n3 $ \v -> do
+        waitMatch 5 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "Greetings"
           guard $ v ^? key "headStatus" == Just (toJSON Open)
           guard $ v ^? key "me" == Just (toJSON carol)
@@ -2338,8 +2338,13 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
         tx <- mkTransferTx testNetworkId utxo carolCardanoSk carolCardanoVk
         send n3 $ input "NewTx" ["transaction" .= tx]
 
-        waitMatch (20 * blockTime) n3 $ \v -> do
+        waitMatch 5 n3 $ \v -> do
           guard $ v ^? key "reason" == Just "Rejected: chain out of sync"
+
+        -- Carol API notifies the node is back on sync with the chain
+        -- FIXME! this should be tune based on how long it takes to sync
+        waitMatch 20 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "NodeSynced"
 
         -- Finally, Carol observes the head getting closed
         waitMatch (20 * blockTime) n3 $ \v -> do
