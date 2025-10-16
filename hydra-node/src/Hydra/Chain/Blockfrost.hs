@@ -395,7 +395,3 @@ toTx (Blockfrost.TransactionCBOR txCbor) =
         Left deserializeErr -> throwIO . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
         Right tx -> pure tx
 
-fromChainPoint :: ChainPoint -> Text -> Blockfrost.BlockHash
-fromChainPoint chainPoint genesisBlockHash = case chainPoint of
-  ChainPoint _ headerHash -> Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
-  ChainPointAtGenesis -> Blockfrost.BlockHash genesisBlockHash
