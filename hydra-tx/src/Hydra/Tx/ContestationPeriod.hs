@@ -86,3 +86,8 @@ fromChain cp =
   UnsafeContestationPeriod
     . truncate
     $ toInteger (OnChain.milliseconds cp) % 1000
+
+-- | Period of time after which we consider the node becoming unsynced with the chain.
+-- Beyond this period the node will refuse to process new transactions and signing snapshots.
+unsyncedPolicy :: ContestationPeriod -> NominalDiffTime
+unsyncedPolicy cp = toNominalDiffTime cp * 0.5
