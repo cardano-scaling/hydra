@@ -182,9 +182,12 @@ defaultBlockfrostOptions :: BlockfrostOptions
 defaultBlockfrostOptions =
   BlockfrostOptions
     { projectPath = "blockfrost-project.txt"
-    , queryTimeout = 20
+    , queryTimeout = defaultBFQueryTimeout
     , retryTimeout = 300
     }
+
+defaultBFQueryTimeout :: Int
+defaultBFQueryTimeout = 20
 
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
@@ -570,7 +573,7 @@ blockfrostQueryTimeoutParser =
     auto
     ( long "blockfrost-query-timeout"
         <> metavar "SECONDS"
-        <> value 20
+        <> value defaultBFQueryTimeout
         <> showDefault
         <> help "Timeout for single queries to the Blockfrost API, in seconds."
     )

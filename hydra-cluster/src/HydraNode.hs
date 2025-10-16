@@ -26,7 +26,7 @@ import Hydra.HeadLogic.State (SeenSnapshot)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
 import Hydra.Network qualified as Network
-import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
@@ -94,7 +94,7 @@ setupBFDelay d = do
   case mBackend of
     Nothing -> pure d
     Just backend ->
-      pure $ if backend == "blockfrost" then d * 10 else d
+      pure $ if backend == "blockfrost" then d * fromIntegral defaultBFQueryTimeout else d
 
 -- | Wait some time for a single API server output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
@@ -511,7 +511,7 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryP
           retryOrThrow :: forall proxy e. Exception e => proxy e -> e -> IO a
           retryOrThrow _ e =
             readIORef connectedOnce >>= \case
-              False -> threadDelay 1 >> tryConnect connectedOnce (n - 1)
+              False -> threadDelay 0.1 >> tryConnect connectedOnce (n - 1)
               True -> throwIO e
         doConnect connectedOnce
           `catches` [ Handler $ retryOrThrow (Proxy @IOException)
