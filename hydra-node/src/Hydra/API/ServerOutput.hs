@@ -242,6 +242,8 @@ data ServerOutput tx
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | EventLogRotated {checkpoint :: NodeState tx}
+  | NodeUnsynced
+  | NodeSynced
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -315,6 +317,8 @@ prepareServerOutput config response =
     PeerDisconnected{} -> encodedResponse
     SnapshotSideLoaded{} -> encodedResponse
     EventLogRotated{} -> encodedResponse
+    NodeUnsynced{} -> encodedResponse
+    NodeSynced{} -> encodedResponse
  where
   encodedResponse = encode response
 
