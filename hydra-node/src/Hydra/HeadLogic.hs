@@ -29,7 +29,6 @@ import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
-import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
@@ -88,6 +87,7 @@ import Hydra.Tx (
   utxoFromTx,
   withoutUTxO,
  )
+import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (
   Signature,
   Verified (..),
@@ -1327,15 +1327,20 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
  where
   ClosedState{headId} = closedState
 
--- | True if the node is synced with the chain within the contestation window
-isSynced :: ChainSlot -> UTCTime -> ChainPoint -> Environment -> Bool
-isSynced (ChainSlot nodeSlot) now knownTip Environment{contestationPeriod} =
-  let cp = fromIntegral contestationPeriod
-   in case knownTip of
-        ChainPointAtGenesis -> nodeSlot == 0
-        ChainPoint slotNo _ ->
-          fromIntegral nodeSlot <= slotNo
-            && fromIntegral nodeSlot >= slotNo - cp
+-- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
+-- event when this is the case.
+handleOutOfSync ::
+  Environment ->
+  -- | Current system time
+  UTCTime ->
+  -- | Chain time
+  UTCTime ->
+  Outcome tx
+handleOutOfSync Environment{contestationPeriod} now chainTime
+  | chainTime `plus` CP.unsyncedPolicy contestationPeriod < now = newState NodeUnsynced
+  | otherwise = noop
+ where
+  plus = flip addUTCTime
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
@@ -1406,7 +1411,8 @@ update env ledger now NodeState{headState = st, pendingDeposits, currentSlot, kn
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
-    newState TickObserved{chainSlot, knownTip}
+    handleOutOfSync env now chainTime
+      <> newState TickObserved{chainSlot, knownTip}
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
@@ -1428,7 +1434,9 @@ update env ledger now NodeState{headState = st, pendingDeposits, currentSlot, kn
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot, knownTip})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState TickObserved{chainSlot, knownTip}
+        -- XXX: Avoid repetition of handleOutOfSync and compose input handling better.
+        handleOutOfSync env now chainTime
+          <> newState TickObserved{chainSlot, knownTip}
           <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
@@ -1449,7 +1457,8 @@ update env ledger now NodeState{headState = st, pendingDeposits, currentSlot, kn
   (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
   (_, ChainInput Tick{chainTime, chainSlot, knownTip}) ->
-    newState TickObserved{chainSlot, knownTip}
+    handleOutOfSync env now chainTime
+      <> newState TickObserved{chainSlot, knownTip}
       <> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
