@@ -140,6 +140,7 @@ library
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3
+    , haskell-accumulator
     , http-types
     , hydra-cardano-api
     , hydra-plutus
@@ -183,7 +184,7 @@ library
     , warp-tls
     , websockets
 
-  ghc-options:     -haddock
+  ghc-options:     -haddock -fno-warn-unused-packages
 
 library testlib
   import:          project-config
