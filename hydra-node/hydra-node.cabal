@@ -286,8 +286,8 @@ benchmark micro
   build-depends:
     , aeson
     , base
-    , criterion
     , cardano-crypto-class
+    , criterion
     , haskell-accumulator
     , hydra-cardano-api
     , hydra-node
