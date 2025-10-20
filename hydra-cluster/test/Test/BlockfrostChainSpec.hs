@@ -139,7 +139,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ \case
             OnFanoutTx{headId = headId', fanoutUTxO}
               | headId' == headId ->
-                  if UTxO.containsOutputs fanoutUTxO expectedUTxO
+                  if UTxO.containsOutputs fanoutUTxO (UTxO.txOutputs expectedUTxO)
                     then pure ()
                     else failure "OnFanoutTx does not contain expected UTxO"
             _ -> failure "expected OnFanoutTx"

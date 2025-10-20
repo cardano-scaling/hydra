@@ -6,7 +6,7 @@ module Hydra.Tx.Contract.Close.CloseUsed where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
-import Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -134,7 +134,7 @@ healthyCloseOutdatedTx =
     fromMaybe NoThing $
       setIncrementalActionMaybe (utxoToCommit $ getSnapshot closeUsedSnapshot) (utxoToDecommit $ getSnapshot closeUsedSnapshot)
 
-  lookupUTxO :: UTxO' (TxOut CtxUTxO)
+  lookupUTxO :: UTxO
   lookupUTxO =
     UTxO.singleton healthyOpenHeadTxIn (healthyOpenHeadTxOut datum)
       <> registryUTxO scriptRegistry

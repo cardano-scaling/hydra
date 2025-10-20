@@ -17,8 +17,8 @@ import Test.QuickCheck (choose, vectorOf)
 
 -- | Create a 'TxIn' (a.k.a UTXO) from a transaction and output index.
 mkTxIn :: Tx era -> Word -> TxIn
-mkTxIn (getTxId . getTxBody -> txId) index =
-  TxIn txId (TxIx index)
+mkTxIn (getTxId . getTxBody -> a) index =
+  TxIn a (TxIx index)
 
 -- | Attach some verification-key witness to a 'TxIn'.
 withWitness :: TxIn -> (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn Era))

@@ -128,7 +128,7 @@
 -- In the case of a failure we get a detailed report on the context of the failure.
 module Test.Hydra.Tx.Mutation where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (label)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
@@ -411,7 +411,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     valueToMultiAsset (Ledger.MaryValue _ multiAsset) = multiAsset
     ledgerBody' =
       ledgerBody
-        & set mintTxBodyL (valueToMultiAsset $ toLedgerValue v')
+        & set Cardano.Ledger.Api.mintTxBodyL (valueToMultiAsset $ toLedgerValue v')
     body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
     -- Drop all Mint redeemer pointers when we don't mint/burn anymore
     scriptData' =
@@ -435,7 +435,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
     ledgerBody' =
       ledgerBody
-        & set reqSignerHashesTxBodyL (Set.fromList (toLedgerKeyHash <$> newSigners))
+        & set Cardano.Ledger.Api.reqSignerHashesTxBodyL (Set.fromList (toLedgerKeyHash <$> newSigners))
   ChangeValidityInterval (lowerBound, upperBound) ->
     changeValidityInterval (Just lowerBound) (Just upperBound)
   ChangeValidityLowerBound bound ->
@@ -456,7 +456,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ledgerBody' =
       ledgerBody
         & set
-          mintTxBodyL
+          Cardano.Ledger.Api.mintTxBodyL
           ( valueToMultiAsset . toLedgerValue $
               replacePolicyInValue selectedPid mutatedPid mint
           )
@@ -470,7 +470,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
           )
         $ toList mint
 
-    mint = fromLedgerMultiAsset $ view mintTxBodyL ledgerBody
+    mint = fromLedgerMultiAsset $ view Cardano.Ledger.Api.mintTxBodyL ledgerBody
 
     scripts' =
       map

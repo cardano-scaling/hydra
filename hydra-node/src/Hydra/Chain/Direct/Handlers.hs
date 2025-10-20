@@ -21,6 +21,7 @@ import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
   TxId,
+  UTxO,
   calculateMinimumUTxO,
   chainPointToSlotNo,
   fromCtxUTxOTxOut,
@@ -212,7 +213,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
 
 -- Check each UTxO entry against the minADAUTxO value.
 -- Throws 'DepositTooLow' exception.
-rejectLowDeposits :: PParams LedgerEra -> UTxO.UTxO -> Either (PostTxError Tx) ()
+rejectLowDeposits :: PParams LedgerEra -> UTxO -> Either (PostTxError Tx) ()
 rejectLowDeposits pparams utxo = do
   let insAndOuts = UTxO.toList utxo
   let providedValues = (\(i, o) -> (i, UTxO.totalLovelace $ UTxO.singleton i o)) <$> insAndOuts
@@ -234,8 +235,8 @@ finalizeTx ::
   MonadThrow m =>
   TinyWallet m ->
   ChainContext ->
-  UTxO.UTxO ->
-  UTxO.UTxO ->
+  UTxO ->
+  UTxO ->
   Tx ->
   m Tx
 finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do

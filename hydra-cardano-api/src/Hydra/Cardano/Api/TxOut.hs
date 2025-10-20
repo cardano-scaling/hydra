@@ -87,7 +87,7 @@ findTxOutByAddress address tx =
 findTxOutByScript ::
   forall lang.
   IsPlutusScriptLanguage lang =>
-  UTxO ->
+  UTxO Era ->
   PlutusScript lang ->
   Maybe (TxIn, TxOut CtxUTxO Era)
 findTxOutByScript utxo script =

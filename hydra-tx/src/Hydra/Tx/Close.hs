@@ -126,7 +126,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           { snapshotNumber =
               fromIntegral . number $ getSnapshot confirmedSnapshot
           , utxoHash =
-              toBuiltin . hashUTxO $ utxo (getSnapshot confirmedSnapshot)
+              toBuiltin . hashUTxO $ Hydra.Tx.utxo (getSnapshot confirmedSnapshot)
           , alphaUTxOHash =
               case closeRedeemer of
                 Head.CloseUsedInc{} ->

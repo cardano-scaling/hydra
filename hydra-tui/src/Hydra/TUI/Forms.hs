@@ -8,6 +8,7 @@ module Hydra.TUI.Forms where
 import Hydra.Prelude hiding (Down, State)
 
 import Hydra.Cardano.Api
+import Hydra.Cardano.Api.Pretty (renderUTxO)
 
 import Brick (BrickEvent (..), vBox, withDefAttr)
 import Brick.Forms (
@@ -40,7 +41,7 @@ utxoCheckboxField u =
   let items = Map.map (,False) u
    in newForm
         [ checkboxGroupField '[' 'X' ']' id $
-            [ ((k, v, b), show k, UTxO.render (k, v))
+            [ ((k, v, b), show k, renderUTxO (k, v))
             | (k, (v, b)) <- Map.toList items
             ]
         ]
@@ -57,7 +58,7 @@ utxoRadioField u =
   newForm
     [ radioField
         id
-        [ (i, show i, UTxO.render i)
+        [ (i, show i, renderUTxO i)
         | i <- Map.toList u
         ]
     ]
@@ -74,7 +75,7 @@ depositIdRadioField txIdUTxO =
   newForm
     [ radioField
         id
-        [ ((txid, i, o), show txid, UTxO.render (i, o))
+        [ ((txid, i, o), show txid, renderUTxO (i, o))
         | (txid, i, o) <- flattened txIdUTxO
         ]
     ]
@@ -83,7 +84,7 @@ depositIdRadioField txIdUTxO =
   flattened :: [(TxId, UTxO)] -> [(TxId, TxIn, TxOut CtxUTxO)]
   flattened =
     concatMap
-      (\(txId, u) -> (\(i, o) -> (txId, i, o)) <$> Map.toList (UTxO.toMap u))
+      (\(a, u) -> (\(i, o) -> (a, i, o)) <$> Map.toList (UTxO.toMap u))
 
 confirmRadioField ::
   forall s e n.
