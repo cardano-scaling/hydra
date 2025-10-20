@@ -2,7 +2,7 @@
 { self, ... }:
 {
 
-  perSystem = { pkgs, self', ... }:
+  perSystem = { pkgs, pkgs-2411, self', ... }:
     {
       process-compose."demo" = {
         package = pkgs.process-compose;
@@ -23,16 +23,19 @@
             };
             cardano-node = {
               working_dir = ".";
-              command = ''
-                ${pkgs.cardano-node}/bin/cardano-node run \
-                --config devnet/cardano-node.json \
-                --topology devnet/topology.json \
-                --database-path devnet/db \
-                --socket-path devnet/node.socket \
-                --shelley-operational-certificate devnet/opcert.cert \
-                --shelley-kes-key devnet/kes.skey \
-                --shelley-vrf-key devnet/vrf.skey
-              '';
+              command = pkgs.writeShellApplication {
+                name = "cardano-node";
+                text = ''
+                  ${pkgs.cardano-node}/bin/cardano-node run \
+                    --config devnet/cardano-node.json \
+                    --topology devnet/topology.json \
+                    --database-path devnet/db \
+                    --socket-path devnet/node.socket \
+                    --shelley-operational-certificate devnet/opcert.cert \
+                    --shelley-kes-key devnet/kes.skey \
+                    --shelley-vrf-key devnet/vrf.skey
+                '';
+              };
               ready_log_line = "NodeIsLeader";
               depends_on."prepare-devnet".condition = "process_completed";
             };
@@ -228,8 +231,8 @@
             grafana = {
               working_dir = "./demo";
               command = ''
-                ${pkgs.grafana}/bin/grafana server \
-                    --homepath ${pkgs.grafana}/share/grafana \
+                ${pkgs-2411.grafana}/bin/grafana server \
+                    --homepath ${pkgs-2411.grafana}/share/grafana \
                     cfg:default.paths.data=$(pwd)/devnet/grafana/data \
                     cfg:default.paths.logs=$(pwd)/devnet/grafana/logs \
                     cfg:default.paths.plugins=$(pwd)/devnet/grafana/plugins \
