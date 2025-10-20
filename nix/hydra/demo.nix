@@ -2,7 +2,7 @@
 { self, ... }:
 {
 
-  perSystem = { pkgs, self', ... }:
+  perSystem = { pkgs, pkgs-2411, self', ... }:
     {
       process-compose."demo" = {
         package = pkgs.process-compose;
@@ -228,8 +228,8 @@
             grafana = {
               working_dir = "./demo";
               command = ''
-                ${pkgs.grafana}/bin/grafana server \
-                    --homepath ${pkgs.grafana}/share/grafana \
+                ${pkgs-2411.grafana}/bin/grafana server \
+                    --homepath ${pkgs-2411.grafana}/share/grafana \
                     cfg:default.paths.data=$(pwd)/devnet/grafana/data \
                     cfg:default.paths.logs=$(pwd)/devnet/grafana/logs \
                     cfg:default.paths.plugins=$(pwd)/devnet/grafana/plugins \
