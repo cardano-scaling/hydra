@@ -281,16 +281,22 @@ benchmark micro
   import:         project-config
   hs-source-dirs: bench/micro-bench
   main-is:        Main.hs
+  other-modules:  BlsAccumulator
   type:           exitcode-stdio-1.0
   build-depends:
     , aeson
     , base
     , criterion
+    , cardano-crypto-class
+    , haskell-accumulator
     , hydra-cardano-api
     , hydra-node
     , hydra-node:testlib
     , hydra-prelude
     , hydra-tx
+    , hydra-tx:testlib
+    , plutus-ledger-api
+    , plutus-tx
     , QuickCheck
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4

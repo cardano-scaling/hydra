@@ -2,7 +2,8 @@ module Main where
 
 import Hydra.Prelude
 
-import Criterion (bench, bgroup, nf, whnf)
+import BlsAccumulator
+import Criterion (bench, bgroup, nf, whnf, whnfIO)
 import Criterion.Main (defaultMain)
 import Data.Aeson (Value (String), object, (.=))
 import Data.Aeson qualified as Aeson
@@ -34,6 +35,10 @@ main = do
       toNewTx :: ByteString -> Value
       toNewTx bs = object ["tag" .= ("NewTx" :: Text), "transaction" .= String (decodeUtf8 bs)]
       cborNewTx = (Aeson.encode . toNewTx . serialiseToCBOR) tx
+
+  ledgerSize <- fromMaybe 10_000 . (>>= readMaybe) <$> lookupEnv "LEDGER_SIZE"
+  fanoutSize <- fromMaybe 50 . (>>= readMaybe) <$> lookupEnv "FANOUT_SIZE"
+  (accum, fanOutElements, crsG1, crsG2) <- generateSetup ledgerSize fanoutSize
   defaultMain
     [ bgroup
         "Cardano Ledger"
@@ -42,6 +47,15 @@ main = do
         , bench "Serialize NewTx (CBOR)" $ nf serialiseToCBOR tx
         , bench "Deserialize NewTx (JSON)" $ whnf (Aeson.decode @(ClientInput Tx)) jsonNewTx
         , bench "Deserialize NewTx (CBOR-in-JSON)" $ whnf (Aeson.decode @(ClientInput Tx)) cborNewTx
+        ]
+    , bgroup
+        "BLS Accumulator"
+        [ -- TODO: Create a more correct normal form benchmark for CRS generation
+          -- as it is now, it uses length to avoid laziness.
+          bench "Generate CRS G1" $ whnf (length . generateCrsG1) ledgerSize
+        , bench "Generate CRS G2" $ whnf (length . generateCrsG2) ledgerSize
+        , bench "Membership Benchmark G1" $ whnfIO (membershipBenchmarkG1 fanOutElements accum crsG1)
+        , bench "Membership Benchmark G2" $ whnfIO (membershipBenchmarkG2 fanOutElements accum crsG2)
         ]
     ]
 
