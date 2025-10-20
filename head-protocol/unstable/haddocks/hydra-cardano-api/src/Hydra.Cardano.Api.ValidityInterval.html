@@ -9,72 +9,72 @@
 </span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Gen.Cardano.Api.Typed</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">genTxValidityLowerBound</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">genTxValidityUpperBound</span></span><span class="hs-special">)</span><span>
 </span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Hedgehog</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">hedgehog</span></span><span class="hs-special">)</span><span>
 </span><span id="line-11"></span><span>
-</span><span id="line-12"></span><span id="local-6989586621679292412"><span class="annot"><a href="Hydra.Cardano.Api.ValidityInterval.html#toLedgerValidityInterval"><span class="hs-identifier hs-type">toLedgerValidityInterval</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-13"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxValidityLowerBound</span></span><span> </span><span class="annot"><a href="#local-6989586621679292412"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxValidityUpperBound</span></span><span> </span><span class="annot"><a href="#local-6989586621679292412"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-12"></span><span id="local-6989586621679284658"><span class="annot"><a href="Hydra.Cardano.Api.ValidityInterval.html#toLedgerValidityInterval"><span class="hs-identifier hs-type">toLedgerValidityInterval</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxValidityLowerBound</span></span><span> </span><span class="annot"><a href="#local-6989586621679284658"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxValidityUpperBound</span></span><span> </span><span class="annot"><a href="#local-6989586621679284658"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.ValidityInterval</span></span></span><span>
 </span><span id="line-15"></span><span id="toLedgerValidityInterval"><span class="annot"><span class="annottext">toLedgerValidityInterval :: forall era.
 (TxValidityLowerBound era, TxValidityUpperBound era)
 -&gt; ValidityInterval
-</span><a href="Hydra.Cardano.Api.ValidityInterval.html#toLedgerValidityInterval"><span class="hs-identifier hs-var hs-var">toLedgerValidityInterval</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679292451"><span class="annot"><span class="annottext">TxValidityLowerBound era
-</span><a href="#local-6989586621679292451"><span class="hs-identifier hs-var">lowerBound</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679292452"><span class="annot"><span class="annottext">TxValidityUpperBound era
-</span><a href="#local-6989586621679292452"><span class="hs-identifier hs-var">upperBound</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.ValidityInterval.html#toLedgerValidityInterval"><span class="hs-identifier hs-var hs-var">toLedgerValidityInterval</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679284697"><span class="annot"><span class="annottext">TxValidityLowerBound era
+</span><a href="#local-6989586621679284697"><span class="hs-identifier hs-var">lowerBound</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679284698"><span class="annot"><span class="annottext">TxValidityUpperBound era
+</span><a href="#local-6989586621679284698"><span class="hs-identifier hs-var">upperBound</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.ValidityInterval</span></span><span>
 </span><span id="line-17"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">invalidBefore :: StrictMaybe SlotNo
 </span><span class="hs-identifier hs-var">Ledger.invalidBefore</span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-18"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TxValidityLowerBound era
-</span><a href="#local-6989586621679292451"><span class="hs-identifier hs-var">lowerBound</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679284697"><span class="hs-identifier hs-var">lowerBound</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-19"></span><span>          </span><span class="annot"><span class="annottext">TxValidityLowerBound era
 </span><span class="hs-identifier hs-var">TxValidityNoLowerBound</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">StrictMaybe SlotNo
 forall a. StrictMaybe a
 </span><span class="hs-identifier hs-var">SNothing</span></span><span>
 </span><span id="line-20"></span><span>          </span><span class="annot"><span class="hs-identifier hs-type">TxValidityLowerBound</span></span><span> </span><span class="annot"><span class="annottext">AllegraEraOnwards era
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679292458"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679292458"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; StrictMaybe SlotNo
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679284704"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679284704"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; StrictMaybe SlotNo
 forall a. a -&gt; StrictMaybe a
 </span><span class="hs-identifier hs-var">SJust</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679292458"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><a href="#local-6989586621679284704"><span class="hs-identifier hs-var">s</span></a></span><span>
 </span><span id="line-21"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">invalidHereafter :: StrictMaybe SlotNo
 </span><span class="hs-identifier hs-var">Ledger.invalidHereafter</span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-22"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TxValidityUpperBound era
-</span><a href="#local-6989586621679292452"><span class="hs-identifier hs-var">upperBound</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679284698"><span class="hs-identifier hs-var">upperBound</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-23"></span><span>          </span><span class="annot"><span class="hs-identifier hs-type">TxValidityUpperBound</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679292462"><span class="annot"><span class="annottext">Maybe SlotNo
-</span><a href="#local-6989586621679292462"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe SlotNo -&gt; StrictMaybe SlotNo
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679284708"><span class="annot"><span class="annottext">Maybe SlotNo
+</span><a href="#local-6989586621679284708"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe SlotNo -&gt; StrictMaybe SlotNo
 forall a. Maybe a -&gt; StrictMaybe a
 </span><span class="hs-identifier hs-var">maybeToStrictMaybe</span></span><span> </span><span class="annot"><span class="annottext">Maybe SlotNo
-</span><a href="#local-6989586621679292462"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><a href="#local-6989586621679284708"><span class="hs-identifier hs-var">s</span></a></span><span>
 </span><span id="line-24"></span><span>    </span><span class="hs-special">}</span><span>
 </span><span id="line-25"></span><span class="annot"><a href="Hydra.Cardano.Api.ValidityInterval.html#fromLedgerValidityInterval"><span class="hs-identifier hs-type">fromLedgerValidityInterval</span></a></span><span> </span><span class="hs-glyph">::</span><span>
 </span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.ValidityInterval</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-27"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxValidityLowerBound</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxValidityUpperBound</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-28"></span><span id="fromLedgerValidityInterval"><span class="annot"><span class="annottext">fromLedgerValidityInterval :: ValidityInterval
 -&gt; (TxValidityLowerBound Era, TxValidityUpperBound Era)
-</span><a href="Hydra.Cardano.Api.ValidityInterval.html#fromLedgerValidityInterval"><span class="hs-identifier hs-var hs-var">fromLedgerValidityInterval</span></a></span></span><span> </span><span id="local-6989586621679292464"><span class="annot"><span class="annottext">ValidityInterval
-</span><a href="#local-6989586621679292464"><span class="hs-identifier hs-var">validityInterval</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.ValidityInterval.html#fromLedgerValidityInterval"><span class="hs-identifier hs-var hs-var">fromLedgerValidityInterval</span></a></span></span><span> </span><span id="local-6989586621679284710"><span class="annot"><span class="annottext">ValidityInterval
+</span><a href="#local-6989586621679284710"><span class="hs-identifier hs-var">validityInterval</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-29"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.ValidityInterval</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">invalidBefore :: ValidityInterval -&gt; StrictMaybe SlotNo
-</span><span class="hs-identifier hs-var">Ledger.invalidBefore</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679292465"><span class="annot"><span class="annottext">StrictMaybe SlotNo
-</span><a href="#local-6989586621679292465"><span class="hs-identifier hs-var">invalidBefore</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">invalidHereafter :: ValidityInterval -&gt; StrictMaybe SlotNo
-</span><span class="hs-identifier hs-var">Ledger.invalidHereafter</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679292466"><span class="annot"><span class="annottext">StrictMaybe SlotNo
-</span><a href="#local-6989586621679292466"><span class="hs-identifier hs-var">invalidHereAfter</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ValidityInterval
-</span><a href="#local-6989586621679292464"><span class="hs-identifier hs-var">validityInterval</span></a></span><span>
-</span><span id="line-30"></span><span>      </span><span id="local-6989586621679292467"><span class="annot"><span class="annottext">lowerBound :: TxValidityLowerBound Era
-</span><a href="#local-6989586621679292467"><span class="hs-identifier hs-var hs-var">lowerBound</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">StrictMaybe SlotNo
-</span><a href="#local-6989586621679292465"><span class="hs-identifier hs-var">invalidBefore</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span class="hs-identifier hs-var">Ledger.invalidBefore</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679284711"><span class="annot"><span class="annottext">StrictMaybe SlotNo
+</span><a href="#local-6989586621679284711"><span class="hs-identifier hs-var">invalidBefore</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">invalidHereafter :: ValidityInterval -&gt; StrictMaybe SlotNo
+</span><span class="hs-identifier hs-var">Ledger.invalidHereafter</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679284712"><span class="annot"><span class="annottext">StrictMaybe SlotNo
+</span><a href="#local-6989586621679284712"><span class="hs-identifier hs-var">invalidHereAfter</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ValidityInterval
+</span><a href="#local-6989586621679284710"><span class="hs-identifier hs-var">validityInterval</span></a></span><span>
+</span><span id="line-30"></span><span>      </span><span id="local-6989586621679284713"><span class="annot"><span class="annottext">lowerBound :: TxValidityLowerBound Era
+</span><a href="#local-6989586621679284713"><span class="hs-identifier hs-var hs-var">lowerBound</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">StrictMaybe SlotNo
+</span><a href="#local-6989586621679284711"><span class="hs-identifier hs-var">invalidBefore</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-31"></span><span>        </span><span class="annot"><span class="annottext">StrictMaybe SlotNo
 </span><span class="hs-identifier hs-var">SNothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxValidityLowerBound Era
 forall era. TxValidityLowerBound era
 </span><span class="hs-identifier hs-var">TxValidityNoLowerBound</span></span><span>
-</span><span id="line-32"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span id="local-6989586621679292468"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679292468"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AllegraEraOnwards Era -&gt; SlotNo -&gt; TxValidityLowerBound Era
+</span><span id="line-32"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span id="local-6989586621679284714"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679284714"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AllegraEraOnwards Era -&gt; SlotNo -&gt; TxValidityLowerBound Era
 forall era.
 AllegraEraOnwards era -&gt; SlotNo -&gt; TxValidityLowerBound era
 </span><span class="hs-identifier hs-var">TxValidityLowerBound</span></span><span> </span><span class="annot"><span class="annottext">AllegraEraOnwards Era
 forall era. IsAllegraBasedEra era =&gt; AllegraEraOnwards era
 </span><span class="hs-identifier hs-var">allegraBasedEra</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679292468"><span class="hs-identifier hs-var">s</span></a></span><span>
-</span><span id="line-33"></span><span>      </span><span id="local-6989586621679292470"><span class="annot"><span class="annottext">upperBound :: TxValidityUpperBound Era
-</span><a href="#local-6989586621679292470"><span class="hs-identifier hs-var hs-var">upperBound</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">StrictMaybe SlotNo
-</span><a href="#local-6989586621679292466"><span class="hs-identifier hs-var">invalidHereAfter</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679284714"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-33"></span><span>      </span><span id="local-6989586621679284716"><span class="annot"><span class="annottext">upperBound :: TxValidityUpperBound Era
+</span><a href="#local-6989586621679284716"><span class="hs-identifier hs-var hs-var">upperBound</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">StrictMaybe SlotNo
+</span><a href="#local-6989586621679284712"><span class="hs-identifier hs-var">invalidHereAfter</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-34"></span><span>        </span><span class="annot"><span class="annottext">StrictMaybe SlotNo
 </span><span class="hs-identifier hs-var">SNothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era -&gt; Maybe SlotNo -&gt; TxValidityUpperBound Era
 forall era.
@@ -83,42 +83,42 @@ ShelleyBasedEra era -&gt; Maybe SlotNo -&gt; TxValidityUpperBound era
 forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
 </span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="annot"><span class="annottext">Maybe SlotNo
 forall a. Maybe a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-35"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span id="local-6989586621679292472"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679292472"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era -&gt; Maybe SlotNo -&gt; TxValidityUpperBound Era
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-35"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span id="local-6989586621679284718"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679284718"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era -&gt; Maybe SlotNo -&gt; TxValidityUpperBound Era
 forall era.
 ShelleyBasedEra era -&gt; Maybe SlotNo -&gt; TxValidityUpperBound era
 </span><span class="hs-identifier hs-var">TxValidityUpperBound</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era
 forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
 </span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlotNo -&gt; Maybe SlotNo
 forall a. a -&gt; Maybe a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679292472"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679284718"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-36"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxValidityLowerBound Era
-</span><a href="#local-6989586621679292467"><span class="hs-identifier hs-var">lowerBound</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxValidityUpperBound Era
-</span><a href="#local-6989586621679292470"><span class="hs-identifier hs-var">upperBound</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679284713"><span class="hs-identifier hs-var">lowerBound</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxValidityUpperBound Era
+</span><a href="#local-6989586621679284716"><span class="hs-identifier hs-var">upperBound</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-37"></span><span>
-</span><span id="line-38"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679292475"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxValidityLowerBound</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-39"></span><span>  </span><span id="local-6989586621679292481"><span class="annot"><span class="annottext">arbitrary :: Gen (TxValidityLowerBound Era)
-</span><a href="#local-6989586621679292481"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (TxValidityLowerBound Era) -&gt; Gen (TxValidityLowerBound Era)
+</span><span id="line-38"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679284721"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxValidityLowerBound</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-39"></span><span>  </span><span id="local-6989586621679284727"><span class="annot"><span class="annottext">arbitrary :: Gen (TxValidityLowerBound Era)
+</span><a href="#local-6989586621679284727"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (TxValidityLowerBound Era) -&gt; Gen (TxValidityLowerBound Era)
 forall a. Gen a -&gt; Gen a
 </span><span class="hs-identifier hs-var">hedgehog</span></span><span> </span><span class="annot"><span class="annottext">(Gen (TxValidityLowerBound Era) -&gt; Gen (TxValidityLowerBound Era))
 -&gt; Gen (TxValidityLowerBound Era) -&gt; Gen (TxValidityLowerBound Era)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoEra Era -&gt; Gen (TxValidityLowerBound Era)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoEra Era -&gt; Gen (TxValidityLowerBound Era)
 forall era. CardanoEra era -&gt; Gen (TxValidityLowerBound era)
 </span><span class="hs-identifier hs-var">genTxValidityLowerBound</span></span><span> </span><span class="annot"><span class="annottext">CardanoEra Era
 forall era. IsCardanoEra era =&gt; CardanoEra era
 </span><span class="hs-identifier hs-var">cardanoEra</span></span><span>
 </span><span id="line-40"></span><span>
-</span><span id="line-41"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679292486"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxValidityUpperBound</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-42"></span><span>  </span><span id="local-6989586621679292490"><span class="annot"><span class="annottext">arbitrary :: Gen (TxValidityUpperBound Era)
+</span><span id="line-41"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679284732"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxValidityUpperBound</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-42"></span><span>  </span><span id="local-6989586621679284736"><span class="annot"><span class="annottext">arbitrary :: Gen (TxValidityUpperBound Era)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (TxValidityUpperBound Era) -&gt; Gen (TxValidityUpperBound Era)
 forall a. Gen a -&gt; Gen a
 </span><span class="hs-identifier hs-var">hedgehog</span></span><span> </span><span class="annot"><span class="annottext">(Gen (TxValidityUpperBound Era) -&gt; Gen (TxValidityUpperBound Era))
 -&gt; Gen (TxValidityUpperBound Era) -&gt; Gen (TxValidityUpperBound Era)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era -&gt; Gen (TxValidityUpperBound Era)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era -&gt; Gen (TxValidityUpperBound Era)
 forall era. ShelleyBasedEra era -&gt; Gen (TxValidityUpperBound era)
 </span><span class="hs-identifier hs-var">genTxValidityUpperBound</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era
 forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era

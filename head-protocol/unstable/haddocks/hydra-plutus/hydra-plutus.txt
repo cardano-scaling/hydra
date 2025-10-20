@@ -3,8 +3,6 @@
 
 
 -- | Hydra Plutus Contracts
---   
---   Hydra Plutus Contracts
 @package hydra-plutus
 @version 1.0.0
 

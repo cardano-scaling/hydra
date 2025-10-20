@@ -3,8 +3,6 @@
 
 
 -- | The Hydra node
---   
---   The Hydra node
 @package hydra-node
 @version 1.0.0
 
@@ -373,6 +371,7 @@ QueryProtocolParamsEraNotSupported :: AnyCardanoEra -> QueryException
 QueryProtocolParamsEncodingFailureOnEra :: AnyCardanoEra -> Text -> QueryException
 QueryEraNotInCardanoModeFailure :: AnyCardanoEra -> QueryException
 QueryNotShelleyBasedEraException :: AnyCardanoEra -> QueryException
+QueryNotConwayEraOnwardsException :: AnyCardanoEra -> QueryException
 
 -- | Handle interface for abstract querying of a cardano node.
 data CardanoClient
@@ -393,7 +392,7 @@ submitTransaction :: NetworkId -> SocketPath -> Tx -> IO ()
 --   In principle, we can only encounter an <a>EraMismatch</a> at era
 --   boundaries, when we try to submit a "next era" transaction as a
 --   "current era" transaction, or vice-versa. Similarly,
---   <tt>TxValidationError</tt> shouldn't occur given that the transaction
+--   <a>TxValidationError</a> shouldn't occur given that the transaction
 --   was safely constructed through <tt>buildTransaction</tt>.
 data SubmitTransactionException
 SubmitEraMismatch :: EraMismatch -> SubmitTransactionException
@@ -444,13 +443,15 @@ queryGenesisParameters :: NetworkId -> SocketPath -> QueryPoint -> IO (GenesisPa
 --   
 --   Throws at least <a>QueryException</a> if query fails.
 queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> IO UTxO
-queryUTxOExpr :: ShelleyBasedEra era -> [Address ShelleyAddr] -> LocalStateQueryExpr b p QueryInMode r IO UTxO
+queryUTxOExpr :: ConwayEraOnwards era -> [Address ShelleyAddr] -> LocalStateQueryExpr b p QueryInMode r IO UTxO
 
 -- | Query UTxO for given tx inputs at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
 queryUTxOByTxIn :: NetworkId -> SocketPath -> QueryPoint -> [TxIn] -> IO UTxO
-assumeShelleyBasedEraOrThrow :: MonadThrow m => CardanoEra era -> m (ShelleyBasedEra era)
+queryForCurrentEraInEonExpr :: Eon eon => (AnyCardanoEra -> IO a) -> (forall era. eon era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
+queryForCurrentEraInShelleyBasedEraExpr :: (forall era. ShelleyBasedEra era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
+queryForCurrentEraInConwayEraOnwardsExpr :: Eon eon => (forall era. eon era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
 
 -- | Query the whole UTxO from node at given point. Useful for debugging,
 --   but should obviously not be used in production code.
@@ -771,13 +772,12 @@ instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Ledger.ValidationError
 
 module Hydra.Ledger.Cardano
 
--- | Utility function to "adjust" a <a>UTxO'</a> set given a <a>Tx</a>
+-- | Utility function to "adjust" a <a>UTxO</a> set given a <a>Tx</a>
 --   
 --   The inputs from the <a>Tx</a> are removed from the internal map of the
---   <a>UTxO'</a> and the outputs added, correctly indexed by the
+--   <a>UTxO</a> and the outputs added, correctly indexed by the
 --   <a>TxIn</a>. This function is useful to manually maintain a
---   <a>UTxO'</a> set without caring too much about the <a>Ledger</a>
---   rules.
+--   <a>UTxO</a> set without caring too much about the <a>Ledger</a> rules.
 adjustUTxO :: Tx -> UTxO -> UTxO
 
 -- | Simple conversion from a generic slot to a specific local one.
@@ -823,7 +823,7 @@ ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !N
 data () => Globals
 data () => LedgerEnv era
 type Tx = Tx Era
-instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Internal.Hash.Hash Cardano.Api.Internal.Keys.Shelley.PaymentKey)
+instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Hash.Hash Cardano.Api.Key.Internal.PaymentKey)
 
 
 -- | Contains the a stateful interface to transaction construction and
@@ -833,7 +833,7 @@ instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Internal.Hash.Hash Car
 --   layer and it's constituents.
 module Hydra.Chain.Direct.State
 
--- | A class for accessing the known <a>UTxO'</a> set in a type. This is
+-- | A class for accessing the known <a>UTxO</a> set in a type. This is
 --   useful to get all the relevant UTxO for resolving transaction inputs.
 class HasKnownUTxO a
 getKnownUTxO :: HasKnownUTxO a => a -> UTxO
@@ -919,7 +919,7 @@ initialize :: ChainContext -> TxIn -> [OnChainId] -> HeadParameters -> Tx
 
 -- | Construct a commit transaction based on known, spendable UTxO and some
 --   arbitrary UTxOs to commit. This does look for "our initial output" to
---   spend and check the given <a>UTxO'</a> to be compatible. Hence, this
+--   spend and check the given <a>UTxO</a> to be compatible. Hence, this
 --   function does fail if already committed or if the head is not
 --   initializing.
 --   
@@ -930,7 +930,7 @@ commit :: ChainContext -> HeadId -> UTxO -> UTxO -> Either (PostTxError Tx) Tx
 
 -- | Construct a commit transaction based on known, spendable UTxO and some
 --   user UTxO inputs to commit. This does look for "our initial output" to
---   spend and check the given <a>UTxO'</a> to be compatible. Hence, this
+--   spend and check the given <a>UTxO</a> to be compatible. Hence, this
 --   function does fail if already committed or if the head is not
 --   initializing.
 --   
@@ -963,7 +963,7 @@ SnapshotMissingIncrementUTxO :: IncrementTxError
 SnapshotIncrementUTxOIsNull :: IncrementTxError
 
 -- | Construct a increment transaction spending the head and deposit
---   outputs in given <a>UTxO'</a>, and producing single head output for
+--   outputs in given <a>UTxO</a>, and producing single head output for
 --   pending <a>$sel:utxoToCommit:Snapshot</a> of given <a>Snapshot</a>.
 increment :: ChainContext -> UTxO -> HeadId -> HeadParameters -> ConfirmedSnapshot Tx -> TxId -> SlotNo -> Either IncrementTxError Tx
 
@@ -976,7 +976,7 @@ DecrementValueNegative :: DecrementTxError
 SnapshotDecrementUTxOIsNull :: DecrementTxError
 
 -- | Construct a decrement transaction spending the head output in given
---   <a>UTxO'</a>, and producing outputs for all pending
+--   <a>UTxO</a>, and producing outputs for all pending
 --   <a>$sel:utxoToDecommit:Snapshot</a> of given <a>Snapshot</a>.
 decrement :: ChainContext -> UTxO -> HeadId -> HeadParameters -> ConfirmedSnapshot Tx -> Either DecrementTxError Tx
 data CloseTxError
@@ -997,7 +997,7 @@ CannotFindDepositedOutputToRecover :: TxId -> RecoverTxError
 recover :: ChainContext -> HeadId -> TxId -> UTxO -> SlotNo -> Either RecoverTxError Tx
 
 -- | Construct a close transaction spending the head output in given
---   <a>UTxO'</a>, head parameters, and a confirmed snapshot. NOTE: Lower
+--   <a>UTxO</a>, head parameters, and a confirmed snapshot. NOTE: Lower
 --   and upper bound slot difference should not exceed contestation period.
 close :: ChainContext -> UTxO -> HeadId -> HeadParameters -> SnapshotVersion -> ConfirmedSnapshot Tx -> SlotNo -> PointInTime -> Either CloseTxError Tx
 data ContestTxError
@@ -1022,7 +1022,7 @@ FailedToConvertFromScriptDataInFanout :: FanoutTxError
 BothCommitAndDecommitInFanout :: FanoutTxError
 
 -- | Construct a fanout transaction based on the <a>ClosedState</a> and
---   off-chain agreed <a>UTxO'</a> set to fan out.
+--   off-chain agreed <a>UTxO</a> set to fan out.
 fanout :: ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> SlotNo -> Either FanoutTxError Tx
 utxoOfThisHead :: PolicyId -> UTxO -> UTxO
 
@@ -3810,6 +3810,7 @@ genHydraKeys :: GenerateKeyPair -> IO (Either (FileError ()) ())
 readJsonFileThrow :: (Value -> Parser a) -> FilePath -> IO a
 
 module Hydra.Chain.Offline
+fromShelleyGenesis :: ShelleyGenesis -> GenesisParameters ShelleyEra
 
 -- | Derived <a>HeadId</a> of offline head from a <a>HeadSeed</a>.
 offlineHeadId :: HeadSeed -> HeadId
@@ -3887,14 +3888,14 @@ queryStakePools :: BlockfrostClientT IO (Set PoolId)
 querySystemStart :: BlockfrostClientT IO SystemStart
 
 -- | Query the Blockfrost API for address UTxO and convert to cardano
---   <a>UTxO'</a>. NOTE: We accept the address list here to be compatible
+--   <a>UTxO</a>. NOTE: We accept the address list here to be compatible
 --   with cardano-api but in fact this is a single address query always.
 queryUTxO :: BlockfrostOptions -> NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
 submitTransaction :: MonadIO m => Tx -> BlockfrostClientT m TxHash
 awaitTransaction :: BlockfrostOptions -> Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
 
--- | Query the Blockfrost API to get the <a>UTxO'</a> for <a>TxIn</a> and
---   convert to cardano <a>UTxO'</a>. FIXME: make blockfrost wait times
+-- | Query the Blockfrost API to get the <a>UTxO</a> for <a>TxIn</a> and
+--   convert to cardano <a>UTxO</a>. FIXME: make blockfrost wait times
 --   configurable.
 queryUTxOByTxIn :: BlockfrostOptions -> NetworkId -> [TxIn] -> BlockfrostClientT IO UTxO
 
@@ -3905,7 +3906,7 @@ queryUTxOFor :: BlockfrostOptions -> VerificationKey PaymentKey -> BlockfrostCli
 runBlockfrostM :: (MonadIO m, MonadThrow m) => Project -> BlockfrostClientT IO a -> m a
 toCardanoNetworkId :: Integer -> NetworkId
 scriptTypeToPlutusVersion :: ScriptType -> Maybe Language
-toCardanoUTxO :: NetworkId -> TxIn -> Address -> Maybe ScriptHash -> Maybe DatumHash -> [Amount] -> Maybe InlineDatum -> BlockfrostClientT IO (UTxO' (TxOut ctx))
+toCardanoUTxO :: NetworkId -> TxIn -> Address -> Maybe ScriptHash -> Maybe DatumHash -> [Amount] -> Maybe InlineDatum -> BlockfrostClientT IO UTxO
 toCardanoValue :: [Amount] -> BlockfrostClientT IO Value
 queryScript :: Text -> BlockfrostClientT IO (Maybe PlutusScript)
 toCardanoTxOut :: NetworkId -> Text -> Value -> Maybe Text -> Maybe Text -> Maybe PlutusScript -> BlockfrostClientT IO (TxOut ctx)

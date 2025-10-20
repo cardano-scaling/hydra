@@ -9,9 +9,9 @@
 </span><span id="line-9"></span><span>
 </span><span id="line-10"></span><span class="annot"><span class="hs-comment">-- * Orphans</span></span><span>
 </span><span id="line-11"></span><span>
-</span><span id="line-12"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679291371"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Address</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByronAddr</span></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-13"></span><span>  </span><span id="local-6989586621679291375"><span class="annot"><span class="annottext">arbitrary :: Gen (Address ByronAddr)
-</span><a href="#local-6989586621679291375"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (Address ByronAddr) -&gt; Gen (Address ByronAddr)
+</span><span id="line-12"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679283654"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Address</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByronAddr</span></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-13"></span><span>  </span><span id="local-6989586621679283658"><span class="annot"><span class="annottext">arbitrary :: Gen (Address ByronAddr)
+</span><a href="#local-6989586621679283658"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (Address ByronAddr) -&gt; Gen (Address ByronAddr)
 forall a. Gen a -&gt; Gen a
 </span><span class="hs-identifier hs-var">hedgehog</span></span><span> </span><span class="annot"><span class="annottext">Gen (Address ByronAddr)
 </span><span class="hs-identifier hs-var">genAddressByron</span></span><span>

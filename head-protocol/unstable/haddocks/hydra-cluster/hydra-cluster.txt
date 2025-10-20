@@ -2,9 +2,7 @@
 -- See Hoogle, http://www.haskell.org/hoogle/
 
 
--- | Integration test suite using a local cluster of cardano and hydra nodes
---   
---   Integration test suite using a local cluster of cardano and hydra
+-- | Integration test suite using a local cluster of cardano and hydra
 --   nodes
 @package hydra-cluster
 @version 1.0.0
@@ -176,7 +174,7 @@ findFaucetUTxO :: ChainBackend backend => NetworkId -> backend -> Coin -> IO UTx
 seedFromFaucetBlockfrost :: BlockfrostOptions -> VerificationKey PaymentKey -> Coin -> BlockfrostClientT IO UTxO
 
 -- | Like <a>seedFromFaucet</a>, but without returning the seeded
---   <a>UTxO'</a>.
+--   <a>UTxO</a>.
 seedFromFaucet_ :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Coin -> Tracer IO FaucetLog -> IO ()
 
 -- | Return the remaining funds to the faucet
@@ -449,7 +447,7 @@ getProtocolParameters :: HydraClient -> IO (PParams LedgerEra)
 
 -- | Get the latest snapshot UTxO from the hydra-node. NOTE: While we
 --   usually avoid parsing responses using the same data types as the
---   system under test, this parses the response as a <a>UTxO'</a> type as
+--   system under test, this parses the response as a <a>UTxO</a> type as
 --   we often need to pick it apart.
 getSnapshotUTxO :: HydraClient -> IO UTxO
 

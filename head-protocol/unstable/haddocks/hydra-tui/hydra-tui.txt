@@ -3,8 +3,6 @@
 
 
 -- | TUI for managing a Hydra node
---   
---   TUI for managing a Hydra node
 @package hydra-tui
 @version 1.0.0
 
