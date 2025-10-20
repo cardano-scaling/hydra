@@ -161,9 +161,7 @@ queryEpochNo ::
   IO EpochNo
 queryEpochNo networkId socket queryPoint = do
   runQueryExpr networkId socket queryPoint $ do
-    (AnyCardanoEra era) <- queryCurrentEraExpr
-    (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
-    queryInShelleyBasedEraExpr sbe QueryEpoch
+    queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryEpoch)
 
 -- | Query the protocol parameters at given point and convert them to Babbage
 -- era protocol parameters.
@@ -178,10 +176,9 @@ queryProtocolParameters ::
   IO (PParams LedgerEra)
 queryProtocolParameters networkId socket queryPoint =
   runQueryExpr networkId socket queryPoint $ do
-    (AnyCardanoEra era) <- queryCurrentEraExpr
-    sbe <- liftIO $ assumeShelleyBasedEraOrThrow era
-    eraPParams <- queryInShelleyBasedEraExpr sbe QueryProtocolParameters
-    liftIO $ coercePParamsToLedgerEra era eraPParams
+    queryForCurrentEraInShelleyBasedEraExpr $ \sbe -> do
+      eraPParams <- queryInShelleyBasedEraExpr sbe QueryProtocolParameters
+      liftIO $ coercePParamsToLedgerEra (convert sbe) eraPParams
  where
   encodeToEra :: ToJSON a => CardanoEra era -> a -> IO (PParams LedgerEra)
   encodeToEra eraToEncode pparams =
@@ -212,9 +209,7 @@ queryGenesisParameters ::
   IO (GenesisParameters ShelleyEra)
 queryGenesisParameters networkId socket queryPoint =
   runQueryExpr networkId socket queryPoint $ do
-    (AnyCardanoEra era) <- queryCurrentEraExpr
-    sbe <- liftIO $ assumeShelleyBasedEraOrThrow era
-    queryInShelleyBasedEraExpr sbe QueryGenesisParameters
+    queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryGenesisParameters)
 
 -- | Query UTxO for all given addresses at given point.
 --
@@ -222,9 +217,8 @@ queryGenesisParameters networkId socket queryPoint =
 queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> IO UTxO
 queryUTxO networkId socket queryPoint addresses =
   runQueryExpr networkId socket queryPoint $ do
-    (AnyCardanoEra era) <- queryCurrentEraExpr
-    sbe <- liftIO $ assumeShelleyBasedEraOrThrow era
-    queryUTxOExpr sbe addresses
+    queryForCurrentEraInShelleyBasedEraExpr
+      (`queryUTxOExpr` addresses)
 
 queryUTxOExpr :: ShelleyBasedEra era -> [Address ShelleyAddr] -> LocalStateQueryExpr b p QueryInMode r IO UTxO
 queryUTxOExpr sbe addresses = do
@@ -243,14 +237,24 @@ queryUTxOByTxIn ::
   [TxIn] ->
   IO UTxO
 queryUTxOByTxIn networkId socket queryPoint inputs =
-  runQueryExpr networkId socket queryPoint $ do
-    (AnyCardanoEra era) <- queryCurrentEraExpr
-    (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
-    eraUTxO <- queryInShelleyBasedEraExpr sbe $ QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs))
-    pure $ UTxO.fromApi eraUTxO
+  runQueryExpr networkId socket queryPoint $
+    queryForCurrentEraInShelleyBasedEraExpr
+      (fmap UTxO.fromApi . flip queryInShelleyBasedEraExpr (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs))))
 
-assumeShelleyBasedEraOrThrow :: MonadThrow m => CardanoEra era -> m (ShelleyBasedEra era)
-assumeShelleyBasedEraOrThrow era = inEonForEra (throwIO $ QueryNotShelleyBasedEraException $ anyCardanoEra era) pure era
+queryForCurrentEraInEonExpr ::
+  Eon eon =>
+  (AnyCardanoEra -> IO a) ->
+  (forall era. eon era -> LocalStateQueryExpr b p QueryInMode r IO a) ->
+  LocalStateQueryExpr b p QueryInMode r IO a
+queryForCurrentEraInEonExpr no yes = do
+  k@(AnyCardanoEra era) <- queryCurrentEraExpr
+  inEonForEra (liftIO $ no k) yes era
+
+queryForCurrentEraInShelleyBasedEraExpr ::
+  Eon eon =>
+  (forall era. eon era -> LocalStateQueryExpr b p QueryInMode r IO a) ->
+  LocalStateQueryExpr b p QueryInMode r IO a
+queryForCurrentEraInShelleyBasedEraExpr = queryForCurrentEraInEonExpr (throwIO . QueryNotShelleyBasedEraException)
 
 -- | Query the whole UTxO from node at given point. Useful for debugging, but
 -- should obviously not be used in production code.
@@ -265,10 +269,8 @@ queryUTxOWhole ::
   IO UTxO
 queryUTxOWhole networkId socket queryPoint = do
   runQueryExpr networkId socket queryPoint $ do
-    (AnyCardanoEra era) <- queryCurrentEraExpr
-    (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
-    eraUTxO <- queryInShelleyBasedEraExpr sbe $ QueryUTxO QueryUTxOWhole
-    pure $ UTxO.fromApi eraUTxO
+    queryForCurrentEraInShelleyBasedEraExpr
+      (fmap UTxO.fromApi . flip queryInShelleyBasedEraExpr (QueryUTxO QueryUTxOWhole))
 
 -- | Query UTxO for the address of given verification key at point.
 --
@@ -293,9 +295,7 @@ queryStakePools ::
   IO (Set PoolId)
 queryStakePools networkId socket queryPoint =
   runQueryExpr networkId socket queryPoint $ do
-    (AnyCardanoEra era) <- queryCurrentEraExpr
-    (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
-    queryInShelleyBasedEraExpr sbe QueryStakePools
+    queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryStakePools)
 
 -- * Helpers
 
