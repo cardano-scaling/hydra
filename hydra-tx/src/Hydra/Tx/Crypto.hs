@@ -1,4 +1,6 @@
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Hydra multi-signature credentials and cryptographic primitives used to sign
 -- and verify snapshots (or any messages) within the Hydra protocol.
@@ -52,16 +54,20 @@ import Cardano.Crypto.Util (SignableRepresentation)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Char8 qualified as BSC
 import Data.Map qualified as Map
 import Hydra.Cardano.Api (
   AsType (..),
+  BlockHeader,
   HasTextEnvelope (..),
   HasTypeProxy (..),
   Hash,
   Key (..),
+  ScriptData (..),
   SerialiseAsCBOR,
   SerialiseAsRawBytes (..),
   SerialiseAsRawBytesError (..),
+  TxId (..),
   UsingRawBytesHex (..),
   serialiseToRawBytesHexText,
  )
@@ -94,6 +100,24 @@ instance SerialiseAsRawBytes (Hash HydraKey) where
       (Left $ SerialiseAsRawBytesError "invalid length when deserializing Hash HydraKey")
       (Right . HydraKeyHash)
       (hashFromBytes bs)
+
+instance SerialiseAsRawBytes a => IsString (UsingRawBytesHex a) where
+  fromString = either (error . toText) id . deserialiseFromRawBytesBase16 . BSC.pack
+
+deriving via UsingRawBytesHex (Hash BlockHeader) instance IsString (Hash BlockHeader)
+deriving via UsingRawBytesHex TxId instance IsString TxId
+deriving via UsingRawBytesHex (Hash ScriptData) instance IsString (Hash ScriptData)
+
+deserialiseFromRawBytesBase16 ::
+  SerialiseAsRawBytes a => ByteString -> Either String (UsingRawBytesHex a)
+deserialiseFromRawBytesBase16 str =
+  case Base16.decode str of
+    Right raw -> case deserialiseFromRawBytes ttoken raw of
+      Right x -> Right (UsingRawBytesHex x)
+      Left (SerialiseAsRawBytesError msg) -> Left ("cannot deserialise " ++ show str ++ ".  The error was: " <> msg)
+    Left msg -> Left ("invalid hex " ++ show str ++ ", " ++ msg)
+ where
+  ttoken = proxyToAsType (Proxy :: Proxy a)
 
 instance Key HydraKey where
   -- Hydra verification key, which can be used to 'verify' signed messages.

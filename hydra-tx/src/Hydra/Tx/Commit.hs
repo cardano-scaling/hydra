@@ -63,7 +63,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     toLedgerTx blueprintTx
       & spendFromInitial
       & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut commitOutput)
-      & bodyTxL . mintTxBodyL .~ mempty
+      & bodyTxL . Cardano.Ledger.Api.mintTxBodyL .~ mempty
       & addMetadata (mkHydraHeadV1TxName "CommitTx") blueprintTx
  where
   spendFromInitial tx =
@@ -73,8 +73,8 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
         newInputs = tx ^. bodyTxL . inputsTxBodyL <> Set.singleton (toLedgerTxIn initialInput)
      in tx
           & bodyTxL . inputsTxBodyL .~ newInputs
-          & bodyTxL . referenceInputsTxBodyL <>~ Set.singleton (toLedgerTxIn initialScriptRef)
-          & bodyTxL . reqSignerHashesTxBodyL <>~ Set.singleton (toLedgerKeyHash vkh)
+          & bodyTxL . Cardano.Ledger.Api.referenceInputsTxBodyL <>~ Set.singleton (toLedgerTxIn initialScriptRef)
+          & bodyTxL . Cardano.Ledger.Api.reqSignerHashesTxBodyL <>~ Set.singleton (toLedgerKeyHash vkh)
           & witsTxL . rdmrsTxWitsL
             .~ Redeemers (fromList $ nonSpendingRedeemers tx)
               <> Redeemers (fromList $ mkRedeemers newRedeemers newInputs)

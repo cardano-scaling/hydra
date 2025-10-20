@@ -4,6 +4,7 @@ module Hydra.Chain.Cardano where
 
 import Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
@@ -11,7 +12,7 @@ import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
   EraHistory (EraHistory),
   Tx,
-  toLedgerUTxO,
+  shelleyBasedEra,
  )
 import Hydra.Chain (ChainComponent, ChainStateHistory)
 import Hydra.Chain.Backend (ChainBackend (..))
@@ -106,7 +107,7 @@ mkTinyWallet backend tracer config = do
     point <- case queryPoint of
       QueryAt point -> pure point
       QueryTip -> queryTip backend
-    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO backend [address]
+    walletUTxO <- Ledger.unUTxO . UTxO.toShelleyUTxO shelleyBasedEra <$> queryUTxO backend [address]
     systemStart <- querySystemStart backend QueryTip
     pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
 

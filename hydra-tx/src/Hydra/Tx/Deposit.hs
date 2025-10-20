@@ -61,7 +61,7 @@ depositTx networkId pparams headId commitBlueprintTx upperSlot deadline changeAd
 
                     completeUTxO = resolveInputsUTxO lookupUTxO blueprintTx
 
-                    leftoverValue = txOutValueToValue $ balance (UTxO.toApi completeUTxO) (getTxBody partialTx)
+                    leftoverValue = txOutValueToValue $ balance completeUTxO (getTxBody partialTx)
 
                     changeOutput = toLedgerTxOut $ TxOut addr leftoverValue TxOutDatumNone ReferenceScriptNone
                  in toLedgerTx partialTx
@@ -133,7 +133,7 @@ observeDepositTx networkId tx = do
   pure
     DepositObservation
       { headId
-      , depositTxId = txId tx
+      , depositTxId = Hydra.Tx.txId tx
       , deposited
       , created
       , deadline = posixToUTCTime deadline

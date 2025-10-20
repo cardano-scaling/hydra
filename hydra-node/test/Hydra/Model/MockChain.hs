@@ -214,7 +214,7 @@ mockChainAndNetwork tr seedKeys commits = do
       (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
         draftDepositTx headId defaultPParams (mkSimpleBlueprintTx utxoToDeposit) deadline Nothing >>= \case
           Left e -> throwIO e
-          Right tx -> submitTx tx $> txId tx
+          Right tx -> submitTx tx $> Hydra.Tx.txId tx
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
   closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> (Party, UTxO) -> m ()

@@ -318,10 +318,10 @@ recoverHeadState now current NodeState{headState, pendingDeposits} =
  where
   pendingIncrements =
     Map.toList pendingDeposits
-      <&> ( \(txId, Deposit{deposited, deadline}) ->
+      <&> ( \(txId', Deposit{deposited, deadline}) ->
               PendingIncrement
                 { utxoToCommit = deposited
-                , deposit = txId
+                , deposit = txId'
                 , depositDeadline = deadline
                 , status = PendingDeposit
                 }

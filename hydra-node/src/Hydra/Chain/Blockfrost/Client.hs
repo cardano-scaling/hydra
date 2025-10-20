@@ -37,7 +37,7 @@ import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisPara
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api.PParams
-import Cardano.Ledger.BaseTypes (EpochInterval (..), EpochSize (..), NonNegativeInterval, UnitInterval, boundRational, unsafeNonZero)
+import Cardano.Ledger.BaseTypes (EpochInterval (..), NonNegativeInterval, UnitInterval, boundRational, unsafeNonZero)
 import Cardano.Ledger.Binary.Version (mkVersion)
 import Cardano.Ledger.Conway.Core (
   DRepVotingThresholds (..),
@@ -61,7 +61,7 @@ import Data.List qualified as List
 import Data.SOP.NonEmpty (nonEmptyFromList)
 import Data.Set qualified as Set
 import Data.Text qualified as T
-import Hydra.Cardano.Api.Prelude (StakePoolKey, fromNetworkMagic)
+import Hydra.Cardano.Api.Prelude (fromNetworkMagic)
 import Hydra.Options (BlockfrostOptions (..))
 import Hydra.Tx (ScriptRegistry, newScriptRegistry)
 import Money qualified
@@ -193,7 +193,7 @@ queryProtocolParameters = do
           & ppDRepActivityL .~ EpochInterval (fromIntegral $ Blockfrost.unQuantity drepActivity)
           & ppMinFeeRefScriptCostPerByteL .~ minFeeRefScriptCostPerByte
  where
-  convertCostModels :: Blockfrost.CostModelsRaw -> CostModels
+  convertCostModels :: Blockfrost.CostModelsRaw -> Cardano.Ledger.Plutus.CostModels.CostModels
   convertCostModels costModels =
     let costModelsMap = Blockfrost.unCostModelsRaw costModels
      in foldMap
@@ -211,7 +211,7 @@ queryProtocolParameters = do
 
 -- ** Helpers
 
-toCardanoUTxO :: NetworkId -> TxIn -> Blockfrost.Address -> Maybe Blockfrost.ScriptHash -> Maybe Blockfrost.DatumHash -> [Blockfrost.Amount] -> Maybe Blockfrost.InlineDatum -> BlockfrostClientT IO (UTxO' (TxOut ctx))
+toCardanoUTxO :: NetworkId -> TxIn -> Blockfrost.Address -> Maybe Blockfrost.ScriptHash -> Maybe Blockfrost.DatumHash -> [Blockfrost.Amount] -> Maybe Blockfrost.InlineDatum -> BlockfrostClientT IO UTxO
 toCardanoUTxO networkId txIn address scriptHash datumHash amount inlineDatum = do
   let addrTxt = Blockfrost.unAddress address
   let datumHash' = Blockfrost.unDatumHash <$> datumHash
