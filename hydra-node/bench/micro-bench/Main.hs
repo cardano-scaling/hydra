@@ -3,7 +3,7 @@ module Main where
 import Hydra.Prelude
 
 import BlsAccumulator
-import Criterion (bench, bgroup, nf, whnf, whnfIO)
+import Criterion (bench, bgroup, nf, nfIO, whnf)
 import Criterion.Main (defaultMain)
 import Data.Aeson (Value (String), object, (.=))
 import Data.Aeson qualified as Aeson
@@ -52,10 +52,10 @@ main = do
         "BLS Accumulator"
         [ -- TODO: Create a more correct normal form benchmark for CRS generation
           -- as it is now, it uses length to avoid laziness.
-          bench "Generate CRS G1" $ whnf (length . generateCrsG1) ledgerSize
-        , bench "Generate CRS G2" $ whnf (length . generateCrsG2) ledgerSize
-        , bench "Membership Benchmark G1" $ whnfIO (membershipBenchmarkG1 fanOutElements accum crsG1)
-        , bench "Membership Benchmark G2" $ whnfIO (membershipBenchmarkG2 fanOutElements accum crsG2)
+          bench "Generate CRS G1" $ nf generateCrsG1 ledgerSize
+        , bench "Generate CRS G2" $ nf generateCrsG2 ledgerSize
+        , bench "Membership Benchmark G1" $ nfIO (membershipBenchmarkG1 fanOutElements accum crsG1)
+        , bench "Membership Benchmark G2" $ nfIO (membershipBenchmarkG2 fanOutElements accum crsG2)
         ]
     ]
 
