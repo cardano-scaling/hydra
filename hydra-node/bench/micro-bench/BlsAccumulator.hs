@@ -48,10 +48,6 @@ generateCrsG2 ledgerSize =
       g2 = blsGenerator :: Point2
    in map (blsMult g2) powerOfTauInt
 
--- TODO: The construction of the membership proof is based on all the elements in the
--- accumulator subtracting the ones we want to prove membership for. This is not optimal.
--- We can calculate a proof knowing the accumulator and the elements to prove membership for directly.
--- This make the proof generation faster and O(n) where n is the number of elements to prove membership for.
 membershipBenchmarkG1 :: [Element] -> Accumulator -> [Point1] -> IO (Either String Point1)
 membershipBenchmarkG1 fanOutElements accumulator crsG1 = do
   getPolyCommitOverG1 fanOutElements accumulator crsG1
