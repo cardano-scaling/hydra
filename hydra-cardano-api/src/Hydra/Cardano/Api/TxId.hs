@@ -19,10 +19,3 @@ instance FromCBOR TxId where
     case deserialiseFromRawBytes AsTxId bs of
       Left err -> fail (show err)
       Right v -> pure v
-
--- * Type Conversions
-
--- | Convert a cardano-api 'TxId' into a cardano-ledger 'TxId'.
-toLedgerTxId :: TxId -> Ledger.TxId
-toLedgerTxId (TxId h) =
-  Ledger.TxId (Ledger.unsafeMakeSafeHash (CC.castHash h))

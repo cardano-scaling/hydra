@@ -1,9 +1,9 @@
 module Hydra.Cardano.Api.UTxO where
 
 import Hydra.Cardano.Api.Prelude hiding (fromLedgerUTxO)
-import Hydra.Cardano.Api.TxId (toLedgerTxId)
 import Hydra.Cardano.Api.TxIn (txIns')
 
+import Cardano.Api (toShelleyTxId)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (outputsTxBodyL)
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -21,7 +21,7 @@ utxoFromTx :: Tx Era -> UTxO Era
 utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
   let txOuts = toList $ ledgerBody ^. outputsTxBodyL
       txIns =
-        [ Ledger.TxIn (toLedgerTxId $ getTxId body) ix
+        [ Ledger.TxIn (toShelleyTxId $ getTxId body) ix
         | ix <- [Ledger.TxIx 0 .. toEnum (length txOuts)]
         ]
    in UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
