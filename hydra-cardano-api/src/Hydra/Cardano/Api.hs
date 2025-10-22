@@ -91,7 +91,6 @@ import Hydra.Cardano.Api.Prelude (
 
 import Hydra.Cardano.Api.Address ()
 import Hydra.Cardano.Api.AddressInEra as Extras
-import Hydra.Cardano.Api.BlockHeader as Extras
 import Hydra.Cardano.Api.ChainPoint as Extras
 import Hydra.Cardano.Api.ExecutionUnits as Extras
 import Hydra.Cardano.Api.Hash as Extras
