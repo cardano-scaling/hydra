@@ -20,7 +20,7 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), fromLedgerTx, genBlockHeaderHash, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (ChainPoint (..), fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
@@ -49,11 +49,13 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor)
 import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
 import Test.QuickCheck.Gen (generate)
+import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
 spec :: Spec
@@ -943,7 +945,7 @@ spec =
                   Left _ -> Prelude.error "cannot generate deposit tx"
                   Right tx -> pure (uncurry UTxO.singleton utxo, tx)
         -- single party on empty Open state
-        blockHash <- pick genBlockHeaderHash
+        blockHash <- pick $ hedgehog genBlockHeaderHash
         let st0 =
               NodeState
                 { headState =
@@ -986,9 +988,9 @@ spec =
             deposit1 = OnDepositTx{headId = testHeadId, depositTxId = txId depositTx1, deposited = deposited1, created = depositTime 1, deadline}
             deposit2 = OnDepositTx{headId = testHeadId, depositTxId = txId depositTx2, deposited = deposited2, created = depositTime 2, deadline}
             deposit3 = OnDepositTx{headId = testHeadId, depositTxId = txId depositTx3, deposited = deposited3, created = depositTime 3, deadline}
-        depositObservation1 <- pick (observeRealTxAtSlot 1 deposit1)
-        depositObservation2 <- pick (observeRealTxAtSlot 2 deposit2)
-        depositObservation3 <- pick (observeRealTxAtSlot 3 deposit3)
+        depositObservation1 <- pick (hedgehog $ observeRealTxAtSlot 1 deposit1)
+        depositObservation2 <- pick (hedgehog $ observeRealTxAtSlot 2 deposit2)
+        depositObservation3 <- pick (hedgehog $ observeRealTxAtSlot 3 deposit3)
         nodeState <-
           run $
             runHeadLogic bobEnv ledger st0 $ do
