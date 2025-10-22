@@ -13,6 +13,7 @@ permissions:
   checks: write
   pull-requests: write
 
+
 jobs:
   # Compute the cost difference between this branch and master.
   tx-cost-diff:
