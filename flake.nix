@@ -17,6 +17,7 @@
     nixpkgs-2411.url = "github:NixOS/nixpkgs/nixos-24.11";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
+    rust-accumulator.url = "github:cardano-scaling/rust-accumulator";
   };
 
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./nix);
