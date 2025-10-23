@@ -17,13 +17,6 @@ index-state:
 
 packages: **/*.cabal
 
-source-repository-package
-  type: git
-  location: https://github.com/cardano-scaling/haskell-accumulator
-  tag: 66db72a036fe894f4b8108fe64279d1bcc0e0b25
-  --sha256: 0ww2gwzvk8g2g9pkaa34jhnkyqmj2gy0ghqvwc0dxqcqsvxwx0m9
-  subdir: haskell-accumulator
-
 -- Compile more things in parallel
 package *
   ghc-options: -j8
