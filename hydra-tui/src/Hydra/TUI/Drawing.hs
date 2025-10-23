@@ -21,6 +21,7 @@ import Data.Text (chunksOf)
 import Data.Time (defaultTimeLocale, formatTime)
 import Data.Time.Format (FormatTime)
 import Data.Version (Version, showVersion)
+import Hydra.Cardano.Api.Pretty (renderUTxO)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
@@ -370,7 +371,7 @@ drawUTxO f utxo =
         [ padTop (Pad 1) $
           vBox
             [ f addr
-            , padLeft (Pad 2) $ vBox (str . toString . UTxO.render <$> u)
+            , padLeft (Pad 2) $ vBox (str . toString . renderUTxO <$> u)
             ]
         | (addr, u) <- Map.toList byAddress
         ]

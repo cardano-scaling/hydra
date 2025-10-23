@@ -26,7 +26,7 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Data.Text (isInfixOf)
 import Data.Time (secondsToDiffTime)
-import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
+import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Direct.State ()
@@ -516,7 +516,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               waitForAllMatch 20 [n1, n2, n3] $ \v -> do
                 guard $ v ^? key "tag" == Just "SnapshotConfirmed"
 
-              headUTxO :: UTxO.UTxO <-
+              headUTxO :: UTxO <-
                 parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/snapshot/utxo")
                   >>= httpJSON
                   <&> getResponseBody

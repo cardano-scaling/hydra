@@ -156,7 +156,6 @@ library
     , network
     , optparse-applicative
     , ouroboros-consensus
-    , ouroboros-consensus-cardano
     , ouroboros-network-api           >=0.7.1
     , ouroboros-network-protocols     >=0.8
     , process
@@ -260,6 +259,7 @@ benchmark tx-cost
   build-depends:
     , base
     , bytestring
+    , cardano-api
     , cardano-binary
     , directory
     , filepath
@@ -306,6 +306,7 @@ test-suite tests
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:     test
   other-modules:
+    Hydra.AccumulatorSpec
     Hydra.API.ClientInputSpec
     Hydra.API.HTTPServerSpec
     Hydra.API.ServerOutputSpec
@@ -360,6 +361,7 @@ test-suite tests
     , amazonka-s3
     , base
     , bytestring
+    , cardano-api
     , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
@@ -380,6 +382,7 @@ test-suite tests
     , directory
     , filepath
     , generic-lens
+    , haskell-accumulator
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson

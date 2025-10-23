@@ -6,7 +6,6 @@ import Test.Hydra.Prelude
 -- NOTE: Arbitrary UTxO and Tx instances
 import Test.Hydra.Tx.Gen ()
 
-import Cardano.Api.UTxO (fromApi, toApi)
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Binary qualified as CB
 import Cardano.Ledger.Api (bodyTxL, certsTxBodyL, inputsTxBodyL, updateTxBodyL)
@@ -14,7 +13,7 @@ import Cardano.Ledger.Api qualified as Ledger
 import Control.Lens ((.~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
-import Hydra.Cardano.Api (Tx, UTxO, fromLedgerTx, getTxId, toLedgerTx, pattern Tx)
+import Hydra.Cardano.Api (Tx, fromLedgerTx, getTxId, toLedgerTx, pattern Tx)
 import Hydra.Tx.IsTx (txId)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, counterexample, forAll, property, (.&&.), (===))
@@ -22,10 +21,6 @@ import Test.QuickCheck (Property, counterexample, forAll, property, (.&&.), (===
 spec :: Spec
 spec =
   parallel $ do
-    describe "UTxO" $ do
-      roundtripAndGoldenSpecs (Proxy @UTxO)
-      prop "Roundtrip to and from Api" roundtripFromAndToApi
-
     describe "Tx" $ do
       roundtripAndGoldenSpecs (Proxy @(ReasonablySized Tx))
       prop "Same TxId before/after JSON encoding" roundtripTxId
@@ -64,10 +59,6 @@ genConwayCompatibleBabbageTx = do
     tx
       & bodyTxL . certsTxBodyL .~ mempty
       & bodyTxL . updateTxBodyL .~ empty
-
-roundtripFromAndToApi :: UTxO -> Property
-roundtripFromAndToApi utxo =
-  fromApi (toApi utxo) === utxo
 
 roundtripTxId :: Tx -> Property
 roundtripTxId tx@(Tx body _) =

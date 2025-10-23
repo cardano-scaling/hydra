@@ -14,6 +14,7 @@
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     mithril.url = "github:input-output-hk/mithril/2524.0";
     nixpkgs.follows = "haskellNix/nixpkgs";
+    nixpkgs-2411.url = "github:NixOS/nixpkgs/nixos-24.11";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
     rust-accumulator.url = "github:cardano-scaling/rust-accumulator";

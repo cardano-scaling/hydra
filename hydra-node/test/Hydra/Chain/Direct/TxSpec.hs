@@ -179,9 +179,9 @@ spec =
                   , property
                       ((`all` (blueprintBody ^. outputsTxBodyL)) (`notElem` (commitTxBody ^. outputsTxBodyL)))
                       & counterexample "Blueprint outputs not discarded"
-                  , (blueprintBody ^. reqSignerHashesTxBodyL) `propIsSubsetOf` (commitTxBody ^. reqSignerHashesTxBodyL)
+                  , (blueprintBody ^. Cardano.Ledger.Api.reqSignerHashesTxBodyL) `propIsSubsetOf` (commitTxBody ^. Cardano.Ledger.Api.reqSignerHashesTxBodyL)
                       & counterexample "Blueprint required signatures missing"
-                  , (blueprintBody ^. referenceInputsTxBodyL) `propIsSubsetOf` (commitTxBody ^. referenceInputsTxBodyL)
+                  , (blueprintBody ^. Cardano.Ledger.Api.referenceInputsTxBodyL) `propIsSubsetOf` (commitTxBody ^. Cardano.Ledger.Api.referenceInputsTxBodyL)
                       & counterexample "Blueprint reference inputs missing"
                   ]
 
@@ -345,7 +345,7 @@ prop_interestingBlueprintTx = do
 
   hasReferenceInputs :: Tx -> Bool
   hasReferenceInputs tx =
-    not . null $ toLedgerTx tx ^. bodyTxL . referenceInputsTxBodyL
+    not . null $ toLedgerTx tx ^. bodyTxL . Cardano.Ledger.Api.referenceInputsTxBodyL
 
   spendsFromPubKey :: (UTxO, Tx) -> Bool
   spendsFromPubKey (utxo, tx) =

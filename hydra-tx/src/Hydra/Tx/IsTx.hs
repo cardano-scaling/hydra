@@ -14,7 +14,7 @@ import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
-import Data.Aeson (FromJSONKey, ToJSONKey, (.:), (.:?))
+import Data.Aeson ((.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (withObject)
@@ -131,7 +131,7 @@ instance FromJSON Tx where
           -- NOTE: Check txId equivalence only if present.
           (o .:? "txId") >>= \case
             Just txid'
-              | txid' /= txId tx -> fail "txId not matching"
+              | txid' /= Hydra.Tx.IsTx.txId tx -> fail "txId not matching"
             _ -> pure tx
 
 -- XXX: Double CBOR encoding?
@@ -148,11 +148,11 @@ instance FromCBOR Tx where
         (pure . fromLedgerTx)
 
 instance ToCBOR UTxO where
-  toCBOR = toCBOR . toLedgerUTxO
+  toCBOR = toCBOR . UTxO.toShelleyUTxO shelleyBasedEra
   encodedSizeExpr sz _ = encodedSizeExpr sz (Proxy @(Ledger.UTxO LedgerEra))
 
 instance FromCBOR UTxO where
-  fromCBOR = fromLedgerUTxO <$> fromCBOR
+  fromCBOR = UTxO.fromShelleyUTxO shelleyBasedEra <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
 
 instance IsTx Tx where
