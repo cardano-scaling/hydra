@@ -152,7 +152,10 @@ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAdd
       , txInsCollateral = TxInsCollateral collateral
       , txInsReference = TxInsReferenceNone
       , txOuts = outs
-      , txTotalCollateral = TxTotalCollateralNone
+      , txTotalCollateral =
+           if null collateral
+             then TxTotalCollateralNone
+             else TxTotalCollateral BabbageEraOnwardsConway (foldMap (\txin -> maybe mempty (selectLovelace . txOutValue) $ UTxO.resolveTxIn txin utxoToSpend) collateral)
       , txReturnCollateral = TxReturnCollateralNone
       , txFee = TxFeeExplicit 0
       , txValidityLowerBound = TxValidityNoLowerBound
