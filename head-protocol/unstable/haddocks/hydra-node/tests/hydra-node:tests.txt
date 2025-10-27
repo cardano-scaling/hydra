@@ -35,6 +35,9 @@ waitMatch :: HasCallStack => Natural -> Connection -> (Value -> Maybe a) -> IO a
 shouldSatisfyAll :: forall a. HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
 genStateEventForApi :: Gen (StateEvent SimpleTx)
 
+module Hydra.AccumulatorSpec
+spec :: Spec
+
 module Hydra.Chain.Direct.HandlersSpec
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotPastHorizon :: Gen (TimeHandle, SlotNo)
