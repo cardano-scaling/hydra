@@ -164,7 +164,7 @@ it is sufficient to make sure the deposit script has the expected hash.
       PubKeyCredential _ -> False
 ```
 
-Following step is to build a _blueprint_ transaction as a recipe for committing/depositing your script UTxO into a Head. This is only needed in case
+The following step is to build a _blueprint_ transaction as a recipe for committing/depositing your script UTxO into a Head. This is only needed in case
 you want to introduce some transaction context (like validity range, extra signers etc). We already have some guides on that
 [here](./commit-script-utxo#step-5-prepare-the-blueprint) and [here](./incremental-commit) but you would of course need to make some changes
 which is left as an exercise to the reader.
