@@ -14,6 +14,16 @@ alwaysFailingScript :: () -> () -> ScriptContext -> Bool
 dummyValidatorScriptAlwaysFails :: PlutusScript
 dummyMintingScript :: PlutusScript
 dummyRewardingScript :: PlutusScript
+newtype R
+R :: CurrencySymbol -> R
+[expectedHeadId] :: R -> CurrencySymbol
+exampleValidator :: () -> R -> ScriptContext -> Bool
+exampleSecureValidatorScript :: PlutusScript
+instance PlutusTx.IsData.Class.ToData Hydra.Contract.Dummy.R
+instance PlutusTx.IsData.Class.FromData Hydra.Contract.Dummy.R
+instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Contract.Dummy.R
+instance GHC.Generics.Generic Hydra.Contract.Dummy.R
+instance GHC.Show.Show Hydra.Contract.Dummy.R
 
 
 -- | Error codes to be used in plutus scripts.

@@ -552,6 +552,7 @@ singlePartyUsesWithdrawZeroTrick :: ChainBackend backend => Tracer IO EndToEndLo
 recomputeIntegrityHash :: (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) => PParams ppera -> [Language] -> Tx txera -> Tx txera
 singlePartyCommitsScriptBlueprint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 singlePartyDepositReferenceScript :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+singlePartyCommitsScriptToTheRightHead :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 persistenceCanLoadWithEmptyCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 
 -- | Single hydra-node where the commit is done from a raw transaction

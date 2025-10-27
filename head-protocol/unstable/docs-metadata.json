@@ -314,6 +314,12 @@
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/getting-started.md\n"
     }
   },
+  "docs/how-to/best-practise-dapp": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/best-practise-dapp.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/best-practise-dapp.md\n"
+    }
+  },
   "docs/how-to/commit-blueprint": {
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/commit-blueprint.md\n",
