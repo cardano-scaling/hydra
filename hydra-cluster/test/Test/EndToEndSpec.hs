@@ -74,6 +74,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCommitsFromExternal,
   singlePartyCommitsFromExternalTxBlueprint,
   singlePartyCommitsScriptBlueprint,
+  singlePartyCommitsScriptToTheRightHead,
   singlePartyDepositReferenceScript,
   singlePartyHeadFullLifeCycle,
   singlePartyUsesScriptOnL2,
@@ -333,6 +334,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
               >>= singlePartyDepositReferenceScript tracer tmpDir backend
+      it "incrementally commit script with security checks" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= singlePartyCommitsScriptToTheRightHead tracer tmpDir backend
       it "can deposit partial UTxO" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend ->
