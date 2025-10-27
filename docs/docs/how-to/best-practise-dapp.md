@@ -40,7 +40,7 @@ Let us now proceed with constructing the validator from the user’s perspective
 ![](./deposit-process.jpg)
 
 The deposit transaction takes a provided UTxO and _locks_ it into a deposit address where the datum contains serialized Plutus `TxOutRef`'s.
-Deposit transaction has it's upper validity slot set so the whole deposit process has a deadline. After hydra-node observes the deposit transaction
+Deposit transaction has its upper validity slot set so the whole deposit process has a deadline. After hydra-node observes the deposit transaction
 it will post a `increment` transaction which will actually bring the funds locked at the deposit address to L2 after deposit validator check that
 makes sure the Head currency symbol is the same in both the datum and redeemer and that the deposit deadline slot is not surpassed.
 
