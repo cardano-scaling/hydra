@@ -98,6 +98,7 @@ import Hydra.Tx.Observe (
  )
 import Hydra.Tx.Recover (RecoverObservation (..))
 import System.IO.Error (userError)
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
 data LocalChainState m tx = LocalChainState
@@ -159,7 +160,7 @@ type GetTimeHandle m = m TimeHandle
 -- and does not require any actual `IO` to happen which makes it highly suitable
 -- for simulations and testing.
 mkChain ::
-  (MonadSTM m, MonadThrow (STM m)) =>
+  (MonadSTM m, MonadThrow (STM m), MonadIO m) =>
   Tracer m CardanoChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
@@ -182,8 +183,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
     , draftCommitTx = \headId commitBlueprintTx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
+        let committx = commit' ctx headId spendableUTxO commitBlueprintTx
+        print committx
         traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
-          commit' ctx headId spendableUTxO commitBlueprintTx
+          committx
     , draftDepositTx = \headId pparams commitBlueprintTx deadline changeAddress -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
@@ -232,6 +235,7 @@ rejectLowDeposits pparams utxo = do
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
+  MonadIO m =>
   MonadThrow m =>
   TinyWallet m ->
   ChainContext ->
@@ -239,14 +243,18 @@ finalizeTx ::
   UTxO ->
   Tx ->
   m Tx
-finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
-  let headUTxO = getKnownUTxO ctx <> utxo <> userUTxO
+finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = traceShow "FINALIZE" $ do
+  let headUTxO = spy' "spendable UTxO" $ getKnownUTxO ctx <> utxo <> userUTxO
+  putStrLn $ renderTxWithUTxO headUTxO partialTx
   coverFee headUTxO partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
+      traceShow "ErrNoFuelUTxOFound" $
       throwIO NoFuelUTXOFound{failingTx = partialTx}
     Left ErrNotEnoughFunds{} ->
+      traceShow "NotEnoughFuel" $
       throwIO NotEnoughFuel{failingTx = partialTx}
     Left ErrScriptExecutionFailed{redeemerPointer, scriptFailure} ->
+      traceShow "ErrScriptExecutionFailed" $
       throwIO
         ( ScriptFailedInWallet
             { redeemerPtr = redeemerPointer
@@ -256,6 +264,7 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
             PostTxError Tx
         )
     Left e ->
+      traceShow "InternalWalletError" $
       throwIO
         ( InternalWalletError
             { headUTxO

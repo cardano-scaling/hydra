@@ -161,7 +161,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
       { getUTxO
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
       , sign = Api.signTx sk
-      , coverFee = \lookupUTxO partialTx -> do
+      , coverFee = \lookupUTxO partialTx -> traceShow "====COVER FEE====" $ do
           let ledgerLookupUTxO = unUTxO $ UTxO.toShelleyUTxO Api.shelleyBasedEra lookupUTxO
           WalletInfoOnChain{walletUTxO, systemStart} <- readTVarIO walletInfoVar
           epochInfo <- queryEpochInfo
@@ -260,12 +260,14 @@ coverFee_ ::
   Map TxIn (Ledger.TxOut era) ->
   Tx era ->
   Either ErrCoverFee (Tx era)
-coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
+coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = traceShow "====COVER FEE ___====" $ do
   let body = partialTx ^. bodyTxL
   let wits = partialTx ^. witsTxL
+  traceShowM "findUTxOToPayFees"
   (feeTxIn, feeTxOut) <- findUTxOToPayFees walletUTxO
 
   let newInputs = body ^. inputsTxBodyL <> Set.singleton feeTxIn
+  traceShowM "resolveInput"
   resolvedInputs <- traverse resolveInput (toList newInputs)
 
   -- Ensure we have at least the minimum amount of ada. NOTE: setMinCoinTxOut
@@ -274,6 +276,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
 
   -- Compute costs of redeemers
   let utxo = lookupUTxO <> walletUTxO
+  traceShowM "estimateScriptsCost"
   estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo partialTx
   let adjustedRedeemers =
         adjustRedeemers
@@ -316,6 +319,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
       -- We add one additional witness for the fee input
       additionalWitnesses = 1 + length (partialTx ^. bodyTxL . reqSignerHashesTxBodyL)
 
+  traceShowM "mkChange"
   -- Balance tx with a change output and computed fee
   change <-
     first ErrNotEnoughFunds $

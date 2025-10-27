@@ -231,7 +231,7 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
         >>= respond
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo env pparams directChain getCommitInfo
+        >>= handleDraftCommitUtxo env pparams tracer directChain getCommitInfo
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
@@ -266,25 +266,30 @@ handleDraftCommitUtxo ::
   IsChainState tx =>
   Environment ->
   PParams LedgerEra ->
+  Tracer IO APIServerLog ->
   Chain tx IO ->
   -- | A means to get commit info.
   IO CommitInfo ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
+handleDraftCommitUtxo env pparams tracer directChain getCommitInfo body = do
+  traceShowM "BODY"
+  traceShowM body
   case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
     Left err ->
-      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
+      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack $ spy' "AESON ERRROR" err)
     Right someCommitRequest ->
       getCommitInfo >>= \case
         NormalCommit headId ->
-          case someCommitRequest of
+          case spy' "someCommitRequest" someCommitRequest of
             FullCommitRequest{blueprintTx, utxo} -> do
-              draftCommit headId utxo blueprintTx
+              draftCommit tracer headId utxo blueprintTx
             SimpleCommitRequest{utxoToCommit} -> do
               let blueprintTx = txSpendingUTxO utxoToCommit
-              draftCommit headId utxoToCommit blueprintTx
+              traceShowM "BlueprintTx"
+              traceShowM blueprintTx
+              draftCommit tracer headId utxoToCommit blueprintTx
         IncrementalCommit headId -> do
           case someCommitRequest of
             FullCommitRequest{blueprintTx, utxo, changeAddress} -> do
@@ -302,12 +307,14 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
       Left e -> responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
 
-  draftCommit headId lookupUTxO blueprintTx = do
-    draftCommitTx headId CommitBlueprintTx{lookupUTxO, blueprintTx} <&> \case
-      Left e ->
+  draftCommit tr headId lookupUTxO blueprintTx = traceShow "DRAFT Commit" $ do
+    result <- draftCommitTx headId CommitBlueprintTx{lookupUTxO, blueprintTx}
+    case result of
+      Left e -> do
+        traceWith tr (ApiDebug $ show e)
         -- Distinguish between errors users can actually benefit from and
         -- other errors that are turned into 500 responses.
-        case e of
+        pure $ case e of
           CommittedTooMuchADAForMainnet _ _ -> badRequest e
           UnsupportedLegacyOutput _ -> badRequest e
           CannotFindOwnInitial _ -> badRequest e
@@ -316,7 +323,7 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
           FailedToConstructDepositTx _ -> badRequest e
           _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
-        okJSON $ DraftCommitTxResponse commitTx
+        pure $ okJSON $ DraftCommitTxResponse commitTx
 
   Chain{draftCommitTx, draftDepositTx} = directChain
 
