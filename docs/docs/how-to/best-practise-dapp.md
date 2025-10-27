@@ -11,7 +11,7 @@ intended Hydra Head instance.
 
 - This document aims to outline essential validator checks needed for
 user-written validators, providing concrete examples implemented using PlutusTx
-and briefly explain how the commit/deposit transaction looks like.
+and briefly explaining how the commit/deposit transaction looks like.
 
 ## Committing to a Hydra Head
 
