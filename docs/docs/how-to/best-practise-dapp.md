@@ -20,7 +20,7 @@ and briefly explaining how the commit/deposit transaction looks like.
 
 <sub> Here rectangulars represent transactions and you can see the UTxO (with rounded corners) depicting transaction inputs and outputs together with their contents (datums, redeemers and assets)</sub>
 
-The commit transaction utilizes an initial output specifically crafted for each Hydra Head participant. This initial output includes the HeadId in its datum, while the redeemer contains details about the specific TxOutRef values to be committed, which are pre-sorted.
+The commit transaction utilizes an initial output specifically crafted for each Hydra Head participant. This initial output includes the `HeadId` in its datum, while the redeemer contains details about the specific `TxOutRef` values to be committed, which are pre-sorted.
 
 The initial validator is parameterized by the commit validator hash. In the user-defined validator, it is sufficient to verify that:
 
