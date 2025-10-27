@@ -53,7 +53,7 @@ Please make sure to use [_correct_](./../configuration#deposit-period) `--deposi
 
 ### Building a secure validator
 
-To develop decentralized applications (dApps) on the Hydra protocol, users must commit/deposit their scripts to a Hydra Head.
+To develop a dApp using the Hydra protocol, users must commit/deposit their scripts to a Hydra Head.
 
 This enables custom programmability within the Head protocol, unlocking the potential for a wide range of dApp implementations.
 
@@ -113,7 +113,7 @@ Now we are able to start working on our validator checks.
 
 ### Commit validator checks
 
-To ensure correct dApp validator checks we must verify that an output exists containing a single PT token with the correct policy ID (head ID).
+To ensure correct dApp validator checks when committing we must verify that an output exists containing a single PT token with the correct policy ID (head ID).
 This condition implicitly confirms that the initial validator has executed, as its output has been consumed,
 and the commit transaction now includes an output with the PT token bearing the expected policy ID.
 
@@ -140,7 +140,7 @@ This check is all we need in order to add some security to our validators and ma
 
 ### Deposit validator checks
 
-To ensure correct dApp validator checks we must make sure the deposit datum contains the correct Head id. Since hydra-node is the one building a deposit
+To ensure correct dApp validator checks when depositing we must make sure the deposit datum contains the correct Head id. Since hydra-node is the one building a deposit
 transaction from the user provided UTxO we can feel safe the datum is correct if we are using official release of `hydra-node` binary.
 This means that it would be enough to check that there is a output present at the **correct** deposit script address.
 
