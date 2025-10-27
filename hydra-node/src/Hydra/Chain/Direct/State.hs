@@ -119,7 +119,7 @@ import Hydra.Tx.Observe (
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
-import Hydra.Tx.Utils (setIncrementalActionMaybe, splitUTxO, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe, splitUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
@@ -130,6 +130,10 @@ import Test.Hydra.Tx.Gen (
   genVerificationKey,
  )
 import Test.QuickCheck (choose, chooseEnum, elements, frequency, oneof, suchThat, vector)
+
+import Hydra.Tx.Accumulator (makeHeadAccumulator)
+
+import GHC.IO (unsafePerformIO)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
 -- all the relevant UTxO for resolving transaction inputs.
@@ -574,6 +578,30 @@ recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
  where
   ChainContext{networkId} = ctx
 
+-- | A pure function to check closing parameters and return the open thread output.
+closeChecker ::
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  HeadId ->
+  HeadParameters ->
+  Maybe UTxO ->
+  Maybe UTxO ->
+  Either CloseTxError (OpenThreadOutput, IncrementalAction)
+closeChecker spendableUTxO headId HeadParameters{parties, contestationPeriod} utxoToCommit utxoToDecommit = do
+  pid <- headIdToPolicyId headId ?> InvalidHeadIdInClose{headId}
+  headUTxO <-
+    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
+      ?> CannotFindHeadOutputToClose
+  let openThreadOutput =
+        OpenThreadOutput
+          { openThreadUTxO = headUTxO
+          , openContestationPeriod = ContestationPeriod.toChain contestationPeriod
+          , openParties = partyToChain <$> parties
+          }
+
+  incrementalAction <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInClose
+  pure (openThreadOutput, incrementalAction)
+
 -- | Construct a close transaction spending the head output in given 'UTxO',
 -- head parameters, and a confirmed snapshot. NOTE: Lower and upper bound slot
 -- difference should not exceed contestation period.
@@ -596,24 +624,25 @@ close ::
   SlotNo ->
   -- | 'Tx' validity upper bound
   PointInTime ->
-  Either CloseTxError Tx
-close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openVersion confirmedSnapshot startSlotNo pointInTime = do
-  pid <- headIdToPolicyId headId ?> InvalidHeadIdInClose{headId}
-  headUTxO <-
-    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
-      ?> CannotFindHeadOutputToClose
-  let openThreadOutput =
-        OpenThreadOutput
-          { openThreadUTxO = headUTxO
-          , openContestationPeriod = ContestationPeriod.toChain contestationPeriod
-          , openParties = partyToChain <$> parties
-          }
-
-  incrementalAction <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInClose
-  pure $ closeTx scriptRegistry ownVerificationKey headId openVersion confirmedSnapshot startSlotNo pointInTime openThreadOutput incrementalAction
+  IO (Either CloseTxError Tx)
+close ctx spendableUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime =
+  case closeChecker spendableUTxO headId headParameters (utxoToCommit $ getSnapshot confirmedSnapshot) (utxoToDecommit $ getSnapshot confirmedSnapshot) of
+    Left err -> pure (Left err)
+    Right (openThreadOutput, incrementalAction) -> do
+      let snapshotUTxO = utxo (getSnapshot confirmedSnapshot)
+      _headAccumulator <- makeHeadAccumulator snapshotUTxO
+      Right
+        <$> closeTx
+          scriptRegistry
+          ownVerificationKey
+          headId
+          openVersion
+          confirmedSnapshot
+          startSlotNo
+          pointInTime
+          openThreadOutput
+          incrementalAction
  where
-  Snapshot{utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
-
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
 data ContestTxError
@@ -692,6 +721,36 @@ data FanoutTxError
   | BothCommitAndDecommitInFanout
   deriving stock (Show)
 
+-- | A pure function to check fanout parameters and return the closed thread output.
+fanoutChecker ::
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Snapshot UTxO to commit to fanout
+  Maybe UTxO ->
+  -- | Snapshot UTxO to decommit to fanout
+  Maybe UTxO ->
+  Either FanoutTxError (TxIn, TxOut CtxUTxO)
+fanoutChecker spendableUTxO seedTxIn utxoToCommit utxoToDecommit = do
+  headUTxO <-
+    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
+      ?> CannotFindHeadOutputToFanout
+  closedThreadUTxO <- checkHeadDatum headUTxO
+  _ <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
+  pure closedThreadUTxO
+ where
+  checkHeadDatum :: (TxIn, TxOut CtxUTxO) -> Either FanoutTxError (TxIn, TxOut CtxUTxO)
+  checkHeadDatum headUTxO@(_, headOutput) = do
+    headDatum <-
+      txOutScriptData (fromCtxUTxOTxOut headOutput) ?> MissingHeadDatumInFanout
+    datum <-
+      fromScriptData headDatum ?> FailedToConvertFromScriptDataInFanout
+
+    case datum of
+      Head.Closed{} -> pure headUTxO
+      _ -> Left WrongDatumInFanout
+
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
 -- agreed 'UTxO' set to fan out.
 fanout ::
@@ -708,29 +767,17 @@ fanout ::
   Maybe UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
-  Either FanoutTxError Tx
+  IO (Either FanoutTxError Tx)
 fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo = do
-  headUTxO <-
-    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
-      ?> CannotFindHeadOutputToFanout
-  closedThreadUTxO <- checkHeadDatum headUTxO
-  _ <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
-  pure $ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit closedThreadUTxO deadlineSlotNo headTokenScript
+  let closedThreadUTxORes = fanoutChecker spendableUTxO seedTxIn utxoToCommit utxoToDecommit
+  case closedThreadUTxORes of
+    Left err -> pure (Left err)
+    Right closedThreadUTxO ->
+      Right <$> fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit closedThreadUTxO deadlineSlotNo headTokenScript
  where
   headTokenScript = mkHeadTokenScript seedTxIn
 
   ChainContext{scriptRegistry} = ctx
-
-  checkHeadDatum :: (TxIn, TxOut CtxUTxO) -> Either FanoutTxError (TxIn, TxOut CtxUTxO)
-  checkHeadDatum headUTxO@(_, headOutput) = do
-    headDatum <-
-      txOutScriptData (fromCtxUTxOTxOut headOutput) ?> MissingHeadDatumInFanout
-    datum <-
-      fromScriptData headDatum ?> FailedToConvertFromScriptDataInFanout
-
-    case datum of
-      Head.Closed{} -> pure headUTxO
-      _ -> Left WrongDatumInFanout
 
 -- * Helpers
 
@@ -1373,7 +1420,9 @@ unsafeClose ::
   PointInTime ->
   Tx
 unsafeClose ctx spendableUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime =
-  either (error . show) id $ close ctx spendableUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime
+  unsafePerformIO $
+    either (error . show) pure
+      =<< close ctx spendableUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime
 
 unsafeCollect ::
   ChainContext ->
@@ -1420,7 +1469,9 @@ unsafeFanout ::
   SlotNo ->
   Tx
 unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo =
-  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo
+  unsafePerformIO $
+    either (error . show) pure
+      =<< fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo
 
 unsafeObserveInit ::
   HasCallStack =>

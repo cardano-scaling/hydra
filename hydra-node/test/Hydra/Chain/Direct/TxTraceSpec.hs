@@ -868,7 +868,8 @@ newDecrementTx actor snapshot = do
 newCloseTx :: Actor -> SnapshotVersion -> ConfirmedSnapshot Tx -> AppM (Either CloseTxError Tx)
 newCloseTx actor openVersion snapshot = do
   (_, spendableUTxO) <- get
-  pure $
+  -- pure $
+  liftIO $
     close
       (actorChainContext actor)
       spendableUTxO
@@ -907,7 +908,8 @@ newContestTx actor openVersion snapshot = do
 newFanoutTx :: Actor -> ModelUTxO -> ModelUTxO -> ModelUTxO -> AppM (Either FanoutTxError Tx)
 newFanoutTx actor utxo pendingCommit pendingDecommit = do
   (_, spendableUTxO) <- get
-  pure $
+
+  liftIO $
     fanout
       (actorChainContext actor)
       spendableUTxO

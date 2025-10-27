@@ -625,7 +625,6 @@ testDepositPeriod = 100
 
 seedWorld ::
   ( MonadAsync m
-  , MonadTimer m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
   , MonadFork m
