@@ -74,7 +74,7 @@ spec = parallel $ do
             >>= runToCompletion
           [checkpoint] <- getEvents (eventSource rotatingEventStore)
           case stateChanged checkpoint of
-            Checkpoint{state = NodeState{headState = Closed{}}} -> pure ()
+            Checkpoint{state = NodeInSync{headState = Closed{}}} -> pure ()
             _ -> fail ("unexpected: " <> show checkpoint)
       it "a rotated and non-rotated node have consistent state" $ \testHydrate -> do
         -- prepare inputs

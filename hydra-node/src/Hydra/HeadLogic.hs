@@ -1358,14 +1358,41 @@ update ::
   Outcome tx
 update env ledger now nodeState ev =
   case nodeState of
-    NodeCatchingUp{headState} ->
-      -- FIXME: handle relevant stuff from 'update' here (chain inputs)
-      noop
+    NodeCatchingUp{headState, pendingDeposits} ->
+      updateUnsyncedHead env ledger now pendingDeposits headState ev
     NodeInSync{headState, pendingDeposits, currentSlot} ->
-      -- TODO: group
-      updateHead env ledger now currentSlot pendingDeposits headState ev
+      updateSyncedHead env ledger now currentSlot pendingDeposits headState ev
 
-updateHead env ledger now currentSlot pendingDeposits st ev = case (st, ev) of
+-- FIXME: handle relevant stuff from 'update' here (chain inputs)
+updateUnsyncedHead ::
+  IsChainState tx =>
+  Environment ->
+  Ledger tx ->
+  -- | Current system time.
+  UTCTime ->
+  PendingDeposits tx ->
+  -- | Current NodeState to validate the command against.
+  HeadState tx ->
+  -- | Input to be processed.
+  Input tx ->
+  Outcome tx
+updateUnsyncedHead env ledger now pendingDeposits st ev = noop
+
+-- TODO: group
+updateSyncedHead ::
+  IsChainState tx =>
+  Environment ->
+  Ledger tx ->
+  -- | Current system time.
+  UTCTime ->
+  ChainSlot ->
+  PendingDeposits tx ->
+  -- | Current NodeState to validate the command against.
+  HeadState tx ->
+  -- | Input to be processed.
+  Input tx ->
+  Outcome tx
+updateSyncedHead env ledger now currentSlot pendingDeposits st ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   (Idle _, ClientInput Init) ->
