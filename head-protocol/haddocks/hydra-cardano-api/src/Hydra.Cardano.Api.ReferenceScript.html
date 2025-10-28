@@ -3,7 +3,7 @@
 </span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span>
 </span><span id="line-4"></span><span>
 </span><span id="line-5"></span><span class="annot"><span class="hs-comment">-- | Construct a 'ReferenceScript' from any given Plutus script.</span></span><span>
-</span><span id="line-6"></span><span id="local-6989586621679291490"><span class="annot"><a href="Hydra.Cardano.Api.ReferenceScript.html#mkScriptRef"><span class="hs-identifier hs-type">mkScriptRef</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679291490"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679291490"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ReferenceScript</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span></span><span>
+</span><span id="line-6"></span><span id="local-6989586621679283660"><span class="annot"><a href="Hydra.Cardano.Api.ReferenceScript.html#mkScriptRef"><span class="hs-identifier hs-type">mkScriptRef</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679283660"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679283660"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ReferenceScript</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span></span><span>
 </span><span id="line-7"></span><span id="mkScriptRef"><span class="annot"><span class="annottext">mkScriptRef :: forall lang.
 IsPlutusScriptLanguage lang =&gt;
 PlutusScript lang -&gt; ReferenceScript Era
@@ -19,7 +19,7 @@ forall era. IsBabbageBasedEra era =&gt; BabbageEraOnwards era
 -&gt; PlutusScript lang
 -&gt; ReferenceScript Era
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Script lang -&gt; ScriptInAnyLang
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Script lang -&gt; ScriptInAnyLang
 forall lang. Script lang -&gt; ScriptInAnyLang
 </span><span class="hs-identifier hs-var">toScriptInAnyLang</span></span><span>
 </span><span id="line-10"></span><span>    </span><span class="annot"><span class="annottext">(Script lang -&gt; ScriptInAnyLang)
@@ -27,7 +27,7 @@ forall lang. Script lang -&gt; ScriptInAnyLang
 -&gt; PlutusScript lang
 -&gt; ScriptInAnyLang
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
 forall lang.
 IsPlutusScriptLanguage lang =&gt;
 PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang

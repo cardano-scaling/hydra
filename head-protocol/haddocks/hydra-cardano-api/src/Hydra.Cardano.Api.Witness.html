@@ -5,22 +5,22 @@
 </span><span id="line-5"></span><span class="hs-comment">-- | Construct a full script witness from a datum, a redeemer and a full</span><span>
 </span><span id="line-6"></span><span class="hs-comment">-- 'PlutusScript'. That witness has no execution budget.</span><span>
 </span><span id="line-7"></span><span class="annot"><a href="Hydra.Cardano.Api.Witness.html#mkScriptWitness"><span class="hs-identifier hs-type">mkScriptWitness</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-8"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679293262"><span class="annot"><a href="#local-6989586621679293262"><span class="hs-identifier hs-type">ctx</span></a></span></span><span> </span><span id="local-6989586621679293259"><span class="annot"><a href="#local-6989586621679293259"><span class="hs-identifier hs-type">era</span></a></span></span><span> </span><span id="local-6989586621679293257"><span class="annot"><a href="#local-6989586621679293257"><span class="hs-identifier hs-type">lang</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-9"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679293257"><span class="hs-identifier hs-type">lang</span></a></span><span>
-</span><span id="line-10"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasScriptLanguageInEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679293257"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679293259"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679285344"><span class="annot"><a href="#local-6989586621679285344"><span class="hs-identifier hs-type">ctx</span></a></span></span><span> </span><span id="local-6989586621679285341"><span class="annot"><a href="#local-6989586621679285341"><span class="hs-identifier hs-type">era</span></a></span></span><span> </span><span id="local-6989586621679285339"><span class="annot"><a href="#local-6989586621679285339"><span class="hs-identifier hs-type">lang</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679285339"><span class="hs-identifier hs-type">lang</span></a></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasScriptLanguageInEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679285339"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679285341"><span class="hs-identifier hs-type">era</span></a></span><span>
 </span><span id="line-11"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679293257"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptDatum</span></span><span> </span><span class="annot"><a href="#local-6989586621679293262"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679285339"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptDatum</span></span><span> </span><span class="annot"><a href="#local-6989586621679285344"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptRedeemer</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptWitness</span></span><span> </span><span class="annot"><a href="#local-6989586621679293262"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679293259"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptWitness</span></span><span> </span><span class="annot"><a href="#local-6989586621679285344"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679285341"><span class="hs-identifier hs-type">era</span></a></span><span>
 </span><span id="line-16"></span><span id="mkScriptWitness"><span class="annot"><span class="annottext">mkScriptWitness :: forall ctx era lang.
 (IsPlutusScriptLanguage lang, HasScriptLanguageInEra lang era) =&gt;
 PlutusScript lang
 -&gt; ScriptDatum ctx -&gt; ScriptRedeemer -&gt; ScriptWitness ctx era
-</span><a href="Hydra.Cardano.Api.Witness.html#mkScriptWitness"><span class="hs-identifier hs-var hs-var">mkScriptWitness</span></a></span></span><span> </span><span id="local-6989586621679293297"><span class="annot"><span class="annottext">PlutusScript lang
-</span><a href="#local-6989586621679293297"><span class="hs-identifier hs-var">script</span></a></span></span><span> </span><span id="local-6989586621679293298"><span class="annot"><span class="annottext">ScriptDatum ctx
-</span><a href="#local-6989586621679293298"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span id="local-6989586621679293299"><span class="annot"><span class="annottext">ScriptRedeemer
-</span><a href="#local-6989586621679293299"><span class="hs-identifier hs-var">redeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.Witness.html#mkScriptWitness"><span class="hs-identifier hs-var hs-var">mkScriptWitness</span></a></span></span><span> </span><span id="local-6989586621679285379"><span class="annot"><span class="annottext">PlutusScript lang
+</span><a href="#local-6989586621679285379"><span class="hs-identifier hs-var">script</span></a></span></span><span> </span><span id="local-6989586621679285380"><span class="annot"><span class="annottext">ScriptDatum ctx
+</span><a href="#local-6989586621679285380"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span id="local-6989586621679285381"><span class="annot"><span class="annottext">ScriptRedeemer
+</span><a href="#local-6989586621679285381"><span class="hs-identifier hs-var">redeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-17"></span><span>  </span><span class="annot"><span class="annottext">ScriptLanguageInEra lang era
 -&gt; PlutusScriptVersion lang
 -&gt; PlutusScriptOrReferenceInput lang
@@ -41,19 +41,19 @@ ScriptLanguageInEra lang era
 </span><span id="line-18"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall lang era.
 HasScriptLanguageInEra lang era =&gt;
 ScriptLanguageInEra lang era
-</span><span class="hs-identifier hs-var">scriptLanguageInEra</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679293257"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679293259"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span>
+</span><span class="hs-identifier hs-var">scriptLanguageInEra</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679285339"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679285341"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-19"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall lang.
 IsPlutusScriptLanguage lang =&gt;
 PlutusScriptVersion lang
-</span><span class="hs-identifier hs-var">plutusScriptVersion</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679293257"><span class="hs-identifier hs-type">lang</span></a></span><span class="hs-special">)</span><span>
+</span><span class="hs-identifier hs-var">plutusScriptVersion</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679285339"><span class="hs-identifier hs-type">lang</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-20"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PlutusScript lang -&gt; PlutusScriptOrReferenceInput lang
 forall lang. PlutusScript lang -&gt; PlutusScriptOrReferenceInput lang
 </span><span class="hs-identifier hs-var">PScript</span></span><span> </span><span class="annot"><span class="annottext">PlutusScript lang
-</span><a href="#local-6989586621679293297"><span class="hs-identifier hs-var">script</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679285379"><span class="hs-identifier hs-var">script</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-21"></span><span>    </span><span class="annot"><span class="annottext">ScriptDatum ctx
-</span><a href="#local-6989586621679293298"><span class="hs-identifier hs-var">datum</span></a></span><span>
+</span><a href="#local-6989586621679285380"><span class="hs-identifier hs-var">datum</span></a></span><span>
 </span><span id="line-22"></span><span>    </span><span class="annot"><span class="annottext">ScriptRedeemer
-</span><a href="#local-6989586621679293299"><span class="hs-identifier hs-var">redeemer</span></a></span><span>
+</span><a href="#local-6989586621679285381"><span class="hs-identifier hs-var">redeemer</span></a></span><span>
 </span><span id="line-23"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; ExecutionUnits
 </span><span class="hs-identifier hs-var">ExecutionUnits</span></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Natural
@@ -62,15 +62,15 @@ forall lang. PlutusScript lang -&gt; PlutusScriptOrReferenceInput lang
 </span><span id="line-25"></span><span class="hs-comment">-- | Construct a reference script witness, only referring to a 'TxIn' which is</span><span>
 </span><span id="line-26"></span><span class="hs-comment">-- expected to contain the given script (only required to satisfy types).</span><span>
 </span><span id="line-27"></span><span class="annot"><a href="Hydra.Cardano.Api.Witness.html#mkScriptReference"><span class="hs-identifier hs-type">mkScriptReference</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-28"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679293283"><span class="annot"><a href="#local-6989586621679293283"><span class="hs-identifier hs-type">ctx</span></a></span></span><span> </span><span id="local-6989586621679293281"><span class="annot"><a href="#local-6989586621679293281"><span class="hs-identifier hs-type">era</span></a></span></span><span> </span><span id="local-6989586621679293280"><span class="annot"><a href="#local-6989586621679293280"><span class="hs-identifier hs-type">lang</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-29"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679293280"><span class="hs-identifier hs-type">lang</span></a></span><span>
-</span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasScriptLanguageInEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679293280"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679293281"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679285365"><span class="annot"><a href="#local-6989586621679285365"><span class="hs-identifier hs-type">ctx</span></a></span></span><span> </span><span id="local-6989586621679285363"><span class="annot"><a href="#local-6989586621679285363"><span class="hs-identifier hs-type">era</span></a></span></span><span> </span><span id="local-6989586621679285362"><span class="annot"><a href="#local-6989586621679285362"><span class="hs-identifier hs-type">lang</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679285362"><span class="hs-identifier hs-type">lang</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasScriptLanguageInEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679285362"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679285363"><span class="hs-identifier hs-type">era</span></a></span><span>
 </span><span id="line-31"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679293280"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptDatum</span></span><span> </span><span class="annot"><a href="#local-6989586621679293283"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679285362"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptDatum</span></span><span> </span><span class="annot"><a href="#local-6989586621679285365"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-35"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptRedeemer</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptWitness</span></span><span> </span><span class="annot"><a href="#local-6989586621679293283"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679293281"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptWitness</span></span><span> </span><span class="annot"><a href="#local-6989586621679285365"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679285363"><span class="hs-identifier hs-type">era</span></a></span><span>
 </span><span id="line-37"></span><span id="mkScriptReference"><span class="annot"><span class="annottext">mkScriptReference :: forall ctx era lang.
 (IsPlutusScriptLanguage lang, HasScriptLanguageInEra lang era) =&gt;
 TxIn
@@ -78,11 +78,11 @@ TxIn
 -&gt; ScriptDatum ctx
 -&gt; ScriptRedeemer
 -&gt; ScriptWitness ctx era
-</span><a href="Hydra.Cardano.Api.Witness.html#mkScriptReference"><span class="hs-identifier hs-var hs-var">mkScriptReference</span></a></span></span><span> </span><span id="local-6989586621679293314"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679293314"><span class="hs-identifier hs-var">txIn</span></a></span></span><span> </span><span id="local-6989586621679293315"><span class="annot"><span class="annottext">PlutusScript lang
-</span><a href="#local-6989586621679293315"><span class="hs-identifier hs-var">_script</span></a></span></span><span> </span><span id="local-6989586621679293316"><span class="annot"><span class="annottext">ScriptDatum ctx
-</span><a href="#local-6989586621679293316"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span id="local-6989586621679293317"><span class="annot"><span class="annottext">ScriptRedeemer
-</span><a href="#local-6989586621679293317"><span class="hs-identifier hs-var">redeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.Witness.html#mkScriptReference"><span class="hs-identifier hs-var hs-var">mkScriptReference</span></a></span></span><span> </span><span id="local-6989586621679285396"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679285396"><span class="hs-identifier hs-var">txIn</span></a></span></span><span> </span><span id="local-6989586621679285397"><span class="annot"><span class="annottext">PlutusScript lang
+</span><a href="#local-6989586621679285397"><span class="hs-identifier hs-var">_script</span></a></span></span><span> </span><span id="local-6989586621679285398"><span class="annot"><span class="annottext">ScriptDatum ctx
+</span><a href="#local-6989586621679285398"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span id="local-6989586621679285399"><span class="annot"><span class="annottext">ScriptRedeemer
+</span><a href="#local-6989586621679285399"><span class="hs-identifier hs-var">redeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-38"></span><span>  </span><span class="annot"><span class="annottext">ScriptLanguageInEra lang era
 -&gt; PlutusScriptVersion lang
 -&gt; PlutusScriptOrReferenceInput lang
@@ -103,19 +103,19 @@ ScriptLanguageInEra lang era
 </span><span id="line-39"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall lang era.
 HasScriptLanguageInEra lang era =&gt;
 ScriptLanguageInEra lang era
-</span><span class="hs-identifier hs-var">scriptLanguageInEra</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679293280"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679293281"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span>
+</span><span class="hs-identifier hs-var">scriptLanguageInEra</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679285362"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679285363"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-40"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall lang.
 IsPlutusScriptLanguage lang =&gt;
 PlutusScriptVersion lang
-</span><span class="hs-identifier hs-var">plutusScriptVersion</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679293280"><span class="hs-identifier hs-type">lang</span></a></span><span class="hs-special">)</span><span>
+</span><span class="hs-identifier hs-var">plutusScriptVersion</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679285362"><span class="hs-identifier hs-type">lang</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-41"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; PlutusScriptOrReferenceInput lang
 forall lang. TxIn -&gt; PlutusScriptOrReferenceInput lang
 </span><span class="hs-identifier hs-var">PReferenceScript</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679293314"><span class="hs-identifier hs-var">txIn</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679285396"><span class="hs-identifier hs-var">txIn</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-42"></span><span>    </span><span class="annot"><span class="annottext">ScriptDatum ctx
-</span><a href="#local-6989586621679293316"><span class="hs-identifier hs-var">datum</span></a></span><span>
+</span><a href="#local-6989586621679285398"><span class="hs-identifier hs-var">datum</span></a></span><span>
 </span><span id="line-43"></span><span>    </span><span class="annot"><span class="annottext">ScriptRedeemer
-</span><a href="#local-6989586621679293317"><span class="hs-identifier hs-var">redeemer</span></a></span><span>
+</span><a href="#local-6989586621679285399"><span class="hs-identifier hs-var">redeemer</span></a></span><span>
 </span><span id="line-44"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; ExecutionUnits
 </span><span class="hs-identifier hs-var">ExecutionUnits</span></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Natural

@@ -5,12 +5,12 @@
 </span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
 </span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Lens.Micro.TH</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">makeLensesFor</span></span><span class="hs-special">)</span><span>
 </span><span id="line-7"></span><span>
-</span><span id="line-8"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Severity"><span class="hs-identifier hs-type">Severity</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Severity"><span class="hs-identifier hs-type">Severity</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
 </span><span id="line-9"></span><span class="hs-keyword">data</span><span> </span><span id="Severity"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Severity"><span class="hs-identifier hs-var">Severity</span></a></span></span><span>
 </span><span id="line-10"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Success"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Success"><span class="hs-identifier hs-var">Success</span></a></span></span><span>
 </span><span id="line-11"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Info"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Info"><span class="hs-identifier hs-var">Info</span></a></span></span><span>
 </span><span id="line-12"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Error"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Error"><span class="hs-identifier hs-var">Error</span></a></span></span><span>
-</span><span id="line-13"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679448328"><span id="local-6989586621679448330"><span class="annot"><span class="annottext">Severity -&gt; Severity -&gt; Bool
+</span><span id="line-13"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679449394"><span id="local-6989586621679449396"><span class="annot"><span class="annottext">Severity -&gt; Severity -&gt; Bool
 (Severity -&gt; Severity -&gt; Bool)
 -&gt; (Severity -&gt; Severity -&gt; Bool) -&gt; Eq Severity
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -18,7 +18,7 @@ $c== :: Severity -&gt; Severity -&gt; Bool
 == :: Severity -&gt; Severity -&gt; Bool
 $c/= :: Severity -&gt; Severity -&gt; Bool
 /= :: Severity -&gt; Severity -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679448335"><span id="local-6989586621679448337"><span id="local-6989586621679448341"><span class="annot"><span class="annottext">Int -&gt; Severity -&gt; ShowS
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679449401"><span id="local-6989586621679449403"><span id="local-6989586621679449407"><span class="annot"><span class="annottext">Int -&gt; Severity -&gt; ShowS
 [Severity] -&gt; ShowS
 Severity -&gt; String
 (Int -&gt; Severity -&gt; ShowS)
@@ -31,7 +31,7 @@ $cshow :: Severity -&gt; String
 show :: Severity -&gt; String
 $cshowList :: [Severity] -&gt; ShowS
 showList :: [Severity] -&gt; ShowS
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679448345"><span id="local-6989586621679448347"><span class="annot"><span class="annottext">(forall x. Severity -&gt; Rep Severity x)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679449411"><span id="local-6989586621679449413"><span class="annot"><span class="annottext">(forall x. Severity -&gt; Rep Severity x)
 -&gt; (forall x. Rep Severity x -&gt; Severity) -&gt; Generic Severity
 forall x. Rep Severity x -&gt; Severity
 forall x. Severity -&gt; Rep Severity x
@@ -41,18 +41,18 @@ $cfrom :: forall x. Severity -&gt; Rep Severity x
 from :: forall x. Severity -&gt; Rep Severity x
 $cto :: forall x. Rep Severity x -&gt; Severity
 to :: forall x. Rep Severity x -&gt; Severity
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-14"></span><span>
-</span><span id="line-15"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogMessage"><span class="hs-identifier hs-type">LogMessage</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogMessage"><span class="hs-identifier hs-type">LogMessage</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
 </span><span id="line-16"></span><span class="hs-keyword">data</span><span> </span><span id="LogMessage"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogMessage"><span class="hs-identifier hs-var">LogMessage</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="LogMessage"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogMessage"><span class="hs-identifier hs-var">LogMessage</span></a></span></span><span>
 </span><span id="line-17"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="severity"><span class="annot"><span class="annottext">LogMessage -&gt; Severity
 </span><a href="Hydra.TUI.Logging.Types.html#severity"><span class="hs-identifier hs-var hs-var">severity</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Severity"><span class="hs-identifier hs-type">Severity</span></a></span><span>
 </span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="message"><span class="annot"><span class="annottext">LogMessage -&gt; Text
-</span><a href="Hydra.TUI.Logging.Types.html#message"><span class="hs-identifier hs-var hs-var">message</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
+</span><a href="Hydra.TUI.Logging.Types.html#message"><span class="hs-identifier hs-var hs-var">message</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
 </span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="time"><span class="annot"><span class="annottext">LogMessage -&gt; UTCTime
-</span><a href="Hydra.TUI.Logging.Types.html#time"><span class="hs-identifier hs-var hs-var">time</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
+</span><a href="Hydra.TUI.Logging.Types.html#time"><span class="hs-identifier hs-var hs-var">time</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
 </span><span id="line-20"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-21"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679448355"><span id="local-6989586621679448362"><span class="annot"><span class="annottext">LogMessage -&gt; LogMessage -&gt; Bool
+</span><span id="line-21"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679449421"><span id="local-6989586621679449428"><span class="annot"><span class="annottext">LogMessage -&gt; LogMessage -&gt; Bool
 (LogMessage -&gt; LogMessage -&gt; Bool)
 -&gt; (LogMessage -&gt; LogMessage -&gt; Bool) -&gt; Eq LogMessage
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -60,7 +60,7 @@ $c== :: LogMessage -&gt; LogMessage -&gt; Bool
 == :: LogMessage -&gt; LogMessage -&gt; Bool
 $c/= :: LogMessage -&gt; LogMessage -&gt; Bool
 /= :: LogMessage -&gt; LogMessage -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679448366"><span id="local-6989586621679448375"><span id="local-6989586621679448379"><span class="annot"><span class="annottext">Int -&gt; LogMessage -&gt; ShowS
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679449432"><span id="local-6989586621679449441"><span id="local-6989586621679449445"><span class="annot"><span class="annottext">Int -&gt; LogMessage -&gt; ShowS
 [LogMessage] -&gt; ShowS
 LogMessage -&gt; String
 (Int -&gt; LogMessage -&gt; ShowS)
@@ -75,7 +75,7 @@ $cshow :: LogMessage -&gt; String
 show :: LogMessage -&gt; String
 $cshowList :: [LogMessage] -&gt; ShowS
 showList :: [LogMessage] -&gt; ShowS
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679448382"><span id="local-6989586621679448384"><span class="annot"><span class="annottext">(forall x. LogMessage -&gt; Rep LogMessage x)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679449448"><span id="local-6989586621679449450"><span class="annot"><span class="annottext">(forall x. LogMessage -&gt; Rep LogMessage x)
 -&gt; (forall x. Rep LogMessage x -&gt; LogMessage) -&gt; Generic LogMessage
 forall x. Rep LogMessage x -&gt; LogMessage
 forall x. LogMessage -&gt; Rep LogMessage x
@@ -85,11 +85,11 @@ $cfrom :: forall x. LogMessage -&gt; Rep LogMessage x
 from :: forall x. LogMessage -&gt; Rep LogMessage x
 $cto :: forall x. Rep LogMessage x -&gt; LogMessage
 to :: forall x. Rep LogMessage x -&gt; LogMessage
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-22"></span><span>
-</span><span id="line-23"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogVerbosity"><span class="hs-identifier hs-type">LogVerbosity</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogVerbosity"><span class="hs-identifier hs-type">LogVerbosity</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
 </span><span id="line-24"></span><span class="hs-keyword">data</span><span> </span><span id="LogVerbosity"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogVerbosity"><span class="hs-identifier hs-var">LogVerbosity</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Short"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Short"><span class="hs-identifier hs-var">Short</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Full"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Full"><span class="hs-identifier hs-var">Full</span></a></span></span><span>
-</span><span id="line-25"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679448389"><span id="local-6989586621679448391"><span class="annot"><span class="annottext">LogVerbosity -&gt; LogVerbosity -&gt; Bool
+</span><span id="line-25"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679449455"><span id="local-6989586621679449457"><span class="annot"><span class="annottext">LogVerbosity -&gt; LogVerbosity -&gt; Bool
 (LogVerbosity -&gt; LogVerbosity -&gt; Bool)
 -&gt; (LogVerbosity -&gt; LogVerbosity -&gt; Bool) -&gt; Eq LogVerbosity
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -97,7 +97,7 @@ $c== :: LogVerbosity -&gt; LogVerbosity -&gt; Bool
 == :: LogVerbosity -&gt; LogVerbosity -&gt; Bool
 $c/= :: LogVerbosity -&gt; LogVerbosity -&gt; Bool
 /= :: LogVerbosity -&gt; LogVerbosity -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679448395"><span id="local-6989586621679448397"><span id="local-6989586621679448401"><span class="annot"><span class="annottext">Int -&gt; LogVerbosity -&gt; ShowS
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679449461"><span id="local-6989586621679449463"><span id="local-6989586621679449467"><span class="annot"><span class="annottext">Int -&gt; LogVerbosity -&gt; ShowS
 [LogVerbosity] -&gt; ShowS
 LogVerbosity -&gt; String
 (Int -&gt; LogVerbosity -&gt; ShowS)
@@ -112,7 +112,7 @@ $cshow :: LogVerbosity -&gt; String
 show :: LogVerbosity -&gt; String
 $cshowList :: [LogVerbosity] -&gt; ShowS
 showList :: [LogVerbosity] -&gt; ShowS
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679448404"><span id="local-6989586621679448406"><span class="annot"><span class="annottext">(forall x. LogVerbosity -&gt; Rep LogVerbosity x)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679449470"><span id="local-6989586621679449472"><span class="annot"><span class="annottext">(forall x. LogVerbosity -&gt; Rep LogVerbosity x)
 -&gt; (forall x. Rep LogVerbosity x -&gt; LogVerbosity)
 -&gt; Generic LogVerbosity
 forall x. Rep LogVerbosity x -&gt; LogVerbosity
@@ -123,9 +123,9 @@ $cfrom :: forall x. LogVerbosity -&gt; Rep LogVerbosity x
 from :: forall x. LogVerbosity -&gt; Rep LogVerbosity x
 $cto :: forall x. Rep LogVerbosity x -&gt; LogVerbosity
 to :: forall x. Rep LogVerbosity x -&gt; LogVerbosity
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-26"></span><span>
-</span><span id="line-27"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogState"><span class="hs-identifier hs-type">LogState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogState"><span class="hs-identifier hs-type">LogState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
 </span><span id="line-28"></span><span class="hs-keyword">data</span><span> </span><span id="LogState"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogState"><span class="hs-identifier hs-var">LogState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="LogState"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogState"><span class="hs-identifier hs-var">LogState</span></a></span></span><span>
 </span><span id="line-29"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="logMessages"><span class="annot"><span class="annottext">LogState -&gt; [LogMessage]
 </span><a href="Hydra.TUI.Logging.Types.html#logMessages"><span class="hs-identifier hs-var hs-var">logMessages</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogMessage"><span class="hs-identifier hs-type">LogMessage</span></a></span><span class="hs-special">]</span><span>

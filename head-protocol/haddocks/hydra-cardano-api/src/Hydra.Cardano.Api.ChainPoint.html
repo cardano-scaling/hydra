@@ -10,18 +10,18 @@
 </span><span id="line-10"></span><span class="annot"><span class="hs-comment">-- | Get the chain point corresponding to a given 'BlockHeader'.</span></span><span>
 </span><span id="line-11"></span><span class="annot"><a href="Hydra.Cardano.Api.ChainPoint.html#getChainPoint"><span class="hs-identifier hs-type">getChainPoint</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainPoint</span></span><span>
 </span><span id="line-12"></span><span id="getChainPoint"><span class="annot"><span class="annottext">getChainPoint :: BlockHeader -&gt; ChainPoint
-</span><a href="Hydra.Cardano.Api.ChainPoint.html#getChainPoint"><span class="hs-identifier hs-var hs-var">getChainPoint</span></a></span></span><span> </span><span id="local-6989586621679291269"><span class="annot"><span class="annottext">BlockHeader
-</span><a href="#local-6989586621679291269"><span class="hs-identifier hs-var">header</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.ChainPoint.html#getChainPoint"><span class="hs-identifier hs-var hs-var">getChainPoint</span></a></span></span><span> </span><span id="local-6989586621679283439"><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621679283439"><span class="hs-identifier hs-var">header</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-13"></span><span>  </span><span class="annot"><span class="annottext">SlotNo -&gt; Hash BlockHeader -&gt; ChainPoint
 </span><span class="hs-identifier hs-var">ChainPoint</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679291271"><span class="hs-identifier hs-var">slotNo</span></a></span><span> </span><span class="annot"><span class="annottext">Hash BlockHeader
-</span><a href="#local-6989586621679291272"><span class="hs-identifier hs-var">headerHash</span></a></span><span>
+</span><a href="#local-6989586621679283441"><span class="hs-identifier hs-var">slotNo</span></a></span><span> </span><span class="annot"><span class="annottext">Hash BlockHeader
+</span><a href="#local-6989586621679283442"><span class="hs-identifier hs-var">headerHash</span></a></span><span>
 </span><span id="line-14"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-15"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span> </span><span id="local-6989586621679291271"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679291271"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span> </span><span id="local-6989586621679291272"><span class="annot"><span class="annottext">Hash BlockHeader
-</span><a href="#local-6989586621679291272"><span class="hs-identifier hs-var">headerHash</span></a></span></span><span> </span><span class="annot"><span class="annottext">BlockNo
+</span><span id="line-15"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span> </span><span id="local-6989586621679283441"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679283441"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span> </span><span id="local-6989586621679283442"><span class="annot"><span class="annottext">Hash BlockHeader
+</span><a href="#local-6989586621679283442"><span class="hs-identifier hs-var">headerHash</span></a></span></span><span> </span><span class="annot"><span class="annottext">BlockNo
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeader
-</span><a href="#local-6989586621679291269"><span class="hs-identifier hs-var">header</span></a></span><span>
+</span><a href="#local-6989586621679283439"><span class="hs-identifier hs-var">header</span></a></span><span>
 </span><span id="line-16"></span><span>
 </span><span id="line-17"></span><span class="annot"><span class="hs-comment">-- * Generators</span></span><span>
 </span><span id="line-18"></span><span>
@@ -36,7 +36,7 @@ forall a. HasCallStack =&gt; [(Int, Gen a)] -&gt; Gen a
 </span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ChainPoint -&gt; Gen ChainPoint
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPoint
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPoint
 </span><span class="hs-identifier hs-var">ChainPointAtGenesis</span></span><span class="hs-special">)</span><span>
 </span><span id="line-24"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">5</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Gen Word64
@@ -44,31 +44,31 @@ forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen Word64 -&gt; (Word64 -&gt; Gen ChainPoint) -&gt; Gen ChainPoint
 forall a b. Gen a -&gt; (a -&gt; Gen b) -&gt; Gen b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; Gen ChainPoint
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; Gen ChainPoint
 </span><a href="Hydra.Cardano.Api.ChainPoint.html#genChainPointAt"><span class="hs-identifier hs-var">genChainPointAt</span></a></span><span> </span><span class="annot"><span class="annottext">(SlotNo -&gt; Gen ChainPoint)
 -&gt; (Word64 -&gt; SlotNo) -&gt; Word64 -&gt; Gen ChainPoint
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span class="hs-special">)</span><span>
 </span><span id="line-25"></span><span>    </span><span class="hs-special">]</span><span>
 </span><span id="line-26"></span><span>
 </span><span id="line-27"></span><span class="annot"><span class="hs-comment">-- | Generate a chain point at given slot with a likely invalid block header hash.</span></span><span>
 </span><span id="line-28"></span><span class="annot"><a href="Hydra.Cardano.Api.ChainPoint.html#genChainPointAt"><span class="hs-identifier hs-type">genChainPointAt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainPoint</span></span><span>
 </span><span id="line-29"></span><span id="genChainPointAt"><span class="annot"><span class="annottext">genChainPointAt :: SlotNo -&gt; Gen ChainPoint
-</span><a href="Hydra.Cardano.Api.ChainPoint.html#genChainPointAt"><span class="hs-identifier hs-var hs-var">genChainPointAt</span></a></span></span><span> </span><span id="local-6989586621679291279"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679291279"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.ChainPoint.html#genChainPointAt"><span class="hs-identifier hs-var hs-var">genChainPointAt</span></a></span></span><span> </span><span id="local-6989586621679283449"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679283449"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-30"></span><span>  </span><span class="annot"><span class="annottext">SlotNo -&gt; Hash BlockHeader -&gt; ChainPoint
 </span><span class="hs-identifier hs-var">ChainPoint</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679291279"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">(Hash BlockHeader -&gt; ChainPoint)
+</span><a href="#local-6989586621679283449"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">(Hash BlockHeader -&gt; ChainPoint)
 -&gt; Gen (Hash BlockHeader) -&gt; Gen ChainPoint
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen (Hash BlockHeader)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen (Hash BlockHeader)
 </span><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeaderHash"><span class="hs-identifier hs-var">genBlockHeaderHash</span></a></span><span>
 </span><span id="line-31"></span><span>
 </span><span id="line-32"></span><span class="annot"><span class="hs-comment">-- * Orphans</span></span><span>
 </span><span id="line-33"></span><span>
-</span><span id="line-34"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679291283"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainPoint</span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-35"></span><span>  </span><span id="local-6989586621679291287"><span class="annot"><span class="annottext">arbitrary :: Gen ChainPoint
+</span><span id="line-34"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679283453"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainPoint</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-35"></span><span>  </span><span id="local-6989586621679283457"><span class="annot"><span class="annottext">arbitrary :: Gen ChainPoint
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen ChainPoint
 </span><a href="Hydra.Cardano.Api.ChainPoint.html#genChainPoint"><span class="hs-identifier hs-var">genChainPoint</span></a></span><span>
 </span><span id="line-36"></span></pre></body></html>

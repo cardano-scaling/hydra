@@ -4,7 +4,7 @@
 </span><span id="line-4"></span><span>
 </span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span>
 </span><span id="line-6"></span><span>
-</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html"><span class="hs-identifier">Data.ByteString</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html"><span class="hs-identifier">Data.ByteString</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
 </span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">vectorOf</span></span><span class="hs-special">)</span><span>
 </span><span id="line-9"></span><span>
 </span><span id="line-10"></span><span class="annot"><span class="hs-comment">-- * Generators</span></span><span>
@@ -13,67 +13,67 @@
 </span><span id="line-13"></span><span class="annot"><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeader"><span class="hs-identifier hs-type">genBlockHeader</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span>
 </span><span id="line-14"></span><span id="genBlockHeader"><span class="annot"><span class="annottext">genBlockHeader :: Gen BlockHeader
 </span><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeader"><span class="hs-identifier hs-var hs-var">genBlockHeader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-15"></span><span>  </span><span id="local-6989586621679291205"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679291205"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><span id="line-15"></span><span>  </span><span id="local-6989586621679283375"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679283375"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; SlotNo) -&gt; Gen Word64 -&gt; Gen SlotNo
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen Word64
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen Word64
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
 </span><span id="line-16"></span><span>  </span><span class="annot"><span class="annottext">SlotNo -&gt; Gen BlockHeader
 </span><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeaderAt"><span class="hs-identifier hs-var">genBlockHeaderAt</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679291205"><span class="hs-identifier hs-var">slotNo</span></a></span><span>
+</span><a href="#local-6989586621679283375"><span class="hs-identifier hs-var">slotNo</span></a></span><span>
 </span><span id="line-17"></span><span>
 </span><span id="line-18"></span><span class="hs-comment">-- | Generate a random block header with completely random hash, but at a</span><span>
 </span><span id="line-19"></span><span class="hs-comment">-- certain slot.</span><span>
 </span><span id="line-20"></span><span class="annot"><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeaderAt"><span class="hs-identifier hs-type">genBlockHeaderAt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span>
 </span><span id="line-21"></span><span id="genBlockHeaderAt"><span class="annot"><span class="annottext">genBlockHeaderAt :: SlotNo -&gt; Gen BlockHeader
-</span><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeaderAt"><span class="hs-identifier hs-var hs-var">genBlockHeaderAt</span></a></span></span><span> </span><span id="local-6989586621679291210"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679291210"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-22"></span><span>  </span><span id="local-6989586621679291211"><span class="annot"><span class="annottext">Hash BlockHeader
-</span><a href="#local-6989586621679291211"><span class="hs-identifier hs-var">headerHash</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (Hash BlockHeader)
+</span><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeaderAt"><span class="hs-identifier hs-var hs-var">genBlockHeaderAt</span></a></span></span><span> </span><span id="local-6989586621679283380"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679283380"><span class="hs-identifier hs-var">slotNo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-22"></span><span>  </span><span id="local-6989586621679283381"><span class="annot"><span class="annottext">Hash BlockHeader
+</span><a href="#local-6989586621679283381"><span class="hs-identifier hs-var">headerHash</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (Hash BlockHeader)
 </span><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeaderHash"><span class="hs-identifier hs-var">genBlockHeaderHash</span></a></span><span>
-</span><span id="line-23"></span><span>  </span><span id="local-6989586621679291213"><span class="annot"><span class="annottext">BlockNo
-</span><a href="#local-6989586621679291213"><span class="hs-identifier hs-var">blockNo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; BlockNo
+</span><span id="line-23"></span><span>  </span><span id="local-6989586621679283383"><span class="annot"><span class="annottext">BlockNo
+</span><a href="#local-6989586621679283383"><span class="hs-identifier hs-var">blockNo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; BlockNo
 </span><span class="hs-identifier hs-var">BlockNo</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; BlockNo) -&gt; Gen Word64 -&gt; Gen BlockNo
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen Word64
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen Word64
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
 </span><span id="line-24"></span><span>  </span><span class="annot"><span class="annottext">BlockHeader -&gt; Gen BlockHeader
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; Gen BlockHeader) -&gt; BlockHeader -&gt; Gen BlockHeader
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; Gen BlockHeader) -&gt; BlockHeader -&gt; Gen BlockHeader
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; Hash BlockHeader -&gt; BlockNo -&gt; BlockHeader
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; Hash BlockHeader -&gt; BlockNo -&gt; BlockHeader
 </span><span class="hs-identifier hs-var">BlockHeader</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679291210"><span class="hs-identifier hs-var">slotNo</span></a></span><span> </span><span class="annot"><span class="annottext">Hash BlockHeader
-</span><a href="#local-6989586621679291211"><span class="hs-identifier hs-var">headerHash</span></a></span><span> </span><span class="annot"><span class="annottext">BlockNo
-</span><a href="#local-6989586621679291213"><span class="hs-identifier hs-var">blockNo</span></a></span><span>
+</span><a href="#local-6989586621679283380"><span class="hs-identifier hs-var">slotNo</span></a></span><span> </span><span class="annot"><span class="annottext">Hash BlockHeader
+</span><a href="#local-6989586621679283381"><span class="hs-identifier hs-var">headerHash</span></a></span><span> </span><span class="annot"><span class="annottext">BlockNo
+</span><a href="#local-6989586621679283383"><span class="hs-identifier hs-var">blockNo</span></a></span><span>
 </span><span id="line-25"></span><span>
 </span><span id="line-26"></span><span class="annot"><span class="hs-comment">-- | Generate a random block header hash.</span></span><span>
 </span><span id="line-27"></span><span class="annot"><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeaderHash"><span class="hs-identifier hs-type">genBlockHeaderHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span class="hs-special">)</span><span>
 </span><span id="line-28"></span><span id="genBlockHeaderHash"><span class="annot"><span class="annottext">genBlockHeaderHash :: Gen (Hash BlockHeader)
 </span><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeaderHash"><span class="hs-identifier hs-var hs-var">genBlockHeaderHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-29"></span><span>  </span><span class="annot"><span class="annottext">ByteString -&gt; Hash BlockHeader
-</span><a href="#local-6989586621679291216"><span class="hs-identifier hs-var">unsafeBlockHeaderHashFromBytes</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Hash BlockHeader)
+</span><a href="#local-6989586621679283386"><span class="hs-identifier hs-var">unsafeBlockHeaderHashFromBytes</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Hash BlockHeader)
 -&gt; ([Word8] -&gt; ByteString) -&gt; [Word8] -&gt; Hash BlockHeader
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">[Word8] -&gt; ByteString
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#pack"><span class="hs-identifier hs-var">BS.pack</span></a></span><span> </span><span class="annot"><span class="annottext">([Word8] -&gt; Hash BlockHeader)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">[Word8] -&gt; ByteString
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#pack"><span class="hs-identifier hs-var">BS.pack</span></a></span><span> </span><span class="annot"><span class="annottext">([Word8] -&gt; Hash BlockHeader)
 -&gt; Gen [Word8] -&gt; Gen (Hash BlockHeader)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Gen Word8 -&gt; Gen [Word8]
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Gen Word8 -&gt; Gen [Word8]
 forall a. Int -&gt; Gen a -&gt; Gen [a]
 </span><span class="hs-identifier hs-var">vectorOf</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">32</span></span><span> </span><span class="annot"><span class="annottext">Gen Word8
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
 </span><span id="line-30"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-31"></span><span>  </span><span class="annot"><a href="#local-6989586621679291216"><span class="hs-identifier hs-type">unsafeBlockHeaderHashFromBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span>
-</span><span id="line-32"></span><span>  </span><span id="local-6989586621679291216"><span class="annot"><span class="annottext">unsafeBlockHeaderHashFromBytes :: ByteString -&gt; Hash BlockHeader
-</span><a href="#local-6989586621679291216"><span class="hs-identifier hs-var hs-var">unsafeBlockHeaderHashFromBytes</span></a></span></span><span> </span><span id="local-6989586621679291219"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679291219"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><a href="#local-6989586621679283386"><span class="hs-identifier hs-type">unsafeBlockHeaderHashFromBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span>
+</span><span id="line-32"></span><span>  </span><span id="local-6989586621679283386"><span class="annot"><span class="annottext">unsafeBlockHeaderHashFromBytes :: ByteString -&gt; Hash BlockHeader
+</span><a href="#local-6989586621679283386"><span class="hs-identifier hs-var hs-var">unsafeBlockHeaderHashFromBytes</span></a></span></span><span> </span><span id="local-6989586621679283389"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679283389"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-33"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">AsType (Hash BlockHeader)
 -&gt; ByteString -&gt; Either SerialiseAsRawBytesError (Hash BlockHeader)
 forall a.
@@ -83,41 +83,41 @@ AsType a -&gt; ByteString -&gt; Either SerialiseAsRawBytesError a
 forall t. HasTypeProxy t =&gt; Proxy t -&gt; AsType t
 </span><span class="hs-identifier hs-var">proxyToAsType</span></span><span> </span><span class="annot"><span class="annottext">Proxy (Hash BlockHeader)
 forall {k} (t :: k). Proxy t
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Proxy.html#Proxy"><span class="hs-identifier hs-var">Proxy</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679291219"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-34"></span><span>      </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679291223"><span class="annot"><span class="annottext">SerialiseAsRawBytesError
-</span><a href="#local-6989586621679291223"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Proxy.html#Proxy"><span class="hs-identifier hs-var">Proxy</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679283389"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-34"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679283393"><span class="annot"><span class="annottext">SerialiseAsRawBytesError
+</span><a href="#local-6989586621679283393"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-35"></span><span>        </span><span class="annot"><span class="annottext">[Char] -&gt; Hash BlockHeader
 forall a. HasCallStack =&gt; [Char] -&gt; a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Err.html#error"><span class="hs-identifier hs-var">error</span></a></span><span> </span><span class="annot"><span class="annottext">([Char] -&gt; Hash BlockHeader) -&gt; [Char] -&gt; Hash BlockHeader
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Err.html#error"><span class="hs-identifier hs-var">error</span></a></span><span> </span><span class="annot"><span class="annottext">([Char] -&gt; Hash BlockHeader) -&gt; [Char] -&gt; Hash BlockHeader
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-36"></span><span>          </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;unsafeBlockHeaderHashFromBytes: failed on bytes &quot;</span></span><span>
 </span><span id="line-37"></span><span>            </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; [Char]
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; [Char]
 forall a. Show a =&gt; a -&gt; [Char]
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679291219"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679283389"><span class="hs-identifier hs-var">bytes</span></a></span><span>
 </span><span id="line-38"></span><span>            </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot; with error &quot;</span></span><span>
 </span><span id="line-39"></span><span>            </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError -&gt; [Char]
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError -&gt; [Char]
 forall a. Show a =&gt; a -&gt; [Char]
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError
-</span><a href="#local-6989586621679291223"><span class="hs-identifier hs-var">e</span></a></span><span>
-</span><span id="line-40"></span><span>      </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679291226"><span class="annot"><span class="annottext">Hash BlockHeader
-</span><a href="#local-6989586621679291226"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Hash BlockHeader
-</span><a href="#local-6989586621679291226"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError
+</span><a href="#local-6989586621679283393"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-40"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679283396"><span class="annot"><span class="annottext">Hash BlockHeader
+</span><a href="#local-6989586621679283396"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Hash BlockHeader
+</span><a href="#local-6989586621679283396"><span class="hs-identifier hs-var">h</span></a></span><span>
 </span><span id="line-41"></span><span>
 </span><span id="line-42"></span><span class="annot"><span class="hs-comment">-- * Orphans</span></span><span>
 </span><span id="line-43"></span><span>
-</span><span id="line-44"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679291229"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-45"></span><span>  </span><span id="local-6989586621679291233"><span class="annot"><span class="annottext">arbitrary :: Gen BlockHeader
+</span><span id="line-44"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679283399"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-45"></span><span>  </span><span id="local-6989586621679283403"><span class="annot"><span class="annottext">arbitrary :: Gen BlockHeader
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen BlockHeader
 </span><a href="Hydra.Cardano.Api.BlockHeader.html#genBlockHeader"><span class="hs-identifier hs-var">genBlockHeader</span></a></span><span>
 </span><span id="line-46"></span></pre></body></html>

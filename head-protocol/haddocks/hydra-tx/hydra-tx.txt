@@ -3,10 +3,8 @@
 
 
 -- | Hydra transaction library
---   
---   Hydra transaction library
 @package hydra-tx
-@version 0.22.4
+@version 1.1.0
 
 
 -- | Utilities to building transactions on top of the cardano-api.
@@ -281,6 +279,7 @@ generateSigningKey :: ByteString -> SigningKey HydraKey
 -- | Verify a given 'Signature a' and value <tt>a</tt> using provided
 --   <a>VerificationKey</a>.
 verify :: SignableRepresentation a => VerificationKey HydraKey -> Signature a -> a -> Bool
+deserialiseFromRawBytesBase16 :: SerialiseAsRawBytes a => ByteString -> Either String (UsingRawBytesHex a)
 
 -- | Like aggregate, but use order of given list of keys instead.
 --   FIXME(AB): This function exists solely because the order of signatures
@@ -295,23 +294,23 @@ aggregateInOrder :: Ord k => Map k (Signature a) -> [k] -> MultiSignature a
 --   Note that order of keys is relevant and that length of signature and
 --   multisignature list needs to be the same.
 verifyMultiSignature :: SignableRepresentation a => [VerificationKey HydraKey] -> MultiSignature a -> a -> Verified
-instance GHC.Show.Show (Cardano.Api.Internal.Hash.Hash Hydra.Tx.Crypto.HydraKey)
-instance GHC.Classes.Eq (Cardano.Api.Internal.Hash.Hash Hydra.Tx.Crypto.HydraKey)
-instance GHC.Classes.Ord (Cardano.Api.Internal.Hash.Hash Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Internal.Serialise.Cbor.SerialiseAsCBOR (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Binary.FromCBOR.FromCBOR (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Data.String.IsString (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance GHC.Show.Show (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance (TypeError ...) => GHC.Classes.Ord (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance GHC.Classes.Eq (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Internal.Serialise.Cbor.SerialiseAsCBOR (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Binary.FromCBOR.FromCBOR (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Data.String.IsString (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance GHC.Show.Show (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance (TypeError ...) => GHC.Classes.Ord (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance GHC.Classes.Eq (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance GHC.Show.Show (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
+instance GHC.Classes.Eq (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
+instance GHC.Classes.Ord (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.Cbor.SerialiseAsCBOR (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Binary.FromCBOR.FromCBOR (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Data.String.IsString (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance GHC.Show.Show (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance (TypeError ...) => GHC.Classes.Ord (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance GHC.Classes.Eq (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.Cbor.SerialiseAsCBOR (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Binary.FromCBOR.FromCBOR (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Data.String.IsString (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance GHC.Show.Show (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance (TypeError ...) => GHC.Classes.Ord (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance GHC.Classes.Eq (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
 instance forall k (a :: k). (Data.Typeable.Internal.Typeable a, Data.Typeable.Internal.Typeable k) => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Crypto.Signature a)
 instance forall k (a :: k). (Data.Typeable.Internal.Typeable a, Data.Typeable.Internal.Typeable k) => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Crypto.Signature a)
 instance forall k (a :: k). GHC.Classes.Eq (Hydra.Tx.Crypto.Signature a)
@@ -323,6 +322,9 @@ instance forall k (a :: k). GHC.Classes.Eq (Hydra.Tx.Crypto.MultiSignature a)
 instance GHC.Generics.Generic Hydra.Tx.Crypto.Verified
 instance GHC.Show.Show Hydra.Tx.Crypto.Verified
 instance GHC.Classes.Eq Hydra.Tx.Crypto.Verified
+instance Data.String.IsString (Cardano.Api.Hash.Hash Cardano.Api.Block.BlockHeader)
+instance Data.String.IsString Cardano.Api.Tx.Internal.TxIn.TxId
+instance Data.String.IsString (Cardano.Api.Hash.Hash Cardano.Api.Plutus.Internal.ScriptData.ScriptData)
 instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Crypto.MultiSignature a)
 instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Crypto.MultiSignature a)
 instance (Test.QuickCheck.Arbitrary.Arbitrary a, Cardano.Crypto.Util.SignableRepresentation a) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.Crypto.MultiSignature a)
@@ -331,19 +333,20 @@ instance forall k (a :: k). Data.Hashable.Class.Hashable (Hydra.Tx.Crypto.Signat
 instance (Test.QuickCheck.Arbitrary.Arbitrary a, Cardano.Crypto.Util.SignableRepresentation a) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.Crypto.Signature a)
 instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Crypto.Signature a)
 instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Crypto.Signature a)
-instance Cardano.Api.Internal.HasTypeProxy.HasTypeProxy Hydra.Tx.Crypto.HydraKey
-instance Cardano.Api.Internal.SerialiseRaw.SerialiseAsRawBytes (Cardano.Api.Internal.Hash.Hash Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Internal.Keys.Class.Key Hydra.Tx.Crypto.HydraKey
-instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Internal.SerialiseTextEnvelope.HasTextEnvelope (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Internal.SerialiseRaw.SerialiseAsRawBytes (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Internal.SerialiseRaw.SerialiseAsRawBytes (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Data.Aeson.Types.FromJSON.FromJSON (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Internal.SerialiseTextEnvelope.HasTextEnvelope (Cardano.Api.Internal.Keys.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Data.Aeson.Types.FromJSON.FromJSON (Cardano.Api.Internal.Keys.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.Crypto.HydraKey
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Key.Internal.Class.Key Hydra.Tx.Crypto.HydraKey
+instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.TextEnvelope.Internal.HasTextEnvelope (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Data.Aeson.Types.FromJSON.FromJSON (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.TextEnvelope.Internal.HasTextEnvelope (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Data.Aeson.Types.FromJSON.FromJSON (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes a => Data.String.IsString (Cardano.Api.Serialise.SerialiseUsing.UsingRawBytesHex a)
 
 module Hydra.Tx.HeadId
 
@@ -379,11 +382,11 @@ instance GHC.Classes.Ord Hydra.Tx.HeadId.HeadSeed
 instance GHC.Classes.Eq Hydra.Tx.HeadId.HeadSeed
 instance GHC.Show.Show Hydra.Tx.HeadId.HeadSeed
 instance Data.String.IsString Hydra.Tx.HeadId.HeadSeed
-instance Cardano.Api.Internal.SerialiseRaw.SerialiseAsRawBytes Hydra.Tx.HeadId.HeadSeed
-instance Cardano.Api.Internal.HasTypeProxy.HasTypeProxy Hydra.Tx.HeadId.HeadSeed
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.HeadId.HeadSeed
+instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.HeadId.HeadSeed
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.HeadId.HeadSeed
-instance Cardano.Api.Internal.SerialiseRaw.SerialiseAsRawBytes Hydra.Tx.HeadId.HeadId
-instance Cardano.Api.Internal.HasTypeProxy.HasTypeProxy Hydra.Tx.HeadId.HeadId
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.HeadId.HeadId
+instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.HeadId.HeadId
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.HeadId.HeadId
 
 module Hydra.Tx.IsTx
@@ -426,18 +429,21 @@ withoutUTxO :: IsTx tx => UTxOType tx -> UTxOType tx -> UTxOType tx
 type ArbitraryIsTx tx = (IsTx tx, Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), Arbitrary (TxOutType tx))
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Cardano.Api.Tx
 instance Hydra.Tx.IsTx.IsTx Hydra.Cardano.Api.Tx
-instance Cardano.Api.Internal.Eon.ShelleyBasedEra.IsShelleyBasedEra era => Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Internal.Tx.Sign.Tx era)
-instance Cardano.Api.Internal.Eon.ShelleyBasedEra.IsShelleyBasedEra era => Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Internal.Tx.Sign.Tx era)
+instance Cardano.Api.Era.Internal.Eon.ShelleyBasedEra.IsShelleyBasedEra era => Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Tx.Internal.Sign.Tx era)
+instance Cardano.Api.Era.Internal.Eon.ShelleyBasedEra.IsShelleyBasedEra era => Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Tx.Internal.Sign.Tx era)
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Cardano.Api.Tx
-instance Cardano.Binary.ToCBOR.ToCBOR Cardano.Api.UTxO.UTxO
-instance Cardano.Binary.FromCBOR.FromCBOR Cardano.Api.UTxO.UTxO
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Cardano.Api.UTxO
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Cardano.Api.UTxO
 
 module Hydra.Tx.BlueprintTx
 
--- | _Blueprint/Draft_ transaction paired with the <tt>UTxO</tt> which
---   resolves it's inputs. The transaction inputs are committed to a
---   <tt>Head</tt> and the <a>$sel:lookupUTxO:CommitBlueprintTx</a> is
---   expected to contain these inputs.
+-- | _Blueprint/Draft_ transaction paired with the related <tt>UTxO</tt>
+--   and used for resolving the inputs and committing/depositing into a
+--   Head. Deposit behaviour: - In case blueprint transaction contains
+--   outputs then these outputs will be taken into account. - If the
+--   blueprint tx contains only inputs then the whole provided UTxO will
+--   get deposited into a Head. Commit behaviour: - Only inputs would be
+--   considered ignoring any outputs and complete UTxO gets committed.
 data CommitBlueprintTx tx
 CommitBlueprintTx :: UTxOType tx -> tx -> CommitBlueprintTx tx
 [$sel:lookupUTxO:CommitBlueprintTx] :: CommitBlueprintTx tx -> UTxOType tx
@@ -462,8 +468,8 @@ instance GHC.Generics.Generic Hydra.Tx.OnChainId.OnChainId
 instance GHC.Classes.Ord Hydra.Tx.OnChainId.OnChainId
 instance GHC.Classes.Eq Hydra.Tx.OnChainId.OnChainId
 instance GHC.Show.Show Hydra.Tx.OnChainId.OnChainId
-instance Cardano.Api.Internal.SerialiseRaw.SerialiseAsRawBytes Hydra.Tx.OnChainId.OnChainId
-instance Cardano.Api.Internal.HasTypeProxy.HasTypeProxy Hydra.Tx.OnChainId.OnChainId
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.OnChainId.OnChainId
+instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.OnChainId.OnChainId
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.OnChainId.OnChainId
 
 
@@ -784,7 +790,7 @@ instance GHC.Show.Show Hydra.Tx.Init.NotAnInitReason
 module Hydra.Tx.Increment
 
 -- | Construct a _increment_ transaction which takes as input some
---   <a>UTxO'</a> locked at v_deposit and make it available on L2.
+--   <a>UTxO</a> locked at v_deposit and make it available on L2.
 incrementTx :: ScriptRegistry -> VerificationKey PaymentKey -> HeadId -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Snapshot Tx -> UTxO -> SlotNo -> MultiSignature (Snapshot Tx) -> Tx
 data IncrementObservation
 IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> IncrementObservation
@@ -821,87 +827,10 @@ instance GHC.Classes.Eq Hydra.Tx.Fanout.FanoutObservation
 module Hydra.Tx.Deposit
 
 -- | Builds a deposit transaction to lock funds into the v_deposit script.
-depositTx :: NetworkId -> HeadId -> CommitBlueprintTx Tx -> SlotNo -> UTCTime -> Maybe Coin -> Map PolicyId PolicyAssets -> Tx
-
--- | Find the difference between the first argument UTxO's non ADA assets
---   in and the second UTxO argument. Matching asset quantities will be
---   subtracted if they are found.
-diffExistingAssets :: UTxO -> UTxO -> UTxO
-
--- | Diff the first argument map of assets in case any asset exists in the
---   second argument.
-diffAssets :: Map PolicyId PolicyAssets -> Map PolicyId PolicyAssets -> [(PolicyId, PolicyAssets)]
-
--- | Merges the two <a>UTxO'</a> favoring data coming from the first
---   argument <a>UTxO'</a>. In case the same <a>TxIn</a> was found in the
---   first <a>UTxO'</a> - second <a>UTxO'</a> value will be appended to the
---   input. NOTE: We need this since mappend on <a>UTxO'</a> is happy to
---   accept the first <a>Value</a> it encounters in case <a>TxId</a>/s are
---   the same.
-mergeUTxO :: UTxO -> UTxO -> UTxO
-pickTokensToDeposit :: UTxO -> Map PolicyId PolicyAssets -> UTxO
-mkTxOutValueNotKeepingLovelace :: TxOut ctx -> Value -> TxOut ctx
+depositTx :: NetworkId -> PParams LedgerEra -> HeadId -> CommitBlueprintTx Tx -> SlotNo -> UTCTime -> Maybe AddressInEra -> Tx
 mkDepositOutput :: NetworkId -> HeadId -> UTxO -> UTCTime -> TxOut ctx
+constructDepositUTxO :: TxId -> [TxOut CtxTx] -> UTxO
 depositAddress :: NetworkId -> AddressInEra
-
--- | Splits the specified tokens into those that are available in
---   sufficient quantities in the user's UTxO and those that are not
---   (either because the policy is missing or the asset quantities are
---   insufficient).
---   
---   This function takes a user's UTxO and a map of specified policy IDs to
---   their desired assets and quantities. It checks the total value in the
---   UTxO, converts it to a policy-assets map, and then partitions the
---   specified tokens into "ok" (available) and "invalid" (unavailable or
---   insufficient).
---   
---   If no tokens are specified, it returns two empty maps. Otherwise, it
---   returns the partitioned maps, ensuring that if there are no invalid
---   tokens, the second map is empty.
-splitTokens :: UTxO -> Map PolicyId PolicyAssets -> (Map PolicyId PolicyAssets, Map PolicyId PolicyAssets)
-
--- | Caps a UTxO set to a specified target amount of Lovelace, splitting
---   outputs if necessary.
---   
---   Given a <a>UTxO'</a> set and a target <a>Coin</a> value (in Lovelace),
---   this function selects unspent transaction outputs (UTxOs) to form a
---   subset that sums as close as possible to the target value without
---   exceeding it. If an output needs to be split to meet the target
---   exactly, it creates two new outputs: one contributing to the target
---   and another for the remaining value. The function ensures that the
---   total Lovelace in the selected outputs does not exceed the target.
---   
---   <h3>Algorithm</h3>
---   
---   <ol>
---   <li>**Base Cases**: - If the target is 0, return an empty <a>UTxO'</a>
---   as the selected set and the original <a>UTxO'</a> as leftovers. - If
---   the input <a>UTxO'</a> is empty, return two empty <a>UTxO'</a>
---   sets.</li>
---   <li>**Main Logic**: - Sort the UTxO entries by their Lovelace value
---   (ascending) to prioritize smaller outputs for efficiency. - Use a
---   recursive helper function <tt>go</tt> to iterate through the sorted
---   UTxO list, accumulating outputs until the target value is reached or
---   no suitable outputs remain. - For each output: - If adding the
---   output's Lovelace value does not exceed the target, include it fully
---   in the selected set and remove it from the leftovers. - If adding the
---   output would exceed the target, split the output into two parts: - One
---   part contributes exactly the remaining amount needed to reach the
---   target. - The other part holds the excess Lovelace. - Reuse
---   <a>TxIn</a> identifiers for the split outputs. - Continue processing
---   until the target is met or no outputs remain.</li>
---   <li>**Termination**: - The function stops when the accumulated
---   Lovelace equals the target or when no more outputs are available. -
---   Returns a pair of <a>UTxO'</a> sets: the selected outputs (summing to
---   at most the target) and the remaining outputs.</li>
---   </ol>
-capUTxO :: UTxO -> Coin -> (UTxO, UTxO)
-
--- | Helper to create a new TxOut with specified lovelace value
-updateTxOutAdaValue :: TxOut ctx -> Coin -> TxOut ctx
-
--- | Helper to create a new TxOut with specified <a>Value</a>
-updateTxOutValue :: TxOut ctx -> Value -> TxOut ctx
 data DepositObservation
 DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObservation
 [$sel:headId:DepositObservation] :: DepositObservation -> HeadId
@@ -914,9 +843,9 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 --   deadline and deposited utxo in the datum.
 --   
 --   This includes checking whether - the first output is a deposit output
---   - all inputs of deposited utxo are actually spent, - the deposit
---   script output actually contains the deposited value, - an upper
---   validity bound has been set (used as creation slot).
+--   - all of deposited value is contained in the deposit tx output, - the
+--   deposit script output actually contains the deposited value, - an
+--   upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Deposit.DepositObservation
@@ -928,7 +857,7 @@ instance GHC.Show.Show Hydra.Tx.Deposit.DepositObservation
 module Hydra.Tx.Decrement
 
 -- | Construct a _decrement_ transaction which takes as input some
---   <a>UTxO'</a> present in the L2 ledger state and makes it available on
+--   <a>UTxO</a> present in the L2 ledger state and makes it available on
 --   L1.
 decrementTx :: ScriptRegistry -> VerificationKey PaymentKey -> HeadId -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Snapshot Tx -> MultiSignature (Snapshot Tx) -> Tx
 data DecrementObservation
@@ -1001,8 +930,8 @@ instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.CollectCom.CollectComObservatio
 instance GHC.Generics.Generic Hydra.Tx.CollectCom.CollectComObservation
 instance GHC.Classes.Eq Hydra.Tx.CollectCom.CollectComObservation
 instance GHC.Show.Show Hydra.Tx.CollectCom.CollectComObservation
-instance Cardano.Api.Internal.HasTypeProxy.HasTypeProxy Hydra.Tx.CollectCom.UTxOHash
-instance Cardano.Api.Internal.SerialiseRaw.SerialiseAsRawBytes Hydra.Tx.CollectCom.UTxOHash
+instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.CollectCom.UTxOHash
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.CollectCom.UTxOHash
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.CollectCom.UTxOHash
 
 module Hydra.Tx.Close
@@ -1178,9 +1107,9 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 --   deadline and deposited utxo in the datum.
 --   
 --   This includes checking whether - the first output is a deposit output
---   - all inputs of deposited utxo are actually spent, - the deposit
---   script output actually contains the deposited value, - an upper
---   validity bound has been set (used as creation slot).
+--   - all of deposited value is contained in the deposit tx output, - the
+--   deposit script output actually contains the deposited value, - an
+--   upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 data IncrementObservation
 IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> IncrementObservation

@@ -2,12 +2,10 @@
 -- See Hoogle, http://www.haskell.org/hoogle/
 
 
--- | Integration test suite using a local cluster of cardano and hydra nodes
---   
---   Integration test suite using a local cluster of cardano and hydra
+-- | Integration test suite using a local cluster of cardano and hydra
 --   nodes
 @package hydra-cluster
-@version 0.22.4
+@version 1.1.0
 
 
 -- | A cardano-node client used in end-to-end tests and benchmarks.
@@ -167,16 +165,17 @@ data FaucetLog
 TraceResourceExhaustedHandled :: Text -> FaucetLog
 ReturnedFunds :: Coin -> FaucetLog
 [$sel:returnAmount:TraceResourceExhaustedHandled] :: FaucetLog -> Coin
+delayBF :: (MonadDelay m, ChainBackend backend) => backend -> m ()
 seedFromFaucet :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> IO UTxO
 
 -- | Create a specially marked "seed" UTXO containing requested
 --   <a>Value</a> by redeeming funds available to the well-known faucet.
 seedFromFaucetWithMinting :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> Maybe PlutusScript -> IO UTxO
 findFaucetUTxO :: ChainBackend backend => NetworkId -> backend -> Coin -> IO UTxO
-seedFromFaucetBlockfrost :: VerificationKey PaymentKey -> Coin -> BlockfrostClientT IO UTxO
+seedFromFaucetBlockfrost :: BlockfrostOptions -> VerificationKey PaymentKey -> Coin -> BlockfrostClientT IO UTxO
 
 -- | Like <a>seedFromFaucet</a>, but without returning the seeded
---   <a>UTxO'</a>.
+--   <a>UTxO</a>.
 seedFromFaucet_ :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Coin -> Tracer IO FaucetLog -> IO ()
 
 -- | Return the remaining funds to the faucet
@@ -185,7 +184,7 @@ returnFundsToFaucet' :: ChainBackend backend => Tracer IO FaucetLog -> backend -
 createOutputAtAddress :: ChainBackend backend => NetworkId -> backend -> AddressInEra -> TxOutDatum CtxTx -> Value -> IO (TxIn, TxOut CtxUTxO)
 
 -- | Try to submit tx and retry when some caught exception/s take place.
-retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m a -> m a
+retryOnExceptions :: (MonadCatch m, MonadDelay m, ChainBackend backend) => Tracer m FaucetLog -> backend -> m a -> m a
 
 -- | Publish current Hydra scripts as scripts outputs for later referencing
 --   them.
@@ -259,8 +258,12 @@ MsgCLIRetryResult :: Text -> Int -> NodeLog
 MsgNodeStarting :: FilePath -> NodeLog
 [$sel:stateDirectory:MsgNodeCmdSpec] :: NodeLog -> FilePath
 MsgSocketIsReady :: SocketPath -> NodeLog
-MsgSynchronizing :: Centi -> NodeLog
+MsgSynchronizing :: Centi -> NominalDiffTime -> NominalDiffTime -> NominalDiffTime -> NominalDiffTime -> NodeLog
 [$sel:percentDone:MsgNodeCmdSpec] :: NodeLog -> Centi
+[$sel:timeDifference:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
+[$sel:blockTime:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
+[$sel:tipTime:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
+[$sel:targetTime:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
 MsgQueryGenesisParametersFailed :: Text -> NodeLog
 [$sel:err:MsgNodeCmdSpec] :: NodeLog -> Text
 type Port = Int
@@ -409,6 +412,7 @@ waitNext :: HasCallStack => HydraClient -> IO Value
 
 -- | Create an output as expected by <a>waitFor</a> and <a>waitForAll</a>.
 output :: Text -> [Pair] -> Value
+setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 
 -- | Wait some time for a single API server output from each of given
 --   nodes. This function waits for <tt>delay</tt> seconds for message
@@ -434,14 +438,8 @@ waitForAllMatch :: (Eq a, Show a, HasCallStack) => NominalDiffTime -> [HydraClie
 --   several messages to be waited for and received in <i>any order</i>.
 waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> [Value] -> IO ()
 
--- | Helper to make it easy to obtain a commit tx using some wallet utxo.
---   Create a commit tx using the hydra-node for later submission.
-requestCommitTx :: HydraClient -> UTxO -> IO Tx
-
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo
---   optional amount of lovelace and optional map of assets. Create a
---   commit tx using the hydra-node for later submission.
-requestCommitTx' :: HydraClient -> UTxO -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> IO Tx
+requestCommitTx :: HydraClient -> UTxO -> IO Tx
 
 -- | Submit a decommit transaction to the hydra-node.
 postDecommit :: HydraClient -> Tx -> IO ()
@@ -451,7 +449,7 @@ getProtocolParameters :: HydraClient -> IO (PParams LedgerEra)
 
 -- | Get the latest snapshot UTxO from the hydra-node. NOTE: While we
 --   usually avoid parsing responses using the same data types as the
---   system under test, this parses the response as a <a>UTxO'</a> type as
+--   system under test, this parses the response as a <a>UTxO</a> type as
 --   we often need to pick it apart.
 getSnapshotUTxO :: HydraClient -> IO UTxO
 
@@ -555,6 +553,8 @@ singlePartyUsesWithdrawZeroTrick :: ChainBackend backend => Tracer IO EndToEndLo
 --   languages.
 recomputeIntegrityHash :: (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) => PParams ppera -> [Language] -> Tx txera -> Tx txera
 singlePartyCommitsScriptBlueprint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+singlePartyDepositReferenceScript :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+singlePartyCommitsScriptToTheRightHead :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 persistenceCanLoadWithEmptyCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 
 -- | Single hydra-node where the commit is done from a raw transaction

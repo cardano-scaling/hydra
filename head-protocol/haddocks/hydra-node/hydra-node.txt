@@ -3,10 +3,8 @@
 
 
 -- | The Hydra node
---   
---   The Hydra node
 @package hydra-node
-@version 0.22.4
+@version 1.1.0
 
 module Hydra.API.ClientInput
 data ClientInput tx
@@ -262,7 +260,7 @@ rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> Chain
 
 -- | Handle to interface with the main chain network
 data Chain tx m
-Chain :: ChainStateType tx -> (MonadThrow m => PostChainTx tx -> m ()) -> (MonadThrow m => HeadId -> CommitBlueprintTx tx -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => tx -> m ()) -> Chain tx m
+Chain :: ChainStateType tx -> (MonadThrow m => PostChainTx tx -> m ()) -> (MonadThrow m => HeadId -> CommitBlueprintTx tx -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe AddressInEra -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => tx -> m ()) -> Chain tx m
 
 -- | Provide an initial chain state that may be evolved through
 --   <a>ChainEvent</a>.
@@ -285,7 +283,7 @@ Chain :: ChainStateType tx -> (MonadThrow m => PostChainTx tx -> m ()) -> (Monad
 -- | Create a deposit transaction using user provided utxos (zero or many)
 --   , _blueprint_ transaction which spends these outputs and a deadline
 --   for their inclusion into L2. Errors are handled at the call site.
-[$sel:draftDepositTx:Chain] :: Chain tx m -> MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> m (Either (PostTxError tx) tx)
+[$sel:draftDepositTx:Chain] :: Chain tx m -> MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe AddressInEra -> m (Either (PostTxError tx) tx)
 
 -- | Submit a cardano transaction.
 --   
@@ -358,161 +356,6 @@ instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx
 instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.OnChainTx tx)
 instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.PostChainTx tx)
 
-module Hydra.Chain.Blockfrost.Client
-data BlockfrostException
-TimeoutOnUTxO :: TxId -> BlockfrostException
-FailedToDecodeAddress :: Text -> BlockfrostException
-ByronAddressNotSupported :: BlockfrostException
-FailedUTxOForHash :: Text -> BlockfrostException
-FailedEraHistory :: BlockfrostException
-AssetNameMissing :: BlockfrostException
-DeserialiseError :: Text -> BlockfrostException
-DecodeError :: Text -> BlockfrostException
-BlockfrostAPIError :: Text -> BlockfrostException
-newtype APIBlockfrostError
-BlockfrostError :: BlockfrostException -> APIBlockfrostError
-data BlockfrostConversion
-BlockfrostConversion :: NonNegativeInterval -> UnitInterval -> UnitInterval -> NonNegativeInterval -> NonNegativeInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> Quantity -> Quantity -> Quantity -> Coin -> Integer -> Quantity -> NonNegativeInterval -> BlockfrostConversion
-[$sel:a0:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
-[$sel:rho:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:tau:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:priceMemory:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
-[$sel:priceSteps:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
-[$sel:pvtMotionNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:pvtCommitteeNormal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:pvtCommitteeNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:pvtHardForkInitiation:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:pvtPPSecurityGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtMotionNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtCommitteeNormal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtCommitteeNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtUpdateToConstitution:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtHardForkInitiation:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtPPNetworkGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtPPEconomicGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtPPTechnicalGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtPPGovGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:dvtTreasuryWithdrawal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
-[$sel:committeeMinSize:BlockfrostConversion] :: BlockfrostConversion -> Quantity
-[$sel:committeeMaxTermLength:BlockfrostConversion] :: BlockfrostConversion -> Quantity
-[$sel:govActionLifetime:BlockfrostConversion] :: BlockfrostConversion -> Quantity
-[$sel:govActionDeposit:BlockfrostConversion] :: BlockfrostConversion -> Coin
-[$sel:drepDeposit:BlockfrostConversion] :: BlockfrostConversion -> Integer
-[$sel:drepActivity:BlockfrostConversion] :: BlockfrostConversion -> Quantity
-[$sel:minFeeRefScriptCostPerByte:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
-
--- | Query the Blockfrost API for <a>Genesis</a>
-queryGenesisParameters :: BlockfrostClientT IO Genesis
-
--- | Query for <a>TxIn</a>s in the search for outputs containing all the
---   reference scripts of the <a>ScriptRegistry</a>.
---   
---   This is implemented by repeated querying until we have all necessary
---   reference scripts as we do only know the transaction id, not the
---   indices.
---   
---   Can throw at least <tt>NewScriptRegistryException</tt> on failure.
-queryScriptRegistry :: [TxId] -> BlockfrostClientT IO ScriptRegistry
-queryEraHistory :: BlockfrostClientT IO EraHistory
-queryProtocolParameters :: MonadIO m => BlockfrostClientT m (PParams LedgerEra)
-queryStakePools :: BlockfrostClientT IO (Set PoolId)
-querySystemStart :: BlockfrostClientT IO SystemStart
-runBlockfrostM :: (MonadIO m, MonadThrow m) => Project -> BlockfrostClientT IO a -> m a
-toCardanoNetworkId :: Integer -> NetworkId
-
--- | Query the Blockfrost API to get the <a>UTxO'</a> for <a>TxIn</a> and
---   convert to cardano <a>UTxO'</a>. FIXME: make blockfrost wait times
---   configurable.
-queryUTxOByTxIn :: NetworkId -> [TxIn] -> BlockfrostClientT IO UTxO
-scriptTypeToPlutusVersion :: ScriptType -> Maybe Language
-toCardanoUTxO :: NetworkId -> TxIn -> Address -> Maybe ScriptHash -> Maybe DatumHash -> [Amount] -> Maybe InlineDatum -> BlockfrostClientT IO (UTxO' (TxOut ctx))
-toCardanoValue :: [Amount] -> BlockfrostClientT IO Value
-queryScript :: Text -> BlockfrostClientT IO (Maybe PlutusScript)
-toCardanoTxOut :: NetworkId -> Text -> Value -> Maybe Text -> Maybe Text -> Maybe PlutusScript -> BlockfrostClientT IO (TxOut ctx)
-toCardanoPoolId :: PoolId -> Hash StakePoolKey
-toCardanoTxIn :: Text -> Integer -> TxIn
-toCardanoAddress :: Text -> Maybe AddressInEra
-toCardanoPolicyIdAndAssetName :: Text -> BlockfrostClientT IO (PolicyId, AssetName)
-toCardanoGenesisParameters :: Genesis -> GenesisParameters ShelleyEra
-submitTransaction :: MonadIO m => Tx -> BlockfrostClientT m TxHash
-queryTimeout :: Int
-retryTimeout :: Int
-
--- | Query the Blockfrost API for address UTxO and convert to cardano
---   <a>UTxO'</a>. NOTE: We accept the address list here to be compatible
---   with cardano-api but in fact this is a single address query always.
-queryUTxO :: NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
-queryUTxOFor :: VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
-
--- | Query the Blockfrost API for <a>Genesis</a> and convert to cardano
---   <a>ChainPoint</a>.
-queryTip :: BlockfrostClientT IO ChainPoint
-awaitTransaction :: Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
-
--- | Await for specific UTxO at address - the one that is produced by the
---   given <a>TxId</a>.
-awaitUTxO :: NetworkId -> [Address ShelleyAddr] -> TxId -> Int -> BlockfrostClientT IO UTxO
-data () => Block
-Block :: POSIXTime -> Maybe Integer -> BlockHash -> Maybe Slot -> Maybe Epoch -> Maybe Integer -> Text -> Integer -> Integer -> Maybe Lovelaces -> Maybe Lovelaces -> Maybe Text -> Maybe Text -> Maybe Quantity -> Maybe BlockHash -> Maybe BlockHash -> Integer -> Block
-[$sel:_blockTime:Block] :: Block -> POSIXTime
-[$sel:_blockHeight:Block] :: Block -> Maybe Integer
-[$sel:_blockHash:Block] :: Block -> BlockHash
-[$sel:_blockSlot:Block] :: Block -> Maybe Slot
-[$sel:_blockEpoch:Block] :: Block -> Maybe Epoch
-[$sel:_blockEpochSlot:Block] :: Block -> Maybe Integer
-[$sel:_blockSlotLeader:Block] :: Block -> Text
-[$sel:_blockSize:Block] :: Block -> Integer
-[$sel:_blockTxCount:Block] :: Block -> Integer
-[$sel:_blockOutput:Block] :: Block -> Maybe Lovelaces
-[$sel:_blockFees:Block] :: Block -> Maybe Lovelaces
-[$sel:_blockBlockVrf:Block] :: Block -> Maybe Text
-[$sel:_blockOpCert:Block] :: Block -> Maybe Text
-[$sel:_blockOpCertCounter:Block] :: Block -> Maybe Quantity
-[$sel:_blockPreviousBlock:Block] :: Block -> Maybe BlockHash
-[$sel:_blockNextBlock:Block] :: Block -> Maybe BlockHash
-[$sel:_blockConfirmations:Block] :: Block -> Integer
-newtype () => Slot
-Slot :: Integer -> Slot
-newtype () => BlockHash
-BlockHash :: Text -> BlockHash
-data () => BlockfrostClientT (m :: Type -> Type) a
-data () => Genesis
-Genesis :: Rational -> Integer -> Lovelaces -> Integer -> Integer -> POSIXTime -> Integer -> Integer -> Integer -> Integer -> Genesis
-[$sel:_genesisActiveSlotsCoefficient:Genesis] :: Genesis -> Rational
-[$sel:_genesisUpdateQuorum:Genesis] :: Genesis -> Integer
-[$sel:_genesisMaxLovelaceSupply:Genesis] :: Genesis -> Lovelaces
-[$sel:_genesisNetworkMagic:Genesis] :: Genesis -> Integer
-[$sel:_genesisEpochLength:Genesis] :: Genesis -> Integer
-[$sel:_genesisSystemStart:Genesis] :: Genesis -> POSIXTime
-[$sel:_genesisSlotsPerKesPeriod:Genesis] :: Genesis -> Integer
-[$sel:_genesisSlotLength:Genesis] :: Genesis -> Integer
-[$sel:_genesisMaxKesEvolutions:Genesis] :: Genesis -> Integer
-[$sel:_genesisSecurityParam:Genesis] :: Genesis -> Integer
-data () => Project
-newtype () => TransactionCBOR
-TransactionCBOR :: Text -> TransactionCBOR
-[$sel:_transactionCBORCbor:TransactionCBOR] :: TransactionCBOR -> Text
-newtype () => TxHashCBOR
-TxHashCBOR :: (TxHash, TransactionCBOR) -> TxHashCBOR
-[$sel:getTxHashCBOR:TxHashCBOR] :: TxHashCBOR -> (TxHash, TransactionCBOR)
-
--- | <a>MonadError</a> analogue to the <a>try</a> function.
-tryError :: MonadError e m => m a -> m (Either e a)
-allPages :: Monad m => (Paged -> m [a]) -> m [a]
-def :: Default a => a
-getBlock :: MonadBlockfrost m => Either Integer BlockHash -> m Block
-getBlockTxsCBOR' :: MonadBlockfrost m => Either Integer BlockHash -> Paged -> SortOrder -> m [TxHashCBOR]
-getLedgerGenesis :: MonadBlockfrost m => m Genesis
-listPools :: MonadBlockfrost m => m [PoolId]
-projectFromFile :: FilePath -> IO Project
-runBlockfrost :: Project -> BlockfrostClientT IO a -> IO (Either BlockfrostError a)
-unBlockHash :: BlockHash -> Text
-unSlot :: Slot -> Integer
-instance GHC.Exception.Type.Exception Hydra.Chain.Blockfrost.Client.BlockfrostException
-instance GHC.Show.Show Hydra.Chain.Blockfrost.Client.BlockfrostException
-instance GHC.Exception.Type.Exception Hydra.Chain.Blockfrost.Client.APIBlockfrostError
-instance GHC.Show.Show Hydra.Chain.Blockfrost.Client.APIBlockfrostError
-
 
 -- | A basic cardano-node client that can talk to a local cardano-node.
 --   
@@ -528,6 +371,7 @@ QueryProtocolParamsEraNotSupported :: AnyCardanoEra -> QueryException
 QueryProtocolParamsEncodingFailureOnEra :: AnyCardanoEra -> Text -> QueryException
 QueryEraNotInCardanoModeFailure :: AnyCardanoEra -> QueryException
 QueryNotShelleyBasedEraException :: AnyCardanoEra -> QueryException
+QueryNotConwayEraOnwardsException :: AnyCardanoEra -> QueryException
 
 -- | Handle interface for abstract querying of a cardano node.
 data CardanoClient
@@ -548,7 +392,7 @@ submitTransaction :: NetworkId -> SocketPath -> Tx -> IO ()
 --   In principle, we can only encounter an <a>EraMismatch</a> at era
 --   boundaries, when we try to submit a "next era" transaction as a
 --   "current era" transaction, or vice-versa. Similarly,
---   <tt>TxValidationError</tt> shouldn't occur given that the transaction
+--   <a>TxValidationError</a> shouldn't occur given that the transaction
 --   was safely constructed through <tt>buildTransaction</tt>.
 data SubmitTransactionException
 SubmitEraMismatch :: EraMismatch -> SubmitTransactionException
@@ -599,13 +443,15 @@ queryGenesisParameters :: NetworkId -> SocketPath -> QueryPoint -> IO (GenesisPa
 --   
 --   Throws at least <a>QueryException</a> if query fails.
 queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> IO UTxO
-queryUTxOExpr :: ShelleyBasedEra era -> [Address ShelleyAddr] -> LocalStateQueryExpr b p QueryInMode r IO UTxO
+queryUTxOExpr :: ConwayEraOnwards era -> [Address ShelleyAddr] -> LocalStateQueryExpr b p QueryInMode r IO UTxO
 
 -- | Query UTxO for given tx inputs at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
 queryUTxOByTxIn :: NetworkId -> SocketPath -> QueryPoint -> [TxIn] -> IO UTxO
-assumeShelleyBasedEraOrThrow :: MonadThrow m => CardanoEra era -> m (ShelleyBasedEra era)
+queryForCurrentEraInEonExpr :: Eon eon => (AnyCardanoEra -> IO a) -> (forall era. eon era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
+queryForCurrentEraInShelleyBasedEraExpr :: (forall era. ShelleyBasedEra era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
+queryForCurrentEraInConwayEraOnwardsExpr :: Eon eon => (forall era. eon era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
 
 -- | Query the whole UTxO from node at given point. Useful for debugging,
 --   but should obviously not be used in production code.
@@ -704,16 +550,6 @@ EventStore :: EventSource e m -> EventSink e m -> (LogId -> e -> m ()) -> EventS
 newRotatedEventStore :: (HasEventId e, MonadUnliftIO m, MonadTime m, MonadLabelledSTM m) => RotationConfig -> s -> (s -> e -> s) -> (s -> EventId -> UTCTime -> e) -> EventStore e m -> m (EventStore e m)
 
 module Hydra.HeadLogic.State
-type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
-data NodeState tx
-NodeState :: HeadState tx -> PendingDeposits tx -> ChainSlot -> NodeState tx
-[$sel:headState:NodeState] :: NodeState tx -> HeadState tx
-
--- | Pending deposits as observed on chain. TODO: could even move the chain
---   state here (also see todo below) , chainState :: ChainStateType tx
-[$sel:pendingDeposits:NodeState] :: NodeState tx -> PendingDeposits tx
-[$sel:currentSlot:NodeState] :: NodeState tx -> ChainSlot
-initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 --   overall protocol state, but also the off-chain
@@ -834,20 +670,6 @@ SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapsh
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
 
--- | A deposit tracked by the protocol. The <a>DepositStatus</a> determines
---   whether it may be used for an incremental commit or not.
-data Deposit tx
-Deposit :: HeadId -> UTxOType tx -> UTCTime -> UTCTime -> DepositStatus -> Deposit tx
-[$sel:headId:Deposit] :: Deposit tx -> HeadId
-[$sel:deposited:Deposit] :: Deposit tx -> UTxOType tx
-[$sel:created:Deposit] :: Deposit tx -> UTCTime
-[$sel:deadline:Deposit] :: Deposit tx -> UTCTime
-[$sel:status:Deposit] :: Deposit tx -> DepositStatus
-data DepositStatus
-Inactive :: DepositStatus
-Active :: DepositStatus
-Expired :: DepositStatus
-
 -- | An <a>Closed</a> head with an current candidate
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
 --   <a>$sel:contestationDeadline:ClosedState</a>.
@@ -869,19 +691,8 @@ instance GHC.Generics.Generic (Hydra.HeadLogic.State.InitialState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.CoordinatedHeadState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.OpenState tx)
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.HeadLogic.State.DepositStatus
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.HeadLogic.State.DepositStatus
-instance GHC.Show.Show Hydra.HeadLogic.State.DepositStatus
-instance GHC.Classes.Eq Hydra.HeadLogic.State.DepositStatus
-instance GHC.Generics.Generic Hydra.HeadLogic.State.DepositStatus
-instance GHC.Generics.Generic (Hydra.HeadLogic.State.Deposit tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.ClosedState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.HeadState tx)
-instance GHC.Generics.Generic (Hydra.HeadLogic.State.NodeState tx)
-instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.State.NodeState tx)
-instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.NodeState tx)
-instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.NodeState tx)
-instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.NodeState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.State.HeadState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.HeadState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.HeadState tx)
@@ -906,19 +717,12 @@ instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.HeadLogic.State.SeenSnap
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.SeenSnapshot tx)
-instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.HeadLogic.State.Deposit tx)
-instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.HeadLogic.State.Deposit tx)
-instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.Deposit tx)
-instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.Deposit tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.State.ClosedState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.ClosedState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.ClosedState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.ClosedState tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.NodeState tx)
 instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.HeadState tx)
 instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.ClosedState tx)
-instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.Deposit tx)
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.HeadLogic.State.DepositStatus
 instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.OpenState tx)
 instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.CoordinatedHeadState tx)
 instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.SeenSnapshot tx)
@@ -968,13 +772,12 @@ instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Ledger.ValidationError
 
 module Hydra.Ledger.Cardano
 
--- | Utility function to "adjust" a <a>UTxO'</a> set given a <a>Tx</a>
+-- | Utility function to "adjust" a <a>UTxO</a> set given a <a>Tx</a>
 --   
 --   The inputs from the <a>Tx</a> are removed from the internal map of the
---   <a>UTxO'</a> and the outputs added, correctly indexed by the
+--   <a>UTxO</a> and the outputs added, correctly indexed by the
 --   <a>TxIn</a>. This function is useful to manually maintain a
---   <a>UTxO'</a> set without caring too much about the <a>Ledger</a>
---   rules.
+--   <a>UTxO</a> set without caring too much about the <a>Ledger</a> rules.
 adjustUTxO :: Tx -> UTxO -> UTxO
 
 -- | Simple conversion from a generic slot to a specific local one.
@@ -1020,7 +823,7 @@ ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !N
 data () => Globals
 data () => LedgerEnv era
 type Tx = Tx Era
-instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Internal.Hash.Hash Cardano.Api.Internal.Keys.Shelley.PaymentKey)
+instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Hash.Hash Cardano.Api.Key.Internal.PaymentKey)
 
 
 -- | Contains the a stateful interface to transaction construction and
@@ -1030,7 +833,7 @@ instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Internal.Hash.Hash Car
 --   layer and it's constituents.
 module Hydra.Chain.Direct.State
 
--- | A class for accessing the known <a>UTxO'</a> set in a type. This is
+-- | A class for accessing the known <a>UTxO</a> set in a type. This is
 --   useful to get all the relevant UTxO for resolving transaction inputs.
 class HasKnownUTxO a
 getKnownUTxO :: HasKnownUTxO a => a -> UTxO
@@ -1116,7 +919,7 @@ initialize :: ChainContext -> TxIn -> [OnChainId] -> HeadParameters -> Tx
 
 -- | Construct a commit transaction based on known, spendable UTxO and some
 --   arbitrary UTxOs to commit. This does look for "our initial output" to
---   spend and check the given <a>UTxO'</a> to be compatible. Hence, this
+--   spend and check the given <a>UTxO</a> to be compatible. Hence, this
 --   function does fail if already committed or if the head is not
 --   initializing.
 --   
@@ -1127,7 +930,7 @@ commit :: ChainContext -> HeadId -> UTxO -> UTxO -> Either (PostTxError Tx) Tx
 
 -- | Construct a commit transaction based on known, spendable UTxO and some
 --   user UTxO inputs to commit. This does look for "our initial output" to
---   spend and check the given <a>UTxO'</a> to be compatible. Hence, this
+--   spend and check the given <a>UTxO</a> to be compatible. Hence, this
 --   function does fail if already committed or if the head is not
 --   initializing.
 --   
@@ -1160,7 +963,7 @@ SnapshotMissingIncrementUTxO :: IncrementTxError
 SnapshotIncrementUTxOIsNull :: IncrementTxError
 
 -- | Construct a increment transaction spending the head and deposit
---   outputs in given <a>UTxO'</a>, and producing single head output for
+--   outputs in given <a>UTxO</a>, and producing single head output for
 --   pending <a>$sel:utxoToCommit:Snapshot</a> of given <a>Snapshot</a>.
 increment :: ChainContext -> UTxO -> HeadId -> HeadParameters -> ConfirmedSnapshot Tx -> TxId -> SlotNo -> Either IncrementTxError Tx
 
@@ -1173,7 +976,7 @@ DecrementValueNegative :: DecrementTxError
 SnapshotDecrementUTxOIsNull :: DecrementTxError
 
 -- | Construct a decrement transaction spending the head output in given
---   <a>UTxO'</a>, and producing outputs for all pending
+--   <a>UTxO</a>, and producing outputs for all pending
 --   <a>$sel:utxoToDecommit:Snapshot</a> of given <a>Snapshot</a>.
 decrement :: ChainContext -> UTxO -> HeadId -> HeadParameters -> ConfirmedSnapshot Tx -> Either DecrementTxError Tx
 data CloseTxError
@@ -1194,7 +997,7 @@ CannotFindDepositedOutputToRecover :: TxId -> RecoverTxError
 recover :: ChainContext -> HeadId -> TxId -> UTxO -> SlotNo -> Either RecoverTxError Tx
 
 -- | Construct a close transaction spending the head output in given
---   <a>UTxO'</a>, head parameters, and a confirmed snapshot. NOTE: Lower
+--   <a>UTxO</a>, head parameters, and a confirmed snapshot. NOTE: Lower
 --   and upper bound slot difference should not exceed contestation period.
 close :: ChainContext -> UTxO -> HeadId -> HeadParameters -> SnapshotVersion -> ConfirmedSnapshot Tx -> SlotNo -> PointInTime -> Either CloseTxError Tx
 data ContestTxError
@@ -1219,7 +1022,7 @@ FailedToConvertFromScriptDataInFanout :: FanoutTxError
 BothCommitAndDecommitInFanout :: FanoutTxError
 
 -- | Construct a fanout transaction based on the <a>ClosedState</a> and
---   off-chain agreed <a>UTxO'</a> set to fan out.
+--   off-chain agreed <a>UTxO</a> set to fan out.
 fanout :: ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> SlotNo -> Either FanoutTxError Tx
 utxoOfThisHead :: PolicyId -> UTxO -> UTxO
 
@@ -2221,6 +2024,181 @@ instance GHC.Generics.Generic Hydra.Node.Environment.Environment
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.Environment.Environment
 instance Hydra.Tx.Party.HasParty Hydra.Node.Environment.Environment
 
+
+-- | The general input queue from which the Hydra head is fed with inputs.
+module Hydra.Node.InputQueue
+
+-- | The single, required queue in the system from which a hydra head is
+--   "fed". NOTE(SN): this probably should be bounded and include proper
+--   logging NOTE(SN): handle pattern, but likely not required as there is
+--   no need for an alternative implementation
+data InputQueue m e
+InputQueue :: (e -> m ()) -> (DiffTime -> Queued e -> m ()) -> m (Queued e) -> m Bool -> InputQueue m e
+[$sel:enqueue:InputQueue] :: InputQueue m e -> e -> m ()
+[$sel:reenqueue:InputQueue] :: InputQueue m e -> DiffTime -> Queued e -> m ()
+[$sel:dequeue:InputQueue] :: InputQueue m e -> m (Queued e)
+[$sel:isEmpty:InputQueue] :: InputQueue m e -> m Bool
+data Queued a
+Queued :: Word64 -> a -> Queued a
+[$sel:queuedId:Queued] :: Queued a -> Word64
+[$sel:queuedItem:Queued] :: Queued a -> a
+createInputQueue :: (MonadDelay m, MonadAsync m, MonadLabelledSTM m) => m (InputQueue m e)
+
+
+-- | Concrete <a>Network</a> stack used in a hydra-node.
+--   
+--   This module provides a <a>withNetwork</a> function which is the
+--   composition of several layers in order to provide various
+--   capabilities:
+--   
+--   <ul>
+--   <li><a>withAuthentication</a> handles messages' authentication and
+--   signature verification</li>
+--   <li><a>withEtcdNetwork</a> uses an <tt>etcd</tt> cluster to implement
+--   reliable broadcast</li>
+--   </ul>
+--   
+--   The following diagram details the various types of messages each layer
+--   is exchanging with its predecessors and successors.
+--   
+--   <pre>
+--             ▲
+--             │                        │
+--         Authenticated msg           msg
+--             │                        │
+--             │                        │
+--   ┌─────────┼────────────────────────▼──────┐
+--   │                                         │
+--   │               Authenticate              │
+--   │                                         │
+--   └─────────▲────────────────────────┼──────┘
+--             │                        │
+--             │                        │
+--            msg                      msg
+--             │                        │
+--   ┌─────────┼────────────────────────▼──────┐
+--   │                                         │
+--   │                   Etcd                  │
+--   │                                         │
+--   └─────────▲────────────────────────┼──────┘
+--             │                        │
+--             │        (bytes)         │
+--             │                        ▼
+--   </pre>
+module Hydra.Node.Network
+
+-- | Configuration for a <tt>Node</tt> network layer.
+data NetworkConfiguration
+NetworkConfiguration :: FilePath -> SigningKey HydraKey -> [Party] -> Host -> Host -> [Host] -> NodeId -> WhichEtcd -> NetworkConfiguration
+
+-- | Persistence directory
+[$sel:persistenceDir:NetworkConfiguration] :: NetworkConfiguration -> FilePath
+
+-- | This node's signing key. This is used to sign messages sent to peers.
+[$sel:signingKey:NetworkConfiguration] :: NetworkConfiguration -> SigningKey HydraKey
+
+-- | The list of peers <a>Party</a> known to this node.
+[$sel:otherParties:NetworkConfiguration] :: NetworkConfiguration -> [Party]
+
+-- | Address to listen on for incoming connections.
+[$sel:listen:NetworkConfiguration] :: NetworkConfiguration -> Host
+
+-- | Address to advertise to peers.
+[$sel:advertise:NetworkConfiguration] :: NetworkConfiguration -> Host
+
+-- | Addresses and ports of remote peers.
+[$sel:peers:NetworkConfiguration] :: NetworkConfiguration -> [Host]
+
+-- | This node's id.
+[$sel:nodeId:NetworkConfiguration] :: NetworkConfiguration -> NodeId
+
+-- | Whether to use the system etcd (on the path) or the embedded one.
+[$sel:whichEtcd:NetworkConfiguration] :: NetworkConfiguration -> WhichEtcd
+
+-- | Starts the network layer of a node, passing configured
+--   <tt>Network</tt> to its continuation.
+withNetwork :: forall tx. IsTx tx => Tracer IO NetworkLog -> NetworkConfiguration -> NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
+data NetworkLog
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.Network.NetworkLog
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.Network.NetworkLog
+instance GHC.Generics.Generic Hydra.Node.Network.NetworkLog
+instance GHC.Show.Show Hydra.Node.Network.NetworkLog
+instance GHC.Classes.Eq Hydra.Node.Network.NetworkLog
+
+
+-- | Structured errors related to configuration mismatch.
+--   
+--   When we start a <a>Node</a> we need to do sanity checks between what's
+--   provided as parameters to the node and what's persisted.
+module Hydra.Node.ParameterMismatch
+
+-- | Exception used to indicate command line options not matching the
+--   persisted state.
+newtype ParameterMismatch
+ParameterMismatch :: [ParamMismatch] -> ParameterMismatch
+data ParamMismatch
+ContestationPeriodMismatch :: ContestationPeriod -> ContestationPeriod -> ParamMismatch
+[$sel:loadedCp:ContestationPeriodMismatch] :: ParamMismatch -> ContestationPeriod
+[$sel:configuredCp:ContestationPeriodMismatch] :: ParamMismatch -> ContestationPeriod
+PartiesMismatch :: [Party] -> [Party] -> ParamMismatch
+[$sel:loadedParties:ContestationPeriodMismatch] :: ParamMismatch -> [Party]
+[$sel:configuredParties:ContestationPeriodMismatch] :: ParamMismatch -> [Party]
+SavedNetworkPartiesInconsistent :: Int -> ParamMismatch
+[$sel:numberOfParties:ContestationPeriodMismatch] :: ParamMismatch -> Int
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.ParameterMismatch.ParamMismatch
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.ParameterMismatch.ParamMismatch
+instance GHC.Show.Show Hydra.Node.ParameterMismatch.ParamMismatch
+instance GHC.Classes.Eq Hydra.Node.ParameterMismatch.ParamMismatch
+instance GHC.Generics.Generic Hydra.Node.ParameterMismatch.ParamMismatch
+instance GHC.Exception.Type.Exception Hydra.Node.ParameterMismatch.ParameterMismatch
+instance GHC.Show.Show Hydra.Node.ParameterMismatch.ParameterMismatch
+instance GHC.Classes.Eq Hydra.Node.ParameterMismatch.ParameterMismatch
+
+module Hydra.Node.State
+type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
+data NodeState tx
+NodeState :: HeadState tx -> PendingDeposits tx -> ChainSlot -> NodeState tx
+[$sel:headState:NodeState] :: NodeState tx -> HeadState tx
+
+-- | Pending deposits as observed on chain. TODO: could even move the chain
+--   state here (also see todo below) , chainState :: ChainStateType tx
+[$sel:pendingDeposits:NodeState] :: NodeState tx -> PendingDeposits tx
+[$sel:currentSlot:NodeState] :: NodeState tx -> ChainSlot
+initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
+
+-- | A deposit tracked by the protocol. The <a>DepositStatus</a> determines
+--   whether it may be used for an incremental commit or not.
+data Deposit tx
+Deposit :: HeadId -> UTxOType tx -> UTCTime -> UTCTime -> DepositStatus -> Deposit tx
+[$sel:headId:Deposit] :: Deposit tx -> HeadId
+[$sel:deposited:Deposit] :: Deposit tx -> UTxOType tx
+[$sel:created:Deposit] :: Deposit tx -> UTCTime
+[$sel:deadline:Deposit] :: Deposit tx -> UTCTime
+[$sel:status:Deposit] :: Deposit tx -> DepositStatus
+data DepositStatus
+Inactive :: DepositStatus
+Active :: DepositStatus
+Expired :: DepositStatus
+depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.State.DepositStatus
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.State.DepositStatus
+instance GHC.Show.Show Hydra.Node.State.DepositStatus
+instance GHC.Classes.Eq Hydra.Node.State.DepositStatus
+instance GHC.Generics.Generic Hydra.Node.State.DepositStatus
+instance GHC.Generics.Generic (Hydra.Node.State.Deposit tx)
+instance GHC.Generics.Generic (Hydra.Node.State.NodeState tx)
+instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.Node.State.NodeState tx)
+instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.Node.State.NodeState tx)
+instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.State.NodeState tx)
+instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.NodeState tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Node.State.Deposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.Node.State.Deposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.State.Deposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.Deposit tx)
+instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Node.State.NodeState tx)
+instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Node.State.Deposit tx)
+instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.State.DepositStatus
+
 module Hydra.API.ServerOutput
 
 -- | The type of messages sent to clients by the <a>Server</a>.
@@ -2714,10 +2692,10 @@ instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.HeadLog
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.HeadLogic.Outcome.Effect tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Outcome.Effect tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Outcome.Effect tx)
-instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.HeadLogic.State.NodeState tx), GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.Outcome.StateChanged tx)
-instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.HeadLogic.State.NodeState tx), GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.Outcome.StateChanged tx)
+instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Node.State.NodeState tx), GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.Outcome.StateChanged tx)
+instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Node.State.NodeState tx), GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.Outcome.StateChanged tx)
 instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Outcome.StateChanged tx)
-instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.NodeState tx), Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Outcome.StateChanged tx)
+instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.NodeState tx), Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Outcome.StateChanged tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.HeadLogic.Outcome.Outcome tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.HeadLogic.Outcome.Outcome tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Outcome.Outcome tx)
@@ -2729,6 +2707,25 @@ instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Head
 instance GHC.Base.Semigroup (Hydra.HeadLogic.Outcome.Outcome tx)
 instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.Outcome.StateChanged tx)
 instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.Outcome.StateChanged tx)
+
+module Hydra.HeadLogic.StateEvent
+
+-- | A state change event with an event id that is the common entity to be
+--   loaded from an <tt>EventSource</tt> and sent to <tt>EventSink</tt>s.
+data StateEvent tx
+StateEvent :: EventId -> StateChanged tx -> UTCTime -> StateEvent tx
+[$sel:eventId:StateEvent] :: StateEvent tx -> EventId
+[$sel:stateChanged:StateEvent] :: StateEvent tx -> StateChanged tx
+[$sel:time:StateEvent] :: StateEvent tx -> UTCTime
+genStateEvent :: StateChanged tx -> Gen (StateEvent tx)
+mkCheckpoint :: NodeState tx -> EventId -> UTCTime -> StateEvent tx
+instance GHC.Generics.Generic (Hydra.HeadLogic.StateEvent.StateEvent tx)
+instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.HeadLogic.StateEvent.StateEvent tx)
+instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.HeadLogic.StateEvent.StateEvent tx)
+instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
+instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
+instance Hydra.Events.HasEventId (Hydra.HeadLogic.StateEvent.StateEvent tx)
+instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.StateEvent.StateEvent tx)
 
 
 -- | Implements the Head Protocol's <i>state machine</i> as <i>pure
@@ -2870,6 +2867,14 @@ onOpenClientDecommit :: IsTx tx => HeadId -> Ledger tx -> ChainSlot -> Coordinat
 --   to agree in order for decommit to be taken out of a Head. - Check if
 --   we are the leader
 onOpenNetworkReqDec :: IsTx tx => Environment -> Ledger tx -> TTL -> ChainSlot -> OpenState tx -> tx -> Outcome tx
+determineNextDepositStatus :: Ord (TxIdType tx) => Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
+
+-- | Process the chain (and time) advancing in any head state.
+--   
+--   <b>Transition</b>: <tt>AnyState</tt> → <tt>AnyState</tt>
+--   
+--   This is primarily used to track deposits status changes.
+onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcome tx
 
 -- | Process the chain (and time) advancing in an open head.
 --   
@@ -2877,7 +2882,7 @@ onOpenNetworkReqDec :: IsTx tx => Environment -> Ledger tx -> TTL -> ChainSlot -
 --   
 --   This is primarily used to track deposits and either drop them or
 --   request snapshots for inclusion.
-onOpenChainTick :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> UTCTime -> Outcome tx
+onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 --   pending commit UTxO, then we consider the deposit/increment finalized,
@@ -3027,24 +3032,6 @@ SideLoadUTxOToDecommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> S
 SideLoadInvalidMultisignature :: Text -> [VerificationKey HydraKey] -> SideLoadRequirementFailure tx
 [$sel:multisig:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Text
 [$sel:vkeys:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> [VerificationKey HydraKey]
-data NodeState tx
-NodeState :: HeadState tx -> PendingDeposits tx -> ChainSlot -> NodeState tx
-[$sel:headState:NodeState] :: NodeState tx -> HeadState tx
-
--- | Pending deposits as observed on chain. TODO: could even move the chain
---   state here (also see todo below) , chainState :: ChainStateType tx
-[$sel:pendingDeposits:NodeState] :: NodeState tx -> PendingDeposits tx
-[$sel:currentSlot:NodeState] :: NodeState tx -> ChainSlot
-
--- | A deposit tracked by the protocol. The <a>DepositStatus</a> determines
---   whether it may be used for an incremental commit or not.
-data Deposit tx
-Deposit :: HeadId -> UTxOType tx -> UTCTime -> UTCTime -> DepositStatus -> Deposit tx
-[$sel:headId:Deposit] :: Deposit tx -> HeadId
-[$sel:deposited:Deposit] :: Deposit tx -> UTxOType tx
-[$sel:created:Deposit] :: Deposit tx -> UTCTime
-[$sel:deadline:Deposit] :: Deposit tx -> UTCTime
-[$sel:status:Deposit] :: Deposit tx -> DepositStatus
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 --   overall protocol state, but also the off-chain
@@ -3162,10 +3149,6 @@ CoordinatedHeadState :: UTxOType tx -> [tx] -> !Map (TxIdType tx) tx -> Confirme
 
 -- | Last open state version as observed on chain. Spec: ̂v
 [$sel:version:CoordinatedHeadState] :: CoordinatedHeadState tx -> SnapshotVersion
-data DepositStatus
-Inactive :: DepositStatus
-Active :: DepositStatus
-Expired :: DepositStatus
 
 -- | An <a>Idle</a> head only having a chain state with things seen on
 --   chain so far.
@@ -3173,7 +3156,6 @@ newtype IdleState tx
 IdleState :: ChainStateType tx -> IdleState tx
 [$sel:chainState:IdleState] :: IdleState tx -> ChainStateType tx
 type PendingCommits = Set Party
-type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
 
 -- | Get the chain state in any <a>HeadState</a>.
 getChainState :: HeadState tx -> ChainStateType tx
@@ -3389,25 +3371,6 @@ newState :: StateChanged tx -> Outcome tx
 noop :: Outcome tx
 wait :: WaitReason tx -> Outcome tx
 
-module Hydra.HeadLogic.StateEvent
-
--- | A state change event with an event id that is the common entity to be
---   loaded from an <tt>EventSource</tt> and sent to <tt>EventSink</tt>s.
-data StateEvent tx
-StateEvent :: EventId -> StateChanged tx -> UTCTime -> StateEvent tx
-[$sel:eventId:StateEvent] :: StateEvent tx -> EventId
-[$sel:stateChanged:StateEvent] :: StateEvent tx -> StateChanged tx
-[$sel:time:StateEvent] :: StateEvent tx -> UTCTime
-genStateEvent :: StateChanged tx -> Gen (StateEvent tx)
-mkCheckpoint :: NodeState tx -> EventId -> UTCTime -> StateEvent tx
-instance GHC.Generics.Generic (Hydra.HeadLogic.StateEvent.StateEvent tx)
-instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.HeadLogic.StateEvent.StateEvent tx)
-instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.HeadLogic.StateEvent.StateEvent tx)
-instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
-instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
-instance Hydra.Events.HasEventId (Hydra.HeadLogic.StateEvent.StateEvent tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.StateEvent.StateEvent tx)
-
 module Hydra.API.ServerOutputFilter
 newtype ServerOutputFilter tx
 ServerOutputFilter :: (TimedServerOutput tx -> Text -> Bool) -> ServerOutputFilter tx
@@ -3420,15 +3383,12 @@ newtype DraftCommitTxResponse tx
 DraftCommitTxResponse :: tx -> DraftCommitTxResponse tx
 [$sel:commitTx:DraftCommitTxResponse] :: DraftCommitTxResponse tx -> tx
 data DraftCommitTxRequest tx
-SimpleCommitRequest :: UTxOType tx -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> DraftCommitTxRequest tx
+SimpleCommitRequest :: UTxOType tx -> DraftCommitTxRequest tx
 [$sel:utxoToCommit:SimpleCommitRequest] :: DraftCommitTxRequest tx -> UTxOType tx
-[$sel:amount:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe Coin
-[$sel:tokens:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe (Map PolicyId PolicyAssets)
-FullCommitRequest :: tx -> UTxOType tx -> Maybe Coin -> Maybe (Map PolicyId PolicyAssets) -> DraftCommitTxRequest tx
+FullCommitRequest :: tx -> UTxOType tx -> Maybe AddressInEra -> DraftCommitTxRequest tx
 [$sel:blueprintTx:SimpleCommitRequest] :: DraftCommitTxRequest tx -> tx
 [$sel:utxo:SimpleCommitRequest] :: DraftCommitTxRequest tx -> UTxOType tx
-[$sel:amount:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe Coin
-[$sel:tokens:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe (Map PolicyId PolicyAssets)
+[$sel:changeAddress:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe AddressInEra
 newtype SubmitTxRequest tx
 SubmitTxRequest :: tx -> SubmitTxRequest tx
 [$sel:txToSubmit:SubmitTxRequest] :: SubmitTxRequest tx -> tx
@@ -3517,136 +3477,6 @@ instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTP
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
 instance Test.QuickCheck.Arbitrary.Arbitrary tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
 
-
--- | The general input queue from which the Hydra head is fed with inputs.
-module Hydra.Node.InputQueue
-
--- | The single, required queue in the system from which a hydra head is
---   "fed". NOTE(SN): this probably should be bounded and include proper
---   logging NOTE(SN): handle pattern, but likely not required as there is
---   no need for an alternative implementation
-data InputQueue m e
-InputQueue :: (e -> m ()) -> (DiffTime -> Queued e -> m ()) -> m (Queued e) -> m Bool -> InputQueue m e
-[$sel:enqueue:InputQueue] :: InputQueue m e -> e -> m ()
-[$sel:reenqueue:InputQueue] :: InputQueue m e -> DiffTime -> Queued e -> m ()
-[$sel:dequeue:InputQueue] :: InputQueue m e -> m (Queued e)
-[$sel:isEmpty:InputQueue] :: InputQueue m e -> m Bool
-data Queued a
-Queued :: Word64 -> a -> Queued a
-[$sel:queuedId:Queued] :: Queued a -> Word64
-[$sel:queuedItem:Queued] :: Queued a -> a
-createInputQueue :: (MonadDelay m, MonadAsync m, MonadLabelledSTM m) => m (InputQueue m e)
-
-
--- | Concrete <a>Network</a> stack used in a hydra-node.
---   
---   This module provides a <a>withNetwork</a> function which is the
---   composition of several layers in order to provide various
---   capabilities:
---   
---   <ul>
---   <li><a>withAuthentication</a> handles messages' authentication and
---   signature verification</li>
---   <li><a>withEtcdNetwork</a> uses an <tt>etcd</tt> cluster to implement
---   reliable broadcast</li>
---   </ul>
---   
---   The following diagram details the various types of messages each layer
---   is exchanging with its predecessors and successors.
---   
---   <pre>
---             ▲
---             │                        │
---         Authenticated msg           msg
---             │                        │
---             │                        │
---   ┌─────────┼────────────────────────▼──────┐
---   │                                         │
---   │               Authenticate              │
---   │                                         │
---   └─────────▲────────────────────────┼──────┘
---             │                        │
---             │                        │
---            msg                      msg
---             │                        │
---   ┌─────────┼────────────────────────▼──────┐
---   │                                         │
---   │                   Etcd                  │
---   │                                         │
---   └─────────▲────────────────────────┼──────┘
---             │                        │
---             │        (bytes)         │
---             │                        ▼
---   </pre>
-module Hydra.Node.Network
-
--- | Configuration for a <tt>Node</tt> network layer.
-data NetworkConfiguration
-NetworkConfiguration :: FilePath -> SigningKey HydraKey -> [Party] -> Host -> Host -> [Host] -> NodeId -> WhichEtcd -> NetworkConfiguration
-
--- | Persistence directory
-[$sel:persistenceDir:NetworkConfiguration] :: NetworkConfiguration -> FilePath
-
--- | This node's signing key. This is used to sign messages sent to peers.
-[$sel:signingKey:NetworkConfiguration] :: NetworkConfiguration -> SigningKey HydraKey
-
--- | The list of peers <a>Party</a> known to this node.
-[$sel:otherParties:NetworkConfiguration] :: NetworkConfiguration -> [Party]
-
--- | Address to listen on for incoming connections.
-[$sel:listen:NetworkConfiguration] :: NetworkConfiguration -> Host
-
--- | Address to advertise to peers.
-[$sel:advertise:NetworkConfiguration] :: NetworkConfiguration -> Host
-
--- | Addresses and ports of remote peers.
-[$sel:peers:NetworkConfiguration] :: NetworkConfiguration -> [Host]
-
--- | This node's id.
-[$sel:nodeId:NetworkConfiguration] :: NetworkConfiguration -> NodeId
-
--- | Whether to use the system etcd (on the path) or the embedded one.
-[$sel:whichEtcd:NetworkConfiguration] :: NetworkConfiguration -> WhichEtcd
-
--- | Starts the network layer of a node, passing configured
---   <tt>Network</tt> to its continuation.
-withNetwork :: forall tx. IsTx tx => Tracer IO NetworkLog -> NetworkConfiguration -> NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
-data NetworkLog
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.Network.NetworkLog
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.Network.NetworkLog
-instance GHC.Generics.Generic Hydra.Node.Network.NetworkLog
-instance GHC.Show.Show Hydra.Node.Network.NetworkLog
-instance GHC.Classes.Eq Hydra.Node.Network.NetworkLog
-
-
--- | Structured errors related to configuration mismatch.
---   
---   When we start a <a>Node</a> we need to do sanity checks between what's
---   provided as parameters to the node and what's persisted.
-module Hydra.Node.ParameterMismatch
-
--- | Exception used to indicate command line options not matching the
---   persisted state.
-newtype ParameterMismatch
-ParameterMismatch :: [ParamMismatch] -> ParameterMismatch
-data ParamMismatch
-ContestationPeriodMismatch :: ContestationPeriod -> ContestationPeriod -> ParamMismatch
-[$sel:loadedCp:ContestationPeriodMismatch] :: ParamMismatch -> ContestationPeriod
-[$sel:configuredCp:ContestationPeriodMismatch] :: ParamMismatch -> ContestationPeriod
-PartiesMismatch :: [Party] -> [Party] -> ParamMismatch
-[$sel:loadedParties:ContestationPeriodMismatch] :: ParamMismatch -> [Party]
-[$sel:configuredParties:ContestationPeriodMismatch] :: ParamMismatch -> [Party]
-SavedNetworkPartiesInconsistent :: Int -> ParamMismatch
-[$sel:numberOfParties:ContestationPeriodMismatch] :: ParamMismatch -> Int
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.ParameterMismatch.ParamMismatch
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.ParameterMismatch.ParamMismatch
-instance GHC.Show.Show Hydra.Node.ParameterMismatch.ParamMismatch
-instance GHC.Classes.Eq Hydra.Node.ParameterMismatch.ParamMismatch
-instance GHC.Generics.Generic Hydra.Node.ParameterMismatch.ParamMismatch
-instance GHC.Exception.Type.Exception Hydra.Node.ParameterMismatch.ParameterMismatch
-instance GHC.Show.Show Hydra.Node.ParameterMismatch.ParameterMismatch
-instance GHC.Classes.Eq Hydra.Node.ParameterMismatch.ParameterMismatch
-
 module Hydra.Node.Util
 readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 readFileTextEnvelopeThrow :: HasTextEnvelope a => FilePath -> IO a
@@ -3729,11 +3559,13 @@ GenHydraKey :: GenerateKeyPair -> Command
 data ChainBackendOptions
 Direct :: DirectOptions -> ChainBackendOptions
 Blockfrost :: BlockfrostOptions -> ChainBackendOptions
-newtype BlockfrostOptions
-BlockfrostOptions :: FilePath -> BlockfrostOptions
+data BlockfrostOptions
+BlockfrostOptions :: FilePath -> Int -> Int -> BlockfrostOptions
 
 -- | Path to the blockfrost project file
 [$sel:projectPath:BlockfrostOptions] :: BlockfrostOptions -> FilePath
+[$sel:queryTimeout:BlockfrostOptions] :: BlockfrostOptions -> Int
+[$sel:retryTimeout:BlockfrostOptions] :: BlockfrostOptions -> Int
 data CardanoChainConfig
 CardanoChainConfig :: [TxId] -> FilePath -> [FilePath] -> Maybe ChainPoint -> ContestationPeriod -> DepositPeriod -> ChainBackendOptions -> CardanoChainConfig
 
@@ -3850,6 +3682,8 @@ outputFileParser :: Parser FilePath
 --   <a>runOptionsParser</a>.
 defaultPublishOptions :: PublishOptions
 defaultDirectOptions :: DirectOptions
+defaultBlockfrostOptions :: BlockfrostOptions
+defaultBFQueryTimeout :: Int
 chainBackendOptionsParser :: Parser ChainBackendOptions
 cardanoSigningKeyFileParser :: Parser FilePath
 genFilePath :: String -> Gen FilePath
@@ -3883,6 +3717,8 @@ offlineChainConfigParser :: Parser OfflineChainConfig
 networkIdParser :: Parser NetworkId
 nodeSocketParser :: Parser SocketPath
 blockfrostProjectPathParser :: Parser FilePath
+blockfrostQueryTimeoutParser :: Parser Int
+blockfrostRetryTimeoutParser :: Parser Int
 cardanoLedgerProtocolParametersParser :: Parser FilePath
 offlineHeadSeedParser :: Parser HeadSeed
 initialUTxOFileParser :: Parser FilePath
@@ -3975,6 +3811,7 @@ genHydraKeys :: GenerateKeyPair -> IO (Either (FileError ()) ())
 readJsonFileThrow :: (Value -> Parser a) -> FilePath -> IO a
 
 module Hydra.Chain.Offline
+fromShelleyGenesis :: ShelleyGenesis -> GenesisParameters ShelleyEra
 
 -- | Derived <a>HeadId</a> of offline head from a <a>HeadSeed</a>.
 offlineHeadId :: HeadSeed -> HeadId
@@ -3989,6 +3826,160 @@ withOfflineChain :: OfflineChainConfig -> Party -> [Party] -> ChainStateHistory 
 tickForever :: GenesisParameters ShelleyEra -> (ChainEvent Tx -> IO ()) -> IO ()
 instance GHC.Show.Show Hydra.Chain.Offline.InitialUTxOParseException
 instance GHC.Exception.Type.Exception Hydra.Chain.Offline.InitialUTxOParseException
+
+module Hydra.Chain.Blockfrost.Client
+newtype APIBlockfrostError
+BlockfrostError :: BlockfrostException -> APIBlockfrostError
+data BlockfrostException
+TimeoutOnUTxO :: TxId -> BlockfrostException
+NoUTxOFound :: Address ShelleyAddr -> BlockfrostException
+FailedToDecodeAddress :: Text -> BlockfrostException
+ByronAddressNotSupported :: BlockfrostException
+FailedUTxOForHash :: Text -> BlockfrostException
+FailedEraHistory :: BlockfrostException
+AssetNameMissing :: BlockfrostException
+DeserialiseError :: Text -> BlockfrostException
+DecodeError :: Text -> BlockfrostException
+BlockfrostAPIError :: Text -> BlockfrostException
+data BlockfrostConversion
+BlockfrostConversion :: NonNegativeInterval -> UnitInterval -> UnitInterval -> NonNegativeInterval -> NonNegativeInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> Quantity -> Quantity -> Quantity -> Coin -> Integer -> Quantity -> NonNegativeInterval -> BlockfrostConversion
+[$sel:a0:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
+[$sel:rho:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:tau:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:priceMemory:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
+[$sel:priceSteps:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
+[$sel:pvtMotionNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:pvtCommitteeNormal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:pvtCommitteeNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:pvtHardForkInitiation:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:pvtPPSecurityGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtMotionNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtCommitteeNormal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtCommitteeNoConfidence:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtUpdateToConstitution:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtHardForkInitiation:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtPPNetworkGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtPPEconomicGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtPPTechnicalGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtPPGovGroup:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:dvtTreasuryWithdrawal:BlockfrostConversion] :: BlockfrostConversion -> UnitInterval
+[$sel:committeeMinSize:BlockfrostConversion] :: BlockfrostConversion -> Quantity
+[$sel:committeeMaxTermLength:BlockfrostConversion] :: BlockfrostConversion -> Quantity
+[$sel:govActionLifetime:BlockfrostConversion] :: BlockfrostConversion -> Quantity
+[$sel:govActionDeposit:BlockfrostConversion] :: BlockfrostConversion -> Coin
+[$sel:drepDeposit:BlockfrostConversion] :: BlockfrostConversion -> Integer
+[$sel:drepActivity:BlockfrostConversion] :: BlockfrostConversion -> Quantity
+[$sel:minFeeRefScriptCostPerByte:BlockfrostConversion] :: BlockfrostConversion -> NonNegativeInterval
+
+-- | Query the Blockfrost API for <a>Genesis</a>
+queryGenesisParameters :: BlockfrostClientT IO Genesis
+
+-- | Query for <a>TxIn</a>s in the search for outputs containing all the
+--   reference scripts of the <a>ScriptRegistry</a>.
+--   
+--   This is implemented by repeated querying until we have all necessary
+--   reference scripts as we do only know the transaction id, not the
+--   indices.
+--   
+--   Can throw at least <tt>NewScriptRegistryException</tt> on failure.
+queryScriptRegistry :: BlockfrostOptions -> [TxId] -> BlockfrostClientT IO ScriptRegistry
+queryEraHistory :: BlockfrostClientT IO EraHistory
+queryProtocolParameters :: MonadIO m => BlockfrostClientT m (PParams LedgerEra)
+queryStakePools :: BlockfrostClientT IO (Set PoolId)
+querySystemStart :: BlockfrostClientT IO SystemStart
+
+-- | Query the Blockfrost API for address UTxO and convert to cardano
+--   <a>UTxO</a>. NOTE: We accept the address list here to be compatible
+--   with cardano-api but in fact this is a single address query always.
+queryUTxO :: BlockfrostOptions -> NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
+submitTransaction :: MonadIO m => Tx -> BlockfrostClientT m TxHash
+awaitTransaction :: BlockfrostOptions -> Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+
+-- | Query the Blockfrost API to get the <a>UTxO</a> for <a>TxIn</a> and
+--   convert to cardano <a>UTxO</a>. FIXME: make blockfrost wait times
+--   configurable.
+queryUTxOByTxIn :: BlockfrostOptions -> NetworkId -> [TxIn] -> BlockfrostClientT IO UTxO
+
+-- | Query the Blockfrost API for <a>Genesis</a> and convert to cardano
+--   <a>ChainPoint</a>.
+queryTip :: BlockfrostClientT IO ChainPoint
+queryUTxOFor :: BlockfrostOptions -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+runBlockfrostM :: (MonadIO m, MonadThrow m) => Project -> BlockfrostClientT IO a -> m a
+toCardanoNetworkId :: Integer -> NetworkId
+scriptTypeToPlutusVersion :: ScriptType -> Maybe Language
+toCardanoUTxO :: NetworkId -> TxIn -> Address -> Maybe ScriptHash -> Maybe DatumHash -> [Amount] -> Maybe InlineDatum -> BlockfrostClientT IO UTxO
+toCardanoValue :: [Amount] -> BlockfrostClientT IO Value
+queryScript :: Text -> BlockfrostClientT IO (Maybe PlutusScript)
+toCardanoTxOut :: NetworkId -> Text -> Value -> Maybe Text -> Maybe Text -> Maybe PlutusScript -> BlockfrostClientT IO (TxOut ctx)
+toCardanoPoolId :: PoolId -> Hash StakePoolKey
+toCardanoTxIn :: Text -> Integer -> TxIn
+toCardanoAddress :: Text -> Maybe AddressInEra
+toCardanoPolicyIdAndAssetName :: Text -> BlockfrostClientT IO (PolicyId, AssetName)
+toCardanoGenesisParameters :: Genesis -> GenesisParameters ShelleyEra
+
+-- | Await for specific UTxO at address - the one that is produced by the
+--   given <a>TxId</a>.
+awaitUTxO :: NetworkId -> [Address ShelleyAddr] -> TxId -> BlockfrostOptions -> BlockfrostClientT IO UTxO
+data () => Block
+Block :: POSIXTime -> Maybe Integer -> BlockHash -> Maybe Slot -> Maybe Epoch -> Maybe Integer -> Text -> Integer -> Integer -> Maybe Lovelaces -> Maybe Lovelaces -> Maybe Text -> Maybe Text -> Maybe Quantity -> Maybe BlockHash -> Maybe BlockHash -> Integer -> Block
+[$sel:_blockTime:Block] :: Block -> POSIXTime
+[$sel:_blockHeight:Block] :: Block -> Maybe Integer
+[$sel:_blockHash:Block] :: Block -> BlockHash
+[$sel:_blockSlot:Block] :: Block -> Maybe Slot
+[$sel:_blockEpoch:Block] :: Block -> Maybe Epoch
+[$sel:_blockEpochSlot:Block] :: Block -> Maybe Integer
+[$sel:_blockSlotLeader:Block] :: Block -> Text
+[$sel:_blockSize:Block] :: Block -> Integer
+[$sel:_blockTxCount:Block] :: Block -> Integer
+[$sel:_blockOutput:Block] :: Block -> Maybe Lovelaces
+[$sel:_blockFees:Block] :: Block -> Maybe Lovelaces
+[$sel:_blockBlockVrf:Block] :: Block -> Maybe Text
+[$sel:_blockOpCert:Block] :: Block -> Maybe Text
+[$sel:_blockOpCertCounter:Block] :: Block -> Maybe Quantity
+[$sel:_blockPreviousBlock:Block] :: Block -> Maybe BlockHash
+[$sel:_blockNextBlock:Block] :: Block -> Maybe BlockHash
+[$sel:_blockConfirmations:Block] :: Block -> Integer
+newtype () => Slot
+Slot :: Integer -> Slot
+newtype () => BlockHash
+BlockHash :: Text -> BlockHash
+data () => BlockfrostClientT (m :: Type -> Type) a
+data () => Genesis
+Genesis :: Rational -> Integer -> Lovelaces -> Integer -> Integer -> POSIXTime -> Integer -> Integer -> Integer -> Integer -> Genesis
+[$sel:_genesisActiveSlotsCoefficient:Genesis] :: Genesis -> Rational
+[$sel:_genesisUpdateQuorum:Genesis] :: Genesis -> Integer
+[$sel:_genesisMaxLovelaceSupply:Genesis] :: Genesis -> Lovelaces
+[$sel:_genesisNetworkMagic:Genesis] :: Genesis -> Integer
+[$sel:_genesisEpochLength:Genesis] :: Genesis -> Integer
+[$sel:_genesisSystemStart:Genesis] :: Genesis -> POSIXTime
+[$sel:_genesisSlotsPerKesPeriod:Genesis] :: Genesis -> Integer
+[$sel:_genesisSlotLength:Genesis] :: Genesis -> Integer
+[$sel:_genesisMaxKesEvolutions:Genesis] :: Genesis -> Integer
+[$sel:_genesisSecurityParam:Genesis] :: Genesis -> Integer
+data () => Project
+newtype () => TransactionCBOR
+TransactionCBOR :: Text -> TransactionCBOR
+[$sel:_transactionCBORCbor:TransactionCBOR] :: TransactionCBOR -> Text
+newtype () => TxHashCBOR
+TxHashCBOR :: (TxHash, TransactionCBOR) -> TxHashCBOR
+[$sel:getTxHashCBOR:TxHashCBOR] :: TxHashCBOR -> (TxHash, TransactionCBOR)
+
+-- | <a>MonadError</a> analogue to the <a>try</a> function.
+tryError :: MonadError e m => m a -> m (Either e a)
+allPages :: Monad m => (Paged -> m [a]) -> m [a]
+def :: Default a => a
+getBlock :: MonadBlockfrost m => Either Integer BlockHash -> m Block
+getBlockTxsCBOR' :: MonadBlockfrost m => Either Integer BlockHash -> Paged -> SortOrder -> m [TxHashCBOR]
+getLedgerGenesis :: MonadBlockfrost m => m Genesis
+listPools :: MonadBlockfrost m => m [PoolId]
+projectFromFile :: FilePath -> IO Project
+runBlockfrost :: Project -> BlockfrostClientT IO a -> IO (Either BlockfrostError a)
+unBlockHash :: BlockHash -> Text
+unSlot :: Slot -> Integer
+instance GHC.Exception.Type.Exception Hydra.Chain.Blockfrost.Client.BlockfrostException
+instance GHC.Show.Show Hydra.Chain.Blockfrost.Client.BlockfrostException
+instance GHC.Exception.Type.Exception Hydra.Chain.Blockfrost.Client.APIBlockfrostError
+instance GHC.Show.Show Hydra.Chain.Blockfrost.Client.APIBlockfrostError
 
 module Hydra.Chain.Backend
 blockfrostProjectPath :: FilePath
@@ -4040,16 +4031,18 @@ module Hydra.Chain.ScriptRegistry
 --   Can throw at least <tt>NewScriptRegistryException</tt> on failure.
 queryScriptRegistry :: (MonadIO m, MonadThrow m, ChainBackend backend) => backend -> [TxId] -> m ScriptRegistry
 publishHydraScripts :: ChainBackend backend => backend -> SigningKey PaymentKey -> IO [TxId]
+handleError :: SomeException -> IO a
 
--- | Exception raised when building the script publishing transactions.
-newtype PublishScriptException
+-- | Exception raised when publishing Hydra scripts.
+data PublishScriptException
+PublishingFundsMissing :: Text -> PublishScriptException
 FailedToBuildPublishingTx :: TxBodyErrorAutoBalance Era -> PublishScriptException
 
 -- | Builds a chain of script publishing transactions. Throws:
 --   PublishScriptException
 buildScriptPublishingTxs :: MonadThrow m => PParams LedgerEra -> SystemStart -> NetworkId -> EraHistory -> Set PoolId -> UTxO -> SigningKey PaymentKey -> m [Tx]
-instance GHC.Exception.Type.Exception Hydra.Chain.ScriptRegistry.PublishScriptException
 instance GHC.Show.Show Hydra.Chain.ScriptRegistry.PublishScriptException
+instance GHC.Exception.Type.Exception Hydra.Chain.ScriptRegistry.PublishScriptException
 
 
 -- | Module to deal with time in direct cardano chain layer. Defines the
@@ -4131,8 +4124,7 @@ type GetTimeHandle m = m TimeHandle
 --   within <tt>IOSim</tt> and does not require any actual <a>IO</a> to
 --   happen which makes it highly suitable for simulations and testing.
 mkChain :: (MonadSTM m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> GetTimeHandle m -> TinyWallet m -> ChainContext -> LocalChainState m Tx -> SubmitTx m -> Chain Tx m
-rejectLowDeposits :: PParams LedgerEra -> UTxO -> Maybe Coin -> Either (PostTxError Tx) ()
-checkAmount :: UTxO -> Maybe Coin -> Either (PostTxError Tx) ()
+rejectLowDeposits :: PParams LedgerEra -> UTxO -> Either (PostTxError Tx) ()
 
 -- | Balance and sign the given partial transaction.
 finalizeTx :: MonadThrow m => TinyWallet m -> ChainContext -> UTxO -> UTxO -> Tx -> m Tx

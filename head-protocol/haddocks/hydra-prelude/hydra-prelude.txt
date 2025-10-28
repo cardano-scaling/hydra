@@ -3,10 +3,8 @@
 
 
 -- | Custom Hydra Prelude used across other Hydra packages.
---   
---   Custom Hydra Prelude used across other Hydra packages.
 @package hydra-prelude
-@version 0.22.4
+@version 1.1.0
 
 module Hydra.Prelude
 

@@ -2,11 +2,11 @@
 </span><span id="line-2"></span><span>
 </span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toLedgerValue</span></span><span class="hs-special">)</span><span>
 </span><span id="line-4"></span><span>
-</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.Ledger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Coin</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PParams</span></span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.Ledger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">PParams</span></span><span class="hs-special">)</span><span>
 </span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Core</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">getMinCoinTxOut</span></span><span class="hs-special">)</span><span>
 </span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Mary.Value</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
-</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Word.html"><span class="hs-identifier">Data.Word</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Word.html#Word64"><span class="hs-identifier">Word64</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html"><span class="hs-identifier">GHC.IsList</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html#IsList"><span class="hs-identifier">IsList</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Word.html"><span class="hs-identifier">Data.Word</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Word.html#Word64"><span class="hs-identifier">Word64</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html"><span class="hs-identifier">GHC.IsList</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html#IsList"><span class="hs-identifier">IsList</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.PolicyId.html"><span class="hs-identifier">Hydra.Cardano.Api.PolicyId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.PolicyId.html#fromPlutusCurrencySymbol"><span class="hs-identifier">fromPlutusCurrencySymbol</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V1.Value</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">flattenValue</span></span><span class="hs-special">)</span><span>
 </span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">adaSymbol</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">adaToken</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromBuiltin</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">unTokenName</span></span><span class="hs-special">)</span><span>
@@ -14,66 +14,31 @@
 </span><span id="line-14"></span><span>
 </span><span id="line-15"></span><span class="annot"><span class="hs-comment">-- * Extras</span></span><span>
 </span><span id="line-16"></span><span>
-</span><span id="line-17"></span><span class="annot"><span class="hs-comment">-- | Check whether left contains right.</span></span><span>
-</span><span id="line-18"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#containsValue"><span class="hs-identifier hs-type">containsValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
-</span><span id="line-19"></span><span id="containsValue"><span class="annot"><span class="annottext">containsValue :: Value -&gt; Value -&gt; Bool
-</span><a href="Hydra.Cardano.Api.Value.html#containsValue"><span class="hs-identifier hs-var hs-var">containsValue</span></a></span></span><span> </span><span id="local-6989586621679292761"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679292761"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679292762"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679292762"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-20"></span><span>  </span><span class="annot"><span class="annottext">((AssetId, Quantity) -&gt; Bool) -&gt; [(AssetId, Quantity)] -&gt; Bool
-forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#all"><span class="hs-identifier hs-var">all</span></a></span><span> </span><span class="annot"><span class="annottext">(AssetId, Quantity) -&gt; Bool
-forall a. (a, Quantity) -&gt; Bool
-</span><a href="#local-6989586621679292764"><span class="hs-identifier hs-var">positive</span></a></span><span> </span><span class="annot"><span class="annottext">([(AssetId, Quantity)] -&gt; Bool)
--&gt; (Value -&gt; [(AssetId, Quantity)]) -&gt; Value -&gt; Bool
-forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; [(AssetId, Quantity)]
-Value -&gt; [Item Value]
-forall l. IsList l =&gt; l -&gt; [Item l]
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Bool) -&gt; Value -&gt; Bool
-forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679292761"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
-forall a. Semigroup a =&gt; a -&gt; a -&gt; a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value
-</span><span class="hs-identifier hs-var">negateValue</span></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679292762"><span class="hs-identifier hs-var">b</span></a></span><span>
-</span><span id="line-21"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-22"></span><span>  </span><span id="local-6989586621679292654"><span class="annot"><a href="#local-6989586621679292764"><span class="hs-identifier hs-type">positive</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679292654"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Quantity</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span></span><span>
-</span><span id="line-23"></span><span>  </span><span id="local-6989586621679292764"><span class="annot"><span class="annottext">positive :: forall a. (a, Quantity) -&gt; Bool
-</span><a href="#local-6989586621679292764"><span class="hs-identifier hs-var hs-var">positive</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
-</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679292771"><span class="annot"><span class="annottext">Quantity
-</span><a href="#local-6989586621679292771"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Quantity
-</span><a href="#local-6989586621679292771"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">Quantity -&gt; Quantity -&gt; Bool
-forall a. Ord a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E%3D"><span class="hs-operator hs-var">&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Quantity
-</span><span class="hs-number">0</span></span><span>
-</span><span id="line-24"></span><span>
-</span><span id="line-25"></span><span class="hs-comment">-- | Calculate minimum ada as 'Value' for a 'TxOut'.</span><span>
-</span><span id="line-26"></span><span class="hs-comment">-- NOTE: This function can throw although you can't tell from the signature.</span><span>
-</span><span id="line-27"></span><span class="hs-comment">-- 'toLedgerValue' can error out with _Illegal Value in TxOut_</span><span>
-</span><span id="line-28"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#minUTxOValue"><span class="hs-identifier hs-type">minUTxOValue</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PParams</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#LedgerEra"><span class="hs-identifier hs-type">LedgerEra</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-30"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-31"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
-</span><span id="line-32"></span><span id="minUTxOValue"><span class="annot"><span class="annottext">minUTxOValue :: PParams (ShelleyLedgerEra Era) -&gt; TxOut CtxTx Era -&gt; Value
-</span><a href="Hydra.Cardano.Api.Value.html#minUTxOValue"><span class="hs-identifier hs-var hs-var">minUTxOValue</span></a></span></span><span> </span><span id="local-6989586621679292776"><span class="annot"><span class="annottext">PParams (ShelleyLedgerEra Era)
-</span><a href="#local-6989586621679292776"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span id="local-6989586621679292777"><span class="annot"><span class="annottext">AddressInEra Era
-</span><a href="#local-6989586621679292777"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679292778"><span class="annot"><span class="annottext">TxOutValue Era
-</span><a href="#local-6989586621679292778"><span class="hs-identifier hs-var">val</span></a></span></span><span> </span><span id="local-6989586621679292779"><span class="annot"><span class="annottext">TxOutDatum CtxTx Era
-</span><a href="#local-6989586621679292779"><span class="hs-identifier hs-var">dat</span></a></span></span><span> </span><span id="local-6989586621679292780"><span class="annot"><span class="annottext">ReferenceScript Era
-</span><a href="#local-6989586621679292780"><span class="hs-identifier hs-var">ref</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-33"></span><span>  </span><span class="annot"><span class="annottext">Lovelace -&gt; Value
+</span><span id="line-17"></span><span class="hs-comment">-- | Calculate minimum ada as 'Value' for a 'TxOut'.</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- NOTE: This function can throw although you can't tell from the signature.</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- 'toLedgerValue' can error out with _Illegal Value in TxOut_</span><span>
+</span><span id="line-20"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#minUTxOValue"><span class="hs-identifier hs-type">minUTxOValue</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PParams</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#LedgerEra"><span class="hs-identifier hs-type">LedgerEra</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
+</span><span id="line-24"></span><span id="minUTxOValue"><span class="annot"><span class="annottext">minUTxOValue :: PParams (ShelleyLedgerEra Era) -&gt; TxOut CtxTx Era -&gt; Value
+</span><a href="Hydra.Cardano.Api.Value.html#minUTxOValue"><span class="hs-identifier hs-var hs-var">minUTxOValue</span></a></span></span><span> </span><span id="local-6989586621679284858"><span class="annot"><span class="annottext">PParams (ShelleyLedgerEra Era)
+</span><a href="#local-6989586621679284858"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span id="local-6989586621679284859"><span class="annot"><span class="annottext">AddressInEra Era
+</span><a href="#local-6989586621679284859"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span id="local-6989586621679284860"><span class="annot"><span class="annottext">TxOutValue Era
+</span><a href="#local-6989586621679284860"><span class="hs-identifier hs-var">val</span></a></span></span><span> </span><span id="local-6989586621679284861"><span class="annot"><span class="annottext">TxOutDatum CtxTx Era
+</span><a href="#local-6989586621679284861"><span class="hs-identifier hs-var">dat</span></a></span></span><span> </span><span id="local-6989586621679284862"><span class="annot"><span class="annottext">ReferenceScript Era
+</span><a href="#local-6989586621679284862"><span class="hs-identifier hs-var">ref</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><span class="annottext">Lovelace -&gt; Value
 </span><span class="hs-identifier hs-var">lovelaceToValue</span></span><span> </span><span class="annot"><span class="annottext">(Lovelace -&gt; Value) -&gt; Lovelace -&gt; Value
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-34"></span><span>    </span><span class="annot"><span class="annottext">PParams ConwayEra -&gt; TxOut ConwayEra -&gt; Lovelace
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-26"></span><span>    </span><span class="annot"><span class="annottext">PParams ConwayEra -&gt; TxOut ConwayEra -&gt; Lovelace
 forall era. EraTxOut era =&gt; PParams era -&gt; TxOut era -&gt; Lovelace
 </span><span class="hs-identifier hs-var">getMinCoinTxOut</span></span><span>
-</span><span id="line-35"></span><span>      </span><span class="annot"><span class="annottext">PParams (ShelleyLedgerEra Era)
+</span><span id="line-27"></span><span>      </span><span class="annot"><span class="annottext">PParams (ShelleyLedgerEra Era)
 PParams ConwayEra
-</span><a href="#local-6989586621679292776"><span class="hs-identifier hs-var">pparams</span></a></span><span>
-</span><span id="line-36"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShelleyBasedEra Era -&gt; TxOut CtxUTxO Era -&gt; TxOut ConwayEra
+</span><a href="#local-6989586621679284858"><span class="hs-identifier hs-var">pparams</span></a></span><span>
+</span><span id="line-28"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShelleyBasedEra Era -&gt; TxOut CtxUTxO Era -&gt; TxOut ConwayEra
 forall era ledgerera.
 (HasCallStack, ShelleyLedgerEra era ~ ledgerera) =&gt;
 ShelleyBasedEra era -&gt; TxOut CtxUTxO era -&gt; TxOut ledgerera
@@ -82,14 +47,14 @@ forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
 </span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO Era -&gt; TxOut ConwayEra)
 -&gt; TxOut CtxUTxO Era -&gt; TxOut ConwayEra
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; TxOut CtxUTxO Era
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; TxOut CtxUTxO Era
 forall era. TxOut CtxTx era -&gt; TxOut CtxUTxO era
 </span><span class="hs-identifier hs-var">toCtxUTxOTxOut</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679292785"><span class="hs-identifier hs-var">out'</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-37"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-38"></span><span>  </span><span id="local-6989586621679292785"><span class="annot"><span class="annottext">out' :: TxOut CtxTx Era
-</span><a href="#local-6989586621679292785"><span class="hs-identifier hs-var hs-var">out'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-39"></span><span>    </span><span class="annot"><span class="annottext">AddressInEra Era
+</span><a href="#local-6989586621679284867"><span class="hs-identifier hs-var">out'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>  </span><span id="local-6989586621679284867"><span class="annot"><span class="annottext">out' :: TxOut CtxTx Era
+</span><a href="#local-6989586621679284867"><span class="hs-identifier hs-var hs-var">out'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">AddressInEra Era
 -&gt; TxOutValue Era
 -&gt; TxOutDatum CtxTx Era
 -&gt; ReferenceScript Era
@@ -101,9 +66,9 @@ AddressInEra era
 -&gt; ReferenceScript era
 -&gt; TxOut ctx era
 </span><span class="hs-identifier hs-var">TxOut</span></span><span>
-</span><span id="line-40"></span><span>      </span><span class="annot"><span class="annottext">AddressInEra Era
-</span><a href="#local-6989586621679292777"><span class="hs-identifier hs-var">addr</span></a></span><span>
-</span><span id="line-41"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era
+</span><span id="line-32"></span><span>      </span><span class="annot"><span class="annottext">AddressInEra Era
+</span><a href="#local-6989586621679284859"><span class="hs-identifier hs-var">addr</span></a></span><span>
+</span><span id="line-33"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era
 -&gt; Value (ShelleyLedgerEra Era) -&gt; TxOutValue Era
 forall era.
 (Eq (Value (ShelleyLedgerEra era)),
@@ -111,174 +76,174 @@ forall era.
 ShelleyBasedEra era
 -&gt; Value (ShelleyLedgerEra era) -&gt; TxOutValue era
 </span><span class="hs-identifier hs-var">TxOutValueShelleyBased</span></span><span>
-</span><span id="line-42"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span id="line-34"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
 </span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-43"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; MaryValue
+</span><span id="line-35"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; MaryValue
 </span><a href="Hydra.Cardano.Api.Value.html#toLedgerValue"><span class="hs-identifier hs-var">toLedgerValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOutValue Era -&gt; Value
 forall era. TxOutValue era -&gt; Value
 </span><span class="hs-identifier hs-var">txOutValueToValue</span></span><span> </span><span class="annot"><span class="annottext">TxOutValue Era
-</span><a href="#local-6989586621679292778"><span class="hs-identifier hs-var">val</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
+</span><a href="#local-6989586621679284860"><span class="hs-identifier hs-var">val</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679292788"><span class="hs-identifier hs-var">defaultHighEnoughValue</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-44"></span><span>      </span><span class="hs-special">)</span><span>
-</span><span id="line-45"></span><span>      </span><span class="annot"><span class="annottext">TxOutDatum CtxTx Era
-</span><a href="#local-6989586621679292779"><span class="hs-identifier hs-var">dat</span></a></span><span>
-</span><span id="line-46"></span><span>      </span><span class="annot"><span class="annottext">ReferenceScript Era
-</span><a href="#local-6989586621679292780"><span class="hs-identifier hs-var">ref</span></a></span><span>
-</span><span id="line-47"></span><span>
-</span><span id="line-48"></span><span>  </span><span class="hs-comment">-- NOTE: We don't expect the caller to have set any particular value on the</span><span>
-</span><span id="line-49"></span><span>  </span><span class="hs-comment">-- output, so most likely it is equal to '0' and thus, the minimum calculation</span><span>
-</span><span id="line-50"></span><span>  </span><span class="hs-comment">-- will be slightly off because once set, the size of the output will change</span><span>
-</span><span id="line-51"></span><span>  </span><span class="hs-comment">-- and increase the minimum required! So, we evaluate the minimum with an</span><span>
-</span><span id="line-52"></span><span>  </span><span class="hs-comment">-- already large enough lovelace to acknowledge for the increase in size to</span><span>
-</span><span id="line-53"></span><span>  </span><span class="hs-comment">-- come.</span><span>
-</span><span id="line-54"></span><span>  </span><span id="local-6989586621679292788"><span class="annot"><span class="annottext">defaultHighEnoughValue :: Value
-</span><a href="#local-6989586621679292788"><span class="hs-identifier hs-var hs-var">defaultHighEnoughValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">Lovelace -&gt; Value
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679284870"><span class="hs-identifier hs-var">defaultHighEnoughValue</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>      </span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>      </span><span class="annot"><span class="annottext">TxOutDatum CtxTx Era
+</span><a href="#local-6989586621679284861"><span class="hs-identifier hs-var">dat</span></a></span><span>
+</span><span id="line-38"></span><span>      </span><span class="annot"><span class="annottext">ReferenceScript Era
+</span><a href="#local-6989586621679284862"><span class="hs-identifier hs-var">ref</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-comment">-- NOTE: We don't expect the caller to have set any particular value on the</span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-comment">-- output, so most likely it is equal to '0' and thus, the minimum calculation</span><span>
+</span><span id="line-42"></span><span>  </span><span class="hs-comment">-- will be slightly off because once set, the size of the output will change</span><span>
+</span><span id="line-43"></span><span>  </span><span class="hs-comment">-- and increase the minimum required! So, we evaluate the minimum with an</span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-comment">-- already large enough lovelace to acknowledge for the increase in size to</span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-comment">-- come.</span><span>
+</span><span id="line-46"></span><span>  </span><span id="local-6989586621679284870"><span class="annot"><span class="annottext">defaultHighEnoughValue :: Value
+</span><a href="#local-6989586621679284870"><span class="hs-identifier hs-var hs-var">defaultHighEnoughValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-47"></span><span>    </span><span class="annot"><span class="annottext">Lovelace -&gt; Value
 </span><span class="hs-identifier hs-var">lovelaceToValue</span></span><span> </span><span class="annot"><span class="annottext">(Lovelace -&gt; Value) -&gt; Lovelace -&gt; Value
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Lovelace
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Lovelace
 </span><span class="hs-identifier hs-var">Coin</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; Lovelace) -&gt; Integer -&gt; Lovelace
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Integer
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Integer
 forall a. Integral a =&gt; a -&gt; Integer
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var">toInteger</span></a></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; Integer) -&gt; Word64 -&gt; Integer
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var">toInteger</span></a></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; Integer) -&gt; Word64 -&gt; Integer
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">forall a. Bounded a =&gt; a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#maxBound"><span class="hs-identifier hs-var">maxBound</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Word.html#Word64"><span class="hs-identifier hs-type">Word64</span></a></span><span>
-</span><span id="line-56"></span><span>
-</span><span id="line-57"></span><span class="annot"><span class="hs-comment">-- | Count number of assets in a 'Value'.</span></span><span>
-</span><span id="line-58"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#valueSize"><span class="hs-identifier hs-type">valueSize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
-</span><span id="line-59"></span><span id="valueSize"><span class="annot"><span class="annottext">valueSize :: Value -&gt; Int
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">forall a. Bounded a =&gt; a
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#maxBound"><span class="hs-identifier hs-var">maxBound</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Word.html#Word64"><span class="hs-identifier hs-type">Word64</span></a></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="annot"><span class="hs-comment">-- | Count number of assets in a 'Value'.</span></span><span>
+</span><span id="line-50"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#valueSize"><span class="hs-identifier hs-type">valueSize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-51"></span><span id="valueSize"><span class="annot"><span class="annottext">valueSize :: Value -&gt; Int
 </span><a href="Hydra.Cardano.Api.Value.html#valueSize"><span class="hs-identifier hs-var hs-var">valueSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(AssetId, Quantity)] -&gt; Int
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">([(AssetId, Quantity)] -&gt; Int)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">([(AssetId, Quantity)] -&gt; Int)
 -&gt; (Value -&gt; [(AssetId, Quantity)]) -&gt; Value -&gt; Int
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; [(AssetId, Quantity)]
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; [(AssetId, Quantity)]
 Value -&gt; [Item Value]
 forall l. IsList l =&gt; l -&gt; [Item l]
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span>
-</span><span id="line-60"></span><span>
-</span><span id="line-61"></span><span class="annot"><span class="hs-comment">-- * Type Conversions</span></span><span>
-</span><span id="line-62"></span><span>
-</span><span id="line-63"></span><span class="annot"><span class="hs-comment">-- | Convert a cardano-ledger 'Value' into a cardano-api 'Value'.</span></span><span>
-</span><span id="line-64"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#fromLedgerValue"><span class="hs-identifier hs-type">fromLedgerValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.MaryValue</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
-</span><span id="line-65"></span><span id="fromLedgerValue"><span class="annot"><span class="annottext">fromLedgerValue :: MaryValue -&gt; Value
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="annot"><span class="hs-comment">-- * Type Conversions</span></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="annot"><span class="hs-comment">-- | Convert a cardano-ledger 'Value' into a cardano-api 'Value'.</span></span><span>
+</span><span id="line-56"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#fromLedgerValue"><span class="hs-identifier hs-type">fromLedgerValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.MaryValue</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
+</span><span id="line-57"></span><span id="fromLedgerValue"><span class="annot"><span class="annottext">fromLedgerValue :: MaryValue -&gt; Value
 </span><a href="Hydra.Cardano.Api.Value.html#fromLedgerValue"><span class="hs-identifier hs-var hs-var">fromLedgerValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-66"></span><span>  </span><span class="annot"><span class="annottext">MaryValue -&gt; Value
+</span><span id="line-58"></span><span>  </span><span class="annot"><span class="annottext">MaryValue -&gt; Value
 </span><span class="hs-identifier hs-var">fromMaryValue</span></span><span>
-</span><span id="line-67"></span><span>
-</span><span id="line-68"></span><span class="hs-comment">-- | Convert a cardano-ledger 'MultiAsset' into a cardano-api 'Value'. The</span><span>
-</span><span id="line-69"></span><span class="hs-comment">-- cardano-api currently does not have an asset-only type. So this conversion</span><span>
-</span><span id="line-70"></span><span class="hs-comment">-- will construct a 'Value' with no 'AdaAssetId' entry in it.</span><span>
-</span><span id="line-71"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#fromLedgerMultiAsset"><span class="hs-identifier hs-type">fromLedgerMultiAsset</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.MultiAsset</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
-</span><span id="line-72"></span><span id="fromLedgerMultiAsset"><span class="annot"><span class="annottext">fromLedgerMultiAsset :: MultiAsset -&gt; Value
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | Convert a cardano-ledger 'MultiAsset' into a cardano-api 'Value'. The</span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- cardano-api currently does not have an asset-only type. So this conversion</span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- will construct a 'Value' with no 'AdaAssetId' entry in it.</span><span>
+</span><span id="line-63"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#fromLedgerMultiAsset"><span class="hs-identifier hs-type">fromLedgerMultiAsset</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.MultiAsset</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
+</span><span id="line-64"></span><span id="fromLedgerMultiAsset"><span class="annot"><span class="annottext">fromLedgerMultiAsset :: MultiAsset -&gt; Value
 </span><a href="Hydra.Cardano.Api.Value.html#fromLedgerMultiAsset"><span class="hs-identifier hs-var hs-var">fromLedgerMultiAsset</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-73"></span><span>  </span><span class="annot"><span class="annottext">MaryValue -&gt; Value
+</span><span id="line-65"></span><span>  </span><span class="annot"><span class="annottext">MaryValue -&gt; Value
 </span><span class="hs-identifier hs-var">fromMaryValue</span></span><span> </span><span class="annot"><span class="annottext">(MaryValue -&gt; Value)
 -&gt; (MultiAsset -&gt; MaryValue) -&gt; MultiAsset -&gt; Value
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Lovelace -&gt; MultiAsset -&gt; MaryValue
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Lovelace -&gt; MultiAsset -&gt; MaryValue
 </span><span class="hs-identifier hs-var">Ledger.MaryValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Lovelace
 </span><span class="hs-identifier hs-var">Coin</span></span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
-</span><span id="line-74"></span><span>
-</span><span id="line-75"></span><span class="annot"><span class="hs-comment">-- | Convert a cardano-api 'Value' into a cardano-ledger 'Value'.</span></span><span>
-</span><span id="line-76"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#toLedgerValue"><span class="hs-identifier hs-type">toLedgerValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.MaryValue</span></span><span>
-</span><span id="line-77"></span><span id="toLedgerValue"><span class="annot"><span class="annottext">toLedgerValue :: Value -&gt; MaryValue
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="annot"><span class="hs-comment">-- | Convert a cardano-api 'Value' into a cardano-ledger 'Value'.</span></span><span>
+</span><span id="line-68"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#toLedgerValue"><span class="hs-identifier hs-type">toLedgerValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.MaryValue</span></span><span>
+</span><span id="line-69"></span><span id="toLedgerValue"><span class="annot"><span class="annottext">toLedgerValue :: Value -&gt; MaryValue
 </span><a href="Hydra.Cardano.Api.Value.html#toLedgerValue"><span class="hs-identifier hs-var hs-var">toLedgerValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-78"></span><span>  </span><span class="annot"><span class="annottext">Value -&gt; MaryValue
+</span><span id="line-70"></span><span>  </span><span class="annot"><span class="annottext">Value -&gt; MaryValue
 </span><span class="hs-identifier hs-var">toMaryValue</span></span><span>
-</span><span id="line-79"></span><span>
-</span><span id="line-80"></span><span class="annot"><span class="hs-comment">-- | Convert a plutus 'Value' into a cardano-api 'Value'.</span></span><span>
-</span><span id="line-81"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#fromPlutusValue"><span class="hs-identifier hs-type">fromPlutusValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
-</span><span id="line-82"></span><span id="fromPlutusValue"><span class="annot"><span class="annottext">fromPlutusValue :: Value -&gt; Maybe Value
-</span><a href="Hydra.Cardano.Api.Value.html#fromPlutusValue"><span class="hs-identifier hs-var hs-var">fromPlutusValue</span></a></span></span><span> </span><span id="local-6989586621679292804"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679292804"><span class="hs-identifier hs-var">plutusValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-83"></span><span>  </span><span class="annot"><span class="annottext">([(AssetId, Quantity)] -&gt; Value)
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="annot"><span class="hs-comment">-- | Convert a plutus 'Value' into a cardano-api 'Value'.</span></span><span>
+</span><span id="line-73"></span><span class="annot"><a href="Hydra.Cardano.Api.Value.html#fromPlutusValue"><span class="hs-identifier hs-type">fromPlutusValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
+</span><span id="line-74"></span><span id="fromPlutusValue"><span class="annot"><span class="annottext">fromPlutusValue :: Value -&gt; Maybe Value
+</span><a href="Hydra.Cardano.Api.Value.html#fromPlutusValue"><span class="hs-identifier hs-var hs-var">fromPlutusValue</span></a></span></span><span> </span><span id="local-6989586621679284887"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679284887"><span class="hs-identifier hs-var">plutusValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-75"></span><span>  </span><span class="annot"><span class="annottext">([(AssetId, Quantity)] -&gt; Value)
 -&gt; Maybe [(AssetId, Quantity)] -&gt; Maybe Value
 forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">[(AssetId, Quantity)] -&gt; Value
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">[(AssetId, Quantity)] -&gt; Value
 [Item Value] -&gt; Value
 forall l. IsList l =&gt; [Item l] -&gt; l
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html#fromList"><span class="hs-identifier hs-var">fromList</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe [(AssetId, Quantity)] -&gt; Maybe Value)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html#fromList"><span class="hs-identifier hs-var">fromList</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe [(AssetId, Quantity)] -&gt; Maybe Value)
 -&gt; ([(CurrencySymbol, TokenName, Integer)]
     -&gt; Maybe [(AssetId, Quantity)])
 -&gt; [(CurrencySymbol, TokenName, Integer)]
 -&gt; Maybe Value
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">((CurrencySymbol, TokenName, Integer) -&gt; Maybe (AssetId, Quantity))
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">((CurrencySymbol, TokenName, Integer) -&gt; Maybe (AssetId, Quantity))
 -&gt; [(CurrencySymbol, TokenName, Integer)]
 -&gt; Maybe [(AssetId, Quantity)]
 forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Traversable t, Monad m) =&gt;
 (a -&gt; m b) -&gt; t a -&gt; m (t b)
 forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; [a] -&gt; m [b]
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Traversable.html#mapM"><span class="hs-identifier hs-var">mapM</span></a></span><span> </span><span class="annot"><span class="annottext">(CurrencySymbol, TokenName, Integer) -&gt; Maybe (AssetId, Quantity)
-</span><a href="#local-6989586621679292806"><span class="hs-identifier hs-var">convertAsset</span></a></span><span> </span><span class="annot"><span class="annottext">([(CurrencySymbol, TokenName, Integer)] -&gt; Maybe Value)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Traversable.html#mapM"><span class="hs-identifier hs-var">mapM</span></a></span><span> </span><span class="annot"><span class="annottext">(CurrencySymbol, TokenName, Integer) -&gt; Maybe (AssetId, Quantity)
+</span><a href="#local-6989586621679284889"><span class="hs-identifier hs-var">convertAsset</span></a></span><span> </span><span class="annot"><span class="annottext">([(CurrencySymbol, TokenName, Integer)] -&gt; Maybe Value)
 -&gt; [(CurrencySymbol, TokenName, Integer)] -&gt; Maybe Value
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; [(CurrencySymbol, TokenName, Integer)]
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; [(CurrencySymbol, TokenName, Integer)]
 </span><span class="hs-identifier hs-var">flattenValue</span></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679292804"><span class="hs-identifier hs-var">plutusValue</span></a></span><span>
-</span><span id="line-84"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-85"></span><span>  </span><span class="annot"><a href="#local-6989586621679292806"><span class="hs-identifier hs-type">convertAsset</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plutus.CurrencySymbol</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.TokenName</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Quantity</span></span><span class="hs-special">)</span><span>
-</span><span id="line-86"></span><span>  </span><span id="local-6989586621679292806"><span class="annot"><span class="annottext">convertAsset :: (CurrencySymbol, TokenName, Integer) -&gt; Maybe (AssetId, Quantity)
-</span><a href="#local-6989586621679292806"><span class="hs-identifier hs-var hs-var">convertAsset</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679292807"><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679292807"><span class="hs-identifier hs-var">cs</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679292808"><span class="annot"><span class="annottext">TokenName
-</span><a href="#local-6989586621679292808"><span class="hs-identifier hs-var">tk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679292809"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679292809"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">)</span><span>
-</span><span id="line-87"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679292807"><span class="hs-identifier hs-var">cs</span></a></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; CurrencySymbol -&gt; Bool
+</span><a href="#local-6989586621679284887"><span class="hs-identifier hs-var">plutusValue</span></a></span><span>
+</span><span id="line-76"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-77"></span><span>  </span><span class="annot"><a href="#local-6989586621679284889"><span class="hs-identifier hs-type">convertAsset</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plutus.CurrencySymbol</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.TokenName</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AssetId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Quantity</span></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>  </span><span id="local-6989586621679284889"><span class="annot"><span class="annottext">convertAsset :: (CurrencySymbol, TokenName, Integer) -&gt; Maybe (AssetId, Quantity)
+</span><a href="#local-6989586621679284889"><span class="hs-identifier hs-var hs-var">convertAsset</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679284890"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679284890"><span class="hs-identifier hs-var">cs</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679284891"><span class="annot"><span class="annottext">TokenName
+</span><a href="#local-6989586621679284891"><span class="hs-identifier hs-var">tk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679284892"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679284892"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679284890"><span class="hs-identifier hs-var">cs</span></a></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; CurrencySymbol -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
 </span><span class="hs-identifier hs-var">adaSymbol</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">TokenName
-</span><a href="#local-6989586621679292808"><span class="hs-identifier hs-var">tk</span></a></span><span> </span><span class="annot"><span class="annottext">TokenName -&gt; TokenName -&gt; Bool
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">TokenName
+</span><a href="#local-6989586621679284891"><span class="hs-identifier hs-var">tk</span></a></span><span> </span><span class="annot"><span class="annottext">TokenName -&gt; TokenName -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">TokenName
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">TokenName
 </span><span class="hs-identifier hs-var">adaToken</span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-88"></span><span>        </span><span class="annot"><span class="annottext">(AssetId, Quantity) -&gt; Maybe (AssetId, Quantity)
+</span><span id="line-80"></span><span>        </span><span class="annot"><span class="annottext">(AssetId, Quantity) -&gt; Maybe (AssetId, Quantity)
 forall a. a -&gt; Maybe a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AssetId
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AssetId
 </span><span class="hs-identifier hs-var">AdaAssetId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Quantity
 </span><span class="hs-identifier hs-var">Quantity</span></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679292809"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-89"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-90"></span><span>        </span><span id="local-6989586621679292812"><span class="annot"><span class="annottext">PolicyId
-</span><a href="#local-6989586621679292812"><span class="hs-identifier hs-var">pid</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; Maybe PolicyId
+</span><a href="#local-6989586621679284892"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-82"></span><span>        </span><span id="local-6989586621679284895"><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679284895"><span class="hs-identifier hs-var">pid</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; Maybe PolicyId
 forall (m :: * -&gt; *). MonadFail m =&gt; CurrencySymbol -&gt; m PolicyId
 </span><a href="Hydra.Cardano.Api.PolicyId.html#fromPlutusCurrencySymbol"><span class="hs-identifier hs-var">fromPlutusCurrencySymbol</span></a></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679292807"><span class="hs-identifier hs-var">cs</span></a></span><span>
-</span><span id="line-91"></span><span>        </span><span class="annot"><span class="annottext">(AssetId, Quantity) -&gt; Maybe (AssetId, Quantity)
+</span><a href="#local-6989586621679284890"><span class="hs-identifier hs-var">cs</span></a></span><span>
+</span><span id="line-83"></span><span>        </span><span class="annot"><span class="annottext">(AssetId, Quantity) -&gt; Maybe (AssetId, Quantity)
 forall a. a -&gt; Maybe a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; AssetName -&gt; AssetId
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; AssetName -&gt; AssetId
 </span><span class="hs-identifier hs-var">AssetId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
-</span><a href="#local-6989586621679292812"><span class="hs-identifier hs-var">pid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenName -&gt; AssetName
-</span><a href="#local-6989586621679292814"><span class="hs-identifier hs-var">toAssetName</span></a></span><span> </span><span class="annot"><span class="annottext">TokenName
-</span><a href="#local-6989586621679292808"><span class="hs-identifier hs-var">tk</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Quantity
+</span><a href="#local-6989586621679284895"><span class="hs-identifier hs-var">pid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TokenName -&gt; AssetName
+</span><a href="#local-6989586621679284897"><span class="hs-identifier hs-var">toAssetName</span></a></span><span> </span><span class="annot"><span class="annottext">TokenName
+</span><a href="#local-6989586621679284891"><span class="hs-identifier hs-var">tk</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Quantity
 </span><span class="hs-identifier hs-var">Quantity</span></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679292809"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-92"></span><span>
-</span><span id="line-93"></span><span>  </span><span class="annot"><a href="#local-6989586621679292814"><span class="hs-identifier hs-type">toAssetName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.TokenName</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AssetName</span></span><span>
-</span><span id="line-94"></span><span>  </span><span id="local-6989586621679292814"><span class="annot"><span class="annottext">toAssetName :: TokenName -&gt; AssetName
-</span><a href="#local-6989586621679292814"><span class="hs-identifier hs-var hs-var">toAssetName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; AssetName
-</span><span class="hs-identifier hs-var">AssetName</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; AssetName)
+</span><a href="#local-6989586621679284892"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span>  </span><span class="annot"><a href="#local-6989586621679284897"><span class="hs-identifier hs-type">toAssetName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.TokenName</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AssetName</span></span><span>
+</span><span id="line-86"></span><span>  </span><span id="local-6989586621679284897"><span class="annot"><span class="annottext">toAssetName :: TokenName -&gt; AssetName
+</span><a href="#local-6989586621679284897"><span class="hs-identifier hs-var hs-var">toAssetName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; AssetName
+</span><span class="hs-identifier hs-var">UnsafeAssetName</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; AssetName)
 -&gt; (TokenName -&gt; ByteString) -&gt; TokenName -&gt; AssetName
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; ByteString
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; ByteString
 BuiltinByteString -&gt; FromBuiltin BuiltinByteString
 forall arep. HasFromBuiltin arep =&gt; arep -&gt; FromBuiltin arep
 </span><span class="hs-identifier hs-var">fromBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; ByteString)
 -&gt; (TokenName -&gt; BuiltinByteString) -&gt; TokenName -&gt; ByteString
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/cz9ly62f92wivwp9aah4py51j2fnx6kf-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TokenName -&gt; BuiltinByteString
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TokenName -&gt; BuiltinByteString
 </span><span class="hs-identifier hs-var">unTokenName</span></span><span>
-</span><span id="line-95"></span></pre></body></html>
+</span><span id="line-87"></span></pre></body></html>
