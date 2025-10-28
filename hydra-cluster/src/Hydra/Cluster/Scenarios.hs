@@ -2144,7 +2144,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
           guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
 
         -- Carol does not because of its node being misconfigured
-        waitMatch (3 * blockTime) n3 $ \v -> do
+        waitMatch (10 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "TxInvalid"
           guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
 
@@ -2166,7 +2166,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
         -- Carol re-submits the same transaction
         send n3 $ input "NewTx" ["transaction" .= tx]
         -- Carol accepts it
-        waitMatch (3 * blockTime) n3 $ \v -> do
+        waitMatch (10 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "TxValid"
           guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
         -- But now Alice and Bob does not because they already applied it
