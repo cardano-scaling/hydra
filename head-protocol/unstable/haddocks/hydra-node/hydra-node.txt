@@ -3683,6 +3683,7 @@ outputFileParser :: Parser FilePath
 defaultPublishOptions :: PublishOptions
 defaultDirectOptions :: DirectOptions
 defaultBlockfrostOptions :: BlockfrostOptions
+defaultBFQueryTimeout :: Int
 chainBackendOptionsParser :: Parser ChainBackendOptions
 cardanoSigningKeyFileParser :: Parser FilePath
 genFilePath :: String -> Gen FilePath
