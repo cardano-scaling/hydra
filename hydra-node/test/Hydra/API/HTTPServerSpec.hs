@@ -25,8 +25,8 @@ import Hydra.API.HTTPServer (
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
-  UTxO,
   ChainPoint (..),
+  UTxO,
   mkTxOutDatumInline,
   modifyTxOutDatum,
   renderTxIn,
