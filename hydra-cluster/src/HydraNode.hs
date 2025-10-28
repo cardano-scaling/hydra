@@ -492,7 +492,7 @@ withConnectionToNode tracer hydraNodeId =
 withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
 withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryParams action = do
   connectedOnce <- newIORef False
-  tryConnect connectedOnce (200 :: Int)
+  tryConnect connectedOnce (300 :: Int)
  where
   tryConnect connectedOnce n
     | n == 0 = failure $ "Timed out waiting for connection to hydra-node " <> show hydraNodeId
@@ -501,7 +501,7 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryP
           retryOrThrow :: forall proxy e. Exception e => proxy e -> e -> IO a
           retryOrThrow _ e =
             readIORef connectedOnce >>= \case
-              False -> threadDelay 0.1 >> tryConnect connectedOnce (n - 1)
+              False -> threadDelay 1 >> tryConnect connectedOnce (n - 1)
               True -> throwIO e
         doConnect connectedOnce
           `catches` [ Handler $ retryOrThrow (Proxy @IOException)
