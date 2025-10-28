@@ -112,11 +112,9 @@ healthyOpenStateVersion = healthyOutdatedSnapshotVersion + 1
 healthyOutdatedConfirmedClosingSnapshot :: ConfirmedSnapshot Tx
 healthyOutdatedConfirmedClosingSnapshot = healthyConfirmedSnapshot healthyOutdatedSnapshot
 
-healthyCloseOutdatedTx :: (Tx, UTxO)
-healthyCloseOutdatedTx =
-  (tx, lookupUTxO)
- where
-  tx =
+healthyCloseOutdatedTx :: IO (Tx, UTxO)
+healthyCloseOutdatedTx = do
+  tx <-
     closeTx
       scriptRegistry
       somePartyCardanoVerificationKey
@@ -127,9 +125,9 @@ healthyCloseOutdatedTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       incrementalAction
-
+  pure (tx, lookupUTxO)
+ where
   closeUsedSnapshot = healthyConfirmedSnapshot healthyOutdatedSnapshot
-
   incrementalAction =
     fromMaybe NoThing $
       setIncrementalActionMaybe (utxoToCommit $ getSnapshot closeUsedSnapshot) (utxoToDecommit $ getSnapshot closeUsedSnapshot)

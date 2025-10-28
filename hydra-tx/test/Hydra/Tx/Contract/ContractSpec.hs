@@ -67,6 +67,7 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   forAllShrink,
+  ioProperty,
   property,
   shuffle,
   (=/=),
@@ -146,19 +147,28 @@ spec = parallel $ do
       propMutation healthyRecoverTx genRecoverMutation
   describe "CloseInitial" $ do
     prop "is healthy" $
-      propTransactionEvaluates healthyCloseInitialTx
+      ioProperty $
+        propTransactionEvaluates <$> healthyCloseInitialTx
     prop "does not survive random adversarial mutations" $
-      propMutation healthyCloseInitialTx genCloseInitialMutation
+      ioProperty $ do
+        tx <- healthyCloseInitialTx
+        pure $ propMutation tx genCloseInitialMutation
   describe "CloseUnusedDec" $ do
     prop "is healthy" $
-      propTransactionEvaluates healthyCloseCurrentTx
+      ioProperty $
+        propTransactionEvaluates <$> healthyCloseCurrentTx
     prop "does not survive random adversarial mutations" $
-      propMutation healthyCloseCurrentTx genCloseCurrentMutation
+      ioProperty $ do
+        tx <- healthyCloseCurrentTx
+        pure $ propMutation tx genCloseCurrentMutation
   describe "CloseUsedDec" $ do
     prop "is healthy" $
-      propTransactionEvaluates healthyCloseOutdatedTx
+      ioProperty $
+        propTransactionEvaluates <$> healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $
-      propMutation healthyCloseOutdatedTx genCloseOutdatedMutation
+      ioProperty $ do
+        tx <- healthyCloseOutdatedTx
+        pure $ propMutation tx genCloseOutdatedMutation
   describe "ContestCurrent" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx
@@ -172,9 +182,12 @@ spec = parallel $ do
       propMutation healthyContestTx genContestDecMutation
   describe "Fanout" $ do
     prop "is healthy" $
-      propTransactionEvaluates healthyFanoutTx
+      ioProperty $
+        propTransactionEvaluates <$> healthyFanoutTx
     prop "does not survive random adversarial mutations" $
-      propMutation healthyFanoutTx genFanoutMutation
+      ioProperty $ do
+        tx <- healthyFanoutTx
+        pure $ propMutation tx genFanoutMutation
 
 --
 -- Properties
