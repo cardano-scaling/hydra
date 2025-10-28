@@ -367,7 +367,7 @@ apiServerSpec = do
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
-                  (pure NodeState{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0, knownTip = ChainPointAtGenesis})
+                  (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0, knownTip = ChainPointAtGenesis})
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -527,7 +527,7 @@ apiServerSpec = do
                 dummyChainHandle
                 testEnvironment
                 defaultPParams
-                (pure NodeState{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0, knownTip = ChainPointAtGenesis})
+                (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0, knownTip = ChainPointAtGenesis})
                 cantCommit
                 getPendingDeposits
                 putClientInput
@@ -561,7 +561,7 @@ apiServerSpec = do
               workingChainHandle
               testEnvironment
               defaultPParams
-              (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0, knownTip = ChainPointAtGenesis})
+              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0, knownTip = ChainPointAtGenesis})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -607,7 +607,7 @@ apiServerSpec = do
                 (failingChainHandle postTxError)
                 testEnvironment
                 defaultPParams
-                (pure NodeState{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0, knownTip = ChainPointAtGenesis})
+                (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0, knownTip = ChainPointAtGenesis})
                 getHeadId
                 getPendingDeposits
                 putClientInput

@@ -268,7 +268,7 @@ mkTimedServerOutputFromStateEvent event =
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
 projectPendingDeposits txIds = \case
-  StateChanged.Checkpoint{state = NodeState{pendingDeposits}} -> Map.keys pendingDeposits
+  StateChanged.Checkpoint{state} -> Map.keys (pendingDeposits state)
   StateChanged.DepositRecorded{depositTxId} -> depositTxId : txIds
   StateChanged.DepositRecovered{depositTxId} -> filter (/= depositTxId) txIds
   StateChanged.CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
@@ -279,10 +279,11 @@ projectPendingDeposits txIds = \case
 -- state since this is when Head parties need to commit some funds.
 projectCommitInfo :: CommitInfo -> StateChanged.StateChanged tx -> CommitInfo
 projectCommitInfo commitInfo = \case
-  StateChanged.Checkpoint NodeState{headState = state} -> case state of
-    Initial InitialState{headId} -> NormalCommit headId
-    Open OpenState{headId} -> IncrementalCommit headId
-    _ -> CannotCommit
+  StateChanged.Checkpoint state ->
+    case headState state of
+      Initial InitialState{headId} -> NormalCommit headId
+      Open OpenState{headId} -> IncrementalCommit headId
+      _ -> CannotCommit
   StateChanged.HeadInitialized{headId} -> NormalCommit headId
   StateChanged.HeadOpened{headId} -> IncrementalCommit headId
   StateChanged.HeadAborted{} -> CannotCommit
