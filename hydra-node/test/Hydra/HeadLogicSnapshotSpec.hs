@@ -9,11 +9,11 @@ import Test.Hydra.Prelude
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
-import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', receiveMessage, receiveMessageFrom, runHeadLogic, step)
+import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (NodeState (headState))
+import Hydra.Node.State (NodeState (headState), currentSlot)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -31,7 +31,7 @@ import Test.Hydra.Tx.Fixture (
   testHeadId,
  )
 import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
-import Test.QuickCheck.Monadic (monadicST, pick)
+import Test.QuickCheck.Monadic (monadicIO, pick, run)
 
 spec :: Spec
 spec = do
@@ -79,7 +79,8 @@ spec = do
       it "sends ReqSn when leader and no snapshot in flight" $ do
         let tx = aValidTx 1
             s0 = inOpenState' [alice, bob] coordinatedHeadState
-        let outcome = update (envFor aliceSk) simpleLedger s0 $ receiveMessage $ ReqTx tx
+        now <- nowFromSlot (currentSlot s0)
+        let outcome = update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
 
         outcome
           `hasEffect` NetworkEffect (ReqSn 0 1 [txId tx] Nothing Nothing)
@@ -88,7 +89,8 @@ spec = do
         let tx = aValidTx 1
             st = coordinatedHeadState{localTxs = [tx]}
             s0 = inOpenState' [alice, bob] st
-        let outcome = update (envFor bobSk) simpleLedger s0 $ receiveMessageFrom bob $ ReqTx tx
+        now <- nowFromSlot (currentSlot s0)
+        let outcome = update (envFor bobSk) simpleLedger now s0 $ receiveMessageFrom bob $ ReqTx tx
 
         outcome `hasNoEffectSatisfying` sendReqSn
 
@@ -97,7 +99,8 @@ spec = do
             sn1 = Snapshot testHeadId 1 1 [] u0 Nothing Nothing :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
             s0 = inOpenState' [alice, bob] st
-        let outcome = update (envFor aliceSk) simpleLedger s0 $ receiveMessage $ ReqTx tx
+        now <- nowFromSlot (currentSlot s0)
+        let outcome = update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
 
         outcome `hasNoEffectSatisfying` sendReqSn
 
@@ -129,7 +132,8 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        update bobEnv simpleLedger headState (ackFrom bobSk bob)
+        now <- nowFromSlot (currentSlot headState)
+        update bobEnv simpleLedger now headState (ackFrom bobSk bob)
           `hasEffectSatisfying` sendReqSn
 
       it "does NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
@@ -139,14 +143,15 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        update bobEnv simpleLedger headState (ackFrom bobSk bob)
+        now <- nowFromSlot (currentSlot headState)
+        update bobEnv simpleLedger now headState (ackFrom bobSk bob)
           `hasNoEffectSatisfying` sendReqSn
 
       it "does NOT send ReqSn when we are NOT the leader but there are seen transactions" $ do
         let
           notLeaderEnv = envFor carolSk
 
-        let initiateSigningASnapshot :: MonadState (StepState SimpleTx) m => Party -> m (Outcome SimpleTx)
+        let initiateSigningASnapshot :: (MonadState (StepState SimpleTx) m, MonadFail m, MonadTime m) => Party -> m (Outcome SimpleTx)
             initiateSigningASnapshot actor =
               step (receiveMessageFrom actor $ ReqSn 0 1 [] Nothing Nothing)
             newTxBeforeSnapshotAcknowledged =
@@ -159,7 +164,8 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        let everybodyAcknowledged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
+        now <- nowFromSlot (currentSlot headState)
+        let everybodyAcknowledged = update notLeaderEnv simpleLedger now headState $ ackFrom bobSk bob
         everybodyAcknowledged `hasNoEffectSatisfying` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
@@ -177,7 +183,7 @@ spec = do
           other -> expectationFailure $ "Expected to be in open state: " <> show other
 
 prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
-prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
+prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
   (seenSnapshot, version) <-
     pick $
       oneof
@@ -212,7 +218,8 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
         , version
         }
     s0 = inOpenState' [alice] st
-  let outcome = update aliceEnv simpleLedger s0 $ receiveMessage $ ReqTx tx
+  now <- run $ nowFromSlot (currentSlot s0)
+  let outcome = update aliceEnv simpleLedger now s0 $ receiveMessage $ ReqTx tx
       Snapshot{number = confirmedSn} = getSnapshot sn
       nextSn = confirmedSn + 1
   pure $
