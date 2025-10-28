@@ -5,7 +5,7 @@
 -- | Integration test suite using a local cluster of cardano and hydra
 --   nodes
 @package hydra-cluster
-@version 1.0.0
+@version 1.1.0
 
 
 -- | A cardano-node client used in end-to-end tests and benchmarks.

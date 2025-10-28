@@ -4,7 +4,7 @@
 
 -- | The Hydra node
 @package hydra-node:tests
-@version 1.0.0
+@version 1.1.0
 
 module Hydra.API.ClientInputSpec
 spec :: Spec
