@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
-import Data.Aeson (KeyValue ((.=)), object, withObject, (.:), (.:?))
+import Data.Aeson (KeyValue ((.=)), object, withObject, (.:), (.:?), Value(String))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Parser)
 import Data.ByteString.Lazy qualified as LBS
@@ -179,6 +179,12 @@ instance FromJSON SubmitL2TxResponse where
 instance Arbitrary SubmitL2TxResponse where
   arbitrary = genericArbitrary
 
+data HeadInitializationDetails =
+   HeadInitializationDetails
+     { time :: UTCTime
+     , slot :: SlotNo
+     } deriving (Eq, Show)
+
 jsonContent :: ResponseHeaders
 jsonContent = [(hContentType, "application/json")]
 
@@ -225,6 +231,8 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
     ("GET", ["snapshot", "last-seen"]) -> do
       hs <- headState <$> getNodeState
       respond . okJSON $ getSeenSnapshot hs
+    ("GET", ["head-initialization"]) ->
+      respond $ okJSON (String "OK")
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
         >>= handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel

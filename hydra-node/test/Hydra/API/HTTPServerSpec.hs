@@ -596,6 +596,7 @@ apiServerSpec = do
               DepositTooLow{} -> cover 1 True "DepositTooLow"
               AmountTooLow{} -> cover 1 True "AmountTooLow"
               FailedToConstructDepositTx{} -> cover 1 True "FailedToConstructDepositTx"
+              FailedToDraftTxNotInitializing -> cover 1 True "FailedToDraftTxNotInitializing"
               _ -> property
         checkCoverage
           $ coverage
@@ -621,7 +622,24 @@ apiServerSpec = do
                 DepositTooLow{} -> 400
                 AmountTooLow{} -> 400
                 FailedToConstructDepositTx{} -> 400
+                FailedToDraftTxNotInitializing -> 500 {matchBody = fromString "{\"tag\":\"FailedToDraftTxNotInitializing\"}"}
                 _ -> 500
+
+      it "gives information on when the Head was initialized" $ do
+          withApplication
+            ( httpApp @Tx
+                nullTracer
+                dummyChainHandle
+                testEnvironment
+                defaultPParams
+                (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152})
+                getHeadId
+                getPendingDeposits
+                putClientInput
+                300
+                responseChannel
+            )
+          $ get "/head-initialization" `shouldRespondWith` 200 {matchBody = fromString ""}
 
     describe "POST /transaction" $ do
       let mkReq :: SimpleTx -> LBS.ByteString
