@@ -63,6 +63,9 @@ import Test.QuickCheck (
   withMaxSuccess,
  )
 
+dummyStatePath :: FilePath
+dummyStatePath = "~"
+
 spec :: Spec
 spec = do
   parallel $ do
@@ -227,6 +230,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               getNodeState
               cantCommit
@@ -259,6 +263,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -296,6 +301,7 @@ apiServerSpec = do
                   nullTracer
                   dummyChainHandle
                   testEnvironment
+                  dummyStatePath
                   defaultPParams
                   (pure nodeState)
                   cantCommit
@@ -321,6 +327,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -341,6 +348,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -364,6 +372,7 @@ apiServerSpec = do
                   nullTracer
                   dummyChainHandle
                   testEnvironment
+                  dummyStatePath
                   defaultPParams
                   (pure NodeState{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
                   cantCommit
@@ -391,6 +400,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -418,6 +428,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -439,6 +450,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -459,6 +471,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -486,6 +499,7 @@ apiServerSpec = do
                   nullTracer
                   dummyChainHandle
                   testEnvironment
+                  dummyStatePath
                   defaultPParams
                   (pure nodeState)
                   cantCommit
@@ -524,6 +538,7 @@ apiServerSpec = do
                 nullTracer
                 dummyChainHandle
                 testEnvironment
+                dummyStatePath
                 defaultPParams
                 (pure NodeState{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0})
                 cantCommit
@@ -558,6 +573,7 @@ apiServerSpec = do
               nullTracer
               workingChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
               getHeadId
@@ -605,6 +621,7 @@ apiServerSpec = do
                 nullTracer
                 (failingChainHandle postTxError)
                 testEnvironment
+                dummyStatePath
                 defaultPParams
                 (pure NodeState{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
                 getHeadId
@@ -631,6 +648,7 @@ apiServerSpec = do
                 nullTracer
                 dummyChainHandle
                 testEnvironment
+                "/home/v0d1ch/code/hydra/devnet/persistence/alice/state"
                 defaultPParams
                 (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152})
                 getHeadId
@@ -655,6 +673,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -689,6 +708,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -720,6 +740,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -740,6 +761,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -766,6 +788,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -792,6 +815,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -812,6 +836,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -839,6 +864,7 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
+              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
