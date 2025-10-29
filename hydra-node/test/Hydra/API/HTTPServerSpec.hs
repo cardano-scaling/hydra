@@ -639,16 +639,28 @@ apiServerSpec = do
                 DepositTooLow{} -> 400
                 AmountTooLow{} -> 400
                 FailedToConstructDepositTx{} -> 400
-                FailedToDraftTxNotInitializing -> 500 {matchBody = fromString "{\"tag\":\"FailedToDraftTxNotInitializing\"}"}
+                FailedToDraftTxNotInitializing -> 500{matchBody = fromString "{\"tag\":\"FailedToDraftTxNotInitializing\"}"}
                 _ -> 500
 
-      it "gives information on when the Head was initialized" $ do
+      it "gives information on when the Head was initialized" $
+        withTempDir "http-server-spec" $ \tmpDir -> do
+          let stateLines =
+                [ "{\"eventId\":163,\"stateChanged\":{\"chainSlot\":232,\"tag\":\"TickObserved\"},\"time\":\"2025-10-08T09:33:02.224666984Z\"}"
+                , "{\"eventId\":164,\"stateChanged\":{\"chainSlot\":235,\"tag\":\"HeadInitialized\"},\"time\":\"2025-10-08T09:33:02.30814188Z\"}"
+                , "{\"eventId\":258,\"stateChanged\":{\"chainSlot\":232,\"tag\":\"TickObserved\"},\"time\":\"2025-10-08T09:33:02.224666984Z\"}"
+                , "{\"eventId\":258,\"stateChanged\":{\"chainSlot\":232,\"tag\":\"TickObserved\"},\"time\":\"2025-10-08T09:33:02.224666984Z\"}"
+                , "{\"eventId\":300,\"stateChanged\":{\"chainSlot\":300,\"tag\":\"HeadInitialized\"},\"time\":\"2025-10-08T10:33:02.30814188Z\"}"
+                ]
+          let statePath = tmpDir </> "state"
+          forM_ stateLines $ \l ->
+            writeFileBS statePath l
+
           withApplication
             ( httpApp @Tx
                 nullTracer
                 dummyChainHandle
                 testEnvironment
-                "/home/v0d1ch/code/hydra/devnet/persistence/alice/state"
+                statePath
                 defaultPParams
                 (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152})
                 getHeadId
@@ -657,7 +669,7 @@ apiServerSpec = do
                 300
                 responseChannel
             )
-          $ get "/head-initialization" `shouldRespondWith` 200 {matchBody = fromString ""}
+            $ get "/head-initialization" `shouldRespondWith` 200{matchBody = fromString "\"2025-10-08T10:33:02.30814188Z\""}
 
     describe "POST /transaction" $ do
       let mkReq :: SimpleTx -> LBS.ByteString
