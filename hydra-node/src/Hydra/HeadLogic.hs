@@ -1442,12 +1442,12 @@ updateSyncedHead env ledger now currentSlot pendingDeposits st ev = case (st, ev
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Tick{chainTime, chainSlot, knownTip}) ->
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Tick{chainTime, chainSlot}) ->
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
     handleOutOfSync env now chainTime
-      <> newState TickObserved{chainSlot, knownTip}
+      <> newState TickObserved{chainSlot}
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
@@ -1467,11 +1467,11 @@ updateSyncedHead env ledger now currentSlot pendingDeposits st ev = case (st, ev
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot, knownTip})
+  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         -- XXX: Avoid repetition of handleOutOfSync and compose input handling better.
         handleOutOfSync env now chainTime
-          <> newState TickObserved{chainSlot, knownTip}
+          <> newState TickObserved{chainSlot}
           <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
@@ -1491,9 +1491,9 @@ updateSyncedHead env ledger now currentSlot pendingDeposits st ev = case (st, ev
   -- General
   (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
-  (_, ChainInput Tick{chainTime, chainSlot, knownTip}) ->
+  (_, ChainInput Tick{chainTime, chainSlot}) ->
     handleOutOfSync env now chainTime
-      <> newState TickObserved{chainSlot, knownTip}
+      <> newState TickObserved{chainSlot}
       <> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
@@ -1564,8 +1564,8 @@ aggregateNodeState nodeState sc =
                 { headState = st
                 , pendingDeposits = Map.delete depositTxId currentPendingDeposits
                 }
-        TickObserved{chainSlot, knownTip} ->
-          nodeState{headState = st, currentSlot = chainSlot, knownTip}
+        TickObserved{chainSlot} ->
+          nodeState{headState = st, currentSlot = chainSlot}
         ChainRolledBack{chainState} ->
           nodeState{headState = st, currentSlot = chainStateSlot chainState}
         NodeUnsynced ->

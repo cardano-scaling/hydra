@@ -11,7 +11,7 @@ import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
-import Hydra.Cardano.Api (ChainPoint (..), GenesisParameters (..), NetworkMagic (..), ShelleyEra, ShelleyGenesis (..), Tx, fromShelleyNetwork, genBlockHeaderHash)
+import Hydra.Cardano.Api (ChainPoint (..), GenesisParameters (..), NetworkMagic (..), ShelleyEra, ShelleyGenesis (..), Tx, fromShelleyNetwork)
 import Hydra.Chain (
   Chain (..),
   ChainComponent,
@@ -196,12 +196,10 @@ tickForever genesis callback = do
     let timeToSleepUntil = slotNoToUTCTime systemStart slotLength upcomingSlot
     sleepDelay <- diffUTCTime timeToSleepUntil <$> getCurrentTime
     threadDelay $ realToFrac sleepDelay
-    blockHash <- generate genBlockHeaderHash
     callback $
       Tick
         { chainTime = timeToSleepUntil
         , chainSlot = ChainSlot . fromIntegral $ unSlotNo upcomingSlot
-        , knownTip = ChainPoint upcomingSlot blockHash
         }
   systemStart = SystemStart protocolParamSystemStart
 
