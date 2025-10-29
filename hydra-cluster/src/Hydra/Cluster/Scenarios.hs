@@ -294,6 +294,7 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
 restartedNodeCanAbort :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 restartedNodeCanAbort tracer workDir backend hydraScriptsTxId = do
   refuelIfNeeded tracer backend Alice 100_000_000
+  blockTime <- Backend.getBlockTime backend
   aliceChainConfig <-
     chainConfigFor Alice workDir backend hydraScriptsTxId [] 2
       -- we delibelately do not start from a chain point here to highlight the
@@ -303,18 +304,17 @@ restartedNodeCanAbort tracer workDir backend hydraScriptsTxId = do
   let hydraTracer = contramap FromHydraNode tracer
   headId1 <- withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     send n1 $ input "Init" []
-    -- XXX: might need to tweak the wait time
-    waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+    waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     -- Also expect to see past server outputs replayed
-    headId2 <- waitMatch 20 n1 $ headIsInitializingWith (Set.fromList [alice])
+    headId2 <- waitMatch (20 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
     headId1 `shouldBe` headId2
     send n1 $ input "Abort" []
     waitFor hydraTracer 20 [n1] $
       output "HeadIsAborted" ["utxo" .= object mempty, "headId" .= headId2]
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
-    waitMatch 20 n1 $ \v -> do
+    waitMatch (20 * blockTime) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
       guard $ v ^? key "headStatus" == Just (toJSON Idle)
       guard $ v ^? key "me" == Just (toJSON alice)
@@ -419,7 +419,7 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
       callProcess "rm" ["-rf", tmpDir </> "state-2" </> "last-known-revision"]
       withHydraNode hydraTracer bobChainConfigFromTip tmpDir 2 bobSk [aliceVk] [1] $ \n2 -> do
         -- Also expect to see past server outputs replayed
-        headId2 <- waitMatch 5 n2 $ headIsInitializingWith (Set.fromList [alice, bob])
+        headId2 <- waitMatch (10 * blockTime) n2 $ headIsInitializingWith (Set.fromList [alice, bob])
         headId2 `shouldBe` headId'
         waitFor hydraTracer 5 [n2] $
           output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId2]
@@ -658,7 +658,7 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
             let signedL2tx = signTx walletSk tx
             send n1 $ input "NewTx" ["transaction" .= signedL2tx]
 
-            waitMatch 10 n1 $ \v -> do
+            waitMatch (10 * blockTime) n1 $ \v -> do
               guard $ v ^? key "tag" == Just "SnapshotConfirmed"
               guard $
                 toJSON signedL2tx
@@ -699,7 +699,7 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
 
             send n1 $ input "NewTx" ["transaction" .= signedTx]
 
-            waitMatch 10 n1 $ \v -> do
+            waitMatch (10 * blockTime) n1 $ \v -> do
               guard $ v ^? key "tag" == Just "SnapshotConfirmed"
               guard $
                 toJSON signedTx
@@ -771,7 +771,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
           let signedL2tx = signTx walletSk tx'
           send n1 $ input "NewTx" ["transaction" .= signedL2tx]
 
-          waitMatch 10 n1 $ \v -> do
+          waitMatch (10 * blockTime) n1 $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotConfirmed"
             guard $
               toJSON signedL2tx
@@ -1331,7 +1331,8 @@ threeNodesNoErrorsOnOpen tracer tmpDir backend hydraScriptsTxId = do
  where
   --  Fail if a 'PostTxOnChainFailed' message is received.
   shouldNotReceivePostTxError client@HydraClient{hydraNodeId} = do
-    err <- waitMatch 10 client $ \v -> do
+    blockTime <- Backend.getBlockTime backend
+    err <- waitMatch (20 * blockTime) client $ \v -> do
       case v ^? key "tag" of
         Just "PostTxOnChainFailed" -> pure $ Left $ v ^? key "postTxError"
         Just "HeadIsOpen" -> pure $ Right ()
@@ -1413,7 +1414,8 @@ initWithWrongKeys workDir tracer backend hydraScriptsTxId = do
 
       -- We want the client to observe headId being opened without bob (node 2)
       -- being part of it
-      participants <- waitMatch 10 n2 $ \v -> do
+      blockTime <- Backend.getBlockTime backend
+      participants <- waitMatch (10 * blockTime) n2 $ \v -> do
         guard $ v ^? key "tag" == Just (Aeson.String "IgnoredHeadInitializing")
         guard $ v ^? key "headId" == Just (toJSON headId)
         v ^? key "participants" . _JSON
@@ -1424,6 +1426,7 @@ startWithWrongPeers :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog
 startWithWrongPeers workDir tracer backend hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
 
+  blockTime <- Backend.getBlockTime backend
   let contestationPeriod = 2
   aliceChainConfig <- chainConfigFor Alice workDir backend hydraScriptsTxId [Carol] contestationPeriod
   bobChainConfig <- chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
@@ -1434,7 +1437,7 @@ startWithWrongPeers workDir tracer backend hydraScriptsTxId = do
     withHydraNode hydraTracer bobChainConfig workDir 4 bobSk [aliceVk] [4] $ \_ -> do
       seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
-      (clusterPeers, configuredPeers) <- waitMatch 20 n1 $ \v -> do
+      (clusterPeers, configuredPeers) <- waitMatch (20 * blockTime) n1 $ \v -> do
         guard $ v ^? key "tag" == Just (Aeson.String "NetworkClusterIDMismatch")
         clusterPeers <- v ^? key "clusterPeers" . _String
         configuredPeers <- v ^? key "misconfiguredPeers" . _String
@@ -1710,7 +1713,7 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         headId <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
-          headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice, bob])
+          headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice, bob])
 
           -- Commit nothing
           requestCommitTx n1 mempty >>= Backend.submitTransaction backend
@@ -1800,7 +1803,7 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Init the head
       send n1 $ input "Init" []
-      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
       -- Commit nothing
       requestCommitTx n1 mempty >>= Backend.submitTransaction backend
@@ -1854,7 +1857,7 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
 
       -- 3. Open a new head
       send n1 $ input "Init" []
-      headId2 <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+      headId2 <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
       -- Commit nothing
       requestCommitTx n1 mempty >>= Backend.submitTransaction backend
@@ -1881,8 +1884,9 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
 
     let tx = signTx walletSk depositTransaction
     Backend.submitTransaction backend tx
+    blockTime <- Backend.getBlockTime backend
 
-    deadline <- waitMatch 10 n $ \v -> do
+    deadline <- waitMatch (10 * blockTime) n $ \v -> do
       guard $ v ^? key "tag" == Just "CommitRecorded"
       v ^? key "deadline" >>= parseMaybe parseJSON
 
@@ -1899,8 +1903,9 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
       parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n <> "/commits/" <> path)
         >>= httpJSON
         <&> getResponseBody @String
+    blockTime <- Backend.getBlockTime backend
 
-    waitMatch 20 n $ \v -> do
+    waitMatch (20 * blockTime) n $ \v -> do
       guard $ v ^? key "tag" == Just "CommitRecovered"
       guard $ v ^? key "recoveredUTxO" == Just (toJSON commitUTxO)
 
@@ -1925,7 +1930,7 @@ canSeePendingDeposits tracer workDir blockTime backend hydraScriptsTxId =
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         _ <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
-          headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice, bob])
+          headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice, bob])
 
           -- Commit nothing
           requestCommitTx n1 mempty >>= Backend.submitTransaction backend
@@ -1994,16 +1999,16 @@ canDecommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> back
 canDecommit tracer workDir backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
     refuelIfNeeded tracer backend Alice 30_000_000
-    let contestationPeriod = 1
-    networkId <- Backend.queryNetworkId backend
     blockTime <- Backend.getBlockTime backend
+    let contestationPeriod = 10
+    networkId <- Backend.queryNetworkId backend
     aliceChainConfig <-
       chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
         <&> setNetworkId networkId
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
-      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
       (walletVk, walletSk) <- generate genKeyPair
       let headAmount = 8_000_000
@@ -2023,7 +2028,7 @@ canDecommit tracer workDir backend hydraScriptsTxId =
         either (failure . show) pure $
           mkSimpleTx (i, o) (walletAddress, txOutValue o) walletSk
 
-      expectFailureOnUnsignedDecommitTx n1 headId decommitTx
+      expectFailureOnUnsignedDecommitTx n1 headId decommitTx blockTime
       expectSuccessOnSignedDecommitTx n1 headId decommitTx
 
       -- After decommit Head UTxO should not contain decommitted outputs and wallet owns the funds on L1
@@ -2069,14 +2074,14 @@ canDecommit tracer workDir backend hydraScriptsTxId =
 
     guard $ distributedUTxO `UTxO.containsOutputs` UTxO.txOutputs decommitUTxO
 
-  expectFailureOnUnsignedDecommitTx :: HydraClient -> HeadId -> Tx -> IO ()
-  expectFailureOnUnsignedDecommitTx n headId decommitTx = do
+  expectFailureOnUnsignedDecommitTx :: HydraClient -> HeadId -> Tx -> NominalDiffTime -> IO ()
+  expectFailureOnUnsignedDecommitTx n headId decommitTx blockTime = do
     let unsignedDecommitTx = makeSignedTransaction [] $ getTxBody decommitTx
     -- Note: Just send to websocket, as that's how the following code checks
     -- that it failed. We could do the same for the HTTP endpoint, but doesn't
     -- quite seem worth the effort.
     send n $ input "Decommit" ["decommitTx" .= unsignedDecommitTx]
-    validationError <- waitMatch 10 n $ \v -> do
+    validationError <- waitMatch (10 * blockTime) n $ \v -> do
       guard $ v ^? key "headId" == Just (toJSON headId)
       guard $ v ^? key "tag" == Just (Aeson.String "DecommitInvalid")
       guard $ v ^? key "decommitTx" == Just (toJSON unsignedDecommitTx)
@@ -2139,7 +2144,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
           guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
 
         -- Carol does not because of its node being misconfigured
-        waitMatch 3 n3 $ \v -> do
+        waitMatch (10 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "TxInvalid"
           guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
 
@@ -2161,7 +2166,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
         -- Carol re-submits the same transaction
         send n3 $ input "NewTx" ["transaction" .= tx]
         -- Carol accepts it
-        waitMatch 3 n3 $ \v -> do
+        waitMatch (10 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "TxValid"
           guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
         -- But now Alice and Bob does not because they already applied it
@@ -2226,13 +2231,13 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
   bobChainConfig <-
     chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
       <&> setNetworkId networkId
-
+  blockTime <- Backend.getBlockTime backend
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
-    waitMatch 20 n1 $ \v -> do
+    waitMatch (20 * blockTime) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
       guard $ v ^? key "headStatus" == Just (toJSON Idle)
     withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
-      waitMatch 20 n2 $ \v -> do
+      waitMatch (20 * blockTime) n2 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
 
@@ -2363,6 +2368,7 @@ refuelIfNeeded ::
   Coin ->
   IO ()
 refuelIfNeeded tracer backend actor amount = do
+  Faucet.delayBF backend
   (actorVk, _) <- keysFor actor
   existingUtxo <- Backend.queryUTxOFor backend QueryTip actorVk
   traceWith tracer $ StartingFunds{actor = actorName actor, utxo = existingUtxo}
@@ -2378,8 +2384,8 @@ returnFundsToFaucet ::
   backend ->
   Actor ->
   IO ()
-returnFundsToFaucet tracer =
-  Faucet.returnFundsToFaucet (contramap FromFaucet tracer)
+returnFundsToFaucet tracer backend actor = do
+  Faucet.returnFundsToFaucet (contramap FromFaucet tracer) backend actor
 
 headIsInitializingWith :: Set Party -> Value -> Maybe HeadId
 headIsInitializingWith expectedParties v = do

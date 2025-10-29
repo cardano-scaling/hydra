@@ -39,7 +39,7 @@ jobs:
         if [[ "${{secrets.blockfrost_token}}" != '' ]]; then
           cd ${{ matrix.package }}
           echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
-          nix develop .#${{ matrix.package }}-tests --command tests -m "End-to-end on Cardano devnet"
+          nix develop .#${{ matrix.package }}-tests --command tests -m "nightly"
         else
           echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
         fi
