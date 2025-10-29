@@ -770,26 +770,35 @@ spec =
       it "ignores unrelated initTx" prop_ignoresUnrelatedOnInitTx
 
       prop "connectivity messages passthrough without affecting the current state" $
-        \(ttl, connectivityMessage, headState) -> do
+        \(ttl, connectivityMessage, nodeState) -> do
           let input = connectivityChanged ttl connectivityMessage
-          now <- nowFromSlot (currentSlot headState)
-          let outcome = update bobEnv ledger now headState input
-          outcome `shouldSatisfy` \case
-            Continue{stateChanges, effects} ->
-              null effects
-                && all
-                  ( \case
-                      -- NOTE: match only network related outcomes
-                      PeerConnected{} -> True
-                      PeerDisconnected{} -> True
-                      NetworkVersionMismatch{} -> True
-                      NetworkClusterIDMismatch{} -> True
-                      NetworkConnected{} -> True
-                      NetworkDisconnected{} -> True
-                      _ -> False
-                  )
-                  stateChanges
-            _ -> False
+          case nodeState of
+            NodeCatchingUp{} -> do
+              now <- getCurrentTime
+              let outcome = update bobEnv ledger now nodeState input
+              outcome `shouldSatisfy` \case
+                Continue{stateChanges, effects} ->
+                  null stateChanges && null effects
+                _ -> False
+            NodeInSync{} -> do
+              now <- nowFromSlot (currentSlot nodeState)
+              let outcome = update bobEnv ledger now nodeState input
+              outcome `shouldSatisfy` \case
+                Continue{stateChanges, effects} ->
+                  null effects
+                    && all
+                      ( \case
+                          -- NOTE: match only network related outcomes
+                          PeerConnected{} -> True
+                          PeerDisconnected{} -> True
+                          NetworkVersionMismatch{} -> True
+                          NetworkClusterIDMismatch{} -> True
+                          NetworkConnected{} -> True
+                          NetworkDisconnected{} -> True
+                          _ -> False
+                      )
+                      stateChanges
+                _ -> False
 
       prop "ignores abortTx of another head" $ \otherHeadId -> do
         let abortOtherHead = observeTx $ OnAbortTx{headId = otherHeadId}
