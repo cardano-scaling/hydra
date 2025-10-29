@@ -1358,8 +1358,8 @@ update ::
   Outcome tx
 update env ledger now nodeState ev =
   case nodeState of
-    NodeCatchingUp{headState, pendingDeposits} ->
-      updateUnsyncedHead env ledger now pendingDeposits headState ev
+    NodeCatchingUp{headState, pendingDeposits, currentSlot} ->
+      updateUnsyncedHead env ledger now currentSlot pendingDeposits headState ev
     NodeInSync{headState, pendingDeposits, currentSlot} ->
       updateSyncedHead env ledger now currentSlot pendingDeposits headState ev
 
@@ -1369,13 +1369,14 @@ updateUnsyncedHead ::
   Ledger tx ->
   -- | Current system time.
   UTCTime ->
+  ChainSlot ->
   PendingDeposits tx ->
   -- | Current NodeState to validate the command against.
   HeadState tx ->
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-updateUnsyncedHead _env _ledger _now _pendingDeposits _st _ev = noop
+updateUnsyncedHead _env _ledger _now _currentSlot _pendingDeposits _st _ev = noop
 
 -- TODO: group
 updateSyncedHead ::
@@ -1569,7 +1570,7 @@ aggregateNodeState nodeState sc =
         ChainRolledBack{chainState} ->
           nodeState{headState = st, currentSlot = chainStateSlot chainState}
         NodeUnsynced ->
-          NodeCatchingUp{headState = st, pendingDeposits = currentPendingDeposits}
+          NodeCatchingUp{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = currentSlot nodeState}
         _ ->
           nodeState{headState = st}
 

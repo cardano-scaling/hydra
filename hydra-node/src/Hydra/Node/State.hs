@@ -32,6 +32,7 @@ data NodeState tx
     NodeCatchingUp
       { headState :: HeadState tx
       , pendingDeposits :: PendingDeposits tx
+      , currentSlot :: ChainSlot
       }
   deriving stock (Generic)
 
