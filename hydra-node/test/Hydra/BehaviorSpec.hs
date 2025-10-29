@@ -21,7 +21,7 @@ import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
-import Hydra.Cardano.Api (ChainPoint (..), SigningKey)
+import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -1114,7 +1114,7 @@ simulatedChainAndNetwork initialChainState = do
     event <- atomically $ do
       cs <- getLatest localChainState
       let chainSlot = chainStateSlot cs
-      pure $ Tick now chainSlot ChainPointAtGenesis
+      pure $ Tick now chainSlot
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
   createAndYieldEvent nodes history localChainState tx = do

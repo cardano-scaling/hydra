@@ -142,8 +142,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newLabelledTQueueIO "direct-chain-queue"
   -- Select a chain point from which to start synchronizing
-  let getCurrentTip = queryTip backend
-  chainPoint <- maybe getCurrentTip pure $ do
+  chainPoint <- maybe (queryTip backend) pure $ do
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
@@ -158,7 +157,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
           ctx
           localChainState
           (submitTx queue)
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState getCurrentTip
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
     raceLabelled
       ( "direct-chain-connection"
