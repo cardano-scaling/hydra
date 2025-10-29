@@ -1365,7 +1365,6 @@ update env ledger now nodeState ev =
 
 -- FIXME: handle relevant stuff from 'update' here (chain inputs)
 updateUnsyncedHead ::
-  IsChainState tx =>
   Environment ->
   Ledger tx ->
   -- | Current system time.
@@ -1376,7 +1375,7 @@ updateUnsyncedHead ::
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-updateUnsyncedHead env ledger now pendingDeposits st ev = noop
+updateUnsyncedHead _env _ledger _now _pendingDeposits _st _ev = noop
 
 -- TODO: group
 updateSyncedHead ::
@@ -1508,29 +1507,39 @@ updateSyncedHead env ledger now currentSlot pendingDeposits st ev = case (st, ev
 -- | Reflect 'StateChanged' events onto the 'NodeState' aggregateNodeState.
 aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
 aggregateNodeState nodeState sc =
-  let st = aggregate headState sc
-      headState = case nodeState of
-        NodeInSync{headState} -> headState
-        NodeCatchingUp{headState} -> headState
-      pendingDeposits = case nodeState of
-        NodeInSync{pendingDeposits} -> pendingDeposits
-        NodeCatchingUp{pendingDeposits} -> pendingDeposits
+  let currentPendingDeposits = pendingDeposits nodeState
+      st = aggregate (headState nodeState) sc
    in case sc of
         HeadOpened{chainState} ->
-          nodeState{pendingDeposits, currentSlot = chainStateSlot chainState}
+          nodeState
+            { headState = st
+            , currentSlot = chainStateSlot chainState
+            }
         DepositRecorded{headId, depositTxId, deposited, created, deadline} ->
-          nodeState{pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} pendingDeposits}
+          nodeState
+            { headState = st
+            , pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} currentPendingDeposits
+            }
         DepositActivated{depositTxId, deposit} ->
-          nodeState{pendingDeposits = Map.insert depositTxId deposit pendingDeposits}
+          nodeState
+            { headState = st
+            , pendingDeposits = Map.insert depositTxId deposit currentPendingDeposits
+            }
         DepositExpired{depositTxId, deposit} ->
-          nodeState{pendingDeposits = Map.insert depositTxId deposit pendingDeposits}
+          nodeState
+            { headState = st
+            , pendingDeposits = Map.insert depositTxId deposit currentPendingDeposits
+            }
         DepositRecovered{depositTxId} ->
-          nodeState{pendingDeposits = Map.delete depositTxId pendingDeposits}
+          nodeState
+            { headState = st
+            , pendingDeposits = Map.delete depositTxId currentPendingDeposits
+            }
         CommitFinalized{chainState, newVersion, depositTxId} ->
           case st of
             Open
               os@OpenState{coordinatedHeadState} ->
-                let deposit = Map.lookup depositTxId pendingDeposits
+                let deposit = Map.lookup depositTxId currentPendingDeposits
                     newUTxO = maybe mempty (\Deposit{deposited} -> deposited) deposit
                  in nodeState
                       { headState =
@@ -1546,21 +1555,23 @@ aggregateNodeState nodeState sc =
                                     , localUTxO = localUTxO <> newUTxO
                                     }
                               }
-                      , pendingDeposits = Map.delete depositTxId pendingDeposits
+                      , pendingDeposits = Map.delete depositTxId currentPendingDeposits
                       }
                where
                 CoordinatedHeadState{localUTxO} = coordinatedHeadState
             _otherState ->
               nodeState
-                { pendingDeposits = Map.delete depositTxId pendingDeposits
+                { headState = st
+                , pendingDeposits = Map.delete depositTxId currentPendingDeposits
                 }
         TickObserved{chainSlot, knownTip} ->
-          nodeState{currentSlot = chainSlot, knownTip}
+          nodeState{headState = st, currentSlot = chainSlot, knownTip}
         ChainRolledBack{chainState} ->
-          nodeState{currentSlot = chainStateSlot chainState}
+          nodeState{headState = st, currentSlot = chainStateSlot chainState}
         NodeUnsynced ->
-          NodeCatchingUp{headState = st, pendingDeposits}
-        _ -> nodeState
+          NodeCatchingUp{headState = st, pendingDeposits = currentPendingDeposits}
+        _ ->
+          nodeState{headState = st}
 
 -- * HeadState aggregate
 
@@ -1844,7 +1855,7 @@ aggregate st = \case
     Open ost@OpenState{coordinatedHeadState = coordState@CoordinatedHeadState{allTxs = allTransactions}} ->
       Open ost{coordinatedHeadState = coordState{allTxs = foldr Map.delete allTransactions [txId transaction]}}
     _otherState -> st
-  Checkpoint state -> state.headState
+  Checkpoint nodeState -> headState nodeState
   NodeSynced -> st
   NodeUnsynced -> st
 
