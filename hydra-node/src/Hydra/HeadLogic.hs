@@ -90,6 +90,7 @@ import Hydra.Tx (
   utxoFromTx,
   withoutUTxO,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (
   Signature,
   Verified (..),
@@ -334,6 +335,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
               --       𝑈 ← 𝑈_active ◦ Treq
               requireApplyTxs activeUTxO requestedTxs $ \u -> do
                 let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
+                    utxoHash = Accumulator.getAccumulatorHash $ Accumulator.makeHeadAccumulator snapshotUTxO
                 -- Spec: ŝ ← ̅S.s + 1
                 -- NOTE: confSn == seenSn == sn here
                 let nextSnapshot =
@@ -343,6 +345,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                         , number = sn
                         , confirmed = requestedTxs
                         , utxo = snapshotUTxO
+                        , utxoHash
                         , utxoToCommit = mUtxoToCommit
                         , utxoToDecommit = mUtxoToDecommit
                         }
@@ -1140,7 +1143,7 @@ onOpenClientClose st =
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
-  Monoid (UTxOType tx) =>
+  IsTx tx =>
   OpenState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1269,7 +1272,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx ::
-  Monoid (UTxOType tx) =>
+  IsTx tx =>
   ClosedState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1314,7 +1317,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout ::
-  Monoid (UTxOType tx) =>
+  IsTx tx =>
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =

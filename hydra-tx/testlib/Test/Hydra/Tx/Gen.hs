@@ -456,10 +456,11 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) wher
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
-    [ Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit'
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoHash, utxoToCommit, utxoToDecommit} =
+    [ Snapshot headId version number confirmed' utxo' utxoHash' utxoToCommit' utxoToDecommit'
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
+    , utxoHash' <- shrink utxoHash
     , utxoToCommit' <- shrink utxoToCommit
     , utxoToDecommit' <- shrink utxoToDecommit
     ]
