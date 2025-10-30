@@ -45,6 +45,7 @@ import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer)
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..))
+import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
@@ -586,7 +587,7 @@ apiServerSpec = do
                   InitialSnapshot{headId} -> InitialSnapshot{headId, initialUTxO = utxo'}
                   ConfirmedSnapshot{snapshot, signatures} ->
                     let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit} = snapshot
-                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit}
+                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, utxoHash = getAccumulatorHash (makeHeadAccumulator utxo')}
                      in ConfirmedSnapshot{snapshot = snapshot', signatures}
               closedState' = closedState{confirmedSnapshot = confirmedSnapshot'}
           withApplication
@@ -772,13 +773,15 @@ apiServerSpec = do
 
       prop "returns 200 OK on confirmed snapshot" $ do
         responseChannel <- newTChanIO
-        let snapshot =
+        let utxo' = mempty
+            snapshot =
               Snapshot
                 { headId = testHeadId
                 , version = 1
                 , number = 7
                 , confirmed = [testTx]
-                , utxo = mempty
+                , utxo = utxo'
+                , utxoHash = getAccumulatorHash (makeHeadAccumulator utxo')
                 , utxoToCommit = mempty
                 , utxoToDecommit = mempty
                 }

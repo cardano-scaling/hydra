@@ -351,7 +351,6 @@ test-suite tests
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:     test
   other-modules:
-    Hydra.AccumulatorSpec
     Hydra.API.ClientInputSpec
     Hydra.API.HTTPServerSpec
     Hydra.API.ServerOutputSpec
@@ -427,7 +426,6 @@ test-suite tests
     , directory
     , filepath
     , generic-lens
-    , haskell-accumulator
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
