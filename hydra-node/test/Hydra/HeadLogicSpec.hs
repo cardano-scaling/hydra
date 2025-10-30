@@ -43,6 +43,7 @@ import Hydra.Node.State (Deposit (..), DepositStatus (Active), NodeState (..), i
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
+import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -120,7 +121,7 @@ spec =
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
-            snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
+            snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         snapshotInProgress <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step reqSn
@@ -450,7 +451,7 @@ spec =
       it "ignores valid AckSn if snapshot already confirmed" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
-            snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
+            snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk = receiveMessageFrom (deriveParty sk) $ AckSn (sign sk snapshot1) 1
 
         s0 <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -591,6 +592,8 @@ spec =
         let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 3)
             decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 4)
             activeUTxO = utxoRefs [1, 2]
+            accumulator = makeHeadAccumulator activeUTxO
+            utxoHash = getAccumulatorHash accumulator
             snapshot =
               Snapshot
                 { headId = testHeadId
@@ -598,6 +601,7 @@ spec =
                 , number = 1
                 , confirmed = []
                 , utxo = activeUTxO
+                , utxoHash
                 , utxoToCommit = Nothing
                 , utxoToDecommit = Just $ utxoRefs [3]
                 }
@@ -823,7 +827,7 @@ spec =
         let tx1 = SimpleTx 1 mempty (utxoRef 2) -- No inputs, requires no specific starting state
             tx2 = SimpleTx 2 (utxoRef 2) (utxoRef 3)
             tx3 = SimpleTx 3 (utxoRef 3) (utxoRef 4)
-            snapshot1 = Snapshot testHeadId 0 1 [tx1] (utxoRef 2) Nothing Nothing
+            snapshot1 = testSnapshot 1 0 [tx1] (utxoRef 2)
             multisig1 = aggregate [sign aliceSk snapshot1, sign bobSk snapshot1, sign carolSk snapshot1]
         -- Given a starting state with:
         -- \* All txs were submitted and locally applied.
@@ -844,7 +848,7 @@ spec =
         it "accept new side load confirmed snapshot" $ do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
-          let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing Nothing
+          let snapshot2 = testSnapshot 0 2 [tx2] (utxoRef 3)
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2, sign carolSk snapshot2]
 
           sideLoadedState <- runHeadLogic bobEnv ledger startingState $ do
@@ -856,7 +860,7 @@ spec =
         it "reject side load confirmed snapshot because old snapshot number" $ do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
-          let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing Nothing
+          let snapshot2 = testSnapshot 2 0 [tx2] (utxoRef 3)
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2, sign carolSk snapshot2]
 
           sideLoadedState <- runHeadLogic bobEnv ledger startingState $ do
@@ -871,7 +875,7 @@ spec =
         it "reject side load confirmed snapshot because missing signature" $ do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
-          let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing Nothing
+          let snapshot2 = testSnapshot 2 0 [tx2] (utxoRef 3)
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
@@ -882,7 +886,7 @@ spec =
         it "reject side load confirmed snapshot because wrong snapshot version" $ do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
-          let snapshot2 = Snapshot testHeadId 1 2 [tx2] (utxoRef 3) Nothing Nothing
+          let snapshot2 = testSnapshot 2 1 [tx2] (utxoRef 3)
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
@@ -890,7 +894,10 @@ spec =
 
         prop "reject side load confirmed snapshot because wrong snapshot utxoToDecommit" $ \utxoToDecommit -> do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
-          let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing (Just utxoToDecommit)
+          let utxo' = utxoRef 3
+              accumulator = makeHeadAccumulator utxo'
+              utxoHash = getAccumulatorHash accumulator
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash Nothing (Just utxoToDecommit)
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
@@ -899,7 +906,10 @@ spec =
         prop "reject side load confirmed snapshot because wrong snapshot utxoToCommit" $ \utxoToCommit -> do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
-          let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) (Just utxoToCommit) Nothing
+          let utxo' = utxoRef 3
+              accumulator = makeHeadAccumulator utxo'
+              utxoHash = getAccumulatorHash accumulator
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash (Just utxoToCommit) Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
@@ -917,7 +927,7 @@ spec =
         prop "ignores side load confirmed snapshot of another head" $ \otherHeadId -> do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
-          let snapshot1OtherHead = Snapshot otherHeadId 0 1 [tx1] (utxoRef 2) Nothing Nothing
+          let snapshot1OtherHead = testSnapshot 1 0 [tx1] (utxoRef 2)
               multisig1OtherHead = aggregate [sign aliceSk snapshot1OtherHead, sign bobSk snapshot1OtherHead, sign carolSk snapshot1OtherHead]
               confirmedSnapshotOtherHead = ConfirmedSnapshot snapshot1OtherHead multisig1OtherHead
 
@@ -1327,7 +1337,7 @@ inClosedState' parties confirmedSnapshot =
 
   contestationDeadline = arbitrary `generateWith` 42
 
-getConfirmedSnapshot :: NodeState tx -> Maybe (Snapshot tx)
+getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
   NodeState{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}} ->
     Just (getSnapshot confirmedSnapshot)
@@ -1415,19 +1425,22 @@ hasNoStateChangedSatisfying outcome predicate =
           "Expected no state change satisfying the predicate, but got: " <> show stateChanges
 
 testSnapshot ::
-  Monoid (UTxOType tx) =>
+  IsTx tx =>
   SnapshotNumber ->
   SnapshotVersion ->
   [tx] ->
   UTxOType tx ->
   Snapshot tx
 testSnapshot number version confirmed utxo =
-  Snapshot
-    { headId = testHeadId
-    , version
-    , number
-    , confirmed
-    , utxo
-    , utxoToCommit = mempty
-    , utxoToDecommit = mempty
-    }
+  let accumulator = makeHeadAccumulator utxo
+      utxoHash = getAccumulatorHash accumulator
+   in Snapshot
+        { headId = testHeadId
+        , version
+        , number
+        , confirmed
+        , utxo
+        , utxoHash
+        , utxoToCommit = mempty
+        , utxoToDecommit = mempty
+        }
