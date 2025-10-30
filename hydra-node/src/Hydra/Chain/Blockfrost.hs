@@ -2,6 +2,7 @@ module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
 
+import Blockfrost.Client qualified as BlockfrostAPI
 import Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
 import Control.Retry (RetryPolicyM, constantDelay, retrying)
@@ -205,20 +206,31 @@ blockfrostChainFollow ::
   TinyWallet m ->
   m ()
 blockfrostChainFollow tracer prj chainPoint handler wallet = do
-  Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <- Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
-
-  Blockfrost.Block{_blockHash = (Blockfrost.BlockHash genesisBlockHash)} <-
-    Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 0))
+  Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <-
+    Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
 
   let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
-  let blockHash = fromChainPoint chainPoint genesisBlockHash
+  blockHash <- case chainPoint of
+    ChainPointAtGenesis -> do
+      result <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj (Blockfrost.getBlock (Left 0))
+      case result of
+        Right (Right (Blockfrost.Block{_blockHash = Blockfrost.BlockHash genesisBlockHash})) -> do
+          pure $ Blockfrost.BlockHash genesisBlockHash
+        _ -> do
+          Blockfrost.Block{_blockHash = Blockfrost.BlockHash block1Hash} <-
+            Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 1))
+          pure $ Blockfrost.BlockHash block1Hash
+    ChainPoint _ headerHash ->
+      pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
 
   stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
 
+  void $ catchUpToLatest blockHash stateTVar
+
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
-      loop stateTVar
+      pollForNewBlocks blockTime stateTVar
         `catch` \(ex :: APIBlockfrostError) ->
           pure $ Left ex
  where
@@ -230,12 +242,40 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
   retryPolicy :: Double -> RetryPolicyM m
   retryPolicy blockTime' = constantDelay (truncate blockTime' * 1000 * 1000)
 
-  loop stateTVar = do
+  catchUpToLatest currentHash stateTVar = do
+    latestBlock <- Blockfrost.runBlockfrostM prj BlockfrostAPI.getLatestBlock
+    let targetHash = BlockfrostAPI._blockHash latestBlock
+
+    catchUpLoop currentHash targetHash stateTVar
+
+  catchUpLoop currentHash targetHash stateTVar = do
+    if currentHash == targetHash
+      then do
+        pure currentHash
+      else do
+        nextBlockHash <- rollForward tracer prj handler wallet 0 currentHash
+        atomically $ writeTVar stateTVar nextBlockHash
+
+        if nextBlockHash == targetHash
+          then do
+            pure nextBlockHash
+          else catchUpLoop nextBlockHash targetHash stateTVar
+
+  pollForNewBlocks blockTime' stateTVar = do
+    threadDelay (realToFrac blockTime')
     current <- readTVarIO stateTVar
-    nextBlockHash <- rollForward tracer prj handler wallet 1 current
-    threadDelay 1
-    atomically $ writeTVar stateTVar nextBlockHash
-    loop stateTVar
+    nextBlockHash <-
+      rollForward tracer prj handler wallet 1 current
+        `catch` \case
+          MissingNextBlockHash{} -> do
+            pure current
+          ex -> throwIO ex
+
+    when (nextBlockHash /= current) $
+      atomically $
+        writeTVar stateTVar nextBlockHash
+
+    pollForNewBlocks blockTime' stateTVar
 
 rollForward ::
   (MonadIO m, MonadThrow m) =>
@@ -348,8 +388,3 @@ toTx (Blockfrost.TransactionCBOR txCbor) =
       case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
         Left deserializeErr -> throwIO . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
         Right tx -> pure tx
-
-fromChainPoint :: ChainPoint -> Text -> Blockfrost.BlockHash
-fromChainPoint chainPoint genesisBlockHash = case chainPoint of
-  ChainPoint _ headerHash -> Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
-  ChainPointAtGenesis -> Blockfrost.BlockHash genesisBlockHash
