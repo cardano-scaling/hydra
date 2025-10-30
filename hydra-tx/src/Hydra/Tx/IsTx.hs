@@ -96,6 +96,19 @@ class
   -- | Return the left-hand side without the right-hand side.
   withoutUTxO :: UTxOType tx -> UTxOType tx -> UTxOType tx
 
+  -- | Convert a 'UTxOType' to a list of pairs.
+  toPairList :: UTxOType tx -> [(TxIn, TxOut CtxUTxO)]
+
+-- * Constraint synonyms
+
+type ArbitraryIsTx tx =
+  ( IsTx tx
+  , Arbitrary tx
+  , Arbitrary (UTxOType tx)
+  , Arbitrary (TxIdType tx)
+  , Arbitrary (TxOutType tx)
+  )
+
 -- * Cardano Tx
 
 instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
@@ -164,3 +177,5 @@ instance IsTx Tx where
   outputsOfUTxO = UTxO.txOutputs
 
   withoutUTxO = UTxO.difference
+
+  toPairList = UTxO.toList
