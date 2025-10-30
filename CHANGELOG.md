@@ -9,6 +9,11 @@ As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
 
+## [1.2.0] - UNRELEASED
+
+- `hydra-node` has a new endpoint `GET /head-initialization` which serves the timestamp of the last Head initialization.
+
+
 ## [1.1.0] - 2025-10-28
 
 - **BREAKING** Partial assets depositing works a bit differently now so you should consult our [API reference](https://hydra.family/head-protocol/api-reference).
