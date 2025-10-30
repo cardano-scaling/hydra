@@ -53,6 +53,12 @@ initNodeState chainState =
     , currentSlot = chainStateSlot chainState
     }
 
+data SyncedStatus = InSync | OutOfSync
+
+syncedStatus :: NodeState tx -> SyncedStatus
+syncedStatus NodeInSync{} = InSync
+syncedStatus NodeCatchingUp{} = OutOfSync
+
 -- | A deposit tracked by the protocol. The 'DepositStatus' determines whether
 -- it may be used for an incremental commit or not.
 data Deposit tx = Deposit
