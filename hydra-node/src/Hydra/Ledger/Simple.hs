@@ -101,6 +101,8 @@ instance IsTx SimpleTx where
       , txOutputs = mempty
       }
 
+  toPairList = undefined -- TODO !!!
+
 -- * Simple chain state
 
 newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
