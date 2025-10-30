@@ -454,6 +454,20 @@ channels:
           type: response
           method: POST
           bindingVersion: '0.1.0'
+  /head-initialization:
+    servers:
+      - localhost-http
+    subscribe:
+      description: Get the last Head initialization time.
+      operationId: getHeadInitialization
+      message:
+        summary: |
+           Timestamp of the last seen Head initialization.
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
 
 components:
   messages:

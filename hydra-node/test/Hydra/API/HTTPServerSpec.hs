@@ -652,8 +652,7 @@ apiServerSpec = do
                 , "{\"eventId\":300,\"stateChanged\":{\"chainSlot\":300,\"tag\":\"HeadInitialized\"},\"time\":\"2025-10-08T10:33:02.30814188Z\"}"
                 ]
           let statePath = tmpDir </> "state"
-          forM_ stateLines $ \l ->
-            writeFileBS statePath l
+          writeFileText statePath (unlines stateLines)
 
           withApplication
             ( httpApp @Tx
