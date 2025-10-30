@@ -1,10 +1,7 @@
 {
     "samples": [
         {
-            "chainSlot": 0,
-            "knownTip": {
-                "tag": "ChainPointAtGenesis"
-            },
+            "chainSlot": 1,
             "tag": "TickObserved"
         }
     ],
