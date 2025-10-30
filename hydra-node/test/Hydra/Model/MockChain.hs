@@ -17,6 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Class.MonadAsync (link)
+import Data.Maybe (fromJust)
 import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
@@ -47,7 +48,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
+import Hydra.Chain.Direct.State (ChainContext (..), initialChainState, unsafeClose, unsafeFanout)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.HeadLogic (
@@ -70,7 +71,7 @@ import Hydra.Node.Environment (Environment (Environment, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.NodeSpec (mockServer)
-import Hydra.Tx (txId)
+import Hydra.Tx (headSeedToTxIn, txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.HeadId (HeadId)
@@ -87,8 +88,7 @@ import Test.QuickCheck (getPositive)
 -- every 'blockTime' and performs 'rollbackAndForward' every couple blocks.
 mockChainAndNetwork ::
   forall m.
-  ( MonadTimer m
-  , MonadAsync m
+  ( MonadAsync m
   , MonadMask m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
@@ -382,8 +382,9 @@ data MockHydraNode m = MockHydraNode
   , chainHandler :: ChainSyncHandler m
   }
 
+-- | Create a mocked chain for a specific party used in the Model.
 createMockChain ::
-  (MonadTimer m, MonadThrow (STM m)) =>
+  (MonadThrow (STM m), MonadAsync m) =>
   Tracer m CardanoChainLog ->
   ChainContext ->
   SubmitTx m ->
@@ -391,24 +392,44 @@ createMockChain ::
   TxIn ->
   LocalChainState m Tx ->
   Chain Tx m
-createMockChain tracer ctx submitTx timeHandle seedInput chainState =
-  -- NOTE: The wallet basically does nothing
-  let wallet =
-        TinyWallet
-          { getUTxO = pure mempty
-          , getSeedInput = pure (Just seedInput)
-          , sign = id
-          , coverFee = \_ tx -> pure (Right tx)
-          , reset = pure ()
-          , update = \_ _ -> pure ()
-          }
-   in mkChain
-        tracer
-        timeHandle
-        wallet
-        ctx
-        chainState
-        submitTx
+createMockChain tracer ctx submitTx getTimeHandle seedInput localChainState =
+  let
+    -- NOTE: The wallet basically does nothing
+    -- TODO: This is a bit of a hack. Maybe not export 'getUTxO' from the
+    -- TinyWallet and move this into 'mockChainAndNetwork'
+    wallet =
+      TinyWallet
+        { getUTxO = pure mempty
+        , getSeedInput = pure (Just seedInput)
+        , sign = id
+        , coverFee = \_ tx -> pure (Right tx)
+        , reset = pure ()
+        , update = \_ _ -> pure ()
+        }
+
+    buildFanoutTx spendableUTxO headSeed (utxo, utxoToCommit, utxoToDecommit, deadlineSlot) =
+      pure $
+        unsafeFanout
+          ctx
+          spendableUTxO
+          (fromJust $ headSeedToTxIn headSeed)
+          utxo
+          utxoToCommit
+          utxoToDecommit
+          deadlineSlot
+
+    buildCloseTx spendableUTxO headId (headParameters, openVersion, closingSnapshot, currentSlot, upperBound) =
+      pure $ unsafeClose ctx spendableUTxO headId headParameters openVersion closingSnapshot currentSlot upperBound
+   in
+    mkChain
+      tracer
+      getTimeHandle
+      wallet
+      ctx
+      localChainState
+      submitTx
+      buildFanoutTx
+      buildCloseTx
 
 -- NOTE: This is a workaround until the upstream PR is merged:
 -- https://github.com/input-output-hk/io-sim/issues/133

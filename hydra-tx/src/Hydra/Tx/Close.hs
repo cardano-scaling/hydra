@@ -2,12 +2,12 @@
 
 module Hydra.Tx.Close where
 
-import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Crypto.EllipticCurve.BLS12_381 (blsCompress)
+import Hydra.Cardano.Api hiding (utxoFromTx)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
@@ -15,7 +15,7 @@ import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
 import Hydra.Tx (
   ConfirmedSnapshot (..),
   HeadId,
-  ScriptRegistry (headReference),
+  ScriptRegistry (..),
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
@@ -24,7 +24,9 @@ import Hydra.Tx (
   hashUTxO,
   headIdToCurrencySymbol,
   headReference,
+  utxoFromTx,
  )
+import Hydra.Tx.Accumulator (makeHeadAccumulator)
 import Hydra.Tx.Crypto (toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
@@ -52,7 +54,7 @@ closeTx ::
   HeadId ->
   -- | Last known version of the open head.
   SnapshotVersion ->
-  -- | Snapshot with instructions how to close the head.
+  -- | Confirmed snapshot
   ConfirmedSnapshot Tx ->
   -- | Lower validity slot number, usually a current or quite recent slot number.
   SlotNo ->
@@ -61,17 +63,20 @@ closeTx ::
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
   IncrementalAction ->
-  Tx
-closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput incrementalAction =
-  unsafeBuildTransaction $
-    defaultTxBodyContent
-      & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef] mempty
-      & addTxOuts [headOutputAfter]
-      & addTxExtraKeyWits [verificationKeyHash vk]
-      & setTxValidityLowerBound (TxValidityLowerBound startSlotNo)
-      & setTxValidityUpperBound (TxValidityUpperBound endSlotNo)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CloseTx")
+  IO Tx
+closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput incrementalAction = do
+  let snapshotUTxO = Hydra.Tx.utxo (getSnapshot confirmedSnapshot)
+  headAccumulator <- makeHeadAccumulator snapshotUTxO
+  pure $
+    unsafeBuildTransaction $
+      defaultTxBodyContent
+        & addTxIns [(headInput, headWitness)]
+        & addTxInsReference [headScriptRef] mempty
+        & addTxOuts [headOutputAfter headAccumulator]
+        & setTxExtraKeyWits (TxExtraKeyWitnesses [verificationKeyHash vk])
+        & setTxValidityLowerBound (TxValidityLowerBound startSlotNo)
+        & setTxValidityUpperBound (TxValidityUpperBound endSlotNo)
+        & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CloseTx")
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore)
@@ -86,7 +91,6 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
 
   headScriptRef =
     fst (headReference scriptRegistry)
-
   headRedeemer = toScriptData $ Head.Close closeRedeemer
 
   closeRedeemer =
@@ -116,17 +120,17 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
                   }
           NoThing -> Head.CloseAny{signature = toPlutusSignatures signatures}
 
-  headOutputAfter =
-    modifyTxOutDatum (const headDatumAfter) headOutputBefore
+  headOutputAfter headAccumulator =
+    modifyTxOutDatum (const $ headDatumAfter headAccumulator) headOutputBefore
 
-  headDatumAfter =
+  headDatumAfter headAccumulator =
     mkTxOutDatumInline $
       Head.Closed
         Head.ClosedDatum
           { snapshotNumber =
               fromIntegral . number $ getSnapshot confirmedSnapshot
           , utxoHash =
-              toBuiltin . hashUTxO $ Hydra.Tx.utxo (getSnapshot confirmedSnapshot)
+              toBuiltin $ blsCompress headAccumulator
           , alphaUTxOHash =
               case closeRedeemer of
                 Head.CloseUsedInc{} ->
@@ -138,15 +142,13 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
                   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = openParties
-          , contestationDeadline
+          , contestationDeadline =
+              OnChain.addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
           , contestationPeriod = openContestationPeriod
           , headId = headIdToCurrencySymbol headId
           , contesters = []
           , version = fromIntegral openVersion
           }
-
-  contestationDeadline =
-    addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
 
 -- * Observation
 

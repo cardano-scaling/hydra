@@ -29,15 +29,9 @@ import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTok
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
-healthyFanoutTx :: (Tx, UTxO)
-healthyFanoutTx =
-  (tx, lookupUTxO)
- where
-  lookupUTxO =
-    UTxO.singleton headInput headOutput
-      <> registryUTxO scriptRegistry
-
-  tx =
+healthyFanoutTx :: IO (Tx, UTxO)
+healthyFanoutTx = do
+  tx <-
     fanoutTx
       scriptRegistry
       (fst healthyFanoutSnapshotUTxO)
@@ -46,6 +40,11 @@ healthyFanoutTx =
       (headInput, headOutput)
       healthySlotNo
       headTokenScript
+  pure (tx, lookupUTxO)
+ where
+  lookupUTxO =
+    UTxO.singleton headInput headOutput
+      <> registryUTxO scriptRegistry
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -116,7 +115,7 @@ data FanoutMutation
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
-genFanoutMutation (tx, _utxo) =
+genFanoutMutation (tx, _utxo) = do
   oneof
     [ -- Spec: Transaction is posted after contestation deadline tmin > tfinal .
       SomeMutation (pure $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do

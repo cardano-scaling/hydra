@@ -51,7 +51,8 @@ data ClosedDatum = ClosedDatum
   , snapshotNumber :: SnapshotNumber
   -- ^ Spec: s
   , utxoHash :: Hash
-  -- ^ Spec: η. Digest of snapshotted UTxO
+  -- ^ Spec: η. Digest of snapshotted UTxO.
+  -- In the context of partial fanout, this is a cryptographic accumulator root.
   , alphaUTxOHash :: Hash
   , omegaUTxOHash :: Hash
   -- ^ Spec: ηΔ. Digest of UTxO still to be distributed
@@ -181,6 +182,12 @@ data Input
   | Abort
   | Fanout
       { numberOfFanoutOutputs :: Integer
+      , numberOfCommitOutputs :: Integer
+      , numberOfDecommitOutputs :: Integer
+      }
+  | FanoutPartial
+      { witness :: BuiltinByteString
+      , numberOfFanoutOutputs :: Integer
       , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
       }

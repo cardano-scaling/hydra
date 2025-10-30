@@ -74,11 +74,9 @@ healthyCurrentSnapshotVersion = 1
 
 -- | Healthy close transaction for the generic case were we close a head
 --  after one or more snapshot have been agreed upon between the members.
-healthyCloseCurrentTx :: (Tx, UTxO)
-healthyCloseCurrentTx =
-  (tx, lookupUTxO)
- where
-  tx =
+healthyCloseCurrentTx :: IO (Tx, UTxO)
+healthyCloseCurrentTx = do
+  tx <-
     closeTx
       scriptRegistry
       somePartyCardanoVerificationKey
@@ -89,9 +87,9 @@ healthyCloseCurrentTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       incrementalAction
-
+  pure (tx, lookupUTxO)
+ where
   closeUnusedSnapshot = healthyConfirmedSnapshot healthyCurrentSnapshot
-
   incrementalAction =
     fromMaybe NoThing $
       setIncrementalActionMaybe (utxoToCommit $ getSnapshot closeUnusedSnapshot) (utxoToDecommit $ getSnapshot closeUnusedSnapshot)

@@ -21,6 +21,7 @@ import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
   TxId,
+  TxIn,
   UTxO,
   calculateMinimumUTxO,
   chainPointToSlotNo,
@@ -54,12 +55,12 @@ import Hydra.Chain.Direct.State (
   ChainStateAt (..),
   abort,
   chainSlotFromPoint,
-  close,
+  closeChecker,
   collect,
   commit',
   contest,
   decrement,
-  fanout,
+  fanoutChecker,
   getKnownUTxO,
   increment,
   initialChainState,
@@ -76,11 +77,17 @@ import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (
   CommitBlueprintTx (..),
+  ConfirmedSnapshot,
+  HeadId,
   HeadParameters (..),
+  HeadSeed (..),
   IsTx (..),
+  SnapshotVersion,
   UTxOType,
+  getSnapshot,
   headSeedToTxIn,
  )
+import Hydra.Tx qualified as Tx (utxoToCommit, utxoToDecommit)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
 import Hydra.Tx.Observe (
@@ -158,6 +165,10 @@ type GetTimeHandle m = m TimeHandle
 -- NOTE: Given the constraints on `m` this function should work within `IOSim`
 -- and does not require any actual `IO` to happen which makes it highly suitable
 -- for simulations and testing.
+type FanoutTxDetails = (UTxO, Maybe UTxO, Maybe UTxO, SlotNo)
+
+type CloseTxDetails = (HeadParameters, SnapshotVersion, ConfirmedSnapshot Tx, SlotNo, (SlotNo, UTCTime))
+
 mkChain ::
   (MonadSTM m, MonadThrow (STM m)) =>
   Tracer m CardanoChainLog ->
@@ -167,18 +178,27 @@ mkChain ::
   ChainContext ->
   LocalChainState m Tx ->
   SubmitTx m ->
+  (UTxO -> HeadSeed -> FanoutTxDetails -> m Tx) ->
+  (UTxO -> HeadId -> CloseTxDetails -> m Tx) ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
+mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx buildFanoutTx buildCloseTx =
   Chain
     { mkChainState = initialChainState
     , postTx = \tx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
-        vtx <-
-          atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
-            >>= finalizeTx wallet ctx spendableUTxO mempty
-        submitTx vtx
+        seedInput <- atomically $ getSeedInput wallet
+        tx' <-
+          atomically (prepareTxToPost timeHandle seedInput ctx spendableUTxO tx)
+            >>= \case
+              Left partialTx ->
+                finalizeTx wallet ctx spendableUTxO mempty partialTx
+              Right (Left (headSeed, fanoutTxDetails)) ->
+                buildFanoutTx spendableUTxO headSeed fanoutTxDetails
+              Right (Right (headId, closeTxDetails)) ->
+                buildCloseTx spendableUTxO headId closeTxDetails
+        submitTx tx'
     , draftCommitTx = \headId commitBlueprintTx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
@@ -393,77 +413,85 @@ prepareTxToPost ::
   forall m.
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
-  TinyWallet m ->
+  Maybe TxIn ->
   ChainContext ->
   -- | Spendable UTxO
   UTxOType Tx ->
   PostChainTx Tx ->
-  STM m Tx
-prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
+  STM
+    m
+    ( Either
+        Tx
+        ( Either
+            (HeadSeed, FanoutTxDetails)
+            (HeadId, CloseTxDetails)
+        )
+    )
+prepareTxToPost timeHandle seedInput ctx spendableUTxO tx =
   case tx of
     InitTx{participants, headParameters} ->
-      getSeedInput wallet >>= \case
-        Just seedInput ->
-          pure $ initialize ctx seedInput participants headParameters
+      case seedInput of
+        Just si ->
+          pure $ Left (initialize ctx si participants headParameters)
         Nothing ->
-          throwIO (NoSeedInput @Tx)
+          throwSTM (NoSeedInput @Tx)
     AbortTx{utxo, headSeed} ->
       case headSeedToTxIn headSeed of
         Nothing ->
-          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+          throwSTM (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
           case abort ctx seedTxIn spendableUTxO utxo of
-            Left _ -> throwIO (FailedToConstructAbortTx @Tx)
-            Right abortTx -> pure abortTx
+            Left _ -> throwSTM (FailedToConstructAbortTx @Tx)
+            Right abortTx -> pure $ Left abortTx
     -- TODO: We do not rely on the utxo from the collect com tx here because the
-    -- chain head-state is already tracking UTXO entries locked by commit scripts,
-    -- and thus, can re-construct the committed UTXO for the collectComTx from
+    -- chain head-state is already tracking UTxO entries locked by commit scripts,
+    -- and thus, can re-construct the committed UTxO for the collectComTx from
     -- the commits' datums.
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
     CollectComTx{utxo, headId, headParameters} ->
       case collect ctx headId headParameters utxo spendableUTxO of
-        Left _ -> throwIO (FailedToConstructCollectTx @Tx)
-        Right collectTx -> pure collectTx
+        Left _ -> throwSTM (FailedToConstructCollectTx @Tx)
+        Right collectTx -> pure $ Left collectTx
     IncrementTx{headId, headParameters, incrementingSnapshot, depositTxId} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       (upperBound, _) <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
       case increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId upperBound of
-        Left err -> throwIO (FailedToConstructIncrementTx{failureReason = show err} :: PostTxError Tx)
-        Right incrementTx' -> pure incrementTx'
+        Left err -> throwSTM (FailedToConstructIncrementTx{failureReason = show err} :: PostTxError Tx)
+        Right incrementTx' -> pure $ Left incrementTx'
     RecoverTx{headId, recoverTxId, deadline} -> do
       case recover ctx headId recoverTxId spendableUTxO (fromChainSlot deadline) of
-        Left err -> throwIO (FailedToConstructRecoverTx{failureReason = show err} :: PostTxError Tx)
-        Right recoverTx' -> pure recoverTx'
+        Left err -> throwSTM (FailedToConstructRecoverTx{failureReason = show err} :: PostTxError Tx)
+        Right recoverTx' -> pure $ Left recoverTx'
     DecrementTx{headId, headParameters, decrementingSnapshot} ->
       case decrement ctx spendableUTxO headId headParameters decrementingSnapshot of
-        Left err -> throwIO (FailedToConstructDecrementTx{failureReason = show err} :: PostTxError Tx)
-        Right decrementTx' -> pure decrementTx'
+        Left err -> throwSTM (FailedToConstructDecrementTx{failureReason = show err} :: PostTxError Tx)
+        Right decrementTx' -> pure $ Left decrementTx'
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
-      case close ctx spendableUTxO headId headParameters openVersion closingSnapshot currentSlot upperBound of
-        Left _ -> throwIO (FailedToConstructCloseTx @Tx)
-        Right closeTx -> pure closeTx
+      case closeChecker spendableUTxO headId headParameters (Tx.utxoToCommit $ getSnapshot closingSnapshot) (Tx.utxoToDecommit $ getSnapshot closingSnapshot) of
+        Left _ -> throwSTM (FailedToConstructCloseTx @Tx)
+        Right{} -> pure $ Right (Right (headId, (headParameters, openVersion, closingSnapshot, currentSlot, upperBound)))
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
       case contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot upperBound of
-        Left _ -> throwIO (FailedToConstructContestTx @Tx)
-        Right contestTx -> pure contestTx
+        Left _ -> throwSTM (FailedToConstructContestTx @Tx)
+        Right contestTx -> pure $ Left contestTx
     FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       case headSeedToTxIn headSeed of
         Nothing ->
-          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+          throwSTM (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
-          case fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot of
-            Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
-            Right fanoutTx -> pure fanoutTx
+          case fanoutChecker spendableUTxO seedTxIn utxoToCommit utxoToDecommit of
+            Left _ -> throwSTM (FailedToConstructFanoutTx @Tx)
+            Right{} -> pure $ Right (Left (headSeed, (utxo, utxoToCommit, utxoToDecommit, deadlineSlot)))
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft :: Either Text a -> STM m a

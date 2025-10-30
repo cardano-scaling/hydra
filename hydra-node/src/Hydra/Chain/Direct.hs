@@ -16,6 +16,8 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Exception (IOException)
+import Data.Maybe (fromJust)
+import GHC.IO.Exception (userError)
 import Hydra.Cardano.Api (
   BlockInMode (..),
   CardanoEra (..),
@@ -60,6 +62,8 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
+  close,
+  fanout,
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (
@@ -68,6 +72,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
+import Hydra.Tx (headSeedToTxIn)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -149,6 +154,14 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
+  let buildFanoutTx spendableUTxO headSeed fanoutTxDetails =
+        let (utxo, utxoToCommit, utxoToDecommit, deadlineSlot) = fanoutTxDetails
+            seedTxIn = fromJust $ headSeedToTxIn headSeed
+         in fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot
+              >>= either (throwIO . userError . show) pure
+  let buildCloseTx spendableUTxO headId (headParameters, openVersion, closingSnapshot, currentSlot, upperBound) = do
+        let res = close ctx spendableUTxO headId headParameters openVersion closingSnapshot currentSlot upperBound
+        either (throwIO . userError . show) pure =<< res
   let chainHandle =
         mkChain
           tracer
@@ -157,6 +170,8 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
           ctx
           localChainState
           (submitTx queue)
+          buildFanoutTx
+          buildCloseTx
 
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-

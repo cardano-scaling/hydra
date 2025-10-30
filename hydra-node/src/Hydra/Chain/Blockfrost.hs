@@ -6,7 +6,9 @@ import Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, take
 import Control.Exception (IOException)
 import Control.Retry (RetryPolicyM, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
+import Data.Maybe (fromJust)
 import Data.Text qualified as T
+import GHC.IO.Exception (userError)
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
@@ -29,11 +31,17 @@ import Hydra.Chain.Direct.Handlers (
   mkChain,
   newLocalChainState,
  )
-import Hydra.Chain.Direct.State (ChainContext, ChainStateAt (..))
+import Hydra.Chain.Direct.State (
+  ChainContext (..),
+  ChainStateAt (..),
+  close,
+  fanout,
+ )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
+import Hydra.Tx (headSeedToTxIn)
 
 newtype BlockfrostBackend = BlockfrostBackend {options :: BlockfrostOptions} deriving (Eq, Show)
 
@@ -132,6 +140,14 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
+  let buildFanoutTx spendableUTxO headSeed fanoutTxDetails =
+        let (utxo, utxosToCommit, utxosToDecommit, deadlineSlot) = fanoutTxDetails
+            seedTxIn = fromJust $ headSeedToTxIn headSeed
+         in fanout ctx spendableUTxO seedTxIn utxo utxosToCommit utxosToDecommit deadlineSlot
+              >>= either (throwIO . userError . show) pure
+  let buildCloseTx spendableUTxO headId (headParameters, openVersion, closingSnapshot, currentSlot, upperBound) = do
+        let res = close ctx spendableUTxO headId headParameters openVersion closingSnapshot currentSlot upperBound
+        either (throwIO . userError . show) pure =<< res
   let chainHandle =
         mkChain
           tracer
@@ -140,6 +156,8 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
           ctx
           localChainState
           (submitTx queue)
+          buildFanoutTx
+          buildCloseTx
 
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-

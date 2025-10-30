@@ -53,12 +53,9 @@ healthyCloseSnapshotVersion = 0
 -- | Healthy close transaction for the specific case were we close a head
 --   with the initial UtxO, that is, no snapshot have been agreed upon and
 --   signed by the head members yet.
-healthyCloseInitialTx :: (Tx, UTxO)
-healthyCloseInitialTx =
-  (tx, lookupUTxO)
- where
-  tx :: Tx
-  tx =
+healthyCloseInitialTx :: IO (Tx, UTxO)
+healthyCloseInitialTx = do
+  tx <-
     closeTx
       scriptRegistry
       somePartyCardanoVerificationKey
@@ -69,7 +66,8 @@ healthyCloseInitialTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       incrementalAction
-
+  pure (tx, lookupUTxO)
+ where
   incrementalAction =
     fromMaybe NoThing $
       setIncrementalActionMaybe (utxoToCommit $ getSnapshot closingSnapshot) (utxoToDecommit $ getSnapshot closingSnapshot)
