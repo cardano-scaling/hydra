@@ -1388,8 +1388,10 @@ updateUnsyncedHead env ledger now currentSlot pendingDeposits st ev syncStatus =
   case ev of
     ChainInput{} ->
       handleChainInput env ledger now currentSlot pendingDeposits st ev syncStatus
-    _ ->
-      noop
+    ClientInput{} ->
+      Error $ UnhandledInput ev st
+    NetworkInput{} ->
+      wait WaitOnNodeInSync{currentSlot}
 
 updateSyncedHead ::
   IsChainState tx =>
@@ -1647,9 +1649,9 @@ aggregateNodeState nodeState sc =
         ChainRolledBack{chainState} ->
           nodeState{headState = st, currentSlot = chainStateSlot chainState}
         NodeUnsynced ->
-          NodeCatchingUp{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = currentSlot nodeState}
+          NodeCatchingUp{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = nodeState.currentSlot}
         NodeSynced ->
-          NodeInSync{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = currentSlot nodeState}
+          NodeInSync{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = nodeState.currentSlot}
         _ ->
           nodeState{headState = st}
 
