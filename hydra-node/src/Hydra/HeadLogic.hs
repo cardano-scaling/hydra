@@ -1363,8 +1363,8 @@ update env ledger now nodeState ev =
     NodeInSync{headState, pendingDeposits, currentSlot} ->
       updateSyncedHead env ledger now currentSlot pendingDeposits headState ev
 
--- FIXME: handle relevant stuff from 'update' here (chain inputs)
 updateUnsyncedHead ::
+  IsChainState tx =>
   Environment ->
   Ledger tx ->
   -- | Current system time.
@@ -1376,7 +1376,12 @@ updateUnsyncedHead ::
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-updateUnsyncedHead _env _ledger _now _currentSlot _pendingDeposits _st _ev = noop
+updateUnsyncedHead env ledger now currentSlot pendingDeposits st ev =
+  case ev of
+    ChainInput{} ->
+      handleChainInput env ledger now currentSlot pendingDeposits st ev
+    _ ->
+      noop
 
 updateSyncedHead ::
   IsChainState tx =>
