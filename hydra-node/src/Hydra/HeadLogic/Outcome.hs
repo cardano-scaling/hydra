@@ -246,6 +246,7 @@ data WaitReason tx
   | WaitOnUnresolvedDecommit {decommitTx :: tx}
   | WaitOnDepositObserved {depositTxId :: TxIdType tx}
   | WaitOnDepositActivation {depositTxId :: TxIdType tx}
+  | WaitOnNodeInSync {currentSlot :: ChainSlot}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (WaitReason tx)

@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
@@ -106,7 +107,7 @@ spec =
             reqTx = NetworkInput ttl $ ReceivedMessage{sender = alice, msg = ReqTx tx}
             s0 = inOpenState threeParties
 
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot s0.currentSlot
         update bobEnv ledger now s0 reqTx `hasStateChangedSatisfying` \case
           TxInvalid{transaction} -> transaction == tx
           _ -> False
@@ -116,7 +117,7 @@ spec =
             inputs = utxoRef 1
             s0 = inOpenState threeParties
 
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot s0.currentSlot
         update bobEnv ledger now s0 reqTx
           `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
@@ -192,7 +193,7 @@ spec =
                     , deadline = genUTCTime `generateWith` 42
                     }
               s0 = inOpenState threeParties
-          now <- nowFromSlot (currentSlot s0)
+          now <- nowFromSlot s0.currentSlot
           update bobEnv ledger now s0 depositOtherHead `hasStateChangedSatisfying` \case
             DepositRecorded{headId, depositTxId} -> headId == otherHeadId && depositTxId == 1
             _ -> False
@@ -234,7 +235,7 @@ spec =
               transaction = SimpleTx 1 mempty outputs
               input = receiveMessage ReqDec{transaction}
               st = inOpenState threeParties
-          now <- nowFromSlot (currentSlot st)
+          now <- nowFromSlot st.currentSlot
           update aliceEnv ledger now st input `hasStateChangedSatisfying` \case
             DecommitRecorded{headId, utxoToDecommit} -> headId == testHeadId && utxoToDecommit == outputs
             _ -> False
@@ -243,7 +244,7 @@ spec =
           let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1)}
           let input = receiveMessage reqDec
           st <- pickBlind $ elements [inInitialState threeParties, inIdleState, inClosedState threeParties]
-          now <- run $ nowFromSlot (currentSlot st)
+          now <- run $ nowFromSlot st.currentSlot
           pure $
             update aliceEnv ledger now st input
               `shouldNotBe` cause (NetworkEffect reqDec)
@@ -260,7 +261,7 @@ spec =
                   coordinatedHeadState
                     { decommitTx = Just decommitTxInFlight
                     }
-          now <- nowFromSlot (currentSlot s0)
+          now <- nowFromSlot s0.currentSlot
           update bobEnv ledger now s0 reqDecEvent `hasStateChangedSatisfying` \case
             DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
             _ -> False
@@ -275,7 +276,7 @@ spec =
               step $ receiveMessageFrom alice ReqDec{transaction = decommitTx1}
               getState
 
-            now <- nowFromSlot (currentSlot s1)
+            now <- nowFromSlot s1.currentSlot
             update bobEnv ledger now s1 (receiveMessageFrom bob ReqDec{transaction = decommitTx2})
               `assertWait` WaitOnNotApplicableDecommitTx
                 { notApplicableReason =
@@ -289,7 +290,7 @@ spec =
               s0 = inOpenState threeParties
               reqDecEvent = receiveMessage ReqDec{transaction = decommitTx}
 
-          now <- nowFromSlot (currentSlot s0)
+          now <- nowFromSlot s0.currentSlot
           update aliceEnv ledger now s0 reqDecEvent
             `assertWait` WaitOnNotApplicableDecommitTx (DecommitTxInvalid mempty (ValidationError "cannot apply transaction"))
 
@@ -331,7 +332,7 @@ spec =
 
           let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx'}
 
-          now <- nowFromSlot (currentSlot s0)
+          now <- nowFromSlot s0.currentSlot
           let s1 = update aliceEnv ledger now s0 reqDecEvent
 
           let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', depositTxId = Nothing}
@@ -400,7 +401,7 @@ spec =
             step (ackFrom aliceSk alice)
             getState
 
-        now <- nowFromSlot (currentSlot waitingForLastAck)
+        now <- nowFromSlot waitingForLastAck.currentSlot
         update bobEnv ledger now waitingForLastAck (invalidAckFrom bobSk bob)
           `shouldSatisfy` \case
             Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
@@ -418,7 +419,7 @@ spec =
             step (ackFrom aliceSk alice)
             getState
 
-        now <- nowFromSlot (currentSlot waitingForLastAck)
+        now <- nowFromSlot waitingForLastAck.currentSlot
         update bobEnv ledger now waitingForLastAck (ackFrom (generateSigningKey "foo") bob)
           `shouldSatisfy` \case
             Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
@@ -441,7 +442,7 @@ spec =
             step (invalidAckFrom bobSk bob)
             getState
 
-        now <- nowFromSlot (currentSlot waitingForLastAck)
+        now <- nowFromSlot waitingForLastAck.currentSlot
         update bobEnv ledger now waitingForLastAck (ackFrom aliceSk alice)
           `shouldSatisfy` \case
             Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
@@ -458,7 +459,7 @@ spec =
             step (ackFrom carolSk carol)
             getState
 
-        now <- nowFromSlot (currentSlot waitingForAck)
+        now <- nowFromSlot waitingForAck.currentSlot
         update bobEnv ledger now waitingForAck (ackFrom carolSk carol)
           `shouldSatisfy` \case
             Error (RequireFailed SnapshotAlreadySigned{receivedSignature}) -> receivedSignature == carol
@@ -477,7 +478,7 @@ spec =
           step (ackFrom aliceSk)
           getState
 
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot s0.currentSlot
         update bobEnv ledger now s0 (ackFrom carolSk)
           `shouldBe` noop
 
@@ -492,14 +493,14 @@ spec =
           step reqTx1
           getState
 
-        now <- nowFromSlot (currentSlot s2)
+        now <- nowFromSlot s2.currentSlot
         update bobEnv ledger now s2 input
           `shouldBe` Error (RequireFailed (SnapshotDoesNotApply 1 1 (ValidationError "cannot apply transaction")))
 
       it "waits if we receive a snapshot with unseen transactions" $ do
         let s0 = inOpenState threeParties
             reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot s0.currentSlot
         update bobEnv ledger now s0 reqSn
           `assertWait` WaitOnTxs [1]
 
@@ -507,7 +508,7 @@ spec =
         let snapshot = testSnapshot 1 0 [] mempty
             input = receiveMessage $ AckSn (sign aliceSk snapshot) 1
             s0 = inOpenState threeParties
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot s0.currentSlot
         update bobEnv ledger now s0 input
           `assertWait` WaitOnSeenSnapshot
 
@@ -519,7 +520,7 @@ spec =
         let input :: Input tx
             input = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
             st = inOpenState threeParties
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
@@ -532,7 +533,7 @@ spec =
             step reqSn1
             getState
 
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st reqSn2
           `assertWait` WaitOnSnapshotNumber 1
 
@@ -543,7 +544,7 @@ spec =
             sig = sign bobSk snapshot
             st = inOpenState threeParties
             ack = AckSn sig (number snapshot)
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st input `hasEffect` NetworkEffect ack
 
       it "does not ack snapshots from non-leaders" $ do
@@ -551,7 +552,7 @@ spec =
             input = receiveMessageFrom notTheLeader $ ReqSn 0 1 [] Nothing Nothing
             notTheLeader = bob
             st = inOpenState threeParties
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st input `shouldSatisfy` \case
           Error (RequireFailed ReqSnNotLeader{requestedSn = 1, leader}) -> leader == notTheLeader
           _ -> False
@@ -564,7 +565,7 @@ spec =
             st =
               inOpenState' threeParties $
                 coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])}
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "rejects too-old snapshots when collecting signatures" $ do
@@ -578,7 +579,7 @@ spec =
                   { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
                   , seenSnapshot = SeenSnapshot (testSnapshot 3 0 [] mempty) mempty
                   }
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
       it "rejects too-new snapshots from the leader" $ do
@@ -586,7 +587,7 @@ spec =
             input = receiveMessageFrom theLeader $ ReqSn 0 3 [] Nothing Nothing
             theLeader = carol
             st = inOpenState threeParties
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
 
       it "rejects invalid snapshots version" $ do
@@ -596,7 +597,7 @@ spec =
             theLeader = carol
             expectedSnVersion = 0
             st = inOpenState threeParties
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSvNumberInvalid invalidSnVersion expectedSnVersion)
 
       it "rejects overlapping snapshot requests from the leader" $ do
@@ -613,7 +614,7 @@ spec =
           step secondReqTx
           getState
 
-        now <- nowFromSlot (currentSlot s3)
+        now <- nowFromSlot s3.currentSlot
         update bobEnv ledger now s3 secondReqSn `shouldSatisfy` \case
           Error RequireFailed{} -> True
           _ -> False
@@ -653,13 +654,13 @@ spec =
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
             input = receiveMessage $ ReqTx (aValidTx 42)
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot s0.currentSlot
         update bobEnv ledger now s0 input `shouldBe` Error (UnhandledInput input (headState s0))
 
       it "ignores in-flight ReqDec when closed" $ do
         let s0 = inClosedState threeParties
             input = receiveMessage $ ReqDec{transaction = aValidTx 42}
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot s0.currentSlot
         update bobEnv ledger now s0 input `shouldBe` Error (UnhandledInput input (headState s0))
 
       it "everyone does collect on last commit after collect com" $ do
@@ -672,7 +673,7 @@ spec =
             step (observeTxAtSlot 2 bobCommit)
             getState
 
-        now <- nowFromSlot (currentSlot waitingForLastCommit)
+        now <- nowFromSlot waitingForLastCommit.currentSlot
         -- Bob is not the last party, but still does post a collect
         update bobEnv ledger now waitingForLastCommit (observeTxAtSlot 3 carolCommit)
           `hasEffectSatisfying` \case
@@ -685,7 +686,7 @@ spec =
             step (observeTx $ OnCollectComTx testHeadId)
             getState
 
-        now <- nowFromSlot (currentSlot afterCollectCom)
+        now <- nowFromSlot afterCollectCom.currentSlot
         let unhandledInput = observeTx OnAbortTx{headId = testHeadId}
         update bobEnv ledger now afterCollectCom unhandledInput
           `shouldBe` Error (UnhandledInput unhandledInput (headState afterCollectCom))
@@ -696,7 +697,7 @@ spec =
             step (observeTx OnAbortTx{headId = testHeadId})
             getState
 
-        now <- nowFromSlot (currentSlot afterAbort)
+        now <- nowFromSlot afterAbort.currentSlot
         let unhandledInput = observeTx (OnCollectComTx testHeadId)
         update bobEnv ledger now afterAbort unhandledInput
           `shouldBe` Error (UnhandledInput unhandledInput (headState afterAbort))
@@ -758,7 +759,7 @@ spec =
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             deadline = arbitrary `generateWith` 42
             params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters (headState s0))
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot s0.currentSlot
         update bobEnv ledger now s0 (observeTx $ OnContestTx testHeadId 1 deadline)
           `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
 
@@ -772,11 +773,11 @@ spec =
               now <- getCurrentTime
               let outcome = update bobEnv ledger now nodeState input
               outcome `shouldSatisfy` \case
-                Continue{stateChanges, effects} ->
-                  null stateChanges && null effects
+                Wait{reason = WaitOnNodeInSync{currentSlot}, stateChanges} ->
+                  null stateChanges && currentSlot == nodeState.currentSlot
                 _ -> False
             NodeInSync{} -> do
-              now <- nowFromSlot (currentSlot nodeState)
+              now <- nowFromSlot nodeState.currentSlot
               let outcome = update bobEnv ledger now nodeState input
               outcome `shouldSatisfy` \case
                 Continue{stateChanges, effects} ->
@@ -798,49 +799,49 @@ spec =
       prop "ignores abortTx of another head" $ \otherHeadId -> do
         let abortOtherHead = observeTx $ OnAbortTx{headId = otherHeadId}
             st = inInitialState threeParties
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st abortOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores collectComTx of another head" $ \otherHeadId -> do
         let collectOtherHead = observeTx $ OnCollectComTx{headId = otherHeadId}
             st = inInitialState threeParties
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
         let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId, newVersion = 1, distributedUTxO = mempty}
             st = inOpenState threeParties
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st decrementOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores closeTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
         let closeOtherHead = observeTx $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
             st = inOpenState threeParties
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st closeOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores contestTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
         let contestOtherHead = observeTx $ OnContestTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
             st = inClosedState threeParties
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st contestOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores fanoutTx of another head" $ \otherHeadId fanoutUTxO -> do
         let collectOtherHead = observeTx $ OnFanoutTx{headId = otherHeadId, fanoutUTxO}
             st = inClosedState threeParties
-        now <- nowFromSlot (currentSlot st)
+        now <- nowFromSlot st.currentSlot
         update bobEnv ledger now st collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "fanout utxo always relies on observed utxo" $ \fanoutUTxO ->
         forAllShrink genClosedState shrink $ \closedState -> monadicIO $ do
           let fanoutHead = observeTx $ OnFanoutTx{headId = testHeadId, fanoutUTxO}
-          now <- run $ nowFromSlot (currentSlot closedState)
+          now <- run $ nowFromSlot closedState.currentSlot
           let outcome = update bobEnv ledger now closedState fanoutHead
           monitor $ counterexample ("Outcome: " <> show outcome)
           run $
@@ -865,7 +866,7 @@ spec =
               snapshot0 = getSnapshot initialSn
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
           let wrongInitialSnapshot = InitialSnapshot testHeadId (utxoRef 2)
-          now <- nowFromSlot (currentSlot s0)
+          now <- nowFromSlot s0.currentSlot
           update bobEnv ledger now s0 (ClientInput (SideLoadSnapshot wrongInitialSnapshot))
             `shouldBe` Error (SideLoadSnapshotFailed SideLoadInitialSnapshotMismatch)
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
@@ -876,7 +877,7 @@ spec =
               snapshot0 = getSnapshot initialSn
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
           let initialSnapshotOtherHead = InitialSnapshot otherHeadId mempty
-          now <- nowFromSlot (currentSlot s0)
+          now <- nowFromSlot s0.currentSlot
           update bobEnv ledger now s0 (ClientInput (SideLoadSnapshot initialSnapshotOtherHead))
             `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
@@ -928,7 +929,7 @@ spec =
 
           getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot2
 
-          now <- nowFromSlot (currentSlot sideLoadedState)
+          now <- nowFromSlot sideLoadedState.currentSlot
           update bobEnv ledger now sideLoadedState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot1 multisig1))
             `shouldBe` Error (SideLoadSnapshotFailed{sideLoadRequirementFailure = SideLoadSnNumberInvalid 1 2})
 
@@ -938,7 +939,7 @@ spec =
           let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
-          now <- nowFromSlot (currentSlot startingState)
+          now <- nowFromSlot startingState.currentSlot
           update bobEnv ledger now startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
             `shouldSatisfy` \case
               Error (SideLoadSnapshotFailed SideLoadInvalidMultisignature{vkeys}) -> vkeys == [vkey alice, vkey bob, vkey carol]
@@ -950,7 +951,7 @@ spec =
           let snapshot2 = Snapshot testHeadId 1 2 [tx2] (utxoRef 3) Nothing Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
-          now <- nowFromSlot (currentSlot startingState)
+          now <- nowFromSlot startingState.currentSlot
           update bobEnv ledger now startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
             `shouldBe` Error (SideLoadSnapshotFailed{sideLoadRequirementFailure = SideLoadSvNumberInvalid 1 0})
 
@@ -959,7 +960,7 @@ spec =
           let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) Nothing (Just utxoToDecommit)
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
-          now <- nowFromSlot (currentSlot startingState)
+          now <- nowFromSlot startingState.currentSlot
           update bobEnv ledger now startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
             `shouldBe` Error (SideLoadSnapshotFailed $ SideLoadUTxOToDecommitInvalid (Just utxoToDecommit) Nothing)
 
@@ -969,7 +970,7 @@ spec =
           let snapshot2 = Snapshot testHeadId 0 2 [tx2] (utxoRef 3) (Just utxoToCommit) Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
-          now <- nowFromSlot (currentSlot startingState)
+          now <- nowFromSlot startingState.currentSlot
           update bobEnv ledger now startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
             `shouldBe` Error (SideLoadSnapshotFailed $ SideLoadUTxOToCommitInvalid (Just utxoToCommit) Nothing)
 
@@ -989,7 +990,7 @@ spec =
               multisig1OtherHead = aggregate [sign aliceSk snapshot1OtherHead, sign bobSk snapshot1OtherHead, sign carolSk snapshot1OtherHead]
               confirmedSnapshotOtherHead = ConfirmedSnapshot snapshot1OtherHead multisig1OtherHead
 
-          now <- nowFromSlot (currentSlot startingState)
+          now <- nowFromSlot startingState.currentSlot
           update bobEnv ledger now startingState (ClientInput (SideLoadSnapshot confirmedSnapshotOtherHead))
             `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
@@ -1179,7 +1180,7 @@ spec =
 
       let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
       let input = receiveMessage $ ReqDec{transaction = tx'}
-      now <- nowFromSlot (currentSlot st)
+      now <- nowFromSlot st.currentSlot
       update bobEnv ledger now st input `shouldSatisfy` \case
         Wait WaitOnNotApplicableDecommitTx{notApplicableReason = DecommitTxInvalid{}} _ -> True
         _ -> False
@@ -1191,7 +1192,7 @@ prop_ignoresUnrelatedOnInitTx =
   forAll arbitrary $ \env ->
     forAll (genUnrelatedInit env) $ \unrelatedInit -> monadicIO $ do
       let idleSt = inIdleState
-      now <- run $ nowFromSlot (currentSlot idleSt)
+      now <- run $ nowFromSlot idleSt.currentSlot
       let outcome = update env simpleLedger now idleSt (observeTx unrelatedInit)
       monitor $ counterexample ("Outcome: " <> show outcome)
       run $
@@ -1433,7 +1434,7 @@ step ::
   m (Outcome tx)
 step input = do
   StepState{nodeState, env, ledger} <- get
-  now <- nowFromSlot (currentSlot nodeState)
+  now <- nowFromSlot nodeState.currentSlot
   let outcome = update env ledger now nodeState input
   let nodeState' = aggregateState nodeState outcome
   put StepState{env, ledger, nodeState = nodeState'}
