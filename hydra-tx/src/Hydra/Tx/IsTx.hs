@@ -101,6 +101,8 @@ class
   -- tx's outputs. Performs no ledger validation; the caller must ensure the
   -- tx is valid against the given UTxO.
   applyTxTo :: tx -> UTxOType tx -> UTxOType tx
+  -- | Convert a 'UTxOType' to a list of pairs.
+  toPairList :: UTxOType tx -> [(TxIn, TxOut CtxUTxO)]
 
 -- * Cardano Tx
 
@@ -172,3 +174,5 @@ instance IsTx Tx where
   withoutUTxO = UTxO.difference
 
   applyTxTo tx utxo = (utxo `UTxO.difference` Api.resolveInputsUTxO utxo tx) <> Api.utxoFromTx tx
+
+  toPairList = UTxO.toList

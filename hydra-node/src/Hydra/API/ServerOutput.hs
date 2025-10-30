@@ -307,7 +307,7 @@ data NetworkInfo = NetworkInfo
   deriving anyclass (ToJSON, FromJSON)
 
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
-getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)
+getSnapshotUtxo :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
 getSnapshotUtxo = \case
   HeadState.Idle{} ->
     Nothing
@@ -319,7 +319,7 @@ getSnapshotUtxo = \case
      in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
 
 -- | Get latest seen snapshot from 'HeadState'.
-getSeenSnapshot :: Monoid (UTxOType tx) => HeadState tx -> HeadState.SeenSnapshot tx
+getSeenSnapshot :: IsTx tx => HeadState tx -> HeadState.SeenSnapshot tx
 getSeenSnapshot = \case
   HeadState.Idle{} ->
     NoSeenSnapshot
