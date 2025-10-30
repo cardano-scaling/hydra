@@ -15,6 +15,8 @@ import Hydra.Tx (
   IsTx (..),
   Party,
  )
+import Hydra.Tx.Accumulator (HydraAccumulator)
+import Hydra.Tx.Accumulator qualified as HydraAccumulator
 import Hydra.Tx.Crypto (Signature)
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.Snapshot (
@@ -132,6 +134,7 @@ data OpenState tx = OpenState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , headSeed :: HeadSeed
+  , accumulator :: HydraAccumulator
   }
   deriving stock (Generic)
 
@@ -148,6 +151,7 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenSta
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
+      <*> (HydraAccumulator.build <$> arbitrary)
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState

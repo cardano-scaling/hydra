@@ -7,8 +7,11 @@ import Hydra.Prelude
 
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
-import Data.Aeson (object, withObject, (.:), (.:?), (.=))
+import Data.Aeson (Value (String), object, withObject, (.:), (.:?), (.=))
+import Data.Aeson.Types (Parser)
+import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
+import GHC.IO (unsafePerformIO)
 import Hydra.Cardano.Api (SerialiseAsRawBytes (..), SigningKey)
 import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
@@ -17,6 +20,9 @@ import Hydra.Tx.IsTx (IsTx (..))
 import PlutusLedgerApi.V3 (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
 import Test.QuickCheck.Instances.Natural ()
+import Hydra.Tx.Accumulator (makeHeadAccumulator)
+import Cardano.Crypto.EllipticCurve.BLS12_381 (blsCompress)
+
 
 -- * SnapshotNumber and SnapshotVersion
 
@@ -52,6 +58,8 @@ data Snapshot tx = Snapshot
   -- ^ The set of transactions that lead to 'utxo'. Spec: T
   , utxo :: UTxOType tx
   -- ^ Snaspshotted UTxO set. Spec: U
+  , utxoHash :: ByteString
+  -- ^ The 'UTxO' hash of this snapshot. Spec: η
   , utxoToCommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be committed. Spec: Uα
   , utxoToDecommit :: Maybe (UTxOType tx)
@@ -75,23 +83,24 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 --
 -- where hashes are the result of applying 'hashUTxO'.
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToCommit, utxoToDecommit} =
+  getSignableRepresentation Snapshot{headId, version, number, utxoHash, utxoToCommit, utxoToDecommit} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData . toBuiltin $ toInteger version)
         <> serialise (toData . toBuiltin $ toInteger number)
-        <> serialise (toData . toBuiltin $ hashUTxO @tx utxo)
+        <> serialise (toData $ toBuiltin utxoHash)
         <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToCommit)
         <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit)
 
 instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version} =
+  toJSON Snapshot{headId, number, utxo, utxoHash, confirmed, utxoToCommit, utxoToDecommit, version} =
     object
       [ "headId" .= headId
       , "version" .= version
       , "number" .= number
       , "confirmed" .= confirmed
       , "utxo" .= utxo
+      , "utxoHash" .= String (decodeUtf8 $ Base16.encode utxoHash)
       , "utxoToCommit" .= utxoToCommit
       , "utxoToDecommit" .= utxoToDecommit
       ]
@@ -104,6 +113,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       <*> (obj .: "number")
       <*> (obj .: "confirmed")
       <*> (obj .: "utxo")
+      <*> (obj .: "utxoHash" >>= parseBase16)
       <*> ( obj .:? "utxoToCommit" >>= \case
               Nothing -> pure mempty
               (Just utxo) -> pure utxo
@@ -112,15 +122,22 @@ instance IsTx tx => FromJSON (Snapshot tx) where
               Nothing -> pure mempty
               (Just utxo) -> pure utxo
           )
+   where
+    parseBase16 :: Text -> Parser ByteString
+    parseBase16 t =
+      case Base16.decode (encodeUtf8 t) of
+        Left e -> fail $ "invalid base16: " <> show e
+        Right bs -> pure bs
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
-    [ Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit'
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoHash, utxoToCommit, utxoToDecommit} =
+    [ Snapshot headId version number confirmed' utxo' utxoHash' utxoToCommit' utxoToDecommit'
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
+    , utxoHash' <- shrink utxoHash
     , utxoToCommit' <- shrink utxoToCommit
     , utxoToDecommit' <- shrink utxoToDecommit
     ]
@@ -149,15 +166,19 @@ data ConfirmedSnapshot tx
 -- add a new branch to the sumtype. So, we explicitly define a getter which
 -- will force us into thinking about changing the signature properly if this
 -- happens.
-getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: (IsTx tx) => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
+    let
+      utxoHash = unsafePerformIO $ blsCompress <$> makeHeadAccumulator initialUTxO
+    in
     Snapshot
       { headId
       , version = 0
       , number = 0
       , confirmed = []
       , utxo = initialUTxO
+      , utxoHash
       , utxoToCommit = Nothing
       , utxoToDecommit = Nothing
       }
@@ -177,7 +198,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Confirme
     ConfirmedSnapshot sn sigs -> ConfirmedSnapshot <$> shrink sn <*> shrink sigs
 
 genConfirmedSnapshot ::
-  IsTx tx =>
+  (IsTx tx) =>
   HeadId ->
   -- | Exact snapshot version to generate.
   SnapshotVersion ->
@@ -206,6 +227,7 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit}
+    let utxoHash = unsafePerformIO $ blsCompress <$> makeHeadAccumulator utxo
+    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoHash, utxoToCommit, utxoToDecommit}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}

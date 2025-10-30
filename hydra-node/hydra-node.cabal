@@ -140,6 +140,7 @@ library
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3
+    , haskell-accumulator
     , http-types
     , hydra-cardano-api
     , hydra-plutus
@@ -299,7 +300,6 @@ test-suite tests
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:     test
   other-modules:
-    Hydra.AccumulatorSpec
     Hydra.API.ClientInputSpec
     Hydra.API.HTTPServerSpec
     Hydra.API.ServerOutputSpec

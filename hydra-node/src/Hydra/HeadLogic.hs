@@ -26,6 +26,7 @@ import Data.List (elemIndex, minimumBy)
 import Data.Map.Strict qualified as Map
 import Data.Set ((\\))
 import Data.Set qualified as Set
+import GHC.IO (unsafePerformIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
@@ -89,7 +90,8 @@ import Hydra.Tx (
   txId,
   utxoFromTx,
   withoutUTxO,
- )
+  )
+import Hydra.Tx.Accumulator (makeHeadAccumulator)
 import Hydra.Tx.Crypto (
   Signature,
   Verified (..),
@@ -1116,6 +1118,7 @@ onOpenClientClose st =
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
+  (IsTx tx) =>
   OpenState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1238,6 +1241,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx ::
+  (IsTx tx) =>
   ClosedState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1282,6 +1286,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout ::
+  (IsTx tx) =>
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =

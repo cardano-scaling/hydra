@@ -17,9 +17,12 @@ import Hydra.Node.State (NodeState (headState))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (txId)
+import Hydra.Tx.IsTx (txId, IsTx, UTxOType)
 import Hydra.Tx.Party (Party, deriveParty)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot, SnapshotNumber, SnapshotVersion)
+import Hydra.Tx.Accumulator (makeHeadAccumulator)
+import Cardano.Crypto.EllipticCurve.BLS12_381 (blsCompress)
+import GHC.IO (unsafePerformIO)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -66,7 +69,7 @@ spec = do
         sendReqSn = \case
           NetworkEffect ReqSn{} -> True
           _ -> False
-    let snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
+    let snapshot1 = testSnapshot 1 0 [] mempty
 
     let ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
 
@@ -92,7 +95,7 @@ spec = do
 
       it "does NOT send ReqSn when we are the leader but snapshot in flight" $ do
         let tx = aValidTx 1
-            sn1 = Snapshot testHeadId 1 1 [] u0 Nothing Nothing :: Snapshot SimpleTx
+            sn1 = testSnapshot 1 1 [] u0 :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
             outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ receiveMessage $ ReqTx tx
 
@@ -221,3 +224,24 @@ prop_thereIsAlwaysALeader =
     forAll arbitrary $ \params@HeadParameters{parties} ->
       not (null parties) ==>
         any (\p -> isLeader params p sn) parties
+
+testSnapshot ::
+  IsTx tx =>
+  Monoid (UTxOType tx) =>
+  SnapshotNumber ->
+  SnapshotVersion ->
+  [tx] ->
+  UTxOType tx ->
+  Snapshot tx
+testSnapshot number version confirmed utxo =
+  let utxoHash = unsafePerformIO $ blsCompress <$> makeHeadAccumulator utxo
+   in Snapshot
+        { headId = testHeadId
+        , version
+        , number
+        , confirmed
+        , utxo
+        , utxoHash
+        , utxoToCommit = mempty
+        , utxoToDecommit = mempty
+        }
