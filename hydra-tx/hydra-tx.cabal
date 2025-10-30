@@ -48,6 +48,7 @@ library
     Hydra.Ledger.Cardano.Time
     Hydra.Tx
     Hydra.Tx.Abort
+    Hydra.Tx.Accumulator
     Hydra.Tx.BlueprintTx
     Hydra.Tx.Close
     Hydra.Tx.CollectCom
@@ -90,6 +91,7 @@ library
     , containers
     , data-default
     , formatting
+    , haskell-accumulator
     , hydra-cardano-api
     , hydra-plutus
     , hydra-plutus-extras
@@ -100,6 +102,7 @@ library
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , plutus-ledger-api
+    , plutus-tx
     , prettyprinter
     , QuickCheck
     , quickcheck-instances
