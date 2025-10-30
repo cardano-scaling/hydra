@@ -1335,10 +1335,13 @@ handleOutOfSync ::
   UTCTime ->
   -- | Chain time
   UTCTime ->
+  Bool ->
   Outcome tx
-handleOutOfSync Environment{contestationPeriod} now chainTime
-  | chainTime `plus` CP.unsyncedPolicy contestationPeriod < now = newState NodeUnsynced
-  | otherwise = noop
+handleOutOfSync Environment{contestationPeriod} now chainTime isSynced
+  | chainTime `plus` CP.unsyncedPolicy contestationPeriod < now =
+      if isSynced then newState NodeUnsynced else noop
+  | otherwise =
+      if isSynced then noop else newState NodeSynced
  where
   plus = flip addUTCTime
 
@@ -1359,9 +1362,9 @@ update ::
 update env ledger now nodeState ev =
   case nodeState of
     NodeCatchingUp{headState, pendingDeposits, currentSlot} ->
-      updateUnsyncedHead env ledger now currentSlot pendingDeposits headState ev
+      updateUnsyncedHead env ledger now currentSlot pendingDeposits headState ev False
     NodeInSync{headState, pendingDeposits, currentSlot} ->
-      updateSyncedHead env ledger now currentSlot pendingDeposits headState ev
+      updateSyncedHead env ledger now currentSlot pendingDeposits headState ev True
 
 updateUnsyncedHead ::
   IsChainState tx =>
@@ -1375,11 +1378,12 @@ updateUnsyncedHead ::
   HeadState tx ->
   -- | Input to be processed.
   Input tx ->
+  Bool ->
   Outcome tx
-updateUnsyncedHead env ledger now currentSlot pendingDeposits st ev =
+updateUnsyncedHead env ledger now currentSlot pendingDeposits st ev isSynced =
   case ev of
     ChainInput{} ->
-      handleChainInput env ledger now currentSlot pendingDeposits st ev
+      handleChainInput env ledger now currentSlot pendingDeposits st ev isSynced
     _ ->
       noop
 
@@ -1395,11 +1399,12 @@ updateSyncedHead ::
   HeadState tx ->
   -- | Input to be processed.
   Input tx ->
+  Bool ->
   Outcome tx
-updateSyncedHead env ledger now currentSlot pendingDeposits st ev =
+updateSyncedHead env ledger now currentSlot pendingDeposits st ev isSynced =
   case ev of
     ChainInput{} ->
-      handleChainInput env ledger now currentSlot pendingDeposits st ev
+      handleChainInput env ledger now currentSlot pendingDeposits st ev isSynced
     ClientInput{} ->
       handleClientInput env ledger now currentSlot pendingDeposits st ev
     NetworkInput{} ->
@@ -1419,8 +1424,9 @@ handleChainInput ::
   HeadState tx ->
   -- | Input to be processed.
   Input tx ->
+  Bool ->
   Outcome tx
-handleChainInput env _ledger now _currentSlot pendingDeposits st ev = case (st, ev) of
+handleChainInput env _ledger now _currentSlot pendingDeposits st ev isSynced = case (st, ev) of
   (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
     onIdleChainInitTx env newChainState headId headSeed headParameters participants
   (Initial initialState@InitialState{headId = ourHeadId}, ChainInput Observation{observedTx = OnCommitTx{headId, party = pt, committed = utxo}, newChainState})
@@ -1448,7 +1454,7 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev = case (st, 
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
-    handleOutOfSync env now chainTime
+    handleOutOfSync env now chainTime isSynced
       <> newState TickObserved{chainSlot}
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
@@ -1472,7 +1478,7 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev = case (st, 
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         -- XXX: Avoid repetition of handleOutOfSync and compose input handling better.
-        handleOutOfSync env now chainTime
+        handleOutOfSync env now chainTime isSynced
           <> newState TickObserved{chainSlot}
           <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}
@@ -1490,7 +1496,7 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev = case (st, 
   (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
   (_, ChainInput Tick{chainTime, chainSlot}) ->
-    handleOutOfSync env now chainTime
+    handleOutOfSync env now chainTime isSynced
       <> newState TickObserved{chainSlot}
       <> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
@@ -1638,6 +1644,8 @@ aggregateNodeState nodeState sc =
           nodeState{headState = st, currentSlot = chainStateSlot chainState}
         NodeUnsynced ->
           NodeCatchingUp{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = currentSlot nodeState}
+        NodeSynced ->
+          NodeInSync{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = currentSlot nodeState}
         _ ->
           nodeState{headState = st}
 
