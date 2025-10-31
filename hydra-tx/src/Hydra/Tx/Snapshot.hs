@@ -163,7 +163,7 @@ data ConfirmedSnapshot tx
 -- add a new branch to the sumtype. So, we explicitly define a getter which
 -- will force us into thinking about changing the signature properly if this
 -- happens.
-getSnapshot :: IsTx tx => ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: Accumulator.HasAccumulatorElement tx => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
     let accumulator = Accumulator.makeHeadAccumulator initialUTxO
@@ -180,7 +180,7 @@ getSnapshot = \case
           }
   ConfirmedSnapshot{snapshot} -> snapshot
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Accumulator.HasAccumulatorElement tx) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- arbitrary
     utxo <- arbitrary
@@ -194,7 +194,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Confirme
     ConfirmedSnapshot sn sigs -> ConfirmedSnapshot <$> shrink sn <*> shrink sigs
 
 genConfirmedSnapshot ::
-  IsTx tx =>
+  Accumulator.HasAccumulatorElement tx =>
   HeadId ->
   -- | Exact snapshot version to generate.
   SnapshotVersion ->

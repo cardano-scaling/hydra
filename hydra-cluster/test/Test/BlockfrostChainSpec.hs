@@ -44,6 +44,7 @@ import Hydra.Options (
   ChainConfig (..),
   defaultBlockfrostOptions,
  )
+import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -108,6 +109,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
                   { headId
                   , number = 1
                   , utxo = someUTxO
+                  , utxoHash = getAccumulatorHash (makeHeadAccumulator someUTxO)
                   , confirmed = []
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Nothing

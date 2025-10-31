@@ -26,6 +26,7 @@ import Hydra.Tx (
   TxIdType,
   UTxOType,
  )
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.IsTx (ArbitraryIsTx)
@@ -156,7 +157,7 @@ deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (NodeState tx), F
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) where
   arbitrary = arbitrary >>= genStateChanged
 
-instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
+instance (ArbitraryIsTx tx, HasAccumulatorElement tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =

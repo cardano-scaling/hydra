@@ -20,6 +20,7 @@ import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Plutus.Orphans ()
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Contract.CollectCom (extractHeadOutputValue)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
@@ -103,12 +104,15 @@ healthySnapshotVersion = 1
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
   let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
+      accumulator = Accumulator.makeHeadAccumulator utxo
+      utxoHash = Accumulator.getAccumulatorHash accumulator
    in Snapshot
         { headId = mkHeadId testPolicyId
         , version = healthySnapshotVersion
         , number = succ healthySnapshotNumber
         , confirmed = []
         , utxo
+        , utxoHash
         , utxoToCommit = Nothing
         , utxoToDecommit = Just utxoToDecommit'
         }
