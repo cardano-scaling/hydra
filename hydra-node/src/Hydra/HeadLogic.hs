@@ -1662,7 +1662,9 @@ aggregate st = \case
                   }
             }
        where
-        Snapshot{number} = snapshot
+        Snapshot{number, confirmed = confirmedTxs} = snapshot
+        confirmedTxIds = txId <$> confirmedTxs
+        CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
   LocalStateCleared{snapshotNumber} ->
     case st of
