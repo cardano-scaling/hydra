@@ -150,16 +150,14 @@ data ConfirmedSnapshot tx
 getSnapshot :: forall tx. IsTx tx => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId} ->
-    let accumulator = Accumulator.makeHeadAccumulator (mempty :: UTxOType tx)
-        utxoHash = Accumulator.getAccumulatorHash accumulator
-     in Snapshot
-          { headId
-          , version = 0
-          , number = 0
-          , confirmed = []
-          , utxo = mempty
-          , utxoHash
-          , utxoToCommit = Nothing
-          , utxoToDecommit = Nothing
-          }
+    Snapshot
+      { headId
+      , version = 0
+      , number = 0
+      , confirmed = []
+      , utxo = mempty
+      , utxoHash = hashUTxO (mempty :: UTxOType tx)
+      , utxoToCommit = Nothing
+      , utxoToDecommit = Nothing
+      }
   ConfirmedSnapshot{snapshot} -> snapshot

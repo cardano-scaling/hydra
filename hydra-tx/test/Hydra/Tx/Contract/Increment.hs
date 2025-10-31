@@ -125,15 +125,17 @@ healthySnapshotVersion = 1
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
-  Snapshot
-    { headId = mkHeadId testPolicyId
-    , version = healthySnapshotVersion
-    , number = succ healthySnapshotNumber
-    , confirmed = []
-    , utxo = healthyUTxO
-    , utxoToCommit = Just healthyDeposited
-    , utxoToDecommit = Nothing
-    }
+  let utxoHash = hashUTxO healthyUTxO
+   in Snapshot
+        { headId = mkHeadId testPolicyId
+        , version = healthySnapshotVersion
+        , number = succ healthySnapshotNumber
+        , confirmed = []
+        , utxo = healthyUTxO
+        , utxoHash
+        , utxoToCommit = Just healthyDeposited
+        , utxoToDecommit = Nothing
+        }
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =

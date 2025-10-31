@@ -86,15 +86,17 @@ healthyOutdatedSnapshotVersion = 1
 -- 'healthyOpenStateVersion' - 1.
 healthyOutdatedSnapshot :: Snapshot Tx
 healthyOutdatedSnapshot =
-  Snapshot
-    { headId = mkHeadId Fixture.testPolicyId
-    , version = healthyOutdatedSnapshotVersion
-    , number = healthyOutdatedSnapshotNumber
-    , confirmed = []
-    , utxo = healthySplitUTxOInHead
-    , utxoToCommit = Nothing
-    , utxoToDecommit = Just healthySplitUTxOToDecommit
-    }
+  let utxoHash = hashUTxO healthySplitUTxOInHead
+   in Snapshot
+        { headId = mkHeadId Fixture.testPolicyId
+        , version = healthyOutdatedSnapshotVersion
+        , number = healthyOutdatedSnapshotNumber
+        , confirmed = []
+        , utxo = healthySplitUTxOInHead
+        , utxoHash
+        , utxoToCommit = Nothing
+        , utxoToDecommit = Just healthySplitUTxOToDecommit
+        }
 
 healthyOutdatedOpenDatum :: Head.State
 healthyOutdatedOpenDatum =

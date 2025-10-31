@@ -9,11 +9,13 @@ module Hydra.Tx.IsTx where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Accumulator qualified
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
+import Codec.Serialise (serialise)
 import Data.Aeson ((.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -23,7 +25,8 @@ import Formatting.Buildable (build)
 import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Util qualified as Util
-import PlutusLedgerApi.V3 (fromBuiltin)
+import PlutusLedgerApi.V3 (fromBuiltin, toBuiltinData)
+import PlutusTx.Builtins qualified as Builtins
 
 -- | Types of transactions that can be used by the Head protocol. The associated
 -- types and methods of this type class represent the whole interface of what
@@ -76,6 +79,9 @@ class
   -- | Type representing a value on the ledger.
   type ValueType tx
 
+  -- | Type for (input, output) pairs used in accumulator operations.
+  type UTxOPairType tx = pair | pair -> tx
+
   -- XXX(SN): this name easily conflicts
   txId :: tx -> TxIdType tx
 
@@ -101,8 +107,13 @@ class
   -- tx's outputs. Performs no ledger validation; the caller must ensure the
   -- tx is valid against the given UTxO.
   applyTxTo :: tx -> UTxOType tx -> UTxOType tx
-  -- | Convert a 'UTxOType' to a list of pairs.
-  toPairList :: UTxOType tx -> [(TxIn, TxOut CtxUTxO)]
+
+  -- | Convert a 'UTxOType' to a list of (input, output) pairs for accumulator operations.
+  -- This is needed by the accumulator to convert UTxOs into elements.
+  toPairList :: UTxOType tx -> [UTxOPairType tx]
+
+  -- | Convert a UTxO pair to a ByteString element for the accumulator.
+  utxoToElement :: UTxOPairType tx -> ByteString
 
 -- * Cardano Tx
 
@@ -158,12 +169,28 @@ instance IsTx Tx where
   type TxOutType Tx = TxOut CtxUTxO
   type UTxOType Tx = UTxO
   type ValueType Tx = Value
+  type UTxOPairType Tx = (TxIn, TxOut CtxUTxO)
 
   txId = getTxId . getTxBody
   balance = UTxO.totalValue
 
   -- NOTE: See note from `Util.hashTxOuts`.
-  hashUTxO = fromBuiltin . Util.hashTxOuts . mapMaybe toPlutusTxOut . UTxO.txOutputs
+  -- NOTE: This uses accumulator-based hashing via toPairList and utxoToElement.
+  hashUTxO utxo =
+    let pairs = toPairList utxo
+     in if null pairs
+          then
+            -- For empty UTxO, return the same hash as on-chain emptyHash = hashTxOuts [] = sha2_256 ""
+            fromBuiltin $ Util.hashTxOuts []
+          else
+            let
+              -- Build accumulator from UTxO pairs using utxoToElement
+              elements = utxoToElement <$> pairs
+              accumulator = Accumulator.buildAccumulator elements
+              -- Serialize the accumulator and hash it with SHA2-256
+              serializedAcc = toStrict (serialise accumulator)
+             in
+              fromBuiltin (Builtins.sha2_256 (Builtins.toBuiltin serializedAcc))
 
   txSpendingUTxO = Api.txSpendingUTxO
 
@@ -176,3 +203,10 @@ instance IsTx Tx where
   applyTxTo tx utxo = (utxo `UTxO.difference` Api.resolveInputsUTxO utxo tx) <> Api.utxoFromTx tx
 
   toPairList = UTxO.toList
+
+  -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization
+  utxoToElement (_txIn, txOut) =
+    case toPlutusTxOut txOut of
+      Just plutusTxOut ->
+        fromBuiltin (Builtins.serialiseData (toBuiltinData plutusTxOut))
+      Nothing -> mempty
