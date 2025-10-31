@@ -11,7 +11,7 @@ import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
-  ChainPoint (..),
+  ChainPoint (ChainPointAtGenesis),
   PaymentKey,
   SlotNo (..),
   Tx,
@@ -158,6 +158,7 @@ spec = do
                       OnDepositTx{} -> error "OnDepositTx not expected"
                       OnRecoverTx{} -> error "OnRecoverTx not expected"
               observedTransition `shouldBe` transition
+
       let handler =
             chainSyncHandler
               nullTracer
@@ -189,6 +190,7 @@ spec = do
             PostTxError{} -> failure "Unexpected PostTxError event"
             Tick{} -> pure ()
             Observation{observedTx} -> failure $ "Unexpected observation: " <> show observedTx
+
       let handler =
             chainSyncHandler
               nullTracer
@@ -260,6 +262,7 @@ spec = do
               (pure timeHandle)
               chainContext
               resumedLocalChainState
+
       (rollbackPoint, blocksAfter) <- pickBlind $ genRollbackBlocks blocks
       monitor $ label $ "Rollback " <> show (length blocksAfter) <> " blocks"
 
@@ -276,13 +279,7 @@ recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (C
 recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newLabelledTVarIO "events-recorded" []
   localChainState <- newLocalChainState (initHistory cs)
-  let handler =
-        chainSyncHandler
-          nullTracer
-          (recordEvents eventsVar)
-          getTimeHandle
-          ctx
-          localChainState
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState
   pure (handler, getEvents eventsVar)
  where
   getEvents :: TVar IO [ChainEvent Tx] -> IO [ChainEvent Tx]

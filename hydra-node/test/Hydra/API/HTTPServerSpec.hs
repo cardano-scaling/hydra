@@ -219,7 +219,6 @@ apiServerSpec = do
         putClientInput :: ClientInput tx -> IO ()
         putClientInput = const (pure ())
         getNodeState = pure inIdleState
-
     describe "GET /protocol-parameters" $ do
       responseChannel <- runIO newTChanIO
       with

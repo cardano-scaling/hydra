@@ -100,7 +100,6 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
   -- client.
   forwardGreetingOnly config con = do
     nodeState <- atomically getLatestNodeState
-    -- REVIEW: is OverloadedRecordDot okay with sum types?
     let headState = nodeState.headState
     networkInfo <- atomically getLatestNetworkInfo
     sendTextData con $

@@ -128,6 +128,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     raceLabelled_
       ( "api-server"
       , do
+          traceWith tracer (APIServerStarted port)
           startServer serverSettings
             . simpleCors
             $ websocketsOr
