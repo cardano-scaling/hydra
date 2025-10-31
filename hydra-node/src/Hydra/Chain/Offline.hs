@@ -11,7 +11,7 @@ import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
-import Hydra.Cardano.Api (ChainPoint (..), GenesisParameters (..), NetworkMagic (..), ShelleyEra, ShelleyGenesis (..), Tx, fromShelleyNetwork)
+import Hydra.Cardano.Api (GenesisParameters (..), NetworkMagic (..), ShelleyEra, ShelleyGenesis (..), Tx, fromShelleyNetwork)
 import Hydra.Chain (
   Chain (..),
   ChainComponent,
@@ -30,7 +30,6 @@ import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot)
 import Hydra.Utils (readJsonFileThrow)
-import Test.QuickCheck (generate)
 
 -- Upstreamed in cardano-api 10.18
 fromShelleyGenesis :: Shelley.ShelleyGenesis -> GenesisParameters ShelleyEra

@@ -157,6 +157,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
           ctx
           localChainState
           (submitTx queue)
+
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
     raceLabelled
