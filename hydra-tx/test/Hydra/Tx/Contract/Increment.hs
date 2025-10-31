@@ -19,6 +19,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Contract.Deposit (healthyDeadline)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
@@ -123,15 +124,18 @@ healthySnapshotVersion = 1
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
-  Snapshot
-    { headId = mkHeadId testPolicyId
-    , version = healthySnapshotVersion
-    , number = succ healthySnapshotNumber
-    , confirmed = []
-    , utxo = healthyUTxO
-    , utxoToCommit = Just healthyDeposited
-    , utxoToDecommit = Nothing
-    }
+  let accumulator = Accumulator.makeHeadAccumulator healthyUTxO
+      utxoHash = Accumulator.getAccumulatorHash accumulator
+   in Snapshot
+        { headId = mkHeadId testPolicyId
+        , version = healthySnapshotVersion
+        , number = succ healthySnapshotNumber
+        , confirmed = []
+        , utxo = healthyUTxO
+        , utxoHash
+        , utxoToCommit = Just healthyDeposited
+        , utxoToDecommit = Nothing
+        }
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
