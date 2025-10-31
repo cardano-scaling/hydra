@@ -113,6 +113,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     { headId
                     , number = 1
                     , utxo = mempty
+                    , utxoHash = hashUTxO (mempty :: UTxOType Tx)
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Nothing
@@ -260,6 +261,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     { headId
                     , number = 1
                     , utxo = inHead
+                    , utxoHash = hashUTxO inHead
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit
@@ -284,6 +286,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     { headId
                     , number = 2
                     , utxo = inHead
+                    , utxoHash = hashUTxO inHead
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit

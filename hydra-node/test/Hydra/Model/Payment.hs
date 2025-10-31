@@ -79,6 +79,8 @@ instance IsTx Payment where
   type TxOutType Payment = (CardanoSigningKey, Value)
   type UTxOType Payment = [(CardanoSigningKey, Value)]
   type ValueType Payment = Value
+  type UTxOPairType Payment = (CardanoSigningKey, Value)
+
   txId = error "undefined"
   balance = foldMap snd
   hashUTxO = encodeUtf8 . show @Text
@@ -94,6 +96,12 @@ instance IsTx Payment where
         result = Set.toList $ Set.fromList as \\ Set.fromList bs
      in second fromList <$> result
   applyTxTo tx utxo = applyTx utxo tx
+
+  -- For Payment, UTxO is already a list of pairs
+  toPairList = id
+
+  -- For Payment, just use show for serialization (consistent with hashUTxO)
+  utxoToElement = encodeUtf8 . show @Text
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =

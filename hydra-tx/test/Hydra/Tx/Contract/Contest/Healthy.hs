@@ -104,15 +104,17 @@ splitUTxOToDecommit = snd splitContestUTxO
 
 healthyContestSnapshot :: Snapshot Tx
 healthyContestSnapshot =
-  Snapshot
-    { headId = mkHeadId testPolicyId
-    , number = healthyContestSnapshotNumber
-    , utxo = splitUTxOInHead
-    , confirmed = []
-    , utxoToCommit = Nothing
-    , utxoToDecommit = Just splitUTxOToDecommit
-    , version = healthyCloseSnapshotVersion
-    }
+  let utxoHash = hashUTxO splitUTxOInHead
+   in Snapshot
+        { headId = mkHeadId testPolicyId
+        , number = healthyContestSnapshotNumber
+        , utxo = splitUTxOInHead
+        , utxoHash
+        , confirmed = []
+        , utxoToCommit = Nothing
+        , utxoToDecommit = Just splitUTxOToDecommit
+        , version = healthyCloseSnapshotVersion
+        }
 
 healthyClosedState :: Head.State
 healthyClosedState =
