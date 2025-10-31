@@ -1658,6 +1658,7 @@ aggregate st = \case
                         , signatures
                         }
                   , seenSnapshot = LastSeenSnapshot number
+                  , allTxs = foldr Map.delete allTxs confirmedTxIds
                   }
             }
        where
