@@ -15,6 +15,7 @@ import Hydra.Tx (
   IsTx (..),
   Party,
  )
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.Crypto (Signature)
 import Hydra.Tx.Snapshot (
   ConfirmedSnapshot,

@@ -40,6 +40,7 @@ import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
 import System.Directory (doesFileExist)
@@ -190,7 +191,7 @@ jsonContent = [(hContentType, "application/json")]
 -- | Hydra HTTP server
 httpApp ::
   forall tx.
-  IsChainState tx =>
+  (IsChainState tx, HasAccumulatorElement tx) =>
   Tracer IO APIServerLog ->
   Chain tx IO ->
   Environment ->

@@ -89,6 +89,7 @@ import Hydra.Tx (
   utxoFromTx,
   withoutUTxO,
  )
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (
@@ -289,7 +290,7 @@ onOpenClientNewTx tx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
-  IsTx tx =>
+  HasAccumulatorElement tx =>
   Environment ->
   Ledger tx ->
   ChainSlot ->
@@ -381,7 +382,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqSn ::
-  IsTx tx =>
+  HasAccumulatorElement tx =>
   Environment ->
   Ledger tx ->
   PendingDeposits tx ->
@@ -833,7 +834,7 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
 --   be taken out of a Head.
 -- - Check if we are the leader
 onOpenNetworkReqDec ::
-  IsTx tx =>
+  HasAccumulatorElement tx =>
   Environment ->
   Ledger tx ->
   TTL ->
@@ -966,7 +967,7 @@ onChainTick env pendingDeposits chainTime =
 --
 -- This is primarily used to track deposits and either drop them or request
 -- snapshots for inclusion.
-onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
+onOpenChainTick :: HasAccumulatorElement tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
 onOpenChainTick env chainTime pendingDeposits st =
   -- Determine new active and new expired
   let nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
@@ -1165,7 +1166,7 @@ onOpenClientClose st =
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
-  IsTx tx =>
+  HasAccumulatorElement tx =>
   OpenState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1218,7 +1219,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 -- Besides the above, it is expected to work very much like the confirmed snapshot.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
-onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx -> Outcome tx
+onOpenClientSideLoadSnapshot :: HasAccumulatorElement tx => OpenState tx -> ConfirmedSnapshot tx -> Outcome tx
 onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
   case requestedConfirmedSnapshot of
     InitialSnapshot{} ->
@@ -1294,7 +1295,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx ::
-  IsTx tx =>
+  HasAccumulatorElement tx =>
   ClosedState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1339,7 +1340,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout ::
-  IsTx tx =>
+  HasAccumulatorElement tx =>
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
@@ -1457,7 +1458,7 @@ setExistingDeposit pendingDeposits currentDeposit = do
 -- 'Effect's, in case it is processed successfully. Later, the Node will
 -- 'aggregate' the events, resulting in a new 'HeadState'.
 update ::
-  IsChainState tx =>
+  (IsChainState tx, HasAccumulatorElement tx) =>
   Environment ->
   Ledger tx ->
   -- | Current system time.

@@ -28,6 +28,7 @@ import Hydra.Tx (
   registryUTxO,
   signatures,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
@@ -86,15 +87,18 @@ healthyOutdatedSnapshotVersion = 1
 -- 'healthyOpenStateVersion' - 1.
 healthyOutdatedSnapshot :: Snapshot Tx
 healthyOutdatedSnapshot =
-  Snapshot
-    { headId = mkHeadId Fixture.testPolicyId
-    , version = healthyOutdatedSnapshotVersion
-    , number = healthyOutdatedSnapshotNumber
-    , confirmed = []
-    , utxo = healthySplitUTxOInHead
-    , utxoToCommit = Nothing
-    , utxoToDecommit = Just healthySplitUTxOToDecommit
-    }
+  let accumulator = Accumulator.makeHeadAccumulator healthySplitUTxOInHead
+      utxoHash = Accumulator.getAccumulatorHash accumulator
+   in Snapshot
+        { headId = mkHeadId Fixture.testPolicyId
+        , version = healthyOutdatedSnapshotVersion
+        , number = healthyOutdatedSnapshotNumber
+        , confirmed = []
+        , utxo = healthySplitUTxOInHead
+        , utxoHash
+        , utxoToCommit = Nothing
+        , utxoToDecommit = Just healthySplitUTxOToDecommit
+        }
 
 healthyOutdatedOpenDatum :: Head.State
 healthyOutdatedOpenDatum =

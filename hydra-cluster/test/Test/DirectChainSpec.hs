@@ -63,6 +63,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, readConfigFile
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), toArgNetworkId)
+import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadId (HeadId, HeadSeed (..))
@@ -316,6 +317,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     { headId
                     , number = 1
                     , utxo = someUTxO
+                    , utxoHash = getAccumulatorHash (makeHeadAccumulator someUTxO)
                     , confirmed = []
                     , utxoToCommit = Just someUTxOToCommit
                     , utxoToDecommit = Nothing
@@ -467,6 +469,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     { headId
                     , number = 1
                     , utxo = inHead
+                    , utxoHash = getAccumulatorHash (makeHeadAccumulator inHead)
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit
@@ -491,6 +494,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     { headId
                     , number = 2
                     , utxo = inHead
+                    , utxoHash = getAccumulatorHash (makeHeadAccumulator inHead)
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit

@@ -47,6 +47,7 @@ import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState)
 import Hydra.Tx (IsTx (..), Party, txId)
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
@@ -81,7 +82,7 @@ data APIServerConfig = APIServerConfig
 
 withAPIServer ::
   forall tx.
-  IsChainState tx =>
+  (IsChainState tx, HasAccumulatorElement tx) =>
   APIServerConfig ->
   Environment ->
   FilePath ->

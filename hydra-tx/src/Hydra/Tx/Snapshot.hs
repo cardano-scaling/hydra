@@ -148,7 +148,7 @@ data ConfirmedSnapshot tx
 -- add a new branch to the sumtype. So, we explicitly define a getter which
 -- will force us into thinking about changing the signature properly if this
 -- happens.
-getSnapshot :: IsTx tx => ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: Accumulator.HasAccumulatorElement tx => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
     let accumulator = Accumulator.makeHeadAccumulator initialUTxO
