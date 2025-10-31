@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 import Control.Lens (toListOf, (^.))
 import Data.Aeson (Value)
 import Data.Aeson.Lens (key, values, _Array)
-import Hydra.API.ServerOutput (ChainOutOfSync (..), ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
+import Hydra.API.ServerOutput (ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
 import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
 import Hydra.Ledger.Cardano (Tx)
@@ -22,7 +22,6 @@ spec :: Spec
 spec = parallel $ do
   roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (ServerOutput Tx))
   roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (Greetings Tx))
-  roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized ChainOutOfSync)
 
   -- NOTE: Kupo and maybe other downstream projects use this file as a test vector.
   it "golden SnapshotConfirmed is good" $ do
@@ -43,8 +42,6 @@ spec = parallel $ do
             key "components" . key "schemas" . key "Greetings"
         , prop_validateJSONSchema @(ClientMessage Tx) "api.json" $
             key "components" . key "schemas" . key "ClientMessage"
-        , prop_validateJSONSchema @ChainOutOfSync "api.json" $
-            key "components" . key "schemas" . key "ChainOutOfSync"
         ]
 
   -- XXX: This seems no to be working? Adding a new message does not lead to a failure here
@@ -55,7 +52,5 @@ spec = parallel $ do
       , prop_specIsComplete @(Greetings Tx) "api.json" $
           key "channels" . key "/" . key "subscribe" . key "message"
       , prop_specIsComplete @(ClientMessage Tx) "api.json" $
-          key "channels" . key "/" . key "subscribe" . key "message"
-      , prop_specIsComplete @ChainOutOfSync "api.json" $
           key "channels" . key "/" . key "subscribe" . key "message"
       ]
