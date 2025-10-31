@@ -50,8 +50,7 @@ import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDi
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
-import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
-import Hydra.Tx.ContestationPeriod qualified as CP
+import Hydra.Tx.Accumulator (HasAccumulatorElement, getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -1519,7 +1518,7 @@ inClosedState' parties confirmedSnapshot =
 
   contestationDeadline = arbitrary `generateWith` 42
 
-getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
+getConfirmedSnapshot :: HasAccumulatorElement tx => NodeState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
   NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}} ->
     Just (getSnapshot confirmedSnapshot)
@@ -1548,6 +1547,7 @@ getState = nodeState <$> get
 -- | Calls 'update' and 'aggregate' to drive the 'runHeadLogic' monad forward.
 step ::
   (MonadState (StepState tx) m, IsChainState tx, MonadTime m) =>
+  (MonadState (StepState tx) m, IsChainState tx, HasAccumulatorElement tx) =>
   Input tx ->
   m (Outcome tx)
 step input = do
@@ -1637,7 +1637,7 @@ mkTimeHandleAt slotNo now =
   eraHistory = eraHistoryWithHorizonAt horizonSlot
 
 testSnapshot ::
-  IsTx tx =>
+  HasAccumulatorElement tx =>
   SnapshotNumber ->
   SnapshotVersion ->
   [tx] ->

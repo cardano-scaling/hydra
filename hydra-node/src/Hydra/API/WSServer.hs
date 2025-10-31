@@ -49,6 +49,7 @@ import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..), syncedStatus)
 import Hydra.Tx (HeadId, Party)
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
@@ -62,7 +63,7 @@ import Text.URI.QQ (queryKey, queryValue)
 
 wsApp ::
   forall tx.
-  IsChainState tx =>
+  (IsChainState tx, HasAccumulatorElement tx) =>
   Environment ->
   Party ->
   Tracer IO APIServerLog ->

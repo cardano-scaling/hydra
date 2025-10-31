@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
 import Test.Hydra.Tx.Gen ()
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 data ClientInput tx
@@ -27,7 +28,7 @@ deriving stock instance IsTx tx => Show (ClientInput tx)
 deriving anyclass instance IsTx tx => ToJSON (ClientInput tx)
 deriving anyclass instance IsTx tx => FromJSON (ClientInput tx)
 
-instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ClientInput tx) where
+instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), HasAccumulatorElement tx) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
@@ -45,4 +46,4 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx t
     Fanout -> []
     SideLoadSnapshot sn -> SideLoadSnapshot <$> shrink sn
 
-instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx tx) => ToADTArbitrary (ClientInput tx)
+instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), HasAccumulatorElement tx) => ToADTArbitrary (ClientInput tx)
