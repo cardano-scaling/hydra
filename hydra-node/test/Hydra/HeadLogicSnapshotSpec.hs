@@ -15,10 +15,10 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
-import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
+import Hydra.Tx.Accumulator (HasAccumulatorElement, getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (IsTx, UTxOType, txId)
+import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Party (Party, deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.Tx.Fixture (
@@ -237,7 +237,7 @@ prop_thereIsAlwaysALeader =
         any (\p -> isLeader params p sn) parties
 
 testSnapshot ::
-  IsTx tx =>
+  HasAccumulatorElement tx =>
   SnapshotNumber ->
   SnapshotVersion ->
   [tx] ->
