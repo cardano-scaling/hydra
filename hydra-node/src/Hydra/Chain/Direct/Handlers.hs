@@ -314,7 +314,7 @@ chainSyncHandler ::
   LocalChainState m Tx ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx localChainState = do
+chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   ChainSyncHandler
     { onRollBackward
     , onRollForward

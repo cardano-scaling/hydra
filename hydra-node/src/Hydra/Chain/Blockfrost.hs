@@ -141,8 +141,8 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
           ctx
           localChainState
           (submitTx queue)
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
 
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
     raceLabelled
       ( "blockfrost-chain-connection"
