@@ -4,7 +4,9 @@ module Hydra.Chain.Direct.HandlersSpec where
 
 import Hydra.Prelude hiding (label)
 
+import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
+import Control.Lens ((.~))
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
@@ -19,9 +21,6 @@ import Hydra.Cardano.Api (
   getChainPoint,
   toLedgerTx,
  )
-
-import Cardano.Ledger.Api (IsValid (..), isValidTxL)
-import Control.Lens ((.~))
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
 import Hydra.Chain.ChainState (ChainSlot (..), chainStateSlot)
 import Hydra.Chain.Direct.Handlers (

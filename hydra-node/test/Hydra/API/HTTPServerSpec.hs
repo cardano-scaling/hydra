@@ -365,7 +365,7 @@ apiServerSpec = do
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
-                  (pure NodeState{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                  (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -525,7 +525,7 @@ apiServerSpec = do
                 dummyChainHandle
                 testEnvironment
                 defaultPParams
-                (pure NodeState{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0})
                 cantCommit
                 getPendingDeposits
                 putClientInput
@@ -559,7 +559,7 @@ apiServerSpec = do
               workingChainHandle
               testEnvironment
               defaultPParams
-              (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -605,7 +605,7 @@ apiServerSpec = do
                 (failingChainHandle postTxError)
                 testEnvironment
                 defaultPParams
-                (pure NodeState{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
                 getHeadId
                 getPendingDeposits
                 putClientInput

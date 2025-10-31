@@ -104,6 +104,8 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
           - $ref: "api.yaml#/components/messages/EventLogRotated"
+          - $ref: "api.yaml#/components/messages/NodeUnsynced"
+          - $ref: "api.yaml#/components/messages/NodeSynced"
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
@@ -775,6 +777,20 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/EventLogRotated"
 
+    NodeUnsynced:
+      title: NodeUnsynced
+      description: |
+        The node-state is out of sync with the chain state and insecure to be used.
+      payload:
+        $ref: "api.yaml#/components/schemas/NodeUnsynced"
+
+    NodeSynced:
+      title: NodeSynced
+      description: |
+        The node-state is in sync with the chain state and secure to be used.
+      payload:
+        $ref: "api.yaml#/components/schemas/NodeSynced"
+
     # Other messages
 
     DraftCommitTxRequest:
@@ -858,6 +874,8 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
         - $ref: "api.yaml#/components/schemas/EventLogRotated"
+        - $ref: "api.yaml#/components/schemas/NodeUnsynced"
+        - $ref: "api.yaml#/components/schemas/NodeSynced"
 
     ClientMessage:
       oneOf:
@@ -1784,6 +1802,44 @@ components:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         checkpoint:
           $ref: "api.yaml#/components/schemas/NodeState"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NodeUnsynced:
+      title: NodeUnsynced
+      description: |
+        The node-state is out of sync with chain-state and insecure to be used.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NodeUnsynced"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NodeSynced:
+      title: NodeSynced
+      description: |
+        The node-state is in sync with chain-state and secure to be used.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NodeSynced"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
@@ -3422,23 +3478,51 @@ components:
           $ref: "api.yaml#/components/schemas/DepositStatus"
 
     NodeState:
-      type: object
-      additionalProperties: false
-      required:
-        - headState
-        - pendingDeposits
-        - currentSlot
-      properties:
-        headState:
-          $ref: "api.yaml#/components/schemas/HeadState"
-        pendingDeposits:
+      oneOf:
+        - title: NodeInSync
           type: object
-          propertyNames:
-            $ref: "api.yaml#/components/schemas/TxId"
-          items:
-            $ref: "api.yaml#/components/schemas/Deposit"
-        currentSlot:
-          $ref: "api.yaml#/components/schemas/ChainSlot"
+          additionalProperties: false
+          required:
+            - tag
+            - headState
+            - pendingDeposits
+            - currentSlot
+          properties:
+            tag:
+              type: string
+              enum: ["NodeInSync"]
+            headState:
+              $ref: "api.yaml#/components/schemas/HeadState"
+            pendingDeposits:
+              type: object
+              propertyNames:
+                $ref: "api.yaml#/components/schemas/TxId"
+              items:
+                $ref: "api.yaml#/components/schemas/Deposit"
+            currentSlot:
+              $ref: "api.yaml#/components/schemas/ChainSlot"
+        - title: NodeCatchingUp
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headState
+            - pendingDeposits
+            - currentSlot
+          properties:
+            tag:
+              type: string
+              enum: ["NodeCatchingUp"]
+            headState:
+              $ref: "api.yaml#/components/schemas/HeadState"
+            pendingDeposits:
+              type: object
+              propertyNames:
+                $ref: "api.yaml#/components/schemas/TxId"
+              items:
+                $ref: "api.yaml#/components/schemas/Deposit"
+            currentSlot:
+              $ref: "api.yaml#/components/schemas/ChainSlot"
 
     SubmitL2TxResponse:
       oneOf:
