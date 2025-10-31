@@ -40,6 +40,7 @@ import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -451,7 +452,7 @@ observationInput observedTx =
     }
 
 runToCompletion ::
-  IsChainState tx =>
+  (IsChainState tx, HasAccumulatorElement tx) =>
   HydraNode tx IO ->
   IO ()
 runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}, nodeStateHandler = NodeStateHandler{queryNodeState}} = go
