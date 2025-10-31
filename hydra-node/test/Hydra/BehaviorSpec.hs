@@ -49,6 +49,7 @@ import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.NodeSpec (createMockEventStore)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
@@ -255,7 +256,7 @@ spec = parallel $ do
                 send n1 (NewTx tx)
                 waitUntil [n1, n2] $ TxValid testHeadId 42
 
-                let snapshot = Snapshot testHeadId 0 1 [tx] (utxoRefs [1, 2, 42]) mempty mempty
+                let snapshot = testSnapshot 1 0 [tx] (utxoRefs [1, 2, 42])
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
@@ -1191,7 +1192,7 @@ createMockNetwork node nodes =
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
 -- all heads will have the same 'headId' and 'headSeed'.
-toOnChainTx :: IsTx tx => UTCTime -> PostChainTx tx -> OnChainTx tx
+toOnChainTx :: HasAccumulatorElement tx => UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
   InitTx{participants, headParameters} ->
     OnInitTx{headId = testHeadId, headSeed = testHeadSeed, headParameters, participants}
