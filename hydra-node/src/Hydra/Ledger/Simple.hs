@@ -95,7 +95,17 @@ instance IsTx SimpleTx where
       , txOutputs = mempty
       }
 
-  toPairList = undefined -- TODO !!!
+-- | Instance for SimpleTx accumulator support.
+-- For SimpleTx, we use a simple pair representation where both elements are the same output.
+instance HasAccumulatorElement SimpleTx where
+  type UTxOPairType SimpleTx = (SimpleTxOut, SimpleTxOut)
+
+  toPairList utxoSet =
+    [(out, out) | out <- Set.toList utxoSet]
+
+  utxoToElementImpl (SimpleTxOut i1, SimpleTxOut i2) =
+    -- For SimpleTx, just serialize the two integers
+    toStrict (serialise i1) <> toStrict (serialise i2)
 
 -- * Simple chain state
 
