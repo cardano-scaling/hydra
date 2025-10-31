@@ -21,6 +21,7 @@ import Hydra.Node.State (NodeState, SyncedStatus)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
 import Hydra.Tx qualified as Tx
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
@@ -91,7 +92,7 @@ instance IsChainState tx => FromJSON (ClientMessage tx) where
         { omitNothingFields = True
         }
 
-instance (IsChainState tx, ArbitraryIsTx tx) => Arbitrary (ClientMessage tx) where
+instance (IsChainState tx, ArbitraryIsTx tx, HasAccumulatorElement tx) => Arbitrary (ClientMessage tx) where
   arbitrary = genericArbitrary
 
 -- | A friendly welcome message which tells a client something about the
@@ -226,11 +227,11 @@ deriving stock instance IsChainState tx => Show (ServerOutput tx)
 deriving anyclass instance IsChainState tx => FromJSON (ServerOutput tx)
 deriving anyclass instance IsChainState tx => ToJSON (ServerOutput tx)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
+instance (ArbitraryIsTx tx, HasAccumulatorElement tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
   shrink = recursivelyShrink
 
-instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
+instance (ArbitraryIsTx tx, HasAccumulatorElement tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO
@@ -337,7 +338,7 @@ instance Arbitrary NetworkInfo where
   arbitrary = genericArbitrary
 
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
-getSnapshotUtxo :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
+getSnapshotUtxo :: HasAccumulatorElement tx => HeadState tx -> Maybe (UTxOType tx)
 getSnapshotUtxo = \case
   HeadState.Idle{} ->
     Nothing
@@ -352,7 +353,7 @@ getSnapshotUtxo = \case
      in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
 
 -- | Get latest seen snapshot from 'HeadState'.
-getSeenSnapshot :: IsTx tx => HeadState tx -> HeadState.SeenSnapshot tx
+getSeenSnapshot :: HasAccumulatorElement tx => HeadState tx -> HeadState.SeenSnapshot tx
 getSeenSnapshot = \case
   HeadState.Idle{} ->
     NoSeenSnapshot
