@@ -753,7 +753,7 @@ signedSnapshot ms =
       , number = ms.number
       , confirmed = []
       , utxo
-      , utxoHash = undefined -- TODO: Fix this
+      , utxoHash = hashUTxO utxo
       , utxoToCommit
       , utxoToDecommit
       }

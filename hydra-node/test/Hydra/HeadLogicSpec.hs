@@ -48,7 +48,6 @@ import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDi
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
-import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
@@ -1007,8 +1006,7 @@ spec =
         let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 3)
             decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 4)
             activeUTxO = utxoRefs [1, 2]
-            accumulator = makeHeadAccumulator activeUTxO
-            utxoHash = getAccumulatorHash accumulator
+            utxoHash = hashUTxO activeUTxO
             snapshot =
               Snapshot
                 { headId = testHeadId
@@ -1110,6 +1108,7 @@ spec =
                   , number = 1
                   , confirmed = []
                   , utxo = mempty
+                  , utxoHash = hashUTxO (mempty :: UTxOType SimpleTx)
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   }
@@ -1231,6 +1230,7 @@ spec =
                   , number = 1
                   , confirmed = []
                   , utxo = mempty
+                  , utxoHash = hashUTxO (mempty :: UTxOType SimpleTx)
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   }
@@ -1306,6 +1306,7 @@ spec =
                   , number = 1
                   , confirmed = []
                   , utxo = mempty -- activeUTxO after decommit
+                  , utxoHash = hashUTxO (mempty :: UTxOType SimpleTx)
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Just (utxoRef 3) -- outputs of decommit tx
                   }
@@ -1668,8 +1669,7 @@ spec =
         prop "reject side load confirmed snapshot because wrong snapshot utxoToDecommit" $ \utxoToDecommit -> do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
           let utxo' = utxoRef 3
-              accumulator = makeHeadAccumulator utxo'
-              utxoHash = getAccumulatorHash accumulator
+              utxoHash = hashUTxO utxo'
               snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash Nothing (Just utxoToDecommit)
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
@@ -1684,8 +1684,7 @@ spec =
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
           let utxo' = utxoRef 3
-              accumulator = makeHeadAccumulator utxo'
-              utxoHash = getAccumulatorHash accumulator
+              utxoHash = hashUTxO utxo'
               snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash (Just utxoToCommit) Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
@@ -2098,7 +2097,7 @@ inClosedState' parties confirmedSnapshot =
 
   contestationDeadline = arbitrary `generateWith` 42
 
-getConfirmedSnapshot :: (Monoid (UTxOType tx), IsTx tx) => NodeState tx -> Maybe (Snapshot tx)
+getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
   NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}} ->
     Just (getSnapshot confirmedSnapshot)
@@ -2237,8 +2236,7 @@ testSnapshot ::
   UTxOType tx ->
   Snapshot tx
 testSnapshot number version confirmed utxo =
-  let accumulator = makeHeadAccumulator utxo
-      utxoHash = getAccumulatorHash accumulator
+  let utxoHash = hashUTxO utxo
    in Snapshot
         { headId = testHeadId
         , version

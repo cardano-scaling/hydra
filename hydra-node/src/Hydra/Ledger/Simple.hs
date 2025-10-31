@@ -80,6 +80,7 @@ instance IsTx SimpleTx where
   type TxOutType SimpleTx = SimpleTxOut
   type UTxOType SimpleTx = Set SimpleTxOut
   type ValueType SimpleTx = Int
+  type UTxOPairType SimpleTx = (SimpleTxOut, SimpleTxOut)
 
   txId (SimpleTx tid _ _) = tid
   balance = Set.size
@@ -95,7 +96,13 @@ instance IsTx SimpleTx where
       , txOutputs = mempty
       }
 
-  toPairList = undefined -- TODO !!!
+  -- \| For SimpleTx, we use a simple pair representation where both elements are the same output.
+  toPairList utxoSet =
+    [(out, out) | out <- Set.toList utxoSet]
+
+  -- \| For SimpleTx, just serialize the two integers
+  utxoToElement (SimpleTxOut i1, SimpleTxOut i2) =
+    toStrict (serialise i1) <> toStrict (serialise i2)
 
 -- * Simple chain state
 
