@@ -37,6 +37,7 @@ import Hydra.Tx (
   SnapshotVersion,
   UTxOType,
  )
+import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.Cardano.Ledger.Core.Arbitrary ()
@@ -98,7 +99,7 @@ deriving stock instance IsTx tx => Show (PostChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (PostChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
 
-instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
+instance (ArbitraryIsTx tx, HasAccumulatorElement tx) => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
   shrink = \case
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
@@ -219,7 +220,7 @@ deriving anyclass instance IsChainState tx => FromJSON (PostTxError tx)
 
 instance IsChainState tx => Exception (PostTxError tx)
 
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (PostTxError tx) where
+instance (ArbitraryIsTx tx, HasAccumulatorElement tx, IsChainState tx) => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
 
 -- | A non empty sequence of chain states that can be rolled back.
@@ -324,7 +325,7 @@ deriving stock instance (IsTx tx, IsChainState tx) => Show (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
 
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ChainEvent tx) where
+instance (ArbitraryIsTx tx, HasAccumulatorElement tx, IsChainState tx) => Arbitrary (ChainEvent tx) where
   arbitrary = genericArbitrary
 
 -- | A callback indicating a 'ChainEvent tx' happened. Most importantly the
