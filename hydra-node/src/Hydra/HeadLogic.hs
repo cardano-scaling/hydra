@@ -26,6 +26,7 @@ import Data.List (elemIndex, minimumBy)
 import Data.Map.Strict qualified as Map
 import Data.Set ((\\))
 import Data.Set qualified as Set
+import Debug.Trace (trace)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
@@ -1565,13 +1566,20 @@ aggregate st = \case
   TransactionReceived{tx} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
-        Open
-          os
-            { coordinatedHeadState =
-                coordinatedHeadState
-                  { allTxs = allTxs <> fromList [(txId tx, tx)]
-                  }
-            }
+        let newAllTxs = allTxs <> fromList [(txId tx, tx)]
+            sizeBefore = Map.size allTxs
+            sizeAfter = Map.size newAllTxs
+            logMsg = "TransactionReceived: allTxs size - before=" <> show sizeBefore
+                     <> ", after=" <> show sizeAfter
+                     <> ", txId=" <> show (txId tx)
+        in trace logMsg $
+          Open
+            os
+              { coordinatedHeadState =
+                  coordinatedHeadState
+                    { allTxs = newAllTxs
+                    }
+              }
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
@@ -1611,17 +1619,28 @@ aggregate st = \case
   SnapshotRequested{snapshot, requestedTxIds, newLocalUTxO, newLocalTxs, newCurrentDepositTxId} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
-        Open
-          os
-            { coordinatedHeadState =
-                coordinatedHeadState
-                  { seenSnapshot = SeenSnapshot snapshot mempty
-                  , localTxs = newLocalTxs
-                  , localUTxO = newLocalUTxO
-                  , allTxs = foldr Map.delete allTxs requestedTxIds
-                  , currentDepositTxId = newCurrentDepositTxId
-                  }
-            }
+        let cleanedAllTxs = foldr Map.delete allTxs requestedTxIds
+            sizeBefore = Map.size allTxs
+            sizeAfter = Map.size cleanedAllTxs
+            numCleaned = sizeBefore - sizeAfter
+            Snapshot{number} = snapshot
+            logMsg = "SnapshotRequested (LEADER): allTxs cleanup - snapshot=" <> show number
+                     <> ", before=" <> show sizeBefore
+                     <> ", cleaned=" <> show numCleaned
+                     <> ", after=" <> show sizeAfter
+                     <> ", requestedTxIds=" <> show requestedTxIds
+        in trace logMsg $
+          Open
+            os
+              { coordinatedHeadState =
+                  coordinatedHeadState
+                    { seenSnapshot = SeenSnapshot snapshot mempty
+                    , localTxs = newLocalTxs
+                    , localUTxO = newLocalUTxO
+                    , allTxs = cleanedAllTxs
+                    , currentDepositTxId = newCurrentDepositTxId
+                    }
+              }
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
@@ -1648,19 +1667,29 @@ aggregate st = \case
   SnapshotConfirmed{snapshot, signatures} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
-        Open
-          os
-            { coordinatedHeadState =
-                coordinatedHeadState
-                  { confirmedSnapshot =
-                      ConfirmedSnapshot
-                        { snapshot
-                        , signatures
-                        }
-                  , seenSnapshot = LastSeenSnapshot number
-                  , allTxs = foldr Map.delete allTxs confirmedTxIds
-                  }
-            }
+        let cleanedAllTxs = foldr Map.delete allTxs confirmedTxIds
+            sizeBefore = Map.size allTxs
+            sizeAfter = Map.size cleanedAllTxs
+            numCleaned = sizeBefore - sizeAfter
+            logMsg = "SnapshotConfirmed: allTxs cleanup - snapshot=" <> show number
+                     <> ", before=" <> show sizeBefore
+                     <> ", cleaned=" <> show numCleaned
+                     <> ", after=" <> show sizeAfter
+                     <> ", confirmedTxIds=" <> show confirmedTxIds
+        in trace logMsg $
+          Open
+            os
+              { coordinatedHeadState =
+                  coordinatedHeadState
+                    { confirmedSnapshot =
+                        ConfirmedSnapshot
+                          { snapshot
+                          , signatures
+                          }
+                    , seenSnapshot = LastSeenSnapshot number
+                    , allTxs = cleanedAllTxs
+                    }
+              }
        where
         Snapshot{number, confirmed = confirmedTxs} = snapshot
         confirmedTxIds = txId <$> confirmedTxs
