@@ -59,7 +59,6 @@ import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
-import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
@@ -295,7 +294,6 @@ runHydraNode ::
   , MonadAsync m
   , MonadTime m
   , IsChainState tx
-  , HasAccumulatorElement tx
   ) =>
   HydraNode tx m ->
   m ()
@@ -309,7 +307,6 @@ stepHydraNode ::
   , MonadAsync m
   , MonadTime m
   , IsChainState tx
-  , HasAccumulatorElement tx
   ) =>
   HydraNode tx m ->
   m ()
@@ -355,7 +352,7 @@ waitDelay = 0.1
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextInput ::
-  (IsChainState tx, HasAccumulatorElement tx) =>
+  IsChainState tx =>
   HydraNode tx m ->
   Input tx ->
   UTCTime ->

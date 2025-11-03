@@ -38,7 +38,7 @@ data NodeState tx
       }
   deriving stock (Generic)
 
-instance (ArbitraryIsTx tx, HasAccumulatorElement tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
   arbitrary = genericArbitrary
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)

@@ -16,7 +16,6 @@ import Hydra.Tx (
   IsTx (..),
   Party,
  )
-import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.Crypto (Signature)
 import Hydra.Tx.Snapshot (
   ConfirmedSnapshot,
@@ -46,7 +45,7 @@ data HeadState tx
   | Closed (ClosedState tx)
   deriving stock (Generic)
 
-instance (ArbitraryIsTx tx, HasAccumulatorElement tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
@@ -150,7 +149,7 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (OpenState t
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (OpenState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
 
-instance (ArbitraryIsTx tx, HasAccumulatorElement tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) where
   arbitrary =
     OpenState
       <$> arbitrary
@@ -190,7 +189,7 @@ deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
-instance (ArbitraryIsTx tx, HasAccumulatorElement tx) => Arbitrary (CoordinatedHeadState tx) where
+instance ArbitraryIsTx tx => Arbitrary (CoordinatedHeadState tx) where
   arbitrary = genericArbitrary
 
 -- | Data structure to help in tracking whether we have seen or requested a
@@ -213,7 +212,7 @@ data SeenSnapshot tx
       }
   deriving stock (Generic)
 
-instance (ArbitraryIsTx tx, HasAccumulatorElement tx) => Arbitrary (SeenSnapshot tx) where
+instance ArbitraryIsTx tx => Arbitrary (SeenSnapshot tx) where
   arbitrary = genericArbitrary
 
 deriving stock instance IsTx tx => Eq (SeenSnapshot tx)
@@ -252,7 +251,7 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
 
-instance (ArbitraryIsTx tx, HasAccumulatorElement tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
   arbitrary =
     ClosedState
       <$> arbitrary

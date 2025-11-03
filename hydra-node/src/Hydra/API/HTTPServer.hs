@@ -147,7 +147,7 @@ newtype SideLoadSnapshotRequest tx = SideLoadSnapshotRequest
   deriving newtype (Eq, Show, Generic)
   deriving newtype (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), HasAccumulatorElement tx) => Arbitrary (SideLoadSnapshotRequest tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (SideLoadSnapshotRequest tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
@@ -217,7 +217,7 @@ jsonContent = [(hContentType, "application/json")]
 -- | Hydra HTTP server
 httpApp ::
   forall tx.
-  (IsChainState tx, HasAccumulatorElement tx) =>
+  IsChainState tx =>
   Tracer IO APIServerLog ->
   Chain tx IO ->
   Environment ->
