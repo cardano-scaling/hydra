@@ -50,7 +50,6 @@ import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDi
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
-import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -826,8 +825,7 @@ spec =
         let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 3)
             decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 4)
             activeUTxO = utxoRefs [1, 2]
-            accumulator = makeHeadAccumulator activeUTxO
-            utxoHash = getAccumulatorHash accumulator
+            utxoHash = hashUTxO activeUTxO
             snapshot =
               Snapshot
                 { headId = testHeadId
@@ -1561,8 +1559,7 @@ spec =
         prop "reject side load confirmed snapshot because wrong snapshot utxoToDecommit" $ \utxoToDecommit -> do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
           let utxo' = utxoRef 3
-              accumulator = makeHeadAccumulator utxo'
-              utxoHash = getAccumulatorHash accumulator
+              utxoHash = hashUTxO utxo'
               snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash Nothing (Just utxoToDecommit)
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
@@ -1577,8 +1574,7 @@ spec =
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
           let utxo' = utxoRef 3
-              accumulator = makeHeadAccumulator utxo'
-              utxoHash = getAccumulatorHash accumulator
+              utxoHash = hashUTxO utxo'
               snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash (Just utxoToCommit) Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
@@ -2148,8 +2144,7 @@ testSnapshot ::
   UTxOType tx ->
   Snapshot tx
 testSnapshot number version confirmed utxo =
-  let accumulator = makeHeadAccumulator utxo
-      utxoHash = getAccumulatorHash accumulator
+  let utxoHash = hashUTxO utxo
    in Snapshot
         { headId = testHeadId
         , version

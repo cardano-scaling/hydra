@@ -25,7 +25,7 @@ import Formatting.Buildable (build)
 import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Util qualified as Util
-import PlutusLedgerApi.V3 (fromBuiltin, toBuiltinData, toData)
+import PlutusLedgerApi.V3 (fromBuiltin, toBuiltinData)
 import PlutusTx.Builtins qualified as Builtins
 
 -- | Types of transactions that can be used by the Head protocol. The associated
@@ -185,7 +185,6 @@ instance IsTx Tx where
      in if null pairs
           then
             -- For empty UTxO, return the same hash as on-chain emptyHash = hashTxOuts [] = sha2_256 ""
-            -- This is the SHA2-256 hash of an empty bytestring
             fromBuiltin $ Util.hashTxOuts []
           else
             let
