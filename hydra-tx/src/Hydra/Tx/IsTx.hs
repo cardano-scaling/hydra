@@ -25,7 +25,8 @@ import Formatting.Buildable (build)
 import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Util qualified as Util
-import PlutusLedgerApi.V3 (fromBuiltin, toData)
+import PlutusLedgerApi.V3 (fromBuiltin, toBuiltinData, toData)
+import PlutusTx.Builtins qualified as Builtins
 
 -- | Types of transactions that can be used by the Head protocol. The associated
 -- types and methods of this type class represent the whole interface of what
@@ -179,8 +180,6 @@ instance IsTx Tx where
 
   -- NOTE: See note from `Util.hashTxOuts`.
   -- NOTE: This uses accumulator-based hashing via toPairList and utxoToElement.
-  -- IMPORTANT: Empty UTxOs must hash to the same value as on-chain emptyHash (sha2_256 of empty bytestring)
-  -- to maintain compatibility with validators that check for emptyHash.
   hashUTxO utxo =
     let pairs = toPairList utxo
      in if null pairs
@@ -190,12 +189,13 @@ instance IsTx Tx where
             fromBuiltin $ Util.hashTxOuts []
           else
             let
-              -- Build accumulator elements using utxoToElement
+              -- Build accumulator from UTxO pairs using utxoToElement
               elements = utxoToElement <$> pairs
-              -- Build accumulator and hash it (inline version of makeHeadAccumulator + getAccumulatorHash)
               accumulator = Accumulator.buildAccumulator elements
+              -- Serialize the accumulator and hash it with SHA2-256
+              serializedAcc = toStrict (serialise accumulator)
              in
-              toStrict . serialise $ accumulator
+              fromBuiltin (Builtins.sha2_256 (Builtins.toBuiltin serializedAcc))
 
   txSpendingUTxO = Api.txSpendingUTxO
 
@@ -208,6 +208,8 @@ instance IsTx Tx where
   toPairList = UTxO.toList
 
   -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization
-  utxoToElement (txIn, txOut) =
-    toStrict (serialise $ toData $ toPlutusTxOutRef txIn)
-      <> toStrict (serialise $ toData $ toPlutusTxOut txOut)
+  utxoToElement (_txIn, txOut) =
+    case toPlutusTxOut txOut of
+      Just plutusTxOut ->
+        fromBuiltin (Builtins.serialiseData (toBuiltinData plutusTxOut))
+      Nothing -> mempty
