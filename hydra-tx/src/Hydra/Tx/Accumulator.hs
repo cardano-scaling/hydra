@@ -2,9 +2,6 @@
 
 module Hydra.Tx.Accumulator (
   HydraAccumulator (..),
-  makeHeadAccumulator,
-  getAccumulatorHash,
-  hashUTxOWithAccumulator,
   -- createMembershipProof,
 
   build,
@@ -17,8 +14,6 @@ import Accumulator qualified
 
 -- import Bindings (getPolyCommitOverG2)
 -- import Cardano.Crypto.EllipticCurve.BLS12_381 (Point2)
-import Codec.Serialise (serialise)
-import Hydra.Tx.IsTx (IsTx (..))
 
 -- * HydraAccumulator
 
@@ -27,28 +22,6 @@ newtype HydraAccumulator = HydraAccumulator {unHydraAccumulator :: Accumulator}
 
 build :: [ByteString] -> HydraAccumulator
 build = HydraAccumulator . Accumulator.buildAccumulator
-
--- | Create a 'HydraAccumulator' from a UTxO set.
--- Requires IsTx for UTxOType, toPairList, and utxoToElement.
-makeHeadAccumulator :: forall tx. IsTx tx => UTxOType tx -> HydraAccumulator
-makeHeadAccumulator utxo =
-  let elements = utxoToElement @tx <$> toPairList @tx utxo
-   in build elements
-
--- | Get a simple hash of the accumulator state.
---
--- This is a pure function that returns a deterministic hash of the accumulator's contents.
--- For off-chain snapshots, we just need a commitment to the UTxO set, not a cryptographic proof.
--- This hash is what gets signed by all parties in the multi-signature.
-getAccumulatorHash :: HydraAccumulator -> ByteString
-getAccumulatorHash (HydraAccumulator acc) =
-  -- Simple serialization-based hash of the accumulator map
-  toStrict . serialise $ acc
-
--- | Hash a UTxO set using the accumulator.
--- This is the function that should be used instead of IsTx.hashUTxO for Hydra protocol.
-hashUTxOWithAccumulator :: forall tx. IsTx tx => UTxOType tx -> ByteString
-hashUTxOWithAccumulator = getAccumulatorHash . makeHeadAccumulator
 
 -- * Cryptographic Proofs (IO functions for partial fanout)
 
