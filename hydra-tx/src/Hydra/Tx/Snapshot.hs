@@ -13,7 +13,6 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SerialiseAsRawBytes (..), SigningKey)
 import Hydra.Contract.HeadState qualified as Onchain
-import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
@@ -163,11 +162,10 @@ data ConfirmedSnapshot tx
 -- add a new branch to the sumtype. So, we explicitly define a getter which
 -- will force us into thinking about changing the signature properly if this
 -- happens.
-getSnapshot :: Accumulator.HasAccumulatorElement tx => ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: IsTx tx => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
-    let accumulator = Accumulator.makeHeadAccumulator initialUTxO
-        utxoHash = Accumulator.getAccumulatorHash accumulator
+    let utxoHash = hashUTxO initialUTxO
      in Snapshot
           { headId
           , version = 0
@@ -180,7 +178,7 @@ getSnapshot = \case
           }
   ConfirmedSnapshot{snapshot} -> snapshot
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Accumulator.HasAccumulatorElement tx) => Arbitrary (ConfirmedSnapshot tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- arbitrary
     utxo <- arbitrary
@@ -194,7 +192,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Accumulator.HasAccumulatorEleme
     ConfirmedSnapshot sn sigs -> ConfirmedSnapshot <$> shrink sn <*> shrink sigs
 
 genConfirmedSnapshot ::
-  Accumulator.HasAccumulatorElement tx =>
+  IsTx tx =>
   HeadId ->
   -- | Exact snapshot version to generate.
   SnapshotVersion ->
@@ -223,8 +221,7 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let accumulator = Accumulator.makeHeadAccumulator utxo
-        utxoHash = Accumulator.getAccumulatorHash accumulator
+    let utxoHash = hashUTxO utxo
     let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoHash, utxoToCommit, utxoToDecommit}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
