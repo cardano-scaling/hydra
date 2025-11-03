@@ -3414,10 +3414,14 @@ SubmitTxInvalidResponse :: Text -> SubmitL2TxResponse
 
 -- | Transaction was accepted but not yet confirmed
 SubmitTxSubmitted :: SubmitL2TxResponse
+data HeadInitializationDetails
+HeadInitializationDetails :: UTCTime -> SlotNo -> HeadInitializationDetails
+[$sel:time:HeadInitializationDetails] :: HeadInitializationDetails -> UTCTime
+[$sel:slot:HeadInitializationDetails] :: HeadInitializationDetails -> SlotNo
 jsonContent :: ResponseHeaders
 
 -- | Hydra HTTP server
-httpApp :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Chain tx IO -> Environment -> PParams LedgerEra -> IO (NodeState tx) -> IO CommitInfo -> IO [TxIdType tx] -> (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Application
+httpApp :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Chain tx IO -> Environment -> FilePath -> PParams LedgerEra -> IO (NodeState tx) -> IO CommitInfo -> IO [TxIdType tx] -> (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Application
 
 -- | Handle request to obtain a draft commit tx.
 handleDraftCommitUtxo :: forall tx. IsChainState tx => Environment -> PParams LedgerEra -> Chain tx IO -> IO CommitInfo -> ByteString -> IO Response
@@ -3434,6 +3438,8 @@ handleSideLoadSnapshot :: forall tx. IsChainState tx => (ClientInput tx -> IO ()
 
 -- | Handle request to submit a transaction to the head.
 handleSubmitL2Tx :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ByteString -> IO Response
+handleHeadInitializationTime :: MonadUnliftIO m => FilePath -> m Response
+parseInitializingTime :: MonadUnliftIO m => ConduitT ByteString Void m [Text]
 badRequest :: IsChainState tx => PostTxError tx -> Response
 notFound :: Response
 okJSON :: ToJSON a => a -> Response
@@ -3460,6 +3466,8 @@ instance GHC.Classes.Eq tx => GHC.Classes.Eq (Hydra.API.HTTPServer.SubmitL2TxReq
 instance GHC.Generics.Generic Hydra.API.HTTPServer.SubmitL2TxResponse
 instance GHC.Show.Show Hydra.API.HTTPServer.SubmitL2TxResponse
 instance GHC.Classes.Eq Hydra.API.HTTPServer.SubmitL2TxResponse
+instance GHC.Show.Show Hydra.API.HTTPServer.HeadInitializationDetails
+instance GHC.Classes.Eq Hydra.API.HTTPServer.HeadInitializationDetails
 instance GHC.Show.Show tx => GHC.Show.Show (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
 instance (GHC.Classes.Eq tx, GHC.Classes.Eq (Hydra.Tx.IsTx.UTxOType tx)) => GHC.Classes.Eq (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
 instance (GHC.Show.Show tx, GHC.Show.Show (Hydra.Tx.IsTx.UTxOType tx)) => GHC.Show.Show (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
@@ -4292,7 +4300,7 @@ APIServerConfig :: IP -> PortNumber -> Maybe FilePath -> Maybe FilePath -> ApiTr
 [$sel:tlsCertPath:APIServerConfig] :: APIServerConfig -> Maybe FilePath
 [$sel:tlsKeyPath:APIServerConfig] :: APIServerConfig -> Maybe FilePath
 [$sel:apiTransactionTimeout:APIServerConfig] :: APIServerConfig -> ApiTransactionTimeout
-withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> Environment -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
+withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> Environment -> FilePath -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
 
 -- | An <a>IOException</a> with more <a>IP</a> and <a>PortNumber</a> added
 --   as context.

@@ -282,6 +282,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Prop
 prop_thereIsAlwaysALeader :: Property
 
 module Hydra.API.HTTPServerSpec
+dummyStatePath :: FilePath
 spec :: Spec
 apiServerSpec :: Spec
 

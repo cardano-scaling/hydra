@@ -26,7 +26,7 @@
 </span><span id="line-19"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-20"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="APITransactionSubmitted"><span class="annot"><a href="Hydra.API.APIServerLog.html#APITransactionSubmitted"><span class="hs-identifier hs-var">APITransactionSubmitted</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AsubmittedTxId%3AAPIServerStarted"><span class="annot"><span class="annottext">APIServerLog -&gt; String
 </span><a href="Hydra.API.APIServerLog.html#%24sel%3AsubmittedTxId%3AAPIServerStarted"><span class="hs-identifier hs-var hs-var">submittedTxId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-21"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680568920"><span id="local-6989586621680568938"><span class="annot"><span class="annottext">APIServerLog -&gt; APIServerLog -&gt; Bool
+</span><span id="line-21"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680569412"><span id="local-6989586621680569430"><span class="annot"><span class="annottext">APIServerLog -&gt; APIServerLog -&gt; Bool
 (APIServerLog -&gt; APIServerLog -&gt; Bool)
 -&gt; (APIServerLog -&gt; APIServerLog -&gt; Bool) -&gt; Eq APIServerLog
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -34,7 +34,7 @@ $c== :: APIServerLog -&gt; APIServerLog -&gt; Bool
 == :: APIServerLog -&gt; APIServerLog -&gt; Bool
 $c/= :: APIServerLog -&gt; APIServerLog -&gt; Bool
 /= :: APIServerLog -&gt; APIServerLog -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680568944"><span id="local-6989586621680568970"><span id="local-6989586621680568974"><span class="annot"><span class="annottext">Int -&gt; APIServerLog -&gt; ShowS
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680569436"><span id="local-6989586621680569462"><span id="local-6989586621680569466"><span class="annot"><span class="annottext">Int -&gt; APIServerLog -&gt; ShowS
 [APIServerLog] -&gt; ShowS
 APIServerLog -&gt; String
 (Int -&gt; APIServerLog -&gt; ShowS)
@@ -49,7 +49,7 @@ $cshow :: APIServerLog -&gt; String
 show :: APIServerLog -&gt; String
 $cshowList :: [APIServerLog] -&gt; ShowS
 showList :: [APIServerLog] -&gt; ShowS
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680568979"><span id="local-6989586621680568981"><span class="annot"><span class="annottext">(forall x. APIServerLog -&gt; Rep APIServerLog x)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680569471"><span id="local-6989586621680569473"><span class="annot"><span class="annottext">(forall x. APIServerLog -&gt; Rep APIServerLog x)
 -&gt; (forall x. Rep APIServerLog x -&gt; APIServerLog)
 -&gt; Generic APIServerLog
 forall x. Rep APIServerLog x -&gt; APIServerLog
@@ -61,7 +61,7 @@ from :: forall x. APIServerLog -&gt; Rep APIServerLog x
 $cto :: forall x. Rep APIServerLog x -&gt; APIServerLog
 to :: forall x. Rep APIServerLog x -&gt; APIServerLog
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-22"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680568985"><span id="local-6989586621680568992"><span id="local-6989586621680568995"><span id="local-6989586621680568998"><span id="local-6989586621680569001"><span class="annot"><span class="annottext">[APIServerLog] -&gt; Value
+</span><span id="line-22"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680569477"><span id="local-6989586621680569484"><span id="local-6989586621680569487"><span id="local-6989586621680569490"><span id="local-6989586621680569493"><span class="annot"><span class="annottext">[APIServerLog] -&gt; Value
 [APIServerLog] -&gt; Encoding
 APIServerLog -&gt; Bool
 APIServerLog -&gt; Value
@@ -89,7 +89,7 @@ $ctoEncodingList :: [APIServerLog] -&gt; Encoding
 toEncodingList :: [APIServerLog] -&gt; Encoding
 $comitField :: APIServerLog -&gt; Bool
 omitField :: APIServerLog -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680569389"><span id="local-6989586621680569396"><span id="local-6989586621680569399"><span class="annot"><span class="annottext">Maybe APIServerLog
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680569881"><span id="local-6989586621680569888"><span id="local-6989586621680569891"><span class="annot"><span class="annottext">Maybe APIServerLog
 Value -&gt; Parser [APIServerLog]
 Value -&gt; Parser APIServerLog
 (Value -&gt; Parser APIServerLog)
@@ -109,7 +109,7 @@ omittedField :: Maybe APIServerLog
 </span><span id="line-23"></span><span>
 </span><span id="line-24"></span><span class="annot"><span class="hs-comment">-- | New type wrapper to define JSON instances.</span></span><span>
 </span><span id="line-25"></span><span class="hs-keyword">newtype</span><span> </span><span id="PathInfo"><span class="annot"><a href="Hydra.API.APIServerLog.html#PathInfo"><span class="hs-identifier hs-var">PathInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PathInfo"><span class="annot"><a href="Hydra.API.APIServerLog.html#PathInfo"><span class="hs-identifier hs-var">PathInfo</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span>
-</span><span id="line-26"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680569686"><span id="local-6989586621680569690"><span class="annot"><span class="annottext">PathInfo -&gt; PathInfo -&gt; Bool
+</span><span id="line-26"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680570178"><span id="local-6989586621680570182"><span class="annot"><span class="annottext">PathInfo -&gt; PathInfo -&gt; Bool
 (PathInfo -&gt; PathInfo -&gt; Bool)
 -&gt; (PathInfo -&gt; PathInfo -&gt; Bool) -&gt; Eq PathInfo
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -117,7 +117,7 @@ $c== :: PathInfo -&gt; PathInfo -&gt; Bool
 == :: PathInfo -&gt; PathInfo -&gt; Bool
 $c/= :: PathInfo -&gt; PathInfo -&gt; Bool
 /= :: PathInfo -&gt; PathInfo -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680569693"><span id="local-6989586621680569698"><span id="local-6989586621680569701"><span class="annot"><span class="annottext">Int -&gt; PathInfo -&gt; ShowS
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680570185"><span id="local-6989586621680570190"><span id="local-6989586621680570193"><span class="annot"><span class="annottext">Int -&gt; PathInfo -&gt; ShowS
 [PathInfo] -&gt; ShowS
 PathInfo -&gt; String
 (Int -&gt; PathInfo -&gt; ShowS)
@@ -132,28 +132,28 @@ $cshowList :: [PathInfo] -&gt; ShowS
 showList :: [PathInfo] -&gt; ShowS
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-27"></span><span>
-</span><span id="line-28"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680569705"><span id="local-6989586621680569708"><span id="local-6989586621680569711"><span id="local-6989586621680569714"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.API.APIServerLog.html#PathInfo"><span class="hs-identifier hs-type">PathInfo</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-29"></span><span>  </span><span id="local-6989586621680569718"><span class="annot"><span class="annottext">toJSON :: PathInfo -&gt; Value
-</span><a href="#local-6989586621680569718"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.APIServerLog.html#PathInfo"><span class="hs-identifier hs-type">PathInfo</span></a></span><span> </span><span id="local-6989586621680569720"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680569720"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680570197"><span id="local-6989586621680570200"><span id="local-6989586621680570203"><span id="local-6989586621680570206"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.API.APIServerLog.html#PathInfo"><span class="hs-identifier hs-type">PathInfo</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-29"></span><span>  </span><span id="local-6989586621680570210"><span class="annot"><span class="annottext">toJSON :: PathInfo -&gt; Value
+</span><a href="#local-6989586621680570210"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.APIServerLog.html#PathInfo"><span class="hs-identifier hs-type">PathInfo</span></a></span><span> </span><span id="local-6989586621680570212"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621680570212"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-30"></span><span>    </span><span class="annot"><span class="annottext">Text -&gt; Value
 </span><span class="hs-identifier hs-var">Aeson.String</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Value) -&gt; Text -&gt; Value
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
 forall a b. ConvertUtf8 a b =&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680569720"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><a href="#local-6989586621680570212"><span class="hs-identifier hs-var">bytes</span></a></span><span>
 </span><span id="line-31"></span><span>
-</span><span id="line-32"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680569725"><span id="local-6989586621680569728"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.API.APIServerLog.html#PathInfo"><span class="hs-identifier hs-type">PathInfo</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-33"></span><span>  </span><span id="local-6989586621680569732"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser PathInfo
-</span><a href="#local-6989586621680569732"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; (Text -&gt; Parser PathInfo) -&gt; Value -&gt; Parser PathInfo
+</span><span id="line-32"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680570217"><span id="local-6989586621680570220"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.API.APIServerLog.html#PathInfo"><span class="hs-identifier hs-type">PathInfo</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-33"></span><span>  </span><span id="local-6989586621680570224"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser PathInfo
+</span><a href="#local-6989586621680570224"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; (Text -&gt; Parser PathInfo) -&gt; Value -&gt; Parser PathInfo
 forall a. String -&gt; (Text -&gt; Parser a) -&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">Aeson.withText</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;PathInfo&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; Parser PathInfo) -&gt; Value -&gt; Parser PathInfo)
 -&gt; (Text -&gt; Parser PathInfo) -&gt; Value -&gt; Parser PathInfo
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680569735"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680569735"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680570227"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680570227"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-34"></span><span>    </span><span class="annot"><span class="annottext">PathInfo -&gt; Parser PathInfo
 forall a. a -&gt; Parser a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -164,14 +164,14 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Encoding.html#encodeUtf8"><span class="hs-identifier hs-var">encodeUtf8</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680569735"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><a href="#local-6989586621680570227"><span class="hs-identifier hs-var">t</span></a></span><span>
 </span><span id="line-35"></span><span>
 </span><span id="line-36"></span><span class="hs-comment">-- | New type wrapper to define JSON instances.</span><span>
 </span><span id="line-37"></span><span class="hs-comment">--</span><span>
 </span><span id="line-38"></span><span class="hs-comment">-- NOTE: We are not using http-types 'StdMethod' as we do not want to be</span><span>
 </span><span id="line-39"></span><span class="hs-comment">-- constrained in terms of logging and accept any method in a 'Request'.</span><span>
 </span><span id="line-40"></span><span class="hs-keyword">newtype</span><span> </span><span id="Method"><span class="annot"><a href="Hydra.API.APIServerLog.html#Method"><span class="hs-identifier hs-var">Method</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Method"><span class="annot"><a href="Hydra.API.APIServerLog.html#Method"><span class="hs-identifier hs-var">Method</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span>
-</span><span id="line-41"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680569738"><span id="local-6989586621680569741"><span class="annot"><span class="annottext">Method -&gt; Method -&gt; Bool
+</span><span id="line-41"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680570230"><span id="local-6989586621680570233"><span class="annot"><span class="annottext">Method -&gt; Method -&gt; Bool
 (Method -&gt; Method -&gt; Bool)
 -&gt; (Method -&gt; Method -&gt; Bool) -&gt; Eq Method
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -179,7 +179,7 @@ $c== :: Method -&gt; Method -&gt; Bool
 == :: Method -&gt; Method -&gt; Bool
 $c/= :: Method -&gt; Method -&gt; Bool
 /= :: Method -&gt; Method -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680569744"><span id="local-6989586621680569748"><span id="local-6989586621680569751"><span class="annot"><span class="annottext">Int -&gt; Method -&gt; ShowS
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680570236"><span id="local-6989586621680570240"><span id="local-6989586621680570243"><span class="annot"><span class="annottext">Int -&gt; Method -&gt; ShowS
 [Method] -&gt; ShowS
 Method -&gt; String
 (Int -&gt; Method -&gt; ShowS)
@@ -194,28 +194,28 @@ $cshowList :: [Method] -&gt; ShowS
 showList :: [Method] -&gt; ShowS
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-42"></span><span>
-</span><span id="line-43"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680569755"><span id="local-6989586621680569758"><span id="local-6989586621680569761"><span id="local-6989586621680569764"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.API.APIServerLog.html#Method"><span class="hs-identifier hs-type">Method</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-44"></span><span>  </span><span id="local-6989586621680569767"><span class="annot"><span class="annottext">toJSON :: Method -&gt; Value
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.APIServerLog.html#Method"><span class="hs-identifier hs-type">Method</span></a></span><span> </span><span id="local-6989586621680569768"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680569768"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680570247"><span id="local-6989586621680570250"><span id="local-6989586621680570253"><span id="local-6989586621680570256"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.API.APIServerLog.html#Method"><span class="hs-identifier hs-type">Method</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-44"></span><span>  </span><span id="local-6989586621680570259"><span class="annot"><span class="annottext">toJSON :: Method -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.APIServerLog.html#Method"><span class="hs-identifier hs-type">Method</span></a></span><span> </span><span id="local-6989586621680570260"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621680570260"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-45"></span><span>    </span><span class="annot"><span class="annottext">Text -&gt; Value
 </span><span class="hs-identifier hs-var">Aeson.String</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Value) -&gt; Text -&gt; Value
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
 forall a b. ConvertUtf8 a b =&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680569768"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><a href="#local-6989586621680570260"><span class="hs-identifier hs-var">bytes</span></a></span><span>
 </span><span id="line-46"></span><span>
-</span><span id="line-47"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680569771"><span id="local-6989586621680569774"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.API.APIServerLog.html#Method"><span class="hs-identifier hs-type">Method</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-48"></span><span>  </span><span id="local-6989586621680569777"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser Method
+</span><span id="line-47"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680570263"><span id="local-6989586621680570266"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.API.APIServerLog.html#Method"><span class="hs-identifier hs-type">Method</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-48"></span><span>  </span><span id="local-6989586621680570269"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser Method
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; (Text -&gt; Parser Method) -&gt; Value -&gt; Parser Method
 forall a. String -&gt; (Text -&gt; Parser a) -&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">Aeson.withText</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;Method&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; Parser Method) -&gt; Value -&gt; Parser Method)
 -&gt; (Text -&gt; Parser Method) -&gt; Value -&gt; Parser Method
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680569778"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680569778"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680570270"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680570270"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-49"></span><span>    </span><span class="annot"><span class="annottext">Method -&gt; Parser Method
 forall a. a -&gt; Parser a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -226,5 +226,5 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Encoding.html#encodeUtf8"><span class="hs-identifier hs-var">encodeUtf8</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680569778"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><a href="#local-6989586621680570270"><span class="hs-identifier hs-var">t</span></a></span><span>
 </span><span id="line-50"></span></pre></body></html>
