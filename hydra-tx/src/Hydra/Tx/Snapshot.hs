@@ -125,15 +125,24 @@ instance IsTx tx => FromJSON (Snapshot tx) where
         Left e -> fail $ "invalid base16: " <> show e
         Right bs -> pure bs
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
-  arbitrary = genericArbitrary
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot tx) where
+  arbitrary = do
+    headId <- arbitrary
+    version <- arbitrary
+    number <- arbitrary
+    confirmed <- arbitrary
+    utxo <- arbitrary
+    utxoToCommit <- arbitrary
+    utxoToDecommit <- arbitrary
+    let utxoHash = hashUTxO utxo
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoHash, utxoToCommit, utxoToDecommit}
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, version, number, utxo, confirmed, utxoHash, utxoToCommit, utxoToDecommit} =
-    [ Snapshot headId version number confirmed' utxo' utxoHash' utxoToCommit' utxoToDecommit'
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
+    [ let utxoHash = hashUTxO utxo'
+       in Snapshot headId version number confirmed' utxo' utxoHash utxoToCommit' utxoToDecommit'
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
-    , utxoHash' <- shrink utxoHash
     , utxoToCommit' <- shrink utxoToCommit
     , utxoToDecommit' <- shrink utxoToDecommit
     ]
