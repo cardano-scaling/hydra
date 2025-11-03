@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -251,8 +252,8 @@ isModalOpen s =
     Just _ -> True
 
 recoverHeadState :: UTCTime -> HeadState -> NodeState Tx -> HeadState
-recoverHeadState now current NodeState{headState, pendingDeposits} =
-  case headState of
+recoverHeadState now current nodeState =
+  case nodeState.headState of
     State.Idle State.IdleState{} -> current
     State.Initial
       State.InitialState
@@ -317,7 +318,7 @@ recoverHeadState now current NodeState{headState, pendingDeposits} =
                 }
  where
   pendingIncrements =
-    Map.toList pendingDeposits
+    Map.toList nodeState.pendingDeposits
       <&> ( \(txId', Deposit{deposited, deadline}) ->
               PendingIncrement
                 { utxoToCommit = deposited
