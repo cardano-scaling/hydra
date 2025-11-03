@@ -45,8 +45,7 @@ import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer)
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..))
-import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
-import Hydra.Tx.IsTx (UTxOType, txId)
+import Hydra.Tx.IsTx (UTxOType, hashUTxO, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
@@ -587,7 +586,7 @@ apiServerSpec = do
                   InitialSnapshot{headId} -> InitialSnapshot{headId, initialUTxO = utxo'}
                   ConfirmedSnapshot{snapshot, signatures} ->
                     let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit} = snapshot
-                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, utxoHash = getAccumulatorHash (makeHeadAccumulator utxo')}
+                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, utxoHash = hashUTxO utxo'}
                      in ConfirmedSnapshot{snapshot = snapshot', signatures}
               closedState' = closedState{confirmedSnapshot = confirmedSnapshot'}
           withApplication
@@ -781,7 +780,7 @@ apiServerSpec = do
                 , number = 7
                 , confirmed = [testTx]
                 , utxo = utxo'
-                , utxoHash = getAccumulatorHash (makeHeadAccumulator utxo')
+                , utxoHash = hashUTxO utxo'
                 , utxoToCommit = mempty
                 , utxoToDecommit = mempty
                 }
