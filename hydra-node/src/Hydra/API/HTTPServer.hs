@@ -191,7 +191,7 @@ jsonContent = [(hContentType, "application/json")]
 -- | Hydra HTTP server
 httpApp ::
   forall tx.
-  (IsChainState tx, HasAccumulatorElement tx) =>
+  IsChainState tx =>
   Tracer IO APIServerLog ->
   Chain tx IO ->
   Environment ->

@@ -442,7 +442,7 @@ observationInput observedTx =
     }
 
 runToCompletion ::
-  (IsChainState tx, HasAccumulatorElement tx) =>
+  IsChainState tx =>
   HydraNode tx IO ->
   IO ()
 runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}} = go

@@ -80,6 +80,7 @@ instance IsTx SimpleTx where
   type TxOutType SimpleTx = SimpleTxOut
   type UTxOType SimpleTx = Set SimpleTxOut
   type ValueType SimpleTx = Int
+  type UTxOPairType SimpleTx = (SimpleTxOut, SimpleTxOut)
 
   txId (SimpleTx tid _ _) = tid
   balance = Set.size
@@ -95,16 +96,12 @@ instance IsTx SimpleTx where
       , txOutputs = mempty
       }
 
--- | Instance for SimpleTx accumulator support.
--- For SimpleTx, we use a simple pair representation where both elements are the same output.
-instance HasAccumulatorElement SimpleTx where
-  type UTxOPairType SimpleTx = (SimpleTxOut, SimpleTxOut)
-
+  -- \| For SimpleTx, we use a simple pair representation where both elements are the same output.
   toPairList utxoSet =
     [(out, out) | out <- Set.toList utxoSet]
 
-  utxoToElementImpl (SimpleTxOut i1, SimpleTxOut i2) =
-    -- For SimpleTx, just serialize the two integers
+  -- \| For SimpleTx, just serialize the two integers
+  utxoToElement (SimpleTxOut i1, SimpleTxOut i2) =
     toStrict (serialise i1) <> toStrict (serialise i2)
 
 -- * Simple chain state
