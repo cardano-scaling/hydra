@@ -14,19 +14,19 @@
 </span><span id="line-14"></span><span>
 </span><span id="line-15"></span><span class="hs-comment">-- | A basic file based event source and sink defined using a rotated</span><span>
 </span><span id="line-16"></span><span class="hs-comment">-- 'PersistenceIncremental' handle.</span><span>
-</span><span id="line-17"></span><span id="local-6989586621680603438"><span class="annot"><a href="Hydra.Events.FileBased.html#mkFileBasedEventStore"><span class="hs-identifier hs-type">mkFileBasedEventStore</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-18"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621680603438"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621680603438"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Events.html#HasEventId"><span class="hs-identifier hs-type">HasEventId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680603438"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-17"></span><span id="local-6989586621680603656"><span class="annot"><a href="Hydra.Events.FileBased.html#mkFileBasedEventStore"><span class="hs-identifier hs-type">mkFileBasedEventStore</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621680603656"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621680603656"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Events.html#HasEventId"><span class="hs-identifier hs-type">HasEventId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680603656"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-19"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-20"></span><span>  </span><span class="annot"><a href="Hydra.Persistence.html#PersistenceIncremental"><span class="hs-identifier hs-type">PersistenceIncremental</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680603438"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-21"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-type">EventStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680603438"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><a href="Hydra.Persistence.html#PersistenceIncremental"><span class="hs-identifier hs-type">PersistenceIncremental</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680603656"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-type">EventStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680603656"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span class="hs-special">)</span></span><span>
 </span><span id="line-22"></span><span id="mkFileBasedEventStore"><span class="annot"><span class="annottext">mkFileBasedEventStore :: forall e.
 (ToJSON e, FromJSON e, HasEventId e) =&gt;
 FilePath -&gt; PersistenceIncremental e IO -&gt; IO (EventStore e IO)
-</span><a href="Hydra.Events.FileBased.html#mkFileBasedEventStore"><span class="hs-identifier hs-var hs-var">mkFileBasedEventStore</span></a></span></span><span> </span><span id="local-6989586621680603569"><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621680603569"><span class="hs-identifier hs-var">stateDir</span></a></span></span><span> </span><span id="local-6989586621680603570"><span class="annot"><span class="annottext">PersistenceIncremental e IO
-</span><a href="#local-6989586621680603570"><span class="hs-identifier hs-var">persistence</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-23"></span><span>  </span><span id="local-6989586621680603571"><span class="annot"><span class="annottext">TVar (Maybe LogId)
-</span><a href="#local-6989586621680603571"><span class="hs-identifier hs-var">eventIdV</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Maybe LogId -&gt; IO (TVar IO (Maybe LogId))
+</span><a href="Hydra.Events.FileBased.html#mkFileBasedEventStore"><span class="hs-identifier hs-var hs-var">mkFileBasedEventStore</span></a></span></span><span> </span><span id="local-6989586621680603787"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621680603787"><span class="hs-identifier hs-var">stateDir</span></a></span></span><span> </span><span id="local-6989586621680603788"><span class="annot"><span class="annottext">PersistenceIncremental e IO
+</span><a href="#local-6989586621680603788"><span class="hs-identifier hs-var">persistence</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-23"></span><span>  </span><span id="local-6989586621680603789"><span class="annot"><span class="annottext">TVar (Maybe LogId)
+</span><a href="#local-6989586621680603789"><span class="hs-identifier hs-var">eventIdV</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Maybe LogId -&gt; IO (TVar IO (Maybe LogId))
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 FilePath -&gt; a -&gt; m (TVar m a)
@@ -35,41 +35,41 @@ FilePath -&gt; a -&gt; m (TVar m a)
 forall a. Maybe a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
 </span><span id="line-24"></span><span>  </span><span class="hs-keyword">let</span><span>
-</span><span id="line-25"></span><span>    </span><span id="local-6989586621680603573"><span class="annot"><span class="annottext">getLastSeenEventId :: STM IO (Maybe LogId)
-</span><a href="#local-6989586621680603573"><span class="hs-identifier hs-var hs-var">getLastSeenEventId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TVar IO (Maybe LogId) -&gt; STM IO (Maybe LogId)
+</span><span id="line-25"></span><span>    </span><span id="local-6989586621680603791"><span class="annot"><span class="annottext">getLastSeenEventId :: STM IO (Maybe LogId)
+</span><a href="#local-6989586621680603791"><span class="hs-identifier hs-var hs-var">getLastSeenEventId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TVar IO (Maybe LogId) -&gt; STM IO (Maybe LogId)
 forall a. TVar IO a -&gt; STM IO a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar (Maybe LogId)
 TVar IO (Maybe LogId)
-</span><a href="#local-6989586621680603571"><span class="hs-identifier hs-var">eventIdV</span></a></span><span>
+</span><a href="#local-6989586621680603789"><span class="hs-identifier hs-var">eventIdV</span></a></span><span>
 </span><span id="line-26"></span><span>
-</span><span id="line-27"></span><span>    </span><span id="local-6989586621680603575"><span class="annot"><span class="annottext">setLastSeenEventId :: e -&gt; STM IO ()
-</span><a href="#local-6989586621680603575"><span class="hs-identifier hs-var hs-var">setLastSeenEventId</span></a></span></span><span> </span><span id="local-6989586621680603576"><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603576"><span class="hs-identifier hs-var">evt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-27"></span><span>    </span><span id="local-6989586621680603793"><span class="annot"><span class="annottext">setLastSeenEventId :: e -&gt; STM IO ()
+</span><a href="#local-6989586621680603793"><span class="hs-identifier hs-var hs-var">setLastSeenEventId</span></a></span></span><span> </span><span id="local-6989586621680603794"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603794"><span class="hs-identifier hs-var">evt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-28"></span><span>      </span><span class="annot"><span class="annottext">TVar IO (Maybe LogId) -&gt; Maybe LogId -&gt; STM IO ()
 forall a. TVar IO a -&gt; a -&gt; STM IO ()
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; a -&gt; STM m ()
 </span><span class="hs-identifier hs-var">writeTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar (Maybe LogId)
 TVar IO (Maybe LogId)
-</span><a href="#local-6989586621680603571"><span class="hs-identifier hs-var">eventIdV</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LogId -&gt; Maybe LogId
+</span><a href="#local-6989586621680603789"><span class="hs-identifier hs-var">eventIdV</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LogId -&gt; Maybe LogId
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(LogId -&gt; Maybe LogId) -&gt; LogId -&gt; Maybe LogId
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">e -&gt; LogId
 forall a. HasEventId a =&gt; a -&gt; LogId
 </span><a href="Hydra.Events.html#getEventId"><span class="hs-identifier hs-var">getEventId</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603576"><span class="hs-identifier hs-var">evt</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680603794"><span class="hs-identifier hs-var">evt</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-29"></span><span>
 </span><span id="line-30"></span><span>    </span><span class="hs-comment">-- Keep track of the last seen event id when loading</span><span>
-</span><span id="line-31"></span><span>    </span><span id="local-6989586621680603578"><span class="annot"><span class="annottext">sourceEvents :: ConduitT () e (ResourceT IO) ()
-</span><a href="#local-6989586621680603578"><span class="hs-identifier hs-var hs-var">sourceEvents</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-31"></span><span>    </span><span id="local-6989586621680603796"><span class="annot"><span class="annottext">sourceEvents :: ConduitT () e (ResourceT IO) ()
+</span><a href="#local-6989586621680603796"><span class="hs-identifier hs-var hs-var">sourceEvents</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-32"></span><span>      </span><span class="annot"><span class="annottext">PersistenceIncremental e IO
 -&gt; FromJSON e =&gt; ConduitT () e (ResourceT IO) ()
 forall a (m :: * -&gt; *).
 PersistenceIncremental a m
 -&gt; FromJSON a =&gt; ConduitT () a (ResourceT m) ()
 </span><a href="Hydra.Persistence.html#%24sel%3Asource%3APersistenceIncremental"><span class="hs-identifier hs-var">source</span></a></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental e IO
-</span><a href="#local-6989586621680603570"><span class="hs-identifier hs-var">persistence</span></a></span><span>
+</span><a href="#local-6989586621680603788"><span class="hs-identifier hs-var">persistence</span></a></span><span>
 </span><span id="line-33"></span><span>        </span><span class="annot"><span class="annottext">ConduitT () e (ResourceT IO) ()
 -&gt; ConduitT e e (ResourceT IO) ()
 -&gt; ConduitT () e (ResourceT IO) ()
@@ -81,8 +81,8 @@ forall (m :: * -&gt; *) a b.
 Monad m =&gt;
 (a -&gt; m b) -&gt; ConduitT a b m ()
 </span><span class="hs-identifier hs-var">mapMC</span></span><span>
-</span><span id="line-34"></span><span>          </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680603580"><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603580"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO e -&gt; ResourceT IO e
+</span><span id="line-34"></span><span>          </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680603798"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603798"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO e -&gt; ResourceT IO e
 forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; ResourceT m a
 forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
 (MonadTrans t, Monad m) =&gt;
@@ -100,59 +100,59 @@ STM m a -&gt; m a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-35"></span><span>              </span><span class="annot"><span class="annottext">e -&gt; STM IO ()
-</span><a href="#local-6989586621680603575"><span class="hs-identifier hs-var">setLastSeenEventId</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603580"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><a href="#local-6989586621680603793"><span class="hs-identifier hs-var">setLastSeenEventId</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603798"><span class="hs-identifier hs-var">event</span></a></span><span>
 </span><span id="line-36"></span><span>              </span><span class="annot"><span class="annottext">e -&gt; STM e
 forall a. a -&gt; STM a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603580"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><a href="#local-6989586621680603798"><span class="hs-identifier hs-var">event</span></a></span><span>
 </span><span id="line-37"></span><span>          </span><span class="hs-special">)</span><span>
 </span><span id="line-38"></span><span>
 </span><span id="line-39"></span><span>    </span><span class="hs-comment">-- Filter events that are already stored</span><span>
-</span><span id="line-40"></span><span>    </span><span id="local-6989586621680603584"><span class="annot"><span class="annottext">putEvent :: e -&gt; IO ()
-</span><a href="#local-6989586621680603584"><span class="hs-identifier hs-var hs-var">putEvent</span></a></span></span><span> </span><span id="local-6989586621680603585"><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603585"><span class="hs-identifier hs-var">evt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-40"></span><span>    </span><span id="local-6989586621680603802"><span class="annot"><span class="annottext">putEvent :: e -&gt; IO ()
+</span><a href="#local-6989586621680603802"><span class="hs-identifier hs-var hs-var">putEvent</span></a></span></span><span> </span><span id="local-6989586621680603803"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603803"><span class="hs-identifier hs-var">evt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-41"></span><span>      </span><span class="annot"><span class="annottext">STM IO (Maybe LogId) -&gt; IO (Maybe LogId)
 forall a. HasCallStack =&gt; STM IO a -&gt; IO a
 forall (m :: * -&gt; *) a.
 (MonadSTM m, HasCallStack) =&gt;
 STM m a -&gt; m a
 </span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">STM IO (Maybe LogId)
-</span><a href="#local-6989586621680603573"><span class="hs-identifier hs-var">getLastSeenEventId</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Maybe LogId) -&gt; (Maybe LogId -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621680603791"><span class="hs-identifier hs-var">getLastSeenEventId</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Maybe LogId) -&gt; (Maybe LogId -&gt; IO ()) -&gt; IO ()
 forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-42"></span><span>        </span><span class="annot"><span class="annottext">Maybe LogId
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">e -&gt; IO ()
-</span><a href="#local-6989586621680603586"><span class="hs-identifier hs-var">store</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603585"><span class="hs-identifier hs-var">evt</span></a></span><span>
-</span><span id="line-43"></span><span>        </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680603587"><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680603587"><span class="hs-identifier hs-var">lastSeenEventId</span></a></span></span><span>
+</span><a href="#local-6989586621680603804"><span class="hs-identifier hs-var">store</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603803"><span class="hs-identifier hs-var">evt</span></a></span><span>
+</span><span id="line-43"></span><span>        </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680603805"><span class="annot"><span class="annottext">LogId
+</span><a href="#local-6989586621680603805"><span class="hs-identifier hs-var">lastSeenEventId</span></a></span></span><span>
 </span><span id="line-44"></span><span>          </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">e -&gt; LogId
 forall a. HasEventId a =&gt; a -&gt; LogId
 </span><a href="Hydra.Events.html#getEventId"><span class="hs-identifier hs-var">getEventId</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603585"><span class="hs-identifier hs-var">evt</span></a></span><span> </span><span class="annot"><span class="annottext">LogId -&gt; LogId -&gt; Bool
+</span><a href="#local-6989586621680603803"><span class="hs-identifier hs-var">evt</span></a></span><span> </span><span class="annot"><span class="annottext">LogId -&gt; LogId -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680603587"><span class="hs-identifier hs-var">lastSeenEventId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">e -&gt; IO ()
-</span><a href="#local-6989586621680603586"><span class="hs-identifier hs-var">store</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603585"><span class="hs-identifier hs-var">evt</span></a></span><span>
+</span><a href="#local-6989586621680603805"><span class="hs-identifier hs-var">lastSeenEventId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">e -&gt; IO ()
+</span><a href="#local-6989586621680603804"><span class="hs-identifier hs-var">store</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603803"><span class="hs-identifier hs-var">evt</span></a></span><span>
 </span><span id="line-45"></span><span>          </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-46"></span><span>
-</span><span id="line-47"></span><span>    </span><span id="local-6989586621680603586"><span class="annot"><span class="annottext">store :: e -&gt; IO ()
-</span><a href="#local-6989586621680603586"><span class="hs-identifier hs-var hs-var">store</span></a></span></span><span> </span><span id="local-6989586621680603589"><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603589"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-47"></span><span>    </span><span id="local-6989586621680603804"><span class="annot"><span class="annottext">store :: e -&gt; IO ()
+</span><a href="#local-6989586621680603804"><span class="hs-identifier hs-var hs-var">store</span></a></span></span><span> </span><span id="local-6989586621680603807"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603807"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-48"></span><span>      </span><span class="annot"><span class="annottext">PersistenceIncremental e IO -&gt; ToJSON e =&gt; e -&gt; IO ()
 forall a (m :: * -&gt; *).
 PersistenceIncremental a m -&gt; ToJSON a =&gt; a -&gt; m ()
 </span><a href="Hydra.Persistence.html#%24sel%3Aappend%3APersistenceIncremental"><span class="hs-identifier hs-var">append</span></a></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental e IO
-</span><a href="#local-6989586621680603570"><span class="hs-identifier hs-var">persistence</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603589"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><a href="#local-6989586621680603788"><span class="hs-identifier hs-var">persistence</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603807"><span class="hs-identifier hs-var">e</span></a></span><span>
 </span><span id="line-49"></span><span>      </span><span class="annot"><span class="annottext">STM IO () -&gt; IO ()
 forall a. HasCallStack =&gt; STM IO a -&gt; IO a
 forall (m :: * -&gt; *) a.
@@ -161,16 +161,16 @@ STM m a -&gt; m a
 </span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM IO () -&gt; IO ()) -&gt; STM IO () -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">e -&gt; STM IO ()
-</span><a href="#local-6989586621680603575"><span class="hs-identifier hs-var">setLastSeenEventId</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603589"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><a href="#local-6989586621680603793"><span class="hs-identifier hs-var">setLastSeenEventId</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603807"><span class="hs-identifier hs-var">e</span></a></span><span>
 </span><span id="line-50"></span><span>
-</span><span id="line-51"></span><span>    </span><span id="local-6989586621680603591"><span class="annot"><span class="annottext">rotate :: LogId -&gt; e -&gt; IO ()
-</span><a href="#local-6989586621680603591"><span class="hs-identifier hs-var hs-var">rotate</span></a></span></span><span> </span><span id="local-6989586621680603592"><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680603592"><span class="hs-identifier hs-var">nextLogId</span></a></span></span><span> </span><span id="local-6989586621680603593"><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603593"><span class="hs-identifier hs-var">checkpointEvent</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-52"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680603594"><span class="annot"><span class="annottext">rotatedPath :: FilePath
-</span><a href="#local-6989586621680603594"><span class="hs-identifier hs-var hs-var">rotatedPath</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621680603569"><span class="hs-identifier hs-var">stateDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
+</span><span id="line-51"></span><span>    </span><span id="local-6989586621680603809"><span class="annot"><span class="annottext">rotate :: LogId -&gt; e -&gt; IO ()
+</span><a href="#local-6989586621680603809"><span class="hs-identifier hs-var hs-var">rotate</span></a></span></span><span> </span><span id="local-6989586621680603810"><span class="annot"><span class="annottext">LogId
+</span><a href="#local-6989586621680603810"><span class="hs-identifier hs-var">nextLogId</span></a></span></span><span> </span><span id="local-6989586621680603811"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603811"><span class="hs-identifier hs-var">checkpointEvent</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-52"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680603812"><span class="annot"><span class="annottext">rotatedPath :: FilePath
+</span><a href="#local-6989586621680603812"><span class="hs-identifier hs-var hs-var">rotatedPath</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621680603787"><span class="hs-identifier hs-var">stateDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;-&quot;</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
@@ -178,18 +178,18 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">LogId -&gt; FilePath
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680603592"><span class="hs-identifier hs-var">nextLogId</span></a></span><span>
+</span><a href="#local-6989586621680603810"><span class="hs-identifier hs-var">nextLogId</span></a></span><span>
 </span><span id="line-53"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-54"></span><span>          </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; IO ()
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/directory-1.3.8.5/src/System.Directory.html#renameFile"><span class="hs-identifier hs-var">renameFile</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621680603569"><span class="hs-identifier hs-var">stateDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621680603594"><span class="hs-identifier hs-var">rotatedPath</span></a></span><span>
+</span><a href="#local-6989586621680603787"><span class="hs-identifier hs-var">stateDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621680603812"><span class="hs-identifier hs-var">rotatedPath</span></a></span><span>
 </span><span id="line-55"></span><span>          </span><span class="annot"><span class="annottext">PersistenceIncremental e IO -&gt; ToJSON e =&gt; e -&gt; IO ()
 forall a (m :: * -&gt; *).
 PersistenceIncremental a m -&gt; ToJSON a =&gt; a -&gt; m ()
 </span><a href="Hydra.Persistence.html#%24sel%3Aappend%3APersistenceIncremental"><span class="hs-identifier hs-var">append</span></a></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental e IO
-</span><a href="#local-6989586621680603570"><span class="hs-identifier hs-var">persistence</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680603593"><span class="hs-identifier hs-var">checkpointEvent</span></a></span><span>
+</span><a href="#local-6989586621680603788"><span class="hs-identifier hs-var">persistence</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680603811"><span class="hs-identifier hs-var">checkpointEvent</span></a></span><span>
 </span><span id="line-56"></span><span>        </span><span class="hs-special">)</span><span>
 </span><span id="line-57"></span><span>        </span><span class="annot"><span class="annottext">IO () -&gt; (SomeException -&gt; IO ()) -&gt; IO ()
 forall e a. Exception e =&gt; IO a -&gt; (e -&gt; IO a) -&gt; IO a
@@ -202,8 +202,8 @@ m a -&gt; (e -&gt; m a) -&gt; m a
 </span><span id="line-59"></span><span>          </span><span class="hs-comment">-- ignoring errors during rollback.</span><span>
 </span><span id="line-60"></span><span>          </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; IO ()
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/directory-1.3.8.5/src/System.Directory.html#renameFile"><span class="hs-identifier hs-var">renameFile</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621680603594"><span class="hs-identifier hs-var">rotatedPath</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621680603569"><span class="hs-identifier hs-var">stateDir</span></a></span><span>
+</span><a href="#local-6989586621680603812"><span class="hs-identifier hs-var">rotatedPath</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621680603787"><span class="hs-identifier hs-var">stateDir</span></a></span><span>
 </span><span id="line-61"></span><span>
 </span><span id="line-62"></span><span>  </span><span class="annot"><span class="annottext">EventStore e IO -&gt; IO (EventStore e IO)
 forall a. a -&gt; IO a
@@ -211,20 +211,20 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span>
 </span><span id="line-63"></span><span>    </span><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-type">EventStore</span></a></span><span>
 </span><span id="line-64"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:eventSource:EventStore :: EventSource e IO
-</span><a href="#local-6989586621680603598"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSource"><span class="hs-identifier hs-type">EventSource</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">ConduitT () e (ResourceT IO) ()
+</span><a href="#local-6989586621680603816"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSource"><span class="hs-identifier hs-type">EventSource</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">ConduitT () e (ResourceT IO) ()
 HasEventId e =&gt; ConduitT () e (ResourceT IO) ()
 sourceEvents :: ConduitT () e (ResourceT IO) ()
 $sel:sourceEvents:EventSource :: HasEventId e =&gt; ConduitT () e (ResourceT IO) ()
-</span><a href="#local-6989586621680603578"><span class="hs-identifier hs-var hs-var">sourceEvents</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621680603796"><span class="hs-identifier hs-var hs-var">sourceEvents</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-65"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:eventSink:EventStore :: EventSink e IO
-</span><a href="#local-6989586621680603602"><span class="hs-identifier hs-var">eventSink</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSink"><span class="hs-identifier hs-type">EventSink</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">e -&gt; IO ()
+</span><a href="#local-6989586621680603820"><span class="hs-identifier hs-var">eventSink</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSink"><span class="hs-identifier hs-type">EventSink</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">e -&gt; IO ()
 HasEventId e =&gt; e -&gt; IO ()
 putEvent :: e -&gt; IO ()
 $sel:putEvent:EventSink :: HasEventId e =&gt; e -&gt; IO ()
-</span><a href="#local-6989586621680603584"><span class="hs-identifier hs-var hs-var">putEvent</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621680603802"><span class="hs-identifier hs-var hs-var">putEvent</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-66"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">LogId -&gt; e -&gt; IO ()
 rotate :: LogId -&gt; e -&gt; IO ()
 $sel:rotate:EventStore :: LogId -&gt; e -&gt; IO ()
-</span><a href="#local-6989586621680603591"><span class="hs-identifier hs-var hs-var">rotate</span></a></span><span>
+</span><a href="#local-6989586621680603809"><span class="hs-identifier hs-var hs-var">rotate</span></a></span><span>
 </span><span id="line-67"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-68"></span></pre></body></html>

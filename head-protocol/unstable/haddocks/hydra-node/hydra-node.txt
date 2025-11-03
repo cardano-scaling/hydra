@@ -4265,7 +4265,6 @@ MissingBlockSlot :: Maybe Slot -> APIBlockfrostError
 MissingNextBlockHash :: BlockHash -> APIBlockfrostError
 isRetryable :: APIBlockfrostError -> Bool
 toTx :: MonadThrow m => TransactionCBOR -> m Tx
-fromChainPoint :: ChainPoint -> Text -> BlockHash
 instance GHC.Show.Show Hydra.Chain.Blockfrost.BlockfrostBackend
 instance GHC.Classes.Eq Hydra.Chain.Blockfrost.BlockfrostBackend
 instance GHC.Show.Show Hydra.Chain.Blockfrost.BlockfrostConnectException
