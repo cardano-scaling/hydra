@@ -50,7 +50,7 @@ import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDi
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
-import Hydra.Tx.Accumulator (HasAccumulatorElement, getAccumulatorHash, makeHeadAccumulator)
+import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -2008,7 +2008,7 @@ inClosedState' parties confirmedSnapshot =
 
   contestationDeadline = arbitrary `generateWith` 42
 
-getConfirmedSnapshot :: HasAccumulatorElement tx => NodeState tx -> Maybe (Snapshot tx)
+getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
   NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}} ->
     Just (getSnapshot confirmedSnapshot)
@@ -2141,7 +2141,7 @@ zeroChainPointTime =
     }
 
 testSnapshot ::
-  HasAccumulatorElement tx =>
+  IsTx tx =>
   SnapshotNumber ->
   SnapshotVersion ->
   [tx] ->

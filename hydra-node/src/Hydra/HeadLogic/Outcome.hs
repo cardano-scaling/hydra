@@ -25,7 +25,6 @@ import Hydra.Tx (
   TxIdType,
   UTxOType,
  )
-import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.OnChainId (OnChainId)

@@ -13,7 +13,6 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SerialiseAsRawBytes (..))
 import Hydra.Contract.HeadState qualified as Onchain
-import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
@@ -148,11 +147,10 @@ data ConfirmedSnapshot tx
 -- add a new branch to the sumtype. So, we explicitly define a getter which
 -- will force us into thinking about changing the signature properly if this
 -- happens.
-getSnapshot :: Accumulator.HasAccumulatorElement tx => ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: IsTx tx => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
-    let accumulator = Accumulator.makeHeadAccumulator initialUTxO
-        utxoHash = Accumulator.getAccumulatorHash accumulator
+    let utxoHash = hashUTxO initialUTxO
      in Snapshot
           { headId
           , version = 0

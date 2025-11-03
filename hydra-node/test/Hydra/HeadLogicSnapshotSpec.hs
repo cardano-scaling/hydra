@@ -18,7 +18,7 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUn
 import Hydra.Tx.Accumulator (HasAccumulatorElement, getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (UTxOType, txId)
+import Hydra.Tx.IsTx (IsTx, UTxOType, txId)
 import Hydra.Tx.Party (Party, deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.Tx.Fixture (
@@ -237,7 +237,7 @@ prop_thereIsAlwaysALeader =
         any (\p -> isLeader params p sn) parties
 
 testSnapshot ::
-  HasAccumulatorElement tx =>
+  IsTx tx =>
   SnapshotNumber ->
   SnapshotVersion ->
   [tx] ->
