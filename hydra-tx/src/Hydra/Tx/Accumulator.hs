@@ -2,13 +2,12 @@
 
 module Hydra.Tx.Accumulator (
   HydraAccumulator (..),
-  HasAccumulatorElement (..),
   makeHeadAccumulator,
   getAccumulatorHash,
+  hashUTxOWithAccumulator,
   -- createMembershipProof,
 
   build,
-  utxoToElement,
 ) where
 
 import Hydra.Prelude
@@ -17,20 +16,9 @@ import Accumulator (Accumulator)
 import Accumulator qualified
 
 -- import Bindings (getPolyCommitOverG2)
-import Cardano.Api.UTxO qualified as UTxO
-
 -- import Cardano.Crypto.EllipticCurve.BLS12_381 (Point2)
 import Codec.Serialise (serialise)
-import Hydra.Cardano.Api (
-  CtxUTxO,
-  Tx,
-  TxIn,
-  TxOut,
-  toPlutusTxOut,
-  toPlutusTxOutRef,
- )
 import Hydra.Tx.IsTx (IsTx (..))
-import PlutusTx (toData)
 
 -- * HydraAccumulator
 
@@ -41,9 +29,10 @@ build :: [ByteString] -> HydraAccumulator
 build = HydraAccumulator . Accumulator.buildAccumulator
 
 -- | Create a 'HydraAccumulator' from a UTxO set.
-makeHeadAccumulator :: forall tx. HasAccumulatorElement tx => UTxOType tx -> HydraAccumulator
+-- Requires IsTx for UTxOType, toPairList, and utxoToElement.
+makeHeadAccumulator :: forall tx. IsTx tx => UTxOType tx -> HydraAccumulator
 makeHeadAccumulator utxo =
-  let elements = utxoToElement @tx <$> toPairList utxo
+  let elements = utxoToElement @tx <$> toPairList @tx utxo
    in build elements
 
 -- | Get a simple hash of the accumulator state.
@@ -56,6 +45,11 @@ getAccumulatorHash (HydraAccumulator acc) =
   -- Simple serialization-based hash of the accumulator map
   toStrict . serialise $ acc
 
+-- | Hash a UTxO set using the accumulator.
+-- This is the function that should be used instead of IsTx.hashUTxO for Hydra protocol.
+hashUTxOWithAccumulator :: forall tx. IsTx tx => UTxOType tx -> ByteString
+hashUTxOWithAccumulator = getAccumulatorHash . makeHeadAccumulator
+
 -- * Cryptographic Proofs (IO functions for partial fanout)
 
 -- | Create a membership proof for a subset of UTxO elements.
@@ -63,7 +57,7 @@ getAccumulatorHash (HydraAccumulator acc) =
 -- a subset of UTxOs were actually in the confirmed snapshot.
 -- createMembershipProof ::
 --   forall tx.
---   HasAccumulatorElement tx =>
+--   IsTx tx =>
 --   -- | The subset of UTxO to prove membership of (e.g., the UTxOs being fanned out)
 --   UTxOType tx ->
 --   -- | The full accumulator from the confirmed snapshot
@@ -77,35 +71,3 @@ getAccumulatorHash (HydraAccumulator acc) =
 --   let partialElements = utxoToElement @tx <$> toPairList partialUTxO
 --   -- Generate the cryptographic proof using the Bindings module
 --   getPolyCommitOverG2 partialElements fullAcc crs
-
--- | Convert a UTxO pair to a ByteString element for the accumulator.
---
--- This is a polymorphic function that works for any transaction type implementing IsTx.
--- For Cardano transactions, it uses Plutus serialization.
--- For SimpleTx, it uses CBOR serialization.
-utxoToElement :: forall tx. HasAccumulatorElement tx => UTxOPairType tx -> ByteString
-utxoToElement = utxoToElementImpl @tx
-
--- | Type class for transactions that support accumulator operations.
---
--- This is separate from IsTx because not all transaction types need accumulator support.
--- For example, SimpleTx is only used for testing and doesn't need accumulator functionality.
-class IsTx tx => HasAccumulatorElement tx where
-  -- | Type for (input, output) pairs used in accumulator.
-  type UTxOPairType tx
-
-  -- | Convert a 'UTxOType' to a list of (input, output) pairs.
-  toPairList :: UTxOType tx -> [UTxOPairType tx]
-
-  -- | Convert a UTxO pair to a ByteString element for the accumulator.
-  utxoToElementImpl :: UTxOPairType tx -> ByteString
-
--- | Instance for Cardano Tx - uses Plutus serialization
-instance HasAccumulatorElement Tx where
-  type UTxOPairType Tx = (TxIn, TxOut CtxUTxO)
-
-  toPairList = UTxO.toList
-
-  utxoToElementImpl (txIn, txOut) =
-    toStrict (serialise $ toData $ toPlutusTxOutRef txIn)
-      <> toStrict (serialise $ toData $ toPlutusTxOut txOut)

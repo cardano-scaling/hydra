@@ -8,7 +8,6 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (ChainEvent)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Network.Message (Message, NetworkEvent)
-import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 
 type TTL = Natural
@@ -33,6 +32,6 @@ deriving stock instance IsChainState tx => Show (Input tx)
 deriving anyclass instance IsChainState tx => ToJSON (Input tx)
 deriving anyclass instance IsChainState tx => FromJSON (Input tx)
 
-instance (ArbitraryIsTx tx, HasAccumulatorElement tx, IsChainState tx) => Arbitrary (Input tx) where
+instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Input tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink

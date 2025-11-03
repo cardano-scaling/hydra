@@ -40,7 +40,6 @@ import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
-import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
 import System.Directory (doesFileExist)
@@ -146,7 +145,7 @@ newtype SideLoadSnapshotRequest tx = SideLoadSnapshotRequest
   deriving newtype (Eq, Show, Generic)
   deriving newtype (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), HasAccumulatorElement tx) => Arbitrary (SideLoadSnapshotRequest tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (SideLoadSnapshotRequest tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
@@ -208,7 +207,7 @@ jsonContent = [(hContentType, "application/json")]
 -- | Hydra HTTP server
 httpApp ::
   forall tx.
-  (IsChainState tx, HasAccumulatorElement tx) =>
+  IsChainState tx =>
   Tracer IO APIServerLog ->
   Chain tx IO ->
   Environment ->
