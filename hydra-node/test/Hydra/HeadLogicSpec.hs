@@ -15,6 +15,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
 import Control.Lens ((.~))
+import Control.Monad (foldM)
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Map qualified as Map
@@ -45,6 +46,7 @@ import Hydra.Node.State (Deposit (..), DepositStatus (Active), NodeState (..), i
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
+import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -765,6 +767,59 @@ spec =
 
       it "ignores unrelated initTx" prop_ignoresUnrelatedOnInitTx
 
+      prop "node synced status transitions according to chain time and unsynced policy" $
+        forAllShrink arbitrary shrink $ \headState ->
+          forAllShrink
+            ( arbitrary @[Input SimpleTx]
+                `suchThat` ( not
+                              . any
+                                ( \case
+                                    ChainInput Tick{} -> True
+                                    _ -> False
+                                )
+                           )
+            )
+            shrink
+            $ \noTickInputs -> monadicIO $ do
+              let catchingUp = NodeCatchingUp{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0}
+
+              stillCatchingUp <-
+                run $
+                  foldM
+                    ( \nodeState input ->
+                        runHeadLogic bobEnv ledger nodeState $ do
+                          step input
+                          getState
+                    )
+                    catchingUp
+                    noTickInputs
+
+              assert $ case stillCatchingUp of
+                NodeCatchingUp{} -> True
+                _ -> False
+
+              now <- run getCurrentTime
+              nodeInSync <- run $ do
+                runHeadLogic bobEnv ledger stillCatchingUp $ do
+                  step $ ChainInput Tick{chainTime = now, chainSlot = ChainSlot 10}
+                  getState
+
+              assert $ case nodeInSync of
+                NodeInSync{} -> True
+                _ -> False
+
+              nodeOutOfSync <- run $ do
+                let delta = CP.unsyncedPolicy bobEnv.contestationPeriod
+                    -- make chain time too old
+                    oldChainTime = addUTCTime (negate (delta + 1)) now
+                runHeadLogic bobEnv ledger nodeInSync $ do
+                  step $ ChainInput Tick{chainTime = oldChainTime, chainSlot = ChainSlot 100}
+                  getState
+
+              assert $ case nodeOutOfSync of
+                NodeCatchingUp{} -> True
+                _ -> False
+
       prop "connectivity messages passthrough without affecting the current state" $
         \(ttl, connectivityMessage, nodeState) -> do
           let input = connectivityChanged ttl connectivityMessage
@@ -1192,7 +1247,7 @@ prop_ignoresUnrelatedOnInitTx =
   forAll arbitrary $ \env ->
     forAll (genUnrelatedInit env) $ \unrelatedInit -> monadicIO $ do
       let idleSt = inIdleState
-      now <- run $ nowFromSlot idleSt.currentSlot
+      now <- run getCurrentTime
       let outcome = update env simpleLedger now idleSt (observeTx unrelatedInit)
       monitor $ counterexample ("Outcome: " <> show outcome)
       run $
@@ -1429,12 +1484,12 @@ getState = nodeState <$> get
 
 -- | Calls 'update' and 'aggregate' to drive the 'runHeadLogic' monad forward.
 step ::
-  (MonadState (StepState tx) m, IsChainState tx, MonadFail m, MonadTime m) =>
+  (MonadState (StepState tx) m, IsChainState tx, MonadTime m) =>
   Input tx ->
   m (Outcome tx)
 step input = do
   StepState{nodeState, env, ledger} <- get
-  now <- nowFromSlot nodeState.currentSlot
+  now <- getCurrentTime
   let outcome = update env ledger now nodeState input
   let nodeState' = aggregateState nodeState outcome
   put StepState{env, ledger, nodeState = nodeState'}

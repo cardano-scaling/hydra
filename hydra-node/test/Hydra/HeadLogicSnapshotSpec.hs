@@ -151,7 +151,7 @@ spec = do
         let
           notLeaderEnv = envFor carolSk
 
-        let initiateSigningASnapshot :: (MonadState (StepState SimpleTx) m, MonadFail m, MonadTime m) => Party -> m (Outcome SimpleTx)
+        let initiateSigningASnapshot :: (MonadState (StepState SimpleTx) m, MonadTime m) => Party -> m (Outcome SimpleTx)
             initiateSigningASnapshot actor =
               step (receiveMessageFrom actor $ ReqSn 0 1 [] Nothing Nothing)
             newTxBeforeSnapshotAcknowledged =
