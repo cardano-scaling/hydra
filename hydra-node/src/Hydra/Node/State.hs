@@ -11,7 +11,6 @@ import Hydra.Tx (
   HeadId,
   IsTx (..),
  )
-import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Test.QuickCheck (recursivelyShrink)
 
@@ -27,7 +26,7 @@ data NodeState tx = NodeState
   }
   deriving stock (Generic)
 
-instance (ArbitraryIsTx tx, HasAccumulatorElement tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
   arbitrary = genericArbitrary
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
