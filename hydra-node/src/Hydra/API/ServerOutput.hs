@@ -22,7 +22,6 @@ import Hydra.Node.State (NodeState, SyncedStatus)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
 import Hydra.Tx qualified as Tx
-import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (IsTx (..))
@@ -314,7 +313,7 @@ data NetworkInfo = NetworkInfo
   deriving anyclass (ToJSON, FromJSON)
 
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
-getSnapshotUtxo :: HasAccumulatorElement tx => HeadState tx -> Maybe (UTxOType tx)
+getSnapshotUtxo :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
 getSnapshotUtxo = \case
   HeadState.Idle{} ->
     Nothing
@@ -329,7 +328,7 @@ getSnapshotUtxo = \case
      in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
 
 -- | Get latest seen snapshot from 'HeadState'.
-getSeenSnapshot :: HasAccumulatorElement tx => HeadState tx -> HeadState.SeenSnapshot tx
+getSeenSnapshot :: IsTx tx => HeadState tx -> HeadState.SeenSnapshot tx
 getSeenSnapshot = \case
   HeadState.Idle{} ->
     NoSeenSnapshot
