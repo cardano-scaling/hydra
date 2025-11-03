@@ -716,7 +716,7 @@ components:
         Emitted by the server when a well-formed client input was not processable. For example, if trying to close a non opened head or, when trying to commit after having already committed.
       payload:
         $ref: "api.yaml#/components/schemas/CommandFailed"
-    
+
     RejectedInput:
       title: RejectedInput
       description: |
@@ -1464,7 +1464,7 @@ components:
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         state:
           $ref: "api.yaml#/components/schemas/HeadState"
-    
+
     RejectedInput:
       type: object
       required:
