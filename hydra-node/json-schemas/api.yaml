@@ -716,6 +716,13 @@ components:
         Emitted by the server when a well-formed client input was not processable. For example, if trying to close a non opened head or, when trying to commit after having already committed.
       payload:
         $ref: "api.yaml#/components/schemas/CommandFailed"
+    
+    RejectedInput:
+      title: RejectedInput
+      description: |
+        Emitted by the server when a well-formed client input was not processable because the node-state is catching up with the chain-state.
+      payload:
+        $ref: "api.yaml#/components/schemas/RejectedInput"
 
     IgnoredHeadInitializing:
       title: IgnoredHeadInitializing
@@ -903,6 +910,7 @@ components:
       oneOf:
         - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
         - $ref: "api.yaml#/components/schemas/CommandFailed"
+        - $ref: "api.yaml#/components/schemas/RejectedInput"
 
     Greetings:
       type: object
@@ -1437,6 +1445,7 @@ components:
       required:
       - tag
       - clientInput
+      - state
       properties:
         tag:
           type: string
@@ -1453,6 +1462,31 @@ components:
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
+        state:
+          $ref: "api.yaml#/components/schemas/HeadState"
+    
+    RejectedInput:
+      type: object
+      required:
+      - tag
+      - clientInput
+      properties:
+        tag:
+          type: string
+          enum: ["RejectedInput"]
+        clientInput:
+          oneOf:
+            - $ref: "api.yaml#/components/messages/Init/payload"
+            - $ref: "api.yaml#/components/messages/Abort/payload"
+            - $ref: "api.yaml#/components/messages/NewTx/payload"
+            - $ref: "api.yaml#/components/messages/Decommit/payload"
+            - $ref: "api.yaml#/components/messages/Recover/payload"
+            - $ref: "api.yaml#/components/messages/Close/payload"
+            - $ref: "api.yaml#/components/messages/Contest/payload"
+            - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
+        reason:
+          type: string
 
     IgnoredHeadInitializing:
       type: object

@@ -1388,8 +1388,8 @@ updateUnsyncedHead env ledger now currentSlot pendingDeposits st ev syncStatus =
   case ev of
     ChainInput{} ->
       handleChainInput env ledger now currentSlot pendingDeposits st ev syncStatus
-    ClientInput{} ->
-      Error $ UnhandledInput ev st
+    ClientInput{clientInput} ->
+      cause . ClientEffect $ ServerOutput.RejectedInput clientInput "chain out of sync"
     NetworkInput{} ->
       wait WaitOnNodeInSync{currentSlot}
 
