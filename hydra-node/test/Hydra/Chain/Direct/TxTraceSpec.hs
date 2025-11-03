@@ -51,7 +51,6 @@ import Hydra.Ledger.Cardano (Tx, adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.ModelSpec (propIsDistributive)
 import Hydra.Tx (CommitBlueprintTx (..))
-import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
 import Hydra.Tx.Deposit (depositTx)
@@ -753,7 +752,7 @@ signedSnapshot ms =
       , number = ms.number
       , confirmed = []
       , utxo
-      , utxoHash = getAccumulatorHash $ makeHeadAccumulator utxo
+      , utxoHash = hashUTxO utxo
       , utxoToCommit
       , utxoToDecommit
       }
