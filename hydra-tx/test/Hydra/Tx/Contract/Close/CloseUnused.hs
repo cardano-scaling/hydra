@@ -18,7 +18,6 @@ import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (Snapshot (..), hashUTxO, mkHeadId, registryUTxO)
-import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
@@ -117,8 +116,7 @@ healthyCloseCurrentTx =
 
 healthyCurrentSnapshot :: Snapshot Tx
 healthyCurrentSnapshot =
-  let accumulator = Accumulator.makeHeadAccumulator healthySplitUTxOInHead
-      utxoHash = Accumulator.getAccumulatorHash accumulator
+  let utxoHash = hashUTxO healthySplitUTxOInHead
    in Snapshot
         { headId = mkHeadId Fixture.testPolicyId
         , version = healthyCurrentSnapshotVersion
