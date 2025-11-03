@@ -15,10 +15,9 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (headState), currentSlot)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
-import Hydra.Tx.Accumulator (getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (IsTx, UTxOType, txId)
+import Hydra.Tx.IsTx (IsTx, UTxOType, hashUTxO, txId)
 import Hydra.Tx.Party (Party, deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.Tx.Fixture (
@@ -242,8 +241,7 @@ testSnapshot ::
   UTxOType tx ->
   Snapshot tx
 testSnapshot number version confirmed utxo =
-  let accumulator = makeHeadAccumulator utxo
-      utxoHash = getAccumulatorHash accumulator
+  let utxoHash = hashUTxO utxo
    in Snapshot
         { headId = testHeadId
         , version
