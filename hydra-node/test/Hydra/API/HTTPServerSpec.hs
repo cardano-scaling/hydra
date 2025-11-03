@@ -661,7 +661,7 @@ apiServerSpec = do
                 testEnvironment
                 statePath
                 defaultPParams
-                (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152})
+                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152})
                 getHeadId
                 getPendingDeposits
                 putClientInput
