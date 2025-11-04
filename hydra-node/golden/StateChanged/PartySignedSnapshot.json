@@ -2,7 +2,7 @@
     "samples": [
         {
             "party": {
-                "vkey": "43672c4cbd485b4c49791f96d1388afd6f6e361a9abdb1d75b6856b4e6701177"
+                "vkey": "bbbf546130030d800251d3a0a7f9dda3409dff41a25eb233655a9eba0b1b306a"
             },
             "signature": "93ccf23947af949af75057b04327c6214c1e729d4d29a1215f65774cf07d7b93d962ef626e5a0e2c3e7f8bbf1b3ffcb679389857b2876352be68d97f5f188a05",
             "snapshotNumber": 1,
