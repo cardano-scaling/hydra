@@ -844,7 +844,7 @@ spec =
         it "accept new side load confirmed snapshot" $ do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
-          let snapshot2 = testSnapshot 0 2 [tx2] (utxoRef 3)
+          let snapshot2 = testSnapshot 2 0 [tx2] (utxoRef 3)
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2, sign carolSk snapshot2]
 
           sideLoadedState <- runHeadLogic bobEnv ledger startingState $ do
@@ -921,7 +921,7 @@ spec =
         prop "ignores side load confirmed snapshot of another head" $ \otherHeadId -> do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
-          let snapshot1OtherHead = testSnapshot 1 0 [tx1] (utxoRef 2)
+          let snapshot1OtherHead = (testSnapshot 1 0 [tx1] (utxoRef 2)){headId = otherHeadId} :: Snapshot SimpleTx
               multisig1OtherHead = aggregate [sign aliceSk snapshot1OtherHead, sign bobSk snapshot1OtherHead, sign carolSk snapshot1OtherHead]
               confirmedSnapshotOtherHead = ConfirmedSnapshot snapshot1OtherHead multisig1OtherHead
 

@@ -16,7 +16,6 @@ import Accumulator qualified
 -- import Bindings (getPolyCommitOverG2)
 -- import Cardano.Crypto.EllipticCurve.BLS12_381 (Point2)
 import Codec.Serialise (serialise)
-import Hydra.Tx.IsTx (IsTx (..))
 
 -- * HydraAccumulator
 

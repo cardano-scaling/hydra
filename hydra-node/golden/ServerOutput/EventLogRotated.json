@@ -30,7 +30,7 @@
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
-                                    "ed3691bc9338a8193d009c4739b5ba1460d182f78bdf25dbc5058580cebdefe9be5c7e4f9ced0155a23d22cfeac52b8719e69ecbe5de096345702fae9bb8b20c"
+                                    "1667488656608aafb523467fbe6ac17d5b1381eb12a5e667c599e8255925537f8e46f00f30e7f278e997950b4178529df21540e13e38ef240c8db3cf73d7050e"
                                 ]
                             },
                             "snapshot": {
@@ -53,6 +53,7 @@
                                         }
                                     }
                                 },
+                                "utxoHash": "b080f6360d7112198d1361587062802c457bdadadd5111a5d90107b59c3110d8",
                                 "utxoToCommit": {
                                     "0101010100000000010101010100000000010100000001010101010100000100#46": {
                                         "address": "addr_test1xpgv5fv4hgymnu2wtkn0trec3cscgqhmvzly9lvx7vfl0d58e6vwjkn2pruxw3cu32533snq44dtlcwj6yy8a0mz2q7q5eqm62",

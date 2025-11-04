@@ -2902,7 +2902,7 @@
                     "confirmedSnapshot": {
                         "signatures": {
                             "multiSignature": [
-                                "5cb95ba0038502e3ed8bee612ccedb7acefc5d1b52b866e38a9f831152847ed0bff8bcc5cf2357cbaa3987f76e10e18036690289cde8c52b5be608f3e4f0c602"
+                                "1f0c460085994c29d74e8c68d0826e7d5ef994e8047e69a97e9df188c126060b7228724aa89c88ab5bff13c875e96bff1f246e2a1169950821cd358f50185b0f"
                             ]
                         },
                         "snapshot": {
@@ -3445,6 +3445,7 @@
                                     }
                                 }
                             },
+                            "utxoHash": "7a34c25496a8a857afd4e5e5fd8293176e53c4367be179a0e627750af447893e",
                             "utxoToCommit": {
                                 "0101030505010102050304020206010803050504040703020701050502000100#19": {
                                     "address": "addr_test1xrwf3tlm6njdt7ad0jy5l5u4r9ah0ldz9923qsa0mv8zr8xs9dyvj07vqzjr0yhxm7p05ftgjtj5eaednzlu8ctuykyq73jh0g",
@@ -5183,11 +5184,11 @@
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
-                                    "a381b6316a73b0fd855e78b638538c19c3036e6a390a2f8b2c86a0327a1588aa5d9f0eaec130da3be30b826fa8f9ab6faa0d6418ba5d508256b4a83ec1e63d0e",
-                                    "292e4e82e3e7ab8fd165b0863b8e7edfcd3a86c33aac65f99f12c30511b06707875d68d41e02361a121ec06aef43575936de23e6c68234b3b050cbdae5494504",
-                                    "ce51f0e6214d4785024917157934e00e5dd753c1f99dc5c236786d7b4aec6ed23a9c5b171b98f854f45b0c3e5c2fa1e64646b168724c5fd0a2a5cea239642a0f",
-                                    "7da85f8608d0722eb450d72f1957508f8d4cc4aa14f09cb9665f225fa52aa9f6d5ebbd9c15d7fae667f1ef6e627a26db8fd59ae4483dc2db4e3eeb6e23967e01",
-                                    "aa81f4481de94bde5bd7cc336451418922e580aa2995cdbff50cf1cf69c7969edbad5b2e9bccdbf2750e9b118467e5b8b90b538de32c1ba8f32aec82fe412401"
+                                    "e127ed1af6205ea77d9dbdfe7e4b1288878c30344c04071c640c8c584b555cb41d5edc040dca61536d1466cc7a0c7e274311e1687ebee727cf3b7ed0cae0cd00",
+                                    "a76e95317152d42a783140a3764d78e0df5210e05999c9cced1e1f147208dc2ef9a396936f481240b45a716d73e0ef6c8a998461fd035bcff77c52ccfdbc430c",
+                                    "a679dcc81d9665de2a27e67ce10e97e2b90997735cfab3774251dee15b6162dae58733f474c6938e277f5821cab0c9baf54d48169cf8400fa40317080dcd1908",
+                                    "a7bf327a865e76cbe22551ac9fdf2c8e38891604c270f9f60e38bf61e6433e7d3fcf5f99f2c20b5314ceec5a6cf0eb32549122be7fb454b11f52a329b9f6ca08",
+                                    "462760cebfec3b22d8131a1306124c962fd84008dae02990d82d680c5418353df302d0c3d46d9d8b86da68788d7f316f1efc1f26cebe87fe0efa405d43c56a0e"
                                 ]
                             },
                             "snapshot": {
@@ -5270,6 +5271,7 @@
                                         }
                                     }
                                 },
+                                "utxoHash": "5b65dee2b2f375db34deefe263c9da1a372f1b67f699c271a278bad90b325733",
                                 "utxoToCommit": {
                                     "0001010008050801010704020600050503020205060403010106010800020307#13": {
                                         "address": "addr_test1zqvn3sx060d76ztvuzv2kelz7e75r4mtt4shmw2kx2tzzu2rl8n462467jg3fzdt77n2t74kddtc37rkxz8h2udn923qe7xcvv",
