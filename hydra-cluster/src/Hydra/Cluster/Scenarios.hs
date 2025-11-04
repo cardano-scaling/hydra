@@ -2338,7 +2338,7 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
         tx <- mkTransferTx testNetworkId utxo carolCardanoSk carolCardanoVk
         send n3 $ input "NewTx" ["transaction" .= tx]
 
-        waitMatch 20 n3 $ \v -> do
+        waitMatch 5 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "RejectedInput"
           guard $ v ^? key "reason" == Just "chain out of sync"
 
