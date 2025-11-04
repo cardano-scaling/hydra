@@ -19,15 +19,16 @@ changes.
 
 - Tested with `cardano-node 10.5.3` and `cardano-cli 10.11.0.0`.
 
+- **BREAKING** Hydra node stops interacting on network and client API once the node's view of the chain is out of sync more than 50% of `--contestation-period`.
+  - Added `NodeUnsynced` and `NodeSynced` state events and server outputs.
+  - Added `RejectedInput` client message.
+  - The `Checkpoint` event, and consequently the `EventLogRotated` server output, now carry the different `NodeState` variants: `NodeInSync` or `NodeCatchingUp`.
 
 ## [1.1.0] - 2025-10-28
 
 - **BREAKING** Partial assets depositing works a bit differently now so you should consult our [API reference](https://hydra.family/head-protocol/api-reference).
   These changes also enable more complex scenarios when depositing and gives more flexibility to our users
   since hydra-node is capable of balancing the deposit tx outputs now. [#2180](https://github.com/cardano-scaling/hydra/issues/2180)
-  
-- Hydra node stops interacting on network and client API once the node's view of the chain is out of sync more than 50% of `--contestation-period`.
-  - Added `NodeUnsynced` and `NodeSynced` state events and server outputs.
 
 ## [1.0.0] - 2025-10-08
 
