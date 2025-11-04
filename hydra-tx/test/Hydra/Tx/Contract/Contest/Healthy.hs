@@ -130,6 +130,8 @@ healthyClosedState =
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion
+      , accumulatorHash = toBuiltin ("" :: ByteString) -- TODO: Proper accumulator hash
+      , crs = toBuiltin ("" :: ByteString) -- TODO: Proper CRS
       }
 
 healthyContestUTxOHash :: BuiltinByteString
