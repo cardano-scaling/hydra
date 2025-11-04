@@ -9,6 +9,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
@@ -56,9 +57,17 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           , snapshotNumber = fromIntegral number
           , numberOfDecommitOutputs =
               fromIntegral $ maybe 0 UTxO.size utxoToDecommit
+          , accumulatorHash = toBuiltin decrementAccumulatorHash
+          , crs = toBuiltin decrementCrs
           }
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
+
+  nextUtxoHash = hashUTxO @Tx utxo
+  utxoToCommitHash = hashUTxO @Tx mempty
+  decommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
+  decrementAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [nextUtxoHash, utxoToCommitHash, decommitHash]
+  decrementCrs = "" :: ByteString
 
   HeadParameters{parties, contestationPeriod} = headParameters
 
