@@ -281,14 +281,14 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
 
   headOutValue = txOutValue $ L.head $ txInfoOutputs txInfo
 
-  IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
+  IncrementRedeemer{signature, snapshotNumber, increment, accumulatorHash, crs} = redeemer
 
   claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
       increment `L.elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash, accumulatorHash, crs) signature
 
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
@@ -329,7 +329,7 @@ checkDecrement ctx openBefore redeemer =
     && mustBeSignedByParticipant ctx prevHeadId
  where
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, emptyHash, decommitUtxoHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, emptyHash, decommitUtxoHash, accumulatorHash, crs) signature
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
@@ -341,7 +341,7 @@ checkDecrement ctx openBefore redeemer =
 
   decommitUtxoHash = hashTxOuts decommitOutputs
 
-  DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs} = redeemer
+  DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs, accumulatorHash, crs} = redeemer
 
   OpenDatum
     { parties = prevParties
@@ -421,6 +421,8 @@ checkClose ctx openBefore redeemer =
     , headId = headId'
     , contesters = contesters'
     , version = version'
+    , accumulatorHash = accumulatorHash'
+    , crs = crs'
     } = decodeHeadOutputClosedDatum ctx
 
   mustNotChangeVersion =
@@ -441,7 +443,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
+              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, accumulatorHash', crs')
               signature
       CloseUnusedDec{signature} ->
         traceIfFalse $(errorCode FailedCloseUnusedDec) $
@@ -449,7 +451,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' /= emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
+              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', accumulatorHash', crs')
               signature
       CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedDec) $
@@ -457,7 +459,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, accumulatorHash', crs')
               signature
       CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedInc) $
@@ -465,7 +467,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
+              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash', crs') -- TODO:
               signature
       CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
@@ -473,7 +475,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash', crs')
               signature
 
   checkDeadline =
@@ -542,7 +544,7 @@ checkContest ctx closedDatum redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
+              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, accumulatorHash', crs')
               signature
       ContestUsedDec{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedContestUsedDec) $
@@ -550,28 +552,28 @@ checkContest ctx closedDatum redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, accumulatorHash', crs')
               signature
       ContestUnusedDec{signature} ->
         traceIfFalse $(errorCode FailedContestUnusedDec) $
           alphaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
+              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', accumulatorHash', crs')
               signature
       ContestUnusedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedContestUnusedInc) $
           omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash', crs')
               signature
       ContestUsedInc{signature} ->
         traceIfFalse $(errorCode FailedContestUsedInc) $
           omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', alphaUTxOHash', emptyHash)
+              (headId, version, snapshotNumber', utxoHash', alphaUTxOHash', emptyHash, accumulatorHash', crs')
               signature
 
   mustBeWithinContestationPeriod =
@@ -615,6 +617,8 @@ checkContest ctx closedDatum redeemer =
     , headId = headId'
     , contesters = contesters'
     , version = version'
+    , accumulatorHash = accumulatorHash'
+    , crs = crs'
     } = decodeHeadOutputClosedDatum ctx
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
@@ -775,7 +779,7 @@ hasPT headCurrencySymbol txOut =
 -- | Verify the multi-signature of a snapshot using given constituents 'headId',
 -- 'version', 'number', 'utxoHash' and 'utxoToDecommitHash'. See
 -- 'SignableRepresentation Snapshot' for more details.
-verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> [Signature] -> Bool
+verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash, Hash, Hash) -> [Signature] -> Bool
 verifySnapshotSignature parties msg sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
     L.length parties == L.length sigs
@@ -784,8 +788,8 @@ verifySnapshotSignature parties msg sigs =
 
 -- | Verify individual party signature of a snapshot. See
 -- 'SignableRepresentation Snapshot' for more details.
-verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> Party -> Signature -> Bool
-verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash) party =
+verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash, Hash, Hash) -> Party -> Signature -> Bool
+verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash, accumulatorHash, crs) party =
   verifyEd25519Signature (vkey party) message
  where
   message =
@@ -795,6 +799,8 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToC
       <> Builtins.serialiseData (toBuiltinData utxoHash)
       <> Builtins.serialiseData (toBuiltinData utxoToCommitHash)
       <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
+      <> Builtins.serialiseData (toBuiltinData accumulatorHash)
+      <> Builtins.serialiseData (toBuiltinData crs)
 {-# INLINEABLE verifyPartySignature #-}
 
 compiledValidator :: CompiledCode ValidatorType
