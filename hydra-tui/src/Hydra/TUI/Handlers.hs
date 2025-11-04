@@ -228,6 +228,13 @@ handleHydraEventsInfo = \case
   Update (ApiClientMessage API.CommandFailed{clientInput}) -> do
     time <- liftIO getCurrentTime
     warn time $ "Invalid command: " <> show clientInput
+  Update (ApiClientMessage API.RejectedInput{clientInput, reason}) -> do
+    time <- liftIO getCurrentTime
+    warn time $ "Rejected command: " <> show clientInput <> " Reason: " <> show reason
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced}) -> do
+    warn time "Node state is out of sync with chain backend"
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced}) -> do
+    warn time "Node state is back in sync with chain backend"
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsClosed{snapshotNumber}}) ->
     info time $ "Head closed with snapshot number " <> show snapshotNumber
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsContested{snapshotNumber, contestationDeadline}}) ->
