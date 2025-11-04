@@ -74,6 +74,7 @@ channels:
         oneOf:
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/CommandFailed"
+          - $ref: "api.yaml#/components/messages/RejectedInput"
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
@@ -228,6 +229,7 @@ channels:
         Possible responses of this endpoint are:
           * 200 OK
           * 400 Bad Request
+          * 503 Service Unavailable
       message:
         payload:
           type: string
@@ -285,7 +287,9 @@ channels:
 
         Possible responses of this endpoint are:
           * 200: OK
+          * 400: when head is not open
           * 404: when head was never open
+          * 503: when head is out of sync with chain
       operationId: sideLoadSnapshotRequest
       message:
         $ref: "api.yaml#/components/messages/SideLoadSnapshotRequest"
@@ -334,6 +338,7 @@ channels:
         Possible responses of this endpoint are:
           * String - 200 OK
           * String - 400 bad request
+          * String - 503 service unavailable
       message:
         payload:
             $ref: "api.yaml#/components/messages/DecommitResponse"
@@ -440,6 +445,18 @@ channels:
                 type: string
                 enum: ["SubmitTxInvalid"]
               validationError:
+                type: string
+        - name: SubmitTxRejected
+          summary: 503 Bad Request
+          description: Transaction was rejected due to node out of sync.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["SubmitTxRejected"]
+              reason:
                 type: string
         - name: SubmitTxSubmitted
           summary: 202 Accepted
@@ -3617,6 +3634,18 @@ components:
               type: string
               enum: ["SubmitTxInvalid"]
             validationError:
+              type: string
+        - title: SubmitTxRejected
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - reason
+          properties:
+            tag:
+              type: string
+              enum: ["SubmitTxRejected"]
+            reason:
               type: string
         - title: SubmitTxSubmitted
           type: object
