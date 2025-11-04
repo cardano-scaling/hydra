@@ -21,6 +21,7 @@ import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Plutus.Orphans ()
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Contract.CollectCom (extractHeadOutputValue)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
@@ -116,6 +117,17 @@ healthySnapshot =
         , utxoToDecommit = Just utxoToDecommit'
         }
 
+healthyAccumulatorHash :: ByteString
+healthyAccumulatorHash =
+  let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
+      nextUtxoHash = hashUTxO utxo
+      utxoToCommitHash = hashUTxO @Tx mempty
+      decommitHash = hashUTxO utxoToDecommit'
+   in Accumulator.getAccumulatorHash $ Accumulator.build [nextUtxoHash, utxoToCommitHash, decommitHash]
+
+healthyCrs :: ByteString
+healthyCrs = ""
+
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
 splitDecommitUTxO utxo =
   case UTxO.toList utxo of
@@ -188,6 +200,8 @@ genDecrementMutation (tx, _utxo) =
               { signature = invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , numberOfDecommitOutputs = fromIntegral $ maybe 0 UTxO.size $ utxoToDecommit healthySnapshot
+              , accumulatorHash = toBuiltin healthyAccumulatorHash
+              , crs = toBuiltin healthyCrs
               }
     , -- Spec: Transaction is signed by a participant
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do

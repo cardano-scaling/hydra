@@ -12,6 +12,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Plutus (depositValidatorScript)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
@@ -62,6 +63,8 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           { signature = toPlutusSignatures sigs
           , snapshotNumber = fromIntegral number
           , increment = toPlutusTxOutRef depositIn
+          , accumulatorHash = toBuiltin incrementAccumulatorHash
+          , crs = toBuiltin incrementCrs
           }
 
   HeadParameters{parties, contestationPeriod} = headParameters
@@ -79,6 +82,12 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
         mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
+
+  nextUtxoHash = hashUTxO @Tx utxo
+  depositHash = hashUTxO @Tx $ fromMaybe mempty utxoToCommit
+  utxoToDecommitHash = hashUTxO @Tx mempty
+  incrementAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [nextUtxoHash, depositHash, utxoToDecommitHash]
+  incrementCrs = "" :: ByteString
 
   headDatumAfter =
     mkTxOutDatumInline $
