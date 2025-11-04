@@ -59,6 +59,10 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: C
   , contestationDeadline :: POSIXTime
   -- ^ Spec: tfinal
+  , accumulatorHash :: Hash
+  -- ^ Spec: ηA. Digest of the accumulator
+  , crs :: Hash
+  -- ^ Spec: CRS. Commitment to the CRS
   }
   deriving stock (Generic, Show)
 
@@ -154,6 +158,8 @@ data IncrementRedeemer = IncrementRedeemer
   { signature :: [Signature]
   , snapshotNumber :: SnapshotNumber
   , increment :: TxOutRef
+  , accumulatorHash :: Hash
+  , crs :: Hash
   }
   deriving stock (Show, Generic)
 
@@ -167,6 +173,8 @@ data DecrementRedeemer = DecrementRedeemer
   -- ^ Spec: s
   , numberOfDecommitOutputs :: Integer
   -- ^ Spec: m
+  , accumulatorHash :: Hash
+  , crs :: Hash
   }
   deriving stock (Show, Generic)
 
