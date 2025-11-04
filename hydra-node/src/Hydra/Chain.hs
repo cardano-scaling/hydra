@@ -23,6 +23,7 @@ import Hydra.Cardano.Api (
   LedgerEra,
   PolicyAssets,
   PolicyId,
+  Value,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
@@ -293,6 +294,7 @@ data Chain tx m = Chain
   --
   -- XXX: While technically they could be any of 'PostTxError tx', only
   -- `FailedToPostTx` errors are expected here.
+  , checkNonADAAssets :: ConfirmedSnapshot tx -> Either Value ()
   }
 
 data ChainEvent tx

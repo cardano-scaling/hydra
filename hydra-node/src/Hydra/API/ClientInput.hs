@@ -14,6 +14,7 @@ data ClientInput tx
   | Recover {recoverTxId :: TxIdType tx}
   | Decommit {decommitTx :: tx}
   | Close
+  | SafeClose
   | Contest
   | Fanout
   | SideLoadSnapshot {snapshot :: ConfirmedSnapshot tx}
@@ -37,6 +38,7 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx t
     Recover tx -> Recover <$> shrink tx
     Decommit tx -> Decommit <$> shrink tx
     Close -> []
+    SafeClose -> []
     Contest -> []
     Fanout -> []
     SideLoadSnapshot sn -> SideLoadSnapshot <$> shrink sn
