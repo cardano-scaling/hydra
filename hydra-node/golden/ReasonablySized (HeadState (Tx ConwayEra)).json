@@ -292,9 +292,9 @@
                     "confirmedSnapshot": {
                         "signatures": {
                             "multiSignature": [
-                                "dbf62baf3727e3230f399f827dd320ab7fcf9945385c4bdc10f814473044c069f78117112082d7f0abceaddd937461ec6ccba6c564beaed7c1ae45dc221c9909",
-                                "981b02bded34fbe99dc31039b14d8a58f424b9f625c2893b52d8672db17730357be185f7ac1e9f053aaaba1acd1b9397076faaf236655eeaeb05bda0f9368203",
-                                "f67f671e2da68dca95c2fca1a885abeab7f602b8a9410eb8ed08e80f6476c490b829ef28fc3334b00024e8d4b26afd63bfaa8d05770c9c694b81e7857ffb9801"
+                                "f0aa7040c243c6d0b28a6a8934cc34445adf2bbbfc42f4a34a34db527ce9155091b4efa87b47ce7f8f9de131592a824c25598e244d2c9942841f7ff66a9ae202",
+                                "dd12d97e6d6fec507ed69ce8725bd5effee46dea5f265b10df02f5ab03dc8527af3fea3ae90b456529f7a7e0ff7fe6e81ff68d626af6156900a12c9ef7663603",
+                                "d184dd1c3367fea589e0ab7c7eeae039ddda072c1005f9fbd169a754954733edec12cd44608eba9cc41e402bf700bf8f5bde408d5f1a8d3df1e1bd4a2225c909"
                             ]
                         },
                         "snapshot": {
@@ -384,6 +384,7 @@
                                     }
                                 }
                             },
+                            "utxoHash": "46b4ea3dabbb5761e26b3a32955d39cd149b8f5872c03b37f4f9c69283c1d19e",
                             "utxoToCommit": {
                                 "0004020808060703080303000005020503080500080208000202010203080408#89": {
                                     "address": "addr_test1wpvthvhk0fmdkypge7vpdkgywr8f2v3uqz0fpq2qt8tlnfgrhku7r",
@@ -1613,7 +1614,7 @@
                     "confirmedSnapshot": {
                         "signatures": {
                             "multiSignature": [
-                                "e233ba9cdef2453ae9c4657b0b2654b59d881c4acf422afb6d5efb7514fa3e7782312b77fc8ec56a8a698272efa51f80b08568c7a35e0017be1b0ba815724202"
+                                "966e32bd2e93aa5869f7f747e3cba4f96980df1c9d0007ab1d89e817d09eb757fdd1912489f8ded71ea056d7bc0c59e2c75b3933b4d7b7ba73c92a57380e9a00"
                             ]
                         },
                         "snapshot": {
@@ -1811,6 +1812,7 @@
                                     }
                                 }
                             },
+                            "utxoHash": "b5e600836e7b5ece70478ed864fdb8a3d63dece5197633341b97db24610d69c5",
                             "utxoToCommit": null,
                             "utxoToDecommit": {
                                 "0601000604050808030408030805010508070207030404020605000506070107#28": {
@@ -2930,7 +2932,7 @@
                     "confirmedSnapshot": {
                         "signatures": {
                             "multiSignature": [
-                                "ccd497b9f521cc38a66530e2a0e1f8364212d7f79fa2294a63221104981cff4b4c18187fec2b59436cf19d33f8fcb0974552d534f6b64d07617add4923729d02"
+                                "ae6d7e3df1449992f0f509268923a2de22d8749d9f9fe0a1ce7c71090519604da59faf5eb93a0d652eaa859381c8aeee88f01657de4646ff3cb0a0349e56110c"
                             ]
                         },
                         "snapshot": {
@@ -3338,6 +3340,7 @@
                                     }
                                 }
                             },
+                            "utxoHash": "87b7a4b3b6535fda5304ca5709e31b7e115a5cb97d4765401c3b7a3fcf2a1d07",
                             "utxoToCommit": {
                                 "0005020604000304040104050205020600000700040102060702050800020105#38": {
                                     "address": "addr_test1zz2zudcqm5cf5g5zn6rt4kljygz777ugnsr8xtskgnqp6hlw02hqch4zntjl0vr7ukq5py605q3nqgvfl6a73fuc0qequrl6d8",

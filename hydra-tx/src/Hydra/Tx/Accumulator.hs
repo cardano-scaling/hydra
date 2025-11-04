@@ -2,6 +2,7 @@
 
 module Hydra.Tx.Accumulator (
   HydraAccumulator (..),
+  getAccumulatorHash,
   -- createMembershipProof,
 
   build,
@@ -14,6 +15,7 @@ import Accumulator qualified
 
 -- import Bindings (getPolyCommitOverG2)
 -- import Cardano.Crypto.EllipticCurve.BLS12_381 (Point2)
+import Codec.Serialise (serialise)
 
 -- * HydraAccumulator
 
@@ -22,6 +24,16 @@ newtype HydraAccumulator = HydraAccumulator {unHydraAccumulator :: Accumulator}
 
 build :: [ByteString] -> HydraAccumulator
 build = HydraAccumulator . Accumulator.buildAccumulator
+
+-- | Get a simple hash of the accumulator state.
+--
+-- This is a pure function that returns a deterministic hash of the accumulator's contents.
+-- For off-chain snapshots, we just need a commitment to the UTxO set, not a cryptographic proof.
+-- This hash is what gets signed by all parties in the multi-signature.
+getAccumulatorHash :: HydraAccumulator -> ByteString
+getAccumulatorHash (HydraAccumulator acc) =
+  -- Simple serialization-based hash of the accumulator map
+  toStrict . serialise $ acc
 
 -- * Cryptographic Proofs (IO functions for partial fanout)
 

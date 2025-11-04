@@ -505,7 +505,8 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit}
+    let utxoHash = hashUTxO utxo
+    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoHash, utxoToCommit, utxoToDecommit}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 
