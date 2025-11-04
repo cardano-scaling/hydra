@@ -28,11 +28,11 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (CollectComTx, ContestTx),
  )
-import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (mkTimeHandleAt, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
-import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
+import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
@@ -1362,6 +1362,16 @@ connectivityChanged ttl connectivityMessage =
 
 inIdleState :: NodeState SimpleTx
 inIdleState = initNodeState SimpleChainState{slot = ChainSlot 0}
+
+inUnsyncedIdleState :: NodeState SimpleTx
+inUnsyncedIdleState =
+  NodeCatchingUp
+    { headState = Idle IdleState{chainState}
+    , pendingDeposits = mempty
+    , currentSlot = chainStateSlot chainState
+    }
+ where
+  chainState = SimpleChainState{slot = ChainSlot 0}
 
 -- XXX: This is always called with threeParties and simpleLedger
 inInitialState :: [Party] -> NodeState SimpleTx

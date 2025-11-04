@@ -40,7 +40,7 @@ import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
-import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500)
+import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
 import System.Directory (doesFileExist)
 
@@ -164,6 +164,8 @@ data SubmitL2TxResponse
     SubmitTxConfirmed Integer
   | -- | Transaction was rejected due to validation errors
     SubmitTxInvalidResponse Text
+  | -- | Transaction was rejected due to node out of sync
+    SubmitTxRejectedResponse Text
   | -- | Transaction was accepted but not yet confirmed
     SubmitTxSubmitted
   deriving stock (Eq, Show, Generic)
@@ -180,6 +182,11 @@ instance ToJSON SubmitL2TxResponse where
         [ "tag" .= Aeson.String "SubmitTxInvalid"
         , "validationError" .= validationError
         ]
+    SubmitTxRejectedResponse reason ->
+      object
+        [ "tag" .= Aeson.String "SubmitTxRejected"
+        , "reason" .= reason
+        ]
     SubmitTxSubmitted -> object ["tag" .= Aeson.String "SubmitTxSubmitted"]
 
 instance FromJSON SubmitL2TxResponse where
@@ -188,8 +195,9 @@ instance FromJSON SubmitL2TxResponse where
     case tag :: Text of
       "SubmitTxConfirmed" -> SubmitTxConfirmed <$> o .: "snapshotNumber"
       "SubmitTxInvalid" -> SubmitTxInvalidResponse <$> o .: "validationError"
+      "SubmitTxRejected" -> SubmitTxRejectedResponse <$> o .: "reason"
       "SubmitTxSubmitted" -> pure SubmitTxSubmitted
-      _ -> fail "Expected tag to be SubmitTxConfirmed, SubmitTxInvalid, or SubmitTxSubmitted"
+      _ -> fail "Expected tag to be SubmitTxConfirmed, SubmitTxInvalid, SubmitTxRejected, or SubmitTxSubmitted"
 
 instance Arbitrary SubmitL2TxResponse where
   arbitrary = genericArbitrary
@@ -395,6 +403,8 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
                 pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
               Right (CommandFailed{clientInput = Recover{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Recover failed")
+              Right (RejectedInput{clientInput = Recover{}, reason}) ->
+                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String reason)
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -459,6 +469,8 @@ handleDecommit putClientInput apiTransactionTimeout responseChannel body =
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit invalid")
               Right (CommandFailed{clientInput = Decommit{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit failed")
+              Right (RejectedInput{clientInput = Decommit{}, reason}) ->
+                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String reason)
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -497,6 +509,8 @@ handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body
                 pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
               Right (CommandFailed{clientInput = SideLoadSnapshot{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Side-load snapshot failed")
+              Right (RejectedInput{clientInput = SideLoadSnapshot{}, reason}) ->
+                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String reason)
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -543,6 +557,8 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
           pure $ responseLBS status200 jsonContent (Aeson.encode $ SubmitTxConfirmed snapshotNumber)
         Just (SubmitTxInvalidResponse validationError) ->
           pure $ responseLBS status400 jsonContent (Aeson.encode $ SubmitTxInvalidResponse validationError)
+        Just (SubmitTxRejectedResponse reason) ->
+          pure $ responseLBS status503 jsonContent (Aeson.encode $ SubmitTxRejectedResponse reason)
         Just SubmitTxSubmitted ->
           pure $ responseLBS status202 jsonContent (Aeson.encode SubmitTxSubmitted)
         Nothing ->
@@ -565,6 +581,8 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
     go = do
       event <- atomically $ readTChan dupChannel
       case event of
+        Right (RejectedInput{clientInput = NewTx{}, reason}) -> do
+          pure $ SubmitTxRejectedResponse reason
         Left (TimedServerOutput{output}) -> case output of
           TxValid{transactionId}
             | transactionId == txid ->

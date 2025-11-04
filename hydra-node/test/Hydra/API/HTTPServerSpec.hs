@@ -35,7 +35,7 @@ import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
-import Hydra.HeadLogicSpec (inIdleState)
+import Hydra.HeadLogicSpec (inIdleState, inUnsyncedIdleState)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.Cardano (Tx)
@@ -462,6 +462,28 @@ apiServerSpec = do
           $ do
             post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot)) `shouldRespondWith` 400
 
+      it "returns 503 on RejectedInput" $ do
+        responseChannel <- newTChanIO
+        let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
+        SideLoadSnapshotRequest snapshot <- reqGen
+        let clientFailed = RejectedInput{clientInput = SideLoadSnapshot snapshot, reason = "chain out of sync"}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              cantCommit
+              getPendingDeposits
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot)) `shouldRespondWith` 503
+
     describe "GET /snapshot/utxo" $ do
       responseChannel <- runIO newTChanIO
       prop "responds correctly" $ \nodeState -> do
@@ -763,6 +785,26 @@ apiServerSpec = do
           $ do
             post "/transaction" (mkReq testTx) `shouldRespondWith` 400
 
+      prop "returns 503 on RejectedInput" $ do
+        responseChannel <- newTChanIO
+        let clientFailed = RejectedInput{clientInput = NewTx testTx, reason = "chain out of sync"}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            post "/transaction" (mkReq testTx) `shouldRespondWith` 503
+
     describe "POST /decommit" $ do
       it "returns 202 on timeout" $ do
         responseChannel <- newTChanIO
@@ -838,6 +880,27 @@ apiServerSpec = do
           $ do
             post "/decommit" (encode tx) `shouldRespondWith` 400
 
+      it "returns 503 on RejectedInput" $ do
+        responseChannel <- newTChanIO
+        let tx = SimpleTx 1 mempty mempty
+        let clientFailed = RejectedInput{clientInput = Decommit tx, reason = "chain out of sync"}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            post "/decommit" (encode tx) `shouldRespondWith` 503
+
     describe "DELETE /commits/:txid" $ do
       it "returns 202 on timeout" $ do
         responseChannel <- newTChanIO
@@ -886,6 +949,28 @@ apiServerSpec = do
           )
           $ do
             delete ("/commits/" <> txidText) `shouldRespondWith` 200
+
+      it "returns 503 on RejectedInput" $ do
+        responseChannel <- newTChanIO
+        let tx = SimpleTx 1 mempty mempty
+        let txidText = LBS.toStrict (encode (txId tx))
+        let clientFailed = RejectedInput{clientInput = Recover (txId tx), reason = "chain out of sync"}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            delete ("/commits/" <> txidText) `shouldRespondWith` 503
 
 -- * Helpers
 
