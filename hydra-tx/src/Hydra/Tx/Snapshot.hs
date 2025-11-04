@@ -13,6 +13,7 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SerialiseAsRawBytes (..), SigningKey)
 import Hydra.Contract.HeadState qualified as Onchain
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
@@ -85,8 +86,17 @@ instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
         <> serialise (toData . toBuiltin $ toInteger version)
         <> serialise (toData . toBuiltin $ toInteger number)
         <> serialise (toData $ toBuiltin utxoHash)
-        <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToCommit)
-        <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit)
+        <> serialise (toData $ toBuiltin utxoToCommitHash)
+        <> serialise (toData $ toBuiltin utxoToDecommitHash)
+        <> serialise (toData $ toBuiltin accumulatorHash)
+        <> serialise (toData $ toBuiltin crs)
+   where
+    utxoToCommitHash = hashUTxO @tx $ fromMaybe mempty utxoToCommit
+    utxoToDecommitHash = hashUTxO @tx $ fromMaybe mempty utxoToDecommit
+    -- Build accumulator from the three hashes and get its hash
+    accumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+    -- TODO: Proper CRS (Common Reference String) for cryptographic proofs
+    crs = "" :: ByteString
 
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON Snapshot{headId, number, utxo, utxoHash, confirmed, utxoToCommit, utxoToDecommit, version} =

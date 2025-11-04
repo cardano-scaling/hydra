@@ -9,13 +9,11 @@ module Hydra.Tx.IsTx where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Accumulator qualified
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
-import Codec.Serialise (serialise)
 import Data.Aeson ((.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -179,22 +177,24 @@ instance IsTx Tx where
   balance = UTxO.totalValue
 
   -- NOTE: See note from `Util.hashTxOuts`.
+  hashUTxO = fromBuiltin . Util.hashTxOuts . mapMaybe toPlutusTxOut . UTxO.txOutputs
+
   -- NOTE: This uses accumulator-based hashing via toPairList and utxoToElement.
-  hashUTxO utxo =
-    let pairs = toPairList utxo
-     in if null pairs
-          then
-            -- For empty UTxO, return the same hash as on-chain emptyHash = hashTxOuts [] = sha2_256 ""
-            fromBuiltin $ Util.hashTxOuts []
-          else
-            let
-              -- Build accumulator from UTxO pairs using utxoToElement
-              elements = utxoToElement <$> pairs
-              accumulator = Accumulator.buildAccumulator elements
-              -- Serialize the accumulator and hash it with SHA2-256
-              serializedAcc = toStrict (serialise accumulator)
-             in
-              fromBuiltin (Builtins.sha2_256 (Builtins.toBuiltin serializedAcc))
+  -- hashUTxO utxo =
+  --   let pairs = toPairList utxo
+  --    in if null pairs
+  --         then
+  --           -- For empty UTxO, return the same hash as on-chain emptyHash = hashTxOuts [] = sha2_256 ""
+  --           fromBuiltin $ Util.hashTxOuts []
+  --         else
+  --           let
+  --             -- Build accumulator from UTxO pairs using utxoToElement
+  --             elements = utxoToElement <$> pairs
+  --             accumulator = Accumulator.buildAccumulator elements
+  --             -- Serialize the accumulator and hash it with SHA2-256
+  --             serializedAcc = toStrict (serialise accumulator)
+  --            in
+  --             fromBuiltin (Builtins.sha2_256 (Builtins.toBuiltin serializedAcc))
 
   txSpendingUTxO = Api.txSpendingUTxO
 
