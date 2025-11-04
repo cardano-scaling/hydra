@@ -19,6 +19,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Contract.Deposit (healthyDeadline)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
@@ -135,6 +136,16 @@ healthySnapshot =
         , utxoToDecommit = Nothing
         }
 
+healthyAccumulatorHash :: ByteString
+healthyAccumulatorHash =
+  let nextUtxoHash = hashUTxO healthyUTxO
+      depositHash = hashUTxO healthyDeposited
+      utxoToDecommitHash = hashUTxO @Tx mempty
+   in Accumulator.getAccumulatorHash $ Accumulator.build [nextUtxoHash, depositHash, utxoToDecommitHash]
+
+healthyCrs :: ByteString
+healthyCrs = ""
+
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
   arbitrary `generateWith` 42
@@ -208,6 +219,8 @@ genIncrementMutation (tx, utxo) =
                   invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , increment = toPlutusTxOutRef healthyDepositInput
+              , accumulatorHash = toBuiltin healthyAccumulatorHash
+              , crs = toBuiltin healthyCrs
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
@@ -223,6 +236,8 @@ genIncrementMutation (tx, utxo) =
               { signature = toPlutusSignatures healthySignature
               , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
               , increment = toPlutusTxOutRef invalidDepositRef
+              , accumulatorHash = toBuiltin healthyAccumulatorHash
+              , crs = toBuiltin healthyCrs
               }
     ]
  where

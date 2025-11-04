@@ -25,6 +25,7 @@ import Hydra.Tx (
   headIdToCurrencySymbol,
   headReference,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
@@ -143,7 +144,16 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , headId = headIdToCurrencySymbol headId
           , contesters = []
           , version = fromIntegral openVersion
+          , accumulatorHash = toBuiltin closedAccumulatorHash
+          , crs = toBuiltin closedCrs
           }
+   where
+    snapshot = getSnapshot confirmedSnapshot
+    snapshotUtxoHash = hashUTxO $ Hydra.Tx.utxo snapshot
+    snapshotUtxoToCommitHash = hashUTxO @Tx $ fromMaybe mempty (utxoToCommit snapshot)
+    snapshotUtxoToDecommitHash = hashUTxO @Tx $ fromMaybe mempty (utxoToDecommit snapshot)
+    closedAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [snapshotUtxoHash, snapshotUtxoToCommitHash, snapshotUtxoToDecommitHash]
+    closedCrs = "" :: ByteString
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
