@@ -1504,12 +1504,6 @@ assertWait outcome waitReason =
     Wait{reason} -> reason `shouldBe` waitReason
     _ -> failure $ "Expected a wait, but got: " <> show outcome
 
-assertError :: (HasCallStack, IsChainState tx) => Outcome tx -> LogicError tx -> IO ()
-assertError outcome logicError =
-  case outcome of
-    (Error e) -> e `shouldBe` logicError
-    _ -> failure $ "Expected a error, but got: " <> show outcome
-
 hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasEffectSatisfying outcome predicate =
   case outcome of
