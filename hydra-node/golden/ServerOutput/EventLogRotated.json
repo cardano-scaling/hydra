@@ -37,7 +37,9 @@
                                     "multiSignature": []
                                 },
                                 "snapshot": {
+                                    "accumulator": "a3582061f5a58199240868b625e76bdd5653a5a5cfc1a73313423584d8642ad5e59dee82581c8939a60290b38d30bfeb6fcde0cd2895a2c5dfaa9f718f77d083c0df015820e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85582581c4985010f294802e79bc74861e757dfc8302c944e807306db896e2c5a015820ec03cc9a6feca17e445c55c72f9555fbef621aa5c19c674ef7f5bf7fca98713082581ca462f9a05e784bdbf097211161686f18e8dc89c35e4bf155d480450a01",
                                     "confirmed": [],
+                                    "crs": "",
                                     "headId": "00000000010000010000000100010100",
                                     "number": 1,
                                     "utxo": {
@@ -70,7 +72,6 @@
                                             }
                                         }
                                     },
-                                    "utxoHash": "61f5a58199240868b625e76bdd5653a5a5cfc1a73313423584d8642ad5e59dee",
                                     "utxoToCommit": null,
                                     "utxoToDecommit": {
                                         "0101010100000101000001000100000101010001010100010001010000000000#39": {

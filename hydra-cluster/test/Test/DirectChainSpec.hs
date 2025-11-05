@@ -47,6 +47,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming, modifyConfig, 
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), toArgNetworkId)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadId (HeadId, HeadSeed (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -108,16 +109,22 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             let v = 0
             let snapshotVersion = 0
+                utxoHash = hashUTxO (mempty :: UTxOType Tx)
+                utxoToCommitHash = hashUTxO @Tx mempty
+                utxoToDecommitHash = hashUTxO @Tx mempty
+                accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+                crs = ""
             let snapshot =
                   Snapshot
                     { headId
                     , number = 1
                     , utxo = mempty
-                    , utxoHash = hashUTxO (mempty :: UTxOType Tx)
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Nothing
                     , version = snapshotVersion
+                    , accumulator
+                    , crs
                     }
 
             postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
@@ -256,16 +263,22 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               _ -> Nothing
             let (inHead, toDecommit) = splitUTxO someUTxO
             -- Alice contests with some snapshot U1 -> successful
+            let utxoHash = hashUTxO inHead
+                utxoToCommitHash = hashUTxO @Tx mempty
+                utxoToDecommitHash = hashUTxO toDecommit
+                accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+                crs = ""
             let snapshot1 =
                   Snapshot
                     { headId
                     , number = 1
                     , utxo = inHead
-                    , utxoHash = hashUTxO inHead
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit
                     , version = 0
+                    , accumulator
+                    , crs
                     }
             postTx $
               ContestTx
@@ -286,11 +299,12 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     { headId
                     , number = 2
                     , utxo = inHead
-                    , utxoHash = hashUTxO inHead
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit
                     , version = 1
+                    , accumulator
+                    , crs
                     }
             let contestAgain =
                   postTx $
