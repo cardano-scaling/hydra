@@ -90,6 +90,7 @@ import Hydra.Tx (
   utxoFromTx,
   withoutUTxO,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (
   Signature,
   Verified (..),
@@ -425,8 +426,12 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
               requireApplyTxs activeUTxO requestedTxs $ \u -> do
                 let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
                     utxoHash = hashUTxO snapshotUTxO
-                -- Spec: ŝ ← ̅S.s + 1
-                -- NOTE: confSn == seenSn == sn here
+                    utxoToCommitHash = hashUTxO $ fromMaybe mempty mUtxoToCommit
+                    utxoToDecommitHash = hashUTxO $ fromMaybe mempty mUtxoToDecommit
+                    accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+                    crs = "" -- TODO: proper CRS
+                    -- Spec: ŝ ← ̅S.s + 1
+                    -- NOTE: confSn == seenSn == sn here
                 let nextSnapshot =
                       Snapshot
                         { headId
@@ -437,6 +442,8 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                         , utxoHash
                         , utxoToCommit = mUtxoToCommit
                         , utxoToDecommit = mUtxoToDecommit
+                        , accumulator
+                        , crs
                         }
 
                 -- Spec: 𝜂 ← combine(𝑈)
