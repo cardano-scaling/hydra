@@ -6,7 +6,9 @@
             },
             "signature": "3daffd85885e0cf7d55c9dca2d201e9d784fc61020829b4a1476cc6739fd4da9f015bfb76f66fc741379dc1efae05ec4f03e89b7fc28c8ca5c4e066cea64d206",
             "snapshot": {
+                "accumulator": "a358200e21f597f7daa1670edcdbef20b021491a2cee608bc020b0cb030d8bb6f8a2e782581cc53a1736b8020ebc0f84ca415fdb6f9095f8d8fe5f1345a5b40c5ab1015820da356c7cc509e37cd361391853663a12e25ebd0e6874101a7eb61d8dd9d8816082581cefe30d6a3b4980df7e50cd1b87c6584f5692344dff146e4acdb8a57f015820fe0ed132a3c93a0e25ec890c73760ad8ee3d5a1473e36f4bcc2f9de2331e3cb382581c8f4ad7c08dd99338af4b7cb11917f7a7c621341ca5e7e01a8c11f42801",
                 "confirmed": [],
+                "crs": "",
                 "headId": "01010000000100000000000101010000",
                 "number": 0,
                 "utxo": {

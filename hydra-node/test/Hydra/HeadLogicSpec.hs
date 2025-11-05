@@ -50,6 +50,7 @@ import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDi
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -836,6 +837,8 @@ spec =
                 , utxoHash
                 , utxoToCommit = Nothing
                 , utxoToDecommit = Just $ utxoRefs [3]
+                , accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx mempty, hashUTxO @SimpleTx $ utxoRefs [3]]
+                , crs = ""
                 }
             s0 =
               inOpenState'
@@ -1560,7 +1563,8 @@ spec =
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
           let utxo' = utxoRef 3
               utxoHash = hashUTxO utxo'
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash Nothing (Just utxoToDecommit)
+              accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx mempty, hashUTxO @SimpleTx $ fromMaybe mempty (Just utxoToDecommit)]
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash Nothing (Just utxoToDecommit) accumulator ""
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -1575,7 +1579,8 @@ spec =
 
           let utxo' = utxoRef 3
               utxoHash = hashUTxO utxo'
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash (Just utxoToCommit) Nothing
+              accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx $ fromMaybe mempty (Just utxoToCommit), hashUTxO @SimpleTx mempty]
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash (Just utxoToCommit) Nothing accumulator ""
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -2137,6 +2142,7 @@ zeroChainPointTime =
     }
 
 testSnapshot ::
+  forall tx.
   IsTx tx =>
   SnapshotNumber ->
   SnapshotVersion ->
@@ -2154,4 +2160,6 @@ testSnapshot number version confirmed utxo =
         , utxoHash
         , utxoToCommit = mempty
         , utxoToDecommit = mempty
+        , accumulator = Accumulator.build [utxoHash, hashUTxO @tx mempty, hashUTxO @tx mempty]
+        , crs = ""
         }
