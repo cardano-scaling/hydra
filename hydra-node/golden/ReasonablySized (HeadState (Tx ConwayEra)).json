@@ -1065,7 +1065,9 @@
                                 }
                             }
                         },
-                        "version": 0
+                        "version": 0,
+                        "accumulator": "",
+                        "crs": ""
                     },
                     "tag": "ConfirmedSnapshot"
                 },
@@ -2341,7 +2343,9 @@
                                     }
                                 }
                             },
-                            "version": 0
+                            "version": 0,
+                            "accumulator": "",
+                            "crs": ""
                         },
                         "tag": "ConfirmedSnapshot"
                     },
@@ -3261,7 +3265,9 @@
                                     }
                                 }
                             },
-                            "version": 0
+                            "version": 0,
+                            "accumulator": "",
+                            "crs": ""
                         },
                         "tag": "ConfirmedSnapshot"
                     },
