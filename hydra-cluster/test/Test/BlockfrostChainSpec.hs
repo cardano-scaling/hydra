@@ -44,6 +44,7 @@ import Hydra.Options (
   ChainConfig (..),
   defaultBlockfrostOptions,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
@@ -94,16 +95,21 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
 
           -- TODO: Deposit someUTxO
           let snapshotVersion = 0
+          let utxoHash = hashUTxO someUTxO
+              utxoToCommitHash = hashUTxO @Tx mempty
+              utxoToDecommitHash = hashUTxO @Tx mempty
+          let accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
           let snapshot =
                 Snapshot
                   { headId
                   , number = 1
                   , utxo = someUTxO
-                  , utxoHash = hashUTxO someUTxO
                   , confirmed = []
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Nothing
                   , version = snapshotVersion
+                  , accumulator
+                  , crs = ""
                   }
 
           postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})

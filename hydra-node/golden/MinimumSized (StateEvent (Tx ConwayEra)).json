@@ -49,7 +49,6 @@
                             }
                         }
                     },
-                    "utxoHash": "",
                     "utxoToCommit": null,
                     "utxoToDecommit": null,
                     "version": 0

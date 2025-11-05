@@ -14,6 +14,7 @@ import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
@@ -109,11 +110,12 @@ healthyContestSnapshot =
         { headId = mkHeadId testPolicyId
         , number = healthyContestSnapshotNumber
         , utxo = splitUTxOInHead
-        , utxoHash
         , confirmed = []
         , utxoToCommit = Nothing
         , utxoToDecommit = Just splitUTxOToDecommit
         , version = healthyCloseSnapshotVersion
+        , accumulator = Accumulator.build [utxoHash, hashUTxO @Tx mempty, hashUTxO splitUTxOToDecommit]
+        , crs = ""
         }
 
 healthyClosedState :: Head.State

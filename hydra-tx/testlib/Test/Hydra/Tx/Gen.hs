@@ -30,6 +30,7 @@ import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.ContestationPeriod
 import Hydra.Tx.Crypto
@@ -284,6 +285,9 @@ instance Arbitrary TxId where
    where
     onlyTxId (TxIn txi _) = txi
 
+instance Arbitrary Accumulator.HydraAccumulator where
+  arbitrary = Accumulator.build <$> listOf (BS.pack <$> vectorOf 32 arbitrary)
+
 genScriptRegistry :: Gen ScriptRegistry
 genScriptRegistry = do
   txId' <- arbitrary
@@ -456,13 +460,13 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) wher
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, version, number, utxo, confirmed, utxoHash, utxoToCommit, utxoToDecommit} =
-    [ Snapshot headId version number confirmed' utxo' utxoHash' utxoToCommit' utxoToDecommit'
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit, accumulator, crs} =
+    [ Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit' accumulator crs'
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
-    , utxoHash' <- shrink utxoHash
     , utxoToCommit' <- shrink utxoToCommit
     , utxoToDecommit' <- shrink utxoToDecommit
+    , crs' <- shrink crs
     ]
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
@@ -506,7 +510,9 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
     let utxoHash = hashUTxO utxo
-    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoHash, utxoToCommit, utxoToDecommit}
+    let accumulator = Accumulator.build [utxoHash, hashUTxO (fromMaybe mempty utxoToCommit), hashUTxO (fromMaybe mempty utxoToDecommit)]
+    let crs = ""
+    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit, accumulator, crs}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 
