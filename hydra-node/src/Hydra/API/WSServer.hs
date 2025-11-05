@@ -174,17 +174,19 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
       Right input -> do
         traceWith tracer (APIInputReceived $ toJSON input)
         NodeState{headState} <- atomically getLatestNodeState
-        case HeadState.getOpenStateConfirmedSnapshot headState of
-          Nothing -> callback input
-          Just confirmedSnapshot ->
-            case input of
-              SafeClose -> do
+        case input of
+          SafeClose ->
+            case HeadState.getOpenStateConfirmedSnapshot headState of
+              Nothing -> callback input
+              Just confirmedSnapshot ->
                 case checkNonADAAssets confirmedSnapshot of
                   Left nonADAValue -> do
                     let clientInput = decodeUtf8With lenientDecode $ toStrict msg
-                    traceWith tracer (APIInvalidInput ("Cannot SafeClose with non-ADA assets present: " <> show nonADAValue) clientInput)
+                    let errorStr = "Cannot SafeClose with non-ADA assets present: " <> show nonADAValue
+                    sendTextData con $ Aeson.encode $ InvalidInput errorStr clientInput
+                    traceWith tracer (APIInvalidInput errorStr clientInput)
                   Right _ -> callback input
-              _ -> callback input
+          _ -> callback input
       Left e -> do
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
