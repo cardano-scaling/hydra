@@ -43,6 +43,7 @@ import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer)
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..))
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.IsTx (UTxOType, hashUTxO, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
@@ -562,8 +563,8 @@ apiServerSpec = do
                 case confirmedSnapshot of
                   InitialSnapshot{headId} -> InitialSnapshot{headId}
                   ConfirmedSnapshot{snapshot, signatures} ->
-                    let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit} = snapshot
-                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, utxoHash = hashUTxO utxo'}
+                    let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit, accumulator, crs} = snapshot
+                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, accumulator, crs}
                      in ConfirmedSnapshot{snapshot = snapshot', signatures}
               closedState' = closedState{confirmedSnapshot = confirmedSnapshot'}
           withApplication
@@ -656,6 +657,8 @@ apiServerSpec = do
       prop "returns 200 OK on confirmed snapshot" $ do
         responseChannel <- newTChanIO
         let utxo' = mempty
+            utxoHash = hashUTxO utxo'
+            accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx mempty, hashUTxO @SimpleTx mempty]
             snapshot =
               Snapshot
                 { headId = testHeadId
@@ -663,9 +666,10 @@ apiServerSpec = do
                 , number = 7
                 , confirmed = [testTx]
                 , utxo = utxo'
-                , utxoHash = hashUTxO utxo'
                 , utxoToCommit = mempty
                 , utxoToDecommit = mempty
+                , accumulator
+                , crs = ""
                 }
             event =
               TimedServerOutput
