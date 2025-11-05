@@ -131,14 +131,19 @@ healthySnapshot =
         , utxoHash
         , utxoToCommit = Just healthyDeposited
         , utxoToDecommit = Nothing
+        , accumulator = healthyAccumulator
+        , crs = healthyCrs
         }
 
 healthyAccumulatorHash :: ByteString
-healthyAccumulatorHash =
+healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator
+
+healthyAccumulator :: Accumulator.HydraAccumulator
+healthyAccumulator =
   let nextUtxoHash = hashUTxO healthyUTxO
       depositHash = hashUTxO healthyDeposited
       utxoToDecommitHash = hashUTxO @Tx mempty
-   in Accumulator.getAccumulatorHash $ Accumulator.build [nextUtxoHash, depositHash, utxoToDecommitHash]
+   in Accumulator.build [nextUtxoHash, depositHash, utxoToDecommitHash]
 
 healthyCrs :: ByteString
 healthyCrs = ""

@@ -15,6 +15,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (headState))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx, UTxOType, hashUTxO, txId)
@@ -223,6 +224,7 @@ prop_thereIsAlwaysALeader =
         any (\p -> isLeader params p sn) parties
 
 testSnapshot ::
+  forall tx.
   IsTx tx =>
   SnapshotNumber ->
   SnapshotVersion ->
@@ -231,6 +233,10 @@ testSnapshot ::
   Snapshot tx
 testSnapshot number version confirmed utxo =
   let utxoHash = hashUTxO utxo
+      utxoToCommitHash = hashUTxO @tx mempty
+      utxoToDecommitHash = hashUTxO @tx mempty
+      accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+      crs = ""
    in Snapshot
         { headId = testHeadId
         , version
@@ -240,4 +246,6 @@ testSnapshot number version confirmed utxo =
         , utxoHash
         , utxoToCommit = mempty
         , utxoToDecommit = mempty
+        , accumulator
+        , crs
         }
