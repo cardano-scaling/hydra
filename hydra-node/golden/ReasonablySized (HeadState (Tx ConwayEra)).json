@@ -900,7 +900,6 @@
                                 }
                             }
                         },
-                        "utxoHash": "84515835003d028191841d54d567d5da2df181376e0d395a0c7e6e5e6ae089e6",
                         "utxoToCommit": {
                             "0008080806080706000004010403000107080003040106000302000206000503#18": {
                                 "address": "addr_test1qqut0kxd5fuyutzm4ysh6nvw5vnjs0ymx2tn2902l7nq3ghekpq9aq3smxqeclxwnt7vhj0vemzdgre8859nps3d976sssg3mq",
@@ -1966,7 +1965,6 @@
                                     }
                                 }
                             },
-                            "utxoHash": "4fd27e3725b5eceaab1e1fe0832fc5910acd06afcca17cdf76b2831a7af26c6f",
                             "utxoToCommit": {
                                 "0004080706060007010306020005070306000403060604040800050803000305#74": {
                                     "address": "addr_test1qp8edvqv8jpaem8h5sj96axfmu6kcllrlpmytvf3tzkxevw8yqjtxrmap8w2u7qn7ynyenthhsaud8yxsq9ssx0yhhqqnhayld",
@@ -2762,7 +2760,6 @@
                                     }
                                 }
                             },
-                            "utxoHash": "a4d211eb3d61798659cf2296d50afe47e8d0d157f8bc786496bd9a5ef13b664c",
                             "utxoToCommit": {
                                 "0006010504000203040403030407030602040607040708080700040302000000#68": {
                                     "address": "addr_test1zr4h474qw74k5tx74jhv3tprvm0pghenwhqlv9dfa3uxey806cacrf47u9fwzks0vpjrt7f2u2ktfec3a5l4yue3drasa86079",
