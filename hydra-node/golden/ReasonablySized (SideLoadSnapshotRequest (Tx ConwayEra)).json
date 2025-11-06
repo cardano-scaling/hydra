@@ -57,7 +57,9 @@
                         "inlineDatumhash": "f63498b4ae65be466e4a71878971b9c524458996450b0ff8262cddf3f0d99229",
                         "referenceScript": null,
                         "value": {
-                            "lovelace": 7500000000000000
+                            "4cf23badca95f40a745aee9d0e03df77f4c3fd7b9153a1c8472c6e13": {
+                                "34": 1
+                            }
                         }
                     },
                     "0103080200060805040605010701010602000607010601060406020807010300#18": {
@@ -738,6 +740,28 @@
                             "lovelace": 7500000000000000
                         }
                     },
+                    "0608060803070001000505080201040608010604030408020206030708080404#79": {
+                        "address": "addr1wx7qm68ew2fupzt2zkfrzh7v23ytrv7gym4hk7de5a5yjfsqmmskw",
+                        "datum": null,
+                        "inlineDatum": {
+                            "bytes": ""
+                        },
+                        "inlineDatumRaw": "40",
+                        "inlineDatumhash": "39df024ac52722fe8ae4c1a8740e4c5624a38c3820e504a059aae8728421f8bd",
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "8303028383030283830301818200581c20c38002f788ceebf63f21d1fe32ee3a33c144041d93217322870d698202818200581ccac5ad7a809480c0c7d3acde9681afee85b5df84a5ef540c17c3b0808200581cd50178eb65367f9d003ed1ef1cfd54bdea1060de029d5a1e47bc9c588201818202818200581c9b473dd69e4bda4115862f333bbf498024366de2a85d83189d6213b4820281830301818200581ca92042aee826778e2e7af7d61c44635ac11ba6b574d83733dfb3a5dc",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "301c3027f8695cd5322dff96bb7e22d5b4ce9a0633c1b6c43d2ac77b": {
+                                "940113a9c8c11737b47d39a94715702b": 1
+                            }
+                        }
+                    },
                     "0708040801010507030300020501000708040605070801030607010007050306#61": {
                         "address": "addr_test1ypy7qnvhysfz538tgk6xrhjaa6pk03632ky9ayn9rln593pkqvtwa450d00ufzvdnwa4scyjrz4qu42grpgt3gf54yes7zpwy8",
                         "datum": null,
@@ -751,7 +775,7 @@
                             "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
                                 "49990934": 1
                             },
-                            "lovelace": 7500000000000000
+                            "lovelace": 9010135713324110977
                         }
                     }
                 },
