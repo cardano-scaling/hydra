@@ -79,7 +79,6 @@ instance IsTx Payment where
   type TxOutType Payment = (CardanoSigningKey, Value)
   type UTxOType Payment = [(CardanoSigningKey, Value)]
   type ValueType Payment = Value
-  type UTxOPairType Payment = (CardanoSigningKey, Value)
 
   txId = error "undefined"
   balance = foldMap snd

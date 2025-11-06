@@ -80,7 +80,6 @@ instance IsTx SimpleTx where
   type TxOutType SimpleTx = SimpleTxOut
   type UTxOType SimpleTx = Set SimpleTxOut
   type ValueType SimpleTx = Int
-  type UTxOPairType SimpleTx = (SimpleTxOut, SimpleTxOut)
 
   txId (SimpleTx tid _ _) = tid
   balance = Set.size
