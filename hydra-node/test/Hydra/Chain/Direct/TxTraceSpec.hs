@@ -753,7 +753,6 @@ signedSnapshot ms =
       , number = ms.number
       , confirmed = []
       , utxo
-      , utxoHash = hashUTxO utxo
       , utxoToCommit
       , utxoToDecommit
       , accumulator

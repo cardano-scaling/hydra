@@ -434,7 +434,6 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                         , number = sn
                         , confirmed = requestedTxs
                         , utxo = snapshotUTxO
-                        , utxoHash
                         , utxoToCommit = mUtxoToCommit
                         , utxoToDecommit = mUtxoToDecommit
                         , accumulator
