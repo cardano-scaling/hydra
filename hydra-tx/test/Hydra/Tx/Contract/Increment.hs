@@ -121,19 +121,17 @@ healthySnapshotVersion = 1
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
-  let utxoHash = hashUTxO healthyUTxO
-   in Snapshot
-        { headId = mkHeadId testPolicyId
-        , version = healthySnapshotVersion
-        , number = succ healthySnapshotNumber
-        , confirmed = []
-        , utxo = healthyUTxO
-        , utxoHash
-        , utxoToCommit = Just healthyDeposited
-        , utxoToDecommit = Nothing
-        , accumulator = healthyAccumulator
-        , crs = healthyCrs
-        }
+  Snapshot
+    { headId = mkHeadId testPolicyId
+    , version = healthySnapshotVersion
+    , number = succ healthySnapshotNumber
+    , confirmed = []
+    , utxo = healthyUTxO
+    , utxoToCommit = Just healthyDeposited
+    , utxoToDecommit = Nothing
+    , accumulator = healthyAccumulator
+    , crs = healthyCrs
+    }
 
 healthyAccumulatorHash :: ByteString
 healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator

@@ -243,7 +243,6 @@ testSnapshot number version confirmed utxo =
         , number
         , confirmed
         , utxo
-        , utxoHash
         , utxoToCommit = mempty
         , utxoToDecommit = mempty
         , accumulator

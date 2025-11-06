@@ -92,7 +92,6 @@ healthyOutdatedSnapshot =
         , number = healthyOutdatedSnapshotNumber
         , confirmed = []
         , utxo = healthySplitUTxOInHead
-        , utxoHash
         , utxoToCommit = Nothing
         , utxoToDecommit = Just healthySplitUTxOToDecommit
         , accumulator = Accumulator.build [utxoHash, hashUTxO @Tx mempty, hashUTxO healthySplitUTxOToDecommit]
