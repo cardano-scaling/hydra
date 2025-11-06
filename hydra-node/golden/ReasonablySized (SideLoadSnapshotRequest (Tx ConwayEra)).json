@@ -39,7 +39,6 @@
                         "type": "Tx ConwayEra"
                     }
                 ],
-                "crs": "",
                 "headId": "03050307050504050301030500050805",
                 "number": 5,
                 "utxo": {
@@ -493,7 +492,6 @@
                         "type": "Tx ConwayEra"
                     }
                 ],
-                "crs": "",
                 "headId": "02020000040003070501050605060201",
                 "number": 1,
                 "utxo": {
@@ -584,7 +582,6 @@
                         "type": "Tx ConwayEra"
                     }
                 ],
-                "crs": "",
                 "headId": "02030204070104010605070303070503",
                 "number": 5,
                 "utxo": {
