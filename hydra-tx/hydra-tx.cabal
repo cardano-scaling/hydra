@@ -103,7 +103,6 @@ library
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , plutus-ledger-api
-    , plutus-tx
     , prettyprinter
     , serialise
     , sop-extras

@@ -96,14 +96,6 @@ instance IsTx SimpleTx where
       , txOutputs = mempty
       }
 
-  -- \| For SimpleTx, we use a simple pair representation where both elements are the same output.
-  toPairList utxoSet =
-    [(out, out) | out <- Set.toList utxoSet]
-
-  -- \| For SimpleTx, just serialize the two integers
-  utxoToElement (SimpleTxOut i1, SimpleTxOut i2) =
-    toStrict (serialise i1) <> toStrict (serialise i2)
-
 -- * Simple chain state
 
 newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
