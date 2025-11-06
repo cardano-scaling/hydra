@@ -76,9 +76,6 @@ class
   -- | Type representing a value on the ledger.
   type ValueType tx
 
-  -- | Type for (input, output) pairs used in accumulator operations.
-  type UTxOPairType tx = pair | pair -> tx
-
   -- XXX(SN): this name easily conflicts
   txId :: tx -> TxIdType tx
 
@@ -163,7 +160,6 @@ instance IsTx Tx where
   type TxOutType Tx = TxOut CtxUTxO
   type UTxOType Tx = UTxO
   type ValueType Tx = Value
-  type UTxOPairType Tx = (TxIn, TxOut CtxUTxO)
 
   txId = getTxId . getTxBody
   balance = UTxO.totalValue
