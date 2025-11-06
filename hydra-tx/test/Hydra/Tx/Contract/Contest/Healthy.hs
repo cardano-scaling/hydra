@@ -112,7 +112,6 @@ healthyContestSnapshot =
         { headId = mkHeadId testPolicyId
         , number = healthyContestSnapshotNumber
         , utxo = splitUTxOInHead
-        , utxoHash
         , confirmed = []
         , utxoToCommit = Nothing
         , utxoToDecommit = Just splitUTxOToDecommit

@@ -3445,7 +3445,6 @@
                                     }
                                 }
                             },
-                            "utxoHash": "7a34c25496a8a857afd4e5e5fd8293176e53c4367be179a0e627750af447893e",
                             "utxoToCommit": {
                                 "0101030505010102050304020206010803050504040703020701050502000100#19": {
                                     "address": "addr_test1xrwf3tlm6njdt7ad0jy5l5u4r9ah0ldz9923qsa0mv8zr8xs9dyvj07vqzjr0yhxm7p05ftgjtj5eaednzlu8ctuykyq73jh0g",
@@ -5273,7 +5272,6 @@
                                         }
                                     }
                                 },
-                                "utxoHash": "5b65dee2b2f375db34deefe263c9da1a372f1b67f699c271a278bad90b325733",
                                 "utxoToCommit": {
                                     "0001010008050801010704020600050503020205060403010106010800020307#13": {
                                         "address": "addr_test1zqvn3sx060d76ztvuzv2kelz7e75r4mtt4shmw2kx2tzzu2rl8n462467jg3fzdt77n2t74kddtc37rkxz8h2udn923qe7xcvv",
