@@ -104,14 +104,12 @@ healthySnapshotVersion = 1
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
   let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
-      utxoHash = hashUTxO utxo
    in Snapshot
         { headId = mkHeadId testPolicyId
         , version = healthySnapshotVersion
         , number = succ healthySnapshotNumber
         , confirmed = []
         , utxo
-        , utxoHash
         , utxoToCommit = Nothing
         , utxoToDecommit = Just utxoToDecommit'
         , accumulator = healthyAccumulator
