@@ -112,7 +112,6 @@
                             "snapshot": {
                                 "accumulator": "a358203265b66bda8c12402ce98b06397a6db3cb345e9253e94fdadb3935066a1e8af282581cb3330cab587dce482623ae49ec5c63f4a2c79ca9a32a62fc80cb020e015820604984b7a332224c7f6e883255357ed76b87878b5e788daf46f76ce04f3d10a882581c21a7ce64ffe7a4cb73d21c16639248d67d7c54f613301c5dc47b6bfe015820e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85582581c4985010f294802e79bc74861e757dfc8302c944e807306db896e2c5a01",
                                 "confirmed": [],
-                                "crs": "",
                                 "headId": "00040303050500010105000102010107",
                                 "number": 3,
                                 "utxo": {
@@ -1560,7 +1559,6 @@
                         "snapshot": {
                             "accumulator": "a35820255fb4e833fdc2cc603474a2dc3486e39d69e2df83f50885db67412c1d7fec7d82581c561497793e2b5399605c3472cc53f478a1852952541c7e50ba53868c0158203a8994f7e08dbaec2ba8e64580c52a24d20e0ec92cbac802412762d6ad121b0782581c5bd9ee3cdfe102b4c7c3419076444a0ae42aaf4553c323d2c317bd40015820858010b5b7c688e7dd39a3b33a48486f0b8c7487f24540ac07625ce2bdc5e22882581ccbc857e8b110616a9cc73ca127df6e0965636aba6ed2ff2bee5aff1a01",
                             "confirmed": [],
-                            "crs": "",
                             "headId": "02010207060002080406080606010204",
                             "number": 5,
                             "utxo": {
@@ -3328,7 +3326,6 @@
                             "snapshot": {
                                 "accumulator": "a358206f494c9ce44b3348901eeca3481ff615371daf6dee91514e1de87d9f5e2d401882581c0c70ce4dec55590cfb1ca965846dd9dfb2557e825ac5f8a81d56bd4c01582092e9c1c4b73f3c4d34d3510686985a5323d7176be93578c0738210afc7be73bf82581c5b6e8e70c17e0e30ca9b95d2c0f056d58cec0ac4a7b78ecd28ce592b015820e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85582581c4985010f294802e79bc74861e757dfc8302c944e807306db896e2c5a01",
                                 "confirmed": [],
-                                "crs": "",
                                 "headId": "04080602050401040100010201020102",
                                 "number": 1,
                                 "utxo": {
@@ -4486,7 +4483,6 @@
                             "snapshot": {
                                 "accumulator": "a358202d366549d3049f903dde36003c8de74b4363a6a5d0247a4ab1098344f38451de82581ce98f8f76bd1b55feed5283200b715eb1cbc2e05bee30fc15b83a62cf0158204cfa1285660a818254da6ac93ad2cd3229a6ba18632aeee3471d9c4ec2f7310582581cf84be9de2d4fb3730332003bc5ecc648d5c5a0b7e566892ceb687cf6015820a918ecce73912dce0295dd5d7e120b1cb856c1843cc24a5c8c834888836133da82581ccc32f73f9cdd57e8a351b2b3fe1c32979e0030af244632112c0650c801",
                                 "confirmed": [],
-                                "crs": "",
                                 "headId": "04010005050600040303040707050702",
                                 "number": 4,
                                 "utxo": {
@@ -5132,7 +5128,6 @@
                                         "type": "Tx ConwayEra"
                                     }
                                 ],
-                                "crs": "",
                                 "headId": "06080002070004080207050505050106",
                                 "number": 6,
                                 "utxo": {

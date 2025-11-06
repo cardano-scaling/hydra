@@ -300,7 +300,6 @@
                         "snapshot": {
                             "accumulator": "a3582046b4ea3dabbb5761e26b3a32955d39cd149b8f5872c03b37f4f9c69283c1d19e82581c33c4bfcb41a5276228ffba70ec3e494e2269ee79935f59bdc4a1b98e0158204e883a53fb4d2263fc3309ccf425f58c8f5955b7ec8ddf1c06c9a378a4741b4f82581cd06e38c22f8798695168b6f7dd56a20e9d44a27d08a005fd64e187c3015820ec45c9ea1e69d39e1cb5bb453cc578002a2011919672436e99bbffa54d4723ac82581c64e4fa9b39aeb8699c95b09a5a40e4aac97a7e748c06e28c975d020501",
                             "confirmed": [],
-                            "crs": "",
                             "headId": "05020008050304010702080103040701",
                             "number": 2,
                             "utxo": {
@@ -1621,7 +1620,6 @@
                         "snapshot": {
                             "accumulator": "a35820b5e600836e7b5ece70478ed864fdb8a3d63dece5197633341b97db24610d69c582581c9c3cc1f9eed0f5f5fb942bab735b76532c90b60b533ba9e1aa939de0015820b951dcdb5c4ad6a0174aa6b12c276eec2bd00d032c73ab3b83365b76e6b2158982581cf64b0929568c29c7472b214c94acc240524ff82e4ed42938086b2025015820e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85582581c4985010f294802e79bc74861e757dfc8302c944e807306db896e2c5a01",
                             "confirmed": [],
-                            "crs": "",
                             "headId": "07010302080505060201050304000507",
                             "number": 4,
                             "utxo": {
@@ -2940,7 +2938,6 @@
                         "snapshot": {
                             "accumulator": "a358201c019c027501ee7021eac1f8534eec55defc0471f8e9091ce3fcf09af346987282581c6bb8109781141e065a8cae08c52ec9b3dbd1ee7f15b4bfc21021e9ca01582087b7a4b3b6535fda5304ca5709e31b7e115a5cb97d4765401c3b7a3fcf2a1d0782581ca18724242d3282e8f2ef203a9df13c7029427c23e8841c2b203e407c015820e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85582581c4985010f294802e79bc74861e757dfc8302c944e807306db896e2c5a01",
                             "confirmed": [],
-                            "crs": "",
                             "headId": "04020205080805000108040807020302",
                             "number": 3,
                             "utxo": {

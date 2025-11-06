@@ -91,7 +91,6 @@ healthyFanoutDatum =
       , contesters = []
       , version = 0
       , accumulatorHash = toBuiltin ("" :: ByteString) -- TODO: Proper accumulator hash
-      , crs = toBuiltin ("" :: ByteString) -- TODO: Proper CRS
       }
  where
   healthyContestationPeriodSeconds = 10

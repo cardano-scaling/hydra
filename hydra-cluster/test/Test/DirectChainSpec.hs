@@ -113,7 +113,6 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 utxoToCommitHash = hashUTxO @Tx mempty
                 utxoToDecommitHash = hashUTxO @Tx mempty
                 accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
-                crs = ""
             let snapshot =
                   Snapshot
                     { headId
@@ -124,7 +123,6 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxoToDecommit = Nothing
                     , version = snapshotVersion
                     , accumulator
-                    , crs
                     }
 
             postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
@@ -267,7 +265,6 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 utxoToCommitHash = hashUTxO @Tx mempty
                 utxoToDecommitHash = hashUTxO toDecommit
                 accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
-                crs = ""
             let snapshot1 =
                   Snapshot
                     { headId
@@ -278,7 +275,6 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxoToDecommit = Just toDecommit
                     , version = 0
                     , accumulator
-                    , crs
                     }
             postTx $
               ContestTx
@@ -304,7 +300,6 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxoToDecommit = Just toDecommit
                     , version = 1
                     , accumulator
-                    , crs
                     }
             let contestAgain =
                   postTx $
