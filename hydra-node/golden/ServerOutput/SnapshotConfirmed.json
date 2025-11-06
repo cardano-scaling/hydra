@@ -36,7 +36,6 @@
                         }
                     }
                 },
-                "utxoHash": "aa6aa0d84d7709b4e9dbee2b65bc584869d540b70e4be34b7c1a4091814c158e",
                 "utxoToCommit": {
                     "0100010101000001010000000100010100010000010001010000000101000101#2": {
                         "address": "addr_test1yr4rhhchtm5eqeldsjpq8zy9kwqyev53atmxn99m47g8apczenjhtekjy65kj7sgg3hnc9n5x9kj9x86rhd8n208w7pq307u7y",

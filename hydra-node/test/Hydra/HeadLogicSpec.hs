@@ -598,7 +598,6 @@ spec =
                 , number = 1
                 , confirmed = []
                 , utxo = activeUTxO
-                , utxoHash
                 , utxoToCommit = Nothing
                 , utxoToDecommit = Just $ utxoRefs [3]
                 , accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx mempty, hashUTxO @SimpleTx $ utxoRefs [3]]
@@ -896,7 +895,7 @@ spec =
           let utxo' = utxoRef 3
               utxoHash = hashUTxO utxo'
               accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx mempty, hashUTxO @SimpleTx $ fromMaybe mempty (Just utxoToDecommit)]
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash Nothing (Just utxoToDecommit) accumulator ""
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing (Just utxoToDecommit) accumulator ""
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
@@ -908,7 +907,7 @@ spec =
           let utxo' = utxoRef 3
               utxoHash = hashUTxO utxo'
               accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx $ fromMaybe mempty (Just utxoToCommit), hashUTxO @SimpleTx mempty]
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoHash (Just utxoToCommit) Nothing accumulator ""
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' (Just utxoToCommit) Nothing accumulator ""
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
@@ -1439,7 +1438,6 @@ testSnapshot number version confirmed utxo =
         , number
         , confirmed
         , utxo
-        , utxoHash
         , utxoToCommit = mempty
         , utxoToDecommit = mempty
         , accumulator = Accumulator.build [utxoHash, hashUTxO @tx mempty, hashUTxO @tx mempty]
