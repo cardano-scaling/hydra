@@ -135,7 +135,6 @@ healthySnapshot =
     , utxoToCommit = Just healthyDeposited
     , utxoToDecommit = Nothing
     , accumulator = healthyAccumulator
-    , crs = healthyCrs
     }
 
 healthyAccumulatorHash :: ByteString
@@ -147,9 +146,6 @@ healthyAccumulator =
       depositHash = hashUTxO healthyDeposited
       utxoToDecommitHash = hashUTxO @Tx mempty
    in Accumulator.build [nextUtxoHash, depositHash, utxoToDecommitHash]
-
-healthyCrs :: ByteString
-healthyCrs = ""
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
@@ -230,7 +226,6 @@ genIncrementMutation (tx, utxo) =
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , increment = toPlutusTxOutRef healthyDepositInput
               , accumulatorHash = toBuiltin healthyAccumulatorHash
-              , crs = toBuiltin healthyCrs
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
@@ -247,7 +242,6 @@ genIncrementMutation (tx, utxo) =
               , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
               , increment = toPlutusTxOutRef invalidDepositRef
               , accumulatorHash = toBuiltin healthyAccumulatorHash
-              , crs = toBuiltin healthyCrs
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) IncrementAddExtraDepositInput <$> do
         extraIn <- genTxIn `suchThat` (/= depositIn)
