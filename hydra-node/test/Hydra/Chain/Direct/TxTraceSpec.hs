@@ -756,7 +756,6 @@ signedSnapshot ms =
       , utxoToCommit
       , utxoToDecommit
       , accumulator
-      , crs
       }
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
@@ -775,7 +774,6 @@ signedSnapshot ms =
   utxoToCommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToCommit
   utxoToDecommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
   accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
-  crs = ""
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.

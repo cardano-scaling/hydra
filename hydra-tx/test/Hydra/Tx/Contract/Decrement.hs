@@ -114,7 +114,6 @@ healthySnapshot =
         , utxoToCommit = Nothing
         , utxoToDecommit = Just utxoToDecommit'
         , accumulator = healthyAccumulator
-        , crs = healthyCrs
         }
 
 healthyAccumulator :: Accumulator.HydraAccumulator
@@ -127,9 +126,6 @@ healthyAccumulator =
 
 healthyAccumulatorHash :: ByteString
 healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator
-
-healthyCrs :: ByteString
-healthyCrs = ""
 
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
 splitDecommitUTxO utxo =
@@ -204,7 +200,6 @@ genDecrementMutation (tx, _utxo) =
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , numberOfDecommitOutputs = fromIntegral $ maybe 0 UTxO.size $ utxoToDecommit healthySnapshot
               , accumulatorHash = toBuiltin healthyAccumulatorHash
-              , crs = toBuiltin healthyCrs
               }
     , -- Spec: Transaction is signed by a participant
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
