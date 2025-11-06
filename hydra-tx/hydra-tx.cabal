@@ -102,7 +102,6 @@ library
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , plutus-ledger-api
-    , plutus-tx
     , prettyprinter
     , QuickCheck
     , quickcheck-instances
