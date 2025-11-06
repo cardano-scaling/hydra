@@ -67,12 +67,13 @@ deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
 
 -- | Binary representation of snapshot signatures. That is, concatenated CBOR for
--- 'headId', 'version', 'number', 'utxoToCommitHash', 'utxoToDecommitHash',
+-- 'headId', 'version', 'number', 'utxoHash', 'utxoToCommitHash', 'utxoToDecommitHash',
 -- and 'accumulator' according to CDDL schemata:
 --
 -- headId = bytes .size 16
 -- version = uint
 -- number = uint
+-- utxoHash = bytes
 -- utxoToCommitHash = bytes
 -- utxoToDecommitHash = bytes
 -- accumulator = bytes  ; serialized HydraAccumulator
