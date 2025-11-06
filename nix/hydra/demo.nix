@@ -72,7 +72,8 @@
                     --testnet-magic 42 \
                     --node-socket devnet/node.socket \
                     --persistence-dir devnet/persistence/alice \
-                    --contestation-period 3s
+                    --contestation-period 3s \
+                    --deposit-period 300s
                 '';
               };
               working_dir = ".";
@@ -105,7 +106,8 @@
                   --testnet-magic 42 \
                   --node-socket devnet/node.socket \
                   --persistence-dir devnet/persistence/bob \
-                  --contestation-period 3s
+                  --contestation-period 3s \
+                  --deposit-period 300s
                 '';
               };
               working_dir = ".";
@@ -138,7 +140,8 @@
                   --testnet-magic 42 \
                   --node-socket devnet/node.socket \
                   --persistence-dir devnet/persistence/carol \
-                  --contestation-period 3s
+                  --contestation-period 3s \
+                  --deposit-period 300s
                 '';
               };
               working_dir = ".";
