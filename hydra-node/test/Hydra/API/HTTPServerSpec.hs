@@ -553,7 +553,7 @@ apiServerSpec = do
                   InitialSnapshot{headId} -> InitialSnapshot{headId, initialUTxO = utxo'}
                   ConfirmedSnapshot{snapshot, signatures} ->
                     let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit, accumulator, crs} = snapshot
-                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, utxoHash = hashUTxO utxo', accumulator, crs}
+                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, accumulator, crs}
                      in ConfirmedSnapshot{snapshot = snapshot', signatures}
               closedState' = closedState{confirmedSnapshot = confirmedSnapshot'}
           withApplication
@@ -731,7 +731,6 @@ apiServerSpec = do
                 , number = 7
                 , confirmed = [testTx]
                 , utxo = utxo'
-                , utxoHash
                 , utxoToCommit = mempty
                 , utxoToDecommit = mempty
                 , accumulator
