@@ -2906,6 +2906,7 @@
                             ]
                         },
                         "snapshot": {
+                            "accumulator": "a3582043a805dbb86daf398b82eb7f996e3537e967a7e70bec1dba79c13307b7ef590a82581c318b54c2361673d5617391e33bfbe287b281234f79d6a258a9f3bb730158207a34c25496a8a857afd4e5e5fd8293176e53c4367be179a0e627750af447893e82581c22543e669942c4a7348c46ac4355e146510f558c09e437bf899165dc0158207e2236c8c06858fb11b08cff397cd83f06e7c7610329f1e229668e351c5b006082581c09a8dc990411be144b70af7cb9ebb0ff3934dd0810a2eaaec34ac67001",
                             "confirmed": [],
                             "headId": "06080501070708060306050606040100",
                             "number": 7,
@@ -3603,8 +3604,7 @@
                                     }
                                 }
                             },
-                            "version": 0,
-                            "accumulator": ""
+                            "version": 0
                         },
                         "tag": "ConfirmedSnapshot"
                     },
@@ -5192,6 +5192,7 @@
                                 ]
                             },
                             "snapshot": {
+                                "accumulator": "a358205b65dee2b2f375db34deefe263c9da1a372f1b67f699c271a278bad90b32573382581c3098e12058f8cbe9e2826b71b96e070bfd172cbb7983d812146aaea80158205c4f86c25b29bb98a65b602ec2cfb05189895658ac3f0d973149fdba3989565882581cf4f068620c180bb62470dbfc46ee9f2690d7867d1fa9a03cf9215385015820e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85582581c4985010f294802e79bc74861e757dfc8302c944e807306db896e2c5a01",
                                 "confirmed": [],
                                 "headId": "03020102080007030600080805010207",
                                 "number": 2,
@@ -5798,8 +5799,7 @@
                                     }
                                 },
                                 "utxoToDecommit": null,
-                                "version": 0,
-                                "accumulator": ""
+                                "version": 0
                             },
                             "tag": "ConfirmedSnapshot"
                         },
