@@ -113,7 +113,6 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
                   { headId
                   , number = 1
                   , utxo = someUTxO
-                  , utxoHash = hashUTxO someUTxO
                   , confirmed = []
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Nothing
