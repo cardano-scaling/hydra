@@ -60,8 +60,6 @@ data Snapshot tx = Snapshot
   -- ^ UTxO to be decommitted. Spec: Uω
   , accumulator :: Accumulator.HydraAccumulator
   -- ^ The cryptographic accumulator built from UTxO hashes. Spec: A
-  , crs :: ByteString
-  -- ^ Common Reference String for cryptographic proofs. Spec: CRS
   }
   deriving stock (Generic)
 
@@ -70,7 +68,7 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 
 -- | Binary representation of snapshot signatures. That is, concatenated CBOR for
 -- 'headId', 'version', 'number', 'utxoToCommitHash', 'utxoToDecommitHash',
--- 'accumulator', and 'crs' according to CDDL schemata:
+-- and 'accumulator' according to CDDL schemata:
 --
 -- headId = bytes .size 16
 -- version = uint
@@ -78,13 +76,12 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 -- utxoToCommitHash = bytes
 -- utxoToDecommitHash = bytes
 -- accumulator = bytes  ; serialized HydraAccumulator
--- crs = bytes          ; Common Reference String
 --
 -- The accumulator is built from [utxoHash, utxoToCommitHash, utxoToDecommitHash].
 -- Parties sign the snapshot containing both the individual hashes (for backward compatibility)
 -- and the accumulator structure (for on-chain verification against the datum).
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToCommit, utxoToDecommit, accumulator, crs} =
+  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToCommit, utxoToDecommit, accumulator} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData . toBuiltin $ toInteger version)
@@ -93,7 +90,6 @@ instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
         <> serialise (toData $ toBuiltin utxoToCommitHash)
         <> serialise (toData $ toBuiltin utxoToDecommitHash)
         <> serialise (toData $ toBuiltin accumulatorBytes)
-        <> serialise (toData $ toBuiltin crs)
    where
     utxoHash = hashUTxO utxo
     utxoToCommitHash = hashUTxO @tx $ fromMaybe mempty utxoToCommit
@@ -102,7 +98,7 @@ instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
     accumulatorBytes = Accumulator.getAccumulatorHash accumulator
 
 instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator, crs} =
+  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator} =
     object
       [ "headId" .= headId
       , "version" .= version
@@ -112,7 +108,6 @@ instance IsTx tx => ToJSON (Snapshot tx) where
       , "utxoToCommit" .= utxoToCommit
       , "utxoToDecommit" .= utxoToDecommit
       , "accumulator" .= String (decodeUtf8 $ Base16.encode $ Accumulator.getAccumulatorHash accumulator)
-      , "crs" .= String (decodeUtf8 $ Base16.encode crs)
       ]
 
 instance IsTx tx => FromJSON (Snapshot tx) where
@@ -130,7 +125,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       obj .:? "utxoToDecommit" >>= \case
         Nothing -> pure mempty
         (Just utxoD) -> pure utxoD
-    -- Parse accumulator and crs, or reconstruct them if not present (for backward compatibility)
+    -- Parse accumulator, or reconstruct it if not present (for backward compatibility)
     accumulator <-
       (obj .:? "accumulator" >>= traverse parseBase16) >>= \case
         Just accBytes | not (BS.null accBytes) -> do
@@ -144,11 +139,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
               utxoToCommitHash = hashUTxO @tx $ fromMaybe mempty utxoToCommit
               utxoToDecommitHash = hashUTxO @tx $ fromMaybe mempty utxoToDecommit
           pure $ Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
-    crs <-
-      (obj .:? "crs" >>= traverse parseBase16) >>= \case
-        Just crsBytes -> pure crsBytes
-        Nothing -> pure "" -- Default empty CRS for backward compatibility
-    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator, crs}
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
    where
     parseBase16 :: Text -> Parser ByteString
     parseBase16 t =
@@ -193,6 +184,5 @@ getSnapshot = \case
           , utxoToCommit = Nothing
           , utxoToDecommit = Nothing
           , accumulator = Accumulator.build [utxoHash, hashUTxO @tx mempty, hashUTxO @tx mempty]
-          , crs = ""
           }
   ConfirmedSnapshot{snapshot} -> snapshot

@@ -145,7 +145,6 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , contesters = []
           , version = fromIntegral openVersion
           , accumulatorHash = toBuiltin closedAccumulatorHash
-          , crs = toBuiltin closedCrs
           }
    where
     snapshot = getSnapshot confirmedSnapshot
@@ -153,7 +152,6 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
     snapshotUtxoToCommitHash = hashUTxO @Tx $ fromMaybe mempty (utxoToCommit snapshot)
     snapshotUtxoToDecommitHash = hashUTxO @Tx $ fromMaybe mempty (utxoToDecommit snapshot)
     closedAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [snapshotUtxoHash, snapshotUtxoToCommitHash, snapshotUtxoToDecommitHash]
-    closedCrs = "" :: ByteString
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod

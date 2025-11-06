@@ -250,7 +250,6 @@ testSnapshot number version confirmed utxo =
       utxoToCommitHash = hashUTxO @tx mempty
       utxoToDecommitHash = hashUTxO @tx mempty
       accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
-      crs = ""
    in Snapshot
         { headId = testHeadId
         , version
@@ -260,5 +259,4 @@ testSnapshot number version confirmed utxo =
         , utxoToCommit = mempty
         , utxoToDecommit = mempty
         , accumulator
-        , crs
         }

@@ -118,7 +118,6 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
                   , utxoToDecommit = Nothing
                   , version = snapshotVersion
                   , accumulator
-                  , crs = ""
                   }
 
           postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})

@@ -58,7 +58,6 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           , numberOfDecommitOutputs =
               fromIntegral $ maybe 0 UTxO.size utxoToDecommit
           , accumulatorHash = toBuiltin decrementAccumulatorHash
-          , crs = toBuiltin decrementCrs
           }
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
@@ -67,7 +66,6 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   utxoToCommitHash = hashUTxO @Tx mempty
   decommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
   decrementAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [nextUtxoHash, utxoToCommitHash, decommitHash]
-  decrementCrs = "" :: ByteString
 
   HeadParameters{parties, contestationPeriod} = headParameters
 

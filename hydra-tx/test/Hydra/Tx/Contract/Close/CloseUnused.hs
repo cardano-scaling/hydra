@@ -127,7 +127,6 @@ healthyCurrentSnapshot =
         , utxoToCommit = Nothing
         , utxoToDecommit = Just healthySplitUTxOToDecommit
         , accumulator = Accumulator.build [utxoHash, hashUTxO @Tx mempty, hashUTxO healthySplitUTxOToDecommit]
-        , crs = ""
         }
 
 healthyCurrentOpenDatum :: Head.State

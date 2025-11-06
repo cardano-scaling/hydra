@@ -15,7 +15,6 @@
                         "type": "Tx ConwayEra"
                     }
                 ],
-                "crs": "",
                 "headId": "00000100010100000100010101000001",
                 "number": 1,
                 "utxo": {

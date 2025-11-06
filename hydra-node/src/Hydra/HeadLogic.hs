@@ -424,9 +424,8 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                     utxoToCommitHash = hashUTxO $ fromMaybe mempty mUtxoToCommit
                     utxoToDecommitHash = hashUTxO $ fromMaybe mempty mUtxoToDecommit
                     accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
-                    crs = "" -- TODO: proper CRS
-                    -- Spec: ŝ ← ̅S.s + 1
-                    -- NOTE: confSn == seenSn == sn here
+                -- Spec: ŝ ← ̅S.s + 1
+                -- NOTE: confSn == seenSn == sn here
                 let nextSnapshot =
                       Snapshot
                         { headId
@@ -437,7 +436,6 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                         , utxoToCommit = mUtxoToCommit
                         , utxoToDecommit = mUtxoToDecommit
                         , accumulator
-                        , crs
                         }
 
                 -- Spec: 𝜂 ← combine(𝑈)
