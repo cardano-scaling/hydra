@@ -147,14 +147,12 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , contesters = contester : closedContesters
           , version = toInteger openVersion
           , accumulatorHash = toBuiltin contestAccumulatorHash
-          , crs = toBuiltin contestCrs
           }
    where
     contestSnapshotUtxoHash = hashUTxO @Tx utxo
     contestUtxoToCommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToCommit
     contestUtxoToDecommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
     contestAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [contestSnapshotUtxoHash, contestUtxoToCommitHash, contestUtxoToDecommitHash]
-    contestCrs = "" :: ByteString
 
 -- * Observation
 

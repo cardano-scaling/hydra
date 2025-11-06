@@ -27,7 +27,7 @@ services:
       ]
 
   hydra-node:
-    image: ghcr.io/cardano-scaling/hydra-node:0.22.4
+    image: ghcr.io/cardano-scaling/hydra-node:1.1.0
     restart: always
     container_name: hydra-node
     logging:
@@ -51,8 +51,8 @@ services:
     command:
       [ "--node-id", "${KEY_NAME}"
       , "--api-host", "0.0.0.0"
-      , "--listen", "0.0.0.0:6000"
-      # , "--advertise", ""
+      , "--listen", "0.0.0.0:5001"
+      , "--advertise", "63.177.91.204:5001"
       , "--monitoring-port", "6000"
       , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
       , "--hydra-signing-key", "/credentials/hydra-key.sk"
@@ -63,18 +63,6 @@ services:
       , "--node-socket", "/network/node.socket"
       , "--persistence-dir", "/data"
       # hardcoded peers
-      ## Arnaud
-      # , "--peer", "35.233.17.169:5001"
-      # , "--hydra-verification-key", "/members/arnaud.hydra.vk"
-      # , "--cardano-verification-key", "/members/arnaud.cardano.vk"
-      # Sebastian
-      , "--peer", "fk.ncoding.at:5101"
-      , "--hydra-verification-key", "/members/sebastian.hydra.vk"
-      , "--cardano-verification-key", "/members/sebastian.cardano.vk"
-      ## Pascal
-      # , "--peer", "13.37.15.211:5001"
-      # , "--hydra-verification-key", "/members/pascal.hydra.vk"
-      # , "--cardano-verification-key", "/members/pascal.cardano.vk"
       # Sasha
       , "--peer", "13.37.150.125:5001"
       , "--hydra-verification-key", "/members/sasha.hydra.vk"
@@ -83,10 +71,18 @@ services:
       , "--peer", "hydra.horizon-haskell.net:5005"
       , "--hydra-verification-key", "/members/dan.hydra.vk"
       , "--cardano-verification-key", "/members/dan.cardano.vk"
-      # Veronika
-      , "--peer", "63.177.91.204:5001"
-      , "--hydra-verification-key", "/members/veronika.hydra.vk"
-      , "--cardano-verification-key", "/members/veronika.cardano.vk"
+      # Franco
+      , "--peer", "13.39.44.251:5001"
+      , "--hydra-verification-key", "/members/franco.hydra.vk"
+      , "--cardano-verification-key", "/members/franco.cardano.vk"
+      # Noon
+      , "--peer", "35.214.9.104:5005"
+      , "--hydra-verification-key", "/members/noon.hydra.vk"
+      , "--cardano-verification-key", "/members/noon.cardano.vk"
+      # Sharan
+      , "--peer", "35.181.137.127:5001"
+      , "--hydra-verification-key", "/members/sharan.hydra.vk"
+      , "--cardano-verification-key", "/members/sharan.cardano.vk"
       ]
 
   hydra-tui:
@@ -99,7 +95,7 @@ services:
       "--connect", "hydra-node:4001"
       , "--node-socket", "/network/node.socket"
       , "--testnet-magic", "${NETWORK_MAGIC}"
-      , "--cardano-signing-key", "/credentials/external.sk"
+      , "--cardano-signing-key", "/credentials/cardano-key.sk"
       ]
     volumes:
       - ~/credentials:/credentials:ro
