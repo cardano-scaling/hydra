@@ -3604,8 +3604,7 @@
                                 }
                             },
                             "version": 0,
-                            "accumulator": "",
-                            "crs": ""
+                            "accumulator": ""
                         },
                         "tag": "ConfirmedSnapshot"
                     },
@@ -5800,8 +5799,7 @@
                                 },
                                 "utxoToDecommit": null,
                                 "version": 0,
-                                "accumulator": "",
-                                "crs": ""
+                                "accumulator": ""
                             },
                             "tag": "ConfirmedSnapshot"
                         },
