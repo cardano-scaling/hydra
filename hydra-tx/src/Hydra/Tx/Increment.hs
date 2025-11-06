@@ -64,7 +64,6 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           , snapshotNumber = fromIntegral number
           , increment = toPlutusTxOutRef depositIn
           , accumulatorHash = toBuiltin incrementAccumulatorHash
-          , crs = toBuiltin incrementCrs
           }
 
   HeadParameters{parties, contestationPeriod} = headParameters
@@ -87,7 +86,6 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   depositHash = hashUTxO @Tx $ fromMaybe mempty utxoToCommit
   utxoToDecommitHash = hashUTxO @Tx mempty
   incrementAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [nextUtxoHash, depositHash, utxoToDecommitHash]
-  incrementCrs = "" :: ByteString
 
   headDatumAfter =
     mkTxOutDatumInline $

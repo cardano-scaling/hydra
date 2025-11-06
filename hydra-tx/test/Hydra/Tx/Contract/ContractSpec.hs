@@ -257,8 +257,7 @@ prop_verifySnapshotSignatures =
           utxoToCommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
           utxoToDecommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
           accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.build [fromBuiltin utxoHash, fromBuiltin utxoToCommitHash, fromBuiltin utxoToDecommitHash]
-          crs = toBuiltin ("" :: ByteString) -- TODO: Proper CRS
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash, accumulatorHash, crs) signatures
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash, accumulatorHash) signatures
             & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
             & counterexample ("version: " <> show snapshotVersion)
             & counterexample ("number: " <> show snapshotNumber)

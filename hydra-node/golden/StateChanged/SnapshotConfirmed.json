@@ -8,7 +8,6 @@
             "snapshot": {
                 "accumulator": "a15820e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85582581c4985010f294802e79bc74861e757dfc8302c944e807306db896e2c5a03",
                 "confirmed": [],
-                "crs": "",
                 "headId": "00010000000001010001000101010101",
                 "number": 0,
                 "utxo": {},

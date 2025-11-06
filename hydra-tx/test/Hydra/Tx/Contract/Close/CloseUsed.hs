@@ -95,7 +95,6 @@ healthyOutdatedSnapshot =
         , utxoToCommit = Nothing
         , utxoToDecommit = Just healthySplitUTxOToDecommit
         , accumulator = Accumulator.build [utxoHash, hashUTxO @Tx mempty, hashUTxO healthySplitUTxOToDecommit]
-        , crs = ""
         }
 
 healthyOutdatedOpenDatum :: Head.State

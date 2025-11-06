@@ -116,7 +116,6 @@ healthyContestSnapshot =
         , utxoToDecommit = Just splitUTxOToDecommit
         , version = healthyCloseSnapshotVersion
         , accumulator = Accumulator.build [utxoHash, hashUTxO @Tx mempty, hashUTxO splitUTxOToDecommit]
-        , crs = ""
         }
 
 healthyClosedState :: Head.State
@@ -134,7 +133,6 @@ healthyClosedState =
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion
       , accumulatorHash = toBuiltin ("" :: ByteString) -- TODO: Proper accumulator hash
-      , crs = toBuiltin ("" :: ByteString) -- TODO: Proper CRS
       }
 
 healthyContestUTxOHash :: BuiltinByteString
