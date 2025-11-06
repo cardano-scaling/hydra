@@ -36,7 +36,6 @@
                             "snapshot": {
                                 "accumulator": "a358203549689c9d5ed49e7a277dca4b109da4f84378e6a60db35738b83f25b763be5282581ce86b83bd2286f8328a0c7fd6d71287c60c9a3088e32bd6b3cd1650d6015820965117108658f1486f49e510eecd512e1a903f7da456db0109aeed5b0d5020ad82581c8f5d7a6d1bd99b848ad9d333b77e2001f37dc57870b617cc36e6ed12015820b080f6360d7112198d1361587062802c457bdadadd5111a5d90107b59c3110d882581c5deb3285c35486118c08665545e3be799704176a98799f006094b70c01",
                                 "confirmed": [],
-                                "crs": "",
                                 "headId": "01000101010000010100000001000101",
                                 "number": 1,
                                 "utxo": {
