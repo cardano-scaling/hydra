@@ -83,10 +83,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
-  nextUtxoHash = hashUTxO @Tx utxo
-  depositHash = hashUTxO @Tx $ fromMaybe mempty utxoToCommit
-  utxoToDecommitHash = hashUTxO @Tx mempty
-  incrementAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [nextUtxoHash, depositHash, utxoToDecommitHash]
+  incrementAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO utxo
 
   headDatumAfter =
     mkTxOutDatumInline $

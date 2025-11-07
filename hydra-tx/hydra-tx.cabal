@@ -98,6 +98,7 @@ library
     , lens-aeson
     , mono-traversable
     , plutus-ledger-api
+    , plutus-tx
     , prettyprinter
     , serialise
     , text
