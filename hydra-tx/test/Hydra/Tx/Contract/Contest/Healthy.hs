@@ -106,17 +106,16 @@ splitUTxOToDecommit = snd splitContestUTxO
 
 healthyContestSnapshot :: Snapshot Tx
 healthyContestSnapshot =
-  let utxoHash = hashUTxO splitUTxOInHead
-   in Snapshot
-        { headId = mkHeadId testPolicyId
-        , number = healthyContestSnapshotNumber
-        , utxo = splitUTxOInHead
-        , confirmed = []
-        , utxoToCommit = Nothing
-        , utxoToDecommit = Just splitUTxOToDecommit
-        , version = healthyCloseSnapshotVersion
-        , accumulator = Accumulator.build [utxoHash, hashUTxO @Tx mempty, hashUTxO splitUTxOToDecommit]
-        }
+  Snapshot
+    { headId = mkHeadId testPolicyId
+    , number = healthyContestSnapshotNumber
+    , utxo = splitUTxOInHead
+    , confirmed = []
+    , utxoToCommit = Nothing
+    , utxoToDecommit = Just splitUTxOToDecommit
+    , version = healthyCloseSnapshotVersion
+    , accumulator = Accumulator.buildFromUTxO splitUTxOInHead
+    }
 
 healthyClosedState :: Head.State
 healthyClosedState =
