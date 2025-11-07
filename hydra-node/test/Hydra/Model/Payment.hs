@@ -95,6 +95,12 @@ instance IsTx Payment where
         result = Set.toList $ Set.fromList as \\ Set.fromList bs
      in second fromList <$> result
 
+  -- For Payment, UTxO is already a list of pairs
+  toPairList = id
+
+  -- For Payment, just use show for serialization (consistent with hashUTxO)
+  utxoToElement = encodeUtf8 . show @Text
+
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
   (to, value) : List.delete (from, value) utxo

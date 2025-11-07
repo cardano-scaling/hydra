@@ -46,7 +46,7 @@ import Hydra.Logging (nullTracer)
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..))
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.IsTx (UTxOType, hashUTxO, txId)
+import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
@@ -774,8 +774,7 @@ apiServerSpec = do
       prop "returns 200 OK on confirmed snapshot" $ do
         responseChannel <- newTChanIO
         let utxo' = mempty
-            utxoHash = hashUTxO utxo'
-            accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx mempty, hashUTxO @SimpleTx mempty]
+            accumulator = Accumulator.buildFromUTxO utxo'
             snapshot =
               Snapshot
                 { headId = testHeadId
