@@ -136,10 +136,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
             Right acc -> pure $ Accumulator.HydraAccumulator acc
         _ -> do
           -- Reconstruct accumulator from utxo hashes for backward compatibility (or if empty)
-          let utxoHash = hashUTxO utxo
-              utxoToCommitHash = hashUTxO @tx $ fromMaybe mempty utxoToCommit
-              utxoToDecommitHash = hashUTxO @tx $ fromMaybe mempty utxoToDecommit
-          pure $ Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+          pure $ Accumulator.buildFromUTxO utxo
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
    where
     parseBase16 :: Text -> Parser ByteString
@@ -175,15 +172,14 @@ data ConfirmedSnapshot tx
 getSnapshot :: forall tx. IsTx tx => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
-    let utxoHash = hashUTxO initialUTxO
-     in Snapshot
-          { headId
-          , version = 0
-          , number = 0
-          , confirmed = []
-          , utxo = initialUTxO
-          , utxoToCommit = Nothing
-          , utxoToDecommit = Nothing
-          , accumulator = Accumulator.build [utxoHash, hashUTxO @tx mempty, hashUTxO @tx mempty]
-          }
+    Snapshot
+      { headId
+      , version = 0
+      , number = 0
+      , confirmed = []
+      , utxo = initialUTxO
+      , utxoToCommit = Nothing
+      , utxoToDecommit = Nothing
+      , accumulator = Accumulator.buildFromUTxO initialUTxO
+      }
   ConfirmedSnapshot{snapshot} -> snapshot
