@@ -257,7 +257,7 @@ httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getP
         >>= respond
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo env pparams directChain getCommitInfo
+        >>= handleDraftCommitUtxo tracer env pparams directChain getCommitInfo
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
@@ -290,6 +290,7 @@ httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getP
 handleDraftCommitUtxo ::
   forall tx.
   IsChainState tx =>
+  Tracer IO APIServerLog ->
   Environment ->
   PParams LedgerEra ->
   Chain tx IO ->
@@ -298,9 +299,14 @@ handleDraftCommitUtxo ::
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
+handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
   case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
-    Left err ->
+    Left err -> do
+      traceWith tracer $
+        APIInvalidInput
+          { reason = "Failed to parse request to DraftCommitTxRequest: " <> show err
+          , inputReceived = show body
+          }
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right someCommitRequest ->
       getCommitInfo >>= \case
@@ -317,32 +323,50 @@ handleDraftCommitUtxo env pparams directChain getCommitInfo body = do
               deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo} changeAddress
             SimpleCommitRequest{utxoToCommit} ->
               deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit} Nothing
-        CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
+        CannotCommit -> do
+          traceWith tracer $
+            APIInvalidInput
+              { reason = "CannotCommit: Hydra node is not in the Initialializing state."
+              , inputReceived = show body
+              }
+          pure $ responseLBS status400 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
   deposit headId commitBlueprint changeAddress = do
     -- NOTE: Three times deposit period means we have one deposit period time to
     -- increment because a deposit only activates after one deposit period and
     -- expires one deposit period before deadline.
     deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
-    draftDepositTx headId pparams commitBlueprint deadline changeAddress <&> \case
-      Left e -> responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
-      Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
+    result <- draftDepositTx headId pparams commitBlueprint deadline changeAddress
+    case result of
+      Left e -> do
+        traceWith tracer $
+          APIReturnedError
+            { reason = "Failed to draft deposit transaction: " <> show e
+            }
+        pure $ responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
+      Right depositTx -> pure $ okJSON $ DraftCommitTxResponse depositTx
 
   draftCommit headId lookupUTxO blueprintTx = do
-    draftCommitTx headId CommitBlueprintTx{lookupUTxO, blueprintTx} <&> \case
+    result <- draftCommitTx headId CommitBlueprintTx{lookupUTxO, blueprintTx}
+    case result of
       Left e ->
         -- Distinguish between errors users can actually benefit from and
         -- other errors that are turned into 500 responses.
         case e of
-          CommittedTooMuchADAForMainnet _ _ -> badRequest e
-          UnsupportedLegacyOutput _ -> badRequest e
-          CannotFindOwnInitial _ -> badRequest e
-          DepositTooLow _ _ -> badRequest e
-          AmountTooLow _ _ -> badRequest e
-          FailedToConstructDepositTx _ -> badRequest e
-          _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
+          CommittedTooMuchADAForMainnet _ _ -> pure $ badRequest e
+          UnsupportedLegacyOutput _ -> pure $ badRequest e
+          CannotFindOwnInitial _ -> pure $ badRequest e
+          DepositTooLow _ _ -> pure $ badRequest e
+          AmountTooLow _ _ -> pure $ badRequest e
+          FailedToConstructDepositTx _ -> pure $ badRequest e
+          _ -> do
+            traceWith tracer $
+              APIReturnedError
+                { reason = "Failed to draft commit transaction: " <> show e
+                }
+            pure $ responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
-        okJSON $ DraftCommitTxResponse commitTx
+        pure $ okJSON $ DraftCommitTxResponse commitTx
 
   Chain{draftCommitTx, draftDepositTx} = directChain
 
