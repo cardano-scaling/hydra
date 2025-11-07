@@ -419,10 +419,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
               --       𝑈 ← 𝑈_active ◦ Treq
               requireApplyTxs activeUTxO requestedTxs $ \u -> do
                 let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-                    utxoHash = hashUTxO snapshotUTxO
-                    utxoToCommitHash = hashUTxO $ fromMaybe mempty mUtxoToCommit
-                    utxoToDecommitHash = hashUTxO $ fromMaybe mempty mUtxoToDecommit
-                    accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+                    accumulator = Accumulator.buildFromUTxO snapshotUTxO
                 -- Spec: ŝ ← ̅S.s + 1
                 -- NOTE: confSn == seenSn == sn here
                 let nextSnapshot =
