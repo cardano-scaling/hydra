@@ -24,6 +24,8 @@ import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Util qualified as Util
 import PlutusLedgerApi.V3 (fromBuiltin)
+import PlutusTx.Builtins qualified as Builtins
+import PlutusTx.IsData (toBuiltinData)
 
 -- | Types of transactions that can be used by the Head protocol. The associated
 -- types and methods of this type class represent the whole interface of what
@@ -102,6 +104,15 @@ class
   -- tx is valid against the given UTxO.
   applyTxTo :: tx -> UTxOType tx -> UTxOType tx
 
+  -- | Convert a 'UTxOType' to a list of outputs for accumulator operations.
+  -- This is needed by the accumulator to convert UTxOs into elements.
+  -- We only need the TxOut, not the TxIn.
+  toPairList :: UTxOType tx -> [TxOutType tx]
+
+  -- | Convert a TxOut to a ByteString element for the accumulator.
+  -- This serializes the TxOut in the same way as the on-chain code does.
+  utxoToElement :: TxOutType tx -> ByteString
+
 -- * Cardano Tx
 
 instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
@@ -172,3 +183,11 @@ instance IsTx Tx where
   withoutUTxO = UTxO.difference
 
   applyTxTo tx utxo = (utxo `UTxO.difference` Api.resolveInputsUTxO utxo tx) <> Api.utxoFromTx tx
+
+  toPairList = UTxO.txOutputs
+
+  -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization
+  utxoToElement txOut =
+    case toPlutusTxOut txOut of
+      Just plutusTxOut -> fromBuiltin (Builtins.serialiseData (toBuiltinData plutusTxOut))
+      Nothing -> mempty -- Should not happen for valid UTxO

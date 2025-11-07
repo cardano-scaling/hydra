@@ -95,10 +95,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
 
           -- TODO: Deposit someUTxO
           let snapshotVersion = 0
-          let utxoHash = hashUTxO someUTxO
-              utxoToCommitHash = hashUTxO @Tx mempty
-              utxoToDecommitHash = hashUTxO @Tx mempty
-          let accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+          let accumulator = Accumulator.buildFromUTxO someUTxO
           let snapshot =
                 Snapshot
                   { headId
