@@ -148,10 +148,8 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           }
    where
     snapshot = getSnapshot confirmedSnapshot
-    snapshotUtxoHash = hashUTxO $ Hydra.Tx.utxo snapshot
-    snapshotUtxoToCommitHash = hashUTxO @Tx $ fromMaybe mempty (utxoToCommit snapshot)
-    snapshotUtxoToDecommitHash = hashUTxO @Tx $ fromMaybe mempty (utxoToDecommit snapshot)
-    closedAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [snapshotUtxoHash, snapshotUtxoToCommitHash, snapshotUtxoToDecommitHash]
+    snapshotUtxo = Hydra.Tx.utxo snapshot
+    closedAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO snapshotUtxo
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
