@@ -590,7 +590,6 @@ spec =
         let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 3)
             decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 4)
             activeUTxO = utxoRefs [1, 2]
-            utxoHash = hashUTxO activeUTxO
             snapshot =
               Snapshot
                 { headId = testHeadId
@@ -600,7 +599,7 @@ spec =
                 , utxo = activeUTxO
                 , utxoToCommit = Nothing
                 , utxoToDecommit = Just $ utxoRefs [3]
-                , accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx mempty, hashUTxO @SimpleTx $ utxoRefs [3]]
+                , accumulator = Accumulator.buildFromUTxO activeUTxO
                 }
             s0 =
               inOpenState'
@@ -892,8 +891,7 @@ spec =
         prop "reject side load confirmed snapshot because wrong snapshot utxoToDecommit" $ \utxoToDecommit -> do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
           let utxo' = utxoRef 3
-              utxoHash = hashUTxO utxo'
-              accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx mempty, hashUTxO @SimpleTx $ fromMaybe mempty (Just utxoToDecommit)]
+              accumulator = Accumulator.buildFromUTxO utxo'
               snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing (Just utxoToDecommit) accumulator
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
@@ -904,8 +902,7 @@ spec =
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
           let utxo' = utxoRef 3
-              utxoHash = hashUTxO utxo'
-              accumulator = Accumulator.build [utxoHash, hashUTxO @SimpleTx $ fromMaybe mempty (Just utxoToCommit), hashUTxO @SimpleTx mempty]
+              accumulator = Accumulator.buildFromUTxO utxo'
               snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' (Just utxoToCommit) Nothing accumulator
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
@@ -1430,14 +1427,13 @@ testSnapshot ::
   UTxOType tx ->
   Snapshot tx
 testSnapshot number version confirmed utxo =
-  let utxoHash = hashUTxO utxo
-   in Snapshot
-        { headId = testHeadId
-        , version
-        , number
-        , confirmed
-        , utxo
-        , utxoToCommit = mempty
-        , utxoToDecommit = mempty
-        , accumulator = Accumulator.build [utxoHash, hashUTxO @tx mempty, hashUTxO @tx mempty]
-        }
+  Snapshot
+    { headId = testHeadId
+    , version
+    , number
+    , confirmed
+    , utxo
+    , utxoToCommit = mempty
+    , utxoToDecommit = mempty
+    , accumulator = Accumulator.buildFromUTxO utxo
+    }

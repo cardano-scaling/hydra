@@ -115,17 +115,16 @@ healthyCloseCurrentTx =
 
 healthyCurrentSnapshot :: Snapshot Tx
 healthyCurrentSnapshot =
-  let utxoHash = hashUTxO healthySplitUTxOInHead
-   in Snapshot
-        { headId = mkHeadId Fixture.testPolicyId
-        , version = healthyCurrentSnapshotVersion
-        , number = healthyCurrentSnapshotNumber
-        , confirmed = []
-        , utxo = healthySplitUTxOInHead
-        , utxoToCommit = Nothing
-        , utxoToDecommit = Just healthySplitUTxOToDecommit
-        , accumulator = Accumulator.build [utxoHash, hashUTxO @Tx mempty, hashUTxO healthySplitUTxOToDecommit]
-        }
+  Snapshot
+    { headId = mkHeadId Fixture.testPolicyId
+    , version = healthyCurrentSnapshotVersion
+    , number = healthyCurrentSnapshotNumber
+    , confirmed = []
+    , utxo = healthySplitUTxOInHead
+    , utxoToCommit = Nothing
+    , utxoToDecommit = Just healthySplitUTxOToDecommit
+    , accumulator = Accumulator.buildFromUTxO healthySplitUTxOInHead
+    }
 
 healthyCurrentOpenDatum :: Head.State
 healthyCurrentOpenDatum =

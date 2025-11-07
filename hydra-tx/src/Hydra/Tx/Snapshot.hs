@@ -138,10 +138,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
             Right acc -> pure $ Accumulator.HydraAccumulator acc
         _ -> do
           -- Reconstruct accumulator from utxo hashes for backward compatibility (or if empty)
-          let utxoHash = hashUTxO utxo
-              utxoToCommitHash = hashUTxO @tx $ fromMaybe mempty utxoToCommit
-              utxoToDecommitHash = hashUTxO @tx $ fromMaybe mempty utxoToDecommit
-          pure $ Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+          pure $ Accumulator.buildFromUTxO utxo
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
    where
     parseBase16 :: Text -> Parser ByteString
@@ -159,18 +156,12 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot
     utxo <- arbitrary
     utxoToCommit <- arbitrary
     utxoToDecommit <- arbitrary
-    let utxoHash = hashUTxO utxo
-        utxoToCommitHash = hashUTxO @tx $ fromMaybe mempty utxoToCommit
-        utxoToDecommitHash = hashUTxO @tx $ fromMaybe mempty utxoToDecommit
-        accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+    let accumulator = Accumulator.buildFromUTxO utxo
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
   shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
-    [ let utxoHash = hashUTxO utxo'
-          utxoToCommitHash = hashUTxO @tx $ fromMaybe mempty utxoToCommit'
-          utxoToDecommitHash = hashUTxO @tx $ fromMaybe mempty utxoToDecommit'
-          accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+    [ let accumulator = Accumulator.buildFromUTxO utxo'
        in Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit' accumulator
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
@@ -205,17 +196,16 @@ data ConfirmedSnapshot tx
 getSnapshot :: forall tx. IsTx tx => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
-    let utxoHash = hashUTxO initialUTxO
-     in Snapshot
-          { headId
-          , version = 0
-          , number = 0
-          , confirmed = []
-          , utxo = initialUTxO
-          , utxoToCommit = Nothing
-          , utxoToDecommit = Nothing
-          , accumulator = Accumulator.build [utxoHash, hashUTxO @tx mempty, hashUTxO @tx mempty]
-          }
+    Snapshot
+      { headId
+      , version = 0
+      , number = 0
+      , confirmed = []
+      , utxo = initialUTxO
+      , utxoToCommit = Nothing
+      , utxoToDecommit = Nothing
+      , accumulator = Accumulator.buildFromUTxO initialUTxO
+      }
   ConfirmedSnapshot{snapshot} -> snapshot
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
@@ -232,6 +222,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Confirme
     ConfirmedSnapshot sn sigs -> ConfirmedSnapshot <$> shrink sn <*> shrink sigs
 
 genConfirmedSnapshot ::
+  forall tx.
   IsTx tx =>
   HeadId ->
   -- | Exact snapshot version to generate.
@@ -261,10 +252,7 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let utxoHash = hashUTxO utxo
-        utxoToCommitHash = hashUTxO (fromMaybe mempty utxoToCommit)
-        utxoToDecommitHash = hashUTxO (fromMaybe mempty utxoToDecommit)
-        accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+    let accumulator = Accumulator.buildFromUTxO utxo
         snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit, accumulator}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}

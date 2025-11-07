@@ -117,11 +117,8 @@ healthySnapshot =
 
 healthyAccumulator :: Accumulator.HydraAccumulator
 healthyAccumulator =
-  let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
-      nextUtxoHash = hashUTxO utxo
-      utxoToCommitHash = hashUTxO @Tx mempty
-      decommitHash = hashUTxO utxoToDecommit'
-   in Accumulator.build [nextUtxoHash, utxoToCommitHash, decommitHash]
+  let (_utxoToDecommit', utxo) = splitUTxO healthyUTxO
+   in Accumulator.buildFromUTxO utxo
 
 healthyAccumulatorHash :: ByteString
 healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator

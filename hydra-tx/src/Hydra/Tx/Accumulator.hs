@@ -3,19 +3,28 @@
 module Hydra.Tx.Accumulator (
   HydraAccumulator (..),
   getAccumulatorHash,
-  -- createMembershipProof,
-
   build,
+  buildFromUTxO,
+
+  -- * CRS (Common Reference String)
+  generateCRS,
+  defaultCRS,
+
+  -- * Membership proofs for partial fanout
+  createMembershipProof,
+  createMembershipProofFromUTxO,
 ) where
 
 import Hydra.Prelude
 
-import Accumulator (Accumulator)
+import Accumulator (Accumulator, Element)
 import Accumulator qualified
-
--- import Bindings (getPolyCommitOverG2)
--- import Cardano.Crypto.EllipticCurve.BLS12_381 (Point2)
+import Bindings (getPolyCommitOverG2)
+import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point2, blsCompress, blsGenerator, blsMult)
 import Codec.Serialise (serialise)
+import Data.ByteString.Base16 qualified as Base16
+import Field qualified as F
+import Hydra.Tx.IsTx (IsTx (..))
 
 -- * HydraAccumulator
 
@@ -24,6 +33,35 @@ newtype HydraAccumulator = HydraAccumulator {unHydraAccumulator :: Accumulator}
 
 build :: [ByteString] -> HydraAccumulator
 build = HydraAccumulator . Accumulator.buildAccumulator
+
+-- | Build an accumulator from a UTxO by serializing each individual TxOut.
+--
+-- This is the CORRECT way to build an accumulator for partial fanout proofs.
+-- Each TxOut becomes a separate element in the accumulator, allowing you to later
+-- prove that a subset of TxOuts was part of the original set.
+--
+-- The serialization matches how `hashTxOuts` works on-chain:
+-- Each element = Builtins.serialiseData (toBuiltinData plutusTxOut)
+--
+-- Example usage:
+-- > -- Build accumulator from the full UTxO set
+-- > let fullAcc = buildFromUTxO @Tx utxo
+-- >
+-- > -- Later, prove a subset exists
+-- > result <- createMembershipProofFromUTxO @Tx subsetUTxO fullAcc defaultCRS
+--
+-- This approach allows proving that 2 out of 5 UTxOs are part of the original set,
+-- which is essential for partial fanout functionality.
+buildFromUTxO ::
+  forall tx.
+  IsTx tx =>
+  -- | The UTxO set to build the accumulator from
+  UTxOType tx ->
+  -- | The resulting accumulator containing one element per TxOut
+  HydraAccumulator
+buildFromUTxO utxo =
+  let elements = utxoToElement @tx <$> toPairList @tx utxo
+   in build elements
 
 -- | Get a simple hash of the accumulator state.
 --
@@ -35,24 +73,121 @@ getAccumulatorHash (HydraAccumulator acc) =
   -- Simple serialization-based hash of the accumulator map
   toStrict . serialise $ acc
 
--- * Cryptographic Proofs (IO functions for partial fanout)
+-- * CRS (Common Reference String)
+
+-- | Generate a CRS using the "powers of tau" approach.
+--
+-- Based on the approach from haskell-accumulator's test suite:
+-- https://github.com/cardano-scaling/haskell-accumulator/blob/main/haskell-accumulator/test/Main.hs
+--
+-- We only need Point2 for proof generation (getPolyCommitOverG2).
+-- The CRS consists of: [g2 * tau^0, g2 * tau^1, ..., g2 * tau^n]
+--
+-- For testing, we use a fixed tau value. For production, this should be replaced
+-- with a secure CRS from a trusted setup ceremony along with the powers of tau.
+generateCRS :: Int -> [Point2]
+generateCRS setSize =
+  let
+    -- Define a tau (a large secret value for testing)
+    -- In production, this should come from a trusted setup ceremony
+    tau = F.Scalar 22_435_875_175_126_190_499_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_511
+
+    -- Define powers of tau (tau^0, tau^1, ..., tau^setSize over the field)
+    powerOfTauField = map (F.powModScalar tau) [0 .. fromIntegral setSize]
+    powerOfTauInt = map F.unScalar powerOfTauField
+
+    -- Define the generator of G2
+    g2 = blsGenerator :: Point2
+
+    -- Map the power of tau over G2
+    crsG2 = map (blsMult g2) powerOfTauInt :: [Point2]
+   in
+    crsG2
+
+-- | Default CRS for testing (supports up to 1000 elements)
+--
+-- This is a pre-generated CRS using the powers of tau approach.
+-- For production, replace with a secure CRS from perpetual powers of tau ceremony.
+defaultCRS :: [Point2]
+defaultCRS = generateCRS 1000
+
+-- * Cryptographic Proofs for partial fanout
 
 -- | Create a membership proof for a subset of UTxO elements.
--- This function is needed where we need to prove that
--- a subset of UTxOs were actually in the confirmed snapshot.
--- createMembershipProof ::
---   forall tx.
---   IsTx tx =>
---   -- | The subset of UTxO to prove membership of (e.g., the UTxOs being fanned out)
---   UTxOType tx ->
---   -- | The full accumulator from the confirmed snapshot
---   HydraAccumulator ->
---   -- | Common Reference String (CRS) for the cryptographic proof
---   [Point2] ->
---   -- | Either an error message or the membership proof
---   IO (Either String Point2)
--- createMembershipProof partialUTxO (HydraAccumulator fullAcc) crs = do
---   -- Convert the partial UTxO to accumulator elements
---   let partialElements = utxoToElement @tx <$> toPairList partialUTxO
---   -- Generate the cryptographic proof using the Bindings module
---   getPolyCommitOverG2 partialElements fullAcc crs
+--
+-- This function uses getPolyCommitOverG2 from haskell-accumulator's Bindings module:
+-- https://github.com/cardano-scaling/haskell-accumulator/blob/main/haskell-accumulator/lib/Bindings.hs
+--
+-- Given a subset of elements and the full accumulator, it:
+-- 1. Removes the subset elements from the accumulator
+-- 2. Computes a polynomial commitment over G2 for the remaining elements
+-- 3. Returns the proof as a hex-encoded string
+--
+-- For testing, it prints "Success" and the hex-encoded proof.
+-- For errors, it prints the error message.
+--
+-- Example usage:
+-- > let fullElements = ["elem1", "elem2", "elem3", "elem4", "elem5"]
+-- >     fullAcc = build fullElements
+-- >     subset = ["elem2", "elem4"]
+-- > result <- createMembershipProof subset fullAcc defaultCRS
+-- > -- Prints: "Success: 0x..." or "Error: ..."
+createMembershipProof ::
+  -- | The subset of elements to prove membership of (e.g., UTxOs being fanned out)
+  [Element] ->
+  -- | The full accumulator from the confirmed snapshot
+  HydraAccumulator ->
+  -- | Common Reference String (CRS) for the cryptographic proof
+  [Point2] ->
+  -- | Returns a string: "Success: 0x..." or "Error: ..."
+  IO Text
+createMembershipProof subsetElements (HydraAccumulator fullAcc) crs = do
+  -- Use getPolyCommitOverG2 to generate the proof
+  result <- getPolyCommitOverG2 subsetElements fullAcc crs
+  case result of
+    Left err -> pure $ "Error: " <> toText err
+    Right proof -> do
+      -- Compress the Point2 to a ByteString and encode as hex
+      let proofBytes = blsCompress proof
+          proofHex = decodeUtf8 $ Base16.encode proofBytes
+      pure $ "Success: 0x" <> proofHex
+
+-- | Create a membership proof from a UTxO subset.
+--
+-- This function extracts individual TxOut elements from the subset UTxO and proves
+-- they exist in the full accumulator. The full accumulator must be built using
+-- `buildFromUTxO` for this to work correctly.
+--
+-- **How it works:**
+-- 1. Each TxOut in the subset is serialized: `Builtins.serialiseData . toBuiltinData`
+-- 2. These elements are passed to `getPolyCommitOverG2` which removes them from the accumulator
+-- 3. A polynomial commitment proof is generated for the remaining elements
+-- 4. The proof is returned as a hex-encoded string
+--
+-- Example usage for partial fanout:
+-- > -- Build full accumulator from ALL UTxOs (do this when creating snapshot)
+-- > let fullAcc = buildFromUTxO @Tx fullUTxO
+-- >
+-- > -- Later, when fanning out a subset
+-- > let subsetUTxO = ... -- The 2 UTxOs you want to fan out
+-- > result <- createMembershipProofFromUTxO @Tx subsetUTxO fullAcc defaultCRS
+-- > -- Returns: "Success: 0xabc123..." (the proof)
+--
+-- The proof can then be verified on-chain using pairing checks.
+createMembershipProofFromUTxO ::
+  forall tx.
+  IsTx tx =>
+  -- | The subset of UTxO to prove membership of (e.g., UTxOs being fanned out)
+  UTxOType tx ->
+  -- | The full accumulator from the confirmed snapshot (built with buildFromUTxO)
+  HydraAccumulator ->
+  -- | Common Reference String (CRS) for the cryptographic proof
+  [Point2] ->
+  -- | Returns a string: "Success: 0x..." or "Error: ..."
+  IO Text
+createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
+  -- Extract individual TxOut elements from the subset
+  -- This matches how buildFromUTxO serializes each TxOut
+  let subsetElements = utxoToElement @tx <$> toPairList @tx subsetUTxO
+  -- Use the element-based proof function
+  createMembershipProof subsetElements fullAcc crs
