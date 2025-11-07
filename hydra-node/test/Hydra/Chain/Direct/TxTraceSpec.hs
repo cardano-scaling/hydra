@@ -770,10 +770,7 @@ signedSnapshot ms =
     let u = realWorldModelUTxO (toCommit ms)
      in if UTxO.null u then Nothing else Just u
 
-  utxoHash = hashUTxO utxo
-  utxoToCommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToCommit
-  utxoToDecommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-  accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+  accumulator = Accumulator.buildFromUTxO utxo
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.

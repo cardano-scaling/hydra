@@ -136,11 +136,7 @@ healthyAccumulatorHash :: ByteString
 healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator
 
 healthyAccumulator :: Accumulator.HydraAccumulator
-healthyAccumulator =
-  let nextUtxoHash = hashUTxO healthyUTxO
-      depositHash = hashUTxO healthyDeposited
-      utxoToDecommitHash = hashUTxO @Tx mempty
-   in Accumulator.build [nextUtxoHash, depositHash, utxoToDecommitHash]
+healthyAccumulator = Accumulator.buildFromUTxO healthyUTxO
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
