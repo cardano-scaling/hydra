@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  checks: write-all
-  pull-requests: write-all
+  checks: write
+  pull-requests: write
 
 
 jobs:
