@@ -109,10 +109,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             let v = 0
             let snapshotVersion = 0
-                utxoHash = hashUTxO (mempty :: UTxOType Tx)
-                utxoToCommitHash = hashUTxO @Tx mempty
-                utxoToDecommitHash = hashUTxO @Tx mempty
-                accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+                accumulator = Accumulator.buildFromUTxO @Tx mempty
             let snapshot =
                   Snapshot
                     { headId
@@ -261,10 +258,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               _ -> Nothing
             let (inHead, toDecommit) = splitUTxO someUTxO
             -- Alice contests with some snapshot U1 -> successful
-            let utxoHash = hashUTxO inHead
-                utxoToCommitHash = hashUTxO @Tx mempty
-                utxoToDecommitHash = hashUTxO toDecommit
-                accumulator = Accumulator.build [utxoHash, utxoToCommitHash, utxoToDecommitHash]
+            let accumulator = Accumulator.buildFromUTxO inHead
             let snapshot1 =
                   Snapshot
                     { headId

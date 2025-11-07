@@ -62,10 +62,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
-  nextUtxoHash = hashUTxO @Tx utxo
-  utxoToCommitHash = hashUTxO @Tx mempty
-  decommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-  decrementAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [nextUtxoHash, utxoToCommitHash, decommitHash]
+  decrementAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO utxo
 
   HeadParameters{parties, contestationPeriod} = headParameters
 

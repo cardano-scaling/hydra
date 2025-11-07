@@ -149,10 +149,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , accumulatorHash = toBuiltin contestAccumulatorHash
           }
    where
-    contestSnapshotUtxoHash = hashUTxO @Tx utxo
-    contestUtxoToCommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToCommit
-    contestUtxoToDecommitHash = hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-    contestAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.build [contestSnapshotUtxoHash, contestUtxoToCommitHash, contestUtxoToDecommitHash]
+    contestAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO utxo
 
 -- * Observation
 

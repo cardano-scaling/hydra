@@ -99,6 +99,7 @@ library
     , mono-traversable
     , ouroboros-consensus-cardano
     , plutus-ledger-api
+    , plutus-tx
     , prettyprinter
     , serialise
     , text
