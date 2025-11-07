@@ -72,7 +72,8 @@
                     --testnet-magic 42 \
                     --node-socket devnet/node.socket \
                     --persistence-dir devnet/persistence/alice \
-                    --contestation-period 3s
+                    --contestation-period 3s \
+                    --deposit-period 300s
                 '';
               };
               working_dir = ".";
@@ -105,7 +106,8 @@
                   --testnet-magic 42 \
                   --node-socket devnet/node.socket \
                   --persistence-dir devnet/persistence/bob \
-                  --contestation-period 3s
+                  --contestation-period 3s \
+                  --deposit-period 300s
                 '';
               };
               working_dir = ".";
@@ -138,7 +140,8 @@
                   --testnet-magic 42 \
                   --node-socket devnet/node.socket \
                   --persistence-dir devnet/persistence/carol \
-                  --contestation-period 3s
+                  --contestation-period 3s \
+                  --deposit-period 300s
                 '';
               };
               working_dir = ".";
@@ -147,37 +150,46 @@
             };
             hydra-tui-alice = {
               working_dir = "./demo";
-              command = ''
-                ${self'.packages.hydra-tui}/bin/hydra-tui \
-                  --connect 0.0.0.0:4001 \
-                  --node-socket devnet/node.socket \
-                  --testnet-magic 42 \
-                  --cardano-signing-key devnet/credentials/alice-funds.sk
-              '';
+              command = pkgs.writeShellApplication {
+                name = "alice-tui";
+                text = ''
+                  ${self'.packages.hydra-tui}/bin/hydra-tui \
+                    --connect 0.0.0.0:4001 \
+                    --node-socket devnet/node.socket \
+                    --testnet-magic 42 \
+                    --cardano-signing-key devnet/credentials/alice-funds.sk
+                '';
+              };
               is_foreground = true;
               depends_on."hydra-node-alice".condition = "process_started";
             };
             hydra-tui-bob = {
               working_dir = "./demo";
-              command = ''
-                ${self'.packages.hydra-tui}/bin/hydra-tui \
+              command = pkgs.writeShellApplication {
+                name = "bob-tui";
+                text = ''
+                  ${self'.packages.hydra-tui}/bin/hydra-tui \
                   --connect 0.0.0.0:4002 \
                   --node-socket devnet/node.socket \
                   --testnet-magic 42 \
                   --cardano-signing-key devnet/credentials/bob-funds.sk
-              '';
+                '';
+              };
               is_foreground = true;
               depends_on."hydra-node-bob".condition = "process_started";
             };
             hydra-tui-carol = {
               working_dir = "./demo";
-              command = ''
-                ${self'.packages.hydra-tui}/bin/hydra-tui \
-                  --connect 0.0.0.0:4003 \
-                  --node-socket devnet/node.socket \
-                  --testnet-magic 42 \
-                  --cardano-signing-key devnet/credentials/carol-funds.sk
-              '';
+              command = pkgs.writeShellApplication {
+                name = "carol";
+                text = ''
+                  ${self'.packages.hydra-tui}/bin/hydra-tui \
+                    --connect 0.0.0.0:4003 \
+                    --node-socket devnet/node.socket \
+                    --testnet-magic 42 \
+                    --cardano-signing-key devnet/credentials/carol-funds.sk
+                '';
+              };
               is_foreground = true;
               depends_on."hydra-node-carol".condition = "process_started";
             };
@@ -187,18 +199,18 @@
                 runtimeInputs = [ pkgs.coreutils pkgs.cardano-cli pkgs.cardano-node self'.packages.hydra-node ];
                 text = ''
                   set -euo pipefail
-                  
+
                   echo "--- Testing demo components"
-                  
+
                   # Test that we can build and run basic components
                   echo "Testing cardano-cli..."
                   cardano-cli --version
-                  
+
                   echo "Testing cardano-node..."
                   cardano-node --version
-                  
+
                   echo "✅ Demo setup completed successfully"
-                  
+
                   echo "--- Testing that devnet files exist"
                   if [ -f "devnet/cardano-node.json" ] && [ -f "devnet/topology.json" ]; then
                     echo "✅ Devnet configuration files created"
@@ -206,7 +218,7 @@
                     echo "❌ Devnet configuration files missing"
                     exit 1
                   fi
-                  
+
                   echo "--- Testing hydra-node"
                   hydra-node --version
                 '';
@@ -216,12 +228,15 @@
             };
             prometheus = {
               working_dir = "./demo";
-              command = ''
-                ${pkgs.prometheus}/bin/prometheus \
-                    --config.file=./prometheus/nix/prometheus.yml \
-                    --storage.tsdb.path=./devnet/prometheus \
-                    --web.listen-address=127.0.0.1:9090
-              '';
+              command = pkgs.writeShellApplication {
+                name = "prometheus";
+                text = ''
+                  ${pkgs.prometheus}/bin/prometheus \
+                      --config.file=./prometheus/nix/prometheus.yml \
+                      --storage.tsdb.path=./devnet/prometheus \
+                      --web.listen-address=127.0.0.1:9090
+                '';
+              };
               depends_on = {
                 "hydra-node-alice".condition = "process_started";
                 "hydra-node-bob".condition = "process_started";
@@ -230,14 +245,17 @@
             };
             grafana = {
               working_dir = "./demo";
-              command = ''
-                ${pkgs-2411.grafana}/bin/grafana server \
-                    --homepath ${pkgs-2411.grafana}/share/grafana \
-                    cfg:default.paths.data=$(pwd)/devnet/grafana/data \
-                    cfg:default.paths.logs=$(pwd)/devnet/grafana/logs \
-                    cfg:default.paths.plugins=$(pwd)/devnet/grafana/plugins \
-                    cfg:default.paths.provisioning=$(pwd)/grafana/nix
-              '';
+              command = pkgs.writeShellApplication {
+                name = "grafana";
+                text = ''
+                  ${pkgs-2411.grafana}/bin/grafana server \
+                      --homepath ${pkgs-2411.grafana}/share/grafana \
+                      cfg:default.paths.data="$(pwd)/devnet/grafana/data" \
+                      cfg:default.paths.logs="$(pwd)/devnet/grafana/logs" \
+                      cfg:default.paths.plugins="$(pwd)/devnet/grafana/plugins" \
+                      cfg:default.paths.provisioning="$(pwd)/grafana/nix"
+                '';
+              };
               depends_on."prometheus".condition = "process_started";
             };
           };
