@@ -1575,6 +1575,8 @@ APIHTTPRequestReceived :: Method -> PathInfo -> APIServerLog
 [$sel:path:APIServerStarted] :: APIServerLog -> PathInfo
 APITransactionSubmitted :: String -> APIServerLog
 [$sel:submittedTxId:APIServerStarted] :: APIServerLog -> String
+APIReturnedError :: String -> APIServerLog
+[$sel:reason:APIServerStarted] :: APIServerLog -> String
 
 -- | New type wrapper to define JSON instances.
 newtype PathInfo
@@ -3424,7 +3426,7 @@ jsonContent :: ResponseHeaders
 httpApp :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Chain tx IO -> Environment -> FilePath -> PParams LedgerEra -> IO (NodeState tx) -> IO CommitInfo -> IO [TxIdType tx] -> (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Application
 
 -- | Handle request to obtain a draft commit tx.
-handleDraftCommitUtxo :: forall tx. IsChainState tx => Environment -> PParams LedgerEra -> Chain tx IO -> IO CommitInfo -> ByteString -> IO Response
+handleDraftCommitUtxo :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Environment -> PParams LedgerEra -> Chain tx IO -> IO CommitInfo -> ByteString -> IO Response
 
 -- | Handle request to recover a pending deposit.
 handleRecoverCommitUtxo :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Text -> ByteString -> IO Response

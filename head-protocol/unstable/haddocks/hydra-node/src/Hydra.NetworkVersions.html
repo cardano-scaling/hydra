@@ -21,15 +21,15 @@
 </span><span id="line-20"></span><span>  </span><span class="annot"><span class="annottext">Version
 </span><a href="Paths_hydra_node.html#version"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">Version -&gt; (Version -&gt; Version) -&gt; Version
 forall a b. a -&gt; (a -&gt; b) -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#Version"><span class="hs-identifier hs-type">Version</span></a></span><span> </span><span id="local-6989586621680603983"><span class="annot"><span class="annottext">[Int]
-</span><a href="#local-6989586621680603983"><span class="hs-identifier hs-var">semver</span></a></span></span><span> </span><span class="annot"><span class="annottext">[String]
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#Version"><span class="hs-identifier hs-type">Version</span></a></span><span> </span><span id="local-6989586621680605850"><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621680605850"><span class="hs-identifier hs-var">semver</span></a></span></span><span> </span><span class="annot"><span class="annottext">[String]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [String] -&gt; Version
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#Version"><span class="hs-identifier hs-var">Version</span></a></span><span> </span><span class="annot"><span class="annottext">[Int]
-</span><a href="#local-6989586621680603983"><span class="hs-identifier hs-var">semver</span></a></span><span> </span><span class="annot"><span class="annottext">[String]
-</span><a href="#local-6989586621680603984"><span class="hs-identifier hs-var">revision</span></a></span><span>
+</span><a href="#local-6989586621680605850"><span class="hs-identifier hs-var">semver</span></a></span><span> </span><span class="annot"><span class="annottext">[String]
+</span><a href="#local-6989586621680605851"><span class="hs-identifier hs-var">revision</span></a></span><span>
 </span><span id="line-21"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-22"></span><span>  </span><span id="local-6989586621680603984"><span class="annot"><span class="annottext">revision :: [String]
-</span><a href="#local-6989586621680603984"><span class="hs-identifier hs-var hs-var">revision</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-22"></span><span>  </span><span id="local-6989586621680605851"><span class="annot"><span class="annottext">revision :: [String]
+</span><a href="#local-6989586621680605851"><span class="hs-identifier hs-var hs-var">revision</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-23"></span><span>    </span><span class="annot"><span class="annottext">Maybe String -&gt; [String]
 forall a. Maybe a -&gt; [a]
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#maybeToList"><span class="hs-identifier hs-var">maybeToList</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe String -&gt; [String]) -&gt; Maybe String -&gt; [String]
@@ -54,18 +54,18 @@ forall a. a -&gt; Maybe a
 </span><span id="line-29"></span><span id="networkVersions"><span class="annot"><span class="annottext">networkVersions :: ByteString
 </span><a href="Hydra.NetworkVersions.html#networkVersions"><span class="hs-identifier hs-var hs-var">networkVersions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">$</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">makeRelativeToProject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;./networks.json&quot;</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-type">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">embedFile</span></span><span class="hs-special">)</span><span>
 </span><span id="line-30"></span><span>
-</span><span id="line-31"></span><span class="annot"><a href="Hydra.NetworkVersions.html#parseNetworkTxIds"><span class="hs-identifier hs-type">parseNetworkTxIds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680603911"><span class="annot"><a href="#local-6989586621680603911"><span class="hs-identifier hs-type">m</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680603911"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#Version"><span class="hs-identifier hs-type">Version</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680603911"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span><span class="hs-special">]</span><span>
+</span><span id="line-31"></span><span class="annot"><a href="Hydra.NetworkVersions.html#parseNetworkTxIds"><span class="hs-identifier hs-type">parseNetworkTxIds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680605778"><span class="annot"><a href="#local-6989586621680605778"><span class="hs-identifier hs-type">m</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680605778"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#Version"><span class="hs-identifier hs-type">Version</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680605778"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span><span class="hs-special">]</span><span>
 </span><span id="line-32"></span><span id="parseNetworkTxIds"><span class="annot"><span class="annottext">parseNetworkTxIds :: forall (m :: * -&gt; *). MonadFail m =&gt; Version -&gt; String -&gt; m [TxId]
-</span><a href="Hydra.NetworkVersions.html#parseNetworkTxIds"><span class="hs-identifier hs-var hs-var">parseNetworkTxIds</span></a></span></span><span> </span><span id="local-6989586621680604052"><span class="annot"><span class="annottext">Version
-</span><a href="#local-6989586621680604052"><span class="hs-identifier hs-var">hydraVersion</span></a></span></span><span> </span><span id="local-6989586621680604053"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680604053"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="Hydra.NetworkVersions.html#parseNetworkTxIds"><span class="hs-identifier hs-var hs-var">parseNetworkTxIds</span></a></span></span><span> </span><span id="local-6989586621680605919"><span class="annot"><span class="annottext">Version
+</span><a href="#local-6989586621680605919"><span class="hs-identifier hs-var">hydraVersion</span></a></span></span><span> </span><span id="local-6989586621680605920"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680605920"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-33"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><a href="Hydra.NetworkVersions.html#networkVersions"><span class="hs-identifier hs-var">networkVersions</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Getting (First Value) ByteString Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' ByteString Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680604053"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Getting Key String Key -&gt; Key
+</span><a href="#local-6989586621680605920"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Getting Key String Key -&gt; Key
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting Key String Key
 forall t. IsKey t =&gt; Iso' t Key
@@ -83,15 +83,15 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String
 forall a. ToString a =&gt; a -&gt; String
 </span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680604053"><span class="hs-identifier hs-var">network</span></a></span><span>
-</span><span id="line-35"></span><span>    </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680604055"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621680604055"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Value -&gt; m [TxId]
-</span><a href="#local-6989586621680604056"><span class="hs-identifier hs-var">getLastTxId</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621680604055"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><a href="#local-6989586621680605920"><span class="hs-identifier hs-var">network</span></a></span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680605922"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621680605922"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Value -&gt; m [TxId]
+</span><a href="#local-6989586621680605923"><span class="hs-identifier hs-var">getLastTxId</span></a></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621680605922"><span class="hs-identifier hs-var">t</span></a></span><span>
 </span><span id="line-36"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-37"></span><span>  </span><span id="local-6989586621680604056"><span class="annot"><span class="annottext">getLastTxId :: Value -&gt; m [TxId]
-</span><a href="#local-6989586621680604056"><span class="hs-identifier hs-var hs-var">getLastTxId</span></a></span></span><span> </span><span id="local-6989586621680604057"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621680604057"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-37"></span><span>  </span><span id="local-6989586621680605923"><span class="annot"><span class="annottext">getLastTxId :: Value -&gt; m [TxId]
+</span><a href="#local-6989586621680605923"><span class="hs-identifier hs-var hs-var">getLastTxId</span></a></span></span><span> </span><span id="local-6989586621680605924"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621680605924"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-38"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; [Text]
 Text -&gt; Text -&gt; [Text]
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.html#splitOn"><span class="hs-identifier hs-var">splitOn</span></a></span><span> </span><span class="annot"><span class="annottext">Text
@@ -103,24 +103,24 @@ forall a. IsString a =&gt; String -&gt; a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Version -&gt; String
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#showVersion"><span class="hs-identifier hs-var">showVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Version
-</span><a href="#local-6989586621680604052"><span class="hs-identifier hs-var">hydraVersion</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621680605919"><span class="hs-identifier hs-var">hydraVersion</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-39"></span><span>      </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m [TxId]
 forall a. String -&gt; m a
 forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;Failed to parse hydra-node revision.&quot;</span></span><span>
-</span><span id="line-40"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621680604058"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680604058"><span class="hs-identifier hs-var">rev</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><span id="line-40"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621680605925"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680605925"><span class="hs-identifier hs-var">rev</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-41"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Value -&gt; ByteString
 forall a. ToJSON a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">encode</span></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621680604057"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Getting (First Value) ByteString Value -&gt; Maybe Value
+</span><a href="#local-6989586621680605924"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Getting (First Value) ByteString Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' ByteString Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680604058"><span class="hs-identifier hs-var">rev</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Getting Key Text Key -&gt; Key
+</span><a href="#local-6989586621680605925"><span class="hs-identifier hs-var">rev</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Getting Key Text Key -&gt; Key
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting Key Text Key
 forall t. IsKey t =&gt; Iso' t Key
@@ -134,20 +134,20 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; Value -&gt; Const (First Value) Value
 Prism' Value Value
 </span><span class="hs-identifier hs-var">nonNull</span></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-42"></span><span>          </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span id="local-6989586621680604061"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680604061"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; m TxId) -&gt; [Text] -&gt; m [TxId]
+</span><span id="line-42"></span><span>          </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span id="local-6989586621680605928"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680605928"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; m TxId) -&gt; [Text] -&gt; m [TxId]
 forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Traversable t, Monad m) =&gt;
 (a -&gt; m b) -&gt; t a -&gt; m (t b)
 forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; [a] -&gt; m [b]
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Traversable.html#mapM"><span class="hs-identifier hs-var">mapM</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; m TxId
-</span><a href="#local-6989586621680604063"><span class="hs-identifier hs-var">parseToTxId</span></a></span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; m [TxId]) -&gt; [Text] -&gt; m [TxId]
+</span><a href="#local-6989586621680605930"><span class="hs-identifier hs-var">parseToTxId</span></a></span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; m [TxId]) -&gt; [Text] -&gt; m [TxId]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; [Text]
 Text -&gt; Text -&gt; [Text]
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.html#splitOn"><span class="hs-identifier hs-var">splitOn</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;,&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680604061"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><a href="#local-6989586621680605928"><span class="hs-identifier hs-var">s</span></a></span><span>
 </span><span id="line-43"></span><span>          </span><span class="annot"><span class="annottext">Maybe Value
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m [TxId]
 forall a. String -&gt; m a
@@ -155,10 +155,10 @@ forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;Failed to find released hydra-node version in networks.json.&quot;</span></span><span>
 </span><span id="line-44"></span><span>
-</span><span id="line-45"></span><span>  </span><span class="annot"><a href="#local-6989586621680604063"><span class="hs-identifier hs-type">parseToTxId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680603911"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span><span>
-</span><span id="line-46"></span><span>  </span><span id="local-6989586621680604063"><span class="annot"><span class="annottext">parseToTxId :: Text -&gt; m TxId
-</span><a href="#local-6989586621680604063"><span class="hs-identifier hs-var hs-var">parseToTxId</span></a></span></span><span> </span><span id="local-6989586621680604064"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680604064"><span class="hs-identifier hs-var">textTxId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><a href="#local-6989586621680605930"><span class="hs-identifier hs-type">parseToTxId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680605778"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span><span>
+</span><span id="line-46"></span><span>  </span><span id="local-6989586621680605930"><span class="annot"><span class="annottext">parseToTxId :: Text -&gt; m TxId
+</span><a href="#local-6989586621680605930"><span class="hs-identifier hs-var hs-var">parseToTxId</span></a></span></span><span> </span><span id="local-6989586621680605931"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680605931"><span class="hs-identifier hs-var">textTxId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-47"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either RawBytesHexError TxId
 forall a.
 SerialiseAsRawBytes a =&gt;
@@ -168,7 +168,7 @@ ByteString -&gt; Either RawBytesHexError a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Encoding.html#encodeUtf8"><span class="hs-identifier hs-var">encodeUtf8</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680604064"><span class="hs-identifier hs-var">textTxId</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621680605931"><span class="hs-identifier hs-var">textTxId</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-48"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="annot"><span class="annottext">RawBytesHexError
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m TxId
 forall a. String -&gt; m a
@@ -181,11 +181,11 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
 forall a. ToString a =&gt; a -&gt; String
 </span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680604064"><span class="hs-identifier hs-var">textTxId</span></a></span><span>
-</span><span id="line-49"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680604065"><span class="annot"><span class="annottext">TxId
-</span><a href="#local-6989586621680604065"><span class="hs-identifier hs-var">txid</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxId -&gt; m TxId
+</span><a href="#local-6989586621680605931"><span class="hs-identifier hs-var">textTxId</span></a></span><span>
+</span><span id="line-49"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680605932"><span class="annot"><span class="annottext">TxId
+</span><a href="#local-6989586621680605932"><span class="hs-identifier hs-var">txid</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxId -&gt; m TxId
 forall a. a -&gt; m a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">TxId
-</span><a href="#local-6989586621680604065"><span class="hs-identifier hs-var">txid</span></a></span><span>
+</span><a href="#local-6989586621680605932"><span class="hs-identifier hs-var">txid</span></a></span><span>
 </span><span id="line-50"></span></pre></body></html>
