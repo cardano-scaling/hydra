@@ -2146,12 +2146,12 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
         send n1 $ input "NewTx" ["transaction" .= tx]
 
         -- Alice and Bob accept it
-        waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
+        waitForAllMatch (20 * blockTime) [n1, n2] $ \v -> do
           guard $ v ^? key "tag" == Just "TxValid"
           guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
 
         -- Carol does not because of its node being misconfigured
-        waitMatch (10 * blockTime) n3 $ \v -> do
+        waitMatch (20 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "TxInvalid"
           guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
 
@@ -2165,19 +2165,25 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
         pure tx
 
       -- Carol disconnects and the others observe it
-      waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
+      waitForAllMatch 5 [n1, n2] $ \v -> do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
       -- Carol reconnects with healthy reconfigured node
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        waitMatch 20 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "Greetings"
+          guard $ v ^? key "headStatus" == Just (toJSON Open)
+          guard $ v ^? key "me" == Just (toJSON carol)
+          guard $ isJust (v ^? key "hydraNodeVersion")
+
         -- Carol re-submits the same transaction
         send n3 $ input "NewTx" ["transaction" .= tx]
         -- Carol accepts it
-        waitMatch (10 * blockTime) n3 $ \v -> do
+        waitMatch (20 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "TxValid"
           guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
         -- But now Alice and Bob does not because they already applied it
-        waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
+        waitForAllMatch (20 * blockTime) [n1, n2] $ \v -> do
           guard $ v ^? key "tag" == Just "TxInvalid"
           guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
 
