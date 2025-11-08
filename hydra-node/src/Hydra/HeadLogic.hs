@@ -1991,7 +1991,6 @@ aggregateChainStateHistory history = \case
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
   LocalStateCleared{} -> history
-  -- REVIEW: Is OveloadedRecordDot safe to be used with sum types?
   Checkpoint nodeState -> initHistory $ getChainState nodeState.headState
   NodeUnsynced -> history
   NodeSynced -> history
