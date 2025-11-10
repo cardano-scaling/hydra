@@ -10,6 +10,7 @@ import Control.Concurrent.Class.MonadSTM (
   modifyTVar',
   readTQueue,
   readTVarIO,
+  retry,
   stateTVar,
   writeTQueue,
   writeTVar,
@@ -40,7 +41,19 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeStateHandler, defaultTxTTL, mkNetworkInput, queryNodeState, runHydraNode, waitDelay)
+import Hydra.Node (
+  DraftHydraNode (..),
+  HydraNode (..),
+  HydraNodeLog (..),
+  NodeStateHandler (..),
+  connect,
+  createNodeStateHandler,
+  defaultTxTTL,
+  mkNetworkInput,
+  queryNodeState,
+  runHydraNode,
+  waitDelay,
+ )
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.Environment (Environment (..))
@@ -899,9 +912,9 @@ spec = parallel $ do
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
       logs
-        `shouldContain` [BeginInput alice 0 (ClientInput Init)]
+        `shouldContain` [BeginInput alice 1 (ClientInput Init)]
       logs
-        `shouldContain` [EndInput alice 0]
+        `shouldContain` [EndInput alice 1]
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do
@@ -921,7 +934,7 @@ spec = parallel $ do
               (BeginEffect _ _ _ (ClientEffect CommandFailed{})) -> True
               _ -> False
           )
-      logs `shouldContain` [EndEffect alice 0 0]
+      logs `shouldContain` [EndEffect alice 1 0]
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
@@ -1267,7 +1280,7 @@ withHydraNode' dp signingKey otherParties chain action = do
   messages <- newLabelledTQueueIO "hydra-node-messages"
   outputHistory <- newLabelledTVarIO "hydra-node-output-history" mempty
   let initialChainState = SimpleChainState{slot = ChainSlot 0}
-  node <-
+  node@HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
     createHydraNode
       traceInIOSim
       simpleLedger
@@ -1280,7 +1293,13 @@ withHydraNode' dp signingKey otherParties chain action = do
       chain
       defaultContestationPeriod
       dp
-  withAsyncLabelled ("run-hydra-node", runHydraNode node) $ \_ ->
+  withAsyncLabelled ("run-hydra-node", runHydraNode node) $ \_ -> do
+    -- XXX: await for the node to be in sync with the chain
+    atomically $ do
+      st <- queryNodeState
+      case st of
+        NodeInSync{} -> pure ()
+        _ -> retry
     action (createTestHydraClient outputs messages outputHistory node)
 
 createTestHydraClient ::
