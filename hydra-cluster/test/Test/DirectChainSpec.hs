@@ -605,7 +605,7 @@ waitMatch CardanoChainTest{waitCallback} match = go
 delayUntil :: (MonadDelay m, MonadTime m) => UTCTime -> m ()
 delayUntil target = do
   now <- getCurrentTime
-  threadDelay . realToFrac $ diffUTCTime target now
+  threadDelay . floor $ diffUTCTime target now
 
 -- Commit using a wallet/external unknown to a hydra-node.
 externalCommit ::

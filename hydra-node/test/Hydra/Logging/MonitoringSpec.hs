@@ -30,7 +30,7 @@ spec =
         let tx2 = aValidTx 43
         traceWith tracer (Node $ BeginInput alice 0 (receiveMessage (ReqTx tx1)))
         traceWith tracer (Node $ BeginInput alice 1 (receiveMessage (ReqTx tx2)))
-        threadDelay 0.1
+        threadDelay 100_000
         traceWith tracer (Node $ LogicOutcome alice (Continue [SnapshotConfirmed testHeadId (testSnapshot 1 1 [tx2, tx1] (utxoRefs [1])) mempty] mempty))
         traceWith tracer (Node $ LogicOutcome alice (Continue [PeerConnected (Host "a" 1)] mempty))
         traceWith tracer (Node $ LogicOutcome alice (Continue [PeerConnected (Host "b" 2)] mempty))

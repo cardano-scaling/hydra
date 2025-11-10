@@ -416,7 +416,7 @@ withClient port path action =
         runClient "127.0.0.1" (fromIntegral port) path action
           `catch` \(e :: ConnectionException) -> do
             hPutStrLn stderr $ "withClient failed to connect: " <> show e
-            threadDelay 0.1
+            threadDelay 100_000
             connect (n - 1)
 
 mockSource :: Monad m => [a] -> EventSource a m

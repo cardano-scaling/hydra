@@ -38,7 +38,7 @@ import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, regis
 -- This is a no-op if given `Nothing`. This function is not polymorphic over the type of
 -- messages because it needs to understand them in order to provide meaningful metrics.
 withMonitoring ::
-  (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m, MonadLabelledSTM m) =>
+  (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTimeNSec m, MonadLabelledSTM m) =>
   Maybe PortNumber ->
   Tracer m (HydraLog tx) ->
   (Tracer m (HydraLog tx) -> m ()) ->
@@ -57,7 +57,7 @@ withMonitoring (Just monitoringPort) (Tracer tracer) action = do
 -- | Register all relevant metrics.
 -- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication
 -- of metrics, whether push or pull, and a function for updating metrics given some trace event.
-prepareRegistry :: forall m tx. (MonadIO m, MonadMonotonicTime m, IsTx tx, MonadLabelledSTM m) => m (HydraLog tx -> m (), Registry)
+prepareRegistry :: forall m tx. (MonadIO m, MonadMonotonicTimeNSec m, IsTx tx, MonadLabelledSTM m) => m (HydraLog tx -> m (), Registry)
 prepareRegistry = do
   transactionsMap <- newLabelledTVarIO "monitoring-txs-map-registry" mempty
   first (monitor transactionsMap) <$> registerMetrics
@@ -85,14 +85,14 @@ allMetrics =
 
 -- | Main monitoring function that updates metrics store given some log entries.
 monitor ::
-  (MonadIO m, MonadSTM m, MonadMonotonicTime m, IsTx tx) =>
-  TVar m (Map (TxIdType tx) Time) ->
+  (MonadIO m, MonadSTM m, MonadMonotonicTimeNSec m, IsTx tx) =>
+  TVar m (Map (TxIdType tx) Word64) ->
   Map Name Metric ->
   HydraLog tx ->
   m ()
 monitor transactionsMap metricsMap = \case
   (Node BeginInput{input = NetworkInput _ (ReceivedMessage{msg = ReqTx tx})}) -> do
-    t <- getMonotonicTime
+    t <- getMonotonicTimeNSec
     -- NOTE: If a requested transaction never gets confirmed, it might stick
     -- forever in the transactions map which could lead to unbounded growth and
     -- memory leak. We might want to have a 'cleaner' thread run that will remove
@@ -107,12 +107,12 @@ monitor transactionsMap metricsMap = \case
       SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> do
         tickN "hydra_head_confirmed_tx" (length confirmed)
         forM_ confirmed $ \tx -> do
-          t <- getMonotonicTime
+          t <- getMonotonicTimeNSec
           txsStartTime <- readTVarIO transactionsMap
           case Map.lookup (txId tx) txsStartTime of
             Just start -> do
               atomically $ modifyTVar' transactionsMap $ Map.delete (txId tx)
-              histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
+              histo "hydra_head_tx_confirmation_time_ms" (t - start)
             Nothing -> pure ()
       _ -> pure ()
   (Node (EndInput _ _)) ->

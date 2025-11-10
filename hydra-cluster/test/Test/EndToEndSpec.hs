@@ -829,7 +829,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             -- XXX: Need to do something in 'action' otherwise always green?
             withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
-              threadDelay 0.1
+              threadDelay 100_000
 
       it "can be restarted" $ \tracer -> do
         withClusterTempDir $ \dir -> do
@@ -842,10 +842,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             -- XXX: Need to do something in 'action' otherwise always green?
             failAfter 10 $
               withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
-                threadDelay 0.1
+                threadDelay 100_000
             failAfter 10 $
               withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
-                threadDelay 0.1
+                threadDelay 100_000
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir $ \dir -> do
@@ -913,7 +913,7 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
       guard $ v ^? key "tag" == Just "TxInvalid"
 
     -- Wait for the future chain slot and time
-    threadDelay $ secondsToDiffTime secondsToAwait
+    threadDelay $ floor $ secondsToDiffTime secondsToAwait
 
     -- Second submission: now valid
     send n1 $ input "NewTx" ["transaction" .= tx]

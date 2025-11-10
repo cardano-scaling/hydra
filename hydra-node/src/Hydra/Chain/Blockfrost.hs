@@ -262,7 +262,7 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
           else catchUpLoop nextBlockHash targetHash stateTVar
 
   pollForNewBlocks blockTime' stateTVar = do
-    threadDelay (realToFrac blockTime')
+    threadDelay (floor blockTime')
     current <- readTVarIO stateTVar
     nextBlockHash <-
       rollForward tracer prj handler wallet 1 current

@@ -89,7 +89,7 @@ failure msg =
 -- A 'NominalDiffTime' can be represented as a decimal number of seconds.
 failAfter :: (HasCallStack, MonadTimer m, MonadThrow m) => NominalDiffTime -> m a -> m a
 failAfter seconds action =
-  timeout (realToFrac seconds) action >>= \case
+  timeout (floor seconds) action >>= \case
     Nothing -> failure $ "Test timed out after " <> show seconds
     Just a -> pure a
 

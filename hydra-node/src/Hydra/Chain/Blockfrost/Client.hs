@@ -456,7 +456,7 @@ queryUTxO :: BlockfrostOptions -> NetworkId -> [Address ShelleyAddr] -> Blockfro
 queryUTxO BlockfrostOptions{queryTimeout} networkId addresses = do
   -- NOTE: We can't know at the time of doing a query if the information on specific address UTxO is _fresh_ or not
   -- so we try to wait for sufficient period of time and hope for best.
-  liftIO $ threadDelay $ fromIntegral queryTimeout
+  liftIO $ threadDelay queryTimeout
   let address = List.head addresses
   let address' = Blockfrost.Address . serialiseAddress $ List.head addresses
   utxoWithAddresses <-

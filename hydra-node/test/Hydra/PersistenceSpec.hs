@@ -84,8 +84,8 @@ spec = do
               forM_ items $ append p
               loadAll p `shouldReturn` items
               raceLabelled_
-                ("forever-load-all", forever $ threadDelay 0.01 >> loadAll p)
-                ("append-more-items", forM_ moreItems $ \item -> append p item >> threadDelay 0.01)
+                ("forever-load-all", forever $ threadDelay 10_000 >> loadAll p)
+                ("append-more-items", forM_ moreItems $ \item -> append p item >> threadDelay 10_000)
 
 genPersistenceItem :: Gen Aeson.Value
 genPersistenceItem =

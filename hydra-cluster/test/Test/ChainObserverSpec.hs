@@ -115,7 +115,7 @@ chainObserverSees observer txType headId =
 awaitMatch :: HasCallStack => ChainObserverHandle -> DiffTime -> (Aeson.Value -> Maybe a) -> IO a
 awaitMatch chainObserverHandle delay f = do
   seenMsgs <- newLabelledTVarIO "await-match-seen-msgs" []
-  timeout delay (go seenMsgs) >>= \case
+  timeout (floor delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs

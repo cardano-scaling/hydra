@@ -50,7 +50,7 @@ delayBF backend = do
   let delay = case Backend.getOptions backend of
         Blockfrost _ -> defaultBFQueryTimeout
         _ -> 1
-  threadDelay $ fromIntegral delay
+  threadDelay delay
 
 seedFromFaucet ::
   ChainBackend backend =>

@@ -115,7 +115,7 @@ spec = parallel $ do
             (captureOutgoing sentMessages)
             noopCallback
             $ \Network{broadcast} -> do
-              threadDelay 0.6
+              threadDelay 600_000
               broadcast someMessage
               threadDelay 1
 

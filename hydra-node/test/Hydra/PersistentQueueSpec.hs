@@ -22,7 +22,7 @@ spec = do
           q <- newPersistentQueue dir capacity
           shouldNotBlock_ $ mapM (writePersistentQueue q) items
           -- This is expected to block as we reached capacity
-          _ <- timeout 0.01 (writePersistentQueue q 123)
+          _ <- timeout 10_000 (writePersistentQueue q 123)
           -- A new queue should be initialized with all the elements
           q2 <- shouldNotBlock $ newPersistentQueue @_ @Int dir capacity
           let expected = maybe 123 head (nonEmpty items)
@@ -30,7 +30,7 @@ spec = do
 
 shouldNotBlock :: HasCallStack => IO a -> IO a
 shouldNotBlock action = do
-  timeout 0.1 action >>= \case
+  timeout 100_000 action >>= \case
     Nothing -> failure "blocked unexpectedly"
     Just a -> pure a
 

@@ -33,7 +33,7 @@ library
     , QuickCheck
     , quickcheck-arbitrary-adt
     , relude
-    , si-timers                 >=1.0.0.0
+    , time
     , transformers
 
   default-language:   GHC2021

@@ -7,12 +7,12 @@ module Hydra.Prelude (
   MonadSTM,
   STM,
   atomically,
-  module Control.Monad.Class.MonadTime.SI,
+  module Control.Monad.Class.MonadTime,
   module Control.Monad.Class.MonadST,
   MonadAsync,
   Async,
   module Control.Monad.Class.MonadEventlog,
-  module Control.Monad.Class.MonadTimer.SI,
+  module Control.Monad.Class.MonadTimer,
   Control.Monad.Class.MonadFork.MonadFork,
   Control.Monad.Class.MonadFork.MonadThread,
   Control.Monad.Class.MonadFork.myThreadId,
@@ -62,6 +62,7 @@ module Hydra.Prelude (
   newLabelledTQueue,
   newLabelledTBQueue,
   newLabelledTBQueueIO,
+  DiffTime,
 ) where
 
 import Cardano.Binary (
@@ -92,19 +93,15 @@ import Control.Monad.Class.MonadThrow (
   MonadMask (..),
   MonadThrow (..),
  )
-import Control.Monad.Class.MonadTime.SI (
-  DiffTime,
-  MonadMonotonicTime (..),
+import Control.Monad.Class.MonadTime (
+  MonadMonotonicTimeNSec (..),
   MonadTime (..),
   NominalDiffTime,
-  Time (..),
   UTCTime,
-  addTime,
   addUTCTime,
-  diffTime,
   diffUTCTime,
  )
-import Control.Monad.Class.MonadTimer.SI (
+import Control.Monad.Class.MonadTimer (
   MonadDelay (..),
   MonadTimer (..),
  )
@@ -118,6 +115,7 @@ import Data.Aeson.Encode.Pretty (
  )
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
+import Data.Time.Clock (DiffTime)
 import GHC.Generics (Rep)
 import Generic.Random qualified as Random
 import Generic.Random.Internal.Generic qualified as Random

@@ -93,7 +93,6 @@ mockChainAndNetwork ::
   , MonadThrow (STM m)
   , MonadLabelledSTM m
   , MonadFork m
-  , MonadDelay m
   ) =>
   Tracer m CardanoChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
@@ -251,7 +250,7 @@ mockChainAndNetwork tr seedKeys commits = do
     forever $ rollForward nodes chain queue
 
   rollForward nodes chain queue = do
-    threadDelay blockTime
+    threadDelay $ floor blockTime
     atomically $ do
       transactions <- flushQueue queue
       addNewBlockToChain chain transactions
@@ -289,7 +288,7 @@ mockChainAndNetwork tr seedKeys commits = do
     -- rollbackAndForward calls, which would require some minimal (1ms) delay
     -- here. However, waiting here for one blockTime is not wrong and enforces
     -- rollbacks / chain switches to be not more often than blocks being added.
-    threadDelay blockTime
+    threadDelay $ floor blockTime
 
   doRollBackward ::
     TVar m [MockHydraNode m] ->

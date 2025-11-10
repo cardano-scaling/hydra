@@ -157,7 +157,7 @@ waitEq waitNext delay expected =
 waitMatch :: (HasCallStack, Show a) => IO a -> NominalDiffTime -> (a -> Maybe b) -> IO b
 waitMatch waitNext delay match = do
   seenMsgs <- newLabelledTVarIO "wait-match-seen-msgs" []
-  timeout (realToFrac delay) (go seenMsgs) >>= \case
+  timeout (floor delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs

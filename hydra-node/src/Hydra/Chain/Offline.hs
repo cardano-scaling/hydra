@@ -189,7 +189,7 @@ tickForever genesis callback = do
   nextTick upcomingSlot = do
     let timeToSleepUntil = slotNoToUTCTime systemStart slotLength upcomingSlot
     sleepDelay <- diffUTCTime timeToSleepUntil <$> getCurrentTime
-    threadDelay $ realToFrac sleepDelay
+    threadDelay $ floor sleepDelay
     callback $
       Tick
         { chainTime = timeToSleepUntil

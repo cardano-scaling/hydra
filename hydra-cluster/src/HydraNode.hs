@@ -115,7 +115,7 @@ waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> M
 waitMatch delay' client@HydraClient{tracer, hydraNodeId} match = do
   seenMsgs <- newLabelledTVarIO "wait-match-seen-msgs" []
   delay <- setupBFDelay delay'
-  timeout (realToFrac delay) (go seenMsgs) >>= \case
+  timeout (floor delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs
@@ -162,7 +162,7 @@ waitForAll tracer d nodes expected = do
   delay <- setupBFDelay d
   forConcurrently_ nodes $ \client@HydraClient{hydraNodeId} -> do
     msgs <- newIORef []
-    result <- timeout (realToFrac delay) $ tryNext client msgs expected
+    result <- timeout (floor delay) $ tryNext client msgs expected
     case result of
       Just x -> pure x
       Nothing -> do

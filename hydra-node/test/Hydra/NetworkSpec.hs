@@ -83,7 +83,7 @@ spec = do
                     "Broadcasting 100KiB message #" <> show i <> " (size: " <> show (length (toString msgWithId)) <> " chars)"
                 broadcast n1 msgWithId
                 _ <- waitNext
-                threadDelay 0.02
+                threadDelay 20_000
 
       it "broadcasts messages to single connected peer" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do

@@ -103,7 +103,7 @@ monitorCallbacks = do
 waitMatch :: (HasCallStack, ToJSON a) => IO a -> DiffTime -> (a -> Maybe b) -> IO b
 waitMatch waitNext seconds match = do
   seen <- newLabelledTVarIO "wait-match-seen" []
-  timeout seconds (go seen) >>= \case
+  timeout (floor seconds) (go seen) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seen

@@ -337,7 +337,7 @@ spec = parallel $ do
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
                 -- If we wait too long, secondTx will expire
-                threadDelay $ fromIntegral defaultTxTTL * waitDelay + 1
+                threadDelay $ fromIntegral defaultTxTTL * floor waitDelay + 1
                 waitUntilMatch [n1, n2] $ \case
                   TxInvalid{transaction} -> guard $ transaction == secondTx
                   _ -> Nothing
@@ -1242,7 +1242,7 @@ nothingHappensFor ::
   NominalDiffTime ->
   m ()
 nothingHappensFor node secs =
-  timeout (realToFrac secs) (waitForNext node) >>= (`shouldBe` Nothing)
+  timeout (floor secs) (waitForNext node) >>= (`shouldBe` Nothing)
 
 withHydraNode ::
   forall s a.
@@ -1300,7 +1300,7 @@ createTestHydraClient outputs messages outputHistory HydraNode{inputQueue, nodeS
     }
 
 createHydraNode ::
-  (IsChainState tx, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
+  (IsChainState tx, MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
   Tracer m (HydraNodeLog tx) ->
   Ledger tx ->
   ChainStateType tx ->

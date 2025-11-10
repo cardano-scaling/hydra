@@ -548,7 +548,6 @@ instance
   , MonadTimer m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
-  , MonadDelay m
   , MonadTime m
   ) =>
   RunModel WorldState (RunMonad m)
@@ -595,7 +594,7 @@ instance
       NewTx party transaction ->
         performNewTx party transaction
       Wait delay ->
-        lift $ threadDelay delay
+        lift $ threadDelay $ floor delay
       ObserveConfirmedTx var -> do
         let tx = lookup var
         nodes <- Map.toList <$> gets nodes
@@ -630,7 +629,6 @@ seedWorld ::
   , MonadLabelledSTM m
   , MonadFork m
   , MonadMask m
-  , MonadDelay m
   , MonadTime m
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
@@ -720,7 +718,7 @@ performDeposit headId utxoToDeposit = do
       _ -> Nothing
 
 performDecommit ::
-  (MonadThrow m, MonadTimer m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
+  (MonadThrow m, MonadTimer m, MonadAsync m, MonadLabelledSTM m) =>
   Party ->
   Payment ->
   RunMonad m ()
@@ -749,7 +747,7 @@ performDecommit party tx = do
     _ -> Nothing
 
 performNewTx ::
-  (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) =>
+  (MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m) =>
   Party ->
   Payment ->
   RunMonad m Payment
@@ -785,7 +783,7 @@ waitForOpen node = do
   outs <- lift $ serverOutputs node
   unless (any headIsOpen outs) waitAndRetry
  where
-  waitAndRetry = lift (threadDelay 0.1) >> waitForOpen node
+  waitAndRetry = lift (threadDelay 100_000) >> waitForOpen node
 
 -- | Wait for the head to be closed by searching from the beginning. Note that
 -- there rollbacks or multiple life-cycles of heads are not handled here.
@@ -794,7 +792,7 @@ waitForReadyToFanout node = do
   outs <- lift $ serverOutputs node
   unless (any headIsReadyToFanout outs) waitAndRetry
  where
-  waitAndRetry = lift (threadDelay 0.1) >> waitForReadyToFanout node
+  waitAndRetry = lift (threadDelay 100_000) >> waitForReadyToFanout node
 
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
@@ -825,7 +823,7 @@ performAbort party = do
     HeadIsAborted{} -> Just ()
     _ -> Nothing
 
-performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m ()
+performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m) => Party -> RunMonad m ()
 performClose party = do
   nodes <- gets nodes
   let thisNode = nodes ! party
@@ -858,7 +856,7 @@ performFanout party = do
     HeadIsFinalized{} -> True
     _otherwise -> False
 
-performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => WorldState -> Party -> RunMonad m ()
+performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadAsync m, MonadLabelledSTM m) => WorldState -> Party -> RunMonad m ()
 performCloseWithInitialSnapshot st party = do
   nodes <- gets nodes
   let thisNode = nodes ! party

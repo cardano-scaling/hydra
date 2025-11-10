@@ -372,7 +372,7 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
               Right (CommandFailed{clientInput = Recover{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Recover failed")
               _ -> wait
-      timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
+      timeout (floor (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
         Nothing ->
           pure $
@@ -436,7 +436,7 @@ handleDecommit putClientInput apiTransactionTimeout responseChannel body =
               Right (CommandFailed{clientInput = Decommit{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit failed")
               _ -> wait
-      timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
+      timeout (floor (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
         Nothing ->
           pure $
@@ -474,7 +474,7 @@ handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body
               Right (CommandFailed{clientInput = SideLoadSnapshot{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Side-load snapshot failed")
               _ -> wait
-      timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
+      timeout (floor (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
         Nothing ->
           pure $
@@ -511,7 +511,7 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
       let txid = txId submitL2Tx
       result <-
         timeout
-          (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout))
+          (floor (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout))
           (waitForTransactionResult dupChannel txid)
 
       case result of

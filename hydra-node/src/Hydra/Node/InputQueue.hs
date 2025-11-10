@@ -43,7 +43,7 @@ createInputQueue = do
       , reenqueue = \delay e -> do
           atomically $ modifyTVar' numThreads succ
           void . asyncLabelled "input-queue-reenqueue" $ do
-            threadDelay delay
+            threadDelay $ floor delay
             atomically $ do
               modifyTVar' numThreads pred
               writeTQueue q e

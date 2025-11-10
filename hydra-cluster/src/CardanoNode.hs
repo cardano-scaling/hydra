@@ -440,7 +440,7 @@ waitForFullySynchronized tracer backend = do
 waitForSocket :: SocketPath -> IO ()
 waitForSocket socketPath =
   unlessM (doesFileExist $ unFile socketPath) $ do
-    threadDelay 0.1
+    threadDelay 100_000
     waitForSocket socketPath
 
 -- | Generate command-line arguments for launching @cardano-node@.

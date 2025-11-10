@@ -1751,7 +1751,7 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
 
         let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
         -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
-        diff <- realToFrac . diffUTCTime deadline <$> getCurrentTime
+        diff <- floor . diffUTCTime deadline <$> getCurrentTime
         threadDelay $ diff + 1
 
         (`shouldReturn` "OK") $
@@ -1895,7 +1895,7 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
   recover :: HydraClient -> (TxId, UTCTime) -> UTxO -> IO ()
   recover n (depositId, deadline) commitUTxO = do
     -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
-    diff <- realToFrac . diffUTCTime deadline <$> getCurrentTime
+    diff <- floor . diffUTCTime deadline <$> getCurrentTime
     threadDelay $ diff + 1
 
     let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show depositId
@@ -1975,7 +1975,7 @@ canSeePendingDeposits tracer workDir blockTime backend hydraScriptsTxId =
           let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
           -- XXX: should know the deadline from the query above
           -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
-          threadDelay $ realToFrac (toNominalDiffTime depositPeriod * 4)
+          threadDelay $ floor (toNominalDiffTime depositPeriod * 4)
 
           (`shouldReturn` "OK") $
             parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
@@ -2345,7 +2345,7 @@ respendUTxO client sk delay = do
   respend utxo = do
     tx <- mkTransferTx testNetworkId utxo sk vk
     utxo' <- submitToHead (signTx sk tx)
-    threadDelay $ realToFrac delay
+    threadDelay $ floor delay
     respend utxo'
 
   submitToHead tx = do

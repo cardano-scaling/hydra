@@ -182,7 +182,7 @@ spec = do
           -- every slot at a slot length of 0.1 seconds, but we add another 3
           -- slots safety.
           let someTime = (100 + 1 + 3) * 0.1
-          threadDelay (realToFrac $ toNominalDiffTime tuiContestationPeriod + someTime)
+          threadDelay (floor $ toNominalDiffTime tuiContestationPeriod + someTime)
           shouldRender "FanoutPossible"
           sendInputEvent $ EvKey (KChar 'f') []
           threadDelay 1
