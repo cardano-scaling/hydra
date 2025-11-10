@@ -213,6 +213,23 @@ test-suite tests
   build-tool-depends: hspec-discover:hspec-discover
   ghc-options:        -threaded -rtsopts
 
+benchmark accumulator-bench
+  import:         project-config
+  hs-source-dirs: bench/accumulator
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
+  build-depends:
+    , cardano-api
+    , criterion
+    , hydra-cardano-api
+    , hydra-prelude
+    , hydra-tx
+    , hydra-tx:testlib
+    , QuickCheck
+    , serialise
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+
 executable hydra-tx
   import:         project-config
   hs-source-dirs: exe
