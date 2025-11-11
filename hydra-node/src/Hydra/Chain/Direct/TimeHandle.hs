@@ -5,7 +5,7 @@ module Hydra.Chain.Direct.TimeHandle where
 
 import Hydra.Prelude
 
-import Cardano.Slotting.Slot (SlotNo (SlotNo), unSlotNo)
+import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Cardano.Slotting.Time (SystemStart (SystemStart), fromRelativeTime, toRelativeTime)
 import Data.Fixed (Pico)
 import Data.Time (secondsToNominalDiffTime)
@@ -36,29 +36,6 @@ data TimeHandleParams = TimeHandleParams
   , horizonSlot :: SlotNo
   , currentSlot :: SlotNo
   }
-
--- | Create a 'TimeHandle' for a given slot and current wall-clock time.
--- * Assumes 1-second slots (as in the devnet).
--- * SystemStart is derived so that the given slot corresponds to the given time.
--- * EraHistory is constructed to have a horizon sufficiently far in the future to accommodate time conversions.
--- This is primarily used for testing purposes.
-mkTimeHandleAt :: SlotNo -> UTCTime -> TimeHandle
-mkTimeHandleAt slotNo now =
-  mkTimeHandle slotNo systemStart eraHistory
- where
-  -- Assume 1 slot = 1 second (devnet)
-  slotLength :: NominalDiffTime
-  slotLength = 1
-
-  -- Compute system start time from the relation: `now = startTime + slotNo * slotLength`
-  startTime = addUTCTime (negate $ fromIntegral (unSlotNo slotNo) * slotLength) now
-  systemStart = SystemStart startTime
-
-  -- Choose a "safe" horizon far enough beyond the current slot
-  horizonSlot = SlotNo $ unSlotNo slotNo + floor safeZone
-
-  -- Construct an era history that's valid up to that horizon
-  eraHistory = eraHistoryWithHorizonAt horizonSlot
 
 -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
 safeZone :: Pico
