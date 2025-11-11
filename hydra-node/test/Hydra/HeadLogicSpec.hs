@@ -14,6 +14,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
+import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Lens ((.~))
 import Control.Monad (foldM)
 import Data.List qualified as List
@@ -30,11 +31,12 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
-import Hydra.Chain.Direct.TimeHandle (mkTimeHandleAt, slotToUTCTime)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
+import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Connectivity)
@@ -1578,3 +1580,25 @@ nowFromSlot (ChainSlot slotNo) = do
   case slotToUTCTime timeHandle (fromIntegral slotNo) of
     Left err -> fail $ "nowFromSlot: " <> show err
     Right time -> pure time
+
+-- | Create a 'TimeHandle' for a given slot and current wall-clock time.
+-- * Assumes 1-second slots (as in the devnet).
+-- * SystemStart is derived so that the given slot corresponds to the given time.
+-- * EraHistory is constructed to have a horizon sufficiently far in the future to accommodate time conversions.
+mkTimeHandleAt :: SlotNo -> UTCTime -> TimeHandle
+mkTimeHandleAt slotNo now =
+  mkTimeHandle slotNo systemStart eraHistory
+ where
+  -- Assume 1 slot = 1 second (devnet)
+  slotLength :: NominalDiffTime
+  slotLength = 1
+
+  -- Compute system start time from the relation: `now = startTime + slotNo * slotLength`
+  startTime = addUTCTime (negate $ fromIntegral (unSlotNo slotNo) * slotLength) now
+  systemStart = SystemStart startTime
+
+  -- Choose a "safe" horizon far enough beyond the current slot
+  horizonSlot = SlotNo $ unSlotNo slotNo + floor safeZone
+
+  -- Construct an era history that's valid up to that horizon
+  eraHistory = eraHistoryWithHorizonAt horizonSlot
