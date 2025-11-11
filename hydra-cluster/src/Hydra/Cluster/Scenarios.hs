@@ -2375,8 +2375,8 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
           guard $ v ^? key "reason" == Just "chain out of sync"
 
         -- Carol API notifies the node is back on sync with the chain
-        -- FIXME! this should be tune based on how long it takes to sync
-        waitMatch 20 n3 $ \v -> do
+        -- note this is tuned based on how long it takes to sync
+        waitMatch (CP.unsyncedPolicy contestationPeriod + 5 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "NodeSynced"
 
         -- Finally, Carol observes the head getting closed
