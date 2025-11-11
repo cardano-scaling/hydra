@@ -20,6 +20,8 @@ import Data.ByteString (hGetContents)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
+import Hydra.Chain.Backend (ChainBackend)
+import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.HeadLogic.State (SeenSnapshot)
@@ -542,6 +544,12 @@ waitForNodesDisconnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpt
 waitForNodesDisconnected tracer delay clients =
   waitFor tracer delay (toList clients) $
     output "NetworkDisconnected" []
+
+waitForNodesSynced :: ChainBackend backend => Tracer IO HydraNodeLog -> backend -> [HydraClient] -> IO ()
+waitForNodesSynced tracer backend clients = do
+  blockTime <- Backend.getBlockTime backend
+  waitFor tracer (5 * blockTime) clients $
+    output "NodeSynced" []
 
 data HydraNodeLog
   = HydraNodeCommandSpec {cmd :: Text}

@@ -27,7 +27,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (DirectOptions (..))
-import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
+import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitForNodesSynced, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 import Test.Hydra.Tx.Fixture (aliceSk, cperiod)
@@ -55,6 +55,7 @@ spec = do
 
                 commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 10_000_000) (contramap FromFaucet tracer)
 
+                waitForNodesSynced hydraTracer backend [hydraNode]
                 send hydraNode $ input "Init" []
 
                 headId <- waitMatch 5 hydraNode $ \v -> do
