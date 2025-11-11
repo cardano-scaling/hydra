@@ -389,7 +389,7 @@ setupUnsyncedNodeAndTUI action =
 
         let DirectBackend DirectOptions{nodeSocket, networkId} = backend
         -- Wait for some blocks to roll forward
-        threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 50 * blockTime)
+        threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 20 * blockTime)
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             raceLabelled_
