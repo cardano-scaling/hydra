@@ -2194,6 +2194,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
           guard $ v ^? key "me" == Just (toJSON carol)
           guard $ isJust (v ^? key "hydraNodeVersion")
 
+        waitForNodesSynced hydraTracer backend [n3]
         -- Carol re-submits the same transaction
         send n3 $ input "NewTx" ["transaction" .= tx]
         -- Carol accepts it
@@ -2336,7 +2337,7 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
       -- Wait for some blocks to roll forward
-      threadDelay $ realToFrac (CP.unsyncedPolicy contestationPeriod + 20 * blockTime)
+      threadDelay $ realToFrac (CP.unsyncedPolicy contestationPeriod + 50 * blockTime)
 
       -- Alice closes the head while Carol offline
       send n1 $ input "Close" []
