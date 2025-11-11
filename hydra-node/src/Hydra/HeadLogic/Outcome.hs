@@ -160,7 +160,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) wher
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 
--- XXX: Missing Checkpoint and other events?
+-- REVIEW: why are we missing Checkpoint and other events ?
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
