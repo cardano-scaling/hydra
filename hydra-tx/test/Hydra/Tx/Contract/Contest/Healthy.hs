@@ -114,7 +114,7 @@ healthyContestSnapshot =
     , utxoToCommit = Nothing
     , utxoToDecommit = Just splitUTxOToDecommit
     , version = healthyCloseSnapshotVersion
-    , accumulator = Accumulator.buildFromUTxO splitUTxOInHead
+    , accumulator = Accumulator.buildFromSnapshotUTxOs splitUTxOInHead Nothing (Just splitUTxOToDecommit)
     }
 
 healthyClosedState :: Head.State
@@ -131,7 +131,7 @@ healthyClosedState =
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion
-      , accumulatorHash = toBuiltin ("" :: ByteString) -- TODO: Proper accumulator hash
+      , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash (Accumulator.buildFromUTxO healthyClosedUTxO)
       }
 
 healthyContestUTxOHash :: BuiltinByteString
