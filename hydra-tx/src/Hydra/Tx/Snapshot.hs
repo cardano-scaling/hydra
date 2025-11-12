@@ -137,8 +137,8 @@ instance IsTx tx => FromJSON (Snapshot tx) where
             Left _ -> fail "Failed to deserialize accumulator"
             Right acc -> pure $ Accumulator.HydraAccumulator acc
         _ -> do
-          -- Reconstruct accumulator from utxo hashes for backward compatibility (or if empty)
-          pure $ Accumulator.buildFromUTxO utxo
+          -- Reconstruct accumulator from all UTxOs (including commit/decommit) for backward compatibility (or if empty)
+          pure $ Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
    where
     parseBase16 :: Text -> Parser ByteString
@@ -156,12 +156,12 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot
     utxo <- arbitrary
     utxoToCommit <- arbitrary
     utxoToDecommit <- arbitrary
-    let accumulator = Accumulator.buildFromUTxO utxo
+    let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
   shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
-    [ let accumulator = Accumulator.buildFromUTxO utxo'
+    [ let accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCommit' utxoToDecommit'
        in Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit' accumulator
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
@@ -252,7 +252,7 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let accumulator = Accumulator.buildFromUTxO utxo
+    let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
         snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit, accumulator}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
