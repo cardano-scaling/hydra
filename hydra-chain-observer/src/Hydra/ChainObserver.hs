@@ -11,7 +11,7 @@ import Hydra.ChainObserver.NodeClient (ChainObservation, ChainObserverLog (..), 
 import Hydra.ChainObserver.Options (Backend (..), Options (..), hydraChainObserverOptions)
 import Hydra.Contract qualified as Contract
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
-import Hydra.NetworkVersions (hydraNodeVersion)
+import Hydra.NodeVersion (hydraNodeVersion)
 import Hydra.Ouroborus.ChainObserver (ouroborusClient)
 import Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow, setRequestBodyJSON)
 import Network.URI (URI)

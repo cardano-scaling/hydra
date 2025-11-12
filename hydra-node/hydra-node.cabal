@@ -1,10 +1,10 @@
-cabal-version:      3.0
-name:               hydra-node
-version:            1.1.0
-synopsis:           The Hydra node
-author:             IOG
-copyright:          2022 IOG
-license:            Apache-2.0
+cabal-version: 3.0
+name:          hydra-node
+version:       1.1.0
+synopsis:      The Hydra node
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
 license-files:
   LICENSE
   NOTICE
@@ -12,8 +12,6 @@ license-files:
 data-files:
   json-schemas/api.yaml
   json-schemas/common.yaml
-
-extra-source-files: networks.json
 
 source-repository head
   type:     git
@@ -89,7 +87,6 @@ library
     Hydra.Network.Etcd
     Hydra.Network.EtcdBinary
     Hydra.Network.Message
-    Hydra.NetworkVersions
     Hydra.Node
     Hydra.Node.ApiTransactionTimeout
     Hydra.Node.DepositPeriod
@@ -100,6 +97,7 @@ library
     Hydra.Node.Run
     Hydra.Node.State
     Hydra.Node.Util
+    Hydra.NodeVersion
     Hydra.Options
     Hydra.Persistence
     Hydra.PersistenceLog
@@ -136,12 +134,12 @@ library
     , data-default
     , directory
     , etcd-embed
-    , file-embed
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3
     , http-types
     , hydra-cardano-api
+    , hydra-networkversions
     , hydra-plutus
     , hydra-prelude
     , hydra-tx
@@ -168,7 +166,6 @@ library
     , serialise
     , sop-extras
     , stm
-    , template-haskell
     , text
     , time
     , transformers
@@ -382,6 +379,7 @@ test-suite tests
     , hspec-wai
     , HUnit
     , hydra-cardano-api
+    , hydra-networkversions
     , hydra-node
     , hydra-node:examples
     , hydra-node:testlib

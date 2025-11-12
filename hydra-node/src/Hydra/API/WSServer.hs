@@ -44,9 +44,9 @@ import Hydra.Chain.Direct.State ()
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
+import Hydra.NodeVersion qualified as NodeVersion
 import Hydra.Tx (HeadId, Party)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
@@ -109,7 +109,7 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
             , headStatus = getHeadStatus headState
             , hydraHeadId = getHeadId headState
             , snapshotUtxo = getSnapshotUtxo headState
-            , hydraNodeVersion = showVersion NetworkVersions.hydraNodeVersion
+            , hydraNodeVersion = showVersion NodeVersion.hydraNodeVersion
             , env
             , networkInfo
             }

@@ -41,7 +41,7 @@ import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
-import Hydra.NetworkVersions qualified as NetworkVersions
+import Hydra.NodeVersion qualified as NodeVersion
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
 import Network.Simple.WSS qualified as WSS
@@ -86,7 +86,7 @@ spec =
                 version <- waitMatch 5 conn $ \v -> do
                   guard $ matchGreetings v
                   v ^? key "hydraNodeVersion"
-                version `shouldBe` toJSON (showVersion NetworkVersions.hydraNodeVersion)
+                version `shouldBe` toJSON (showVersion NodeVersion.hydraNodeVersion)
 
     it "sends server outputs to all connected clients" $ do
       queue <- newLabelledTQueueIO "queue"

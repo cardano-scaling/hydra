@@ -1,0 +1,58 @@
+cabal-version:      3.0
+name:               hydra-networkversions
+version:            1.1.0
+synopsis:           The Hydra node
+author:             IOG
+copyright:          2022 IOG
+license:            Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+extra-source-files: networks.json
+
+source-repository head
+  type:     git
+  location: https://github.com/cardano-scaling/hydra
+
+common project-config
+  default-language:   GHC2021
+  default-extensions:
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DerivingStrategies
+    DuplicateRecordFields
+    FunctionalDependencies
+    GADTs
+    LambdaCase
+    MultiWayIf
+    NoImplicitPrelude
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternSynonyms
+    TypeFamilies
+    ViewPatterns
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+    -fprint-potential-instances -Wmissing-local-signatures
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  exposed-modules: Hydra.NetworkVersions
+  other-modules:   Paths_hydra_networkversions
+  build-depends:
+    , aeson
+    , base
+    , file-embed
+    , hydra-cardano-api
+    , hydra-prelude
+    , lens
+    , lens-aeson
+    , text
+
+  ghc-options:     -haddock

@@ -6,8 +6,8 @@ module Hydra.Network.EtcdBinary where
 
 import Hydra.Prelude
 
-import Etcd.Embed (etcd)
 import Data.Bits ((.|.))
+import Etcd.Embed (etcd)
 import Hydra.Network (WhichEtcd (..))
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (takeDirectory, (</>))
