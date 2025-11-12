@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass #-}
--- withCreateProcess interface is annoying
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 -- | Integration tests for the 'hydra-chain-observer' executable. These will run

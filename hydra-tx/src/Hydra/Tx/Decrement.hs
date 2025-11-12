@@ -62,7 +62,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
-  decrementAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO utxo
+  decrementAccumulatorHash = Accumulator.getAccumulatorHash accumulator
 
   HeadParameters{parties, contestationPeriod} = headParameters
 
@@ -94,7 +94,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , version = toInteger version + 1
           }
 
-  Snapshot{utxo, utxoToDecommit, number, version} = snapshot
+  Snapshot{utxo, utxoToDecommit, number, version, accumulator} = snapshot
 
 -- * Observation
 

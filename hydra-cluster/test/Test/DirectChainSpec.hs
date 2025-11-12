@@ -258,7 +258,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               _ -> Nothing
             let (inHead, toDecommit) = splitUTxO someUTxO
             -- Alice contests with some snapshot U1 -> successful
-            let accumulator = Accumulator.buildFromUTxO inHead
+            let utxoToDecommit = Just toDecommit
+            let accumulator = Accumulator.buildFromSnapshotUTxOs inHead Nothing utxoToDecommit
             let snapshot1 =
                   Snapshot
                     { headId
@@ -266,7 +267,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxo = inHead
                     , confirmed = []
                     , utxoToCommit = Nothing
-                    , utxoToDecommit = Just toDecommit
+                    , utxoToDecommit = utxoToDecommit
                     , version = 0
                     , accumulator
                     }
