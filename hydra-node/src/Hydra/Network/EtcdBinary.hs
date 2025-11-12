@@ -6,9 +6,9 @@ module Hydra.Network.EtcdBinary where
 
 import Hydra.Prelude
 
+import Etcd.Embed (etcd)
 import Data.Bits ((.|.))
 import Hydra.Network (WhichEtcd (..))
-import Hydra.Node.EmbedTH (embedExecutable)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (takeDirectory, (</>))
 import System.Posix (ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
@@ -25,5 +25,5 @@ getEtcdBinary persistenceDir EmbeddedEtcd =
 installEtcd :: FilePath -> IO ()
 installEtcd fp = do
   createDirectoryIfMissing True (takeDirectory fp)
-  writeFileBS fp $(embedExecutable "etcd")
+  writeFileBS fp etcd
   setFileMode fp (ownerReadMode .|. ownerWriteMode .|. ownerExecuteMode)

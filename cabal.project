@@ -30,3 +30,12 @@ test-show-details: direct
 
 program-options
   ghc-options: -fwrite-ide-info
+
+source-repository-package
+  type: git
+  location: https://github.com/cardano-scaling/grapesy-etcd
+  tag: d51e9a42c1243ba40831bf1042821503e420504e
+  --sha256: sha256-xMq6LAk9PeNnbMM1Bd/EwgWD8f879wVSph+ZHaDpF0g=
+  subdir:
+    etcd-embed
+    which-embed

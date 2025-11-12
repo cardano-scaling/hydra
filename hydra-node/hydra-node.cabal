@@ -93,7 +93,6 @@ library
     Hydra.Node
     Hydra.Node.ApiTransactionTimeout
     Hydra.Node.DepositPeriod
-    Hydra.Node.EmbedTH
     Hydra.Node.Environment
     Hydra.Node.InputQueue
     Hydra.Node.Network
@@ -136,6 +135,7 @@ library
     , crypton
     , data-default
     , directory
+    , etcd-embed
     , file-embed
     , filepath
     , grapesy
