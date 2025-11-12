@@ -139,7 +139,7 @@ healthyAccumulatorHash :: ByteString
 healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator
 
 healthyAccumulator :: Accumulator.HydraAccumulator
-healthyAccumulator = Accumulator.buildFromUTxO healthyUTxO
+healthyAccumulator = Accumulator.buildFromSnapshotUTxOs healthyUTxO (Just healthyDeposited) Nothing
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
