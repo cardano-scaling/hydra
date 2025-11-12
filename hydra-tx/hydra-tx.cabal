@@ -92,7 +92,7 @@ library
     , containers
     , data-default
     , formatting
-    , haskell-accumulator
+    , haskell-accumulator          >=1.1.0.0
     , hydra-cardano-api
     , hydra-plutus
     , hydra-plutus-extras
