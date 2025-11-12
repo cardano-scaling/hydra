@@ -770,7 +770,7 @@ signedSnapshot ms =
     let u = realWorldModelUTxO (toCommit ms)
      in if UTxO.null u then Nothing else Just u
 
-  accumulator = Accumulator.buildFromUTxO utxo
+  accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.
