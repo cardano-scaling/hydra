@@ -148,8 +148,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           }
    where
     snapshot = getSnapshot confirmedSnapshot
-    snapshotUtxo = Hydra.Tx.utxo snapshot
-    closedAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO snapshotUtxo
+    closedAccumulatorHash = Accumulator.getAccumulatorHash $ accumulator snapshot
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod

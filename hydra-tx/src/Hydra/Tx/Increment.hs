@@ -83,7 +83,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
-  incrementAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO utxo
+  incrementAccumulatorHash = Accumulator.getAccumulatorHash accumulator
 
   headDatumAfter =
     mkTxOutDatumInline $
@@ -109,7 +109,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositValidatorScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxo, utxoToCommit, version, number} = snapshot
+  Snapshot{utxo, utxoToCommit, version, number, accumulator} = snapshot
 
 -- * Observation
 
