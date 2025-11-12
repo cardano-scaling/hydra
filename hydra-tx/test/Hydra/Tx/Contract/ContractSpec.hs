@@ -256,7 +256,7 @@ prop_verifySnapshotSignatures =
           utxoHash = toBuiltin $ hashUTxO utxo
           utxoToCommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
           utxoToDecommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-          accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO utxo
+          accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
        in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash, accumulatorHash) signatures
             & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
             & counterexample ("version: " <> show snapshotVersion)
