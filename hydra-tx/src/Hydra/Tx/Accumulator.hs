@@ -5,6 +5,7 @@ module Hydra.Tx.Accumulator (
   getAccumulatorHash,
   build,
   buildFromUTxO,
+  buildFromSnapshotUTxOs,
 
   -- * CRS (Common Reference String)
   generateCRS,
@@ -62,6 +63,34 @@ buildFromUTxO ::
 buildFromUTxO utxo =
   let elements = utxoToElement @tx <$> toPairList @tx utxo
    in build elements
+
+-- | Build an accumulator from snapshot UTxOs, including commit and decommit UTxOs.
+--
+-- This function combines all UTxOs that could potentially be fanned out:
+-- - The main snapshot UTxO
+-- - UTxOs to be committed (deposited into the Head)
+-- - UTxOs to be decommitted (withdrawn from the Head)
+buildFromSnapshotUTxOs ::
+  forall tx.
+  IsTx tx =>
+  -- | The main snapshot UTxO set
+  UTxOType tx ->
+  -- | UTxOs to be committed (if any)
+  Maybe (UTxOType tx) ->
+  -- | UTxOs to be decommitted (if any)
+  Maybe (UTxOType tx) ->
+  -- | The resulting accumulator containing all UTxOs
+  HydraAccumulator
+buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
+  let
+    -- Combine all UTxOs that could be fanned out
+    -- Note: For Map-based UTxO types, `<>` performs union (left-biased for same keys)
+    -- If utxoToCommit and utxoToDecommit overlap (protocol violation), union deduplicates by TxIn
+    utxoToCommit = fromMaybe mempty mUtxoToCommit
+    utxoToDecommit = fromMaybe mempty mUtxoToDecommit
+    combinedUTxO = utxo <> utxoToCommit <> utxoToDecommit
+   in
+    buildFromUTxO @tx combinedUTxO
 
 -- | Get a simple hash of the accumulator state.
 --
