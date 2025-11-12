@@ -186,6 +186,11 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
           , observedTx = OnCollectComTx{headId}
           }
 
+-- | Continuously produces offline chain ticks according to wall-clock time.
+-- Each tick is aligned with the expected slot time, ensuring the node
+-- state stays synchronized with the offline chain.
+-- This prevents the node from violating the `ContestationPeriod.unsyncedPolicy`
+-- which guarantees that client and network inputs are always processed safely.
 tickForever :: GenesisParameters ShelleyEra -> (ChainEvent Tx -> IO ()) -> IO ()
 tickForever genesis callback = do
   initialSlot <- slotNoFromUTCTime systemStart slotLength <$> getCurrentTime
