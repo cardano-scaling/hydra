@@ -67,7 +67,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "ContestTx")
  where
-  Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit} = snapshot
+  Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit, accumulator} = snapshot
 
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
@@ -149,7 +149,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , accumulatorHash = toBuiltin contestAccumulatorHash
           }
    where
-    contestAccumulatorHash = Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO utxo
+    contestAccumulatorHash = Accumulator.getAccumulatorHash accumulator
 
 -- * Observation
 

@@ -590,6 +590,7 @@ spec =
         let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 3)
             decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 4)
             activeUTxO = utxoRefs [1, 2]
+            utxoToDecommit = Just $ utxoRefs [3]
             snapshot =
               Snapshot
                 { headId = testHeadId
@@ -598,8 +599,8 @@ spec =
                 , confirmed = []
                 , utxo = activeUTxO
                 , utxoToCommit = Nothing
-                , utxoToDecommit = Just $ utxoRefs [3]
-                , accumulator = Accumulator.buildFromUTxO activeUTxO
+                , utxoToDecommit = utxoToDecommit
+                , accumulator = Accumulator.buildFromSnapshotUTxOs activeUTxO Nothing utxoToDecommit
                 }
             s0 =
               inOpenState'
@@ -891,8 +892,9 @@ spec =
         prop "reject side load confirmed snapshot because wrong snapshot utxoToDecommit" $ \utxoToDecommit -> do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
           let utxo' = utxoRef 3
-              accumulator = Accumulator.buildFromUTxO utxo'
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing (Just utxoToDecommit) accumulator
+              utxoToDecom = Just utxoToDecommit
+              accumulator = Accumulator.buildFromSnapshotUTxOs utxo' Nothing utxoToDecom
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing utxoToDecom accumulator
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
@@ -902,8 +904,9 @@ spec =
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 
           let utxo' = utxoRef 3
-              accumulator = Accumulator.buildFromUTxO utxo'
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' (Just utxoToCommit) Nothing accumulator
+              utxoToCom = Just utxoToCommit
+              accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCom Nothing
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom Nothing accumulator
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           update bobEnv ledger startingState (ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2))
