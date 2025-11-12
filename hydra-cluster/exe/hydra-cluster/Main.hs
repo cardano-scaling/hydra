@@ -18,7 +18,7 @@ import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
-import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
+import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead, threePartyOpenAHead)
 import Hydra.Logging (Tracer, Verbosity (Verbose), traceWith, withTracer)
 import Hydra.Options (BlockfrostOptions (..), defaultBlockfrostOptions)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
@@ -50,12 +50,15 @@ run options =
               publishOrReuseHydraScripts tracer backend
                 >>= singlePartyHeadFullLifeCycle tracer workDir backend
         Nothing -> do
-          withCardanoNodeDevnet fromCardanoNode workDir $ \_ backend -> do
+          withCardanoNodeDevnet fromCardanoNode workDir $ \_ backend -> traceShow "ACTION" $ do
+            traceShowM "PUBLISH"
             txId <- publishOrReuseHydraScripts tracer backend
+            traceShowM "PUBLISHED"
             let hydraScriptsTxId = intercalate "," $ toString . serialiseToRawBytesHexText <$> txId
             let envPath = workDir </> ".env"
             writeFile envPath $ "HYDRA_SCRIPTS_TX_ID=" <> hydraScriptsTxId
-            singlePartyOpenAHead tracer workDir backend txId persistenceRotateAfter $ \client walletSk _headId -> do
+            traceShowM "START THE HEAD"
+            threePartyOpenAHead tracer workDir backend txId persistenceRotateAfter $ \client walletSk _headId -> do
               case scenario of
                 Idle -> forever $ pure ()
                 RespendUTxO -> do

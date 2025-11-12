@@ -549,6 +549,73 @@ singlePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAf
 
       callback n1 walletSk headId
 
+-- | Open a Hydra Head with only a single participant but some arbitrary UTxO
+-- committed.
+threePartyOpenAHead ::
+  ChainBackend backend =>
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  backend ->
+  [TxId] ->
+  Maybe (Positive Natural) ->
+  -- | Continuation called when the head is open
+  (HydraClient -> SigningKey PaymentKey -> HeadId -> IO a) ->
+  IO a
+threePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAfter callback =
+  (`finally` returnFundsToFaucet tracer backend Alice) $ traceShow "START" $ do
+    refuelIfNeeded tracer backend Alice 25_000_000
+    refuelIfNeeded tracer backend Bob 25_000_000
+    refuelIfNeeded tracer backend Carol 25_000_000
+    -- Start hydra-node on chain tip
+    tip <- Backend.queryTip backend
+    let contestationPeriod = 100
+    aliceChainConfig <-
+      chainConfigFor Alice workDir backend hydraScriptsTxId [Bob, Carol] contestationPeriod
+        <&> modifyConfig (\config -> config{startChainFrom = Just tip})
+
+    bobChainConfig <-
+      chainConfigFor Bob workDir backend hydraScriptsTxId [Alice,Carol] contestationPeriod
+        <&> modifyConfig (\config -> config{startChainFrom = Just tip})
+
+    carolChainConfig <-
+      chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] contestationPeriod
+        <&> modifyConfig (\config -> config{startChainFrom = Just tip})
+
+    (walletVk, walletSk) <- generate genKeyPair
+    (_, bobCardanoSk) <- keysFor Bob
+    (_, carolCardanoSk) <- keysFor Carol
+    let keyPath = workDir <> "/wallet.sk"
+    _ <- writeFileTextEnvelope (File keyPath) Nothing walletSk
+    traceWith tracer CreatedKey{keyPath}
+
+    utxoToCommit <- seedFromFaucet backend walletVk (lovelaceToValue 100_000_000) (contramap FromFaucet tracer)
+
+    let hydraTracer = contramap FromHydraNode tracer
+
+    aliceOptions <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [2,3] id
+    let aliceOptions' = aliceOptions{persistenceRotateAfter}
+
+    bobOptions <- prepareHydraNode bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1,3] id
+    let bobOptions' = bobOptions{persistenceRotateAfter}
+
+    carolOptions <- prepareHydraNode carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1,2] id
+    let carolOptions' = carolOptions{persistenceRotateAfter}
+
+    withPreparedHydraNode hydraTracer workDir 1 aliceOptions' $ \n1 ->
+      withPreparedHydraNode hydraTracer workDir 2 bobOptions' $ \n2 ->
+       withPreparedHydraNode hydraTracer workDir 3 carolOptions' $ \n3 -> do
+        -- Initialize & open head
+        send n1 $ input "Init" []
+        blockTime <- Backend.getBlockTime backend
+        headId <- waitMatch (100 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+        requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= Backend.submitTransaction backend
+        requestCommitTx n2 mempty <&> signTx bobCardanoSk >>= Backend.submitTransaction backend
+        requestCommitTx n3 mempty <&> signTx carolCardanoSk >>= Backend.submitTransaction backend
+        waitFor hydraTracer (100 * blockTime) [n1, n2, n3] $
+          output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+        callback n1 walletSk headId
+
 -- | Single hydra-node where the commit is done using some wallet UTxO.
 singlePartyCommitsFromExternal ::
   ChainBackend backend =>
