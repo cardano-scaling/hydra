@@ -134,6 +134,8 @@ library
     , data-default
     , directory
     , etcd-embed
+    , exceptions
+    , extra
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3

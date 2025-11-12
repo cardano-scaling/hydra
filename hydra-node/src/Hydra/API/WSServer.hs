@@ -1,10 +1,12 @@
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.WSServer where
 
 import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 
+import Control.Monad.Extra (findM)
+import Control.Monad.Catch qualified as C
 import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
@@ -57,7 +59,6 @@ import Network.WebSockets (
   withPingThread,
  )
 import Text.URI hiding (ParseException)
-import Text.URI.QQ (queryKey, queryValue)
 
 wsApp ::
   forall tx.
@@ -82,10 +83,10 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
   con <- acceptRequest pending
   chan <- STM.atomically $ dupTChan responseChannel
 
-  let outConfig = mkServerOutputConfig queryParams
+  outConfig <- mkServerOutputConfig queryParams
 
   -- api client can decide if they want to see the past history of server outputs
-  when (shouldServeHistory queryParams) $
+  whenM (shouldServeHistory queryParams) $
     forwardHistory con outConfig
 
   forwardGreetingOnly outConfig con
@@ -117,37 +118,40 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
   Projection{getLatest = getLatestNodeState} = nodeStateP
   Projection{getLatest = getLatestNetworkInfo} = networkInfoP
 
-  mkServerOutputConfig :: [QueryParam] -> ServerOutputConfig
-  mkServerOutputConfig qp =
-    ServerOutputConfig
-      { utxoInSnapshot = decideOnUTxODisplay qp
-      , addressInTx = decideOnAddressDisplay qp
-      }
+  mkServerOutputConfig :: forall m. C.MonadThrow m => [QueryParam] -> m ServerOutputConfig
+  mkServerOutputConfig qp = do
+    utxoInSnapshot <- decideOnUTxODisplay qp
+    addressInTx <- decideOnAddressDisplay qp
+    pure $ ServerOutputConfig { .. }
 
-  decideOnUTxODisplay :: [QueryParam] -> WithUTxO
-  decideOnUTxODisplay qp =
-    let k :: RText t
-        k = [queryKey|snapshot-utxo|]
-        v :: RText t
-        v = [queryValue|no|]
-        queryP = QueryParam k v
-     in if queryP `elem` qp then WithoutUTxO else WithUTxO
+  decideOnUTxODisplay :: forall m. C.MonadThrow m => [QueryParam] -> m WithUTxO
+  decideOnUTxODisplay qp = do
+    k <- mkQueryKey "snapshot-utxo"
+    v <- mkQueryValue "no"
+    let queryP = QueryParam k v
+    pure $ if queryP `elem` qp then WithoutUTxO else WithUTxO
 
-  decideOnAddressDisplay :: [QueryParam] -> WithAddressedTx
-  decideOnAddressDisplay qp =
-    case find queryByAddress qp of
+  decideOnAddressDisplay :: forall m. C.MonadThrow m => [QueryParam] -> m WithAddressedTx
+  decideOnAddressDisplay qp = do
+    x <- findM queryByAddress qp
+    pure $ case x of
       Just (QueryParam _ v) -> WithAddressedTx (unRText v)
       _ -> WithoutAddressedTx
    where
-    queryByAddress = \case
-      (QueryParam key _) | key == [queryKey|address|] -> True
-      _other -> False
+    queryByAddress :: QueryParam -> m Bool
+    queryByAddress x = do
+      k <- mkQueryKey "address"
+      pure $ case x of
+        (QueryParam key _) | key == k -> True
+        _other -> False
 
-  shouldServeHistory :: [QueryParam] -> Bool
-  shouldServeHistory qp =
-    flip any qp $ \case
+  shouldServeHistory :: forall m. C.MonadThrow m => [QueryParam] -> m Bool
+  shouldServeHistory qp = do
+    k <- mkQueryKey "history"
+    v <- mkQueryValue "yes"
+    pure $ flip any qp $ \case
       (QueryParam key val)
-        | key == [queryKey|history|] -> val == [queryValue|yes|]
+        | key == k -> val == v
       _other -> False
 
   sendOutputs chan con outConfig@ServerOutputConfig{addressInTx} = forever $ do
