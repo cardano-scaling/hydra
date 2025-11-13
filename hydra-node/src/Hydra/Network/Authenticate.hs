@@ -11,7 +11,7 @@ import Control.Tracer (Tracer)
 import Data.Aeson (Options (tagSingleConstructors), defaultOptions, genericToJSON)
 import Data.Aeson qualified as Aeson
 import Hydra.Logging (traceWith)
-import Hydra.Network (Network (Network, broadcast), NetworkCallback (..), NetworkComponent)
+import Hydra.Network (DeliverResult (NotDelivered), Network (Network, broadcast), NetworkCallback (..), NetworkComponent)
 import Hydra.Prelude
 import Hydra.Tx (Party (Party, vkey), deriveParty)
 import Hydra.Tx.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
@@ -52,6 +52,7 @@ withAuthentication ::
   ( SignableRepresentation inbound
   , ToJSON inbound
   , SignableRepresentation outbound
+  , Monad m
   ) =>
   Tracer m AuthLog ->
   -- The party signing key
@@ -68,7 +69,7 @@ withAuthentication tracer signingKey parties withRawNetwork NetworkCallback{deli
   checkSignature (Signed msg sig party@Party{vkey = partyVkey}) =
     if verify partyVkey sig msg && party `elem` allParties
       then deliver $ Authenticated msg party
-      else traceWith tracer (mkAuthLog msg sig party)
+      else traceWith tracer (mkAuthLog msg sig party) $> NotDelivered
 
   me = deriveParty signingKey
 

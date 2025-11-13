@@ -52,6 +52,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..), (^?))
+import Control.Monad.Class.MonadAsync (link, withAsync)
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens qualified as Aeson
@@ -65,6 +66,7 @@ import Data.Text qualified as T
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
+  DeliverResult (..),
   Host (..),
   Network (..),
   NetworkCallback (..),
@@ -125,7 +127,7 @@ withEtcdNetwork ::
   ProtocolVersion ->
   -- TODO: check if all of these needed?
   NetworkConfiguration ->
-  NetworkComponent IO msg msg ()
+  NetworkComponent IO msg msg a
 withEtcdNetwork tracer protocolVersion config callback action = do
   etcdBinPath <- getEtcdBinary persistenceDir whichEtcd
   -- TODO: fail if cluster config / members do not match --peer
@@ -133,42 +135,21 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- bailing out on loading.
   envVars <- Map.fromList <$> getEnvironment
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
-    raceLabelled_
-      ( "etcd-waitExitCode"
-      , do
-          waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec
-      )
-      ( "etcd-callback-1"
-      , raceLabelled_
-          ("etcd-traceStderr", traceStderr p callback)
-          ( "etcd-callback-2"
-          , do
-              -- NOTE: The connection to the server is set up asynchronously; the
-              -- first rpc call will block until the connection has been established.
-              withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
-                -- REVIEW: checkVersion blocks if used on main thread - why?
-                withAsyncLabelled ("etcd-checkVersion", checkVersion tracer conn protocolVersion callback) $ \_ -> do
-                  raceLabelled_
-                    ("etcd-pollConnectivity", pollConnectivity tracer conn advertise callback)
-                    ( "etcd-callback-3"
-                    , raceLabelled_
-                        ("etcd-waitMessages", waitMessages tracer conn persistenceDir callback)
-                        ( "etcd-callback-4"
-                        , do
-                            queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-                            raceLabelled_
-                              ("etcd-broadcastMessages", broadcastMessages tracer config advertise queue)
-                              ( "etcd-network-component-action"
-                              , do
-                                  action
-                                    Network
-                                      { broadcast = writePersistentQueue queue
-                                      }
-                              )
-                        )
-                    )
-          )
-      )
+    withAsyncLinked_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
+      withAsyncLinked_ (traceStderr p callback) $ do
+        -- NOTE: The connection to the server is set up asynchronously; the
+        -- first rpc call will block until the connection has been established.
+        withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
+          -- REVIEW: checkVersion blocks if used on main thread - why?
+          withAsyncLinked_ (checkVersion tracer conn protocolVersion callback) $
+            withAsyncLinked_ (pollConnectivity tracer conn advertise callback) $
+              withAsyncLinked_ (waitMessages tracer conn persistenceDir callback) $ do
+                queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+                withAsyncLinked_ (broadcastMessages tracer config advertise queue) $ do
+                  action
+                    Network
+                      { broadcast = writePersistentQueue queue
+                      }
  where
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
   traceStderr p NetworkCallback{onConnectivity} =
@@ -229,6 +210,10 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
 
   NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
+
+withAsyncLinked_ :: (MonadAsync m, MonadFork m, MonadMask m) => m a -> m b -> m b
+withAsyncLinked_ asyncAction action =
+  withAsync asyncAction $ \thread -> link thread >> action
 
 connParams :: Tracer IO EtcdLog -> Maybe Timeout -> ConnParams
 connParams tracer to =
@@ -406,14 +391,18 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
             send NoNextElem
           else do
             let revision = res ^. #header . #revision
-            putLastKnownRevision directory . fromIntegral $ revision `max` 0
-            forM_ (res ^. #events) process
+            delivered <- foldMapM process (res ^. #events)
+            case delivered of
+              NotDelivered -> pure ()
+              Delivered ->
+                -- TODO: not write it for each event
+                putLastKnownRevision directory . fromIntegral $ revision `max` 0
             loop send recv
 
   process event = do
     let value = event ^. #kv . #value
     case decodeFull' value of
-      Left err ->
+      Left err -> do
         traceWith
           tracer
           FailedToDecodeValue
@@ -421,6 +410,7 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
             , value = encodeBase16 value
             , reason = show err
             }
+        pure NotDelivered
       Right msg -> deliver msg
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
