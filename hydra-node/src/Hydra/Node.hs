@@ -57,6 +57,7 @@ import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
+import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
@@ -372,7 +373,10 @@ processInput node (queuedId, input) = do
     Continue{stateChanges, effects} -> do
       processStateChanges node stateChanges
       processEffects node tracer queuedId effects
-    Wait{stateChanges} -> do
+    Wait{reason, stateChanges} -> do
+      -- FIXME: in the past we would reenqueue messages here. How would
+      -- situations like this be dealt with right now?
+      Prelude.error $ "WAIT encountered " <> show reason
       processStateChanges node stateChanges
     Error{} -> pure ()
   pure outcome

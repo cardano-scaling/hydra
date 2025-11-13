@@ -52,10 +52,15 @@ processInput :: HydraNode tx -> Input tx -> m ()
 
 - No `reenqueue` possible anymore
   - `Wait` outcomes need to result in `NotDelivered`
+  
+> [!CAUTION]
+>
+> FIXME: while not marking the revision as acknowledged through `NotDelivered` is easily possible, the re-trial of delivery would need to be implemented by the Network component and this could be a smell of the approach..
 
-- Reentrancy: If `processInput` for a network message causes a `broadcast`, this must not result into synchronously call to `deliver`
-- Blocking: If `processInput` is slow (expensive computation, waiting on I/O), the network `deliver` callback blocks. Each component would need to ensure reactivity in their domain.
-- Error handling: If `processInput` throws an exception during a network `deliver`, it surfaces through the network component and not through the main loop.
+- Potential downsides of synchronous invocation of logic layer from components:
+    - Reentrancy: If `processInput` for a network message causes a `broadcast`, this must not result into synchronously call to `deliver`
+    - Blocking: If `processInput` is slow (expensive computation, waiting on I/O), the network `deliver` callback blocks. Each component would need to ensure reactivity in their domain.
+    - Error handling: If `processInput` throws an exception during a network `deliver`, it surfaces through the network component and not through the main loop.
 
 ## Alternatives
 
