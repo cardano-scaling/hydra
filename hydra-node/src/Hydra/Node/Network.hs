@@ -53,14 +53,14 @@ import Hydra.Tx (IsTx)
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::
-  forall tx.
+  forall a tx.
   IsTx tx =>
   -- | Tracer to use for logging messages.
   Tracer IO NetworkLog ->
   -- | The network configuration
   NetworkConfiguration ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
-  NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
+  NetworkComponent IO (Authenticated (Message tx)) (Message tx) a
 withNetwork tracer conf callback action = do
   withAuthentication
     (contramap Authenticate tracer)
