@@ -2279,10 +2279,10 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
       waitMatch (20 * blockTime) n2 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
-
       threadDelay 5
 
     callProcess "rm" ["-rf", workDir </> "state-2"]
+    threadDelay 1
 
     withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
       `shouldThrow` \(e :: SomeException) ->
@@ -2319,7 +2319,6 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
 
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
     withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
-      carolUTxO <- seedFromFaucet backend carolCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
       -- Open a head while Carol online
       headId <- withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         waitForNodesSynced hydraTracer backend [n1, n2, n3]
@@ -2331,6 +2330,7 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
         -- Bob commits nothing
         requestCommitTx n2 mempty >>= Backend.submitTransaction backend
         -- Carol commits something
+        carolUTxO <- seedFromFaucet backend carolCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
         requestCommitTx n3 carolUTxO >>= Backend.submitTransaction backend
 
         -- Observe open with the relevant UTxOs
@@ -2344,7 +2344,7 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
       -- Wait for some blocks to roll forward
-      threadDelay $ realToFrac (CP.unsyncedPolicy contestationPeriod + 50 * blockTime)
+      threadDelay $ realToFrac (CP.unsyncedPolicy contestationPeriod + 20 * blockTime)
 
       -- Alice closes the head while Carol offline
       send n1 $ input "Close" []
@@ -2354,16 +2354,16 @@ waitsForChainInSynchAndSecure tracer workDir backend hydraScriptsTxId = do
 
       -- Carol restarts
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
-        -- Carol API starts notifying the node is out of sync with the chain
-        waitMatch 5 n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "NodeUnsynced"
-
         -- Carol starts in Open
         waitMatch 5 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "Greetings"
           guard $ v ^? key "headStatus" == Just (toJSON Open)
           guard $ v ^? key "me" == Just (toJSON carol)
           guard $ isJust (v ^? key "hydraNodeVersion")
+
+        -- Carol API starts notifying the node is out of sync with the chain
+        waitMatch 5 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "NodeUnsynced"
 
         -- Then, Carol attempts submits a new transaction,
         -- without waiting for head to be closed
