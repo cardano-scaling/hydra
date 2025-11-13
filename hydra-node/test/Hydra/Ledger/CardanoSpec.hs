@@ -20,6 +20,7 @@ import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (cardanoLedger, genSequenceOfSimplePaymentTransactions)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
+import Test.Gen.Cardano.Api.Typed (genChainPoint)
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
 import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutputFor, genTxOut, genUTxOFor, genValue)
 import Test.QuickCheck (
@@ -33,6 +34,7 @@ import Test.QuickCheck (
   property,
   (===),
  )
+import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.Util (propCollisionResistant)
 
 spec :: Spec
@@ -89,7 +91,7 @@ spec =
       describe "genChainPoint" $
         prop "generates only some genesis points" $
           checkCoverage $
-            forAll genChainPoint $ \cp ->
+            forAll (hedgehog genChainPoint) $ \cp ->
               cover 80 (cp /= ChainPointAtGenesis) "not at genesis" $ property True
 
 shouldParseJSONAs :: forall a. (HasCallStack, FromJSON a) => LByteString -> Expectation
