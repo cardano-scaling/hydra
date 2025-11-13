@@ -4,9 +4,7 @@ module Hydra.Chain.Direct.HandlersSpec where
 
 import Hydra.Prelude hiding (label)
 
-import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
-import Control.Lens ((.~))
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (

@@ -23,7 +23,7 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, genBlockHeaderHash, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
