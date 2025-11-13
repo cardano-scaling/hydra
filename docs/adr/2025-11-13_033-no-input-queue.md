@@ -42,16 +42,14 @@ processInput :: HydraNode tx -> Input tx -> m ()
 
 - Drop the `InputQueue` and have inputs directly drive the logic
 
-> [!CAUTION]
-> 
-> FIXME: this is not possible because we cannot "tie the knot"?
->
-> This means, that we cannot provide a function as `deliver` implementation that also has the other "effectful" components already initialized like the chain backend, API. Or at least we cannot do that for all of those components (the last is problematic).
-
 ## Consequences
+
+- "Tying the knot" is a bit trickier as the `InputQueue` does not decouple the setup.
+  - An approach using an `MVar` holding a "promise" of a fully connected node can be used.
 
 - Logic layer was running `stepHydraNode` in dedicated thread; this makes it now multi-threaded
   - Side effects processing of the logic layer must become thread-safe
+
 - No `reenqueue` possible anymore
   - `Wait` outcomes need to result in `NotDelivered`
 

@@ -40,6 +40,8 @@ import Hydra.Node (
   HydraNode (eventSinks),
   chainStateHistory,
   connect,
+  createHydraNodePromise,
+  fulfillPromise,
   hydrate,
   initEnvironment,
   runHydraNode,
@@ -99,6 +101,8 @@ run opts = do
         -- NOTE: Add any custom sinks here
         let eventSinks :: [EventSink (StateEvent Tx) IO] = []
         wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
+        -- Tie the knot
+        promise <- createHydraNodePromise
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
@@ -120,12 +124,14 @@ run opts = do
             withNetwork
               (contramap Network tracer)
               networkConfiguration
-              (wireNetworkInput wetHydraNode)
+              (wireNetworkInput promise)
               $ \network -> do
                 -- Main loop
-                connect chain network server wetHydraNode
-                  <&> addEventSink apiSink
-                    >>= runHydraNode
+                node <-
+                  connect chain network server wetHydraNode
+                    <&> addEventSink apiSink
+                fulfillPromise promise node
+                runHydraNode node
  where
   addEventSink :: EventSink (StateEvent tx) m -> HydraNode tx m -> HydraNode tx m
   addEventSink sink node = node{eventSinks = sink : eventSinks node}

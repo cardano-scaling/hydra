@@ -11,6 +11,7 @@ module Hydra.Node where
 import Hydra.Prelude
 
 import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
+import Control.Concurrent.Class.MonadMVar (MVar, MonadMVar, newEmptyMVar, putMVar, readMVar)
 import Control.Concurrent.Class.MonadSTM (
   stateTVar,
   writeTVar,
@@ -225,6 +226,22 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
             <*> ZipSink (foldlC aggregateChainStateHistory $ initHistory initialChainState)
         )
 
+-- | A promise that will eventually contain a fully connected 'HydraNode'.
+-- This is useful to "tie the knot" via the 'wireXXX' functions.
+newtype HydraNodePromise tx m = HydraNodePromise (MVar m (HydraNode tx m))
+
+-- | Create a new promise for a HydraNode
+createHydraNodePromise :: MonadMVar m => m (HydraNodePromise tx m)
+createHydraNodePromise = HydraNodePromise <$> newEmptyMVar
+
+-- | Fulfill the promise with a fully connected node
+fulfillPromise :: MonadMVar m => HydraNodePromise tx m -> HydraNode tx m -> m ()
+fulfillPromise (HydraNodePromise mvar) = putMVar mvar
+
+-- | Get the node from the promise (blocks if not yet fulfilled)
+awaitNode :: MonadMVar m => HydraNodePromise tx m -> m (HydraNode tx m)
+awaitNode (HydraNodePromise mvar) = readMVar mvar
+
 wireChainInput :: DraftHydraNode tx m -> (ChainEvent tx -> m ())
 wireChainInput node = enqueue . ChainInput
  where
@@ -236,19 +253,21 @@ wireClientInput node = enqueue . ClientInput
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
 
 wireNetworkInput ::
-  (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx) =>
-  HydraNode tx m ->
+  (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx, MonadMVar m) =>
+  HydraNodePromise tx m ->
   NetworkCallback (Authenticated (Message tx)) m
-wireNetworkInput node =
+wireNetworkInput promise =
   NetworkCallback
     { deliver = \Authenticated{party = sender, payload = msg} -> do
         let input = mkNetworkInput sender msg
+        node <- awaitNode promise
         -- FIXME: not make up queuedId
         processInput node (0, input) >>= \case
           Continue{} -> pure Delivered
           Wait{} -> pure NotDelivered
           Error{} -> pure NotDelivered
-    , onConnectivity = \conn ->
+    , onConnectivity = \conn -> do
+        node <- awaitNode promise
         -- FIXME: not make up queuedId
         void $ processInput node (0, NetworkInput 1 $ ConnectivityEvent conn)
     }
