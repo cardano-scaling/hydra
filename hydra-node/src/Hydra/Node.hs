@@ -53,7 +53,6 @@ import Hydra.Network (DeliverResult (..), Host (..), Network (..), NetworkCallba
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
@@ -161,7 +160,6 @@ data DraftHydraNode tx m = DraftHydraNode
   , env :: Environment
   , ledger :: Ledger tx
   , nodeStateHandler :: NodeStateHandler tx m
-  , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateEvent tx) m
   , eventSinks :: [EventSink (StateEvent tx) m]
   , -- XXX: This is an odd field in here, but needed for the chain layer to
@@ -203,14 +201,12 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
     sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
 
   nodeStateHandler <- createNodeStateHandler (getLast lastEventId) nodeState
-  inputQueue <- createInputQueue
   pure
     DraftHydraNode
       { tracer
       , env
       , ledger
       , nodeStateHandler
-      , inputQueue
       , eventSource
       , eventSinks = eventSink : eventSinks
       , chainStateHistory
@@ -242,15 +238,23 @@ fulfillPromise (HydraNodePromise mvar) = putMVar mvar
 awaitNode :: MonadMVar m => HydraNodePromise tx m -> m (HydraNode tx m)
 awaitNode (HydraNodePromise mvar) = readMVar mvar
 
-wireChainInput :: DraftHydraNode tx m -> (ChainEvent tx -> m ())
-wireChainInput node = enqueue . ChainInput
- where
-  DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
+wireChainInput ::
+  (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx, MonadMVar m) =>
+  HydraNodePromise tx m ->
+  (ChainEvent tx -> m ())
+wireChainInput promise chainEvent = do
+  node <- awaitNode promise
+  -- FIXME: not make up queuedId
+  void $ processInput node (0, ChainInput chainEvent)
 
-wireClientInput :: DraftHydraNode tx m -> (ClientInput tx -> m ())
-wireClientInput node = enqueue . ClientInput
- where
-  DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
+wireClientInput ::
+  (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx, MonadMVar m) =>
+  HydraNodePromise tx m ->
+  (ClientInput tx -> m ())
+wireClientInput promise clientInput = do
+  node <- awaitNode promise
+  -- FIXME: not make up queuedId
+  void $ processInput node (0, ClientInput clientInput)
 
 wireNetworkInput ::
   (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx, MonadMVar m) =>
@@ -292,9 +296,9 @@ connect ::
   DraftHydraNode tx m ->
   m (HydraNode tx m)
 connect chain network server node =
-  pure HydraNode{tracer, env, ledger, nodeStateHandler, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
+  pure HydraNode{tracer, env, ledger, nodeStateHandler, eventSource, eventSinks, oc = chain, hn = network, server}
  where
-  DraftHydraNode{tracer, env, ledger, nodeStateHandler, inputQueue, eventSource, eventSinks} = node
+  DraftHydraNode{tracer, env, ledger, nodeStateHandler, eventSource, eventSinks} = node
 
 -- | Fully connected hydra node with everything wired in.
 data HydraNode tx m = HydraNode
@@ -302,7 +306,6 @@ data HydraNode tx m = HydraNode
   , env :: Environment
   , ledger :: Ledger tx
   , nodeStateHandler :: NodeStateHandler tx m
-  , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateEvent tx) m
   , eventSinks :: [EventSink (StateEvent tx) m]
   , oc :: Chain tx m
@@ -310,45 +313,45 @@ data HydraNode tx m = HydraNode
   , server :: Server tx m
   }
 
-runHydraNode ::
-  ( MonadCatch m
-  , MonadAsync m
-  , MonadTime m
-  , IsChainState tx
-  ) =>
-  HydraNode tx m ->
-  m ()
-runHydraNode node =
-  -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
-  -- something like 'forM_ [0..1] $ async'
-  forever $ stepHydraNode node
+-- runHydraNode ::
+--   ( MonadCatch m
+--   , MonadAsync m
+--   , MonadTime m
+--   , IsChainState tx
+--   ) =>
+--   HydraNode tx m ->
+--   m ()
+-- runHydraNode node =
+--   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
+--   -- something like 'forM_ [0..1] $ async'
+--   forever $ stepHydraNode node
 
-stepHydraNode ::
-  ( MonadCatch m
-  , MonadAsync m
-  , MonadTime m
-  , IsChainState tx
-  ) =>
-  HydraNode tx m ->
-  m ()
-stepHydraNode node = do
-  i@Queued{queuedId, queuedItem} <- dequeue
-  traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
-  processInput node (queuedId, queuedItem) >>= \case
-    Wait{} ->
-      maybeReenqueue i
-    _ -> pure ()
-  traceWith tracer EndInput{by = party, inputId = queuedId}
- where
-  maybeReenqueue q@Queued{queuedId, queuedItem} =
-    case queuedItem of
-      NetworkInput ttl msg
-        | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) msg}
-      _ -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
+-- stepHydraNode ::
+--   ( MonadCatch m
+--   , MonadAsync m
+--   , MonadTime m
+--   , IsChainState tx
+--   ) =>
+--   HydraNode tx m ->
+--   m ()
+-- stepHydraNode node = do
+--   i@Queued{queuedId, queuedItem} <- dequeue
+--   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
+--   processInput node (queuedId, queuedItem) >>= \case
+--     Wait{} ->
+--       maybeReenqueue i
+--     _ -> pure ()
+--   traceWith tracer EndInput{by = party, inputId = queuedId}
+--  where
+--   maybeReenqueue q@Queued{queuedId, queuedItem} =
+--     case queuedItem of
+--       NetworkInput ttl msg
+--         | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) msg}
+--       _ -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
 
-  Environment{party} = env
+--   Environment{party} = env
 
-  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
+--   HydraNode{tracer, env} = node
 
 processInput ::
   ( MonadCatch m
@@ -425,16 +428,15 @@ processEffects node tracer inputId effects = do
     case effect of
       ClientEffect i -> sendMessage server i
       NetworkEffect msg -> broadcast hn msg
-      OnChainEffect{postChainTx} ->
-        postTx postChainTx
-          `catch` \(postTxError :: PostTxError tx) ->
-            enqueue . ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing}
+      OnChainEffect{postChainTx} -> postTx postChainTx
+    -- FIXME: error handling when postTx fails?
+    -- `catch` \(postTxError :: PostTxError tx) ->
+    --   enqueue . ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing}
     traceWith tracer $ EndEffect party inputId effectId
 
   HydraNode
     { hn
     , oc = Chain{postTx}
-    , inputQueue = InputQueue{enqueue}
     , env = Environment{party}
     , server
     } = node

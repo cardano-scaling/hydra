@@ -95,7 +95,6 @@ library
     Hydra.Node.DepositPeriod
     Hydra.Node.EmbedTH
     Hydra.Node.Environment
-    Hydra.Node.InputQueue
     Hydra.Node.Network
     Hydra.Node.ParameterMismatch
     Hydra.Node.Run
@@ -334,7 +333,6 @@ test-suite tests
     Hydra.Network.AuthenticateSpec
     Hydra.NetworkSpec
     Hydra.NetworkVersionsSpec
-    Hydra.Node.InputQueueSpec
     Hydra.Node.RunSpec
     Hydra.NodeSpec
     Hydra.OptionsSpec
