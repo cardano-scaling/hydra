@@ -9,6 +9,7 @@ import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
 import Hydra.Plutus.Extras (posixToUTCTime)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
@@ -66,7 +67,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "ContestTx")
  where
-  Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit} = snapshot
+  Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit, accumulator} = snapshot
 
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
@@ -145,7 +146,10 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , headId = headIdToCurrencySymbol headId
           , contesters = contester : closedContesters
           , version = toInteger openVersion
+          , accumulatorHash = toBuiltin contestAccumulatorHash
           }
+   where
+    contestAccumulatorHash = Accumulator.getAccumulatorHash accumulator
 
 -- * Observation
 

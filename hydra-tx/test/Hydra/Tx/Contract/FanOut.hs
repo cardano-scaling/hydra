@@ -17,6 +17,7 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
@@ -95,6 +96,7 @@ healthyFanoutDatum =
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = 0
+      , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash (Accumulator.buildFromUTxO (fst healthyFanoutSnapshotUTxO))
       }
  where
   healthyContestationPeriodSeconds = 10
