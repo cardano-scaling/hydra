@@ -363,6 +363,7 @@ mockChain =
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
     , draftDepositTx = \_ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
+    , checkNonADAAssets = \_ -> error "mockChain: unexpected checkNonADAAssets"
     }
 
 mockSink :: Monad m => EventSink a m
@@ -523,5 +524,6 @@ throwExceptionOnPostTx exception node =
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             , draftDepositTx = \_ -> error "draftDepositTx not implemented"
             , submitTx = \_ -> error "submitTx not implemented"
+            , checkNonADAAssets = \_ -> error "checkNonADAAssets not implemented"
             }
       }

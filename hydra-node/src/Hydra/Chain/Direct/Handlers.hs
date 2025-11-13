@@ -74,6 +74,7 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
@@ -97,6 +98,7 @@ import Hydra.Tx.Observe (
   observeHeadTx,
  )
 import Hydra.Tx.Recover (RecoverObservation (..))
+import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 import System.IO.Error (userError)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
@@ -209,6 +211,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
+    , checkNonADAAssets = \confirmedSnapshot -> do
+        let Snapshot{utxo, utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
+        let snapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
+        checkNonADAAssetsUTxO snapshotUTxO
     }
 
 -- Check each UTxO entry against the minADAUTxO value.

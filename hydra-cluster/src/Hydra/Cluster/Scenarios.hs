@@ -141,6 +141,7 @@ import HydraNode (
   waitForNodesConnected,
   waitForNodesDisconnected,
   waitMatch,
+  waitNoMatch,
   withHydraCluster,
   withHydraNode,
   withPreparedHydraNode,
@@ -1597,6 +1598,12 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
           (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
             `shouldReturn` lovelaceToValue (seedAmount - commitAmount + fromMaybe 0 (CAPI.valueToLovelace $ UTxO.totalValue leftoverTokenUTxO))
             <> returnedAssets
+
+          send n2 $ input "SafeClose" []
+          -- closing fails because we have non-ada assets in the UTxO
+          _ <- waitNoMatch (10 * blockTime) n2 $ \v -> do
+            guard $ v ^? key "tag" == Just "HeadIsClosed"
+            pure ()
 
           send n2 $ input "Close" []
 
