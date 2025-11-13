@@ -32,8 +32,21 @@ deliver :: msg -> m DeliverResult
 data DeliverResult = Delivered | NotDelivered
 ```
 
-- Only write `last-known-revision` if `deliver` returns `Delivered`
+  - Only write `last-known-revision` if `deliver` returns `Delivered`
+
+- Instead of a single thread doing `forever . stepHydraNode`, we have many threads calling a new function
+
+```haskell
+processInput :: HydraNode tx -> Input tx -> m ()
+```
+
 - Drop the `InputQueue` and have inputs directly drive the logic
+
+> [!CAUTION]
+> 
+> FIXME: this is not possible because we cannot "tie the knot"?
+>
+> This means, that we cannot provide a function as `deliver` implementation that also has the other "effectful" components already initialized like the chain backend, API. Or at least we cannot do that for all of those components (the last is problematic).
 
 ## Consequences
 
@@ -41,6 +54,10 @@ data DeliverResult = Delivered | NotDelivered
   - Side effects processing of the logic layer must become thread-safe
 - No `reenqueue` possible anymore
   - `Wait` outcomes need to result in `NotDelivered`
+
+- Reentrancy: If `processInput` for a network message causes a `broadcast`, this must not result into synchronously call to `deliver`
+- Blocking: If `processInput` is slow (expensive computation, waiting on I/O), the network `deliver` callback blocks. Each component would need to ensure reactivity in their domain.
+- Error handling: If `processInput` throws an exception during a network `deliver`, it surfaces through the network component and not through the main loop.
 
 ## Alternatives
 

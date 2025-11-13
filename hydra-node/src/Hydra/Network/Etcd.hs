@@ -65,6 +65,7 @@ import Data.Text qualified as T
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
+  DeliverResult (..),
   Host (..),
   Network (..),
   NetworkCallback (..),
@@ -406,14 +407,18 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
             send NoNextElem
           else do
             let revision = res ^. #header . #revision
-            putLastKnownRevision directory . fromIntegral $ revision `max` 0
-            forM_ (res ^. #events) process
+            delivered <- foldMapM process (res ^. #events)
+            case delivered of
+              NotDelivered -> pure ()
+              Delivered ->
+                -- TODO: not write it for each event
+                putLastKnownRevision directory . fromIntegral $ revision `max` 0
             loop send recv
 
   process event = do
     let value = event ^. #kv . #value
     case decodeFull' value of
-      Left err ->
+      Left err -> do
         traceWith
           tracer
           FailedToDecodeValue
@@ -421,6 +426,7 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
             , value = encodeBase16 value
             , reason = show err
             }
+        pure NotDelivered
       Right msg -> deliver msg
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
