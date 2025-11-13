@@ -315,8 +315,6 @@ data () => Witness witctx era
 data () => Address addrtype
 [ByronAddress] :: Address -> Address ByronAddr
 [ShelleyAddress] :: Network -> PaymentCredential -> StakeReference -> Address ShelleyAddr
-data () => BlockHeader
-BlockHeader :: !SlotNo -> !Hash BlockHeader -> !BlockNo -> BlockHeader
 data () => ChainPoint
 ChainPointAtGenesis :: ChainPoint
 ChainPoint :: !SlotNo -> !Hash BlockHeader -> ChainPoint
@@ -394,6 +392,8 @@ NoStakeAddress :: StakeAddressReference
 data () => StakeCredential
 StakeCredentialByKey :: Hash StakeKey -> StakeCredential
 StakeCredentialByScript :: ScriptHash -> StakeCredential
+data () => BlockHeader
+BlockHeader :: !SlotNo -> !Hash BlockHeader -> !BlockNo -> BlockHeader
 data () => BlockInMode
 [BlockInMode] :: forall era. CardanoEra era -> Block era -> BlockInMode
 data () => ByronBlock
@@ -2567,30 +2567,10 @@ module Hydra.Cardano.Api.ExecutionUnits
 --   <tt>ExUnits</tt>
 toLedgerExUnits :: ExecutionUnits -> ExUnits
 
-module Hydra.Cardano.Api.BlockHeader
-
--- | Fully arbitrary block header with completely random hash.
-genBlockHeader :: Gen BlockHeader
-
--- | Generate a random block header with completely random hash, but at a
---   certain slot.
-genBlockHeaderAt :: SlotNo -> Gen BlockHeader
-
--- | Generate a random block header hash.
-genBlockHeaderHash :: Gen (Hash BlockHeader)
-instance Test.QuickCheck.Arbitrary.Arbitrary Cardano.Api.Block.BlockHeader
-
 module Hydra.Cardano.Api.ChainPoint
 
 -- | Get the chain point corresponding to a given <a>BlockHeader</a>.
 getChainPoint :: BlockHeader -> ChainPoint
-
--- | Generate a chain point with a likely invalid block header hash.
-genChainPoint :: Gen ChainPoint
-
--- | Generate a chain point at given slot with a likely invalid block
---   header hash.
-genChainPointAt :: SlotNo -> Gen ChainPoint
 instance Test.QuickCheck.Arbitrary.Arbitrary Cardano.Api.Block.ChainPoint
 
 module Hydra.Cardano.Api.AddressInEra
@@ -2690,9 +2670,6 @@ module Hydra.Cardano.Api.StakeAddress
 mkScriptStakeAddress :: forall lang. IsPlutusScriptLanguage lang => NetworkId -> PlutusScript lang -> StakeAddress
 
 module Hydra.Cardano.Api.TxId
-
--- | Convert a cardano-api <a>TxId</a> into a cardano-ledger <a>TxId</a>.
-toLedgerTxId :: TxId -> TxId
 instance Cardano.Binary.ToCBOR.ToCBOR Cardano.Api.Tx.Internal.TxIn.TxId
 instance Cardano.Binary.FromCBOR.FromCBOR Cardano.Api.Tx.Internal.TxIn.TxId
 
@@ -3078,12 +3055,6 @@ toLedgerValue :: Value -> MaryValue
 --   interface here since we are only constructing Shelley addresses.
 mkVkAddress :: IsShelleyBasedEra era => NetworkId -> VerificationKey PaymentKey -> AddressInEra era
 
--- | Fully arbitrary block header with completely random hash.
-genBlockHeader :: Gen BlockHeader
-
--- | Generate a random block header hash.
-genBlockHeaderHash :: Gen (Hash BlockHeader)
-
 -- | Get the chain point corresponding to a given <a>BlockHeader</a>.
 getChainPoint :: BlockHeader -> ChainPoint
 
@@ -3155,9 +3126,6 @@ txOuts' :: Tx era -> [TxOut CtxTx era]
 --   serialisable data.
 mkTxOutDatumHash :: forall era a ctx. (ToScriptData a, IsAlonzoBasedEra era) => a -> TxOutDatum ctx era
 
--- | Convert a cardano-api <a>TxId</a> into a cardano-ledger <a>TxId</a>.
-toLedgerTxId :: TxId -> TxId
-
 -- | Access inputs of a transaction, as an ordered list.
 txIns' :: Tx era -> [TxIn]
 
@@ -3186,16 +3154,10 @@ toLedgerKeyHash :: Hash PaymentKey -> KeyHash 'Witness
 unsafePaymentKeyHashFromBytes :: HasCallStack => ByteString -> Hash PaymentKey
 unsafeCastHash :: (SerialiseAsCBOR (Hash a), SerialiseAsCBOR (Hash b), HasCallStack) => Hash a -> Hash b
 
--- | Generate a random block header with completely random hash, but at a
---   certain slot.
-genBlockHeaderAt :: SlotNo -> Gen BlockHeader
-
--- | Generate a chain point with a likely invalid block header hash.
-genChainPoint :: Gen ChainPoint
-
--- | Generate a chain point at given slot with a likely invalid block
---   header hash.
-genChainPointAt :: SlotNo -> Gen ChainPoint
+-- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
+--   NOTE: This is using the Cardano ledger's deserialization framework
+--   using the latest protocol version via <a>maxBound</a>.
+genTxIn :: Gen TxIn
 
 -- | Construct a Shelley-style address from a Plutus script. This address
 --   has no stake rights.
@@ -3206,11 +3168,6 @@ fromLedgerAddr :: IsShelleyBasedEra era => Addr -> AddressInEra era
 
 -- | From an api <a>AddressInEra</a> to a ledger <tt>Addr</tt>
 toLedgerAddr :: AddressInEra era -> Addr
-
--- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
---   NOTE: This is using the Cardano ledger's deserialization framework
---   using the latest protocol version via <a>maxBound</a>.
-genTxIn :: Gen TxIn
 
 -- | Deserialise some generic script data into some type.
 fromScriptData :: FromScriptData a => HashableScriptData -> Maybe a
@@ -3536,8 +3493,6 @@ data () => PParams era
 data () => Address addrtype
 [ByronAddress] :: Address -> Address ByronAddr
 [ShelleyAddress] :: Network -> PaymentCredential -> StakeReference -> Address ShelleyAddr
-data () => BlockHeader
-BlockHeader :: !SlotNo -> !Hash BlockHeader -> !BlockNo -> BlockHeader
 data () => ChainPoint
 ChainPointAtGenesis :: ChainPoint
 ChainPoint :: !SlotNo -> !Hash BlockHeader -> ChainPoint
@@ -3616,6 +3571,8 @@ NoStakeAddress :: StakeAddressReference
 data () => StakeCredential
 StakeCredentialByKey :: Hash StakeKey -> StakeCredential
 StakeCredentialByScript :: ScriptHash -> StakeCredential
+data () => BlockHeader
+BlockHeader :: !SlotNo -> !Hash BlockHeader -> !BlockNo -> BlockHeader
 data () => BlockInMode
 [BlockInMode] :: forall era. CardanoEra era -> Block era -> BlockInMode
 data () => ByronBlock

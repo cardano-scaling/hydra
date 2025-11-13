@@ -60,19 +60,19 @@
 </span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Text.URI.QQ</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">queryKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">queryValue</span></span><span class="hs-special">)</span><span>
 </span><span id="line-61"></span><span>
 </span><span id="line-62"></span><span class="annot"><a href="Hydra.API.WSServer.html#wsApp"><span class="hs-identifier hs-type">wsApp</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-63"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680617690"><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-64"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-63"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680617651"><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-64"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-65"></span><span>  </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-66"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-67"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.API.APIServerLog.html#APIServerLog"><span class="hs-identifier hs-type">APIServerLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-68"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConduitT</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ServerOutput.html#TimedServerOutput"><span class="hs-identifier hs-type">TimedServerOutput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ResourceT</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-69"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ClientInput.html#ClientInput"><span class="hs-identifier hs-type">ClientInput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConduitT</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ServerOutput.html#TimedServerOutput"><span class="hs-identifier hs-type">TimedServerOutput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ResourceT</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-69"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ClientInput.html#ClientInput"><span class="hs-identifier hs-type">ClientInput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-70"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Read model to enhance 'Greetings' messages with 'HeadStatus'.</span></span><span>
-</span><span id="line-71"></span><span>  </span><span class="annot"><a href="Hydra.API.Projection.html#Projection"><span class="hs-identifier hs-type">Projection</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Conc.Sync.html#STM"><span class="hs-identifier hs-type">STM.STM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><a href="Hydra.API.Projection.html#Projection"><span class="hs-identifier hs-type">Projection</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Conc.Sync.html#STM"><span class="hs-identifier hs-type">STM.STM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-72"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Read model to enhance 'Greetings' messages with 'NetworkInfo'.</span></span><span>
-</span><span id="line-73"></span><span>  </span><span class="annot"><a href="Hydra.API.Projection.html#Projection"><span class="hs-identifier hs-type">Projection</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Conc.Sync.html#STM"><span class="hs-identifier hs-type">STM.STM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#NetworkInfo"><span class="hs-identifier hs-type">NetworkInfo</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-74"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TChan.html#TChan"><span class="hs-identifier hs-type">TChan</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ServerOutput.html#TimedServerOutput"><span class="hs-identifier hs-type">TimedServerOutput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ServerOutput.html#ClientMessage"><span class="hs-identifier hs-type">ClientMessage</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-75"></span><span>  </span><span class="annot"><a href="Hydra.API.ServerOutputFilter.html#ServerOutputFilter"><span class="hs-identifier hs-type">ServerOutputFilter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><a href="Hydra.API.Projection.html#Projection"><span class="hs-identifier hs-type">Projection</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Conc.Sync.html#STM"><span class="hs-identifier hs-type">STM.STM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#NetworkInfo"><span class="hs-identifier hs-type">NetworkInfo</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TChan.html#TChan"><span class="hs-identifier hs-type">TChan</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ServerOutput.html#TimedServerOutput"><span class="hs-identifier hs-type">TimedServerOutput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ServerOutput.html#ClientMessage"><span class="hs-identifier hs-type">ClientMessage</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-75"></span><span>  </span><span class="annot"><a href="Hydra.API.ServerOutputFilter.html#ServerOutputFilter"><span class="hs-identifier hs-type">ServerOutputFilter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-76"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PendingConnection</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-77"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-78"></span><span id="wsApp"><span class="annot"><span class="annottext">wsApp :: forall tx.
@@ -88,46 +88,46 @@ Environment
 -&gt; ServerOutputFilter tx
 -&gt; PendingConnection
 -&gt; IO ()
-</span><a href="Hydra.API.WSServer.html#wsApp"><span class="hs-identifier hs-var hs-var">wsApp</span></a></span></span><span> </span><span id="local-6989586621680617975"><span class="annot"><span class="annottext">Environment
-</span><a href="#local-6989586621680617975"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621680617976"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680617976"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621680617977"><span class="annot"><span class="annottext">Tracer IO APIServerLog
-</span><a href="#local-6989586621680617977"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621680617978"><span class="annot"><span class="annottext">ConduitT () (TimedServerOutput tx) (ResourceT IO) ()
-</span><a href="#local-6989586621680617978"><span class="hs-identifier hs-var">history</span></a></span></span><span> </span><span id="local-6989586621680617979"><span class="annot"><span class="annottext">ClientInput tx -&gt; IO ()
-</span><a href="#local-6989586621680617979"><span class="hs-identifier hs-var">callback</span></a></span></span><span> </span><span id="local-6989586621680617980"><span class="annot"><span class="annottext">Projection STM (StateChanged tx) (NodeState tx)
-</span><a href="#local-6989586621680617980"><span class="hs-identifier hs-var">nodeStateP</span></a></span></span><span> </span><span id="local-6989586621680617981"><span class="annot"><span class="annottext">Projection STM (StateChanged tx) NetworkInfo
-</span><a href="#local-6989586621680617981"><span class="hs-identifier hs-var">networkInfoP</span></a></span></span><span> </span><span id="local-6989586621680617982"><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
-</span><a href="#local-6989586621680617982"><span class="hs-identifier hs-var">responseChannel</span></a></span></span><span> </span><span class="annot"><a href="Hydra.API.ServerOutputFilter.html#ServerOutputFilter"><span class="hs-identifier hs-type">ServerOutputFilter</span></a></span><span class="hs-special">{</span><span id="local-6989586621680617984"><span class="annot"><span class="annottext">TimedServerOutput tx -&gt; Text -&gt; Bool
+</span><a href="Hydra.API.WSServer.html#wsApp"><span class="hs-identifier hs-var hs-var">wsApp</span></a></span></span><span> </span><span id="local-6989586621680617936"><span class="annot"><span class="annottext">Environment
+</span><a href="#local-6989586621680617936"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621680617937"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680617937"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621680617938"><span class="annot"><span class="annottext">Tracer IO APIServerLog
+</span><a href="#local-6989586621680617938"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621680617939"><span class="annot"><span class="annottext">ConduitT () (TimedServerOutput tx) (ResourceT IO) ()
+</span><a href="#local-6989586621680617939"><span class="hs-identifier hs-var">history</span></a></span></span><span> </span><span id="local-6989586621680617940"><span class="annot"><span class="annottext">ClientInput tx -&gt; IO ()
+</span><a href="#local-6989586621680617940"><span class="hs-identifier hs-var">callback</span></a></span></span><span> </span><span id="local-6989586621680617941"><span class="annot"><span class="annottext">Projection STM (StateChanged tx) (NodeState tx)
+</span><a href="#local-6989586621680617941"><span class="hs-identifier hs-var">nodeStateP</span></a></span></span><span> </span><span id="local-6989586621680617942"><span class="annot"><span class="annottext">Projection STM (StateChanged tx) NetworkInfo
+</span><a href="#local-6989586621680617942"><span class="hs-identifier hs-var">networkInfoP</span></a></span></span><span> </span><span id="local-6989586621680617943"><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
+</span><a href="#local-6989586621680617943"><span class="hs-identifier hs-var">responseChannel</span></a></span></span><span> </span><span class="annot"><a href="Hydra.API.ServerOutputFilter.html#ServerOutputFilter"><span class="hs-identifier hs-type">ServerOutputFilter</span></a></span><span class="hs-special">{</span><span id="local-6989586621680617945"><span class="annot"><span class="annottext">TimedServerOutput tx -&gt; Text -&gt; Bool
 txContainsAddr :: TimedServerOutput tx -&gt; Text -&gt; Bool
 $sel:txContainsAddr:ServerOutputFilter :: forall tx.
 ServerOutputFilter tx -&gt; TimedServerOutput tx -&gt; Text -&gt; Bool
-</span><a href="#local-6989586621680617984"><span class="hs-identifier hs-var hs-var">txContainsAddr</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621680617986"><span class="annot"><span class="annottext">PendingConnection
-</span><a href="#local-6989586621680617986"><span class="hs-identifier hs-var">pending</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="#local-6989586621680617945"><span class="hs-identifier hs-var hs-var">txContainsAddr</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621680617947"><span class="annot"><span class="annottext">PendingConnection
+</span><a href="#local-6989586621680617947"><span class="hs-identifier hs-var">pending</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-79"></span><span>  </span><span class="annot"><span class="annottext">Tracer IO APIServerLog -&gt; APIServerLog -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO APIServerLog
-</span><a href="#local-6989586621680617977"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">APIServerLog
+</span><a href="#local-6989586621680617938"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">APIServerLog
 </span><a href="Hydra.API.APIServerLog.html#NewAPIConnection"><span class="hs-identifier hs-var">NewAPIConnection</span></a></span><span>
-</span><span id="line-80"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680617988"><span class="annot"><span class="annottext">path :: ByteString
-</span><a href="#local-6989586621680617988"><span class="hs-identifier hs-var hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RequestHead -&gt; ByteString
+</span><span id="line-80"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680617949"><span class="annot"><span class="annottext">path :: ByteString
+</span><a href="#local-6989586621680617949"><span class="hs-identifier hs-var hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RequestHead -&gt; ByteString
 </span><span class="hs-identifier hs-var">requestPath</span></span><span> </span><span class="annot"><span class="annottext">(RequestHead -&gt; ByteString) -&gt; RequestHead -&gt; ByteString
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PendingConnection -&gt; RequestHead
 </span><span class="hs-identifier hs-var">pendingRequest</span></span><span> </span><span class="annot"><span class="annottext">PendingConnection
-</span><a href="#local-6989586621680617986"><span class="hs-identifier hs-var">pending</span></a></span><span>
-</span><span id="line-81"></span><span>  </span><span id="local-6989586621680617990"><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680617990"><span class="hs-identifier hs-var">queryParams</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">URI -&gt; [QueryParam]
+</span><a href="#local-6989586621680617947"><span class="hs-identifier hs-var">pending</span></a></span><span>
+</span><span id="line-81"></span><span>  </span><span id="local-6989586621680617951"><span class="annot"><span class="annottext">[QueryParam]
+</span><a href="#local-6989586621680617951"><span class="hs-identifier hs-var">queryParams</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">URI -&gt; [QueryParam]
 </span><span class="hs-identifier hs-var">uriQuery</span></span><span> </span><span class="annot"><span class="annottext">(URI -&gt; [QueryParam]) -&gt; IO URI -&gt; IO [QueryParam]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; IO URI
 forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m URI
 </span><span class="hs-identifier hs-var">mkURIBs</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680617988"><span class="hs-identifier hs-var">path</span></a></span><span>
-</span><span id="line-82"></span><span>  </span><span id="local-6989586621680617994"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680617994"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PendingConnection -&gt; IO Connection
+</span><a href="#local-6989586621680617949"><span class="hs-identifier hs-var">path</span></a></span><span>
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621680617955"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621680617955"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PendingConnection -&gt; IO Connection
 </span><span class="hs-identifier hs-var">acceptRequest</span></span><span> </span><span class="annot"><span class="annottext">PendingConnection
-</span><a href="#local-6989586621680617986"><span class="hs-identifier hs-var">pending</span></a></span><span>
-</span><span id="line-83"></span><span>  </span><span id="local-6989586621680617995"><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
-</span><a href="#local-6989586621680617995"><span class="hs-identifier hs-var">chan</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM (TChan (Either (TimedServerOutput tx) (ClientMessage tx)))
+</span><a href="#local-6989586621680617947"><span class="hs-identifier hs-var">pending</span></a></span><span>
+</span><span id="line-83"></span><span>  </span><span id="local-6989586621680617956"><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
+</span><a href="#local-6989586621680617956"><span class="hs-identifier hs-var">chan</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM (TChan (Either (TimedServerOutput tx) (ClientMessage tx)))
 -&gt; IO (TChan (Either (TimedServerOutput tx) (ClientMessage tx)))
 forall a. STM a -&gt; IO a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Conc.Sync.html#atomically"><span class="hs-identifier hs-var">STM.atomically</span></a></span><span> </span><span class="annot"><span class="annottext">(STM (TChan (Either (TimedServerOutput tx) (ClientMessage tx)))
@@ -139,35 +139,35 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 -&gt; STM (TChan (Either (TimedServerOutput tx) (ClientMessage tx)))
 forall a. TChan a -&gt; STM (TChan a)
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TChan.html#dupTChan"><span class="hs-identifier hs-var">dupTChan</span></a></span><span> </span><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
-</span><a href="#local-6989586621680617982"><span class="hs-identifier hs-var">responseChannel</span></a></span><span>
+</span><a href="#local-6989586621680617943"><span class="hs-identifier hs-var">responseChannel</span></a></span><span>
 </span><span id="line-84"></span><span>
-</span><span id="line-85"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680617997"><span class="annot"><span class="annottext">outConfig :: ServerOutputConfig
-</span><a href="#local-6989586621680617997"><span class="hs-identifier hs-var hs-var">outConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[QueryParam] -&gt; ServerOutputConfig
-</span><a href="#local-6989586621680617998"><span class="hs-identifier hs-var">mkServerOutputConfig</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680617990"><span class="hs-identifier hs-var">queryParams</span></a></span><span>
+</span><span id="line-85"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680617958"><span class="annot"><span class="annottext">outConfig :: ServerOutputConfig
+</span><a href="#local-6989586621680617958"><span class="hs-identifier hs-var hs-var">outConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[QueryParam] -&gt; ServerOutputConfig
+</span><a href="#local-6989586621680617959"><span class="hs-identifier hs-var">mkServerOutputConfig</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
+</span><a href="#local-6989586621680617951"><span class="hs-identifier hs-var">queryParams</span></a></span><span>
 </span><span id="line-86"></span><span>
 </span><span id="line-87"></span><span>  </span><span class="hs-comment">-- api client can decide if they want to see the past history of server outputs</span><span>
 </span><span id="line-88"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
 forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#when"><span class="hs-identifier hs-var">when</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[QueryParam] -&gt; Bool
-</span><a href="#local-6989586621680618000"><span class="hs-identifier hs-var">shouldServeHistory</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680617990"><span class="hs-identifier hs-var">queryParams</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+</span><a href="#local-6989586621680617961"><span class="hs-identifier hs-var">shouldServeHistory</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
+</span><a href="#local-6989586621680617951"><span class="hs-identifier hs-var">queryParams</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-89"></span><span>    </span><span class="annot"><span class="annottext">Connection -&gt; ServerOutputConfig -&gt; IO ()
-</span><a href="#local-6989586621680618001"><span class="hs-identifier hs-var">forwardHistory</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680617994"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig
-</span><a href="#local-6989586621680617997"><span class="hs-identifier hs-var">outConfig</span></a></span><span>
+</span><a href="#local-6989586621680617962"><span class="hs-identifier hs-var">forwardHistory</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621680617955"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig
+</span><a href="#local-6989586621680617958"><span class="hs-identifier hs-var">outConfig</span></a></span><span>
 </span><span id="line-90"></span><span>
 </span><span id="line-91"></span><span>  </span><span class="annot"><span class="annottext">ServerOutputConfig -&gt; Connection -&gt; IO ()
-</span><a href="#local-6989586621680618002"><span class="hs-identifier hs-var">forwardGreetingOnly</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig
-</span><a href="#local-6989586621680617997"><span class="hs-identifier hs-var">outConfig</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680617994"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><a href="#local-6989586621680617963"><span class="hs-identifier hs-var">forwardGreetingOnly</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig
+</span><a href="#local-6989586621680617958"><span class="hs-identifier hs-var">outConfig</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621680617955"><span class="hs-identifier hs-var">con</span></a></span><span>
 </span><span id="line-92"></span><span>
 </span><span id="line-93"></span><span>  </span><span class="annot"><span class="annottext">Connection -&gt; Int -&gt; IO () -&gt; IO () -&gt; IO ()
 forall a. Connection -&gt; Int -&gt; IO () -&gt; IO a -&gt; IO a
 </span><span class="hs-identifier hs-var">withPingThread</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680617994"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680617955"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">30</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IO ()
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -181,54 +181,54 @@ forall (m :: * -&gt; *) a b.
 </span><span class="hs-identifier hs-var">raceLabelled_</span></span><span>
 </span><span id="line-95"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;ws-con-receive-inputs&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO Any
-</span><a href="#local-6989586621680618004"><span class="hs-identifier hs-var">receiveInputs</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680617994"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680617965"><span class="hs-identifier hs-var">receiveInputs</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621680617955"><span class="hs-identifier hs-var">con</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-96"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;ws-con-send-outputs&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
 -&gt; Connection -&gt; ServerOutputConfig -&gt; IO Any
-</span><a href="#local-6989586621680618005"><span class="hs-identifier hs-var">sendOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
-</span><a href="#local-6989586621680617995"><span class="hs-identifier hs-var">chan</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680617994"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig
-</span><a href="#local-6989586621680617997"><span class="hs-identifier hs-var">outConfig</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680617966"><span class="hs-identifier hs-var">sendOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
+</span><a href="#local-6989586621680617956"><span class="hs-identifier hs-var">chan</span></a></span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621680617955"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig
+</span><a href="#local-6989586621680617958"><span class="hs-identifier hs-var">outConfig</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-97"></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-98"></span><span>  </span><span class="hs-comment">-- NOTE: We will add a 'Greetings' message on each API server start. This is</span><span>
 </span><span id="line-99"></span><span>  </span><span class="hs-comment">-- important to make sure the latest configured 'party' is reaching the</span><span>
 </span><span id="line-100"></span><span>  </span><span class="hs-comment">-- client.</span><span>
-</span><span id="line-101"></span><span>  </span><span id="local-6989586621680618002"><span class="annot"><span class="annottext">forwardGreetingOnly :: ServerOutputConfig -&gt; Connection -&gt; IO ()
-</span><a href="#local-6989586621680618002"><span class="hs-identifier hs-var hs-var">forwardGreetingOnly</span></a></span></span><span> </span><span id="local-6989586621680618006"><span class="annot"><span class="annottext">ServerOutputConfig
-</span><a href="#local-6989586621680618006"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span id="local-6989586621680618007"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680618007"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-102"></span><span>    </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618009"><span class="annot"><span class="annottext">HeadState tx
+</span><span id="line-101"></span><span>  </span><span id="local-6989586621680617963"><span class="annot"><span class="annottext">forwardGreetingOnly :: ServerOutputConfig -&gt; Connection -&gt; IO ()
+</span><a href="#local-6989586621680617963"><span class="hs-identifier hs-var hs-var">forwardGreetingOnly</span></a></span></span><span> </span><span id="local-6989586621680617967"><span class="annot"><span class="annottext">ServerOutputConfig
+</span><a href="#local-6989586621680617967"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span id="local-6989586621680617968"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621680617968"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-102"></span><span>    </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680617970"><span class="annot"><span class="annottext">HeadState tx
 headState :: HeadState tx
 $sel:headState:NodeState :: forall tx. NodeState tx -&gt; HeadState tx
-</span><a href="#local-6989586621680618009"><span class="hs-identifier hs-var hs-var">headState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM IO (NodeState tx) -&gt; IO (NodeState tx)
+</span><a href="#local-6989586621680617970"><span class="hs-identifier hs-var hs-var">headState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM IO (NodeState tx) -&gt; IO (NodeState tx)
 forall a. HasCallStack =&gt; STM IO a -&gt; IO a
 forall (m :: * -&gt; *) a.
 (MonadSTM m, HasCallStack) =&gt;
 STM m a -&gt; m a
 </span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">STM (NodeState tx)
 STM IO (NodeState tx)
-</span><a href="#local-6989586621680618012"><span class="hs-identifier hs-var">getLatestNodeState</span></a></span><span>
-</span><span id="line-103"></span><span>    </span><span id="local-6989586621680618013"><span class="annot"><span class="annottext">NetworkInfo
-</span><a href="#local-6989586621680618013"><span class="hs-identifier hs-var">networkInfo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM IO NetworkInfo -&gt; IO NetworkInfo
+</span><a href="#local-6989586621680617973"><span class="hs-identifier hs-var">getLatestNodeState</span></a></span><span>
+</span><span id="line-103"></span><span>    </span><span id="local-6989586621680617974"><span class="annot"><span class="annottext">NetworkInfo
+</span><a href="#local-6989586621680617974"><span class="hs-identifier hs-var">networkInfo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM IO NetworkInfo -&gt; IO NetworkInfo
 forall a. HasCallStack =&gt; STM IO a -&gt; IO a
 forall (m :: * -&gt; *) a.
 (MonadSTM m, HasCallStack) =&gt;
 STM m a -&gt; m a
 </span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">STM NetworkInfo
 STM IO NetworkInfo
-</span><a href="#local-6989586621680618014"><span class="hs-identifier hs-var">getLatestNetworkInfo</span></a></span><span>
+</span><a href="#local-6989586621680617975"><span class="hs-identifier hs-var">getLatestNetworkInfo</span></a></span><span>
 </span><span id="line-104"></span><span>    </span><span class="annot"><span class="annottext">Connection -&gt; ByteString -&gt; IO ()
 forall a. WebSocketsData a =&gt; Connection -&gt; a -&gt; IO ()
 </span><span class="hs-identifier hs-var">sendTextData</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680618007"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; IO ()) -&gt; ByteString -&gt; IO ()
+</span><a href="#local-6989586621680617968"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; IO ()) -&gt; ByteString -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-105"></span><span>      </span><span class="annot"><span class="annottext">ServerOutputConfig
 -&gt; (ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
 forall a. ServerOutputConfig -&gt; (a -&gt; a) -&gt; a -&gt; a
 </span><a href="Hydra.API.ServerOutput.html#handleUtxoInclusion"><span class="hs-identifier hs-var">handleUtxoInclusion</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig
-</span><a href="#local-6989586621680618006"><span class="hs-identifier hs-var">config</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; Traversal' ByteString (Maybe Value)
+</span><a href="#local-6989586621680617967"><span class="hs-identifier hs-var">config</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; Traversal' ByteString (Maybe Value)
 forall t. AsValue t =&gt; Key -&gt; Traversal' t (Maybe Value)
 </span><span class="hs-identifier hs-var">atKey</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;snapshotUtxo&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Maybe Value -&gt; Identity (Maybe Value))
@@ -246,22 +246,22 @@ forall a. ToJSON a =&gt; a -&gt; ByteString
 </span><span id="line-107"></span><span>          </span><span class="annot"><a href="Hydra.API.ServerOutput.html#Greetings"><span class="hs-identifier hs-type">Greetings</span></a></span><span>
 </span><span id="line-108"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:me:Greetings :: Party
 </span><a href="Hydra.API.ServerOutput.html#%24sel%3Ame%3AGreetings"><span class="hs-identifier hs-var">me</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680617976"><span class="hs-identifier hs-var">party</span></a></span><span>
+</span><a href="#local-6989586621680617937"><span class="hs-identifier hs-var">party</span></a></span><span>
 </span><span id="line-109"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headStatus:Greetings :: HeadStatus
 </span><a href="Hydra.API.ServerOutput.html#%24sel%3AheadStatus%3AGreetings"><span class="hs-identifier hs-var">headStatus</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; HeadStatus
-</span><a href="#local-6989586621680618016"><span class="hs-identifier hs-var">getHeadStatus</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621680618009"><span class="hs-identifier hs-var">headState</span></a></span><span>
+</span><a href="#local-6989586621680617977"><span class="hs-identifier hs-var">getHeadStatus</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621680617970"><span class="hs-identifier hs-var">headState</span></a></span><span>
 </span><span id="line-110"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:hydraHeadId:Greetings :: Maybe HeadId
 </span><a href="Hydra.API.ServerOutput.html#%24sel%3AhydraHeadId%3AGreetings"><span class="hs-identifier hs-var">hydraHeadId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; Maybe HeadId
-</span><a href="#local-6989586621680618018"><span class="hs-identifier hs-var">getHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621680618009"><span class="hs-identifier hs-var">headState</span></a></span><span>
+</span><a href="#local-6989586621680617979"><span class="hs-identifier hs-var">getHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621680617970"><span class="hs-identifier hs-var">headState</span></a></span><span>
 </span><span id="line-111"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:snapshotUtxo:Greetings :: Maybe (UTxOType tx)
 </span><a href="Hydra.API.ServerOutput.html#%24sel%3AsnapshotUtxo%3AGreetings"><span class="hs-identifier hs-var">snapshotUtxo</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; Maybe (UTxOType tx)
 forall tx.
 Monoid (UTxOType tx) =&gt;
 HeadState tx -&gt; Maybe (UTxOType tx)
 </span><a href="Hydra.API.ServerOutput.html#getSnapshotUtxo"><span class="hs-identifier hs-var">getSnapshotUtxo</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621680618009"><span class="hs-identifier hs-var">headState</span></a></span><span>
+</span><a href="#local-6989586621680617970"><span class="hs-identifier hs-var">headState</span></a></span><span>
 </span><span id="line-112"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:hydraNodeVersion:Greetings :: String
 </span><a href="Hydra.API.ServerOutput.html#%24sel%3AhydraNodeVersion%3AGreetings"><span class="hs-identifier hs-var">hydraNodeVersion</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Version -&gt; String
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#showVersion"><span class="hs-identifier hs-var">showVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Version
@@ -269,132 +269,132 @@ HeadState tx -&gt; Maybe (UTxOType tx)
 </span><span id="line-113"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Environment
 env :: Environment
 $sel:env:Greetings :: Environment
-</span><a href="#local-6989586621680617975"><span class="hs-identifier hs-var hs-var">env</span></a></span><span>
+</span><a href="#local-6989586621680617936"><span class="hs-identifier hs-var hs-var">env</span></a></span><span>
 </span><span id="line-114"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NetworkInfo
 networkInfo :: NetworkInfo
 $sel:networkInfo:Greetings :: NetworkInfo
-</span><a href="#local-6989586621680618013"><span class="hs-identifier hs-var hs-var">networkInfo</span></a></span><span>
+</span><a href="#local-6989586621680617974"><span class="hs-identifier hs-var hs-var">networkInfo</span></a></span><span>
 </span><span id="line-115"></span><span>            </span><span class="hs-special">}</span><span>
 </span><span id="line-116"></span><span>
 </span><span id="line-117"></span><span>  </span><span class="annot"><a href="Hydra.API.Projection.html#Projection"><span class="hs-identifier hs-type">Projection</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:getLatest:Projection :: forall (stm :: * -&gt; *) event model.
 Projection stm event model -&gt; stm model
-</span><a href="Hydra.API.Projection.html#%24sel%3AgetLatest%3AProjection"><span class="hs-identifier hs-var">getLatest</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621680618012"><span class="annot"><span class="annottext">STM (NodeState tx)
-</span><a href="#local-6989586621680618012"><span class="hs-identifier hs-var">getLatestNodeState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Projection STM (StateChanged tx) (NodeState tx)
-</span><a href="#local-6989586621680617980"><span class="hs-identifier hs-var">nodeStateP</span></a></span><span>
+</span><a href="Hydra.API.Projection.html#%24sel%3AgetLatest%3AProjection"><span class="hs-identifier hs-var">getLatest</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621680617973"><span class="annot"><span class="annottext">STM (NodeState tx)
+</span><a href="#local-6989586621680617973"><span class="hs-identifier hs-var">getLatestNodeState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Projection STM (StateChanged tx) (NodeState tx)
+</span><a href="#local-6989586621680617941"><span class="hs-identifier hs-var">nodeStateP</span></a></span><span>
 </span><span id="line-118"></span><span>  </span><span class="annot"><a href="Hydra.API.Projection.html#Projection"><span class="hs-identifier hs-type">Projection</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:getLatest:Projection :: forall (stm :: * -&gt; *) event model.
 Projection stm event model -&gt; stm model
-</span><a href="Hydra.API.Projection.html#%24sel%3AgetLatest%3AProjection"><span class="hs-identifier hs-var">getLatest</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621680618014"><span class="annot"><span class="annottext">STM NetworkInfo
-</span><a href="#local-6989586621680618014"><span class="hs-identifier hs-var">getLatestNetworkInfo</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Projection STM (StateChanged tx) NetworkInfo
-</span><a href="#local-6989586621680617981"><span class="hs-identifier hs-var">networkInfoP</span></a></span><span>
+</span><a href="Hydra.API.Projection.html#%24sel%3AgetLatest%3AProjection"><span class="hs-identifier hs-var">getLatest</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621680617975"><span class="annot"><span class="annottext">STM NetworkInfo
+</span><a href="#local-6989586621680617975"><span class="hs-identifier hs-var">getLatestNetworkInfo</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Projection STM (StateChanged tx) NetworkInfo
+</span><a href="#local-6989586621680617942"><span class="hs-identifier hs-var">networkInfoP</span></a></span><span>
 </span><span id="line-119"></span><span>
-</span><span id="line-120"></span><span>  </span><span class="annot"><a href="#local-6989586621680617998"><span class="hs-identifier hs-type">mkServerOutputConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#ServerOutputConfig"><span class="hs-identifier hs-type">ServerOutputConfig</span></a></span><span>
-</span><span id="line-121"></span><span>  </span><span id="local-6989586621680617998"><span class="annot"><span class="annottext">mkServerOutputConfig :: [QueryParam] -&gt; ServerOutputConfig
-</span><a href="#local-6989586621680617998"><span class="hs-identifier hs-var hs-var">mkServerOutputConfig</span></a></span></span><span> </span><span id="local-6989586621680618025"><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680618025"><span class="hs-identifier hs-var">qp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-120"></span><span>  </span><span class="annot"><a href="#local-6989586621680617959"><span class="hs-identifier hs-type">mkServerOutputConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#ServerOutputConfig"><span class="hs-identifier hs-type">ServerOutputConfig</span></a></span><span>
+</span><span id="line-121"></span><span>  </span><span id="local-6989586621680617959"><span class="annot"><span class="annottext">mkServerOutputConfig :: [QueryParam] -&gt; ServerOutputConfig
+</span><a href="#local-6989586621680617959"><span class="hs-identifier hs-var hs-var">mkServerOutputConfig</span></a></span></span><span> </span><span id="local-6989586621680617986"><span class="annot"><span class="annottext">[QueryParam]
+</span><a href="#local-6989586621680617986"><span class="hs-identifier hs-var">qp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-122"></span><span>    </span><span class="annot"><a href="Hydra.API.ServerOutput.html#ServerOutputConfig"><span class="hs-identifier hs-type">ServerOutputConfig</span></a></span><span>
 </span><span id="line-123"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:utxoInSnapshot:ServerOutputConfig :: WithUTxO
 </span><a href="Hydra.API.ServerOutput.html#%24sel%3AutxoInSnapshot%3AServerOutputConfig"><span class="hs-identifier hs-var">utxoInSnapshot</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[QueryParam] -&gt; WithUTxO
-</span><a href="#local-6989586621680618028"><span class="hs-identifier hs-var">decideOnUTxODisplay</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680618025"><span class="hs-identifier hs-var">qp</span></a></span><span>
+</span><a href="#local-6989586621680617989"><span class="hs-identifier hs-var">decideOnUTxODisplay</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
+</span><a href="#local-6989586621680617986"><span class="hs-identifier hs-var">qp</span></a></span><span>
 </span><span id="line-124"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:addressInTx:ServerOutputConfig :: WithAddressedTx
 </span><a href="Hydra.API.ServerOutput.html#%24sel%3AaddressInTx%3AServerOutputConfig"><span class="hs-identifier hs-var">addressInTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[QueryParam] -&gt; WithAddressedTx
-</span><a href="#local-6989586621680618030"><span class="hs-identifier hs-var">decideOnAddressDisplay</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680618025"><span class="hs-identifier hs-var">qp</span></a></span><span>
+</span><a href="#local-6989586621680617991"><span class="hs-identifier hs-var">decideOnAddressDisplay</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
+</span><a href="#local-6989586621680617986"><span class="hs-identifier hs-var">qp</span></a></span><span>
 </span><span id="line-125"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-126"></span><span>
-</span><span id="line-127"></span><span>  </span><span class="annot"><a href="#local-6989586621680618028"><span class="hs-identifier hs-type">decideOnUTxODisplay</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#WithUTxO"><span class="hs-identifier hs-type">WithUTxO</span></a></span><span>
-</span><span id="line-128"></span><span>  </span><span id="local-6989586621680618028"><span class="annot"><span class="annottext">decideOnUTxODisplay :: [QueryParam] -&gt; WithUTxO
-</span><a href="#local-6989586621680618028"><span class="hs-identifier hs-var hs-var">decideOnUTxODisplay</span></a></span></span><span> </span><span id="local-6989586621680618031"><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680618031"><span class="hs-identifier hs-var">qp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-129"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680617796"><span class="annot"><a href="#local-6989586621680618032"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RText</span></span><span> </span><span class="annot"><a href="#local-6989586621680617796"><span class="hs-identifier hs-type">t</span></a></span></span><span>
-</span><span id="line-130"></span><span>        </span><span id="local-6989586621680618032"><span class="annot"><span class="annottext">k :: forall (t :: RTextLabel). RText t
-</span><a href="#local-6989586621680618032"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="">[queryKey|snapshot-utxo|]</span></span><span>
-</span><span id="line-131"></span><span>        </span><span id="local-6989586621680618035"><span class="annot"><a href="#local-6989586621680618036"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RText</span></span><span> </span><span class="annot"><a href="#local-6989586621680618035"><span class="hs-identifier hs-type">t</span></a></span></span><span>
-</span><span id="line-132"></span><span>        </span><span id="local-6989586621680618036"><span class="annot"><span class="annottext">v :: forall (t :: RTextLabel). RText t
-</span><a href="#local-6989586621680618036"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="">[queryValue|no|]</span></span><span>
-</span><span id="line-133"></span><span>        </span><span id="local-6989586621680618037"><span class="annot"><span class="annottext">queryP :: QueryParam
-</span><a href="#local-6989586621680618037"><span class="hs-identifier hs-var hs-var">queryP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RText 'QueryKey -&gt; RText 'QueryValue -&gt; QueryParam
+</span><span id="line-127"></span><span>  </span><span class="annot"><a href="#local-6989586621680617989"><span class="hs-identifier hs-type">decideOnUTxODisplay</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#WithUTxO"><span class="hs-identifier hs-type">WithUTxO</span></a></span><span>
+</span><span id="line-128"></span><span>  </span><span id="local-6989586621680617989"><span class="annot"><span class="annottext">decideOnUTxODisplay :: [QueryParam] -&gt; WithUTxO
+</span><a href="#local-6989586621680617989"><span class="hs-identifier hs-var hs-var">decideOnUTxODisplay</span></a></span></span><span> </span><span id="local-6989586621680617992"><span class="annot"><span class="annottext">[QueryParam]
+</span><a href="#local-6989586621680617992"><span class="hs-identifier hs-var">qp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680617757"><span class="annot"><a href="#local-6989586621680617993"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RText</span></span><span> </span><span class="annot"><a href="#local-6989586621680617757"><span class="hs-identifier hs-type">t</span></a></span></span><span>
+</span><span id="line-130"></span><span>        </span><span id="local-6989586621680617993"><span class="annot"><span class="annottext">k :: forall (t :: RTextLabel). RText t
+</span><a href="#local-6989586621680617993"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="">[queryKey|snapshot-utxo|]</span></span><span>
+</span><span id="line-131"></span><span>        </span><span id="local-6989586621680617996"><span class="annot"><a href="#local-6989586621680617997"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RText</span></span><span> </span><span class="annot"><a href="#local-6989586621680617996"><span class="hs-identifier hs-type">t</span></a></span></span><span>
+</span><span id="line-132"></span><span>        </span><span id="local-6989586621680617997"><span class="annot"><span class="annottext">v :: forall (t :: RTextLabel). RText t
+</span><a href="#local-6989586621680617997"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="">[queryValue|no|]</span></span><span>
+</span><span id="line-133"></span><span>        </span><span id="local-6989586621680617998"><span class="annot"><span class="annottext">queryP :: QueryParam
+</span><a href="#local-6989586621680617998"><span class="hs-identifier hs-var hs-var">queryP</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RText 'QueryKey -&gt; RText 'QueryValue -&gt; QueryParam
 </span><span class="hs-identifier hs-var">QueryParam</span></span><span> </span><span class="annot"><span class="annottext">RText 'QueryKey
 forall (t :: RTextLabel). RText t
-</span><a href="#local-6989586621680618032"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">RText 'QueryValue
+</span><a href="#local-6989586621680617993"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">RText 'QueryValue
 forall (t :: RTextLabel). RText t
-</span><a href="#local-6989586621680618036"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><a href="#local-6989586621680617997"><span class="hs-identifier hs-var">v</span></a></span><span>
 </span><span id="line-134"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">QueryParam
-</span><a href="#local-6989586621680618037"><span class="hs-identifier hs-var">queryP</span></a></span><span> </span><span class="annot"><span class="annottext">QueryParam -&gt; [QueryParam] -&gt; Bool
+</span><a href="#local-6989586621680617998"><span class="hs-identifier hs-var">queryP</span></a></span><span> </span><span class="annot"><span class="annottext">QueryParam -&gt; [QueryParam] -&gt; Bool
 forall (f :: * -&gt; *) a.
 (Foldable f, DisallowElem f, Eq a) =&gt;
 a -&gt; f a -&gt; Bool
 </span><span class="hs-operator hs-var">`elem`</span></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680618031"><span class="hs-identifier hs-var">qp</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">WithUTxO
+</span><a href="#local-6989586621680617992"><span class="hs-identifier hs-var">qp</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">WithUTxO
 </span><a href="Hydra.API.ServerOutput.html#WithoutUTxO"><span class="hs-identifier hs-var">WithoutUTxO</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">WithUTxO
 </span><a href="Hydra.API.ServerOutput.html#WithUTxO"><span class="hs-identifier hs-var">WithUTxO</span></a></span><span>
 </span><span id="line-135"></span><span>
-</span><span id="line-136"></span><span>  </span><span class="annot"><a href="#local-6989586621680618030"><span class="hs-identifier hs-type">decideOnAddressDisplay</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#WithAddressedTx"><span class="hs-identifier hs-type">WithAddressedTx</span></a></span><span>
-</span><span id="line-137"></span><span>  </span><span id="local-6989586621680618030"><span class="annot"><span class="annottext">decideOnAddressDisplay :: [QueryParam] -&gt; WithAddressedTx
-</span><a href="#local-6989586621680618030"><span class="hs-identifier hs-var hs-var">decideOnAddressDisplay</span></a></span></span><span> </span><span id="local-6989586621680618042"><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680618042"><span class="hs-identifier hs-var">qp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-136"></span><span>  </span><span class="annot"><a href="#local-6989586621680617991"><span class="hs-identifier hs-type">decideOnAddressDisplay</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#WithAddressedTx"><span class="hs-identifier hs-type">WithAddressedTx</span></a></span><span>
+</span><span id="line-137"></span><span>  </span><span id="local-6989586621680617991"><span class="annot"><span class="annottext">decideOnAddressDisplay :: [QueryParam] -&gt; WithAddressedTx
+</span><a href="#local-6989586621680617991"><span class="hs-identifier hs-var hs-var">decideOnAddressDisplay</span></a></span></span><span> </span><span id="local-6989586621680618003"><span class="annot"><span class="annottext">[QueryParam]
+</span><a href="#local-6989586621680618003"><span class="hs-identifier hs-var">qp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-138"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">(QueryParam -&gt; Bool) -&gt; [QueryParam] -&gt; Maybe QueryParam
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Maybe a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#find"><span class="hs-identifier hs-var">find</span></a></span><span> </span><span class="annot"><span class="annottext">QueryParam -&gt; Bool
-</span><a href="#local-6989586621680618044"><span class="hs-identifier hs-var">queryByAddress</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680618042"><span class="hs-identifier hs-var">qp</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621680618005"><span class="hs-identifier hs-var">queryByAddress</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
+</span><a href="#local-6989586621680618003"><span class="hs-identifier hs-var">qp</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-139"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span> </span><span class="annot"><span class="annottext">RText 'QueryKey
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621680618045"><span class="annot"><span class="annottext">RText 'QueryValue
-</span><a href="#local-6989586621680618045"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; WithAddressedTx
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621680618006"><span class="annot"><span class="annottext">RText 'QueryValue
+</span><a href="#local-6989586621680618006"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; WithAddressedTx
 </span><a href="Hydra.API.ServerOutput.html#WithAddressedTx"><span class="hs-identifier hs-var">WithAddressedTx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RText 'QueryValue -&gt; Text
 forall (l :: RTextLabel). RText l -&gt; Text
 </span><span class="hs-identifier hs-var">unRText</span></span><span> </span><span class="annot"><span class="annottext">RText 'QueryValue
-</span><a href="#local-6989586621680618045"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680618006"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-140"></span><span>      </span><span class="annot"><span class="annottext">Maybe QueryParam
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">WithAddressedTx
 </span><a href="Hydra.API.ServerOutput.html#WithoutAddressedTx"><span class="hs-identifier hs-var">WithoutAddressedTx</span></a></span><span>
 </span><span id="line-141"></span><span>   </span><span class="hs-keyword">where</span><span>
-</span><span id="line-142"></span><span>    </span><span id="local-6989586621680618044"><span class="annot"><span class="annottext">queryByAddress :: QueryParam -&gt; Bool
-</span><a href="#local-6989586621680618044"><span class="hs-identifier hs-var hs-var">queryByAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
-</span><span id="line-143"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span> </span><span id="local-6989586621680618050"><span class="annot"><span class="annottext">RText 'QueryKey
-</span><a href="#local-6989586621680618050"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span class="annot"><span class="annottext">RText 'QueryValue
+</span><span id="line-142"></span><span>    </span><span id="local-6989586621680618005"><span class="annot"><span class="annottext">queryByAddress :: QueryParam -&gt; Bool
+</span><a href="#local-6989586621680618005"><span class="hs-identifier hs-var hs-var">queryByAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-143"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span> </span><span id="local-6989586621680618011"><span class="annot"><span class="annottext">RText 'QueryKey
+</span><a href="#local-6989586621680618011"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span class="annot"><span class="annottext">RText 'QueryValue
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">RText 'QueryKey
-</span><a href="#local-6989586621680618050"><span class="hs-identifier hs-var">key</span></a></span><span> </span><span class="annot"><span class="annottext">RText 'QueryKey -&gt; RText 'QueryKey -&gt; Bool
+</span><a href="#local-6989586621680618011"><span class="hs-identifier hs-var">key</span></a></span><span> </span><span class="annot"><span class="annottext">RText 'QueryKey -&gt; RText 'QueryKey -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="">[queryKey|address|]</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
-</span><span id="line-144"></span><span>      </span><span id="local-6989586621680618051"><span class="annot"><span class="annottext">QueryParam
-</span><a href="#local-6989586621680618051"><span class="hs-identifier hs-var">_other</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span id="line-144"></span><span>      </span><span id="local-6989586621680618012"><span class="annot"><span class="annottext">QueryParam
+</span><a href="#local-6989586621680618012"><span class="hs-identifier hs-var">_other</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
 </span><span id="line-145"></span><span>
-</span><span id="line-146"></span><span>  </span><span class="annot"><a href="#local-6989586621680618000"><span class="hs-identifier hs-type">shouldServeHistory</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
-</span><span id="line-147"></span><span>  </span><span id="local-6989586621680618000"><span class="annot"><span class="annottext">shouldServeHistory :: [QueryParam] -&gt; Bool
-</span><a href="#local-6989586621680618000"><span class="hs-identifier hs-var hs-var">shouldServeHistory</span></a></span></span><span> </span><span id="local-6989586621680618052"><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680618052"><span class="hs-identifier hs-var">qp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-146"></span><span>  </span><span class="annot"><a href="#local-6989586621680617961"><span class="hs-identifier hs-type">shouldServeHistory</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-147"></span><span>  </span><span id="local-6989586621680617961"><span class="annot"><span class="annottext">shouldServeHistory :: [QueryParam] -&gt; Bool
+</span><a href="#local-6989586621680617961"><span class="hs-identifier hs-var hs-var">shouldServeHistory</span></a></span></span><span> </span><span id="local-6989586621680618013"><span class="annot"><span class="annottext">[QueryParam]
+</span><a href="#local-6989586621680618013"><span class="hs-identifier hs-var">qp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-148"></span><span>    </span><span class="annot"><span class="annottext">((QueryParam -&gt; Bool) -&gt; [QueryParam] -&gt; Bool)
 -&gt; [QueryParam] -&gt; (QueryParam -&gt; Bool) -&gt; Bool
 forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">(QueryParam -&gt; Bool) -&gt; [QueryParam] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#any"><span class="hs-identifier hs-var">any</span></a></span><span> </span><span class="annot"><span class="annottext">[QueryParam]
-</span><a href="#local-6989586621680618052"><span class="hs-identifier hs-var">qp</span></a></span><span> </span><span class="annot"><span class="annottext">((QueryParam -&gt; Bool) -&gt; Bool) -&gt; (QueryParam -&gt; Bool) -&gt; Bool
+</span><a href="#local-6989586621680618013"><span class="hs-identifier hs-var">qp</span></a></span><span> </span><span class="annot"><span class="annottext">((QueryParam -&gt; Bool) -&gt; Bool) -&gt; (QueryParam -&gt; Bool) -&gt; Bool
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
-</span><span id="line-149"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span> </span><span id="local-6989586621680618055"><span class="annot"><span class="annottext">RText 'QueryKey
-</span><a href="#local-6989586621680618055"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span id="local-6989586621680618056"><span class="annot"><span class="annottext">RText 'QueryValue
-</span><a href="#local-6989586621680618056"><span class="hs-identifier hs-var">val</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span> </span><span id="local-6989586621680618016"><span class="annot"><span class="annottext">RText 'QueryKey
+</span><a href="#local-6989586621680618016"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span id="local-6989586621680618017"><span class="annot"><span class="annottext">RText 'QueryValue
+</span><a href="#local-6989586621680618017"><span class="hs-identifier hs-var">val</span></a></span></span><span class="hs-special">)</span><span>
 </span><span id="line-150"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">RText 'QueryKey
-</span><a href="#local-6989586621680618055"><span class="hs-identifier hs-var">key</span></a></span><span> </span><span class="annot"><span class="annottext">RText 'QueryKey -&gt; RText 'QueryKey -&gt; Bool
+</span><a href="#local-6989586621680618016"><span class="hs-identifier hs-var">key</span></a></span><span> </span><span class="annot"><span class="annottext">RText 'QueryKey -&gt; RText 'QueryKey -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="">[queryKey|history|]</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">RText 'QueryValue
-</span><a href="#local-6989586621680618056"><span class="hs-identifier hs-var">val</span></a></span><span> </span><span class="annot"><span class="annottext">RText 'QueryValue -&gt; RText 'QueryValue -&gt; Bool
+</span><a href="#local-6989586621680618017"><span class="hs-identifier hs-var">val</span></a></span><span> </span><span class="annot"><span class="annottext">RText 'QueryValue -&gt; RText 'QueryValue -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="">[queryValue|yes|]</span></span><span>
-</span><span id="line-151"></span><span>      </span><span id="local-6989586621680618057"><span class="annot"><span class="annottext">QueryParam
-</span><a href="#local-6989586621680618057"><span class="hs-identifier hs-var">_other</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span id="line-151"></span><span>      </span><span id="local-6989586621680618018"><span class="annot"><span class="annottext">QueryParam
+</span><a href="#local-6989586621680618018"><span class="hs-identifier hs-var">_other</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
 </span><span id="line-152"></span><span>
-</span><span id="line-153"></span><span>  </span><span id="local-6989586621680618005"><span class="annot"><span class="annottext">sendOutputs :: TChan (Either (TimedServerOutput tx) (ClientMessage tx))
+</span><span id="line-153"></span><span>  </span><span id="local-6989586621680617966"><span class="annot"><span class="annottext">sendOutputs :: TChan (Either (TimedServerOutput tx) (ClientMessage tx))
 -&gt; Connection -&gt; ServerOutputConfig -&gt; IO Any
-</span><a href="#local-6989586621680618005"><span class="hs-identifier hs-var hs-var">sendOutputs</span></a></span></span><span> </span><span id="local-6989586621680618058"><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
-</span><a href="#local-6989586621680618058"><span class="hs-identifier hs-var">chan</span></a></span></span><span> </span><span id="local-6989586621680618059"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680618059"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span id="local-6989586621680618060"><span class="annot"><span class="annottext">outConfig :: ServerOutputConfig
-</span><a href="#local-6989586621680618060"><span class="hs-identifier hs-var">outConfig</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.API.ServerOutput.html#ServerOutputConfig"><span class="hs-identifier hs-type">ServerOutputConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618061"><span class="annot"><span class="annottext">WithAddressedTx
+</span><a href="#local-6989586621680617966"><span class="hs-identifier hs-var hs-var">sendOutputs</span></a></span></span><span> </span><span id="local-6989586621680618019"><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
+</span><a href="#local-6989586621680618019"><span class="hs-identifier hs-var">chan</span></a></span></span><span> </span><span id="local-6989586621680618020"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621680618020"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span id="local-6989586621680618021"><span class="annot"><span class="annottext">outConfig :: ServerOutputConfig
+</span><a href="#local-6989586621680618021"><span class="hs-identifier hs-var">outConfig</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.API.ServerOutput.html#ServerOutputConfig"><span class="hs-identifier hs-type">ServerOutputConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618022"><span class="annot"><span class="annottext">WithAddressedTx
 $sel:addressInTx:ServerOutputConfig :: ServerOutputConfig -&gt; WithAddressedTx
 addressInTx :: WithAddressedTx
 </span><a href="Hydra.API.ServerOutput.html#%24sel%3AaddressInTx%3AServerOutputConfig"><span class="hs-identifier hs-var hs-var">addressInTx</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO Any
@@ -402,8 +402,8 @@ forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#forever"><span class="hs-identifier hs-var">forever</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO Any) -&gt; IO () -&gt; IO Any
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-154"></span><span>    </span><span id="local-6989586621680618063"><span class="annot"><span class="annottext">Either (TimedServerOutput tx) (ClientMessage tx)
-</span><a href="#local-6989586621680618063"><span class="hs-identifier hs-var">response</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM (Either (TimedServerOutput tx) (ClientMessage tx))
+</span><span id="line-154"></span><span>    </span><span id="local-6989586621680618024"><span class="annot"><span class="annottext">Either (TimedServerOutput tx) (ClientMessage tx)
+</span><a href="#local-6989586621680618024"><span class="hs-identifier hs-var">response</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM (Either (TimedServerOutput tx) (ClientMessage tx))
 -&gt; IO (Either (TimedServerOutput tx) (ClientMessage tx))
 forall a. STM a -&gt; IO a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Conc.Sync.html#atomically"><span class="hs-identifier hs-var">STM.atomically</span></a></span><span> </span><span class="annot"><span class="annottext">(STM (Either (TimedServerOutput tx) (ClientMessage tx))
@@ -415,122 +415,122 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 -&gt; STM (Either (TimedServerOutput tx) (ClientMessage tx))
 forall a. TChan a -&gt; STM a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TChan.html#readTChan"><span class="hs-identifier hs-var">readTChan</span></a></span><span> </span><span class="annot"><span class="annottext">TChan (Either (TimedServerOutput tx) (ClientMessage tx))
-</span><a href="#local-6989586621680618058"><span class="hs-identifier hs-var">chan</span></a></span><span>
+</span><a href="#local-6989586621680618019"><span class="hs-identifier hs-var">chan</span></a></span><span>
 </span><span id="line-155"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
 forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#when"><span class="hs-identifier hs-var">when</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">WithAddressedTx
 -&gt; Either (TimedServerOutput tx) (ClientMessage tx) -&gt; Bool
-</span><a href="#local-6989586621680618064"><span class="hs-identifier hs-var">isAddressInTx</span></a></span><span> </span><span class="annot"><span class="annottext">WithAddressedTx
-</span><a href="#local-6989586621680618061"><span class="hs-identifier hs-var">addressInTx</span></a></span><span> </span><span class="annot"><span class="annottext">Either (TimedServerOutput tx) (ClientMessage tx)
-</span><a href="#local-6989586621680618063"><span class="hs-identifier hs-var">response</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+</span><a href="#local-6989586621680618025"><span class="hs-identifier hs-var">isAddressInTx</span></a></span><span> </span><span class="annot"><span class="annottext">WithAddressedTx
+</span><a href="#local-6989586621680618022"><span class="hs-identifier hs-var">addressInTx</span></a></span><span> </span><span class="annot"><span class="annottext">Either (TimedServerOutput tx) (ClientMessage tx)
+</span><a href="#local-6989586621680618024"><span class="hs-identifier hs-var">response</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-156"></span><span>      </span><span class="annot"><span class="annottext">Either (TimedServerOutput tx) (ClientMessage tx) -&gt; IO ()
-</span><a href="#local-6989586621680618065"><span class="hs-identifier hs-var">sendResponse</span></a></span><span> </span><span class="annot"><span class="annottext">Either (TimedServerOutput tx) (ClientMessage tx)
-</span><a href="#local-6989586621680618063"><span class="hs-identifier hs-var">response</span></a></span><span>
+</span><a href="#local-6989586621680618026"><span class="hs-identifier hs-var">sendResponse</span></a></span><span> </span><span class="annot"><span class="annottext">Either (TimedServerOutput tx) (ClientMessage tx)
+</span><a href="#local-6989586621680618024"><span class="hs-identifier hs-var">response</span></a></span><span>
 </span><span id="line-157"></span><span>   </span><span class="hs-keyword">where</span><span>
-</span><span id="line-158"></span><span>    </span><span id="local-6989586621680618065"><span class="annot"><span class="annottext">sendResponse :: Either (TimedServerOutput tx) (ClientMessage tx) -&gt; IO ()
-</span><a href="#local-6989586621680618065"><span class="hs-identifier hs-var hs-var">sendResponse</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
-</span><span id="line-159"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621680618066"><span class="annot"><span class="annottext">TimedServerOutput tx
-</span><a href="#local-6989586621680618066"><span class="hs-identifier hs-var">response</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-160"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680618067"><span class="annot"><span class="annottext">sentResponse :: ByteString
-</span><a href="#local-6989586621680618067"><span class="hs-identifier hs-var hs-var">sentResponse</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig -&gt; TimedServerOutput tx -&gt; ByteString
+</span><span id="line-158"></span><span>    </span><span id="local-6989586621680618026"><span class="annot"><span class="annottext">sendResponse :: Either (TimedServerOutput tx) (ClientMessage tx) -&gt; IO ()
+</span><a href="#local-6989586621680618026"><span class="hs-identifier hs-var hs-var">sendResponse</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-159"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621680618027"><span class="annot"><span class="annottext">TimedServerOutput tx
+</span><a href="#local-6989586621680618027"><span class="hs-identifier hs-var">response</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-160"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680618028"><span class="annot"><span class="annottext">sentResponse :: ByteString
+</span><a href="#local-6989586621680618028"><span class="hs-identifier hs-var hs-var">sentResponse</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig -&gt; TimedServerOutput tx -&gt; ByteString
 forall tx.
 IsChainState tx =&gt;
 ServerOutputConfig -&gt; TimedServerOutput tx -&gt; ByteString
 </span><a href="Hydra.API.ServerOutput.html#prepareServerOutput"><span class="hs-identifier hs-var">prepareServerOutput</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig
-</span><a href="#local-6989586621680618060"><span class="hs-identifier hs-var">outConfig</span></a></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx
-</span><a href="#local-6989586621680618066"><span class="hs-identifier hs-var">response</span></a></span><span>
+</span><a href="#local-6989586621680618021"><span class="hs-identifier hs-var">outConfig</span></a></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx
+</span><a href="#local-6989586621680618027"><span class="hs-identifier hs-var">response</span></a></span><span>
 </span><span id="line-161"></span><span>        </span><span class="annot"><span class="annottext">Connection -&gt; ByteString -&gt; IO ()
 forall a. WebSocketsData a =&gt; Connection -&gt; a -&gt; IO ()
 </span><span class="hs-identifier hs-var">sendTextData</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680618059"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680618067"><span class="hs-identifier hs-var">sentResponse</span></a></span><span>
+</span><a href="#local-6989586621680618020"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621680618028"><span class="hs-identifier hs-var">sentResponse</span></a></span><span>
 </span><span id="line-162"></span><span>        </span><span class="annot"><span class="annottext">Tracer IO APIServerLog -&gt; APIServerLog -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO APIServerLog
-</span><a href="#local-6989586621680617977"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; APIServerLog
+</span><a href="#local-6989586621680617938"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; APIServerLog
 </span><a href="Hydra.API.APIServerLog.html#APIOutputSent"><span class="hs-identifier hs-var">APIOutputSent</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; APIServerLog) -&gt; Value -&gt; APIServerLog
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx -&gt; Value
 forall a. ToJSON a =&gt; a -&gt; Value
 </span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx
-</span><a href="#local-6989586621680618066"><span class="hs-identifier hs-var">response</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-163"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680618070"><span class="annot"><span class="annottext">ClientMessage tx
-</span><a href="#local-6989586621680618070"><span class="hs-identifier hs-var">response</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="#local-6989586621680618027"><span class="hs-identifier hs-var">response</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-163"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680618031"><span class="annot"><span class="annottext">ClientMessage tx
+</span><a href="#local-6989586621680618031"><span class="hs-identifier hs-var">response</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-164"></span><span>        </span><span class="annot"><span class="annottext">Connection -&gt; ByteString -&gt; IO ()
 forall a. WebSocketsData a =&gt; Connection -&gt; a -&gt; IO ()
 </span><span class="hs-identifier hs-var">sendTextData</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680618059"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ServerOutputConfig
+</span><a href="#local-6989586621680618020"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ServerOutputConfig
 -&gt; (ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
 forall a. ServerOutputConfig -&gt; (a -&gt; a) -&gt; a -&gt; a
 </span><a href="Hydra.API.ServerOutput.html#handleUtxoInclusion"><span class="hs-identifier hs-var">handleUtxoInclusion</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig
-</span><a href="#local-6989586621680618060"><span class="hs-identifier hs-var">outConfig</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><a href="#local-6989586621680618021"><span class="hs-identifier hs-var">outConfig</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
 </span><a href="Hydra.API.ServerOutput.html#removeSnapshotUTxO"><span class="hs-identifier hs-var">removeSnapshotUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ClientMessage tx -&gt; ByteString
 forall a. ToJSON a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">Aeson.encode</span></span><span> </span><span class="annot"><span class="annottext">ClientMessage tx
-</span><a href="#local-6989586621680618070"><span class="hs-identifier hs-var">response</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680618031"><span class="hs-identifier hs-var">response</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-165"></span><span>        </span><span class="annot"><span class="annottext">Tracer IO APIServerLog -&gt; APIServerLog -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO APIServerLog
-</span><a href="#local-6989586621680617977"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; APIServerLog
+</span><a href="#local-6989586621680617938"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; APIServerLog
 </span><a href="Hydra.API.APIServerLog.html#APIOutputSent"><span class="hs-identifier hs-var">APIOutputSent</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; APIServerLog) -&gt; Value -&gt; APIServerLog
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ClientMessage tx -&gt; Value
 forall a. ToJSON a =&gt; a -&gt; Value
 </span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">ClientMessage tx
-</span><a href="#local-6989586621680618070"><span class="hs-identifier hs-var">response</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680618031"><span class="hs-identifier hs-var">response</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-166"></span><span>
-</span><span id="line-167"></span><span>  </span><span id="local-6989586621680618004"><span class="annot"><span class="annottext">receiveInputs :: Connection -&gt; IO Any
-</span><a href="#local-6989586621680618004"><span class="hs-identifier hs-var hs-var">receiveInputs</span></a></span></span><span> </span><span id="local-6989586621680618071"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680618071"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO Any
+</span><span id="line-167"></span><span>  </span><span id="local-6989586621680617965"><span class="annot"><span class="annottext">receiveInputs :: Connection -&gt; IO Any
+</span><a href="#local-6989586621680617965"><span class="hs-identifier hs-var hs-var">receiveInputs</span></a></span></span><span> </span><span id="local-6989586621680618032"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621680618032"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO Any
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#forever"><span class="hs-identifier hs-var">forever</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO Any) -&gt; IO () -&gt; IO Any
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-168"></span><span>    </span><span id="local-6989586621680618072"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680618072"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO ByteString
+</span><span id="line-168"></span><span>    </span><span id="local-6989586621680618033"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621680618033"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO ByteString
 forall a. WebSocketsData a =&gt; Connection -&gt; IO a
 </span><span class="hs-identifier hs-var">receiveData</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680618071"><span class="hs-identifier hs-var">con</span></a></span><span>
+</span><a href="#local-6989586621680618032"><span class="hs-identifier hs-var">con</span></a></span><span>
 </span><span id="line-169"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String (ClientInput tx)
 forall a. FromJSON a =&gt; ByteString -&gt; Either String a
 </span><span class="hs-identifier hs-var">Aeson.eitherDecode</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680618072"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-170"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680618074"><span class="annot"><span class="annottext">ClientInput tx
-</span><a href="#local-6989586621680618074"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="#local-6989586621680618033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-170"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680618035"><span class="annot"><span class="annottext">ClientInput tx
+</span><a href="#local-6989586621680618035"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-171"></span><span>        </span><span class="annot"><span class="annottext">Tracer IO APIServerLog -&gt; APIServerLog -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO APIServerLog
-</span><a href="#local-6989586621680617977"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; APIServerLog
+</span><a href="#local-6989586621680617938"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; APIServerLog
 </span><a href="Hydra.API.APIServerLog.html#APIInputReceived"><span class="hs-identifier hs-var">APIInputReceived</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; APIServerLog) -&gt; Value -&gt; APIServerLog
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ClientInput tx -&gt; Value
 forall a. ToJSON a =&gt; a -&gt; Value
 </span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">ClientInput tx
-</span><a href="#local-6989586621680618074"><span class="hs-identifier hs-var">input</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680618035"><span class="hs-identifier hs-var">input</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-172"></span><span>        </span><span class="annot"><span class="annottext">ClientInput tx -&gt; IO ()
-</span><a href="#local-6989586621680617979"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ClientInput tx
-</span><a href="#local-6989586621680618074"><span class="hs-identifier hs-var">input</span></a></span><span>
-</span><span id="line-173"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621680618076"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680618076"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="#local-6989586621680617940"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ClientInput tx
+</span><a href="#local-6989586621680618035"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-173"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621680618037"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680618037"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-174"></span><span>        </span><span class="hs-comment">-- XXX(AB): toStrict might be problematic as it implies consuming the full</span><span>
 </span><span id="line-175"></span><span>        </span><span class="hs-comment">-- message to memory</span><span>
-</span><span id="line-176"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680618077"><span class="annot"><span class="annottext">clientInput :: Text
-</span><a href="#local-6989586621680618077"><span class="hs-identifier hs-var hs-var">clientInput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OnDecodeError -&gt; ByteString -&gt; Text
+</span><span id="line-176"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680618038"><span class="annot"><span class="annottext">clientInput :: Text
+</span><a href="#local-6989586621680618038"><span class="hs-identifier hs-var hs-var">clientInput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OnDecodeError -&gt; ByteString -&gt; Text
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Encoding.html#decodeUtf8With"><span class="hs-identifier hs-var">decodeUtf8With</span></a></span><span> </span><span class="annot"><span class="annottext">OnDecodeError
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Encoding.Error.html#lenientDecode"><span class="hs-identifier hs-var">lenientDecode</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; ByteString -&gt; Text
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
 forall l s. LazyStrict l s =&gt; l -&gt; s
 </span><span class="hs-identifier hs-var">toStrict</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680618072"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><a href="#local-6989586621680618033"><span class="hs-identifier hs-var">msg</span></a></span><span>
 </span><span id="line-177"></span><span>        </span><span class="annot"><span class="annottext">Connection -&gt; ByteString -&gt; IO ()
 forall a. WebSocketsData a =&gt; Connection -&gt; a -&gt; IO ()
 </span><span class="hs-identifier hs-var">sendTextData</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680618071"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; IO ()) -&gt; ByteString -&gt; IO ()
+</span><a href="#local-6989586621680618032"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; IO ()) -&gt; ByteString -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">InvalidInput -&gt; ByteString
 forall a. ToJSON a =&gt; a -&gt; ByteString
@@ -538,20 +538,20 @@ forall a. ToJSON a =&gt; a -&gt; ByteString
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text -&gt; InvalidInput
 </span><a href="Hydra.API.ServerOutput.html#InvalidInput"><span class="hs-identifier hs-var">InvalidInput</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680618076"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680618077"><span class="hs-identifier hs-var">clientInput</span></a></span><span>
+</span><a href="#local-6989586621680618037"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680618038"><span class="hs-identifier hs-var">clientInput</span></a></span><span>
 </span><span id="line-178"></span><span>        </span><span class="annot"><span class="annottext">Tracer IO APIServerLog -&gt; APIServerLog -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO APIServerLog
-</span><a href="#local-6989586621680617977"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Text -&gt; APIServerLog
+</span><a href="#local-6989586621680617938"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Text -&gt; APIServerLog
 </span><a href="Hydra.API.APIServerLog.html#APIInvalidInput"><span class="hs-identifier hs-var">APIInvalidInput</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680618076"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680618077"><span class="hs-identifier hs-var">clientInput</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680618037"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680618038"><span class="hs-identifier hs-var">clientInput</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-179"></span><span>
-</span><span id="line-180"></span><span>  </span><span id="local-6989586621680618001"><span class="annot"><span class="annottext">forwardHistory :: Connection -&gt; ServerOutputConfig -&gt; IO ()
-</span><a href="#local-6989586621680618001"><span class="hs-identifier hs-var hs-var">forwardHistory</span></a></span></span><span> </span><span id="local-6989586621680618083"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680618083"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span id="local-6989586621680618084"><span class="annot"><span class="annottext">config :: ServerOutputConfig
-</span><a href="#local-6989586621680618084"><span class="hs-identifier hs-var">config</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.API.ServerOutput.html#ServerOutputConfig"><span class="hs-identifier hs-type">ServerOutputConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618085"><span class="annot"><span class="annottext">WithAddressedTx
+</span><span id="line-180"></span><span>  </span><span id="local-6989586621680617962"><span class="annot"><span class="annottext">forwardHistory :: Connection -&gt; ServerOutputConfig -&gt; IO ()
+</span><a href="#local-6989586621680617962"><span class="hs-identifier hs-var hs-var">forwardHistory</span></a></span></span><span> </span><span id="local-6989586621680618044"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621680618044"><span class="hs-identifier hs-var">con</span></a></span></span><span> </span><span id="local-6989586621680618045"><span class="annot"><span class="annottext">config :: ServerOutputConfig
+</span><a href="#local-6989586621680618045"><span class="hs-identifier hs-var">config</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.API.ServerOutput.html#ServerOutputConfig"><span class="hs-identifier hs-type">ServerOutputConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618046"><span class="annot"><span class="annottext">WithAddressedTx
 $sel:addressInTx:ServerOutputConfig :: ServerOutputConfig -&gt; WithAddressedTx
 addressInTx :: WithAddressedTx
 </span><a href="Hydra.API.ServerOutput.html#%24sel%3AaddressInTx%3AServerOutputConfig"><span class="hs-identifier hs-var hs-var">addressInTx</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
@@ -563,7 +563,7 @@ ConduitT () Void (ResourceT m) r -&gt; m r
 -&gt; ConduitT () Void (ResourceT IO) () -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ConduitT () (TimedServerOutput tx) (ResourceT IO) ()
-</span><a href="#local-6989586621680617978"><span class="hs-identifier hs-var">history</span></a></span><span> </span><span class="annot"><span class="annottext">ConduitT () (TimedServerOutput tx) (ResourceT IO) ()
+</span><a href="#local-6989586621680617939"><span class="hs-identifier hs-var">history</span></a></span><span> </span><span class="annot"><span class="annottext">ConduitT () (TimedServerOutput tx) (ResourceT IO) ()
 -&gt; ConduitT (TimedServerOutput tx) Void (ResourceT IO) ()
 -&gt; ConduitT () Void (ResourceT IO) ()
 forall (m :: * -&gt; *) a b c r.
@@ -575,8 +575,8 @@ ConduitT a b m () -&gt; ConduitT b c m r -&gt; ConduitT a c m r
 forall (m :: * -&gt; *) a. Monad m =&gt; (a -&gt; Bool) -&gt; ConduitT a a m ()
 </span><span class="hs-identifier hs-var">filter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">WithAddressedTx
 -&gt; Either (TimedServerOutput tx) (ClientMessage tx) -&gt; Bool
-</span><a href="#local-6989586621680618064"><span class="hs-identifier hs-var">isAddressInTx</span></a></span><span> </span><span class="annot"><span class="annottext">WithAddressedTx
-</span><a href="#local-6989586621680618085"><span class="hs-identifier hs-var">addressInTx</span></a></span><span> </span><span class="annot"><span class="annottext">(Either (TimedServerOutput tx) (ClientMessage tx) -&gt; Bool)
+</span><a href="#local-6989586621680618025"><span class="hs-identifier hs-var">isAddressInTx</span></a></span><span> </span><span class="annot"><span class="annottext">WithAddressedTx
+</span><a href="#local-6989586621680618046"><span class="hs-identifier hs-var">addressInTx</span></a></span><span> </span><span class="annot"><span class="annottext">(Either (TimedServerOutput tx) (ClientMessage tx) -&gt; Bool)
 -&gt; (TimedServerOutput tx
     -&gt; Either (TimedServerOutput tx) (ClientMessage tx))
 -&gt; TimedServerOutput tx
@@ -608,7 +608,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Connection -&gt; ByteString -&gt; IO ()
 forall a. WebSocketsData a =&gt; Connection -&gt; a -&gt; IO ()
 </span><span class="hs-identifier hs-var">sendTextData</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621680618083"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; IO ())
+</span><a href="#local-6989586621680618044"><span class="hs-identifier hs-var">con</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; IO ())
 -&gt; (TimedServerOutput tx -&gt; ByteString)
 -&gt; TimedServerOutput tx
 -&gt; IO ()
@@ -618,80 +618,80 @@ forall tx.
 IsChainState tx =&gt;
 ServerOutputConfig -&gt; TimedServerOutput tx -&gt; ByteString
 </span><a href="Hydra.API.ServerOutput.html#prepareServerOutput"><span class="hs-identifier hs-var">prepareServerOutput</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputConfig
-</span><a href="#local-6989586621680618084"><span class="hs-identifier hs-var">config</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680618045"><span class="hs-identifier hs-var">config</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-182"></span><span>
-</span><span id="line-183"></span><span>  </span><span id="local-6989586621680618064"><span class="annot"><span class="annottext">isAddressInTx :: WithAddressedTx
+</span><span id="line-183"></span><span>  </span><span id="local-6989586621680618025"><span class="annot"><span class="annottext">isAddressInTx :: WithAddressedTx
 -&gt; Either (TimedServerOutput tx) (ClientMessage tx) -&gt; Bool
-</span><a href="#local-6989586621680618064"><span class="hs-identifier hs-var hs-var">isAddressInTx</span></a></span></span><span> </span><span id="local-6989586621680618088"><span class="annot"><span class="annottext">WithAddressedTx
-</span><a href="#local-6989586621680618088"><span class="hs-identifier hs-var">addressInTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
-</span><span id="line-184"></span><span>    </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621680618089"><span class="annot"><span class="annottext">TimedServerOutput tx
-</span><a href="#local-6989586621680618089"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx -&gt; Bool
-</span><a href="#local-6989586621680618090"><span class="hs-identifier hs-var">checkAddress</span></a></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx
-</span><a href="#local-6989586621680618089"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621680618025"><span class="hs-identifier hs-var hs-var">isAddressInTx</span></a></span></span><span> </span><span id="local-6989586621680618049"><span class="annot"><span class="annottext">WithAddressedTx
+</span><a href="#local-6989586621680618049"><span class="hs-identifier hs-var">addressInTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-184"></span><span>    </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621680618050"><span class="annot"><span class="annottext">TimedServerOutput tx
+</span><a href="#local-6989586621680618050"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx -&gt; Bool
+</span><a href="#local-6989586621680618051"><span class="hs-identifier hs-var">checkAddress</span></a></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx
+</span><a href="#local-6989586621680618050"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-185"></span><span>    </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span class="annot"><span class="annottext">ClientMessage tx
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
 </span><span id="line-186"></span><span>   </span><span class="hs-keyword">where</span><span>
-</span><span id="line-187"></span><span>    </span><span id="local-6989586621680618090"><span class="annot"><span class="annottext">checkAddress :: TimedServerOutput tx -&gt; Bool
-</span><a href="#local-6989586621680618090"><span class="hs-identifier hs-var hs-var">checkAddress</span></a></span></span><span> </span><span id="local-6989586621680618091"><span class="annot"><span class="annottext">TimedServerOutput tx
-</span><a href="#local-6989586621680618091"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-187"></span><span>    </span><span id="local-6989586621680618051"><span class="annot"><span class="annottext">checkAddress :: TimedServerOutput tx -&gt; Bool
+</span><a href="#local-6989586621680618051"><span class="hs-identifier hs-var hs-var">checkAddress</span></a></span></span><span> </span><span id="local-6989586621680618052"><span class="annot"><span class="annottext">TimedServerOutput tx
+</span><a href="#local-6989586621680618052"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-188"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">WithAddressedTx
-</span><a href="#local-6989586621680618088"><span class="hs-identifier hs-var">addressInTx</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-189"></span><span>        </span><span class="annot"><a href="Hydra.API.ServerOutput.html#WithAddressedTx"><span class="hs-identifier hs-type">WithAddressedTx</span></a></span><span> </span><span id="local-6989586621680618092"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680618092"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx -&gt; Text -&gt; Bool
-</span><a href="#local-6989586621680617984"><span class="hs-identifier hs-var">txContainsAddr</span></a></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx
-</span><a href="#local-6989586621680618091"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680618092"><span class="hs-identifier hs-var">addr</span></a></span><span>
+</span><a href="#local-6989586621680618049"><span class="hs-identifier hs-var">addressInTx</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-189"></span><span>        </span><span class="annot"><a href="Hydra.API.ServerOutput.html#WithAddressedTx"><span class="hs-identifier hs-type">WithAddressedTx</span></a></span><span> </span><span id="local-6989586621680618053"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680618053"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx -&gt; Text -&gt; Bool
+</span><a href="#local-6989586621680617945"><span class="hs-identifier hs-var">txContainsAddr</span></a></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput tx
+</span><a href="#local-6989586621680618052"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680618053"><span class="hs-identifier hs-var">addr</span></a></span><span>
 </span><span id="line-190"></span><span>        </span><span class="annot"><span class="annottext">WithAddressedTx
 </span><a href="Hydra.API.ServerOutput.html#WithoutAddressedTx"><span class="hs-identifier hs-var">WithoutAddressedTx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
 </span><span id="line-191"></span><span>
 </span><span id="line-192"></span><span>  </span><span class="hs-comment">-- \| Get the content of 'headStatus' field in 'Greetings' message from the full 'HeadState'.</span><span>
-</span><span id="line-193"></span><span>  </span><span class="annot"><a href="#local-6989586621680618016"><span class="hs-identifier hs-type">getHeadStatus</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#HeadStatus"><span class="hs-identifier hs-type">HeadStatus</span></a></span><span>
-</span><span id="line-194"></span><span>  </span><span id="local-6989586621680618016"><span class="annot"><span class="annottext">getHeadStatus :: HeadState tx -&gt; HeadStatus
-</span><a href="#local-6989586621680618016"><span class="hs-identifier hs-var hs-var">getHeadStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-193"></span><span>  </span><span class="annot"><a href="#local-6989586621680617977"><span class="hs-identifier hs-type">getHeadStatus</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#HeadStatus"><span class="hs-identifier hs-type">HeadStatus</span></a></span><span>
+</span><span id="line-194"></span><span>  </span><span id="local-6989586621680617977"><span class="annot"><span class="annottext">getHeadStatus :: HeadState tx -&gt; HeadStatus
+</span><a href="#local-6989586621680617977"><span class="hs-identifier hs-var hs-var">getHeadStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-195"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Idle"><span class="hs-identifier hs-type">HeadState.Idle</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadStatus
 </span><a href="Hydra.API.ServerOutput.html#Idle"><span class="hs-identifier hs-var">Idle</span></a></span><span>
 </span><span id="line-196"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Initial"><span class="hs-identifier hs-type">HeadState.Initial</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadStatus
 </span><a href="Hydra.API.ServerOutput.html#Initializing"><span class="hs-identifier hs-var">Initializing</span></a></span><span>
 </span><span id="line-197"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">HeadState.Open</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadStatus
 </span><a href="Hydra.API.ServerOutput.html#Open"><span class="hs-identifier hs-var">Open</span></a></span><span>
-</span><span id="line-198"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">HeadState.Closed</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618100"><span class="annot"><span class="annottext">Bool
+</span><span id="line-198"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">HeadState.Closed</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618061"><span class="annot"><span class="annottext">Bool
 $sel:readyToFanoutSent:ClosedState :: forall tx. ClosedState tx -&gt; Bool
 readyToFanoutSent :: Bool
 </span><a href="Hydra.HeadLogic.State.html#%24sel%3AreadyToFanoutSent%3AClosedState"><span class="hs-identifier hs-var hs-var">readyToFanoutSent</span></a></span></span><span class="hs-special">}</span><span>
 </span><span id="line-199"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621680618100"><span class="hs-identifier hs-var">readyToFanoutSent</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadStatus
+</span><a href="#local-6989586621680618061"><span class="hs-identifier hs-var">readyToFanoutSent</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadStatus
 </span><a href="Hydra.API.ServerOutput.html#FanoutPossible"><span class="hs-identifier hs-var">FanoutPossible</span></a></span><span>
 </span><span id="line-200"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadStatus
 </span><a href="Hydra.API.ServerOutput.html#Closed"><span class="hs-identifier hs-var">Closed</span></a></span><span>
 </span><span id="line-201"></span><span>
-</span><span id="line-202"></span><span>  </span><span class="annot"><a href="#local-6989586621680618018"><span class="hs-identifier hs-type">getHeadId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617690"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadId</span></span><span>
-</span><span id="line-203"></span><span>  </span><span id="local-6989586621680618018"><span class="annot"><span class="annottext">getHeadId :: HeadState tx -&gt; Maybe HeadId
-</span><a href="#local-6989586621680618018"><span class="hs-identifier hs-var hs-var">getHeadId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-202"></span><span>  </span><span class="annot"><a href="#local-6989586621680617979"><span class="hs-identifier hs-type">getHeadId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680617651"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadId</span></span><span>
+</span><span id="line-203"></span><span>  </span><span id="local-6989586621680617979"><span class="annot"><span class="annottext">getHeadId :: HeadState tx -&gt; Maybe HeadId
+</span><a href="#local-6989586621680617979"><span class="hs-identifier hs-var hs-var">getHeadId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-204"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Idle"><span class="hs-identifier hs-type">HeadState.Idle</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe HeadId
 forall a. Maybe a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-205"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Initial"><span class="hs-identifier hs-type">HeadState.Initial</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#InitialState"><span class="hs-identifier hs-type">InitialState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618104"><span class="annot"><span class="annottext">HeadId
+</span><span id="line-205"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Initial"><span class="hs-identifier hs-type">HeadState.Initial</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#InitialState"><span class="hs-identifier hs-type">InitialState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618065"><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:InitialState :: forall tx. InitialState tx -&gt; HeadId
-</span><a href="#local-6989586621680618104"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; Maybe HeadId
+</span><a href="#local-6989586621680618065"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; Maybe HeadId
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621680618104"><span class="hs-identifier hs-var">headId</span></a></span><span>
-</span><span id="line-206"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">HeadState.Open</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618107"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621680618065"><span class="hs-identifier hs-var">headId</span></a></span><span>
+</span><span id="line-206"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">HeadState.Open</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618068"><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:OpenState :: forall tx. OpenState tx -&gt; HeadId
-</span><a href="#local-6989586621680618107"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; Maybe HeadId
+</span><a href="#local-6989586621680618068"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; Maybe HeadId
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621680618107"><span class="hs-identifier hs-var">headId</span></a></span><span>
-</span><span id="line-207"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">HeadState.Closed</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618109"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621680618068"><span class="hs-identifier hs-var">headId</span></a></span><span>
+</span><span id="line-207"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">HeadState.Closed</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680618070"><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:ClosedState :: forall tx. ClosedState tx -&gt; HeadId
-</span><a href="#local-6989586621680618109"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; Maybe HeadId
+</span><a href="#local-6989586621680618070"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; Maybe HeadId
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621680618109"><span class="hs-identifier hs-var">headId</span></a></span><span>
+</span><a href="#local-6989586621680618070"><span class="hs-identifier hs-var">headId</span></a></span><span>
 </span><span id="line-208"></span></pre></body></html>
