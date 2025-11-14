@@ -6,170 +6,82 @@
                 "headState": {
                     "contents": {
                         "chainState": {
-                            "recordedAt": {
-                                "blockHash": "0000010001000001010001010100000001010100000101000100010100000100",
-                                "slot": 0,
-                                "tag": "ChainPoint"
-                            },
+                            "recordedAt": null,
                             "spendableUTxO": {
-                                "0101000101000001000100000000010000010001010001000100010100000100#61": {
-                                    "address": "addr_test1xzf9qe4y5zet5636g6p2aqhv7r2q7dwxrkpgpaq53e9shthp9a4v5f3p5atmndze56uq68q5cg8qwv26csp5ljrvxgys98t8sh",
+                                "0000000100010101000000000001010101010101000000010001010000000101#53": {
+                                    "address": "addr_test1xqk052fntst9mjemjcfp87kxhdn48f7uy7kfl02nr0szeu0m430d7ey20tvnxy60kyhhl5l839r0g6xq2paepfjcg0hq46yg6s",
                                     "datum": null,
                                     "inlineDatum": {
-                                        "bytes": "74"
+                                        "int": -2
                                     },
-                                    "inlineDatumRaw": "4174",
-                                    "inlineDatumhash": "564d5bfee76c85ca78a68c254755f456bc1fc270228a002615be2cd4e48c76fe",
+                                    "inlineDatumRaw": "21",
+                                    "inlineDatumhash": "0268be9dbd0446eaa217e1dec8f399249305e551d7fc1437dd84521f74aa621c",
                                     "referenceScript": null,
                                     "value": {
-                                        "lovelace": 1012850
+                                        "lovelace": 1008540
                                     }
                                 }
                             }
                         },
-                        "confirmedSnapshot": {
-                            "signatures": {
-                                "multiSignature": [
-                                    "ed3691bc9338a8193d009c4739b5ba1460d182f78bdf25dbc5058580cebdefe9be5c7e4f9ced0155a23d22cfeac52b8719e69ecbe5de096345702fae9bb8b20c"
-                                ]
-                            },
-                            "snapshot": {
-                                "confirmed": [],
-                                "headId": "01000101010000010100000001000101",
-                                "number": 1,
-                                "utxo": {
-                                    "0000010000010001010000010000010000000001000100010101000101000101#62": {
-                                        "address": "addr_test1zqeurw945m6njpf6vw0dxn05pwzvcd33d2step7j4ad38sr2hurqngf5g07lsnxp4gcn4qzukga9n75qx7zylp6c9zwqtkzkh8",
-                                        "datum": null,
-                                        "datumhash": "5a33b3189f8633a474f428146bfdbba54974a5d96eb92edc33a6e67f4fa60741",
-                                        "inlineDatum": null,
-                                        "inlineDatumRaw": null,
-                                        "referenceScript": null,
-                                        "value": {
-                                            "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
-                                                "32": 1
-                                            },
-                                            "lovelace": 45000000000000000
-                                        }
-                                    }
-                                },
-                                "utxoToCommit": {
-                                    "0101010100000000010101010100000000010100000001010101010100000100#46": {
-                                        "address": "addr_test1xpgv5fv4hgymnu2wtkn0trec3cscgqhmvzly9lvx7vfl0d58e6vwjkn2pruxw3cu32533snq44dtlcwj6yy8a0mz2q7q5eqm62",
-                                        "datum": null,
-                                        "inlineDatum": {
-                                            "list": [
-                                                {
-                                                    "list": []
-                                                }
-                                            ]
+                        "committed": {
+                            "d4075407365d2373c3f0e775a2b4960343f2edadfa9851f54e93dd94274c3d33": {
+                                "0100000001000101000101010001010100010101010100000101010100010101#38": {
+                                    "address": "addr_test1wzcnv407z7ng73gtyzxf879h980zrw54xc7zhqen6s2hvng58n0p8",
+                                    "datum": null,
+                                    "datumhash": "b7306ec2cbf3f9b5faf994d6f1c2aadf511ffad45dd101dc55d39d2a1cdb4f40",
+                                    "inlineDatum": null,
+                                    "inlineDatumRaw": null,
+                                    "referenceScript": null,
+                                    "value": {
+                                        "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
+                                            "e4663b": 8556050355498001224
                                         },
-                                        "inlineDatumRaw": "9f80ff",
-                                        "inlineDatumhash": "2575ed37345e40119f4e8a73ab5209b6d18473b0fd3965779c7ac20b9873b6dc",
-                                        "referenceScript": null,
-                                        "value": {
-                                            "lovelace": 45000000000000000
-                                        }
+                                        "lovelace": 1193870
                                     }
-                                },
-                                "utxoToDecommit": {
-                                    "0100010101000000010100010101000100010100000101010100000000000100#3": {
-                                        "address": "addr_test1qzu68j94wtprfu30k9gqyzf8xkq2p88c3y486kpsammu9mr9n3pgaml2ypz5s4454y5mxg0y0fa4qqup08qtcmq9h8ks8e22gp",
-                                        "datum": null,
-                                        "inlineDatum": {
-                                            "constructor": 0,
-                                            "fields": [
-                                                {
-                                                    "map": [
-                                                        {
-                                                            "k": {
-                                                                "constructor": 0,
-                                                                "fields": [
-                                                                    {
-                                                                        "bytes": "44a5b2c3"
-                                                                    }
-                                                                ]
-                                                            },
-                                                            "v": {
-                                                                "constructor": 4,
-                                                                "fields": [
-                                                                    {
-                                                                        "bytes": ""
-                                                                    },
-                                                                    {
-                                                                        "int": 4
-                                                                    },
-                                                                    {
-                                                                        "int": 0
-                                                                    },
-                                                                    {
-                                                                        "bytes": "71"
-                                                                    }
-                                                                ]
-                                                            }
-                                                        },
-                                                        {
-                                                            "k": {
-                                                                "int": 2
-                                                            },
-                                                            "v": {
-                                                                "bytes": "dc7868"
-                                                            }
-                                                        }
-                                                    ]
-                                                }
-                                            ]
-                                        },
-                                        "inlineDatumRaw": "d8799fa2d8799f4444a5b2c3ffd87d9f4004004171ff0243dc7868ff",
-                                        "inlineDatumhash": "89643e80e97236ad9dbad12a908f5c178ae8e0e8de924ad3925856efce8a11a4",
-                                        "referenceScript": null,
-                                        "value": {
-                                            "lovelace": 1129220
-                                        }
-                                    }
-                                },
-                                "version": 0
-                            },
-                            "tag": "ConfirmedSnapshot"
+                                }
+                            }
                         },
-                        "contestationDeadline": "1864-05-08T01:11:54.306906904101Z",
-                        "headId": "01010100010001010001000101010100",
-                        "headSeed": "01000000000100000100010001000001",
+                        "headId": "00000101010100010000000000000001",
+                        "headSeed": "00010100010100000000000101010001",
                         "parameters": {
-                            "contestationPeriod": 604800,
-                            "parties": []
+                            "contestationPeriod": 2592000,
+                            "parties": [
+                                {
+                                    "vkey": "cd1a36fddfc1709e6621dcf9b0829e2c72d17a396a387d4d886fc468e18531ff"
+                                }
+                            ]
                         },
-                        "readyToFanoutSent": false,
-                        "version": 1
+                        "pendingCommits": []
                     },
-                    "tag": "Closed"
+                    "tag": "Initial"
                 },
                 "pendingDeposits": {
-                    "0001000100010100000001000101010001010001000001000100000000010101": {
-                        "created": "1864-05-08T20:30:25.772553679737Z",
-                        "deadline": "1864-05-10T17:09:34.968973181923Z",
+                    "0001000000000000000001000100000000010001010101010000010101010000": {
+                        "created": "1864-05-10T19:29:32.76484036805Z",
+                        "deadline": "1864-05-09T10:11:09.240727186472Z",
                         "deposited": {
-                            "0000010100000101000100010001000000010100010100010001010001010001#91": {
-                                "address": "addr_test1qpjpf8m8ca3lgt6qu05ljgc42cne7c9zak2xrwlly99sszmamttg8lar23dmtme42ywch4gnuckpvt389ldgsg69ylwqrhahn4",
+                            "0100000000000100000000010000010101010101000000010000000101000000#20": {
+                                "address": "addr_test1xzfujqq2tayr9xn7qqd7hj83shrr27amfznvxk9shl8qmuv85jjskzl0s9jtasnfz8cnxptlcmwfpy5tkqr2057yf3jsjzu3mc",
                                 "datum": null,
                                 "inlineDatum": {
-                                    "int": 5
+                                    "int": 2
                                 },
-                                "inlineDatumRaw": "05",
-                                "inlineDatumhash": "fb3d635c7cb573d1b9e9bff4a64ab4f25190d29b6fd8db94c605a218a23fa9ad",
+                                "inlineDatumRaw": "02",
+                                "inlineDatumhash": "bb30a42c1e62f0afda5f0a4e8a562f7a13a24cea00ee81917b86b89e801314aa",
                                 "referenceScript": null,
                                 "value": {
-                                    "e79b8812d4a79ecb5df0807c45dce3b085adafef0a1f4863d4749de3": {
-                                        "b19eeb": 8252539740655278267
+                                    "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
+                                        "3b66e347308b55fdad868818f5151cf7bcdd69ba3dcf4ee6": 3592484707898011906
                                     },
-                                    "lovelace": 1206800
+                                    "lovelace": 1301620
                                 }
                             }
                         },
-                        "headId": "00010100000000010000010101000001",
+                        "headId": "00000000000001010101010000010101",
                         "status": "Inactive"
                     }
-                }
+                },
+                "tag": "NodeCatchingUp"
             },
             "tag": "EventLogRotated"
         }

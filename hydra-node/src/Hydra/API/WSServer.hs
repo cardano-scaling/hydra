@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -40,7 +41,6 @@ import Hydra.API.ServerOutputFilter (
 import Hydra.Chain.ChainState (
   IsChainState,
  )
-import Hydra.Chain.Direct.State ()
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
@@ -99,7 +99,8 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
   forwardGreetingOnly config con = do
-    NodeState{headState} <- atomically getLatestNodeState
+    nodeState <- atomically getLatestNodeState
+    let headState = nodeState.headState
     networkInfo <- atomically getLatestNetworkInfo
     sendTextData con $
       handleUtxoInclusion config (atKey "snapshotUtxo" .~ Nothing) $

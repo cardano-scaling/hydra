@@ -16,14 +16,24 @@ import Test.QuickCheck (recursivelyShrink)
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
 
-data NodeState tx = NodeState
-  { headState :: HeadState tx
-  , pendingDeposits :: PendingDeposits tx
-  -- ^ Pending deposits as observed on chain.
-  -- TODO: could even move the chain state here (also see todo below)
-  -- , chainState :: ChainStateType tx
-  , currentSlot :: ChainSlot
-  }
+data NodeState tx
+  = -- | Normal operation of the node where it is connected and has a recent
+    -- view of the chain.
+    NodeInSync
+      { headState :: HeadState tx
+      , pendingDeposits :: PendingDeposits tx
+      -- ^ Pending deposits as observed on chain.
+      -- TODO: could even move the chain state here (also see todo below)
+      -- , chainState :: ChainStateType tx
+      , currentSlot :: ChainSlot
+      }
+  | -- | Node is catching up on its view of the chain and should behave
+    -- differently.
+    NodeCatchingUp
+      { headState :: HeadState tx
+      , pendingDeposits :: PendingDeposits tx
+      , currentSlot :: ChainSlot
+      }
   deriving stock (Generic)
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
@@ -36,11 +46,17 @@ deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
-  NodeState
+  NodeCatchingUp
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
     , currentSlot = chainStateSlot chainState
     }
+
+data SyncedStatus = InSync | OutOfSync
+
+syncedStatus :: NodeState tx -> SyncedStatus
+syncedStatus NodeInSync{} = InSync
+syncedStatus NodeCatchingUp{} = OutOfSync
 
 -- | A deposit tracked by the protocol. The 'DepositStatus' determines whether
 -- it may be used for an incremental commit or not.

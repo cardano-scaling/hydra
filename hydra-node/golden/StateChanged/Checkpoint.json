@@ -7,142 +7,195 @@
                     "contents": {
                         "chainState": {
                             "recordedAt": {
-                                "blockHash": "0000000001010100000000010001010001000101000101010101000100010100",
+                                "blockHash": "0100000101010000000000010000010101010101000000010100010101000001",
                                 "slot": 0,
                                 "tag": "ChainPoint"
                             },
                             "spendableUTxO": {
-                                "0000000101010000000101010101010100000001000101000100010001010101#78": {
-                                    "address": "addr_test1vq0p73c0df44tety82de55wh5degcjhnqtcaxltgn90hmcqhj9cxx",
+                                "0101000001010000000100010001000000010000000101010000000000010000#99": {
+                                    "address": "addr_test1yzvasm8rxynepx7023sphpa49yjs9y6ydpqmhky8evfz2tvukytngpt39agujrtfllmgpfn03vps08vwqjzl63fst4jsme8v9j",
                                     "datum": null,
-                                    "datumhash": null,
-                                    "inlineDatum": null,
-                                    "inlineDatumRaw": null,
+                                    "inlineDatum": {
+                                        "int": 1
+                                    },
+                                    "inlineDatumRaw": "01",
+                                    "inlineDatumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
                                     "referenceScript": null,
                                     "value": {
-                                        "lovelace": 45000000000000000
+                                        "481cd7447b5d09b585aba19b58eb81fbacc8a7208335f7e7dfb77499": {
+                                            "7ba4d40bf22df1efbe8ae290e6337c3cde": 3478201231635291610
+                                        },
+                                        "lovelace": 1267140
                                     }
                                 }
                             }
                         },
-                        "coordinatedHeadState": {
-                            "allTxs": {
-                                "0101010001010001010000010000000101010001010100010100000000000001": {
-                                    "cborHex": "84ae00d90102800dd9010281825820cfbe2b20604ae152adfb221198b5582ec0f97f820078e99077e4cbf4d484c6ad0112d9010281825820c1e452295075b5570355b921b2ca97404c707da2c55dc4606441018d10e61cd800018010a3005839008afcfb0515c4528cc5b950f7ec1899cd7a3e814aafd801a897dbd110ee52fb8e7c0229ff7ba9ad62844132263688bbbb2bf6a4e532d5b965018200a1581c105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5a1447c41fb031b07d939632d8ee7cf028201d8185869a2d87d9f0103ffa4a141bb40a3234167417144a8a1951d439dd010224460722a8b41e7d87a9f4285a200ff032401d87c9fd8799f43fd7aad20ffd87e9f4191ff415fa4002042a12e428a0043b3266400412c4373f97aff9f8044a09e84a8d87c9f43880640ff0524ff111a000b931f021a00017af003010ed9010281581ceef763e184eefc6dba566172192f06a89bd9b1d071e0025474af320a09a1581c2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1a1581b7f19005d5472a16645a4a914ed76c627dc60d163ad348e3785d87f3b43bd0fcbad52e2e7075820d5b340507f484ead96c0e6b95b820e47e3dc3b0aa25e93ebab336a662307e60013a18203581c1498d573f7eab5dda403e95e6336294bc4606aff8c9ae611890990dfa1825820d725de90932112eb6c10b50ed21f8cc38dc24aad2e24d0ab94cc797906a06aa2008202f6151a0004b5fa161a00086733a300d901028182582026d29cecdd027d8d9e31dc6139356a5a8f4261592315cf779ed0ec997d08cb6d5840e85bd0e732c7bf7e6a2e766fd81112526fbf655b7e6d42ff3b1c98b1cae9a35864ce279909cb7f79300966e35edb1302e2761c0ef666a419543f3a6bfe3eae6502d9010281845820225611b7b7ed2fe465a5b27597bd7ada8876155d6ef4cc549cb0876ac46ef7b05840d4fb4eea59e4349544f5c5c92af019a8c66a53431fd067400e6116e3b1613373d3126e36a9075c771ba50249f2b1fdefc93ed508a2a66bfaed7aadacb390759b404005a182030182a34308ebfca143f0e32cd87a9f41592003ffd87c9f2121014288b1ffd87a9fd8799f05400540ffd87e9f4043db604c43ba535dffffd8799f9f4040ff44fe76b08f9f40ffff80821b0f1006dc179d09241b0978e020d355d821f4d90103a100a10180",
-                                    "description": "",
-                                    "txId": "ca5a274451b458fe63e396bf4b7db6f1dece0ba39f685a66353f1e50aa162ff7",
-                                    "type": "Tx ConwayEra"
-                                }
+                        "confirmedSnapshot": {
+                            "signatures": {
+                                "multiSignature": []
                             },
-                            "confirmedSnapshot": {
-                                "signatures": {
-                                    "multiSignature": []
-                                },
-                                "snapshot": {
-                                    "confirmed": [],
-                                    "headId": "00010101010100010001010001000101",
-                                    "number": 2,
-                                    "utxo": {
-                                        "0001010100010000000101000001000100000101010101000001010001000101#1": {
-                                            "address": "addr_test1qz3cm23mnvzem49sjstfxtc46pe2z6qm684jfld7uml2g39j3wz8k4z92kfypnse305xtes0zhy9fkaq2epq4erfu43sxem23r",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "lovelace": 969750
-                                            }
+                            "snapshot": {
+                                "confirmed": [],
+                                "headId": "01010101010101010000000001000100",
+                                "number": 1,
+                                "utxo": {
+                                    "0001010000010101010101010001000000000100010000010101010001000001#0": {
+                                        "address": "addr_test1qptt33znmjzg2vy02ga44afzf0krk460qcpvqjv86e340zjvhse8s4j7khv9th55dun8tseyuumu4x496028t0f8r57q4y5gk3",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "lovelace": 45000000000000000
                                         }
-                                    },
-                                    "utxoToCommit": {
-                                        "0100000100000101000100000100010101000000000000000100010001000001#42": {
-                                            "address": "addr_test1wztqs09cek72w2z03y2ew73py5dtsmew0cuyq0zkts8w9pshqt392",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "b32204293f884b48f67d06077c1ccf182eab248dfd8bd0ffa09c6e84": {
-                                                    "3ec51e3729d6ec3da8db77fbc921fc827ca3bba7e6d6": 1
-                                                },
-                                                "lovelace": 1094740
-                                            }
-                                        }
-                                    },
-                                    "utxoToDecommit": {
-                                        "0001010001000101010101000001010101000100000101000001010101000101#7": {
-                                            "address": "addr_test1qqdz6vjrrpquv8wag30nnupemv0rr5lkq2d2xwfd6j983lq7x85j5qpe23j6zf7spv7aa0ka05e6wcxlwzs0ckk95xvs8jkkcw",
-                                            "datum": null,
-                                            "datumhash": "3ff6961ca8364e55b9139126a4b112f1325763ba635fc26c192db03fc3d4414e",
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
-                                                    "345e": 2
-                                                },
-                                                "lovelace": 1275760
-                                            }
-                                        }
-                                    },
-                                    "version": 0
-                                },
-                                "tag": "ConfirmedSnapshot"
-                            },
-                            "currentDepositTxId": "0001000101010101000101000100000001000101010101000001010001010001",
-                            "decommitTx": {
-                                "cborHex": "84ad00d90102800dd9010281825820b4033d7025b60ed6ee15bf1f1d54b48df968677585e325e975b2fea5d12a5abd0012d90102818258202af00ef72098b04fba94c41b3ddeb4219c600407a2931c24f2f8ce74b5b31bf2000180111a00094cb8021a000af9170301080109a1581c2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1a141391b0b71161403d06b4b075820195536101d016f27bc548a87adf1deb8e5c4f245812f159f293e9451a6d5f9f90f00151a000297be161a00025c7ca300d90102818258207ba576df774442afe9668ff8bd3a91e58387ca700700a8a83a22b6e15aa63673584053af43adcc5db654ec9c4b3e36d5427eef9cd346fa2aaee68992e030cf0f5cfa6996aed55f61450a45332e3201543cdb881df0ace4e3c93873f08fc2dc3d0ae402d9010281845820af64437b54c5c2d6d1b2ab80102968795e358ad260883d7e02540e5ba52ebac858403f018c8aa345b04f579890b84dcd2fafd78383755d9be8d833c6d0dc3527b1896c30355dbd8cbedd7d9ca5bbce7541d72a4ac3e3b92541423d09119333aacd08404005a1820301829f44e2a7771f8005ff821b61b12777685707a61b01294e8710d1ca92f4d90103a200a10140018183030080",
-                                "description": "",
-                                "txId": "7699c82f91a758c5c9cd58fd4b29585586d718f4cc060a9cb0bd208fbbe4e932",
-                                "type": "Tx ConwayEra"
-                            },
-                            "localTxs": [
-                                {
-                                    "cborHex": "84ac00d90102818258201c7acdbbb69fe78a5749d115468d5ef067ce3993a4ded931af0624e9709bcbdd000181a3005839013c9cf4f61017542cb588c19e84926ae2f71ff55bd591820e039a2098656d11eafc31f092555352d13cb046030f04b00273c2e9c1b79af4f4018200a1581c467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22a143cd12700103d81858fe8200820283830301818201828200581c0ea94cd02ea4b3104da54d45c4dfcd1a9f652962087619793a90a68a8200581c5a048f7fee256484df29c9044cfb8b5577830f665d46084df5b939fe830300808202838201828200581ca022444d36c82368965500fcb17806c9d9cffc16f73983f76d8911ca8200581cc9b2eef8cb8aa46d97c2c49a4f5afd58bd813d1d936c1e3f7dfc676a830300818200581c4cd1e28bf1b2dca0f574e24eda3d26e34f500d1dbd5eb0ea1138439c830302828200581c94146d24d70a9a558a87e83cac69047a6136006294696860497131af8200581c54e2edda6bc348d3edbb6a792dd9d7b73e7a69e60bd02a4e904782f010825839112620160bc180821fc86a658d19c02a13bdd18db3a500569500595b97922390a7ab98fe5eb0fa165709d6006944bacfd69182b75e170d81668200a1581c78c0a6d1854e873848da7d1016c1cfca7c4ff21933dd1e850433fe63a153dc57802fd9f9faf3fc527736c1d2824bef58411b52a986a380b6da2e0219f87a030105a1581de015d83a89ed70bb5e6eb6b172b576b5bbf62fd2817658854e205f2c401a0006549e080109a1581c2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56a14e79cb08a4bc065767e081518fb6fc3b5f7623d0aa1b01110b5820a73deff8a89623cc2493822d01ced3168066beff264d55ca66259b227fab976d075820fca574672a6d5993be085898b5543889d538e284f9869950156e4e8007fd988a13a18200581c8298917b799e00c72d0d6be78bcb73a9c443908892cdee08ab5dde01a182582080e3fdf0141242bc9fb48d1790db8a5a3a8cdaf7dedd0d1783d372f75bcb275400820082783368747470733a2f2f334150637538675651732e67696176433044422d37624d674f6969336779347561616d474a627a2e636f6d582081094044fccfce7cc81509a5f06bc434e8bbe3265b27ee113d13a0ef77c07c3a161a0005bb36a300d9010281825820283d9201d8a07d59b2ac90884324f0fcd498a1d1288904b33751e0ba4730b3d05840ea21d3e35fa9cf525605e0dc70cc1d53c6cfcae8fae8252c1dec38697325815d6bc4fd92613debf95e6275b23450b4ab8f50c34d7fc5102a2b0b356feb7e7e2702d9010281845820f59f0e3e8b715413e797e896442686efe8e392596d5e6c0c96bcba0bfdb838b058401fdf5f0bfd0d98baa7717be1075499234c9e8fd8cf1732841802500839d8f71cfe71afdb659b9685e220c836b704e7128ac76ce0609911e4a16c67fdd4799e1e404005a18202008280821b03b913622ab759f51b66fe9e80c9e9ee71f5d90103a101818200581cb38fe0368bd1cbd6c8df3f6525773a1216387414b721edb4caf2e3c6",
-                                    "description": "",
-                                    "txId": "61af26cdae78606211207cb132c01e48b50383a18c565c0cf7bef3912e05287c",
-                                    "type": "Tx ConwayEra"
-                                }
-                            ],
-                            "localUTxO": {
-                                "0100000100000000010001010100010000000000010001000100000101010001#40": {
-                                    "address": "addr_test1zp95y37747e9twnd4m6sr6j28y5kxauhnv62w8t4r296zyj4xqus00a7azxydswj8qhnpyxrsqcht3427hsuda326ggqvvxwyy",
-                                    "datum": null,
-                                    "datumhash": "b0df07badc727a891355d8ceb38981097e0f23cacb324433ce4ae157b716fe37",
-                                    "inlineDatum": null,
-                                    "inlineDatumRaw": null,
-                                    "referenceScript": null,
-                                    "value": {
-                                        "d7261af69d4396695be47638c66b094338ca999572079b35dcaa31d2": {
-                                            "4ac8967b68a07137d8ef3f507bba": 1
-                                        },
-                                        "lovelace": 45000000000000000
                                     }
-                                }
+                                },
+                                "utxoToCommit": {
+                                    "0001010101010100000101000001000100010101010000000001010100000100#66": {
+                                        "address": "addr_test1vq27c8rxsz4ffvcgep7z4c8c38ujsea67kly9m9n32u0l2seqdx87",
+                                        "datum": null,
+                                        "inlineDatum": {
+                                            "bytes": ""
+                                        },
+                                        "inlineDatumRaw": "40",
+                                        "inlineDatumhash": "39df024ac52722fe8ae4c1a8740e4c5624a38c3820e504a059aae8728421f8bd",
+                                        "referenceScript": null,
+                                        "value": {
+                                            "lovelace": 45000000000000000
+                                        }
+                                    }
+                                },
+                                "utxoToDecommit": {
+                                    "0101000101000101000001010100010100010101000101010001000101000000#60": {
+                                        "address": "addr_test1zruhv6un25qfeedft8zj8ncd0fm5qknzaa9wsy4rln78j4uddh00p3f0ccjnxuaw60ht29gm67c7r5x2xv4u6qy2mpjqd7maz5",
+                                        "datum": null,
+                                        "inlineDatum": {
+                                            "int": 0
+                                        },
+                                        "inlineDatumRaw": "00",
+                                        "inlineDatumhash": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
+                                        "referenceScript": null,
+                                        "value": {
+                                            "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                                                "38": 1
+                                            },
+                                            "lovelace": 1163700
+                                        }
+                                    }
+                                },
+                                "version": 0
                             },
-                            "seenSnapshot": {
-                                "lastSeen": 0,
-                                "requested": 1,
-                                "tag": "RequestedSnapshot"
-                            },
-                            "version": 0
+                            "tag": "ConfirmedSnapshot"
                         },
-                        "headId": "01010000000000010100010100000100",
-                        "headSeed": "01000001000001000000010101000000",
+                        "contestationDeadline": "1864-05-10T10:34:59.469366230652Z",
+                        "headId": "01010101000100010100000101000101",
+                        "headSeed": "01000000000001000000000001010101",
                         "parameters": {
-                            "contestationPeriod": 39465,
+                            "contestationPeriod": 77065,
                             "parties": [
                                 {
-                                    "vkey": "be9680e68fe24ea4cf0d99f70dbccec5bf5125625b21ccec7bfd7c4fd242a966"
+                                    "vkey": "9bfa598f5c8511daa741a02e3e8ddf8a81d0bf3562c6ced4dc825cc98ec3b415"
                                 }
                             ]
-                        }
+                        },
+                        "readyToFanoutSent": true,
+                        "version": 0
                     },
-                    "tag": "Open"
+                    "tag": "Closed"
                 },
-                "pendingDeposits": {}
+                "pendingDeposits": {
+                    "0001000000010001000001000101010101000101000100000001010001000000": {
+                        "created": "1864-05-08T22:41:14.973758656225Z",
+                        "deadline": "1864-05-08T04:31:53.726828864033Z",
+                        "deposited": {
+                            "0100000101000101000101000001000101000100010001000101010101000001#65": {
+                                "address": "addr_test1yztevqk2292eca5lgd0vz6z250a5yveh4lechz59zgh8n8xu7lmg8zkfyj6m6u2u7ghj5umkc34wthmr4hh7d7x495zs7wpu4e",
+                                "datum": null,
+                                "inlineDatum": {
+                                    "constructor": 2,
+                                    "fields": [
+                                        {
+                                            "int": 5
+                                        },
+                                        {
+                                            "constructor": 4,
+                                            "fields": [
+                                                {
+                                                    "list": []
+                                                },
+                                                {
+                                                    "constructor": 5,
+                                                    "fields": [
+                                                        {
+                                                            "bytes": "47b8d8"
+                                                        },
+                                                        {
+                                                            "bytes": ""
+                                                        },
+                                                        {
+                                                            "int": -2
+                                                        },
+                                                        {
+                                                            "bytes": "b930fa8b"
+                                                        },
+                                                        {
+                                                            "bytes": "932ae465"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "list": [
+                                                {
+                                                    "constructor": 2,
+                                                    "fields": [
+                                                        {
+                                                            "int": 0
+                                                        },
+                                                        {
+                                                            "int": 4
+                                                        },
+                                                        {
+                                                            "bytes": "3eb83e"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "constructor": 1,
+                                                    "fields": [
+                                                        {
+                                                            "int": -2
+                                                        },
+                                                        {
+                                                            "bytes": "19"
+                                                        },
+                                                        {
+                                                            "bytes": "a453ebc2"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "bytes": "5c"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "inlineDatumRaw": "d87b9f05d87d9f80d87e9f4347b8d8402144b930fa8b44932ae465ffff9fd87b9f0004433eb83effd87a9f21411944a453ebc2ff415cffff",
+                                "inlineDatumhash": "5e1dcbc496d4ff88d17637caeafaaef686553e6fcea4e16af21e24e79b591550",
+                                "referenceScript": null,
+                                "value": {
+                                    "lovelace": 1249900
+                                }
+                            }
+                        },
+                        "headId": "01010100010001000100000000010001",
+                        "status": "Active"
+                    }
+                },
+                "tag": "NodeCatchingUp"
             },
             "tag": "Checkpoint"
         }
