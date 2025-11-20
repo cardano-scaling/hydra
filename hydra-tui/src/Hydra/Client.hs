@@ -17,6 +17,7 @@ import Hydra.Cardano.Api.Prelude (
   SigningKey,
  )
 import Hydra.Cardano.Api.Tx (signTx)
+import Hydra.Chain.Blockfrost.Client qualified as BF
 import Hydra.Chain.CardanoClient (submitTransaction)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Ledger.Cardano (Tx)
@@ -73,7 +74,7 @@ withClient ::
   IsChainState tx =>
   Options ->
   ClientComponent tx IO a
-withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, cardanoNetworkId, cardanoNodeSocket} callback action = do
+withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, cardanoNetworkId, cardanoConnection} callback action = do
   sk <- readExternalSk
   q <- newLabelledTBQueueIO "tui-client-queue" 10
   withAsyncLabelled ("client-reconnect", reconnect $ client q) $ \thread -> do
@@ -119,7 +120,12 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
     runReq defaultHttpConfig request
       <&> responseBody
         >>= \DraftCommitTxResponse{commitTx} ->
-          submitTransaction cardanoNetworkId cardanoNodeSocket $ signTx sk commitTx
+          case cardanoConnection of
+            Left bfProject -> do
+              prj <- liftIO $ BF.projectFromFile bfProject
+              void $ BF.runBlockfrostM prj $ BF.submitTransaction $ signTx sk commitTx
+            Right socketPath ->
+              submitTransaction cardanoNetworkId socketPath $ signTx sk commitTx
    where
     request =
       Req.req

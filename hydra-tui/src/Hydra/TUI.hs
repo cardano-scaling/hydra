@@ -14,9 +14,11 @@ import Graphics.Vty (
   defaultConfig,
  )
 import Graphics.Vty.Platform.Unix (mkVty)
-import Hydra.Chain.CardanoClient (mkCardanoClient)
+import Hydra.Chain.Blockfrost.Client as BF
+import Hydra.Chain.CardanoClient as CC
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..), withClient)
+import Hydra.Options (BlockfrostOptions (..), defaultBFQueryTimeout, defaultBFRetryTimeout)
 import Hydra.TUI.Drawing
 import Hydra.TUI.Handlers
 import Hydra.TUI.Logging.Types
@@ -24,8 +26,32 @@ import Hydra.TUI.Model
 import Hydra.TUI.Options (Options (..))
 import Hydra.TUI.Style
 
+-- | Construct a 'CardanoClient' handle.
+mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
+mkCardanoClient networkId nodeSocket =
+  CardanoClient
+    { queryUTxOByAddress = CC.queryUTxO networkId nodeSocket CC.QueryTip
+    , networkId
+    }
+
+mkBFClient :: NetworkId -> FilePath -> CardanoClient
+mkBFClient networkId bfProject =
+  CardanoClient
+    { queryUTxOByAddress = \address -> do
+        prj <- liftIO $ BF.projectFromFile bfProject
+        let bfOptions =
+              BlockfrostOptions
+                { projectPath = bfProject
+                , queryTimeout = defaultBFQueryTimeout
+                , retryTimeout = defaultBFRetryTimeout
+                }
+
+        BF.runBlockfrostM prj $ BF.queryUTxO bfOptions networkId address
+    , networkId
+    }
+
 runWithVty :: IO Vty -> Options -> IO RootState
-runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNodeSocket} = do
+runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConnection} = do
   eventChan <- newBChan 10
   withAsyncLabelled ("run-vty-timer", timer eventChan) $ \_ ->
     -- REVIEW(SN): what happens if callback blocks?
@@ -50,7 +76,10 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
       , logState = LogState{logMessages = [], logVerbosity = Short}
       }
 
-  cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
+  cardanoClient =
+    case cardanoConnection of
+      Left bfProject -> mkBFClient cardanoNetworkId bfProject
+      Right nodeSocket -> mkCardanoClient cardanoNetworkId nodeSocket
 
   timer :: BChan (HydraEvent tx) -> IO ()
   timer chan = forever $ do
