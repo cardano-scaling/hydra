@@ -11,6 +11,8 @@ changes.
 
 ## [1.2.0] - UNRELEASED
 
+- Add support for Blockfrost to the `hydra-tui`.
+
 - `hydra-node` has a new endpoint `GET /head-initialization` which serves the timestamp of the last Head initialization.
 
 
