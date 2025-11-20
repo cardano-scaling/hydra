@@ -113,7 +113,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
-import Hydra.Contract.Dummy (R (..), dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails, exampleSecureValidatorScript)
+import Hydra.Contract.Dummy (R (..), dummyMintingScript, dummyValidatorScriptWithDatum, hugeDatum, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails, exampleSecureValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
@@ -168,6 +168,7 @@ import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript, genUTxOWithAssetsSized)
 import Test.QuickCheck (Positive, choose, elements, generate)
+import Control.Monad.Class.MonadAsync (forConcurrently_)
 
 data EndToEndLog
   = ClusterOptions {options :: Options}
@@ -559,13 +560,13 @@ threePartyOpenAHead ::
   [TxId] ->
   Maybe (Positive Natural) ->
   -- | Continuation called when the head is open
-  (HydraClient -> SigningKey PaymentKey -> HeadId -> IO a) ->
+  ([(HydraClient,  SigningKey PaymentKey)] -> HeadId -> IO a) ->
   IO a
 threePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAfter callback =
-  (`finally` returnFundsToFaucet tracer backend Alice) $ traceShow "START" $ do
-    refuelIfNeeded tracer backend Alice 25_000_000
-    refuelIfNeeded tracer backend Bob 25_000_000
-    refuelIfNeeded tracer backend Carol 25_000_000
+  (`finally` returnFundsToFaucet tracer backend Alice) $ do
+    refuelIfNeeded tracer backend Alice 125_000_000
+    refuelIfNeeded tracer backend Bob 125_000_000
+    refuelIfNeeded tracer backend Carol 125_000_000
     -- Start hydra-node on chain tip
     tip <- Backend.queryTip backend
     let contestationPeriod = 100
@@ -581,14 +582,16 @@ threePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAft
       chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] contestationPeriod
         <&> modifyConfig (\config -> config{startChainFrom = Just tip})
 
-    (walletVk, walletSk) <- generate genKeyPair
-    (_, bobCardanoSk) <- keysFor Bob
-    (_, carolCardanoSk) <- keysFor Carol
+    (aliceWalletVk, aliceWalletSk) <- generate genKeyPair
+    (bobWalletVk, bobWalletSk) <- generate genKeyPair
+    (carolWalletVk, carolWalletSk) <- generate genKeyPair
     let keyPath = workDir <> "/wallet.sk"
-    _ <- writeFileTextEnvelope (File keyPath) Nothing walletSk
+    _ <- writeFileTextEnvelope (File keyPath) Nothing aliceWalletSk
     traceWith tracer CreatedKey{keyPath}
 
-    utxoToCommit <- seedFromFaucet backend walletVk (lovelaceToValue 100_000_000) (contramap FromFaucet tracer)
+    -- utxoToCommit <- seedFromFaucet backend aliceWalletVk (lovelaceToValue 100_000_000)   (contramap FromFaucet tracer)
+    -- utxoToCommit2 <- seedFromFaucet backend bobWalletVk (lovelaceToValue 100_000_000) (contramap FromFaucet tracer)
+    -- utxoToCommit3 <- seedFromFaucet backend carolWalletVk (lovelaceToValue 100_000_000) (contramap FromFaucet tracer)
 
     let hydraTracer = contramap FromHydraNode tracer
 
@@ -608,13 +611,78 @@ threePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAft
         send n1 $ input "Init" []
         blockTime <- Backend.getBlockTime backend
         headId <- waitMatch (100 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice, bob, carol])
-        requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= Backend.submitTransaction backend
-        requestCommitTx n2 mempty <&> signTx bobCardanoSk >>= Backend.submitTransaction backend
-        requestCommitTx n3 mempty <&> signTx carolCardanoSk >>= Backend.submitTransaction backend
-        waitFor hydraTracer (100 * blockTime) [n1, n2, n3] $
-          output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
 
-        callback n1 walletSk headId
+        (clientPayload1, scriptUTxO, _) <- prepareScriptPayload 10_000_000 5_000_000
+        (clientPayload2, scriptUTxO2, _) <- prepareScriptPayload 10_000_000 5_000_000
+        (clientPayload3, scriptUTxO3, _) <- prepareScriptPayload 10_000_000 5_000_000
+
+        res <-
+          runReq defaultHttpConfig $
+            req
+              POST
+              (http "127.0.0.1" /: "commit")
+              (ReqBodyJson clientPayload1)
+              (Proxy :: Proxy (JsonResponse Tx))
+              (port 4001)
+
+        let commitTx = responseBody res
+        Backend.submitTransaction backend commitTx
+
+        res2 <-
+          runReq defaultHttpConfig $
+            req
+              POST
+              (http "127.0.0.1" /: "commit")
+              (ReqBodyJson clientPayload2)
+              (Proxy :: Proxy (JsonResponse Tx))
+              (port 4002)
+
+        let commitTx2 = responseBody res2
+        Backend.submitTransaction backend commitTx2
+
+        res3 <-
+          runReq defaultHttpConfig $
+            req
+              POST
+              (http "127.0.0.1" /: "commit")
+              (ReqBodyJson clientPayload3)
+              (Proxy :: Proxy (JsonResponse Tx))
+              (port 4003)
+
+        let commitTx3 = responseBody res3
+        Backend.submitTransaction backend commitTx3
+
+        waitFor hydraTracer (100 * blockTime) [n1, n2, n3] $
+          output "HeadIsOpen" ["utxo" .= toJSON (scriptUTxO <> scriptUTxO2 <> scriptUTxO3), "headId" .= headId]
+
+        callback [(n1, bobWalletSk), (n1, carolWalletSk)] headId
+  where
+    prepareScriptPayload lovelaceAmt commitAmount = do
+      networkId <- Backend.queryNetworkId backend
+      let scriptAddress = mkScriptAddress networkId dummyValidatorScriptWithDatum
+      let datumHash :: TxOutDatum ctx
+          datumHash = mkTxOutDatumHash hugeDatum
+      (scriptIn, scriptOut) <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue lovelaceAmt)
+      let scriptOut' = modifyTxOutValue (const $ lovelaceToValue commitAmount) scriptOut
+      let scriptUTxO = UTxO.singleton scriptIn scriptOut
+
+      let scriptWitness =
+            BuildTxWith $
+              ScriptWitness scriptWitnessInCtx $
+                mkScriptWitness dummyValidatorScriptWithDatum (mkScriptDatum hugeDatum) (toScriptData ())
+      let spendingTx =
+            unsafeBuildTransaction $
+              defaultTxBodyContent
+                & addTxIns [(scriptIn, scriptWitness)]
+                & addTxOut (fromCtxUTxOTxOut scriptOut')
+      pure
+        ( Aeson.object
+            [ "blueprintTx" .= spendingTx
+            , "utxo" .= scriptUTxO
+            ]
+        , scriptUTxO
+        , spendingTx
+        )
 
 -- | Single hydra-node where the commit is done using some wallet UTxO.
 singlePartyCommitsFromExternal ::
@@ -2402,27 +2470,29 @@ threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
 -- | Finds UTxO owned by given key in the head and creates transactions
 -- respending it to the same address as fast as possible, forever.
 -- NOTE: This relies on zero-fee protocol parameters.
-respendUTxO :: HydraClient -> SigningKey PaymentKey -> NominalDiffTime -> IO ()
-respendUTxO client sk delay = do
-  utxo <- getSnapshotUTxO client
-  forever $ respend utxo
+respendUTxO :: [(HydraClient, SigningKey PaymentKey)] -> NominalDiffTime -> IO ()
+respendUTxO clientsAndKeys delay = traceShow "respendUTxO" $ do
+  forConcurrently_ clientsAndKeys $ \(client, k) ->  do
+    utxo <- getSnapshotUTxO client
+    forever $ respend utxo k client
+
  where
-  vk = getVerificationKey sk
-
-  respend utxo = do
+  respend utxo sk client = traceShow "RESPEND" $ do
+    let vk = getVerificationKey sk
     tx <- mkTransferTx testNetworkId utxo sk vk
-    utxo' <- submitToHead (signTx sk tx)
+    _ <- submitToHead (signTx sk $ spy' "TX" tx) client
     threadDelay $ realToFrac delay
-    respend utxo'
+    let utxo' = spy' "UTxO" $ utxoFromTx tx
+    respend utxo' sk client
 
-  submitToHead tx = do
+  submitToHead tx client = do
     send client $ input "NewTx" ["transaction" .= tx]
-    waitMatch 10 client $ \v -> do
-      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-      guard $
-        toJSON tx
-          `elem` (v ^.. key "snapshot" . key "confirmed" . values)
-      v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
+    -- waitMatch 10 client $ \v -> do
+    --   guard $ v ^? key "tag" == Just "TxInvalid"
+    --   guard $
+    --     toJSON tx
+    --       `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+    --   v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
 
 -- * Utilities
 

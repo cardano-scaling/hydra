@@ -19,7 +19,7 @@ import PlutusLedgerApi.V3 (
   serialiseCompiledCode,
   txInfoOutputs,
   txOutValue,
-  unsafeFromBuiltinData,
+  unsafeFromBuiltinData, BuiltinByteString,
  )
 import PlutusTx (compile, unstableMakeIsData)
 import PlutusTx.AssocMap qualified as AssocMap
@@ -27,7 +27,7 @@ import PlutusTx.Eq ((==))
 import PlutusTx.Foldable (foldMap)
 import PlutusTx.Functor ((<$>))
 import PlutusTx.List qualified as L
-import PlutusTx.Prelude (check, traceIfFalse)
+import PlutusTx.Prelude (check, traceIfFalse, consByteString, emptyByteString)
 
 dummyValidatorScript :: PlutusScript
 dummyValidatorScript =
@@ -52,6 +52,22 @@ dummyValidatorScriptAlwaysFails =
       $$(PlutusTx.compile [||wrap alwaysFailingScript||])
  where
   wrap = wrapValidator @() @()
+
+scriptWithDatum :: BuiltinByteString -> () -> ScriptContext -> Bool
+scriptWithDatum _ _ _ = True
+
+hugeDatum :: BuiltinByteString
+hugeDatum = replicateBS 10000 97
+  where
+     replicateBS n b = foldr consByteString emptyByteString (replicate n b)
+
+dummyValidatorScriptWithDatum :: PlutusScript
+dummyValidatorScriptWithDatum =
+  PlutusScriptSerialised $
+    serialiseCompiledCode
+      $$(PlutusTx.compile [||wrap scriptWithDatum ||])
+ where
+  wrap = wrapValidator @BuiltinByteString @()
 
 dummyMintingScript :: PlutusScript
 dummyMintingScript =

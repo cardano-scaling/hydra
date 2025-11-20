@@ -125,7 +125,7 @@ genTxOutWithAssets :: Maybe PolicyId -> Gen (TxOut ctx)
 genTxOutWithAssets pid =
   ((fromLedgerTxOut <$> arbitrary) `suchThat` notByronAddress)
     >>= realisticAda
-    <&> noNegativeAssetsWithPotentialPolicy pid . ensureMinAda . noRefScripts . noStakeRefPtr
+    <&> noNegativeAssetsWithPotentialPolicy pid . ensureMinAda -- . noRefScripts . noStakeRefPtr
 
 -- | Generate a 'TxOut' with a byron address. This is usually not supported by
 -- Hydra or Plutus.

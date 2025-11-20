@@ -448,7 +448,7 @@ withPreparedHydraNode ::
 withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
   withLogFile logFilePath $ \logFileHandle -> do
     let cmd =
-          (proc "hydra-node" . toArgs $ runOptions)
+          (proc "systemd-run --scope -p MemoryMax=512M --user && hydra-node" . toArgs $ runOptions)
             & setStdout (useHandleOpen logFileHandle)
             & setStderr createPipe
 

@@ -50,21 +50,18 @@ run options =
               publishOrReuseHydraScripts tracer backend
                 >>= singlePartyHeadFullLifeCycle tracer workDir backend
         Nothing -> do
-          withCardanoNodeDevnet fromCardanoNode workDir $ \_ backend -> traceShow "ACTION" $ do
-            traceShowM "PUBLISH"
+          withCardanoNodeDevnet fromCardanoNode workDir $ \_ backend -> do
             txId <- publishOrReuseHydraScripts tracer backend
-            traceShowM "PUBLISHED"
             let hydraScriptsTxId = intercalate "," $ toString . serialiseToRawBytesHexText <$> txId
             let envPath = workDir </> ".env"
             writeFile envPath $ "HYDRA_SCRIPTS_TX_ID=" <> hydraScriptsTxId
-            traceShowM "START THE HEAD"
-            threePartyOpenAHead tracer workDir backend txId persistenceRotateAfter $ \client walletSk _headId -> do
+            threePartyOpenAHead tracer workDir backend txId persistenceRotateAfter $ \clientsAndKeys _headId -> do
               case scenario of
                 Idle -> forever $ pure ()
-                RespendUTxO -> do
+                RespendUTxO -> traceShow "RESPEND" $ do
                   -- Start respending the same UTxO with a 100ms delay.
                   -- XXX: Should make this configurable
-                  respendUTxO client walletSk 0.1
+                  respendUTxO clientsAndKeys 0.1
  where
   Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril, scenario, persistenceRotateAfter} = options
 

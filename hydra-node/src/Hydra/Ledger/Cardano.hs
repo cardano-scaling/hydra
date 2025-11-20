@@ -52,6 +52,7 @@ import Test.QuickCheck (
   getSize,
   vectorOf,
  )
+import Hydra.Contract.Dummy (dummyValidatorScriptWithDatum, hugeDatum)
 
 -- * Ledger
 
@@ -156,9 +157,9 @@ mkTransferTx ::
   VerificationKey PaymentKey ->
   m Tx
 mkTransferTx networkId utxo sender recipient =
-  case UTxO.find (isVkTxOut $ getVerificationKey sender) utxo of
-    Nothing -> fail "no utxo left to spend"
-    Just (txIn, txOut) ->
+  case UTxO.toList utxo of
+    [] -> fail "no utxo left to spend"
+    (txIn, txOut):_ ->
       case mkSimpleTx (txIn, txOut) (mkVkAddress networkId recipient, txOutValue txOut) sender of
         Left err ->
           fail $ "mkSimpleTx failed: " <> show err
@@ -174,16 +175,22 @@ mkSimpleTx ::
   SigningKey PaymentKey ->
   Either TxBodyError Tx
 mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk = do
-  body <- createAndValidateTransactionBody bodyContent
-  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
-  pure $ makeSignedTransaction witnesses body
+  -- body <- createAndValidateTransactionBody bodyContent
+  let unsignedTx = unsafeBuildTransaction bodyContent
+  pure $ signTx sk unsignedTx
+
+  -- let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
+  -- pure $ makeSignedTransaction witnesses body
  where
   bodyContent =
-    defaultTxBodyContent
-      { txIns = [(txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
-      , txOuts = outs
-      , txFee = TxFeeExplicit fee
-      }
+    let -- keyWitness = BuildTxWith (KeyWitness KeyWitnessForSpending)
+        scriptWitness =  BuildTxWith (ScriptWitness ScriptWitnessForSpending $ mkScriptWitness dummyValidatorScriptWithDatum (ScriptDatumForTxIn $ Just $ toScriptData hugeDatum) (toScriptData ()))
+    in
+       defaultTxBodyContent
+        { txIns = [(txin, scriptWitness)]
+        , txOuts = outs
+        , txFee = TxFeeExplicit fee
+        }
 
   outs =
     TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
