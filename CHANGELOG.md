@@ -11,7 +11,7 @@ changes.
 
 ## [1.2.0] - UNRELEASED
 
-- Add support for Blockfrost to the `hydra-tui`.
+- Add support for Blockfrost to the `hydra-tui` [#2032](https://github.com/cardano-scaling/hydra/issues/2032).
 
 - `hydra-node` has a new endpoint `GET /head-initialization` which serves the timestamp of the last Head initialization.
 
