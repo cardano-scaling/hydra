@@ -35,7 +35,7 @@ jobs:
         netem_loss:     [10, 50, 90]
     name: "Peers: ${{ matrix.peers }}, scaling: ${{ matrix.scaling_factor }}, loss: ${{ matrix.netem_loss }}"
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
 
