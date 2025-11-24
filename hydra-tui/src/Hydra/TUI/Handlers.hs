@@ -32,6 +32,7 @@ import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host, readHost)
 import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.State qualified as NodeState
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
@@ -94,9 +95,14 @@ handleHydraEventsConnection now = \case
           { me
           , env = Environment{configuredPeers}
           , networkInfo = NetworkInfo{networkConnected, peersInfo}
+          , chainSyncedStatus
           }
       ) -> do
       meL .= Identified me
+      chainSyncedStatusL
+        .= case chainSyncedStatus of
+          NodeState.InSync -> InSync
+          NodeState.OutOfSync -> OutOfSync
 
       networkStateL .= if networkConnected then Just NetworkConnected else Just NetworkDisconnected
 

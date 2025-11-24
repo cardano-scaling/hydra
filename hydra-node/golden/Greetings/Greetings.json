@@ -1,39 +1,41 @@
 {
     "samples": [
         {
+            "chainSyncedStatus": "OutOfSync",
             "env": {
-                "configuredPeers": "s",
+                "configuredPeers": "",
                 "contestationPeriod": 43200,
-                "depositPeriod": 60080,
+                "depositPeriod": 78099,
                 "otherParties": [],
                 "participants": [],
                 "party": {
-                    "vkey": "348cdf360a866dedf92cb18cfb736c2da212ea44d2f1270fe60dad88801be97c"
+                    "vkey": "5802383116b8d8cfad0561849f98fa19652316ba794b06a4e2f74ac3f8d570b8"
                 },
-                "signingKey": "23db2c1b05cc1c905486253e1a39b0df087217f33180f7d5cf4aa1ec8c0b6634"
+                "signingKey": "9e018c699d771741dc68d7d877a67520b68eacc6a76725f8be4034d18cd285d6"
             },
-            "headStatus": "Closed",
-            "hydraHeadId": "01000001000001000000000001000101",
-            "hydraNodeVersion": "G",
+            "headStatus": "Open",
+            "hydraNodeVersion": "\u000c",
             "me": {
-                "vkey": "3d8fb298d77d2fda814e9530b5539758751d27ad1c234080e04ec2e15dea1490"
+                "vkey": "23699ffa9cfbcb961b1b7bbcd3f0f60e0b561867855b63c5b17b6ee3dd2750a0"
             },
             "networkInfo": {
-                "networkConnected": true,
+                "networkConnected": false,
                 "peersInfo": {
-                    "127.0.0.1:5000": true,
-                    "peer.local:5001": false
+                    "0.0.0.0:1": false
                 }
             },
             "snapshotUtxo": {
-                "0101010101010001010001010001010101010001010000000100010101010100#30": {
-                    "address": "addr_test1xqqxwuptvt44m42v49ux7l37cy6zg9ylxpr0ltmsnaedfx9frwx7crjjl27pwadu3a4vere9d2cmrm8x2xey5rmzw73sfcqwk4",
+                "0100000001000101010001000001010101010101010100010101000001010100#84": {
+                    "address": "addr_test1qzyr3yghqvsuwt6l9yavuzc2fsn8u67s9y4h3p8mgpujxxypqq4pzycpvjrqjftvu66qa0f0ytu9d23rrk72tslcpdqqsztxzt",
                     "datum": null,
-                    "datumhash": "da0beccb4644ffb9db547cb2c058ee0b27abe96774d43dd85884483b5452b696",
+                    "datumhash": null,
                     "inlineDatum": null,
                     "inlineDatumRaw": null,
                     "referenceScript": null,
                     "value": {
+                        "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                            "38": 7649844765309965365
+                        },
                         "lovelace": 45000000000000000
                     }
                 }

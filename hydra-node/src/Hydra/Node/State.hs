@@ -53,6 +53,11 @@ initNodeState chainState =
     }
 
 data SyncedStatus = InSync | OutOfSync
+  deriving (Generic, Eq, Show, ToJSON, FromJSON)
+
+instance Arbitrary SyncedStatus where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 syncedStatus :: NodeState tx -> SyncedStatus
 syncedStatus NodeInSync{} = InSync

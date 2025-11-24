@@ -23,6 +23,7 @@ changes.
   - Added `NodeUnsynced` and `NodeSynced` state events and server outputs.
   - Added `RejectedInput` client message.
   - The `Checkpoint` event, and consequently the `EventLogRotated` server output, now carry the different `NodeState` variants: `NodeInSync` or `NodeCatchingUp`.
+  - `Greetings` message now also contains the hydra-node synced status to the chain backend.
 
 ## [1.1.0] - 2025-10-28
 
