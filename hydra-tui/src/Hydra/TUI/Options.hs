@@ -24,7 +24,7 @@ import Paths_hydra_tui (version)
 
 data Options = Options
   { hydraNodeHost :: Host
-  , cardanoNodeSocket :: SocketPath
+  , cardanoConnection :: Either FilePath SocketPath
   , cardanoNetworkId :: NetworkId
   , cardanoSigningKey :: FilePath
   -- ^ User key used by the tui client to commit
@@ -35,7 +35,7 @@ parseOptions :: Parser Options
 parseOptions =
   ( Options
       <$> parseNodeHost
-      <*> parseCardanoNodeSocket
+      <*> parsecardanoConnection
       <*> networkIdParser
       <*> parseCardanoSigningKey
   )
@@ -56,15 +56,27 @@ parseOptions =
         <|> gitRevision
         <|> Just unknownVersion
 
-parseCardanoNodeSocket :: Parser SocketPath
-parseCardanoNodeSocket =
-  strOption
-    ( long "node-socket"
-        <> metavar "FILE"
-        <> help "The path to the Cardano node domain socket for client communication."
-        <> value "node.socket"
-        <> showDefault
-    )
+parsecardanoConnection :: Parser (Either FilePath SocketPath)
+parsecardanoConnection = Right <$> cardanoNodeSocket <|> Left <$> blockFrost
+ where
+  cardanoNodeSocket :: Parser SocketPath
+  cardanoNodeSocket =
+    strOption
+      ( long "node-socket"
+          <> metavar "FILE"
+          <> help "The path to the Cardano node domain socket for client communication."
+          <> value "node.socket"
+          <> showDefault
+      )
+  blockFrost :: Parser FilePath
+  blockFrost =
+    strOption
+      ( long "blockfrost"
+          <> metavar "FILE"
+          <> help "The path to the Blockfrost project file."
+          <> value "blockfrost-project.txt"
+          <> showDefault
+      )
 
 parseNodeHost :: Parser Host
 parseNodeHost =

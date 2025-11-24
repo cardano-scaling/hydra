@@ -30,7 +30,7 @@ spec = parallel $ do
   it "parses --cardano-signing-key option" $ do
     shouldParseWith parseOptions ["--cardano-signing-key", "foo.sk"] defaultOptions{cardanoSigningKey = "foo.sk"}
   it "parses --node-socket option" $ do
-    shouldParseWith parseOptions ["--node-socket", "something.socket"] defaultOptions{cardanoNodeSocket = "something.socket"}
+    shouldParseWith parseOptions ["--node-socket", "something.socket"] defaultOptions{cardanoConnection = Right "something.socket"}
   it "parses --version option" $ do
     case execParserPure defaultPrefs (info parseOptions mempty) ["--version"] of
       Failure theFailure ->
@@ -44,7 +44,7 @@ defaultOptions =
   Options
     { hydraNodeHost = Host "127.0.0.1" 4001
     , cardanoNetworkId = Testnet $ NetworkMagic 42
-    , cardanoNodeSocket = "node.socket"
+    , cardanoConnection = Right "node.socket"
     , cardanoSigningKey = "me.sk"
     }
 

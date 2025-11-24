@@ -308,8 +308,8 @@ withTUIRotatedTest tracer tmpDir nodeId backend externalKeyFilePath options' act
                       { hostname = "127.0.0.1"
                       , port = fromIntegral $ 4000 + hydraNodeId
                       }
-                , cardanoNodeSocket =
-                    nodeSocket
+                , cardanoConnection =
+                    Right nodeSocket
                 , cardanoNetworkId =
                     networkId
                 , cardanoSigningKey = externalKeyFilePath
@@ -358,8 +358,8 @@ setupNodeAndTUI' hostname lovelace action =
                           { hostname = hostname
                           , port = fromIntegral $ 4000 + hydraNodeId
                           }
-                    , cardanoNodeSocket =
-                        nodeSocket
+                    , cardanoConnection =
+                        Right nodeSocket
                     , cardanoNetworkId =
                         networkId
                     , cardanoSigningKey = externalKeyFilePath
