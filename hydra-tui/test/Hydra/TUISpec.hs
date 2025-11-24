@@ -208,18 +208,21 @@ spec = do
     around setupRotatedStateTUI $ do
       it "should show the chain synced status" $
         \TUIRotatedTest
-          { tuiTest = TUITest{shouldRender}
+          { tuiTest
           , nodeHandle = HydraNodeHandle{stopNode, startNode}
           , blockTime
           } -> do
             threadDelay 1
-            shouldRender "Synced"
+            shouldEventuallyRender tuiTest "Synced" 10
             stopNode
             -- Wait for some blocks to roll forward
-            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 10 * blockTime)
+            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 90 * blockTime)
             startNode
             threadDelay 1
-            shouldRender "CatchingUp"
+            shouldEventuallyRender tuiTest "CatchingUp" 10
+            -- Wait for some blocks to roll forward
+            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 10 * blockTime)
+            shouldEventuallyRender tuiTest "Synced" 10
 
   context "text rendering errors" $ do
     around setupNotEnoughFundsNodeAndTUI $ do
@@ -231,6 +234,25 @@ spec = do
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
           shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
+
+-- | Keep trying `shouldRender` until it succeeds or the `waitFor` timeout expires.
+shouldEventuallyRender :: TUITest -> ByteString -> NominalDiffTime -> IO ()
+shouldEventuallyRender TUITest{shouldRender} expected waitFor = do
+  start <- getCurrentTime
+  go (addUTCTime waitFor start)
+ where
+  go deadline = do
+    result <- try (shouldRender expected) :: IO (Either SomeException ())
+    case result of
+      Right () -> return ()
+      Left err -> do
+        now <- getCurrentTime
+        if now < deadline
+          then do
+            threadDelay 0.1
+            go deadline
+          else
+            throwIO err
 
 setupRotatedStateTUI :: (TUIRotatedTest -> IO ()) -> IO ()
 setupRotatedStateTUI action = do
