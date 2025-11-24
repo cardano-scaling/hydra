@@ -941,7 +941,7 @@ hydraNodeCommand =
       (decodeUtf8 $ encodePretty Contract.hydraScriptCatalogue)
       (long "hydra-script-catalogue" <> help "Dump Hydra script catalogue as JSON")
 
--- FIXME: this is quite low, as it is now used to detect the Node going out of synch
+-- FIXME: this is quite low, as it is now used to detect the Node going out of sync
 -- with the chain by half of this time.
 defaultContestationPeriod :: ContestationPeriod
 defaultContestationPeriod = 600

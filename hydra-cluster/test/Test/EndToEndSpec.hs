@@ -82,7 +82,7 @@ import Hydra.Cluster.Scenarios (
   startWithWrongPeers,
   threeNodesNoErrorsOnOpen,
   threeNodesWithMirrorParty,
-  waitsForChainInSynchAndSecure,
+  waitsForChainInSyncAndSecure,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
@@ -723,7 +723,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
-              >>= waitsForChainInSynchAndSecure tracer tmpDir backend
+              >>= waitsForChainInSyncAndSecure tracer tmpDir backend
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
