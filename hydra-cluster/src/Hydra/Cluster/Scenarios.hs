@@ -118,7 +118,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Node.State (SyncedStatus (OutOfSync))
+import Hydra.Node.State (SyncedStatus (..))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
@@ -2200,6 +2200,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
           guard $ v ^? key "tag" == Just "Greetings"
           guard $ v ^? key "headStatus" == Just (toJSON Open)
           guard $ v ^? key "me" == Just (toJSON carol)
+          guard $ v ^? key "chainSyncedStatus" == Just (toJSON InSync)
           guard $ isJust (v ^? key "hydraNodeVersion")
 
         -- Carol re-submits the same transaction
