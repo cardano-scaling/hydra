@@ -379,9 +379,6 @@ CardanoClient :: ([Address ShelleyAddr] -> IO UTxO) -> NetworkId -> CardanoClien
 [$sel:queryUTxOByAddress:CardanoClient] :: CardanoClient -> [Address ShelleyAddr] -> IO UTxO
 [$sel:networkId:CardanoClient] :: CardanoClient -> NetworkId
 
--- | Construct a <a>CardanoClient</a> handle.
-mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
-
 -- | Submit a (signed) transaction to the node.
 --   
 --   Throws <a>SubmitTransactionException</a> if submission fails.
@@ -3694,6 +3691,7 @@ defaultPublishOptions :: PublishOptions
 defaultDirectOptions :: DirectOptions
 defaultBlockfrostOptions :: BlockfrostOptions
 defaultBFQueryTimeout :: Int
+defaultBFRetryTimeout :: Int
 chainBackendOptionsParser :: Parser ChainBackendOptions
 cardanoSigningKeyFileParser :: Parser FilePath
 genFilePath :: String -> Gen FilePath
@@ -3897,11 +3895,6 @@ queryEraHistory :: BlockfrostClientT IO EraHistory
 queryProtocolParameters :: MonadIO m => BlockfrostClientT m (PParams LedgerEra)
 queryStakePools :: BlockfrostClientT IO (Set PoolId)
 querySystemStart :: BlockfrostClientT IO SystemStart
-
--- | Query the Blockfrost API for address UTxO and convert to cardano
---   <a>UTxO</a>. NOTE: We accept the address list here to be compatible
---   with cardano-api but in fact this is a single address query always.
-queryUTxO :: BlockfrostOptions -> NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
 submitTransaction :: MonadIO m => Tx -> BlockfrostClientT m TxHash
 awaitTransaction :: BlockfrostOptions -> Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
 
@@ -3913,6 +3906,11 @@ queryUTxOByTxIn :: BlockfrostOptions -> NetworkId -> [TxIn] -> BlockfrostClientT
 -- | Query the Blockfrost API for <a>Genesis</a> and convert to cardano
 --   <a>ChainPoint</a>.
 queryTip :: BlockfrostClientT IO ChainPoint
+
+-- | Query the Blockfrost API for address UTxO and convert to cardano
+--   <a>UTxO</a>. NOTE: We accept the address list here to be compatible
+--   with cardano-api but in fact this is a single address query always.
+queryUTxO :: BlockfrostOptions -> NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
 queryUTxOFor :: BlockfrostOptions -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
 runBlockfrostM :: (MonadIO m, MonadThrow m) => Project -> BlockfrostClientT IO a -> m a
 toCardanoNetworkId :: Integer -> NetworkId
