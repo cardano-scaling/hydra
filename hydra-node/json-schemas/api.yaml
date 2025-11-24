@@ -938,6 +938,7 @@ components:
         - hydraNodeVersion
         - env
         - networkInfo
+        - chainSyncedStatus
       properties:
         tag:
           type: string
@@ -956,6 +957,10 @@ components:
           $ref: "api.yaml#/components/schemas/HydraNodeVersion"
         env:
           $ref: "api.yaml#/components/schemas/Environment"
+        networkInfo:
+          $ref: "api.yaml#/components/schemas/NetworkInfo"
+        chainSyncedStatus:
+          $ref: "api.yaml#/components/schemas/SyncedStatus"
 
     # Client inputs
 
@@ -3148,6 +3153,14 @@ components:
           example:
             "127.0.0.1:5000": true
             "peer.local:5001": false
+
+    SyncedStatus:
+      description: |
+        L2 Hydra chain status information.
+      type: string
+      enum:
+        - InSync
+        - OutOfSync
 
     SequenceNumber:
       type: integer

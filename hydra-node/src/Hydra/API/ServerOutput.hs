@@ -17,7 +17,7 @@ import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (NodeState)
+import Hydra.Node.State (NodeState, SyncedStatus)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
 import Hydra.Tx qualified as Tx
@@ -106,6 +106,7 @@ data Greetings tx = Greetings
   , hydraNodeVersion :: String
   , env :: Environment
   , networkInfo :: NetworkInfo
+  , chainSyncedStatus :: SyncedStatus
   }
   deriving (Generic)
 

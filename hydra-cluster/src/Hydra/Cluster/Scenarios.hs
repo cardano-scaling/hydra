@@ -118,6 +118,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
+import Hydra.Node.State (SyncedStatus (OutOfSync))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
@@ -2343,7 +2344,7 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
       -- Wait for some blocks to roll forward
-      threadDelay $ realToFrac (CP.unsyncedPolicy contestationPeriod + 20 * blockTime)
+      threadDelay $ realToFrac (CP.unsyncedPolicy contestationPeriod + 50 * blockTime)
 
       -- Alice closes the head while Carol offline
       send n1 $ input "Close" []
@@ -2353,16 +2354,13 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
 
       -- Carol restarts
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
-        -- Carol starts in Open
+        -- Carol starts in Open and notifying the node is out of sync with the chain
         waitMatch 5 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "Greetings"
           guard $ v ^? key "headStatus" == Just (toJSON Open)
           guard $ v ^? key "me" == Just (toJSON carol)
+          guard $ v ^? key "chainSyncedStatus" == Just (toJSON OutOfSync)
           guard $ isJust (v ^? key "hydraNodeVersion")
-
-        -- Carol API starts notifying the node is out of sync with the chain
-        waitMatch 5 n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "NodeUnsynced"
 
         -- Then, Carol attempts submits a new transaction,
         -- without waiting for head to be closed
