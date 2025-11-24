@@ -183,11 +183,14 @@ defaultBlockfrostOptions =
   BlockfrostOptions
     { projectPath = "blockfrost-project.txt"
     , queryTimeout = defaultBFQueryTimeout
-    , retryTimeout = 300
+    , retryTimeout = defaultBFRetryTimeout
     }
 
 defaultBFQueryTimeout :: Int
 defaultBFQueryTimeout = 20
+
+defaultBFRetryTimeout :: Int
+defaultBFRetryTimeout = 300
 
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =

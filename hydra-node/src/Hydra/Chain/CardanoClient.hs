@@ -56,14 +56,6 @@ data CardanoClient = CardanoClient
   , networkId :: NetworkId
   }
 
--- | Construct a 'CardanoClient' handle.
-mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
-mkCardanoClient networkId nodeSocket =
-  CardanoClient
-    { queryUTxOByAddress = queryUTxO networkId nodeSocket QueryTip
-    , networkId
-    }
-
 -- * Tx Construction / Submission
 
 -- | Submit a (signed) transaction to the node.
