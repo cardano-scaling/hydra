@@ -5,7 +5,7 @@
       flake = false;
     };
     aiken.url = "github:aiken-lang/aiken/v1.1.9";
-    cardano-node.url = "github:intersectmbo/cardano-node/10.4.1";
+    cardano-node.url = "github:intersectmbo/cardano-node/10.5.3";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
     hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.6.5";
