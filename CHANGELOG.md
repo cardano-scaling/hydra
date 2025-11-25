@@ -15,7 +15,7 @@ changes.
 
 - `hydra-node` has a new endpoint `GET /head-initialization` which serves the timestamp of the last Head initialization.
 
-- Tested with `cardano-node 10.5.3`
+- Tested with `cardano-node 10.5.3` and `cardano-cli 10.11.0.0`.
 
 
 ## [1.1.0] - 2025-10-28
