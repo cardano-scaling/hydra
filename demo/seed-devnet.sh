@@ -80,7 +80,7 @@ function seedFaucet() {
         --tx-body-file ${DEVNET_DIR}/seed-${ACTOR}.draft \
         --signing-key-file ${DEVNET_DIR}/credentials/faucet.sk \
         --out-file ${DEVNET_DIR}/seed-${ACTOR}.signed >&2
-    SEED_TXID=$(ccli_ conway transaction txid --tx-file ${DEVNET_DIR}/seed-${ACTOR}.signed | tr -d '\r' | jq '.txhash')
+    SEED_TXID=$(ccli_ conway transaction txid --tx-file ${DEVNET_DIR}/seed-${ACTOR}.signed | tr -d '\r' | jq '.txhash' -r)
     SEED_TXIN="${SEED_TXID}#0"
     ccli conway transaction submit --tx-file ${DEVNET_DIR}/seed-${ACTOR}.signed >&2
 
