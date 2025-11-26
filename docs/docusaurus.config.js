@@ -21,6 +21,29 @@ const customFields = {
   docsearchApiKey: "09b2fc0200d06fb433a5f4ced7c9d427",
 };
 
+const contributingLinks = [
+  {
+    label: "Coding standards",
+    to: "https://github.com/cardano-scaling/hydra/wiki/Coding-Standards",
+  },
+  {
+    label: "Architecture Decision Records",
+    to: "/adr",
+  },
+  {
+    label: "Testing strategy",
+    to: "https://github.com/cardano-scaling/hydra/wiki/Testing-Strategy",
+  },
+];
+
+// If it's not the unstable docs themselves, make sure there's a link in the
+// footer to the unstable docs.
+if ( !isUnstable ) {
+  contributingLinks.push( { label: "Unstable documentation", to: "/unstable/docs" })
+}
+
+
+
 const editUrl = "https://github.com/cardano-scaling/hydra/tree/master/docs";
 
 /** @type {import('@docusaurus/types').Config} */
@@ -220,20 +243,7 @@ const config = {
         links: [
           {
             title: "Contributing",
-            items: [
-              {
-                label: "Coding standards",
-                to: "https://github.com/cardano-scaling/hydra/wiki/Coding-Standards",
-              },
-              {
-                label: "Architecture Decision Records",
-                to: "/adr",
-              },
-              {
-                label: "Testing strategy",
-                to: "https://github.com/cardano-scaling/hydra/wiki/Testing-Strategy",
-              },
-            ],
+            items: contributingLinks
           },
           {
             title: "Community",
