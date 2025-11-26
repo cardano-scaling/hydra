@@ -39,11 +39,18 @@ jobs:
         git fetch --tags --force
         echo "VERSION=$(git describe --always HEAD)" | tee "$GITHUB_ENV"
 
-    - name: ❄ Build static executables
+    - name: ❄ Build executables for ${{ matrix.os }}
       # Produces static ELF binary for using MuslC which includes all needed
       # libraries statically linked into it.
       run: |
-        nix build .#release-static
+        # XXX: aarm64 can't build static binaries yet.
+        # See: https://github.com/cardano-scaling/hydra/issues/2370
+        if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          nix build .#release-static
+        else
+          nix build .#release
+        fi
+
         # XXX: Why unzip https://github.com/actions/upload-artifact/issues/39
         unzip result/*.zip -d out
 
