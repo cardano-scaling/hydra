@@ -8,11 +8,18 @@ on:
     - release
     tags:
     - "*.*.*"
+  # Allows to trigger runs on any branch
+  workflow_dispatch:
 
 jobs:
   build-linux:
-    name: "Build for x86_64-linux"
-    runs-on: ubuntu-latest
+    name: "Build for ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
