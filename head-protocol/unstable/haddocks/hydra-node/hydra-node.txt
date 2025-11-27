@@ -17,6 +17,7 @@ Recover :: TxIdType tx -> ClientInput tx
 Decommit :: tx -> ClientInput tx
 [$sel:decommitTx:Init] :: ClientInput tx -> tx
 Close :: ClientInput tx
+SafeClose :: ClientInput tx
 Contest :: ClientInput tx
 Fanout :: ClientInput tx
 SideLoadSnapshot :: ConfirmedSnapshot tx -> ClientInput tx
@@ -260,7 +261,7 @@ rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> Chain
 
 -- | Handle to interface with the main chain network
 data Chain tx m
-Chain :: ChainStateType tx -> (MonadThrow m => PostChainTx tx -> m ()) -> (MonadThrow m => HeadId -> CommitBlueprintTx tx -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe AddressInEra -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => tx -> m ()) -> Chain tx m
+Chain :: ChainStateType tx -> (MonadThrow m => PostChainTx tx -> m ()) -> (MonadThrow m => HeadId -> CommitBlueprintTx tx -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe AddressInEra -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => tx -> m ()) -> (ConfirmedSnapshot tx -> Either Value ()) -> Chain tx m
 
 -- | Provide an initial chain state that may be evolved through
 --   <a>ChainEvent</a>.
@@ -292,6 +293,7 @@ Chain :: ChainStateType tx -> (MonadThrow m => PostChainTx tx -> m ()) -> (Monad
 --   XXX: While technically they could be any of 'PostTxError tx', only
 --   <a>FailedToPostTx</a> errors are expected here.
 [$sel:submitTx:Chain] :: Chain tx m -> MonadThrow m => tx -> m ()
+[$sel:checkNonADAAssets:Chain] :: Chain tx m -> ConfirmedSnapshot tx -> Either Value ()
 data ChainEvent tx
 
 -- | Indicates a head protocol transaction has been observed.
@@ -577,6 +579,9 @@ getChainState :: HeadState tx -> ChainStateType tx
 
 -- | Get the head parameters in any <a>HeadState</a>.
 getHeadParameters :: HeadState tx -> Maybe HeadParameters
+
+-- | Get the head parameters in any <a>HeadState</a>.
+getOpenStateConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
 
 -- | An <a>Idle</a> head only having a chain state with things seen on
 --   chain so far.
@@ -3488,6 +3493,10 @@ module Hydra.Node.Util
 readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 readFileTextEnvelopeThrow :: HasTextEnvelope a => FilePath -> IO a
 
+-- | Filter and return any non-ADA assets as <a>Left</a> if they are
+--   present in the <a>UTxO</a> value.
+checkNonADAAssetsUTxO :: UTxO -> Either Value ()
+
 module Hydra.PersistenceLog
 data PersistenceLog
 FailedToDecodeJson :: String -> FilePath -> String -> PersistenceLog
@@ -4282,7 +4291,7 @@ loadChainContext :: forall backend. ChainBackend backend => backend -> CardanoCh
 mkTinyWallet :: forall backend. ChainBackend backend => backend -> Tracer IO CardanoChainLog -> CardanoChainConfig -> IO (TinyWallet IO)
 
 module Hydra.API.WSServer
-wsApp :: forall tx. IsChainState tx => Environment -> Party -> Tracer IO APIServerLog -> ConduitT () (TimedServerOutput tx) (ResourceT IO) () -> (ClientInput tx -> IO ()) -> Projection STM (StateChanged tx) (NodeState tx) -> Projection STM (StateChanged tx) NetworkInfo -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ServerOutputFilter tx -> PendingConnection -> IO ()
+wsApp :: forall tx. IsChainState tx => Environment -> Party -> Tracer IO APIServerLog -> Chain tx IO -> ConduitT () (TimedServerOutput tx) (ResourceT IO) () -> (ClientInput tx -> IO ()) -> Projection STM (StateChanged tx) (NodeState tx) -> Projection STM (StateChanged tx) NetworkInfo -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ServerOutputFilter tx -> PendingConnection -> IO ()
 
 module Hydra.API.Server
 
