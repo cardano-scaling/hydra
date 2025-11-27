@@ -13,13 +13,15 @@ on:
 
 jobs:
   build-linux:
-    name: "Build for ${{ matrix.os }}"
-    runs-on: ${{ matrix.os }}
+    name: "Build for ${{ matrix.os.name }}"
+    runs-on: ${{ matrix.os.name }}
     strategy:
       matrix:
         os:
-          - ubuntu-latest
-          - ubuntu-24.04-arm
+          - name: ubuntu-latest
+            arch: x86_linux
+          - name: ubuntu-24.04-arm
+            arch: aarm64
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -39,13 +41,13 @@ jobs:
         git fetch --tags --force
         echo "VERSION=$(git describe --always HEAD)" | tee "$GITHUB_ENV"
 
-    - name: ❄ Build executables for ${{ matrix.os }}
+    - name: ❄ Build executables on ${{ matrix.os.name }}
       # Produces static ELF binary for using MuslC which includes all needed
       # libraries statically linked into it.
       run: |
         # XXX: aarm64 can't build static binaries yet.
         # See: https://github.com/cardano-scaling/hydra/issues/2370
-        if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+        if [[ "${{ matrix.os.name }}" == "ubuntu-latest" ]]; then
           nix build .#release-static
         else
           nix build .#release
@@ -57,7 +59,7 @@ jobs:
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v4
       with:
-        name: hydra-x86_64-linux-${{ env.VERSION }} # automatically zips
+        name: hydra-${{ matrix.os.arch }}-${{ env.VERSION }} # automatically zips
         path: out/*
 
   build-macos:
