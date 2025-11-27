@@ -26,8 +26,9 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
-import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party)
+import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot)
 import Hydra.Utils (readJsonFileThrow)
 
 -- Upstreamed in cardano-api 10.18
@@ -129,7 +130,10 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}
       , postTx = const $ pure ()
-      , checkNonADAAssets = const $ pure ()
+      , checkNonADAAssets = \confirmedSnapshot -> do
+          let Snapshot{utxo, utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
+          let snapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
+          checkNonADAAssetsUTxO snapshotUTxO
       }
 
   initializeOfflineHead = do
