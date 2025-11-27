@@ -2,7 +2,7 @@
 { self, ... }:
 {
 
-  perSystem = { pkgs, pkgs-2411, self', ... }:
+  perSystem = { config, pkgs, pkgs-2411, self', ... }:
     {
       process-compose."demo" = {
         package = pkgs.process-compose;
@@ -59,15 +59,15 @@
                     --listen 127.0.0.1:5001 \
                     --api-port 4001 \
                     --monitoring-port 6001 \
+                    --hydra-signing-key "${config.hydra.demo.fixtures.parties.alice.hydra.sk}" \
+                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.sk}" \
                     --peer 127.0.0.1:5002 \
+                    --hydra-verification-key "${config.hydra.demo.fixtures.parties.bob.hydra.vk}" \
+                    --cardano-verification-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}" \
                     --peer 127.0.0.1:5003 \
-                    --hydra-signing-key ${self}/demo/alice.sk \
-                    --hydra-verification-key ${self}/demo/bob.vk \
-                    --hydra-verification-key ${self}/demo/carol.vk \
+                    --hydra-verification-key "${config.hydra.demo.fixtures.parties.carol.hydra.vk}" \
+                    --cardano-verification-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.vk}" \
                     --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
-                    --cardano-signing-key devnet/credentials/alice.sk \
-                    --cardano-verification-key devnet/credentials/bob.vk \
-                    --cardano-verification-key devnet/credentials/carol.vk \
                     --ledger-protocol-parameters devnet/protocol-parameters.json \
                     --testnet-magic 42 \
                     --node-socket devnet/node.socket \
@@ -93,15 +93,15 @@
                   --listen 127.0.0.1:5002 \
                   --api-port 4002 \
                   --monitoring-port 6002 \
+                  --hydra-signing-key "${config.hydra.demo.fixtures.parties.bob.hydra.sk}" \
+                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.sk}" \
                   --peer 127.0.0.1:5001 \
+                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.alice.hydra.vk}" \
+                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}" \
                   --peer 127.0.0.1:5003 \
-                  --hydra-signing-key ${self}/demo/bob.sk \
-                  --hydra-verification-key ${self}/demo/alice.vk \
-                  --hydra-verification-key ${self}/demo/carol.vk \
+                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.carol.hydra.vk}" \
+                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.vk}" \
                   --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
-                  --cardano-signing-key devnet/credentials/bob.sk \
-                  --cardano-verification-key devnet/credentials/alice.vk \
-                  --cardano-verification-key devnet/credentials/carol.vk \
                   --ledger-protocol-parameters devnet/protocol-parameters.json \
                   --testnet-magic 42 \
                   --node-socket devnet/node.socket \
@@ -127,15 +127,15 @@
                   --listen 127.0.0.1:5003 \
                   --api-port 4003 \
                   --monitoring-port 6003 \
+                  --hydra-signing-key "${config.hydra.demo.fixtures.parties.carol.hydra.sk}" \
+                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.sk}" \
                   --peer 127.0.0.1:5001 \
+                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.alice.hydra.vk}" \
+                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}" \
                   --peer 127.0.0.1:5002 \
-                  --hydra-signing-key ${self}/demo/carol.sk \
-                  --hydra-verification-key ${self}/demo/alice.vk \
-                  --hydra-verification-key ${self}/demo/bob.vk \
+                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.bob.hydra.vk}" \
+                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}" \
                   --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
-                  --cardano-signing-key devnet/credentials/carol.sk \
-                  --cardano-verification-key devnet/credentials/alice.vk \
-                  --cardano-verification-key devnet/credentials/bob.vk \
                   --ledger-protocol-parameters devnet/protocol-parameters.json \
                   --testnet-magic 42 \
                   --node-socket devnet/node.socket \
@@ -157,7 +157,7 @@
                     --connect 0.0.0.0:4001 \
                     --node-socket devnet/node.socket \
                     --testnet-magic 42 \
-                    --cardano-signing-key devnet/credentials/alice-funds.sk
+                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.alice.cardano.funds.sk}"
                 '';
               };
               is_foreground = true;
@@ -172,7 +172,7 @@
                   --connect 0.0.0.0:4002 \
                   --node-socket devnet/node.socket \
                   --testnet-magic 42 \
-                  --cardano-signing-key devnet/credentials/bob-funds.sk
+                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.bob.cardano.funds.sk}"
                 '';
               };
               is_foreground = true;
@@ -187,7 +187,7 @@
                     --connect 0.0.0.0:4003 \
                     --node-socket devnet/node.socket \
                     --testnet-magic 42 \
-                    --cardano-signing-key devnet/credentials/carol-funds.sk
+                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.carol.cardano.funds.sk}"
                 '';
               };
               is_foreground = true;
