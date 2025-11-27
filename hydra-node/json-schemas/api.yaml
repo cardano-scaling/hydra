@@ -518,6 +518,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/Close"
 
+    SafeClose:
+      title: SafeClose
+      description: |
+        Terminate a head with the latest known snapshot with additional check that confirmed snapshot UTxO does not contain any non-ADA assets. This effectively moves the head from the Open state to the Close state where the contestation phase begin. As a result of closing a head, no more transactions can be submitted via NewTx.
+      payload:
+        $ref: "api.yaml#/components/schemas/SafeClose"
+
     Contest:
       title: Contest
       description: |
@@ -835,6 +842,7 @@ components:
         - $ref: "api.yaml#/components/schemas/Recover"
         - $ref: "api.yaml#/components/schemas/Decommit"
         - $ref: "api.yaml#/components/schemas/Close"
+        - $ref: "api.yaml#/components/schemas/SafeClose"
         - $ref: "api.yaml#/components/schemas/Contest"
         - $ref: "api.yaml#/components/schemas/Fanout"
         - $ref: "api.yaml#/components/schemas/SideLoadSnapshot"
@@ -977,6 +985,16 @@ components:
         tag:
           type: string
           enum: ["Close"]
+
+    SafeClose:
+      title: SafeClose
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["SafeClose"]
 
     Contest:
       title: Contest
@@ -1413,6 +1431,7 @@ components:
             - $ref: "api.yaml#/components/messages/Decommit/payload"
             - $ref: "api.yaml#/components/messages/Recover/payload"
             - $ref: "api.yaml#/components/messages/Close/payload"
+            - $ref: "api.yaml#/components/messages/SafeClose/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"

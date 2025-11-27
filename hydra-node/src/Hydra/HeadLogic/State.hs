@@ -76,6 +76,14 @@ getHeadParameters = \case
   Open OpenState{parameters} -> Just parameters
   Closed ClosedState{parameters} -> Just parameters
 
+-- | Get the head parameters in any 'HeadState'.
+getOpenStateConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
+getOpenStateConfirmedSnapshot = \case
+  Idle _ -> Nothing
+  Initial InitialState{} -> Nothing
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} -> Just confirmedSnapshot
+  Closed ClosedState{} -> Nothing
+
 -- ** Idle
 
 -- | An 'Idle' head only having a chain state with things seen on chain so far.

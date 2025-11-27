@@ -14,7 +14,7 @@ import Data.Aeson.Lens (atKey)
 import Data.Conduit.Combinators (filter)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog (..))
-import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.ClientInput (ClientInput (SafeClose))
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
   ClientMessage,
@@ -37,6 +37,7 @@ import Hydra.API.ServerOutput (
 import Hydra.API.ServerOutputFilter (
   ServerOutputFilter (..),
  )
+import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (
   IsChainState,
  )
@@ -65,6 +66,7 @@ wsApp ::
   Environment ->
   Party ->
   Tracer IO APIServerLog ->
+  Chain tx IO ->
   ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
@@ -75,7 +77,7 @@ wsApp ::
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp env party tracer history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -164,12 +166,27 @@ wsApp env party tracer history callback nodeStateP networkInfoP responseChannel 
         sendTextData con (handleUtxoInclusion outConfig removeSnapshotUTxO $ Aeson.encode response)
         traceWith tracer (APIOutputSent $ toJSON response)
 
+  Chain{checkNonADAAssets} = chain
+
   receiveInputs con = forever $ do
     msg <- receiveData con
     case Aeson.eitherDecode msg of
       Right input -> do
         traceWith tracer (APIInputReceived $ toJSON input)
-        callback input
+        NodeState{headState} <- atomically getLatestNodeState
+        case input of
+          SafeClose ->
+            case HeadState.getOpenStateConfirmedSnapshot headState of
+              Nothing -> callback input
+              Just confirmedSnapshot ->
+                case checkNonADAAssets confirmedSnapshot of
+                  Left nonADAValue -> do
+                    let clientInput = decodeUtf8With lenientDecode $ toStrict msg
+                    let errorStr = "Cannot SafeClose with non-ADA assets present: " <> show nonADAValue
+                    sendTextData con $ Aeson.encode $ InvalidInput errorStr clientInput
+                    traceWith tracer (APIInvalidInput errorStr clientInput)
+                  Right _ -> callback input
+          _ -> callback input
       Left e -> do
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
