@@ -137,7 +137,7 @@ A good rule of thumb is that anything that applies strictly to transactions (fee
 Many protocol parameters are irrelevant in the Hydra context (eg, there is no treasury or stake pools within a head). Therefore, parameters related to reward incentives or delegation rules are unused.
 :::
 
-### Fuel v funds
+### Fuel vs funds
 
 Transactions driving the head lifecycle (`Init`, `Abort`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
 
@@ -169,6 +169,8 @@ The `hydra-node` must be connected to the Cardano network, unless running in [of
 
 Hydra node can talk to cardano-node directly or it can be used with the [`Blockfrost API`](https://blockfrost.io/).
 
+#### Through a cardano-node
+
 When using a direct connection to a [`cardano-node`](https://github.com/input-output-hk/cardano-node/) please refer to existing documentation on starting a node, for example on [developers.cardano.org](https://developers.cardano.org/docs/get-started/running-cardano), or [use Mithril](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node) to bootstrap the local node.
 
 To specify how to connect to the local `cardano-node`, use `--node-socket` and `--testnet-magic`:
@@ -178,6 +180,8 @@ hydra-node \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
 ```
+
+#### Through Blockfrost
 
 If you decide to use `Blockfrost` service then hydra-node is started with provided path to the blockfrost [project file](https://blockfrost.dev/overview/getting-started#creating-first-project). Underlying Cardano network is then determined using the blockfrost project file so you should not specify `--mainnet` or `--testnet-magic` arguments:
 
