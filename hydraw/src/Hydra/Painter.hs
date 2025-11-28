@@ -30,11 +30,10 @@ paintPixel networkId signingKeyPath host cnx pixel = do
 
   mHeadUTxO <- requestHeadUTxO host
     `catch` \(e :: SomeException) -> do
-      putStrLn "Died"
+      -- XXX: Fixme
       print e
-      pure Nothing
-
-  putStrLn $ show $ mHeadUTxO
+      putStrLn "Error requesting Head UTxO"
+      error "error requesting Head UTxO"
 
   case mHeadUTxO of
     Just utxo ->
@@ -43,7 +42,6 @@ paintPixel networkId signingKeyPath host cnx pixel = do
         Just (txIn, txOut) ->
           case mkPaintTx (txIn, txOut) sk pixel of
             Right tx -> do
-              putStrLn "Sending ..."
               sendTextData cnx $ Aeson.encode $ NewTx tx
             Left err -> fail $ "Failed to build pixel transaction " <> show err
     Nothing -> fail "Head UTxO is empty"
@@ -58,7 +56,7 @@ requestHeadUTxO host = do
       >>= httpJSON
   pure $ getResponseBody resp
  where
-  hydraNodeBaseUrl Host{hostname, port} = hostname <> ":" <> show port
+  hydraNodeBaseUrl Host{hostname, port} = "http://" <> hostname <> ":" <> show port
 
 -- | Same as 'withClient' except we don't retry if connection fails.
 withClientNoRetry :: Bool -> Host -> (Connection -> IO ()) -> IO ()
@@ -72,6 +70,7 @@ withClientNoRetry b Host{hostname, port} action = do
       print e
       threadDelay 1
   where
+      -- FIXME: Do this nicer
       url :: Bool -> String
       url True  = "/?history=yes"
       url False = "/"
