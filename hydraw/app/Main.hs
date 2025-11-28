@@ -81,7 +81,8 @@ httpApp networkId key host req send =
         Just [x, y, red, green, blue] -> do
           putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
           -- \| spawn a connection in a new thread
-          void $ asyncLabelled "client-paint-pixel" $ withClientNoRetry host $ \cnx ->
+          void $ asyncLabelled "client-paint-pixel" $ withClientNoRetry False host $ \cnx -> do
+            putStrLn "Got client"
             paintPixel networkId key host cnx Pixel{x, y, red, green, blue}
           send $ responseLBS status200 corsHeaders "OK"
         _ ->
