@@ -9,7 +9,7 @@ As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
 
-## [1.2.0] - UNRELEASED
+## [1.2.0] - 2025.11.28
 
 - There is a new `SafeClose` client command which prevents closing the Head in case there are non-ADA assets in the confirmed snapshot UTxO [#2330](https://github.com/cardano-scaling/hydra/issues/2330).
 

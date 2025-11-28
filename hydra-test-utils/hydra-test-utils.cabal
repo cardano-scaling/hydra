@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-test-utils
-version:       1.1.0
+version:       1.2.0
 synopsis:      Hydra utilities for testing, aka. "Test Prelude"
 author:        IOG
 copyright:     2022 IOG

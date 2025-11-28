@@ -1,6 +1,6 @@
 cabal-version:      2.2
 name:               hydra-plutus
-version:            1.1.0
+version:            1.2.0
 synopsis:           Hydra Plutus Contracts
 author:             IOG
 copyright:          2022 IOG
