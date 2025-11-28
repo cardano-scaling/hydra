@@ -178,8 +178,8 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
         traceWith tracer (APIInputReceived $ toJSON input)
         case input of
           SafeClose -> do
-            NodeState{headState} <- atomically getLatestNodeState
-            case HeadState.getOpenStateConfirmedSnapshot headState of
+            nodeState <- atomically getLatestNodeState
+            case HeadState.getOpenStateConfirmedSnapshot nodeState.headState of
               Nothing -> callback input
               Just confirmedSnapshot ->
                 case checkNonADAAssets confirmedSnapshot of
