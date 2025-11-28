@@ -39,13 +39,23 @@ newtype Network m msg = Network
   -- ^ Send a `msg` to the whole configured hydra network including ourselves.
   }
 
+data DeliverResult = NotDelivered | Delivered
+
+instance Semigroup DeliverResult where
+  Delivered <> Delivered = Delivered
+  _ <> NotDelivered = NotDelivered
+  NotDelivered <> _ = NotDelivered
+
+instance Monoid DeliverResult where
+  mempty = NotDelivered
+
 -- | Interface from network layer to the application.
 -- XXX: Reliably delivering a message in the crash-recovery fault model is
 -- tricky. According to "Introduction to Reliable and Secure Distributed
 -- Programming" section "2.2.4 Crashes with recoveries" explains that storing to
 -- stable storage and just pointing to stored events is a better way.
 data NetworkCallback msg m = NetworkCallback
-  { deliver :: msg -> m ()
+  { deliver :: msg -> m DeliverResult
   -- ^ The given `msg` was received from the network.
   , onConnectivity :: Connectivity -> m ()
   -- ^ The given `Connectivity` event was observed by network.
