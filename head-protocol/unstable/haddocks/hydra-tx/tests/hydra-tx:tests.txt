@@ -4,7 +4,7 @@
 
 -- | Hydra transaction library
 @package hydra-tx:tests
-@version 1.1.0
+@version 1.2.0
 
 module Hydra.Tx.ContestationPeriodSpec
 spec :: Spec
