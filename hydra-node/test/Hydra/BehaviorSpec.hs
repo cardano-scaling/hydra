@@ -255,7 +255,7 @@ spec = parallel $ do
                 send n1 (NewTx tx)
                 waitUntil [n1, n2] $ TxValid testHeadId 42
 
-                let snapshot = Snapshot testHeadId 0 1 [tx] (utxoRefs [1, 2, 42]) mempty mempty
+                let snapshot = testSnapshot 1 0 [tx] (utxoRefs [1, 2, 42])
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 

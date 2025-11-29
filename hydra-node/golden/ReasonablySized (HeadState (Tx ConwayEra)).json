@@ -814,6 +814,7 @@
                         ]
                     },
                     "snapshot": {
+                        "accumulator": "a3582084515835003d028191841d54d567d5da2df181376e0d395a0c7e6e5e6ae089e682581c0b49ae4525d794eb55ee812e8139b39849970a1295e98556cb1176e7015820d4b363a442c482b128cdee62cf2410813501d2601373b8bedad209e67f793f9d82581ce6091b16a1a57da72bc4b39231ab626962768fac72f5f18696b56f4e015820e80d334a11effc8d9f129b14ffd9594703099a2a21724ea5eb3cdcb419e7eba482581c4c4a57aed99de24d5bc4d780784e5d3b443453819a71bffeeb38452201",
                         "confirmed": [],
                         "headId": "03080408040003000308080600010301",
                         "number": 6,
@@ -1717,6 +1718,7 @@
                             ]
                         },
                         "snapshot": {
+                            "accumulator": "a358201f0b7a86c619e46bec59aaa27ccdf7fc2d8ad19b7deda64d50b87c07aed65d0f82581c132e336aad09c6b8b309dc0bba056a0c489afc6fe7823a84104290470158203ff4c7ee614d9cbdc6a0ba193ac8c8b1eb4afb4fd43a12655b43215a18eaec4c82581c2b92ea98effd08fb4cf01c7f5a2e4f004263a7272845576079e76b7a015820d2bfbe0cc74bba79983008d4d0923990511a33493c11b54c45318992c902d7a582581c6e4cfa216f0e530811bebc27d7d983a33329d84d4f7b71b1b886aa9601",
                             "confirmed": [],
                             "headId": "06030508050400020102050002010306",
                             "number": 2,
@@ -2661,6 +2663,7 @@
                             ]
                         },
                         "snapshot": {
+                            "accumulator": "a358201803c9b56776fdc5f2d10b0d22440bd333dccd1636800f71ad1e66642b3bf68c82581c14bb453bd888853ad5a119c04f05c3ae9daabcca768c042e06507c3d01582054df1e4a7e7f85be9bcab6bed9b8aa1fc1bc6082af4043d361bfd334e7e1b58982581c30d2d259780dfcdd6a78b31a9d4886ff9b8dfa9deece4d000d19100b015820f5c81af839b34da8d099f85504db54ff9f7514a53db33c15476006bffb8c123682581cbb31d3e5728a33e864c199a54a18393991bd60217dc1a3de5f69d4f801",
                             "confirmed": [],
                             "headId": "00000100040400000107040607070305",
                             "number": 3,
