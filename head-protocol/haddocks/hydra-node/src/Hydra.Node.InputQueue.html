@@ -14,50 +14,50 @@
 </span><span id="line-14"></span><span class="hs-comment">-- NOTE(SN): this probably should be bounded and include proper logging</span><span>
 </span><span id="line-15"></span><span class="hs-comment">-- NOTE(SN): handle pattern, but likely not required as there is no need for an</span><span>
 </span><span id="line-16"></span><span class="hs-comment">-- alternative implementation</span><span>
-</span><span id="line-17"></span><span class="hs-keyword">data</span><span> </span><span id="InputQueue"><span class="annot"><a href="Hydra.Node.InputQueue.html#InputQueue"><span class="hs-identifier hs-var">InputQueue</span></a></span></span><span> </span><span id="local-6989586621680580739"><span class="annot"><a href="#local-6989586621680580739"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621680580740"><span class="annot"><a href="#local-6989586621680580740"><span class="hs-identifier hs-type">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="InputQueue"><span class="annot"><a href="Hydra.Node.InputQueue.html#InputQueue"><span class="hs-identifier hs-var">InputQueue</span></a></span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">data</span><span> </span><span id="InputQueue"><span class="annot"><a href="Hydra.Node.InputQueue.html#InputQueue"><span class="hs-identifier hs-var">InputQueue</span></a></span></span><span> </span><span id="local-6989586621680585170"><span class="annot"><a href="#local-6989586621680585170"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621680585171"><span class="annot"><a href="#local-6989586621680585171"><span class="hs-identifier hs-type">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="InputQueue"><span class="annot"><a href="Hydra.Node.InputQueue.html#InputQueue"><span class="hs-identifier hs-var">InputQueue</span></a></span></span><span>
 </span><span id="line-18"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Aenqueue%3AInputQueue"><span class="annot"><span class="annottext">forall (m :: * -&gt; *) e. InputQueue m e -&gt; e -&gt; m ()
-</span><a href="Hydra.Node.InputQueue.html#%24sel%3Aenqueue%3AInputQueue"><span class="hs-identifier hs-var hs-var">enqueue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680580740"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680580739"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Node.InputQueue.html#%24sel%3Aenqueue%3AInputQueue"><span class="hs-identifier hs-var hs-var">enqueue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680585171"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680585170"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Areenqueue%3AInputQueue"><span class="annot"><span class="annottext">forall (m :: * -&gt; *) e.
 InputQueue m e -&gt; DiffTime -&gt; Queued e -&gt; m ()
-</span><a href="Hydra.Node.InputQueue.html#%24sel%3Areenqueue%3AInputQueue"><span class="hs-identifier hs-var hs-var">reenqueue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.DiffTime.html#DiffTime"><span class="hs-identifier hs-type">DiffTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.InputQueue.html#Queued"><span class="hs-identifier hs-type">Queued</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680580740"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680580739"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Node.InputQueue.html#%24sel%3Areenqueue%3AInputQueue"><span class="hs-identifier hs-var hs-var">reenqueue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.DiffTime.html#DiffTime"><span class="hs-identifier hs-type">DiffTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.InputQueue.html#Queued"><span class="hs-identifier hs-type">Queued</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680585171"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680585170"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Adequeue%3AInputQueue"><span class="annot"><span class="annottext">forall (m :: * -&gt; *) e. InputQueue m e -&gt; m (Queued e)
-</span><a href="Hydra.Node.InputQueue.html#%24sel%3Adequeue%3AInputQueue"><span class="hs-identifier hs-var hs-var">dequeue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680580739"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.InputQueue.html#Queued"><span class="hs-identifier hs-type">Queued</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680580740"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Node.InputQueue.html#%24sel%3Adequeue%3AInputQueue"><span class="hs-identifier hs-var hs-var">dequeue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680585170"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.InputQueue.html#Queued"><span class="hs-identifier hs-type">Queued</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680585171"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AisEmpty%3AInputQueue"><span class="annot"><span class="annottext">forall (m :: * -&gt; *) e. InputQueue m e -&gt; m Bool
-</span><a href="Hydra.Node.InputQueue.html#%24sel%3AisEmpty%3AInputQueue"><span class="hs-identifier hs-var hs-var">isEmpty</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680580739"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><a href="Hydra.Node.InputQueue.html#%24sel%3AisEmpty%3AInputQueue"><span class="hs-identifier hs-var hs-var">isEmpty</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680585170"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
 </span><span id="line-22"></span><span>  </span><span class="hs-special">}</span><span>
 </span><span id="line-23"></span><span>
-</span><span id="line-24"></span><span class="hs-keyword">data</span><span> </span><span id="Queued"><span class="annot"><a href="Hydra.Node.InputQueue.html#Queued"><span class="hs-identifier hs-var">Queued</span></a></span></span><span> </span><span id="local-6989586621680580752"><span class="annot"><a href="#local-6989586621680580752"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Queued"><span class="annot"><a href="Hydra.Node.InputQueue.html#Queued"><span class="hs-identifier hs-var">Queued</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AqueuedId%3AQueued"><span class="annot"><span class="annottext">forall a. Queued a -&gt; Word64
+</span><span id="line-24"></span><span class="hs-keyword">data</span><span> </span><span id="Queued"><span class="annot"><a href="Hydra.Node.InputQueue.html#Queued"><span class="hs-identifier hs-var">Queued</span></a></span></span><span> </span><span id="local-6989586621680585183"><span class="annot"><a href="#local-6989586621680585183"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Queued"><span class="annot"><a href="Hydra.Node.InputQueue.html#Queued"><span class="hs-identifier hs-var">Queued</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AqueuedId%3AQueued"><span class="annot"><span class="annottext">forall a. Queued a -&gt; Word64
 </span><a href="Hydra.Node.InputQueue.html#%24sel%3AqueuedId%3AQueued"><span class="hs-identifier hs-var hs-var">queuedId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Word.html#Word64"><span class="hs-identifier hs-type">Word64</span></a></span><span class="hs-special">,</span><span> </span><span id="%24sel%3AqueuedItem%3AQueued"><span class="annot"><span class="annottext">forall a. Queued a -&gt; a
-</span><a href="Hydra.Node.InputQueue.html#%24sel%3AqueuedItem%3AQueued"><span class="hs-identifier hs-var hs-var">queuedItem</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680580752"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">}</span><span>
+</span><a href="Hydra.Node.InputQueue.html#%24sel%3AqueuedItem%3AQueued"><span class="hs-identifier hs-var hs-var">queuedItem</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680585183"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-25"></span><span>
-</span><span id="line-26"></span><span id="local-6989586621680580755"><span id="local-6989586621680580759"><span class="annot"><a href="Hydra.Node.InputQueue.html#createInputQueue"><span class="hs-identifier hs-type">createInputQueue</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-27"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadDelay</span></span><span> </span><span class="annot"><a href="#local-6989586621680580755"><span class="hs-identifier hs-type">m</span></a></span><span>
-</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadAsync</span></span><span> </span><span class="annot"><a href="#local-6989586621680580755"><span class="hs-identifier hs-type">m</span></a></span><span>
-</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621680580755"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-26"></span><span id="local-6989586621680585186"><span id="local-6989586621680585190"><span class="annot"><a href="Hydra.Node.InputQueue.html#createInputQueue"><span class="hs-identifier hs-type">createInputQueue</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadDelay</span></span><span> </span><span class="annot"><a href="#local-6989586621680585186"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadAsync</span></span><span> </span><span class="annot"><a href="#local-6989586621680585186"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621680585186"><span class="hs-identifier hs-type">m</span></a></span><span>
 </span><span id="line-30"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-31"></span><span>  </span><span class="annot"><a href="#local-6989586621680580755"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.InputQueue.html#InputQueue"><span class="hs-identifier hs-type">InputQueue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680580755"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680580759"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><a href="#local-6989586621680585186"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.InputQueue.html#InputQueue"><span class="hs-identifier hs-type">InputQueue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680585186"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680585190"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span></span></span><span>
 </span><span id="line-32"></span><span id="createInputQueue"><span class="annot"><span class="annottext">createInputQueue :: forall (m :: * -&gt; *) e.
 (MonadDelay m, MonadAsync m, MonadLabelledSTM m) =&gt;
 m (InputQueue m e)
 </span><a href="Hydra.Node.InputQueue.html#createInputQueue"><span class="hs-identifier hs-var hs-var">createInputQueue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-33"></span><span>  </span><span id="local-6989586621680580880"><span class="annot"><span class="annottext">TVar m Integer
-</span><a href="#local-6989586621680580880"><span class="hs-identifier hs-var">numThreads</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Integer -&gt; m (TVar m Integer)
+</span><span id="line-33"></span><span>  </span><span id="local-6989586621680585311"><span class="annot"><span class="annottext">TVar m Integer
+</span><a href="#local-6989586621680585311"><span class="hs-identifier hs-var">numThreads</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Integer -&gt; m (TVar m Integer)
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; a -&gt; m (TVar m a)
 </span><span class="hs-identifier hs-var">newLabelledTVarIO</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;num-threads&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-34"></span><span>  </span><span id="local-6989586621680580882"><span class="annot"><span class="annottext">TVar m Word64
-</span><a href="#local-6989586621680580882"><span class="hs-identifier hs-var">nextId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Word64 -&gt; m (TVar m Word64)
+</span><span id="line-34"></span><span>  </span><span id="local-6989586621680585313"><span class="annot"><span class="annottext">TVar m Word64
+</span><a href="#local-6989586621680585313"><span class="hs-identifier hs-var">nextId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Word64 -&gt; m (TVar m Word64)
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; a -&gt; m (TVar m a)
 </span><span class="hs-identifier hs-var">newLabelledTVarIO</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;nex-id&quot;</span></span><span> </span><span class="annot"><span class="annottext">Word64
 </span><span class="hs-number">0</span></span><span>
-</span><span id="line-35"></span><span>  </span><span id="local-6989586621680580883"><span class="annot"><span class="annottext">TQueue m (Queued e)
-</span><a href="#local-6989586621680580883"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; m (TQueue m (Queued e))
+</span><span id="line-35"></span><span>  </span><span id="local-6989586621680585314"><span class="annot"><span class="annottext">TQueue m (Queued e)
+</span><a href="#local-6989586621680585314"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; m (TQueue m (Queued e))
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; m (TQueue m a)
@@ -69,8 +69,8 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span>
 </span><span id="line-37"></span><span>    </span><span class="annot"><a href="Hydra.Node.InputQueue.html#InputQueue"><span class="hs-identifier hs-type">InputQueue</span></a></span><span>
 </span><span id="line-38"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:enqueue:InputQueue :: e -&gt; m ()
-</span><a href="Hydra.Node.InputQueue.html#%24sel%3Aenqueue%3AInputQueue"><span class="hs-identifier hs-var">enqueue</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680580885"><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680580885"><span class="hs-identifier hs-var">queuedItem</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="Hydra.Node.InputQueue.html#%24sel%3Aenqueue%3AInputQueue"><span class="hs-identifier hs-var">enqueue</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680585316"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680585316"><span class="hs-identifier hs-var">queuedItem</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-39"></span><span>          </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
 forall a. HasCallStack =&gt; STM m a -&gt; m a
 forall (m :: * -&gt; *) a.
@@ -79,17 +79,17 @@ STM m a -&gt; m a
 </span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM m () -&gt; m ()) -&gt; STM m () -&gt; m ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-40"></span><span>            </span><span id="local-6989586621680580887"><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621680580887"><span class="hs-identifier hs-var">queuedId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Word64 -&gt; STM m Word64
+</span><span id="line-40"></span><span>            </span><span id="local-6989586621680585318"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621680585318"><span class="hs-identifier hs-var">queuedId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Word64 -&gt; STM m Word64
 forall a. TVar m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Word64
-</span><a href="#local-6989586621680580882"><span class="hs-identifier hs-var">nextId</span></a></span><span>
+</span><a href="#local-6989586621680585313"><span class="hs-identifier hs-var">nextId</span></a></span><span>
 </span><span id="line-41"></span><span>            </span><span class="annot"><span class="annottext">TQueue m (Queued e) -&gt; Queued e -&gt; STM m ()
 forall a. TQueue m a -&gt; a -&gt; STM m ()
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TQueue m a -&gt; a -&gt; STM m ()
 </span><span class="hs-identifier hs-var">writeTQueue</span></span><span> </span><span class="annot"><span class="annottext">TQueue m (Queued e)
-</span><a href="#local-6989586621680580883"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.InputQueue.html#Queued"><span class="hs-identifier hs-type">Queued</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621680585314"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.InputQueue.html#Queued"><span class="hs-identifier hs-type">Queued</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Word64
 $sel:queuedId:Queued :: Word64
 queuedId :: Word64
 </span><a href="Hydra.Node.InputQueue.html#%24sel%3AqueuedId%3AQueued"><span class="hs-identifier hs-var hs-var">queuedId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">e
@@ -102,13 +102,13 @@ forall (m :: * -&gt; *) a.
 MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m Word64
-</span><a href="#local-6989586621680580882"><span class="hs-identifier hs-var">nextId</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64
+</span><a href="#local-6989586621680585313"><span class="hs-identifier hs-var">nextId</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64
 forall a. Enum a =&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#succ"><span class="hs-identifier hs-var">succ</span></a></span><span>
 </span><span id="line-43"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:reenqueue:InputQueue :: DiffTime -&gt; Queued e -&gt; m ()
-</span><a href="Hydra.Node.InputQueue.html#%24sel%3Areenqueue%3AInputQueue"><span class="hs-identifier hs-var">reenqueue</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680580890"><span class="annot"><span class="annottext">DiffTime
-</span><a href="#local-6989586621680580890"><span class="hs-identifier hs-var">delay</span></a></span></span><span> </span><span id="local-6989586621680580891"><span class="annot"><span class="annottext">Queued e
-</span><a href="#local-6989586621680580891"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="Hydra.Node.InputQueue.html#%24sel%3Areenqueue%3AInputQueue"><span class="hs-identifier hs-var">reenqueue</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680585321"><span class="annot"><span class="annottext">DiffTime
+</span><a href="#local-6989586621680585321"><span class="hs-identifier hs-var">delay</span></a></span></span><span> </span><span id="local-6989586621680585322"><span class="annot"><span class="annottext">Queued e
+</span><a href="#local-6989586621680585322"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-44"></span><span>          </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
 forall a. HasCallStack =&gt; STM m a -&gt; m a
 forall (m :: * -&gt; *) a.
@@ -122,7 +122,7 @@ forall (m :: * -&gt; *) a.
 MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m Integer
-</span><a href="#local-6989586621680580880"><span class="hs-identifier hs-var">numThreads</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer
+</span><a href="#local-6989586621680585311"><span class="hs-identifier hs-var">numThreads</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer
 forall a. Enum a =&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#succ"><span class="hs-identifier hs-var">succ</span></a></span><span>
 </span><span id="line-45"></span><span>          </span><span class="annot"><span class="annottext">m (Async m ()) -&gt; m ()
@@ -141,7 +141,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-46"></span><span>            </span><span class="annot"><span class="annottext">DiffTime -&gt; m ()
 forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
-</span><a href="#local-6989586621680580890"><span class="hs-identifier hs-var">delay</span></a></span><span>
+</span><a href="#local-6989586621680585321"><span class="hs-identifier hs-var">delay</span></a></span><span>
 </span><span id="line-47"></span><span>            </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
 forall a. HasCallStack =&gt; STM m a -&gt; m a
 forall (m :: * -&gt; *) a.
@@ -156,15 +156,15 @@ forall (m :: * -&gt; *) a.
 MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m Integer
-</span><a href="#local-6989586621680580880"><span class="hs-identifier hs-var">numThreads</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer
+</span><a href="#local-6989586621680585311"><span class="hs-identifier hs-var">numThreads</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer
 forall a. Enum a =&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#pred"><span class="hs-identifier hs-var">pred</span></a></span><span>
 </span><span id="line-49"></span><span>              </span><span class="annot"><span class="annottext">TQueue m (Queued e) -&gt; Queued e -&gt; STM m ()
 forall a. TQueue m a -&gt; a -&gt; STM m ()
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TQueue m a -&gt; a -&gt; STM m ()
 </span><span class="hs-identifier hs-var">writeTQueue</span></span><span> </span><span class="annot"><span class="annottext">TQueue m (Queued e)
-</span><a href="#local-6989586621680580883"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">Queued e
-</span><a href="#local-6989586621680580891"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><a href="#local-6989586621680585314"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">Queued e
+</span><a href="#local-6989586621680585322"><span class="hs-identifier hs-var">e</span></a></span><span>
 </span><span id="line-50"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:dequeue:InputQueue :: m (Queued e)
 </span><a href="Hydra.Node.InputQueue.html#%24sel%3Adequeue%3AInputQueue"><span class="hs-identifier hs-var">dequeue</span></a></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-51"></span><span>          </span><span class="annot"><span class="annottext">STM m (Queued e) -&gt; m (Queued e)
@@ -179,7 +179,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. TQueue m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TQueue m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTQueue</span></span><span> </span><span class="annot"><span class="annottext">TQueue m (Queued e)
-</span><a href="#local-6989586621680580883"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><a href="#local-6989586621680585314"><span class="hs-identifier hs-var">q</span></a></span><span>
 </span><span id="line-52"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:isEmpty:InputQueue :: m Bool
 </span><a href="Hydra.Node.InputQueue.html#%24sel%3AisEmpty%3AInputQueue"><span class="hs-identifier hs-var">isEmpty</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-53"></span><span>          </span><span class="annot"><span class="annottext">STM m Bool -&gt; m Bool
@@ -190,25 +190,25 @@ STM m a -&gt; m a
 </span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM m Bool -&gt; m Bool) -&gt; STM m Bool -&gt; m Bool
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-54"></span><span>            </span><span id="local-6989586621680580897"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680580897"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Integer -&gt; STM m Integer
+</span><span id="line-54"></span><span>            </span><span id="local-6989586621680585328"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621680585328"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Integer -&gt; STM m Integer
 forall a. TVar m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Integer
-</span><a href="#local-6989586621680580880"><span class="hs-identifier hs-var">numThreads</span></a></span><span>
-</span><span id="line-55"></span><span>            </span><span id="local-6989586621680580898"><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621680580898"><span class="hs-identifier hs-var">isEmpty'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TQueue m (Queued e) -&gt; STM m Bool
+</span><a href="#local-6989586621680585311"><span class="hs-identifier hs-var">numThreads</span></a></span><span>
+</span><span id="line-55"></span><span>            </span><span id="local-6989586621680585329"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621680585329"><span class="hs-identifier hs-var">isEmpty'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TQueue m (Queued e) -&gt; STM m Bool
 forall a. TQueue m a -&gt; STM m Bool
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TQueue m a -&gt; STM m Bool
 </span><span class="hs-identifier hs-var">isEmptyTQueue</span></span><span> </span><span class="annot"><span class="annottext">TQueue m (Queued e)
-</span><a href="#local-6989586621680580883"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><a href="#local-6989586621680585314"><span class="hs-identifier hs-var">q</span></a></span><span>
 </span><span id="line-56"></span><span>            </span><span class="annot"><span class="annottext">Bool -&gt; STM m Bool
 forall a. a -&gt; STM m a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621680580898"><span class="hs-identifier hs-var">isEmpty'</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="#local-6989586621680585329"><span class="hs-identifier hs-var">isEmpty'</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680580897"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+</span><a href="#local-6989586621680585328"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">0</span></span><span class="hs-special">)</span><span>

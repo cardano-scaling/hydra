@@ -4,7 +4,7 @@
 
 -- | TUI for managing a Hydra node
 @package hydra-tui
-@version 1.1.0
+@version 1.2.0
 
 module Hydra.TUI.Drawing.Utils
 drawHex :: SerialiseAsRawBytes a => a -> Widget n
@@ -69,15 +69,15 @@ style :: s -> AttrMap
 
 module Hydra.TUI.Options
 data Options
-Options :: Host -> SocketPath -> NetworkId -> FilePath -> Options
+Options :: Host -> Either FilePath SocketPath -> NetworkId -> FilePath -> Options
 [hydraNodeHost] :: Options -> Host
-[cardanoNodeSocket] :: Options -> SocketPath
+[cardanoConnection] :: Options -> Either FilePath SocketPath
 [cardanoNetworkId] :: Options -> NetworkId
 
 -- | User key used by the tui client to commit
 [cardanoSigningKey] :: Options -> FilePath
 parseOptions :: Parser Options
-parseCardanoNodeSocket :: Parser SocketPath
+parsecardanoConnection :: Parser (Either FilePath SocketPath)
 parseNodeHost :: Parser Host
 parseCardanoSigningKey :: Parser FilePath
 instance GHC.Show.Show Hydra.TUI.Options.Options
@@ -338,5 +338,9 @@ showHeadState :: HeadState -> String
 drawUTxO :: (AddressInEra -> Widget n) -> UTxO -> Widget n
 
 module Hydra.TUI
+
+-- | Construct a <a>CardanoClient</a> handle.
+mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
+mkBFClient :: NetworkId -> FilePath -> CardanoClient
 runWithVty :: IO Vty -> Options -> IO RootState
 run :: Options -> IO RootState

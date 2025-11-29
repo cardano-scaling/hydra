@@ -4,7 +4,7 @@
 
 -- | The Hydra node
 @package hydra-node:tests
-@version 1.1.0
+@version 1.2.0
 
 module Hydra.API.ClientInputSpec
 spec :: Spec
@@ -282,6 +282,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Prop
 prop_thereIsAlwaysALeader :: Property
 
 module Hydra.API.HTTPServerSpec
+dummyStatePath :: FilePath
 spec :: Spec
 apiServerSpec :: Spec
 

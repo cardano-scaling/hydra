@@ -332,6 +332,12 @@
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/commit-script-utxo.md\n"
     }
   },
+  "docs/how-to/deposit-with-javascript-sdk": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/deposit-with-javascript-sdk.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/deposit-with-javascript-sdk.md\n"
+    }
+  },
   "docs/how-to/incremental-commit": {
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/incremental-commit.md\n",

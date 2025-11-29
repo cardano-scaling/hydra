@@ -9,7 +9,7 @@
 </span><span id="line-9"></span><span class="hs-keyword">data</span><span> </span><span id="CommitError"><span class="annot"><a href="Hydra.Contract.CommitError.html#CommitError"><span class="hs-identifier hs-var">CommitError</span></a></span></span><span>
 </span><span id="line-10"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="STNotBurnedError"><span class="annot"><a href="Hydra.Contract.CommitError.html#STNotBurnedError"><span class="hs-identifier hs-var">STNotBurnedError</span></a></span></span><span>
 </span><span id="line-11"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="STIsMissingInTheOutput"><span class="annot"><a href="Hydra.Contract.CommitError.html#STIsMissingInTheOutput"><span class="hs-identifier hs-var">STIsMissingInTheOutput</span></a></span></span><span>
-</span><span id="line-12"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679496485"><span id="local-6989586621679496487"><span id="local-6989586621679496491"><span class="annot"><span class="annottext">Int -&gt; CommitError -&gt; ShowS
+</span><span id="line-12"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679496446"><span id="local-6989586621679496448"><span id="local-6989586621679496452"><span class="annot"><span class="annottext">Int -&gt; CommitError -&gt; ShowS
 [CommitError] -&gt; ShowS
 CommitError -&gt; String
 (Int -&gt; CommitError -&gt; ShowS)
@@ -27,8 +27,8 @@ showList :: [CommitError] -&gt; ShowS
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-13"></span><span>
 </span><span id="line-14"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier hs-type">ToErrorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.CommitError.html#CommitError"><span class="hs-identifier hs-type">CommitError</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-15"></span><span>  </span><span id="local-6989586621679496500"><span class="annot"><span class="annottext">toErrorCode :: CommitError -&gt; Text
-</span><a href="#local-6989586621679496500"><span class="hs-identifier hs-var hs-var hs-var hs-var">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-15"></span><span>  </span><span id="local-6989586621679496461"><span class="annot"><span class="annottext">toErrorCode :: CommitError -&gt; Text
+</span><a href="#local-6989586621679496461"><span class="hs-identifier hs-var hs-var hs-var hs-var">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-16"></span><span>    </span><span class="annot"><span class="annottext">CommitError
 </span><a href="Hydra.Contract.CommitError.html#STNotBurnedError"><span class="hs-identifier hs-var">STNotBurnedError</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;C01&quot;</span></span><span>
