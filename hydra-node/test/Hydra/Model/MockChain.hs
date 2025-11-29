@@ -96,6 +96,7 @@ mockChainAndNetwork ::
   , MonadLabelledSTM m
   , MonadFork m
   , MonadDelay m
+  , MonadTime m
   ) =>
   Tracer m CardanoChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
@@ -228,8 +229,8 @@ mockChainAndNetwork tr seedKeys commits = do
         MockHydraNode
           { node = HydraNode{oc = Chain{postTx}, nodeStateHandler = NodeStateHandler{queryNodeState}}
           } -> do
-          NodeState{headState = hs} <- atomically queryNodeState
-          case hs of
+          nodeState <- atomically queryNodeState
+          case headState nodeState of
             Idle IdleState{} -> error "Cannot post Close tx when in Idle state"
             Initial InitialState{} -> error "Cannot post Close tx when in Initial state"
             Open OpenState{headId = openHeadId, parameters = headParameters} -> do

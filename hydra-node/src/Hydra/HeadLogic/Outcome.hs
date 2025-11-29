@@ -146,6 +146,8 @@ data StateChanged tx
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | LocalStateCleared {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | Checkpoint {state :: NodeState tx}
+  | NodeUnsynced
+  | NodeSynced
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (NodeState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
@@ -158,6 +160,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) wher
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 
+-- REVIEW: why are we missing Checkpoint and other events ?
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
@@ -186,6 +189,8 @@ genStateChanged env =
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
     , LocalStateCleared <$> arbitrary <*> arbitrary
+    , pure NodeUnsynced
+    , pure NodeSynced
     ]
  where
   Environment{party} = env
@@ -241,6 +246,7 @@ data WaitReason tx
   | WaitOnUnresolvedDecommit {decommitTx :: tx}
   | WaitOnDepositObserved {depositTxId :: TxIdType tx}
   | WaitOnDepositActivation {depositTxId :: TxIdType tx}
+  | WaitOnNodeInSync {currentSlot :: ChainSlot}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (WaitReason tx)

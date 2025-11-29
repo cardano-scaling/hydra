@@ -306,7 +306,8 @@ stepHydraNode ::
 stepHydraNode node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
-  outcome <- atomically $ processNextInput node queuedItem
+  now <- getCurrentTime
+  outcome <- atomically $ processNextInput node queuedItem now
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     Continue{stateChanges, effects} -> do
@@ -347,15 +348,14 @@ processNextInput ::
   IsChainState tx =>
   HydraNode tx m ->
   Input tx ->
+  UTCTime ->
   STM m (Outcome tx)
-processNextInput HydraNode{nodeStateHandler, ledger, env} e =
+processNextInput HydraNode{nodeStateHandler, ledger, env} e now =
   modifyNodeState $ \s ->
-    let outcome = computeOutcome s e
+    let outcome = HeadLogic.update env ledger now s e
      in (outcome, aggregateState s outcome)
  where
   NodeStateHandler{modifyNodeState} = nodeStateHandler
-
-  computeOutcome = HeadLogic.update env ledger
 
 processStateChanges :: (MonadSTM m, MonadTime m) => HydraNode tx m -> [StateChanged tx] -> m ()
 processStateChanges node stateChanges = do
