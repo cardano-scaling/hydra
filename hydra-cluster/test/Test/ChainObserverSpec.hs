@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass #-}
--- withCreateProcess interface is annoying
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 -- | Integration tests for the 'hydra-chain-observer' executable. These will run
@@ -18,7 +17,7 @@ import Data.Aeson.Lens (key, _JSON, _String)
 import Data.ByteString (hGetLine)
 import Data.List qualified as List
 import Data.Text qualified as T
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile, utxoFromTx)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, txOutValue, unFile, utxoFromTx)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
@@ -77,11 +76,12 @@ spec = do
                 let walletAddress = mkVkAddress networkId walletVk
 
                 decommitTx <-
-                  either (failure . show) pure $
-                    mkSimpleTx
-                      (List.head $ UTxO.toList commitUTxO)
-                      (walletAddress, lovelaceToValue 2_000_000)
-                      walletSk
+                  let (i, o) = List.head $ UTxO.toList commitUTxO
+                   in either (failure . show) pure $
+                        mkSimpleTx
+                          (i, o)
+                          (walletAddress, txOutValue o)
+                          walletSk
 
                 send hydraNode $ input "Decommit" ["decommitTx" .= decommitTx]
 
