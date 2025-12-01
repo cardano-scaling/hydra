@@ -304,7 +304,8 @@ data ChainEvent tx
       , newChainState :: ChainStateType tx
       }
   | Rollback
-      { rolledBackChainState :: ChainStateType tx
+      { chainTime :: UTCTime
+      , rolledBackChainState :: ChainStateType tx
       }
   | -- | Indicate time has advanced on the chain.
     --

@@ -1460,8 +1460,8 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
-    handleOutOfSync env now chainTime syncStatus
-      <> newState TickObserved{chainSlot}
+    newState TickObserved{chainSlot}
+      <> handleOutOfSync env now chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
@@ -1483,9 +1483,9 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        -- XXX: Avoid repetition of handleOutOfSync and compose input handling better.
-        handleOutOfSync env now chainTime syncStatus
-          <> newState TickObserved{chainSlot}
+        newState TickObserved{chainSlot}
+          -- XXX: Avoid repetition of handleOutOfSync and compose input handling better.
+          <> handleOutOfSync env now chainTime syncStatus
           <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId, fanoutUTxO}, newChainState})
@@ -1499,11 +1499,12 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
   (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState}) ->
     newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
   -- General
-  (_, ChainInput Rollback{rolledBackChainState}) ->
+  (_, ChainInput Rollback{rolledBackChainState, chainTime}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
+      <> handleOutOfSync env now chainTime syncStatus
   (_, ChainInput Tick{chainTime, chainSlot}) ->
-    handleOutOfSync env now chainTime syncStatus
-      <> newState TickObserved{chainSlot}
+    newState TickObserved{chainSlot}
+      <> handleOutOfSync env now chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
