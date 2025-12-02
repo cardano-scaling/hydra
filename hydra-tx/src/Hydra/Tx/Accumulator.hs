@@ -169,16 +169,15 @@ createMembershipProof ::
   -- | Common Reference String (CRS) for the cryptographic proof
   [Point2] ->
   -- | Returns a string: "Success: 0x..." or "Error: ..."
-  Text
+  ByteString
 createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
   -- Use getPolyCommitOverG2 to generate the proof
   case getPolyCommitOverG2 subsetElements fullAcc crs of
-    Left err -> "Error: " <> toText err
+    Left err -> "Error: " <> encodeUtf8 (toText err)
     Right proof ->
       -- Compress the Point2 to a ByteString and encode as hex
       let proofBytes = blsCompress proof
-          proofHex = decodeUtf8 $ Base16.encode proofBytes
-       in "Success: 0x" <> proofHex
+       in Base16.encode proofBytes
 
 -- | Create a membership proof from a UTxO subset.
 --
@@ -212,7 +211,7 @@ createMembershipProofFromUTxO ::
   -- | Common Reference String (CRS) for the cryptographic proof
   [Point2] ->
   -- | Returns a string: "Success: 0x..." or "Error: ..."
-  Text
+  ByteString
 createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
   -- Extract individual TxOut elements from the subset
   -- This matches how buildFromUTxO serializes each TxOut
