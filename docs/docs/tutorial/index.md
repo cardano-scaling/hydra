@@ -4,7 +4,7 @@ This tutorial demonstrates how to use `hydra-node` on Cardano's `preprod` testin
 
 This setup follows the [basic Hydra head](/topologies/basic) topology, establishing the 'green' Hydra head between `X` and `Y` as shown below:
 
-![](../../topologies/basic/basic-hydra-head.jpg)
+![](../../topologies/basic/basic-hydra-head.png)
 
 ## Prerequisites
 
