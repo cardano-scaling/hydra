@@ -1484,7 +1484,6 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         newState TickObserved{chainSlot}
-          -- XXX: Avoid repetition of handleOutOfSync and compose input handling better.
           <> handleOutOfSync env now chainTime syncStatus
           <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}

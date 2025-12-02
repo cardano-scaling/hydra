@@ -20,8 +20,6 @@ import Data.ByteString (hGetContents)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.HeadLogic.State (SeenSnapshot)
@@ -511,7 +509,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
   withPreparedHydraNodeInSync tracer workDir hydraNodeId opts action
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
--- config/.
+-- config and catching up with chain backend/.
 withHydraNodeCatchingUp ::
   HasCallStack =>
   Tracer IO HydraNodeLog ->

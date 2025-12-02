@@ -1181,7 +1181,8 @@ simulatedChainAndNetwork initialChainState = do
     rolledBackChainState <- atomically $ rollback localChainState chainSlot
     -- Yield rollback events
     ns <- readTVarIO nodes
-    forM_ ns $ \n -> handleChainEvent n Rollback{rolledBackChainState}
+    chainTime <- getCurrentTime
+    forM_ ns $ \n -> handleChainEvent n Rollback{chainTime, rolledBackChainState}
     -- Re-play the observation events
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev
