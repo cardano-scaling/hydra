@@ -47,6 +47,11 @@ jobs:
           DERIVATION=docs-unstable && \
           OUT_PATH=/unstable
 
+        # This is used by the yarn build to determine the version to write up
+        # the top, and otherwise determine if it's the unstable version or
+        # not.
+        # We need to use this specific scheme because
+        echo "export DOCS_VERSION=${DOCS_VERSION}" > docs/yarn.env
         nix build .#${DERIVATION}
 
         export out=/tmp/public/head-protocol${OUT_PATH}
