@@ -2334,7 +2334,7 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
           guard $ v ^? key "tag" == Just "Greetings"
           guard $ v ^? key "headStatus" == Just (toJSON Open)
           guard $ v ^? key "me" == Just (toJSON carol)
-          guard $ v ^? key "chainSyncedStatus" == Just (toJSON OutOfSync)
+          guard $ v ^? key "chainSyncedStatus" == Just (toJSON CatchingUp)
           guard $ isJust (v ^? key "hydraNodeVersion")
 
         -- Then, Carol attempts submits a new transaction,

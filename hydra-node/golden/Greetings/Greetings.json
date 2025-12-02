@@ -1,7 +1,7 @@
 {
     "samples": [
         {
-            "chainSyncedStatus": "OutOfSync",
+            "chainSyncedStatus": "CatchingUp",
             "env": {
                 "configuredPeers": "",
                 "contestationPeriod": 43200,

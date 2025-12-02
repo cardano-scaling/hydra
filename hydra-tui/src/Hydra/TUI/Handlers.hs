@@ -103,7 +103,7 @@ handleHydraEventsConnection now = \case
       chainSyncedStatusL
         .= case chainSyncedStatus of
           NodeState.InSync -> InSync
-          NodeState.OutOfSync -> OutOfSync
+          NodeState.CatchingUp -> CatchingUp
 
       if T.null configuredPeers
         then
@@ -137,7 +137,7 @@ handleHydraEventsConnection now = \case
     networkStateL .= Just NetworkDisconnected
     peersL %= map (\(h, _) -> (h, PeerIsUnknown))
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced}) -> do
-    chainSyncedStatusL .= OutOfSync
+    chainSyncedStatusL .= CatchingUp
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced}) -> do
     chainSyncedStatusL .= InSync
   e -> zoom headStateL $ handleHydraEventsHeadState now e

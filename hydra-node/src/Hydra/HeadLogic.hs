@@ -1341,11 +1341,11 @@ handleOutOfSync Environment{contestationPeriod} now chainTime syncStatus
   | chainTime `plus` CP.unsyncedPolicy contestationPeriod < now =
       case syncStatus of
         InSync -> newState NodeUnsynced
-        OutOfSync -> noop
+        CatchingUp -> noop
   | otherwise =
       case syncStatus of
         InSync -> noop
-        OutOfSync -> newState NodeSynced
+        CatchingUp -> newState NodeSynced
  where
   plus = flip addUTCTime
 

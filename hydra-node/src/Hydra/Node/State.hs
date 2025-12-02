@@ -52,7 +52,7 @@ initNodeState chainState =
     , currentSlot = chainStateSlot chainState
     }
 
-data SyncedStatus = InSync | OutOfSync
+data SyncedStatus = InSync | CatchingUp
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
 instance Arbitrary SyncedStatus where
@@ -61,7 +61,7 @@ instance Arbitrary SyncedStatus where
 
 syncedStatus :: NodeState tx -> SyncedStatus
 syncedStatus NodeInSync{} = InSync
-syncedStatus NodeCatchingUp{} = OutOfSync
+syncedStatus NodeCatchingUp{} = CatchingUp
 
 -- | A deposit tracked by the protocol. The 'DepositStatus' determines whether
 -- it may be used for an incremental commit or not.

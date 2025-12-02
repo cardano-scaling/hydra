@@ -46,7 +46,7 @@ data IdentifiedState
 data NetworkState = NetworkConnected | NetworkDisconnected
 
 -- | Synchronization status of the hydra node to the cardano chain.
-data ChainSyncedStatus = InSync | OutOfSync
+data ChainSyncedStatus = InSync | CatchingUp
 
 data PeerStatus = PeerIsConnected | PeerIsDisconnected | PeerIsUnknown
 
@@ -222,7 +222,7 @@ emptyConnection =
     { me = Unidentified
     , peers = []
     , networkState = Nothing
-    , chainSyncedStatus = OutOfSync
+    , chainSyncedStatus = CatchingUp
     , headState = Idle
     }
 

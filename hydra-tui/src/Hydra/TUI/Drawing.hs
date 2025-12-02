@@ -296,8 +296,8 @@ drawChainSyncedState s =
         Disconnected{} -> withAttr negative $ txt "Unknown"
         Connected{connection = Connection{chainSyncedStatus}} ->
           case chainSyncedStatus of
-            InSync -> withAttr positive $ txt "Synced"
-            OutOfSync -> withAttr negative $ txt "CatchingUp"
+            InSync -> withAttr positive $ txt "InSync"
+            CatchingUp -> withAttr negative $ txt "CatchingUp"
     ]
 
 drawPeers :: ConnectedState -> [(Host, PeerStatus)] -> Widget n

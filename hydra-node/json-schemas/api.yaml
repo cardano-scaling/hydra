@@ -1504,6 +1504,7 @@ components:
             - $ref: "api.yaml#/components/messages/Decommit/payload"
             - $ref: "api.yaml#/components/messages/Recover/payload"
             - $ref: "api.yaml#/components/messages/Close/payload"
+            - $ref: "api.yaml#/components/messages/SafeClose/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
@@ -3160,7 +3161,7 @@ components:
       type: string
       enum:
         - InSync
-        - OutOfSync
+        - CatchingUp
 
     SequenceNumber:
       type: integer

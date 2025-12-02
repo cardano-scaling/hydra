@@ -212,7 +212,7 @@ spec = do
           , nodeHandle = HydraNodeHandle{stopNode, startNode}
           , blockTime
           } -> do
-            shouldEventuallyRender tuiTest "Synced" 10
+            shouldEventuallyRender tuiTest "InSync" 10
             -- We submit an init so the node observes it
             -- and starts tracking the chain from that point
             -- instead of from the tip.
@@ -225,7 +225,7 @@ spec = do
             shouldEventuallyRender tuiTest "CatchingUp" 10
             -- Wait for some blocks to roll forward
             threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 20 * blockTime)
-            shouldEventuallyRender tuiTest "Synced" 10
+            shouldEventuallyRender tuiTest "InSync" 10
 
   context "text rendering errors" $ do
     around setupNotEnoughFundsNodeAndTUI $ do
