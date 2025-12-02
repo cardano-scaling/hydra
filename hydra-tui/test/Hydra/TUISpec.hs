@@ -53,7 +53,7 @@ import HydraNode (
   HydraNodeLog,
   prepareHydraNode,
   withHydraNode,
-  withPreparedHydraNode,
+  withPreparedHydraNodeInSync,
  )
 import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
@@ -303,7 +303,7 @@ withHydraNodeHandle tracer tmpDir nodeId options action = do
     -- putMVar clientVar will block because it’s already full.
     startNode = do
       a <- asyncLabelled "hydra-node" $
-        withPreparedHydraNode tracer tmpDir nodeId options $ \client -> do
+        withPreparedHydraNodeInSync tracer tmpDir nodeId options $ \client -> do
           putMVar clientVar client
           -- keep async alive as long as node is running
           forever (threadDelay 1_000_000)

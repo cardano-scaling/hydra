@@ -438,6 +438,22 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
     , i /= hydraNodeId
     ]
 
+-- | Run a hydra-node with given 'RunOptions' and in sync with chain backend.
+withPreparedHydraNodeInSync ::
+  HasCallStack =>
+  Tracer IO HydraNodeLog ->
+  FilePath ->
+  Int ->
+  RunOptions ->
+  (HydraClient -> IO a) ->
+  IO a
+withPreparedHydraNodeInSync tracer workDir hydraNodeId runOptions action =
+  withPreparedHydraNode tracer workDir hydraNodeId runOptions action'
+ where
+  action' client = do
+    waitForNodesSynced tracer 1 $ client :| []
+    action client
+
 -- | Run a hydra-node with given 'RunOptions'.
 withPreparedHydraNode ::
   HasCallStack =>
@@ -492,6 +508,23 @@ withHydraNode ::
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
+  withPreparedHydraNodeInSync tracer workDir hydraNodeId opts action
+
+-- | Run a hydra-node with given 'ChainConfig' and using the config from
+-- config/.
+withHydraNodeCatchingUp ::
+  HasCallStack =>
+  Tracer IO HydraNodeLog ->
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  SigningKey HydraKey ->
+  [VerificationKey HydraKey] ->
+  [Int] ->
+  (HydraClient -> IO a) ->
+  IO a
+withHydraNodeCatchingUp tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
   withPreparedHydraNode tracer workDir hydraNodeId opts action
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
@@ -545,10 +578,9 @@ waitForNodesDisconnected tracer delay clients =
   waitFor tracer delay (toList clients) $
     output "NetworkDisconnected" []
 
-waitForNodesSynced :: ChainBackend backend => Tracer IO HydraNodeLog -> backend -> [HydraClient] -> IO ()
-waitForNodesSynced tracer backend clients = do
-  blockTime <- Backend.getBlockTime backend
-  waitFor tracer (5 * blockTime) clients $
+waitForNodesSynced :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesSynced tracer delay clients = do
+  waitFor tracer delay (toList clients) $
     output "NodeSynced" []
 
 data HydraNodeLog

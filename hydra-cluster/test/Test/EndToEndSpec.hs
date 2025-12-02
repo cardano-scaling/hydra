@@ -101,11 +101,10 @@ import HydraNode (
   waitFor,
   waitForAllMatch,
   waitForNodesConnected,
-  waitForNodesSynced,
   waitMatch,
   withHydraCluster,
   withHydraNode,
-  withPreparedHydraNode,
+  withPreparedHydraNodeInSync,
  )
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
@@ -214,7 +213,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] [] id
         let options' = options{persistenceRotateAfter = Just (Positive 10)}
         t1 <- getCurrentTime
-        diff2 <- withPreparedHydraNode (contramap FromHydraNode tracer) tmpDir 1 options' $ \_ -> do
+        diff2 <- withPreparedHydraNodeInSync (contramap FromHydraNode tracer) tmpDir 1 options' $ \_ -> do
           t2 <- getCurrentTime
           let diff = diffUTCTime t2 t1
           pure diff
@@ -407,7 +406,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               let hydraTracer = contramap FromHydraNode tracer
 
               withHydraCluster hydraTracer tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
-                waitForNodesSynced hydraTracer backend (toList nodes)
                 waitForNodesConnected hydraTracer 20 nodes
                 let [n1, n2, n3] = toList nodes
 
@@ -474,7 +472,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let hydraTracer = contramap FromHydraNode tracer
 
             withHydraCluster hydraTracer tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
-              waitForNodesSynced hydraTracer backend (toList nodes)
               waitForNodesConnected hydraTracer 20 nodes
               let [n1, n2, n3] = toList nodes
 
@@ -606,7 +603,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             (tip, aliceHeadId) <- withHydraNode hydraTracer aliceChainConfig tmp nodeId aliceSk [] [1] $ \n1 -> do
               seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
               tip <- Backend.queryTip backend
-              waitForNodesSynced hydraTracer backend [n1]
               send n1 $ input "Init" []
               headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
               return (tip, headId)
@@ -651,7 +647,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             withAliceNode $ \n1 -> do
               headId <- withBobNode $ \n2 -> do
-                waitForNodesSynced hydraTracer backend [n1, n2]
                 waitForNodesConnected hydraTracer 20 $ n1 :| [n2]
                 send n1 $ input "Init" []
                 headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
@@ -766,7 +761,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                   seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
-                  waitForNodesSynced hydraTracer backend [n1, n2]
                   send n1 $ input "Init" []
                   headIdAliceOnly <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
 
@@ -801,7 +795,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   withHydraNode hydraTracer carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
                     seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-                    waitForNodesSynced hydraTracer backend [n1, n2, n3]
                     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
                     send n1 $ input "Init" []
                     void $ waitForAllMatch 3 [n1] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
@@ -870,7 +863,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let contestationPeriod = 2
             aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
             withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \n1 -> do
-              waitForNodesSynced hydraTracer backend [n1]
               send n1 $ input "Init" []
 
             let logFilePath = dir </> "logs" </> "hydra-node-1.log"
@@ -889,7 +881,6 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
 
     -- Funds to be used as fuel by Hydra protocol transactions
     seedFromFaucet_ backend aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
-    waitForNodesSynced hydraTracer backend [n1]
     send n1 $ input "Init" []
     headId <-
       waitForAllMatch 10 [n1] $
@@ -957,7 +948,6 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
         Direct DirectOptions{nodeSocket} -> nodeSocket
         _ -> error "Unexpected Blockfrost backend"
   withHydraCluster hydraTracer tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
-    waitForNodesSynced hydraTracer backend (toList nodes)
     let [n1, n2, n3] = toList nodes
     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
@@ -1074,7 +1064,6 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
         _ -> error "Unexpected Blockfrost backend"
 
   withHydraCluster hydraTracer tmpDir nodeSocket' 1 [aliceKeys] [aliceSk] hydraScriptsTxId contestationPeriod $ \nodes -> do
-    waitForNodesSynced hydraTracer backend (toList nodes)
     let [node] = toList nodes
     waitForNodesConnected hydraTracer 20 $ node :| []
 

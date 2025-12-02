@@ -53,7 +53,6 @@ import HydraNode (
   waitFor,
   waitForAllMatch,
   waitForNodesConnected,
-  waitForNodesSynced,
   waitMatch,
   waitNoMatch,
   withConnectionToNodeHost,
@@ -266,7 +265,6 @@ scenarioSetup tracer tmpDir action = do
     let hydraTracer = contramap FromHydraNode tracer
 
     withHydraCluster hydraTracer tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
-      waitForNodesSynced hydraTracer backend (toList nodes)
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
