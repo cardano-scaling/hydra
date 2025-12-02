@@ -43,10 +43,7 @@
         pkgs.weeder
         pkgs.yarn
         pkgs.yq
-      ] ++
-      # `dool` is required by the benchmark tests; but it's not supported on
-      # darwin; so we just don't include it.
-      (pkgs.lib.optionals pkgs.hostPlatform.isLinux [ pkgs.dool ]);
+      ];
 
       libs = [
         pkgs.glibcLocales
