@@ -53,7 +53,7 @@ const config = {
   baseUrl: BASE_URL,
   // Note: This gives warnings about the haddocks; but actually they are
   // present. If you are concerned, please check the links manually!
-  onBrokenLinks: "throw",
+  onBrokenLinks: "warn",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/hydra.png",
   organizationName: "Input Output",
