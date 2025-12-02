@@ -53,7 +53,7 @@ import HydraNode (
   HydraNodeLog,
   prepareHydraNode,
   withHydraNode,
-  withPreparedHydraNodeInSync,
+  withPreparedHydraNode,
  )
 import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
@@ -220,7 +220,7 @@ spec = do
             shouldEventuallyRender tuiTest "Initializing" 10
             stopNode
             -- Wait for some blocks to roll forward
-            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 50 * blockTime)
+            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 100 * blockTime)
             startNode
             shouldEventuallyRender tuiTest "CatchingUp" 10
             -- Wait for some blocks to roll forward
@@ -303,7 +303,7 @@ withHydraNodeHandle tracer tmpDir nodeId options action = do
     -- putMVar clientVar will block because it’s already full.
     startNode = do
       a <- asyncLabelled "hydra-node" $
-        withPreparedHydraNodeInSync tracer tmpDir nodeId options $ \client -> do
+        withPreparedHydraNode tracer tmpDir nodeId options $ \client -> do
           putMVar clientVar client
           -- keep async alive as long as node is running
           forever (threadDelay 1_000_000)
