@@ -2170,7 +2170,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
       -- Carol reconnects with healthy reconfigured node
-      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+      withHydraNodeCatchingUp hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         waitMatch 20 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "Greetings"
           guard $ v ^? key "headStatus" == Just (toJSON Open)
