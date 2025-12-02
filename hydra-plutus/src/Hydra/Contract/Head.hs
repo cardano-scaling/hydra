@@ -670,7 +670,7 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
 
   decommitUtxoHash = hashTxOuts $ L.take numberOfDecommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
 
-  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline} = closedDatum
+  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, accumulatorHash, proof} = closedDatum
 
   TxInfo{txInfoOutputs} = txInfo
 
