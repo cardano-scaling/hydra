@@ -63,6 +63,7 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: tfinal
   , accumulatorHash :: Hash
   -- ^ Spec: ηA. Digest of the accumulator
+  , proof :: BuiltinBLS12_381_G2_Element
   }
   deriving stock (Generic, Show)
 
@@ -82,7 +83,8 @@ data CloseRedeemer
     CloseInitial
   | -- | Any snapshot which doesn't contain anything to inc/decrement but snapshot number is higher than zero.
     CloseAny
-      {signature :: [Signature]}
+      { signature :: [Signature]
+      }
   | -- | Closing snapshot refers to the current state version
     CloseUnusedDec
       { signature :: [Signature]
@@ -183,6 +185,7 @@ data Input
       { numberOfFanoutOutputs :: Integer
       , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
+      , crs :: [BuiltinBLS12_381_G1_Element]
       }
   deriving stock (Generic, Show)
 
