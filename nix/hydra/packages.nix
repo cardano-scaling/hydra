@@ -203,8 +203,6 @@
               hydra-node
               pkgs.cardano-node
               pkgs.cardano-cli
-            ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-              pkgs.dool
             ];
         };
 
