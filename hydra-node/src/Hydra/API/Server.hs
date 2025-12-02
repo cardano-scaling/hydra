@@ -116,6 +116,7 @@ withAPIServer config env stateFile party eventSource tracer chain pparams server
                   update nodeStateP stateChanged
                   update commitInfoP stateChanged
                   update pendingDepositsP stateChanged
+                  update networkInfoP stateChanged
             )
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
