@@ -99,12 +99,11 @@ handleHydraEventsConnection now = \case
           }
       ) -> do
       meL .= Identified me
+      networkStateL .= if networkConnected then Just NetworkConnected else Just NetworkDisconnected
       chainSyncedStatusL
         .= case chainSyncedStatus of
           NodeState.InSync -> InSync
           NodeState.OutOfSync -> OutOfSync
-
-      networkStateL .= if networkConnected then Just NetworkConnected else Just NetworkDisconnected
 
       if T.null configuredPeers
         then

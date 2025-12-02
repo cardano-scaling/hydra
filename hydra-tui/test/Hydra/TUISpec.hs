@@ -212,16 +212,19 @@ spec = do
           , nodeHandle = HydraNodeHandle{stopNode, startNode}
           , blockTime
           } -> do
-            threadDelay 1
             shouldEventuallyRender tuiTest "Synced" 10
+            -- We submit an init so the node observes it
+            -- and starts tracking the chain from that point
+            -- instead of from the tip.
+            sendInputEvent tuiTest $ EvKey (KChar 'i') []
+            shouldEventuallyRender tuiTest "Initializing" 10
             stopNode
             -- Wait for some blocks to roll forward
-            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 90 * blockTime)
+            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 50 * blockTime)
             startNode
-            threadDelay 1
             shouldEventuallyRender tuiTest "CatchingUp" 10
             -- Wait for some blocks to roll forward
-            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 10 * blockTime)
+            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 20 * blockTime)
             shouldEventuallyRender tuiTest "Synced" 10
 
   context "text rendering errors" $ do
@@ -249,7 +252,7 @@ shouldEventuallyRender TUITest{shouldRender} expected waitFor = do
         now <- getCurrentTime
         if now < deadline
           then do
-            threadDelay 0.1
+            threadDelay 0.0001
             go deadline
           else
             throwIO err
