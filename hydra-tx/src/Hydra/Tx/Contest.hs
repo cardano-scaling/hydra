@@ -21,6 +21,7 @@ import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxNa
 import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
+import PlutusTx.Builtins (bls12_381_G2_uncompress)
 
 import Hydra.Plutus.Orphans ()
 
@@ -124,6 +125,19 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       then closedContestationDeadline
       else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
 
+  proof =
+    let snapshotUTxO =
+          utxo
+            <> case contestRedeemer of
+              Head.ContestUsedInc{} ->
+                fromMaybe mempty utxoToCommit
+              Head.ContestUnusedDec{} ->
+                fromMaybe mempty utxoToDecommit
+              _ -> mempty
+     in bls12_381_G2_uncompress $
+          toBuiltin $
+            Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator Accumulator.defaultCRS
+
   headDatumAfter =
     mkTxOutDatumInline $
       Head.Closed
@@ -147,6 +161,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , contesters = contester : closedContesters
           , version = toInteger openVersion
           , accumulatorHash = toBuiltin contestAccumulatorHash
+          , proof
           }
    where
     contestAccumulatorHash = Accumulator.getAccumulatorHash accumulator

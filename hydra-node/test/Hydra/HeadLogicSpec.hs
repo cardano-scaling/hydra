@@ -51,6 +51,7 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUn
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
 import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -2036,7 +2037,6 @@ getState = nodeState <$> get
 -- | Calls 'update' and 'aggregate' to drive the 'runHeadLogic' monad forward.
 step ::
   (MonadState (StepState tx) m, IsChainState tx, MonadTime m) =>
-  (MonadState (StepState tx) m, IsChainState tx, HasAccumulatorElement tx) =>
   Input tx ->
   m (Outcome tx)
 step input = do
