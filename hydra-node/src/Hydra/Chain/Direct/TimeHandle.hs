@@ -95,11 +95,11 @@ mkTimeHandle currentSlotNo systemStart eraHistory = do
 
 -- | Query the chain for system start and era history before constructing a
 -- 'TimeHandle' using the slot at the tip of the network.
-queryTimeHandle :: ChainBackend backend => backend -> IO TimeHandle
-queryTimeHandle backend = do
-  tip <- queryTip backend
-  systemStart <- querySystemStart backend QueryTip
-  eraHistory <- queryEraHistory backend QueryTip
+queryTimeHandle :: ChainBackend m => m TimeHandle
+queryTimeHandle = do
+  tip <- queryTip
+  systemStart <- querySystemStart QueryTip
+  eraHistory <- queryEraHistory QueryTip
   currentTipSlot <-
     case tip of
       ChainPointAtGenesis -> pure $ SlotNo 0

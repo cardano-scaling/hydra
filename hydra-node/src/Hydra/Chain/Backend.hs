@@ -13,26 +13,25 @@ import Hydra.Tx (ScriptRegistry)
 blockfrostProjectPath :: FilePath
 blockfrostProjectPath = "blockfrost-project.txt"
 
-class ChainBackend a where
-  queryGenesisParameters :: (MonadIO m, MonadThrow m) => a -> m (GenesisParameters ShelleyEra)
-  queryScriptRegistry :: (MonadIO m, MonadThrow m) => a -> [TxId] -> m ScriptRegistry
-  queryNetworkId :: (MonadIO m, MonadThrow m) => a -> m NetworkId
-  queryTip :: (MonadIO m, MonadThrow m) => a -> m ChainPoint
-  queryUTxO :: (MonadIO m, MonadThrow m) => a -> [Address ShelleyAddr] -> m UTxO
-  queryUTxOByTxIn :: (MonadIO m, MonadThrow m) => a -> [TxIn] -> m UTxO
-  queryEraHistory :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m EraHistory
-  querySystemStart :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m SystemStart
-  queryProtocolParameters :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m (PParams LedgerEra)
-  queryStakePools :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> m (Set PoolId)
-  queryUTxOFor :: (MonadIO m, MonadThrow m) => a -> CardanoClient.QueryPoint -> VerificationKey PaymentKey -> m UTxO
-  submitTransaction :: (MonadIO m, MonadThrow m) => a -> Tx -> m ()
-  awaitTransaction :: (MonadIO m, MonadThrow m) => a -> Tx -> VerificationKey PaymentKey -> m UTxO
-  getOptions :: a -> ChainBackendOptions
-  getBlockTime :: a -> (MonadIO m, MonadThrow m) => m NominalDiffTime
+class (MonadIO m, MonadThrow m) => ChainBackend m where
+  queryGenesisParameters :: m (GenesisParameters ShelleyEra)
+  queryScriptRegistry :: [TxId] -> m ScriptRegistry
+  queryNetworkId :: m NetworkId
+  queryTip :: m ChainPoint
+  queryUTxO :: [Address ShelleyAddr] -> m UTxO
+  queryUTxOByTxIn :: [TxIn] -> m UTxO
+  queryEraHistory :: CardanoClient.QueryPoint -> m EraHistory
+  querySystemStart :: CardanoClient.QueryPoint -> m SystemStart
+  queryProtocolParameters :: CardanoClient.QueryPoint -> m (PParams LedgerEra)
+  queryStakePools :: CardanoClient.QueryPoint -> m (Set PoolId)
+  queryUTxOFor :: CardanoClient.QueryPoint -> VerificationKey PaymentKey -> m UTxO
+  submitTransaction :: Tx -> m ()
+  awaitTransaction :: Tx -> VerificationKey PaymentKey -> m UTxO
+  getOptions :: m ChainBackendOptions
+  getBlockTime :: m NominalDiffTime
 
 buildTransaction ::
-  ChainBackend backend =>
-  backend ->
+  (MonadReader backend m, ChainBackend m) =>
   -- | Change address to send
   AddressInEra ->
   -- | Unspent transaction outputs to spend.
@@ -41,14 +40,13 @@ buildTransaction ::
   [TxIn] ->
   -- | Outputs to create.
   [TxOut CtxTx] ->
-  IO (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransaction backend changeAddress body utxoToSpend outs = do
-  pparams <- queryProtocolParameters backend CardanoClient.QueryTip
-  buildTransactionWithPParams pparams backend changeAddress body utxoToSpend outs Nothing
+  m (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransaction changeAddress body utxoToSpend outs = do
+  pparams <- queryProtocolParameters CardanoClient.QueryTip
+  buildTransactionWithPParams pparams changeAddress body utxoToSpend outs Nothing
 
 buildTransactionWithMintingScript ::
-  ChainBackend backend =>
-  backend ->
+  (MonadReader backend m, ChainBackend m) =>
   -- | Change address to send
   AddressInEra ->
   -- | Unspent transaction outputs to spend.
@@ -58,10 +56,10 @@ buildTransactionWithMintingScript ::
   -- | Outputs to create.
   [TxOut CtxTx] ->
   Maybe PlutusScript ->
-  IO (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransactionWithMintingScript backend changeAddress body utxoToSpend outs mintingScript = do
-  pparams <- queryProtocolParameters backend CardanoClient.QueryTip
-  buildTransactionWithPParams pparams backend changeAddress body utxoToSpend outs mintingScript
+  m (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransactionWithMintingScript changeAddress body utxoToSpend outs mintingScript = do
+  pparams <- queryProtocolParameters CardanoClient.QueryTip
+  buildTransactionWithPParams pparams changeAddress body utxoToSpend outs mintingScript
 
 -- | Construct a simple payment consuming some inputs and producing some
 -- outputs (no certificates or withdrawals involved).
@@ -69,10 +67,9 @@ buildTransactionWithMintingScript backend changeAddress body utxoToSpend outs mi
 -- On success, the returned transaction is fully balanced. On error, return
 -- `TxBodyErrorAutoBalance`.
 buildTransactionWithPParams ::
-  ChainBackend backend =>
+  ChainBackend m =>
   -- | Protocol parameters
   PParams LedgerEra ->
-  backend ->
   -- | Change address to send
   AddressInEra ->
   -- | Unspent transaction outputs to spend.
@@ -82,11 +79,11 @@ buildTransactionWithPParams ::
   -- | Outputs to create.
   [TxOut CtxTx] ->
   Maybe PlutusScript ->
-  IO (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransactionWithPParams pparams backend changeAddress utxoToSpend collateral outs mintingScript = do
-  systemStart <- querySystemStart backend CardanoClient.QueryTip
-  eraHistory <- queryEraHistory backend CardanoClient.QueryTip
-  stakePools <- queryStakePools backend CardanoClient.QueryTip
+  m (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransactionWithPParams pparams changeAddress utxoToSpend collateral outs mintingScript = do
+  systemStart <- querySystemStart CardanoClient.QueryTip
+  eraHistory <- queryEraHistory CardanoClient.QueryTip
+  stakePools <- queryStakePools CardanoClient.QueryTip
   pure $ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs mintingScript
 
 -- | NOTE: If there are any non ADA assets present in the output 'Value' and

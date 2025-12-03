@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
@@ -36,9 +37,9 @@ import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
 
-newtype BlockfrostBackend = BlockfrostBackend {options :: BlockfrostOptions} deriving (Eq, Show)
+newtype BlockfrostBackend m a = BlockfrostBackend {options :: ReaderT BlockfrostOptions m a} deriving (Functor, Applicative, Monad, MonadReader BlockfrostOptions)
 
-instance ChainBackend BlockfrostBackend where
+instance MonadReader BlockfrostOptions m => ChainBackend m where
   queryGenesisParameters (BlockfrostBackend BlockfrostOptions{projectPath}) = do
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
