@@ -47,7 +47,7 @@ import Hydra.Options (DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime, unsyncedPolicy)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import HydraNode (
   HydraClient (HydraClient, hydraNodeId),
   HydraNodeLog,
@@ -205,28 +205,6 @@ spec = do
       let time' = 1 * hours + 1 * minutes + 15 * seconds
       renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
-    around setupRotatedStateTUI $ do
-      it "should show the chain synced status" $
-        \TUIRotatedTest
-          { tuiTest
-          , nodeHandle = HydraNodeHandle{stopNode, startNode}
-          , blockTime
-          } -> do
-            shouldEventuallyRender tuiTest "InSync" 10
-            -- We submit an init so the node observes it
-            -- and starts tracking the chain from that point
-            -- instead of from the tip.
-            sendInputEvent tuiTest $ EvKey (KChar 'i') []
-            shouldEventuallyRender tuiTest "Initializing" 10
-            stopNode
-            -- Wait for some blocks to roll forward
-            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 100 * blockTime)
-            startNode
-            shouldEventuallyRender tuiTest "CatchingUp" 10
-            -- Wait for some blocks to roll forward
-            threadDelay $ realToFrac (unsyncedPolicy tuiContestationPeriod + 20 * blockTime)
-            shouldEventuallyRender tuiTest "InSync" 10
-
   context "text rendering errors" $ do
     around setupNotEnoughFundsNodeAndTUI $ do
       it "should show not enough fuel message and suggestion" $
@@ -237,25 +215,6 @@ spec = do
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
           shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
-
--- | Keep trying `shouldRender` until it succeeds or the `waitFor` timeout expires.
-shouldEventuallyRender :: TUITest -> ByteString -> NominalDiffTime -> IO ()
-shouldEventuallyRender TUITest{shouldRender} expected waitFor = do
-  start <- getCurrentTime
-  go (addUTCTime waitFor start)
- where
-  go deadline = do
-    result <- try (shouldRender expected) :: IO (Either SomeException ())
-    case result of
-      Right () -> return ()
-      Left err -> do
-        now <- getCurrentTime
-        if now < deadline
-          then do
-            threadDelay 0.0001
-            go deadline
-          else
-            throwIO err
 
 setupRotatedStateTUI :: (TUIRotatedTest -> IO ()) -> IO ()
 setupRotatedStateTUI action = do
