@@ -1338,6 +1338,9 @@ handleOutOfSync ::
   SyncedStatus ->
   Outcome tx
 handleOutOfSync Environment{contestationPeriod} now chainTime syncStatus
+  -- We consider the node out of sync when:
+  -- the last observed chainTime plus the delta allowed by the unsyncedPolicy
+  -- falls behind the current system time.
   | chainTime `plus` CP.unsyncedPolicy contestationPeriod < now =
       case syncStatus of
         InSync -> newState NodeUnsynced
