@@ -74,6 +74,7 @@ channels:
         oneOf:
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/CommandFailed"
+          - $ref: "api.yaml#/components/messages/RejectedInput"
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
@@ -104,6 +105,8 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
           - $ref: "api.yaml#/components/messages/EventLogRotated"
+          - $ref: "api.yaml#/components/messages/NodeUnsynced"
+          - $ref: "api.yaml#/components/messages/NodeSynced"
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
@@ -226,6 +229,7 @@ channels:
         Possible responses of this endpoint are:
           * 200 OK
           * 400 Bad Request
+          * 503 Service Unavailable
       message:
         payload:
           type: string
@@ -283,7 +287,9 @@ channels:
 
         Possible responses of this endpoint are:
           * 200: OK
+          * 400: when head is not open
           * 404: when head was never open
+          * 503: when head is out of sync with chain
       operationId: sideLoadSnapshotRequest
       message:
         $ref: "api.yaml#/components/messages/SideLoadSnapshotRequest"
@@ -332,6 +338,7 @@ channels:
         Possible responses of this endpoint are:
           * String - 200 OK
           * String - 400 bad request
+          * String - 503 service unavailable
       message:
         payload:
             $ref: "api.yaml#/components/messages/DecommitResponse"
@@ -438,6 +445,18 @@ channels:
                 type: string
                 enum: ["SubmitTxInvalid"]
               validationError:
+                type: string
+        - name: SubmitTxRejected
+          summary: 503 Bad Request
+          description: Transaction was rejected due to node out of sync.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["SubmitTxRejected"]
+              reason:
                 type: string
         - name: SubmitTxSubmitted
           summary: 202 Accepted
@@ -715,6 +734,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/CommandFailed"
 
+    RejectedInput:
+      title: RejectedInput
+      description: |
+        Emitted by the server when a well-formed client input was not processable because the node-state is catching up with the chain-state.
+      payload:
+        $ref: "api.yaml#/components/schemas/RejectedInput"
+
     IgnoredHeadInitializing:
       title: IgnoredHeadInitializing
       description: |
@@ -795,6 +821,20 @@ components:
         The node event log file has been rotated. The current aggregated head state is used as the checkpoint event to resume from.
       payload:
         $ref: "api.yaml#/components/schemas/EventLogRotated"
+
+    NodeUnsynced:
+      title: NodeUnsynced
+      description: |
+        The node-state is out of sync with the chain state and insecure to be used.
+      payload:
+        $ref: "api.yaml#/components/schemas/NodeUnsynced"
+
+    NodeSynced:
+      title: NodeSynced
+      description: |
+        The node-state is in sync with the chain state and secure to be used.
+      payload:
+        $ref: "api.yaml#/components/schemas/NodeSynced"
 
     # Other messages
 
@@ -880,11 +920,14 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
         - $ref: "api.yaml#/components/schemas/EventLogRotated"
+        - $ref: "api.yaml#/components/schemas/NodeUnsynced"
+        - $ref: "api.yaml#/components/schemas/NodeSynced"
 
     ClientMessage:
       oneOf:
         - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
         - $ref: "api.yaml#/components/schemas/CommandFailed"
+        - $ref: "api.yaml#/components/schemas/RejectedInput"
 
     Greetings:
       type: object
@@ -895,6 +938,7 @@ components:
         - hydraNodeVersion
         - env
         - networkInfo
+        - chainSyncedStatus
       properties:
         tag:
           type: string
@@ -913,6 +957,10 @@ components:
           $ref: "api.yaml#/components/schemas/HydraNodeVersion"
         env:
           $ref: "api.yaml#/components/schemas/Environment"
+        networkInfo:
+          $ref: "api.yaml#/components/schemas/NetworkInfo"
+        chainSyncedStatus:
+          $ref: "api.yaml#/components/schemas/SyncedStatus"
 
     # Client inputs
 
@@ -1419,6 +1467,7 @@ components:
       required:
       - tag
       - clientInput
+      - state
       properties:
         tag:
           type: string
@@ -1435,6 +1484,32 @@ components:
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
+        state:
+          $ref: "api.yaml#/components/schemas/HeadState"
+
+    RejectedInput:
+      type: object
+      required:
+      - tag
+      - clientInput
+      properties:
+        tag:
+          type: string
+          enum: ["RejectedInput"]
+        clientInput:
+          oneOf:
+            - $ref: "api.yaml#/components/messages/Init/payload"
+            - $ref: "api.yaml#/components/messages/Abort/payload"
+            - $ref: "api.yaml#/components/messages/NewTx/payload"
+            - $ref: "api.yaml#/components/messages/Decommit/payload"
+            - $ref: "api.yaml#/components/messages/Recover/payload"
+            - $ref: "api.yaml#/components/messages/Close/payload"
+            - $ref: "api.yaml#/components/messages/SafeClose/payload"
+            - $ref: "api.yaml#/components/messages/Contest/payload"
+            - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
+        reason:
+          type: string
 
     IgnoredHeadInitializing:
       type: object
@@ -1817,6 +1892,44 @@ components:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         checkpoint:
           $ref: "api.yaml#/components/schemas/NodeState"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NodeUnsynced:
+      title: NodeUnsynced
+      description: |
+        The node-state is out of sync with chain-state and insecure to be used.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NodeUnsynced"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NodeSynced:
+      title: NodeSynced
+      description: |
+        The node-state is in sync with chain-state and secure to be used.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NodeSynced"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
@@ -3042,6 +3155,14 @@ components:
             "127.0.0.1:5000": true
             "peer.local:5001": false
 
+    SyncedStatus:
+      description: |
+        L2 Hydra chain status information.
+      type: string
+      enum:
+        - InSync
+        - CatchingUp
+
     SequenceNumber:
       type: integer
       minimum: 0
@@ -3455,23 +3576,51 @@ components:
           $ref: "api.yaml#/components/schemas/DepositStatus"
 
     NodeState:
-      type: object
-      additionalProperties: false
-      required:
-        - headState
-        - pendingDeposits
-        - currentSlot
-      properties:
-        headState:
-          $ref: "api.yaml#/components/schemas/HeadState"
-        pendingDeposits:
+      oneOf:
+        - title: NodeInSync
           type: object
-          propertyNames:
-            $ref: "api.yaml#/components/schemas/TxId"
-          items:
-            $ref: "api.yaml#/components/schemas/Deposit"
-        currentSlot:
-          $ref: "api.yaml#/components/schemas/ChainSlot"
+          additionalProperties: false
+          required:
+            - tag
+            - headState
+            - pendingDeposits
+            - currentSlot
+          properties:
+            tag:
+              type: string
+              enum: ["NodeInSync"]
+            headState:
+              $ref: "api.yaml#/components/schemas/HeadState"
+            pendingDeposits:
+              type: object
+              propertyNames:
+                $ref: "api.yaml#/components/schemas/TxId"
+              items:
+                $ref: "api.yaml#/components/schemas/Deposit"
+            currentSlot:
+              $ref: "api.yaml#/components/schemas/ChainSlot"
+        - title: NodeCatchingUp
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headState
+            - pendingDeposits
+            - currentSlot
+          properties:
+            tag:
+              type: string
+              enum: ["NodeCatchingUp"]
+            headState:
+              $ref: "api.yaml#/components/schemas/HeadState"
+            pendingDeposits:
+              type: object
+              propertyNames:
+                $ref: "api.yaml#/components/schemas/TxId"
+              items:
+                $ref: "api.yaml#/components/schemas/Deposit"
+            currentSlot:
+              $ref: "api.yaml#/components/schemas/ChainSlot"
 
     SubmitL2TxResponse:
       oneOf:
@@ -3499,6 +3648,18 @@ components:
               type: string
               enum: ["SubmitTxInvalid"]
             validationError:
+              type: string
+        - title: SubmitTxRejected
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - reason
+          properties:
+            tag:
+              type: string
+              enum: ["SubmitTxRejected"]
+            reason:
               type: string
         - title: SubmitTxSubmitted
           type: object

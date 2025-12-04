@@ -56,6 +56,7 @@ drawScreenShortLog CardanoClient{networkId} Client{sk} s =
                       , drawMyAddress $ mkVkAddress networkId (getVerificationKey sk)
                       , drawConnectedStatus s
                       , drawNetworkState (s ^. connectedStateL)
+                      , drawChainSyncedState (s ^. connectedStateL)
                       , hBorder
                       , drawIfConnected (drawPeers (s ^. connectedStateL) . peers) (s ^. connectedStateL)
                       , hBorder
@@ -285,6 +286,18 @@ drawNetworkState s =
             Nothing -> withAttr negative $ txt "Unknown"
             Just NetworkConnected -> withAttr positive $ txt "Connected"
             Just NetworkDisconnected -> withAttr negative $ txt "Disconnected"
+    ]
+
+drawChainSyncedState :: ConnectedState -> Widget n
+drawChainSyncedState s =
+  hBox
+    [ txt "Chain: "
+    , case s of
+        Disconnected{} -> withAttr negative $ txt "Unknown"
+        Connected{connection = Connection{chainSyncedStatus}} ->
+          case chainSyncedStatus of
+            InSync -> withAttr positive $ txt "InSync"
+            CatchingUp -> withAttr negative $ txt "CatchingUp"
     ]
 
 drawPeers :: ConnectedState -> [(Host, PeerStatus)] -> Widget n

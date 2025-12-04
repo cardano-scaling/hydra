@@ -28,6 +28,7 @@ import Hydra.Node (
   DraftHydraNode,
   HydraNode (..),
   HydraNodeLog (..),
+  NodeStateHandler (..),
   checkHeadState,
   connect,
   hydrate,
@@ -333,11 +334,15 @@ spec = parallel $ do
       entries <- fmap Logging.message <$> readTVarIO logs
       entries `shouldSatisfy` any isContestationPeriodMismatch
 
--- | Add given list of inputs to the 'InputQueue'. This is returning the node to
--- allow for chaining with 'runToCompletion'.
-primeWith :: Monad m => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
-primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}} = do
-  forM_ inputs enqueue
+-- | Add given list of inputs to the 'InputQueue'. A preceding 'Tick' is enqueued
+-- to advance the chain slot and ensure the 'NodeState' is in sync. This is
+-- returning the node to allow for chaining with 'runToCompletion'.
+primeWith :: (MonadSTM m, MonadTime m) => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
+primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
+  now <- getCurrentTime
+  chainSlot <- currentSlot <$> atomically queryNodeState
+  let tick = ChainInput $ Tick now (chainSlot + 1)
+  forM_ (tick : inputs) enqueue
   pure node
 
 -- | Convert a 'DraftHydraNode' to a 'HydraNode' by providing mock implementations.
@@ -445,7 +450,7 @@ runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}} = go
 -- | Creates a full 'HydraNode' with given parameters and primed 'Input's. Note
 -- that this node is 'notConnect'ed to any components.
 testHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m, MonadUnliftIO m) =>
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m, MonadUnliftIO m) =>
   Tracer m (HydraNodeLog SimpleTx) ->
   SigningKey HydraKey ->
   [Party] ->

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [1.3.0] - UNRELEASED
+
+- **BREAKING** A Hydra node will now start rejecting both network and client inputs once its view of the chain has been out of sync for more than 50% of the configured `--contestation-period`, based on **system wall-clock time**.
+  - Added `NodeUnsynced` and `NodeSynced` state events and server outputs.
+  - Added `RejectedInput` client message.
+  - The `Checkpoint` event, and consequently the `EventLogRotated` server output, now carry the different `NodeState` variants: `NodeInSync` or `NodeCatchingUp`.
+  - `Greetings` message now also contains the hydra-node synced status to the chain backend.
+  - See [Issue #2286](https://github.com/cardano-scaling/hydra/issues/2286) and [PR #2290](https://github.com/cardano-scaling/hydra/pull/2290).
 
 ## [1.2.0] - 2025.11.28
 
@@ -18,7 +26,6 @@ changes.
 - `hydra-node` has a new endpoint `GET /head-initialization` which serves the timestamp of the last Head initialization.
 
 - Tested with `cardano-node 10.5.3` and `cardano-cli 10.11.0.0`.
-
 
 ## [1.1.0] - 2025-10-28
 

@@ -82,6 +82,7 @@ import Hydra.Cluster.Scenarios (
   startWithWrongPeers,
   threeNodesNoErrorsOnOpen,
   threeNodesWithMirrorParty,
+  waitsForChainInSyncAndSecure,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
@@ -103,7 +104,7 @@ import HydraNode (
   waitMatch,
   withHydraCluster,
   withHydraNode,
-  withPreparedHydraNode,
+  withPreparedHydraNodeInSync,
  )
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
@@ -212,7 +213,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] [] id
         let options' = options{persistenceRotateAfter = Just (Positive 10)}
         t1 <- getCurrentTime
-        diff2 <- withPreparedHydraNode (contramap FromHydraNode tracer) tmpDir 1 options' $ \_ -> do
+        diff2 <- withPreparedHydraNodeInSync (contramap FromHydraNode tracer) tmpDir 1 options' $ \_ -> do
           t2 <- getCurrentTime
           let diff = diffUTCTime t2 t1
           pure diff
@@ -413,6 +414,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
                 seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
+                -- Init head
                 send n1 $ input "Init" []
                 headId <-
                   waitForAllMatch 10 [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
@@ -646,7 +648,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             withAliceNode $ \n1 -> do
               headId <- withBobNode $ \n2 -> do
                 waitForNodesConnected hydraTracer 20 $ n1 :| [n2]
-
                 send n1 $ input "Init" []
                 headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
@@ -712,6 +713,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
               >>= canResumeOnMemberAlreadyBootstrapped tracer tmpDir backend
+
+      it "prevents network interactions until chain backend is in sync and secure." $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= waitsForChainInSyncAndSecure tracer tmpDir backend
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
@@ -1058,7 +1065,6 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
 
   withHydraCluster hydraTracer tmpDir nodeSocket' 1 [aliceKeys] [aliceSk] hydraScriptsTxId contestationPeriod $ \nodes -> do
     let [node] = toList nodes
-
     waitForNodesConnected hydraTracer 20 $ node :| []
 
     -- Funds to be used as fuel by Hydra protocol transactions
