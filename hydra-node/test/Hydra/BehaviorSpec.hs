@@ -1295,7 +1295,7 @@ withHydraNode' dp signingKey otherParties chain action = do
       defaultContestationPeriod
       dp
   withAsyncLabelled ("run-hydra-node", runHydraNode node) $ \_ -> do
-    -- XXX: await for the node to be in sync with the chain
+    -- await for the node to be in sync with the chain
     atomically $ do
       st <- queryNodeState
       case st of

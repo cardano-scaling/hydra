@@ -668,7 +668,7 @@ seedWorld seedKeys seedCP futureCommits = do
           testDepositPeriod
       nodeThread <- asyncLabelled ("seed-world-node-" <> shortLabel hsk) $ runHydraNode node
       link nodeThread
-      -- XXX: await for the node to be in sync with the chain before returning the client
+      -- await for the node to be in sync with the chain before returning the client
       atomically $ do
         st <- queryNodeState
         case st of
