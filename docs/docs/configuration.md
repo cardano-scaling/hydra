@@ -76,11 +76,30 @@ Beyond this period, the node will reject client inputs and refuse to process new
 
 For example, if the head has already closed on L1 but the node is behind the chain by more than the contestation period, it is unsafe to continue signing snapshots on L2, because the node may be unable to contest the head closing and those L2 interactions will become invalid and lost.
 
+In other words, _we can’t risk processing L2 actions while running out of time._
+
 :::warning
 A party must not go offline longer than the configured contestation period, otherwise it risks being unable to contest a head closing, violating the principle of head safety.
 :::
 
-This policy is based on **wall-clock time**, not the latest known chain tip, as it is unreliable while the chain backend is still synchronizing with the Cardano network.
+Using T/2 gives a clean safety property:
+
+  _"An in-sync Hydra node always has at least half the contestation period (T/2)
+  to observe and react to an on-chain event."_
+
+This margin:
+  - allow for backend or network lag,
+  - gives the node time to catch up,
+  - ensures it will see at least one new block within the full contestation period (T).
+
+> This policy is based on **wall-clock time**, not the latest known chain tip, as it is unreliable while the chain backend is still synchronizing with the Cardano network.
+
+As a rule of thumb:
+  * Large contestation ⇒ relaxed sync requirement
+    - Suitable for use-cases where blocks may be observed every large period of time.
+
+  * Low contestation ⇒ strict sync requirement
+    - Suitable for use-cases requiring fast and reliable networks where blocks are seen frequently.
 
 :::info
 The API server notifies clients whenever the node falls out of sync or returns to a synchronized state.
