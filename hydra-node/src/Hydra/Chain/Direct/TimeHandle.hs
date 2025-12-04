@@ -7,6 +7,7 @@ import Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Cardano.Slotting.Time (SystemStart (SystemStart), fromRelativeTime, toRelativeTime)
+import Data.Fixed (Pico)
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (EraHistory (EraHistory))
@@ -36,6 +37,10 @@ data TimeHandleParams = TimeHandleParams
   , currentSlot :: SlotNo
   }
 
+-- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
+safeZone :: Pico
+safeZone = 3 * 2160 / 0.05
+
 -- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
 -- a horizon at the returned SlotNo as well as some UTCTime before that
 genTimeParams :: Gen TimeHandleParams
@@ -45,8 +50,6 @@ genTimeParams = do
   uptimeSeconds <- getPositive <$> arbitrary
   -- it is ok to construct a slot from seconds here since on the devnet slot = 1s
   let currentSlotNo = SlotNo $ truncate $ uptimeSeconds + startSeconds
-      -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
-      safeZone = 3 * 2160 / 0.05
       horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
   pure $
     TimeHandleParams

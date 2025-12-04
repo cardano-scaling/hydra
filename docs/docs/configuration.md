@@ -65,6 +65,51 @@ Depending on the upper validity picked by `hydra-node` and the current network c
 Currently, the `hydra-node` does not handle this situation. Each client application should implement a retry mechanism based on the expected time for transaction inclusion.
 :::
 
+#### Node synchronization policy
+
+In addition to governing on-chain disputes, the contestation period is also used to determine when a Hydra node is considered **in sync** with the Cardano chain.
+
+:::important
+If a node has not observed a new block for **_half the contestation period_**, it is considered **out of sync** and transitions to a **catching up** state.
+Beyond this period, the node will reject client inputs and refuse to process new transactions or sign snapshots. This ensures that nodes process inputs only when their view of the chain is recent enough to safely enforce L2 interactions on L1, preserving head safety.
+:::
+
+For example, if the head has already closed on L1 but the node is behind the chain by more than the contestation period, it is unsafe to continue signing snapshots on L2, because the node may be unable to contest the head closing and those L2 interactions will become invalid and lost.
+
+In other words, _we can’t risk processing L2 actions while running out of time._
+
+:::warning
+A party must not go offline longer than the configured contestation period, otherwise it risks being unable to contest a head closing, violating the principle of head safety.
+:::
+
+Using T/2 gives a clean safety property:
+
+  _"An in-sync Hydra node always has at least half the contestation period (T/2)
+  to observe and react to an on-chain event."_
+
+This margin:
+  - allow for backend or network lag,
+  - gives the node time to catch up,
+  - ensures it will see at least one new block within the full contestation period (T).
+
+> This policy is based on **wall-clock time**, not the latest known chain tip, as it is unreliable while the chain backend is still synchronizing with the Cardano network.
+
+As a rule of thumb:
+
+  * Large contestation ⇒ relaxed sync requirement:
+    - Suitable when blocks may be observed every large period of time.
+    - **Availability requirement is low:** the node may be offline for longer periods
+      (up to half the contestation period) without falling out of sync.
+
+  * Low contestation ⇒ strict sync requirement:
+    - Suitable only for fast and reliable networks where blocks are seen frequently.
+    - **Availability requirement is high:** the node must not be offline for more
+      than half the contestation period to remain in sync.
+
+:::info
+The API server notifies clients whenever the node falls out of sync or returns to a synchronized state.
+:::
+
 ### Deposit period
 
 While not a protocol parameter, the deposit period (DP) can be set by any `hydra-node` to configure incremental commits to a head:

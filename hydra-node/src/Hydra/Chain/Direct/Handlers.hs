@@ -326,8 +326,14 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    rolledBackChainState <- atomically $ rollback (chainSlotFromPoint point)
-    callback Rollback{rolledBackChainState}
+    timeHandle <- getTimeHandle
+    let slotNo = fromMaybe 0 (chainPointToSlotNo point)
+    case slotToUTCTime timeHandle slotNo of
+      Left reason ->
+        throwIO TimeConversionException{slotNo, reason}
+      Right utcTime -> do
+        rolledBackChainState <- atomically $ rollback (chainSlotFromPoint point)
+        callback Rollback{rolledBackChainState, chainTime = utcTime}
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
   onRollForward header receivedTxs = do

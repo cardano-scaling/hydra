@@ -5,7 +5,7 @@ module HydraNode where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (STM, delete)
 
-import CardanoNode (cliQueryProtocolParameters)
+import CardanoNode (HydraBackend (..), cliQueryProtocolParameters, getHydraBackend)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
@@ -90,11 +90,9 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 setupBFDelay d = do
-  mBackend <- lookupEnv "HYDRA_BACKEND"
-  case mBackend of
-    Nothing -> pure d
-    Just backend ->
-      pure $ if backend == "blockfrost" then d * fromIntegral defaultBFQueryTimeout else d
+  getHydraBackend >>= \case
+    BlockfrostBackendType -> pure $ d * fromIntegral defaultBFQueryTimeout
+    _backend -> pure d
 
 -- | Wait some time for a single API server output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
@@ -436,6 +434,22 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
     , i /= hydraNodeId
     ]
 
+-- | Run a hydra-node with given 'RunOptions' and in sync with chain backend.
+withPreparedHydraNodeInSync ::
+  HasCallStack =>
+  Tracer IO HydraNodeLog ->
+  FilePath ->
+  Int ->
+  RunOptions ->
+  (HydraClient -> IO a) ->
+  IO a
+withPreparedHydraNodeInSync tracer workDir hydraNodeId runOptions action =
+  withPreparedHydraNode tracer workDir hydraNodeId runOptions action'
+ where
+  action' client = do
+    waitForNodesSynced tracer 1 $ client :| []
+    action client
+
 -- | Run a hydra-node with given 'RunOptions'.
 withPreparedHydraNode ::
   HasCallStack =>
@@ -490,6 +504,23 @@ withHydraNode ::
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
+  withPreparedHydraNodeInSync tracer workDir hydraNodeId opts action
+
+-- | Run a hydra-node with given 'ChainConfig' and using the config from
+-- config and catching up with chain backend/.
+withHydraNodeCatchingUp ::
+  HasCallStack =>
+  Tracer IO HydraNodeLog ->
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  SigningKey HydraKey ->
+  [VerificationKey HydraKey] ->
+  [Int] ->
+  (HydraClient -> IO a) ->
+  IO a
+withHydraNodeCatchingUp tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
   withPreparedHydraNode tracer workDir hydraNodeId opts action
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
@@ -502,16 +533,20 @@ withConnectionToNode tracer hydraNodeId =
 withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
 withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryParams action = do
   connectedOnce <- newIORef False
-  tryConnect connectedOnce (300 :: Int)
+  (retries, delay) <-
+    getHydraBackend >>= \case
+      DirectBackendType -> pure (200, 0.1)
+      BlockfrostBackendType -> pure (300, 1)
+  tryConnect connectedOnce (retries :: Int) delay
  where
-  tryConnect connectedOnce n
+  tryConnect connectedOnce n delay
     | n == 0 = failure $ "Timed out waiting for connection to hydra-node " <> show hydraNodeId
     | otherwise = do
         let
           retryOrThrow :: forall proxy e. Exception e => proxy e -> e -> IO a
           retryOrThrow _ e =
             readIORef connectedOnce >>= \case
-              False -> threadDelay 1 >> tryConnect connectedOnce (n - 1)
+              False -> threadDelay delay >> tryConnect connectedOnce (n - 1) delay
               True -> throwIO e
         doConnect connectedOnce
           `catches` [ Handler $ retryOrThrow (Proxy @IOException)
@@ -537,6 +572,11 @@ waitForNodesDisconnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpt
 waitForNodesDisconnected tracer delay clients =
   waitFor tracer delay (toList clients) $
     output "NetworkDisconnected" []
+
+waitForNodesSynced :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesSynced tracer delay clients = do
+  waitFor tracer delay (toList clients) $
+    output "NodeSynced" []
 
 data HydraNodeLog
   = HydraNodeCommandSpec {cmd :: Text}

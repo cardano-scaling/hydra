@@ -32,6 +32,7 @@ import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host, readHost)
 import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.State qualified as NodeState
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
@@ -94,11 +95,15 @@ handleHydraEventsConnection now = \case
           { me
           , env = Environment{configuredPeers}
           , networkInfo = NetworkInfo{networkConnected, peersInfo}
+          , chainSyncedStatus
           }
       ) -> do
       meL .= Identified me
-
       networkStateL .= if networkConnected then Just NetworkConnected else Just NetworkDisconnected
+      chainSyncedStatusL
+        .= case chainSyncedStatus of
+          NodeState.InSync -> InSync
+          NodeState.CatchingUp -> CatchingUp
 
       if T.null configuredPeers
         then
@@ -131,6 +136,10 @@ handleHydraEventsConnection now = \case
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkDisconnected}) -> do
     networkStateL .= Just NetworkDisconnected
     peersL %= map (\(h, _) -> (h, PeerIsUnknown))
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced}) -> do
+    chainSyncedStatusL .= CatchingUp
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced}) -> do
+    chainSyncedStatusL .= InSync
   e -> zoom headStateL $ handleHydraEventsHeadState now e
  where
   updatePeerStatus :: Host -> PeerStatus -> [(Host, PeerStatus)] -> [(Host, PeerStatus)]
@@ -228,6 +237,13 @@ handleHydraEventsInfo = \case
   Update (ApiClientMessage API.CommandFailed{clientInput}) -> do
     time <- liftIO getCurrentTime
     warn time $ "Invalid command: " <> show clientInput
+  Update (ApiClientMessage API.RejectedInput{clientInput, reason}) -> do
+    time <- liftIO getCurrentTime
+    warn time $ "Rejected command: " <> show clientInput <> " Reason: " <> show reason
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced}) -> do
+    warn time "Node state is out of sync with chain backend."
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced}) -> do
+    warn time "Node state is back in sync with chain backend."
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsClosed{snapshotNumber}}) ->
     info time $ "Head closed with snapshot number " <> show snapshotNumber
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsContested{snapshotNumber, contestationDeadline}}) ->
