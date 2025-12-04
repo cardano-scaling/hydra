@@ -213,6 +213,22 @@ findFileStartingAtDirectory maxDepth fileName = do
               then error "Reached root directory without finding the Blockfrost project file."
               else findInDir (depth - 1) parent
 
+data HydraBackend
+  = DefaultBackendType
+  | DirectBackendType
+  | BlockfrostBackendType
+  | UnknownBackendType Text
+  deriving (Eq, Show, Read)
+
+getHydraBackend :: IO HydraBackend
+getHydraBackend = do
+  backend <- lookupEnv "HYDRA_BACKEND"
+  pure $ case backend of
+    Nothing -> DefaultBackendType
+    Just "direct" -> DirectBackendType
+    Just "blockfrost" -> BlockfrostBackendType
+    Just other -> UnknownBackendType (Text.pack other)
+
 withBackend ::
   forall a.
   Tracer IO NodeLog ->
@@ -220,11 +236,11 @@ withBackend ::
   (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) ->
   IO a
 withBackend tracer stateDirectory action = do
-  backend <- lookupEnv "HYDRA_BACKEND"
-  case backend of
-    Just "direct" -> withCardanoNodeDevnet tracer stateDirectory action
-    Just "blockfrost" -> withBlockfrostBackend tracer stateDirectory action
-    _ -> withCardanoNodeDevnet tracer stateDirectory action
+  getHydraBackend >>= \case
+    DefaultBackendType -> withCardanoNodeDevnet tracer stateDirectory action
+    DirectBackendType -> withCardanoNodeDevnet tracer stateDirectory action
+    BlockfrostBackendType -> withBlockfrostBackend tracer stateDirectory action
+    UnknownBackendType _other -> withCardanoNodeDevnet tracer stateDirectory action
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::

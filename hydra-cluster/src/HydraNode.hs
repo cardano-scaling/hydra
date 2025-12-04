@@ -5,7 +5,7 @@ module HydraNode where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (STM, delete)
 
-import CardanoNode (cliQueryProtocolParameters)
+import CardanoNode (HydraBackend (..), cliQueryProtocolParameters, getHydraBackend)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
@@ -90,11 +90,9 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 setupBFDelay d = do
-  mBackend <- lookupEnv "HYDRA_BACKEND"
-  case mBackend of
-    Nothing -> pure d
-    Just backend ->
-      pure $ if backend == "blockfrost" then d * fromIntegral defaultBFQueryTimeout else d
+  getHydraBackend >>= \case
+    BlockfrostBackendType -> pure $ d * fromIntegral defaultBFQueryTimeout
+    _backend -> pure d
 
 -- | Wait some time for a single API server output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
@@ -535,11 +533,12 @@ withConnectionToNode tracer hydraNodeId =
 withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
 withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryParams action = do
   connectedOnce <- newIORef False
-  mBackend <- lookupEnv "HYDRA_BACKEND"
-  let (retries, delay) =
-        case mBackend of
-          Nothing -> (200, 0.1)
-          Just _ -> (300, 1)
+  (retries, delay) <-
+    getHydraBackend >>= \case
+      DefaultBackendType -> pure (200, 0.1)
+      DirectBackendType -> pure (300, 1)
+      BlockfrostBackendType -> pure (300, 1)
+      UnknownBackendType _other -> pure (300, 1)
   tryConnect connectedOnce (retries :: Int) delay
  where
   tryConnect connectedOnce n delay
