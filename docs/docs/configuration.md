@@ -95,11 +95,16 @@ This margin:
 > This policy is based on **wall-clock time**, not the latest known chain tip, as it is unreliable while the chain backend is still synchronizing with the Cardano network.
 
 As a rule of thumb:
-  * Large contestation ⇒ relaxed sync requirement
-    - Suitable for use-cases where blocks may be observed every large period of time.
 
-  * Low contestation ⇒ strict sync requirement
-    - Suitable for use-cases requiring fast and reliable networks where blocks are seen frequently.
+  * Large contestation ⇒ relaxed sync requirement:
+    - Suitable when blocks may be observed every large period of time.
+    - **Availability requirement is low:** the node may be offline for longer periods
+      (up to half the contestation period) without falling out of sync.
+
+  * Low contestation ⇒ strict sync requirement:
+    - Suitable only for fast and reliable networks where blocks are seen frequently.
+    - **Availability requirement is high:** the node must not be offline for more
+      than half the contestation period to remain in sync.
 
 :::info
 The API server notifies clients whenever the node falls out of sync or returns to a synchronized state.
