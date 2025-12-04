@@ -18,6 +18,8 @@ import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
+import Hedgehog.Gen (bytes)
+import Hedgehog.Range qualified as Range
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
@@ -30,6 +32,7 @@ import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture (pparams)
 import Test.QuickCheck (listOf, listOf1, oneof, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
+import Test.QuickCheck.Hedgehog (hedgehog)
 
 -- * TxOut
 
@@ -232,7 +235,7 @@ genUTxOWithSimplifiedAddresses =
 -- * Others
 
 instance Arbitrary AssetName where
-  arbitrary = UnsafeAssetName . BS.take 32 <$> arbitrary
+  arbitrary = UnsafeAssetName . BS.take 32 <$> hedgehog (bytes $ Range.singleton 32)
 
 instance Arbitrary PolicyAssets where
   arbitrary = PolicyAssets <$> arbitrary
@@ -262,7 +265,7 @@ genAddressInEra networkId =
   mkVkAddress networkId <$> genVerificationKey
 
 genScriptData :: Gen ScriptData
-genScriptData = oneof [ScriptDataBytes <$> arbitrary, ScriptDataNumber <$> arbitrary]
+genScriptData = oneof [ScriptDataBytes <$> hedgehog (bytes $ Range.linear 1 1024), ScriptDataNumber <$> arbitrary]
 
 genDatum :: Gen (TxOutDatum ctx)
 genDatum = do
