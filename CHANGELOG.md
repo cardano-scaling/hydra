@@ -10,7 +10,7 @@ changes.
 
 ## [1.3.0] - UNRELEASED
 
-- **BREAKING** Hydra node stops interacting on network and client API once the node's view of the chain is out of sync more than 50% of `--contestation-period`.
+- **BREAKING** A Hydra node will now start rejecting both network and client inputs once its view of the chain has been out of sync for more than 50% of the configured `--contestation-period`, based on **system wall-clock time**.
   - Added `NodeUnsynced` and `NodeSynced` state events and server outputs.
   - Added `RejectedInput` client message.
   - The `Checkpoint` event, and consequently the `EventLogRotated` server output, now carry the different `NodeState` variants: `NodeInSync` or `NodeCatchingUp`.
