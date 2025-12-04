@@ -14,7 +14,6 @@ import Control.Concurrent.Class.MonadSTM (
   modifyTVar,
   tryReadTBQueue,
   writeTBQueue,
-  writeTVar,
  )
 import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
@@ -26,7 +25,6 @@ import Data.Map qualified as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
-import Data.Text (pack)
 import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
 import Hydra.Chain.Backend (ChainBackend)
@@ -59,18 +57,9 @@ import HydraNode (
   withConnectionToNodeHost,
   withHydraCluster,
  )
-import System.Directory (findExecutable)
 import System.FilePath ((</>))
-import System.IO (hGetLine)
-import System.Process (
-  CreateProcess (..),
-  StdStream (CreatePipe),
-  proc,
-  withCreateProcess,
- )
 import Test.HUnit.Lang (formatFailureReason)
 import Text.Printf (printf)
-import Text.Regex.TDFA (getAllTextMatches, (=~))
 
 bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO (Summary, SystemStats)
 bench startingNodeId timeoutSeconds workDir dataset = do
@@ -82,21 +71,20 @@ bench startingNodeId timeoutSeconds workDir dataset = do
         let cardanoKeys = hydraNodeKeys dataset <&> \sk -> (getVerificationKey sk, sk)
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         statsTvar <- newLabelledTVarIO "bench-stats" mempty
-        scenarioData <- withOSStats workDir statsTvar $
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \_ backend -> do
-            let nodeSocket' = case Backend.getOptions backend of
-                  Direct DirectOptions{nodeSocket} -> nodeSocket
-                  _ -> error "Unexpected Blockfrost backend"
-            putTextLn "Seeding network"
-            seedNetwork backend dataset (contramap FromFaucet tracer)
-            putTextLn "Publishing hydra scripts"
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-            putStrLn $ "Starting hydra cluster in " <> workDir
-            let hydraTracer = contramap FromHydraNode tracer
+        scenarioData <- withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \_ backend -> do
+          let nodeSocket' = case Backend.getOptions backend of
+                Direct DirectOptions{nodeSocket} -> nodeSocket
+                _ -> error "Unexpected Blockfrost backend"
+          putTextLn "Seeding network"
+          seedNetwork backend dataset (contramap FromFaucet tracer)
+          putTextLn "Publishing hydra scripts"
+          hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+          putStrLn $ "Starting hydra cluster in " <> workDir
+          let hydraTracer = contramap FromHydraNode tracer
 
-            withHydraCluster hydraTracer workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
-              waitForNodesConnected hydraTracer 20 clients
-              scenario hydraTracer backend workDir dataset clients
+          withHydraCluster hydraTracer workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
+            waitForNodesConnected hydraTracer 20 clients
+            scenario hydraTracer backend workDir dataset clients
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)
 
@@ -227,75 +215,6 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
 
 defaultDescription :: Text
 defaultDescription = ""
-
--- | Collect OS-level stats while running some 'IO' action.
---
--- __NOTE__: This function relies on [dool](https://man.archlinux.org/man/extra/dool/dool.1.en). If the executable is not in the @PATH@
--- it's basically a no-op.
---
--- Writes into given `TVar` containing one line every 5 second with share of user/free memory load.
--- Here is a sample content:
---
--- @@
--- | Time | Used | Free |
--- |------|------|------|
--- | 2025-02-12 09:45:53.585693506 UTC | 937M | 3731M |
--- | 2025-02-12 09:45:58.585773969 UTC | 1115M | 3553M |
--- | 2025-02-12 09:46:03.585779372 UTC | 1121M | 3546M |
--- | 2025-02-12 09:46:08.585751614 UTC | 1121M | 3545M |
--- | 2025-02-12 09:46:13.585925376 UTC | 1163M | 3435M |
--- | 2025-02-12 09:46:18.585811324 UTC | 1188M | 3334M |
--- | 2025-02-12 09:46:23.585786153 UTC | 1193M | 3328M |
--- | 2025-02-12 09:46:28.585797897 UTC | 1194M | 3327M |
--- | 2025-02-12 09:46:33.585771299 UTC | 1194M | 3326M |
--- | 2025-02-12 09:46:38.585774197 UTC | 1195M | 3325M |
--- ...
--- @@
---
--- TODO: add more data points for memory and network consumption
-withOSStats :: FilePath -> TVar IO SystemStats -> IO a -> IO a
-withOSStats workDir tvar action =
-  findExecutable "dool" >>= \case
-    Nothing -> action
-    Just _ ->
-      withCreateProcess process{std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
-        raceLabelled
-          ( "os-stats-collect"
-          , do
-              -- Write the header
-              atomically $ writeTVar tvar [" | Time | Used | Free | ", "|------------------------------------|------|------|"]
-              collectStats tvar out
-          )
-          ("os-stats-action", action)
-          >>= \case
-            Left _ -> failure "dool process failed unexpectedly"
-            Right a -> pure a
- where
-  process = (proc "dool" ["-m", "--noupdate"]){cwd = Just workDir}
-
-  collectStats _ Nothing = pure ()
-  collectStats tvar' (Just hdl) =
-    forever $
-      hGetLine hdl >>= processStat tvar'
-
-  processStat :: TVar IO [Text] -> String -> IO ()
-  processStat tvar' stat = do
-    let matches = getAllTextMatches (stat =~ ("[0-9.]+([A-Z])" :: String)) :: [String]
-    case matches of
-      (memUsed : memFree : _ : _) -> do
-        now <- getCurrentTime
-        let str =
-              pack $
-                " | "
-                  <> show now
-                  <> " | "
-                  <> memUsed
-                  <> " | "
-                  <> memFree
-                  <> " | "
-        stats <- readTVarIO tvar'
-        atomically $ writeTVar tvar' $ stats <> [str]
-      _ -> pure ()
 
 -- | Compute average confirmation/validation time over intervals of 5 seconds.
 --

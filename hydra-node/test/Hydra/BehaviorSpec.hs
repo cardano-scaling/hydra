@@ -1084,6 +1084,7 @@ simulatedChainAndNetwork initialChainState = do
                   , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
                   , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
                   , submitTx = \_ -> error "unexpected call to submitTx"
+                  , checkNonADAAssets = \_ -> error "unexpected call to checkNonADAAssets"
                   }
               mockNetwork = createMockNetwork draftNode nodes
               mockServer :: Server tx m

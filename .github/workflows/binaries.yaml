@@ -8,11 +8,20 @@ on:
     - release
     tags:
     - "*.*.*"
+  # Allows to trigger runs on any branch
+  workflow_dispatch:
 
 jobs:
   build-linux:
-    name: "Build for x86_64-linux"
-    runs-on: ubuntu-latest
+    name: "Build for ${{ matrix.os.name }}"
+    runs-on: ${{ matrix.os.name }}
+    strategy:
+      matrix:
+        os:
+          - name: ubuntu-latest
+            arch: x86_linux
+          - name: ubuntu-24.04-arm
+            arch: aarm64
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -32,18 +41,25 @@ jobs:
         git fetch --tags --force
         echo "VERSION=$(git describe --always HEAD)" | tee "$GITHUB_ENV"
 
-    - name: ❄ Build static executables
+    - name: ❄ Build executables on ${{ matrix.os.name }}
       # Produces static ELF binary for using MuslC which includes all needed
       # libraries statically linked into it.
       run: |
-        nix build .#release-static
+        # XXX: aarm64 can't build static binaries yet.
+        # See: https://github.com/cardano-scaling/hydra/issues/2370
+        if [[ "${{ matrix.os.name }}" == "ubuntu-latest" ]]; then
+          nix build .#release-static
+        else
+          nix build .#release
+        fi
+
         # XXX: Why unzip https://github.com/actions/upload-artifact/issues/39
         unzip result/*.zip -d out
 
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v4
       with:
-        name: hydra-x86_64-linux-${{ env.VERSION }} # automatically zips
+        name: hydra-${{ matrix.os.arch }}-${{ env.VERSION }} # automatically zips
         path: out/*
 
   build-macos:

@@ -1362,6 +1362,8 @@ update env ledger NodeState{headState = st, pendingDeposits, currentSlot} ev = c
   -- Open
   (Open openState, ClientInput Close) ->
     onOpenClientClose openState
+  (Open openState, ClientInput SafeClose) ->
+    onOpenClientClose openState
   (Open{}, ClientInput (NewTx tx)) ->
     onOpenClientNewTx tx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->

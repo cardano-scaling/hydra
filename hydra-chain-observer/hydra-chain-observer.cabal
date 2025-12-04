@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-chain-observer
-version:       1.1.0
+version:       1.2.0
 synopsis:      Hydra Chain Observer
 author:        IOG
 copyright:     2023 IOG
@@ -43,7 +43,7 @@ library
   build-depends:
     , base                         >=4.8.0
     , base16-bytestring
-    , blockfrost-client            >=0.9.2.0
+    , blockfrost-client            >=0.11.0.0
     , http-conduit
     , hydra-cardano-api
     , hydra-node

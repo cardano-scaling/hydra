@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-cluster
-version:            1.1.0
+version:            1.2.0
 synopsis:
   Integration test suite using a local cluster of cardano and hydra nodes
 
@@ -226,9 +226,7 @@ benchmark bench-e2e
     , lens
     , lens-aeson
     , optparse-applicative
-    , process
     , QuickCheck
-    , regex-tdfa
     , scientific
     , statistics
     , text

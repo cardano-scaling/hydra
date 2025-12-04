@@ -43,7 +43,7 @@ Because we do not want the hydra-node to take up unbounded disk space, we set
 a conservative amount of history that the internal `etcd` process will store.
 
 This can be controlled via environment variables that you can read more about
-here: [Etcd Configuration](configuration#networking-configuring-the-limits-of-etcd-networking-recovery)
+here: [Etcd Configuration](configuration#auto-compaction-of-networking-buffers)
 
 #### Adapting to new breaking changes
 

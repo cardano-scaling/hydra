@@ -9,9 +9,15 @@ As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
 
-## [1.2.0] - UNRELEASED
+## [1.2.0] - 2025.11.28
+
+- There is a new `SafeClose` client command which prevents closing the Head in case there are non-ADA assets in the confirmed snapshot UTxO [#2330](https://github.com/cardano-scaling/hydra/issues/2330).
+
+- Add support for Blockfrost to the `hydra-tui` [#2032](https://github.com/cardano-scaling/hydra/issues/2032).
 
 - `hydra-node` has a new endpoint `GET /head-initialization` which serves the timestamp of the last Head initialization.
+
+- Tested with `cardano-node 10.5.3` and `cardano-cli 10.11.0.0`.
 
 
 ## [1.1.0] - 2025-10-28
