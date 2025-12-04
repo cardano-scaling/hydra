@@ -214,8 +214,7 @@ findFileStartingAtDirectory maxDepth fileName = do
               else findInDir (depth - 1) parent
 
 data HydraBackend
-  = DefaultBackendType
-  | DirectBackendType
+  = DirectBackendType
   | BlockfrostBackendType
   deriving (Eq, Show, Read)
 
@@ -223,7 +222,7 @@ getHydraBackend :: IO HydraBackend
 getHydraBackend = do
   backend <- lookupEnv "HYDRA_BACKEND"
   pure $ case backend of
-    Nothing -> DefaultBackendType
+    Nothing -> DirectBackendType
     Just "direct" -> DirectBackendType
     Just "blockfrost" -> BlockfrostBackendType
     Just other -> error $ "Unknown HYDRA_BACKEND: " <> Text.pack other
@@ -236,7 +235,6 @@ withBackend ::
   IO a
 withBackend tracer stateDirectory action = do
   getHydraBackend >>= \case
-    DefaultBackendType -> withCardanoNodeDevnet tracer stateDirectory action
     DirectBackendType -> withCardanoNodeDevnet tracer stateDirectory action
     BlockfrostBackendType -> withBlockfrostBackend tracer stateDirectory action
 
