@@ -538,7 +538,6 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryP
       DefaultBackendType -> pure (200, 0.1)
       DirectBackendType -> pure (300, 1)
       BlockfrostBackendType -> pure (300, 1)
-      UnknownBackendType _other -> pure (300, 1)
   tryConnect connectedOnce (retries :: Int) delay
  where
   tryConnect connectedOnce n delay

@@ -217,7 +217,6 @@ data HydraBackend
   = DefaultBackendType
   | DirectBackendType
   | BlockfrostBackendType
-  | UnknownBackendType Text
   deriving (Eq, Show, Read)
 
 getHydraBackend :: IO HydraBackend
@@ -227,7 +226,7 @@ getHydraBackend = do
     Nothing -> DefaultBackendType
     Just "direct" -> DirectBackendType
     Just "blockfrost" -> BlockfrostBackendType
-    Just other -> UnknownBackendType (Text.pack other)
+    Just other -> error $ "Unknown HYDRA_BACKEND: " <> Text.pack other
 
 withBackend ::
   forall a.
@@ -240,7 +239,6 @@ withBackend tracer stateDirectory action = do
     DefaultBackendType -> withCardanoNodeDevnet tracer stateDirectory action
     DirectBackendType -> withCardanoNodeDevnet tracer stateDirectory action
     BlockfrostBackendType -> withBlockfrostBackend tracer stateDirectory action
-    UnknownBackendType _other -> withCardanoNodeDevnet tracer stateDirectory action
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
