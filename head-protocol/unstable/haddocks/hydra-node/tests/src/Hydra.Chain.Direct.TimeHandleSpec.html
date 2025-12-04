@@ -28,20 +28,20 @@ forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">((TimeHandle -&gt; Property) -&gt; Property)
 -&gt; (TimeHandle -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">TimeHandle</span></span><span class="hs-special">{</span><span id="local-6989586621679616267"><span class="annot"><span class="annottext">Either Text PointInTime
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">TimeHandle</span></span><span class="hs-special">{</span><span id="local-6989586621679616841"><span class="annot"><span class="annottext">Either Text PointInTime
 currentPointInTime :: Either Text PointInTime
 $sel:currentPointInTime:TimeHandle :: TimeHandle -&gt; Either Text PointInTime
-</span><a href="#local-6989586621679616267"><span class="hs-identifier hs-var hs-var">currentPointInTime</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679616269"><span class="annot"><span class="annottext">SlotNo -&gt; Either Text UTCTime
+</span><a href="#local-6989586621679616841"><span class="hs-identifier hs-var hs-var">currentPointInTime</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679616843"><span class="annot"><span class="annottext">SlotNo -&gt; Either Text UTCTime
 slotToUTCTime :: SlotNo -&gt; Either Text UTCTime
 $sel:slotToUTCTime:TimeHandle :: TimeHandle -&gt; SlotNo -&gt; Either Text UTCTime
-</span><a href="#local-6989586621679616269"><span class="hs-identifier hs-var hs-var">slotToUTCTime</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679616271"><span class="annot"><span class="annottext">UTCTime -&gt; Either Text SlotNo
+</span><a href="#local-6989586621679616843"><span class="hs-identifier hs-var hs-var">slotToUTCTime</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679616845"><span class="annot"><span class="annottext">UTCTime -&gt; Either Text SlotNo
 slotFromUTCTime :: UTCTime -&gt; Either Text SlotNo
 $sel:slotFromUTCTime:TimeHandle :: TimeHandle -&gt; UTCTime -&gt; Either Text SlotNo
-</span><a href="#local-6989586621679616271"><span class="hs-identifier hs-var hs-var">slotFromUTCTime</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-17"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679616273"><span class="hs-identifier hs-type">onLeft</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
-</span><span id="line-18"></span><span>          </span><span id="local-6989586621679616273"><span class="annot"><span class="annottext">onLeft :: Text -&gt; Property
-</span><a href="#local-6989586621679616273"><span class="hs-identifier hs-var hs-var">onLeft</span></a></span></span><span> </span><span id="local-6989586621679616274"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679616274"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property
+</span><a href="#local-6989586621679616845"><span class="hs-identifier hs-var hs-var">slotFromUTCTime</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-17"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679616847"><span class="hs-identifier hs-type">onLeft</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
+</span><span id="line-18"></span><span>          </span><span id="local-6989586621679616847"><span class="annot"><span class="annottext">onLeft :: Text -&gt; Property
+</span><a href="#local-6989586621679616847"><span class="hs-identifier hs-var hs-var">onLeft</span></a></span></span><span> </span><span id="local-6989586621679616848"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679616848"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property
 forall prop. Testable prop =&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span> </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
@@ -54,29 +54,29 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
 forall a. ToString a =&gt; a -&gt; String
 </span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679616274"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679616848"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-19"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Property)
 -&gt; (Property -&gt; Property) -&gt; Either Text Property -&gt; Property
 forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Property
-</span><a href="#local-6989586621679616273"><span class="hs-identifier hs-var">onLeft</span></a></span><span> </span><span class="annot"><span class="annottext">Property -&gt; Property
+</span><a href="#local-6989586621679616847"><span class="hs-identifier hs-var">onLeft</span></a></span><span> </span><span class="annot"><span class="annottext">Property -&gt; Property
 forall a. a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#id"><span class="hs-identifier hs-var">id</span></a></span><span> </span><span class="annot"><span class="annottext">(Either Text Property -&gt; Property)
 -&gt; Either Text Property -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-20"></span><span>            </span><span class="hs-special">(</span><span id="local-6989586621679616279"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679616279"><span class="hs-identifier hs-var">slot</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><span id="line-20"></span><span>            </span><span class="hs-special">(</span><span id="local-6989586621679616853"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679616853"><span class="hs-identifier hs-var">slot</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Either Text PointInTime
-</span><a href="#local-6989586621679616267"><span class="hs-identifier hs-var">currentPointInTime</span></a></span><span>
-</span><span id="line-21"></span><span>            </span><span id="local-6989586621679616280"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679616280"><span class="hs-identifier hs-var">res</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; Either Text SlotNo
-</span><a href="#local-6989586621679616271"><span class="hs-identifier hs-var">slotFromUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; Either Text SlotNo)
+</span><a href="#local-6989586621679616841"><span class="hs-identifier hs-var">currentPointInTime</span></a></span><span>
+</span><span id="line-21"></span><span>            </span><span id="local-6989586621679616854"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679616854"><span class="hs-identifier hs-var">res</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; Either Text SlotNo
+</span><a href="#local-6989586621679616845"><span class="hs-identifier hs-var">slotFromUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; Either Text SlotNo)
 -&gt; Either Text UTCTime -&gt; Either Text SlotNo
 forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3D%3C%3C"><span class="hs-operator hs-var">=&lt;&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; Either Text UTCTime
-</span><a href="#local-6989586621679616269"><span class="hs-identifier hs-var">slotToUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679616279"><span class="hs-identifier hs-var">slot</span></a></span><span>
+</span><a href="#local-6989586621679616843"><span class="hs-identifier hs-var">slotToUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679616853"><span class="hs-identifier hs-var">slot</span></a></span><span>
 </span><span id="line-22"></span><span>            </span><span class="annot"><span class="annottext">Property -&gt; Either Text Property
 forall a. a -&gt; Either Text a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -84,10 +84,10 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 -&gt; Property -&gt; Either Text Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679616280"><span class="hs-identifier hs-var">res</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; SlotNo -&gt; Property
+</span><a href="#local-6989586621679616854"><span class="hs-identifier hs-var">res</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; SlotNo -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679616279"><span class="hs-identifier hs-var">slot</span></a></span><span>
+</span><a href="#local-6989586621679616853"><span class="hs-identifier hs-var">slot</span></a></span><span>
 </span><span id="line-23"></span><span>
 </span><span id="line-24"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a.
@@ -98,40 +98,40 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-25"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679616285"><span class="annot"><span class="annottext">currentSlotNo :: SlotNo
-</span><a href="#local-6989586621679616285"><span class="hs-identifier hs-var hs-var">currentSlotNo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><span id="line-25"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679616859"><span class="annot"><span class="annottext">currentSlotNo :: SlotNo
+</span><a href="#local-6989586621679616859"><span class="hs-identifier hs-var hs-var">currentSlotNo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">Word64
 </span><span class="hs-number">13</span></span><span>
-</span><span id="line-26"></span><span>        </span><span id="local-6989586621679616287"><span class="annot"><span class="annottext">systemStart :: SystemStart
-</span><a href="#local-6989586621679616287"><span class="hs-identifier hs-var hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; SystemStart
+</span><span id="line-26"></span><span>        </span><span id="local-6989586621679616861"><span class="annot"><span class="annottext">systemStart :: SystemStart
+</span><a href="#local-6989586621679616861"><span class="hs-identifier hs-var hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; SystemStart
 </span><span class="hs-identifier hs-var">SystemStart</span></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; SystemStart) -&gt; UTCTime -&gt; SystemStart
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">POSIXTime -&gt; UTCTime
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html#posixSecondsToUTCTime"><span class="hs-identifier hs-var">posixSecondsToUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">POSIXTime
 </span><span class="hs-number">0</span></span><span>
-</span><span id="line-27"></span><span>        </span><span id="local-6989586621679616290"><span class="annot"><span class="annottext">eraHistory :: EraHistory
-</span><a href="#local-6989586621679616290"><span class="hs-identifier hs-var hs-var">eraHistory</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; EraHistory
+</span><span id="line-27"></span><span>        </span><span id="local-6989586621679616864"><span class="annot"><span class="annottext">eraHistory :: EraHistory
+</span><a href="#local-6989586621679616864"><span class="hs-identifier hs-var hs-var">eraHistory</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; EraHistory
 </span><span class="hs-identifier hs-var">eraHistoryWithHorizonAt</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
 </span><span class="hs-number">15</span></span><span>
-</span><span id="line-28"></span><span>        </span><span id="local-6989586621679616293"><span class="annot"><span class="annottext">timeHandle :: TimeHandle
-</span><a href="#local-6989586621679616293"><span class="hs-identifier hs-var hs-var">timeHandle</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; SlotNo -&gt; SystemStart -&gt; EraHistory -&gt; TimeHandle
+</span><span id="line-28"></span><span>        </span><span id="local-6989586621679616867"><span class="annot"><span class="annottext">timeHandle :: TimeHandle
+</span><a href="#local-6989586621679616867"><span class="hs-identifier hs-var hs-var">timeHandle</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; SlotNo -&gt; SystemStart -&gt; EraHistory -&gt; TimeHandle
 SlotNo -&gt; SystemStart -&gt; EraHistory -&gt; TimeHandle
 </span><span class="hs-identifier hs-var">mkTimeHandle</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679616285"><span class="hs-identifier hs-var">currentSlotNo</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621679616287"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">EraHistory
-</span><a href="#local-6989586621679616290"><span class="hs-identifier hs-var">eraHistory</span></a></span><span>
-</span><span id="line-29"></span><span>        </span><span id="local-6989586621679616295"><span class="annot"><span class="annottext">slotInside :: SlotNo
-</span><a href="#local-6989586621679616295"><span class="hs-identifier hs-var hs-var">slotInside</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><a href="#local-6989586621679616859"><span class="hs-identifier hs-var">currentSlotNo</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621679616861"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">EraHistory
+</span><a href="#local-6989586621679616864"><span class="hs-identifier hs-var">eraHistory</span></a></span><span>
+</span><span id="line-29"></span><span>        </span><span id="local-6989586621679616869"><span class="annot"><span class="annottext">slotInside :: SlotNo
+</span><a href="#local-6989586621679616869"><span class="hs-identifier hs-var hs-var">slotInside</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">Word64
 </span><span class="hs-number">14</span></span><span>
-</span><span id="line-30"></span><span>        </span><span id="local-6989586621679616296"><span class="annot"><span class="annottext">converted :: Either Text UTCTime
-</span><a href="#local-6989586621679616296"><span class="hs-identifier hs-var hs-var">converted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TimeHandle -&gt; SlotNo -&gt; Either Text UTCTime
+</span><span id="line-30"></span><span>        </span><span id="local-6989586621679616870"><span class="annot"><span class="annottext">converted :: Either Text UTCTime
+</span><a href="#local-6989586621679616870"><span class="hs-identifier hs-var hs-var">converted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TimeHandle -&gt; SlotNo -&gt; Either Text UTCTime
 </span><span class="hs-identifier hs-var">slotToUTCTime</span></span><span> </span><span class="annot"><span class="annottext">TimeHandle
-</span><a href="#local-6989586621679616293"><span class="hs-identifier hs-var">timeHandle</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679616295"><span class="hs-identifier hs-var">slotInside</span></a></span><span>
-</span><span id="line-31"></span><span>        </span><span class="annot"><a href="#local-6989586621679616297"><span class="hs-identifier hs-type">expected</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
-</span><span id="line-32"></span><span>        </span><span id="local-6989586621679616297"><span class="annot"><span class="annottext">expected :: Either Text UTCTime
-</span><a href="#local-6989586621679616297"><span class="hs-identifier hs-var hs-var">expected</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; Either Text UTCTime
+</span><a href="#local-6989586621679616867"><span class="hs-identifier hs-var">timeHandle</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679616869"><span class="hs-identifier hs-var">slotInside</span></a></span><span>
+</span><span id="line-31"></span><span>        </span><span class="annot"><a href="#local-6989586621679616871"><span class="hs-identifier hs-type">expected</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
+</span><span id="line-32"></span><span>        </span><span id="local-6989586621679616871"><span class="annot"><span class="annottext">expected :: Either Text UTCTime
+</span><a href="#local-6989586621679616871"><span class="hs-identifier hs-var hs-var">expected</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; Either Text UTCTime
 forall a b. b -&gt; Either a b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; Either Text UTCTime) -&gt; UTCTime -&gt; Either Text UTCTime
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -139,8 +139,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html#posixSecondsToUTCTime"><span class="hs-identifier hs-var">posixSecondsToUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">POSIXTime
 </span><span class="hs-number">14</span></span><span>
 </span><span id="line-33"></span><span>    </span><span class="annot"><span class="annottext">Either Text UTCTime
-</span><a href="#local-6989586621679616296"><span class="hs-identifier hs-var">converted</span></a></span><span> </span><span class="annot"><span class="annottext">Either Text UTCTime -&gt; Either Text UTCTime -&gt; Expectation
+</span><a href="#local-6989586621679616870"><span class="hs-identifier hs-var">converted</span></a></span><span> </span><span class="annot"><span class="annottext">Either Text UTCTime -&gt; Either Text UTCTime -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Either Text UTCTime
-</span><a href="#local-6989586621679616297"><span class="hs-identifier hs-var">expected</span></a></span><span>
+</span><a href="#local-6989586621679616871"><span class="hs-identifier hs-var">expected</span></a></span><span>
 </span><span id="line-34"></span></pre></body></html>

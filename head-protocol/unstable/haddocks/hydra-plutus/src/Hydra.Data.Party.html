@@ -20,14 +20,14 @@
 </span><span id="line-20"></span><span class="hs-comment">-- always come from off-chain code via 'partyFromVerificationKeyBytes'.</span><span>
 </span><span id="line-21"></span><span class="hs-keyword">newtype</span><span> </span><span id="Party"><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-var">Party</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="UnsafeParty"><span class="annot"><a href="Hydra.Data.Party.html#UnsafeParty"><span class="hs-identifier hs-var">UnsafeParty</span></a></span></span><span> </span><span class="hs-special">{</span><span id="vkey"><span class="annot"><span class="annottext">Party -&gt; BuiltinByteString
 </span><a href="Hydra.Data.Party.html#vkey"><span class="hs-identifier hs-var hs-var">vkey</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinByteString</span></span><span class="hs-special">}</span><span>
-</span><span id="line-22"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679497164"><span id="local-6989586621679497168"><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+</span><span id="line-22"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679497177"><span id="local-6989586621679497181"><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
 (Party -&gt; Party -&gt; Bool) -&gt; (Party -&gt; Party -&gt; Bool) -&gt; Eq Party
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
 $c== :: Party -&gt; Party -&gt; Bool
 == :: Party -&gt; Party -&gt; Bool
 $c/= :: Party -&gt; Party -&gt; Bool
 /= :: Party -&gt; Party -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679497173"><span id="local-6989586621679497175"><span class="annot"><span class="annottext">(forall x. Party -&gt; Rep Party x)
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679497186"><span id="local-6989586621679497188"><span class="annot"><span class="annottext">(forall x. Party -&gt; Rep Party x)
 -&gt; (forall x. Rep Party x -&gt; Party) -&gt; Generic Party
 forall x. Rep Party x -&gt; Party
 forall x. Party -&gt; Rep Party x
@@ -38,7 +38,7 @@ from :: forall x. Party -&gt; Rep Party x
 $cto :: forall x. Rep Party x -&gt; Party
 to :: forall x. Rep Party x -&gt; Party
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-23"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679497179"><span id="local-6989586621679497184"><span id="local-6989586621679497188"><span class="annot"><span class="annottext">Int -&gt; Party -&gt; ShowS
+</span><span id="line-23"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679497192"><span id="local-6989586621679497197"><span id="local-6989586621679497201"><span class="annot"><span class="annottext">Int -&gt; Party -&gt; ShowS
 [Party] -&gt; ShowS
 Party -&gt; String
 (Int -&gt; Party -&gt; ShowS)
@@ -51,16 +51,16 @@ $cshow :: Party -&gt; String
 show :: Party -&gt; String
 $cshowList :: [Party] -&gt; ShowS
 showList :: [Party] -&gt; ShowS
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679497194"><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679497207"><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
 (Party -&gt; Party -&gt; Bool) -&gt; Eq Party
 forall a. (a -&gt; a -&gt; Bool) -&gt; Eq a
 $c== :: Party -&gt; Party -&gt; Bool
 == :: Party -&gt; Party -&gt; Bool
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">PlutusTx.Eq</span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-24"></span><span>
-</span><span id="line-25"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679497202"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-26"></span><span>  </span><span id="local-6989586621679497210"><span class="annot"><span class="annottext">arbitrary :: Gen Party
-</span><a href="#local-6989586621679497210"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Party
+</span><span id="line-25"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679497215"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-26"></span><span>  </span><span id="local-6989586621679497223"><span class="annot"><span class="annottext">arbitrary :: Gen Party
+</span><a href="#local-6989586621679497223"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Party
 </span><a href="Hydra.Data.Party.html#partyFromVerificationKeyBytes"><span class="hs-identifier hs-var">partyFromVerificationKeyBytes</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Party)
 -&gt; ([Word8] -&gt; ByteString) -&gt; [Word8] -&gt; Party
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
@@ -73,16 +73,16 @@ forall a. Arbitrary a =&gt; Int -&gt; Gen [a]
 </span><span class="hs-number">32</span></span><span>
 </span><span id="line-27"></span><span>
 </span><span id="line-28"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusTx.ToData</span></span><span> </span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-29"></span><span>  </span><span id="local-6989586621679497220"><span class="annot"><span class="annottext">toBuiltinData :: Party -&gt; BuiltinData
-</span><a href="#local-6989586621679497220"><span class="hs-identifier hs-var hs-var hs-var hs-var">toBuiltinData</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Data.Party.html#UnsafeParty"><span class="hs-identifier hs-type">UnsafeParty</span></a></span><span> </span><span id="local-6989586621679497222"><span class="annot"><span class="annottext">BuiltinByteString
-</span><a href="#local-6989586621679497222"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinData
+</span><span id="line-29"></span><span>  </span><span id="local-6989586621679497233"><span class="annot"><span class="annottext">toBuiltinData :: Party -&gt; BuiltinData
+</span><a href="#local-6989586621679497233"><span class="hs-identifier hs-var hs-var hs-var hs-var">toBuiltinData</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Data.Party.html#UnsafeParty"><span class="hs-identifier hs-type">UnsafeParty</span></a></span><span> </span><span id="local-6989586621679497235"><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679497235"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinData
 forall a. ToData a =&gt; a -&gt; BuiltinData
 </span><span class="hs-identifier hs-var">toBuiltinData</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
-</span><a href="#local-6989586621679497222"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><a href="#local-6989586621679497235"><span class="hs-identifier hs-var">bytes</span></a></span><span>
 </span><span id="line-30"></span><span>
 </span><span id="line-31"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusTx.FromData</span></span><span> </span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-32"></span><span>  </span><span id="local-6989586621679497230"><span class="annot"><span class="annottext">fromBuiltinData :: BuiltinData -&gt; Maybe Party
-</span><a href="#local-6989586621679497230"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromBuiltinData</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; Party)
+</span><span id="line-32"></span><span>  </span><span id="local-6989586621679497243"><span class="annot"><span class="annottext">fromBuiltinData :: BuiltinData -&gt; Maybe Party
+</span><a href="#local-6989586621679497243"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromBuiltinData</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; Party)
 -&gt; Maybe BuiltinByteString -&gt; Maybe Party
 forall a b. (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
@@ -97,8 +97,8 @@ forall a. FromData a =&gt; BuiltinData -&gt; Maybe a
 </span><span class="hs-identifier hs-var">fromBuiltinData</span></span><span>
 </span><span id="line-33"></span><span>
 </span><span id="line-34"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusTx.UnsafeFromData</span></span><span> </span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-35"></span><span>  </span><span id="local-6989586621679497237"><span class="annot"><span class="annottext">unsafeFromBuiltinData :: BuiltinData -&gt; Party
-</span><a href="#local-6989586621679497237"><span class="hs-identifier hs-var hs-var hs-var hs-var">unsafeFromBuiltinData</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; Party
+</span><span id="line-35"></span><span>  </span><span id="local-6989586621679497250"><span class="annot"><span class="annottext">unsafeFromBuiltinData :: BuiltinData -&gt; Party
+</span><a href="#local-6989586621679497250"><span class="hs-identifier hs-var hs-var hs-var hs-var">unsafeFromBuiltinData</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; Party
 </span><a href="Hydra.Data.Party.html#UnsafeParty"><span class="hs-identifier hs-var">UnsafeParty</span></a></span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; Party)
 -&gt; (BuiltinData -&gt; BuiltinByteString) -&gt; BuiltinData -&gt; Party
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
@@ -122,10 +122,10 @@ forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
 </span><span id="line-42"></span><span class="annot"><span class="hs-comment">-- | Get the verification key bytes contained from an on-chain 'Party'.</span></span><span>
 </span><span id="line-43"></span><span class="annot"><a href="Hydra.Data.Party.html#partyToVerificationKeyBytes"><span class="hs-identifier hs-type">partyToVerificationKeyBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Data.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span>
 </span><span id="line-44"></span><span id="partyToVerificationKeyBytes"><span class="annot"><span class="annottext">partyToVerificationKeyBytes :: Party -&gt; ByteString
-</span><a href="Hydra.Data.Party.html#partyToVerificationKeyBytes"><span class="hs-identifier hs-var hs-var">partyToVerificationKeyBytes</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Data.Party.html#UnsafeParty"><span class="hs-identifier hs-type">UnsafeParty</span></a></span><span> </span><span id="local-6989586621679497240"><span class="annot"><span class="annottext">BuiltinByteString
-</span><a href="#local-6989586621679497240"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Data.Party.html#partyToVerificationKeyBytes"><span class="hs-identifier hs-var hs-var">partyToVerificationKeyBytes</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Data.Party.html#UnsafeParty"><span class="hs-identifier hs-type">UnsafeParty</span></a></span><span> </span><span id="local-6989586621679497253"><span class="annot"><span class="annottext">BuiltinByteString
+</span><a href="#local-6989586621679497253"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-45"></span><span>  </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; FromBuiltin BuiltinByteString
 forall arep. HasFromBuiltin arep =&gt; arep -&gt; FromBuiltin arep
 </span><span class="hs-identifier hs-var">fromBuiltin</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
-</span><a href="#local-6989586621679497240"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><a href="#local-6989586621679497253"><span class="hs-identifier hs-var">bytes</span></a></span><span>
 </span><span id="line-46"></span></pre></body></html>

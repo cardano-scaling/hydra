@@ -10,9 +10,9 @@
 </span><span id="line-10"></span><span>
 </span><span id="line-11"></span><span class="annot"><span class="hs-comment">-- * Orphans</span></span><span>
 </span><span id="line-12"></span><span>
-</span><span id="line-13"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679282834"><span id="local-6989586621679282838"><span id="local-6989586621679282841"><span id="local-6989586621679282844"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-14"></span><span>  </span><span id="local-6989586621679282866"><span class="annot"><span class="annottext">toJSON :: NetworkId -&gt; Value
-</span><a href="#local-6989586621679282866"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679282832"><span id="local-6989586621679282836"><span id="local-6989586621679282839"><span id="local-6989586621679282842"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-14"></span><span>  </span><span id="local-6989586621679282864"><span class="annot"><span class="annottext">toJSON :: NetworkId -&gt; Value
+</span><a href="#local-6989586621679282864"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-15"></span><span>    </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">Mainnet</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
 </span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
@@ -22,8 +22,8 @@ forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value
 </span><span class="hs-identifier hs-var">String</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Mainnet&quot;</span></span><span class="hs-special">]</span><span>
-</span><span id="line-16"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Testnet</span></span><span> </span><span id="local-6989586621679282870"><span class="annot"><span class="annottext">NetworkMagic
-</span><a href="#local-6989586621679282870"><span class="hs-identifier hs-var">magic</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Testnet</span></span><span> </span><span id="local-6989586621679282868"><span class="annot"><span class="annottext">NetworkMagic
+</span><a href="#local-6989586621679282868"><span class="hs-identifier hs-var">magic</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-17"></span><span>      </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
 </span><span class="hs-identifier hs-var">object</span></span><span>
 </span><span id="line-18"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Key
@@ -40,27 +40,27 @@ forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">NetworkMagic -&gt; Value
 forall a. ToJSON a =&gt; a -&gt; Value
 </span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">NetworkMagic
-</span><a href="#local-6989586621679282870"><span class="hs-identifier hs-var">magic</span></a></span><span>
+</span><a href="#local-6989586621679282868"><span class="hs-identifier hs-var">magic</span></a></span><span>
 </span><span id="line-20"></span><span>        </span><span class="hs-special">]</span><span>
 </span><span id="line-21"></span><span>
-</span><span id="line-22"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679282873"><span id="local-6989586621679282877"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-23"></span><span>  </span><span id="local-6989586621679282899"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser NetworkId
-</span><a href="#local-6989586621679282899"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; (Object -&gt; Parser NetworkId) -&gt; Value -&gt; Parser NetworkId
+</span><span id="line-22"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679282871"><span id="local-6989586621679282875"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-23"></span><span>  </span><span id="local-6989586621679282897"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser NetworkId
+</span><a href="#local-6989586621679282897"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; (Object -&gt; Parser NetworkId) -&gt; Value -&gt; Parser NetworkId
 forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;NetworkId&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser NetworkId) -&gt; Value -&gt; Parser NetworkId)
 -&gt; (Object -&gt; Parser NetworkId) -&gt; Value -&gt; Parser NetworkId
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679282901"><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679282901"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-24"></span><span>    </span><span id="local-6989586621679282902"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679282902"><span class="hs-identifier hs-var">tag</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679282901"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Text
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679282899"><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679282899"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-24"></span><span>    </span><span id="local-6989586621679282900"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679282900"><span class="hs-identifier hs-var">tag</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679282899"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Text
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;tag&quot;</span></span><span>
 </span><span id="line-25"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679282902"><span class="hs-identifier hs-var">tag</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679282900"><span class="hs-identifier hs-var">tag</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-26"></span><span>      </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Mainnet&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; Parser NetworkId
 forall a. a -&gt; Parser a
@@ -73,7 +73,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 -&gt; Parser NetworkMagic -&gt; Parser NetworkId
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679282901"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser NetworkMagic
+</span><a href="#local-6989586621679282899"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser NetworkMagic
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;magic&quot;</span></span><span>
@@ -85,8 +85,8 @@ forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
 </span><span class="hs-string">&quot;Expected tag to be Mainnet | Testnet&quot;</span></span><span>
 </span><span id="line-29"></span><span>
 </span><span id="line-30"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-31"></span><span>  </span><span id="local-6989586621679282916"><span class="annot"><span class="annottext">arbitrary :: Gen NetworkId
-</span><a href="#local-6989586621679282916"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Gen NetworkId] -&gt; Gen NetworkId
+</span><span id="line-31"></span><span>  </span><span id="local-6989586621679282914"><span class="annot"><span class="annottext">arbitrary :: Gen NetworkId
+</span><a href="#local-6989586621679282914"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Gen NetworkId] -&gt; Gen NetworkId
 forall a. HasCallStack =&gt; [Gen a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">oneof</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">NetworkId -&gt; Gen NetworkId
 forall a. a -&gt; Gen a
@@ -98,16 +98,16 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen NetworkMagic
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span class="hs-special">]</span><span>
-</span><span id="line-32"></span><span>  </span><span id="local-6989586621679282921"><span class="annot"><span class="annottext">shrink :: NetworkId -&gt; [NetworkId]
-</span><a href="#local-6989586621679282921"><span class="hs-identifier hs-var hs-var hs-var hs-var">shrink</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-32"></span><span>  </span><span id="local-6989586621679282919"><span class="annot"><span class="annottext">shrink :: NetworkId -&gt; [NetworkId]
+</span><a href="#local-6989586621679282919"><span class="hs-identifier hs-var hs-var hs-var hs-var">shrink</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-33"></span><span>    </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">Mainnet</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
-</span><span id="line-34"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Testnet</span></span><span> </span><span id="local-6989586621679282923"><span class="annot"><span class="annottext">NetworkMagic
-</span><a href="#local-6989586621679282923"><span class="hs-identifier hs-var">magic</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkMagic -&gt; NetworkId
+</span><span id="line-34"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Testnet</span></span><span> </span><span id="local-6989586621679282921"><span class="annot"><span class="annottext">NetworkMagic
+</span><a href="#local-6989586621679282921"><span class="hs-identifier hs-var">magic</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkMagic -&gt; NetworkId
 </span><span class="hs-identifier hs-var">Testnet</span></span><span> </span><span class="annot"><span class="annottext">(NetworkMagic -&gt; NetworkId) -&gt; [NetworkMagic] -&gt; [NetworkId]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkMagic -&gt; [NetworkMagic]
 forall a. Arbitrary a =&gt; a -&gt; [a]
 </span><span class="hs-identifier hs-var">shrink</span></span><span> </span><span class="annot"><span class="annottext">NetworkMagic
-</span><a href="#local-6989586621679282923"><span class="hs-identifier hs-var">magic</span></a></span><span>
+</span><a href="#local-6989586621679282921"><span class="hs-identifier hs-var">magic</span></a></span><span>
 </span><span id="line-35"></span></pre></body></html>

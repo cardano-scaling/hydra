@@ -6,9 +6,9 @@
 </span><span id="line-6"></span><span>
 </span><span id="line-7"></span><span class="hs-comment">-- missing CBOR instances</span><span>
 </span><span id="line-8"></span><span>
-</span><span id="line-9"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679283551"><span id="local-6989586621679283555"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-10"></span><span>  </span><span id="local-6989586621679283562"><span class="annot"><span class="annottext">toCBOR :: TxId -&gt; Encoding
-</span><a href="#local-6989586621679283562"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Encoding
+</span><span id="line-9"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679283549"><span id="local-6989586621679283553"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-10"></span><span>  </span><span id="local-6989586621679283560"><span class="annot"><span class="annottext">toCBOR :: TxId -&gt; Encoding
+</span><a href="#local-6989586621679283560"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Encoding)
 -&gt; (TxId -&gt; ByteString) -&gt; TxId -&gt; Encoding
@@ -17,11 +17,11 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a. SerialiseAsRawBytes a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialiseToRawBytes</span></span><span>
 </span><span id="line-11"></span><span>
-</span><span id="line-12"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679283570"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-13"></span><span>  </span><span id="local-6989586621679283585"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s TxId
-</span><a href="#local-6989586621679283585"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-14"></span><span>    </span><span id="local-6989586621679283587"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679283587"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Decoder s ByteString
+</span><span id="line-12"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679283568"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxId</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-13"></span><span>  </span><span id="local-6989586621679283583"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s TxId
+</span><a href="#local-6989586621679283583"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-14"></span><span>    </span><span id="local-6989586621679283585"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679283585"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Decoder s ByteString
 forall s. Decoder s ByteString
 forall a s. FromCBOR a =&gt; Decoder s a
 </span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
@@ -31,19 +31,19 @@ SerialiseAsRawBytes a =&gt;
 AsType a -&gt; ByteString -&gt; Either SerialiseAsRawBytesError a
 </span><span class="hs-identifier hs-var">deserialiseFromRawBytes</span></span><span> </span><span class="annot"><span class="annottext">AsType TxId
 </span><span class="hs-identifier hs-var">AsTxId</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679283587"><span class="hs-identifier hs-var">bs</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-16"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679283590"><span class="annot"><span class="annottext">SerialiseAsRawBytesError
-</span><a href="#local-6989586621679283590"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Decoder s TxId
+</span><a href="#local-6989586621679283585"><span class="hs-identifier hs-var">bs</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-16"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679283588"><span class="annot"><span class="annottext">SerialiseAsRawBytesError
+</span><a href="#local-6989586621679283588"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Decoder s TxId
 forall a. String -&gt; Decoder s a
 forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SerialiseAsRawBytesError -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError
-</span><a href="#local-6989586621679283590"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-17"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679283592"><span class="annot"><span class="annottext">TxId
-</span><a href="#local-6989586621679283592"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxId -&gt; Decoder s TxId
+</span><a href="#local-6989586621679283588"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679283590"><span class="annot"><span class="annottext">TxId
+</span><a href="#local-6989586621679283590"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxId -&gt; Decoder s TxId
 forall a. a -&gt; Decoder s a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">TxId
-</span><a href="#local-6989586621679283592"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><a href="#local-6989586621679283590"><span class="hs-identifier hs-var">v</span></a></span><span>
 </span><span id="line-18"></span></pre></body></html>
